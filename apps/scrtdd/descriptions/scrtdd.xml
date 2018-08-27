@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<seiscomp>
+	<module name="scrtdd" category="Processing" inherit-global-bindings="true">
+		<description>Real Time Double-Difference location module.</description>
+		<configuration>
+
+			<group name="rtdd">
+
+				<parameter name="publicID" type="string" default="RTDD.@time/%Y%m%d%H%M%S.%f@.@id@">
+					<description>
+						PublicID creation pattern for an origin created by RTDD.
+					</description>
+				</parameter>
+
+				<parameter name="controlFile" type="path">
+					<description>
+						The default RTDD control file to use when a profile doesn't specify one
+					</description>
+				</parameter>
+
+				<parameter name="profiles" type="list:string">
+					<description>
+						Defines a list of active profiles to be used. The profiles used for an origin
+                        depends on the origin location, as each profile has a region associated with it.
+					</description>
+				</parameter>
+
+				<parameter name="outputPath" type="path" default="/tmp/rtdd.nll">
+					<description>
+						Defines the output path for all native rtdd input and output files.
+					</description>
+				</parameter>
+
+				<parameter name="shortEventID" type="boolean" default="false">
+					<description>
+					Uses short event ids when an event output directory needs to be
+					created. The default pattern is [eventtime]_[mag]_[lat]_[lon]_[updatetime].
+					The short format just contains the first part, namely [eventtime] in
+					the format YEARmmddHHMMSS.
+					</description>
+				</parameter>
+
+				<parameter name="messaging" type="boolean" default="true">
+					<description>
+					Enables messaging output which creates new origins.
+					The default message group is LOCATION. To change this group redefine
+					connection.primaryGroup.
+					</description>
+				</parameter>
+
+				<parameter name="manualOrigin" type="boolean" default="true">
+					<description>
+					Enables relocation of any manual origin. If false, only event preferred origins are relocated.
+					</description>
+				</parameter>
+
+				<group name="cron">
+					<parameter name="wakeupInterval" type="int" unit="s" default="10">
+						<description>
+						Specifies the interval in seconds to check/start scheduled operations.
+						</description>
+					</parameter>
+
+					<parameter name="eventMaxIdleTime" type="int" unit="s" default="3600">
+						<description>
+						Specifies the maximum allowed idle time of a process before removed.
+						The idle time is calculated if no further processing is scheduled
+						and computes as: [now]-lastRun.
+						</description>
+					</parameter>
+
+					<parameter name="logging" type="boolean" default="true">
+						<description>
+						Enables/disables updating of a cron log file. This file will be
+						created at ~/.seiscomp3/log/[appname].sched
+						and contains information about the scheduled events and the
+						processing queue. The file is updated each n seconds,
+						where n = rtdd.cron.wakeupInterval.
+						</description>
+					</parameter>
+
+					<parameter name="updateDelay" type="int" default="60">
+						<description>
+						Specifies the delay in seconds to delay processing if a new
+						authoritative origin arrives for an event.
+						</description>
+					</parameter>
+
+					<parameter name="delayTimes" type="list:int">
+						<description>
+						Specifies a list of delay times in seconds relative to event time
+						to trigger the processing. When the first origin of an event arrives
+						this list is used to construct the crontab for this event.
+						Example: &quot;60, 120, 300, 3600&quot;
+						</description>
+					</parameter>
+				</group>
+
+				<group name="profile">
+					<struct type="rtdd profile" link = "rtdd.profiles">
+						<description>
+							Defines a regional profile that is used if a prelocation falls
+							inside the configured region.
+						</description>
+
+						<parameter name="earthModelID" type="string">
+							<description>
+								earthModelID that is stored in the created origin.
+							</description>
+						</parameter>
+
+						<parameter name="methodID" type="string">
+							<description>
+								methodID that is stored in the created origin.
+							</description>
+						</parameter>
+
+						<parameter name="stationFile" type="path">
+							<description>
+								Path to the stations file to be used for this profile
+							</description>
+						</parameter>
+
+						<parameter name="catalogFile" type="path">
+							<description>
+								Path to catalog file to be used for this profile
+							</description>
+						</parameter>
+
+						<parameter name="phaFile" type="path">
+							<description>
+								Path to catalog picks file to be used for this profile
+							</description>
+						</parameter>
+
+						<parameter name="controlFile" type="path">
+							<description>
+								Control file of the current profile. If not set, the default
+								control file will be used instead.
+							</description>
+						</parameter>
+
+						<parameter name="transform" type="string">
+							<description>
+								Transformation type of the configured region. If not set, GLOBAL
+								is assumed.
+							</description>
+						</parameter>
+
+						<parameter name="region" type="list:double">
+							<description>
+								Defines the region values. If transform is GLOBAL 4 values
+								(min_lat, min_lon, max_lat, max_lon) are expected. If transform
+								is SIMPLE then 4 values are expected (xmin, ymin, xmax, ymax).
+							</description>
+						</parameter>
+
+						<parameter name="origin" type="list:double">
+							<description>
+								Only used for transformation SIMPLE. Expects 2 values (lat,lon).
+							</description>
+						</parameter>
+
+						<parameter name="rotation" type="double" unit="deg">
+							<description>
+								Only used for transformation SIMPLE. Defines the rotation around the
+								origin of the defined region.
+							</description>
+						</parameter>
+					</struct>
+				</group>
+
+			</group>
+
+		</configuration>
+		<command-line>
+			<group name="Generic">
+				<optionReference>generic#help</optionReference>
+				<optionReference>generic#version</optionReference>
+				<optionReference>generic#config-file</optionReference>
+				<optionReference>generic#plugins</optionReference>
+				<optionReference>generic#daemon</optionReference>
+				<optionReference>generic#auto-shutdown</optionReference>
+				<optionReference>generic#shutdown-master-module</optionReference>
+				<optionReference>generic#shutdown-master-username</optionReference>
+			</group>
+			
+			<group name="Verbosity">
+				<optionReference>verbosity#verbosity</optionReference>
+				<optionReference>verbosity#v</optionReference>
+				<optionReference>verbosity#quiet</optionReference>
+				<optionReference>verbosity#component</optionReference>
+				<optionReference>verbosity#syslog</optionReference>
+				<optionReference>verbosity#lockfile</optionReference>
+				<optionReference>verbosity#console</optionReference>
+				<optionReference>verbosity#debug</optionReference>
+				<optionReference>verbosity#log-file</optionReference>
+			</group>
+			
+			<group name="Messaging">
+				<optionReference>messaging#user</optionReference>
+				<optionReference>messaging#host</optionReference>
+				<optionReference>messaging#timeout</optionReference>
+				<optionReference>messaging#primary-group</optionReference>
+				<optionReference>messaging#subscribe-group</optionReference>
+				<optionReference>messaging#encoding</optionReference>
+				<optionReference>messaging#start-stop-msg</optionReference>
+			</group>
+			
+			<group name="Database">
+				<optionReference>database#db-driver-list</optionReference>
+				<optionReference>database#database</optionReference>
+				<optionReference>database#config-module</optionReference>
+				<optionReference>database#inventory-db</optionReference>
+				<optionReference>database#db-disable</optionReference>
+			</group>
+
+			<group name="Mode">
+
+				<option long-flag="test">
+					<description>Test mode, no messages are sent</description>
+				</option>
+
+				<option long-flag="force">
+					<description>Force event processing even if a journal entry exists that processing has completed</description>
+				</option>
+
+				<option long-flag="expiry" flag="x" argument="hours">
+					<description>Time span in hours after which objects expire from the cache (performance)</description>
+				</option>
+
+				<option long-flag="origin-id" flag="O" argument="arg">
+					<description>Reprocess the origin and send a message</description>
+				</option>
+
+				<option long-flag="ep" argument="arg">
+					<description>Event parameters XML file for offline processing of all contained origins (imply test option)</description>
+				</option>
+
+				<option long-flag="profile" argument="arg">
+					<description>Force this profile to be used</description>
+				</option>
+
+				<option long-flag="dump-config">
+					<description>Dump the configuration and exit</description>
+				</option>
+			</group>
+		</command-line>
+	</module>
+
+</seiscomp>
