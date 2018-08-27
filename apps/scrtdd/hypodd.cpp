@@ -15,8 +15,10 @@
 #include "hypodd.h"
 #include "csvreader.h"
 
-#include <seiscomp3/io/recordinput.h>
+#include <seiscomp3/core/datetime.h>
+#include <seiscomp3/core/strings.h>
 #include <seiscomp3/core/typedarray.h>
+#include <seiscomp3/io/recordinput.h>
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/math/filter/butterworth.h>
 #include <seiscomp3/client/inventory.h>
@@ -32,28 +34,44 @@
 #include <fstream>
 #include <iomanip>
 #include <cmath>
+#include <regex>
 #include <boost/filesystem.hpp>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #define SEISCOMP_COMPONENT RTDD
 #include <seiscomp3/logging/log.h>
  
 using namespace std;
+using Seiscomp::Core::stringify;
 
 namespace {
 
-pid_t startExternalProcess(const vector<string> &cmdparams)
+pid_t startExternalProcess(const vector<string> &cmdparams,
+                           bool waitChild,
+                           const string& workingDir="")
 {
 	pid_t pid;
 	string cmdline;
 
 	pid = fork();
 
-	if ( pid < 0 ) // parent
-    {
+	if ( pid < 0 ) // fork error
+	{
+		SEISCOMP_ERROR("Error (%d) in fork()", pid);
 		return pid;
-    }
+	}
 	else if ( pid == 0 ) // child
-    {
+	{
+		if ( ! workingDir.empty() )
+		{
+			if( chdir(workingDir.c_str()) != 0 )
+			{
+				SEISCOMP_ERROR("Cannot change working directory to %s", workingDir.c_str());
+				exit(1);
+			}
+		}
+
 		vector<char *> params(cmdparams.size());
 		for ( size_t i = 0; i < cmdparams.size(); ++i )
         {
@@ -67,16 +85,26 @@ pid_t startExternalProcess(const vector<string> &cmdparams)
 		execv(params[0], &params[0]);
 		exit(1);
 	}
-
-	return pid;
+	else // parent
+	{
+		if (waitChild) // wait for the child to complete
+		{
+			int   status;
+			do {
+				pid = waitpid(pid, &status, 0);
+			} while (pid == -1 && errno == EINTR);
+			return pid;
+		}
+	}
 }
 
 }
 
 
 namespace Seiscomp {
+namespace HDD {
 
-BgCatalog::BgCatalog(const string& idFile, DataModel::DatabaseQuery* query)
+Catalog::Catalog(const string& idFile, DataModel::DatabaseQuery* query)
 {
 	if ( !Util::fileExists(idFile) )
 	{
@@ -97,13 +125,13 @@ BgCatalog::BgCatalog(const string& idFile, DataModel::DatabaseQuery* query)
 }
 
 
-BgCatalog::BgCatalog(const vector<string>& ids, DataModel::DatabaseQuery* query)
+Catalog::Catalog(const vector<string>& ids, DataModel::DatabaseQuery* query)
 {
 	initFromIds(ids, query);
 }
 
 
-void BgCatalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* query)
+void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* query)
 {
 	int eventId = 1;
 
@@ -127,26 +155,14 @@ void BgCatalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery*
 
 		query->loadArrivals(org.get());
 
-		int year, month, day, hour, min, sec, usec;
-		if ( ! org->time().value().get(&year, &month, &day, &hour, &min, &sec, &usec) )
-		{
-			string msg = "Cannot fetch origin time for origin " + org->publicID();
-			throw runtime_error(msg);
-		}
-
 		// Add event
 		Event ev;
 		ev.id          = eventId++;
-		ev.year        = year;
-		ev.month       = month;
-		ev.day         = day;
-		ev.hour        = hour;
-		ev.minute      = min;
-		ev.second      = sec + double(usec) / 1e6;
+		ev.time        = org->time().value().toGMT();
 		ev.latitude    = org->latitude();
 		ev.longitude   = org->longitude();
-		ev.depth       = org->depth(); // it `has to be km
-//		ev.magnitude   = org->;
+		ev.depth       = org->depth(); // FIXME it `has to be km
+		ev.magnitude   = 0; // FIXME
 		ev.horiz_err   = 0;
 		ev.depth_err   = 0;
 		ev.tt_residual = 0;
@@ -173,14 +189,6 @@ void BgCatalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery*
 				continue;
 			}
 
-			double travel_time = pick->time().value() - org->time().value();
-			if (travel_time < 0)
-			{
-				SEISCOMP_ERROR("Ignoring pick (%s) with negative travel time (origin %s)",
-				               orgArr->pickID().c_str(), org->publicID().c_str());
-				continue; 
-			}
-
 			// find the station
 			string netCode = pick->waveformID().networkCode();
 			string staCode = pick->waveformID().stationCode();
@@ -192,9 +200,9 @@ void BgCatalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery*
 				DataModel::Station* orgArrStation = findStation(netCode, staCode, pick->time(), query);
 				if ( !orgArrStation )
 				{
-					string msg = "Cannot find station for pick " + orgArr->pickID()
-					             + ", origin " + org->publicID();
-					throw runtime_error(msg);
+					string msg = stringify("Cannot find station for pick %s, origin %s",
+					                       orgArr->pickID(), org->publicID());
+					throw runtime_error(msg.c_str());
 				}
 				Station sta;
 				sta.id = stationId;
@@ -212,7 +220,7 @@ void BgCatalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery*
 			Phase ph;
 			ph.event_id    = ev.id;
 			ph.station_id  = sta.id;
-			ph.travel_time = travel_time;
+			ph.time        = pick->time().value().toGMT();
 			ph.weight      = orgArr->weight();
 			ph.type        = orgPh.code();
 			ph.networkCode =  pick->waveformID().networkCode();
@@ -225,7 +233,7 @@ void BgCatalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery*
 }
 
 
-DataModel::Station* BgCatalog::findStation(const string& netCode, const string& stationCode,
+DataModel::Station* Catalog::findStation(const string& netCode, const string& stationCode,
                                             Core::Time atTime,
                                             DataModel::DatabaseQuery* query)
 {
@@ -256,7 +264,7 @@ DataModel::Station* BgCatalog::findStation(const string& netCode, const string& 
 	return nullptr;
 }
 
-BgCatalog::BgCatalog(const map<string,Station>& stations,
+Catalog::Catalog(const map<string,Station>& stations,
                      const map<string,Event>& events,
                      const multimap<string,Phase>& phases)
 {
@@ -265,7 +273,7 @@ BgCatalog::BgCatalog(const map<string,Station>& stations,
 	_phases = phases;
 }
 
-BgCatalog::BgCatalog(const string& stationFile, const string& catalogFile, const string& phaFile)
+Catalog::Catalog(const string& stationFile, const string& catalogFile, const string& phaFile)
 {
 	if ( !Util::fileExists(stationFile) )
 	{
@@ -308,12 +316,7 @@ BgCatalog::BgCatalog(const string& stationFile, const string& catalogFile, const
 	{
 		Event ev;
 		ev.id          = row.at("id");
-		ev.year        = std::stoi(row.at("year"));
-		ev.month       = std::stoi(row.at("month"));
-		ev.day         = std::stoi(row.at("day"));
-		ev.hour        = std::stoi(row.at("hour"));
-		ev.minute      = std::stoi(row.at("minute"));
-		ev.second      = std::stod(row.at("second"));
+		ev.time        = Core::Time::FromString(row.at("isotime").c_str(), "%FT%T.%fZ"); //iso format
 		ev.latitude    = std::stod(row.at("latitude"));
 		ev.longitude   = std::stod(row.at("longitude"));
 		ev.depth       = std::stod(row.at("depth"));
@@ -334,7 +337,7 @@ BgCatalog::BgCatalog(const string& stationFile, const string& catalogFile, const
 		Phase ph;
 		ph.event_id    = row.at("event_id");
 		ph.station_id  = row.at("station_id");
-		ph.travel_time = std::stod(row.at("travel_time"));
+		ph.time        = Core::Time::FromString(row.at("isotime").c_str(), "%FT%T.%fZ"); //iso format
 		ph.weight      = std::stod(row.at("weight"));
 		ph.type        = row.at("type");
 		ph.networkCode   = row.at("networkCode");
@@ -346,7 +349,7 @@ BgCatalog::BgCatalog(const string& stationFile, const string& catalogFile, const
 }
 
 
-BgCatalogPtr BgCatalog::merge(BgCatalogPtr other)
+CatalogPtr Catalog::merge(const CatalogPtr& other)
 {
 	map<string,Station> stations = getStations();
 	map<string,Event> events = getEvents();
@@ -354,14 +357,14 @@ BgCatalogPtr BgCatalog::merge(BgCatalogPtr other)
 
 	for (const auto& kv :  other->getStations() )
 	{
-		const BgCatalog::Station& station = kv.second;
+		const Catalog::Station& station = kv.second;
 		if ( stations.count(station.id) == 0 )
 			stations[station.id] = station;
 	}
 
 	for (const auto& kv :  other->getEvents() )
 	{
-		const BgCatalog::Event& event = kv.second;
+		const Catalog::Event& event = kv.second;
 		if ( events.count(event.id) == 0 )
 			events[event.id] = event;
 
@@ -369,11 +372,11 @@ BgCatalogPtr BgCatalog::merge(BgCatalogPtr other)
 		auto eqlrng2 = phases.equal_range(event.id);
 		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
 		{
-			const BgCatalog::Phase& otherPhase = it->second;
+			const Catalog::Phase& otherPhase = it->second;
 			bool otherPhaseFound = false;
 			for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
 			{
-				const BgCatalog::Phase& phase = it2->second;
+				const Catalog::Phase& phase = it2->second;
 				if (phase.id == otherPhase.id)
 				{
 					otherPhaseFound = true;
@@ -385,19 +388,19 @@ BgCatalogPtr BgCatalog::merge(BgCatalogPtr other)
 		} 
 	}
 
-	return new BgCatalog(stations, events, phases);
+	return new Catalog(stations, events, phases);
 }
 
 
-HypoDD::HypoDD(const BgCatalogPtr& input, const HypoDDConfig& cfg, string workingDir)
+HypoDD::HypoDD(const CatalogPtr& input, const Config& cfg, const string& workingDir)
 {
 	_ddbgc = input;
 	_cfg = cfg;
 	_workingDir = workingDir;
 
-	if ( !Util::fileExists(_controlFile) )
+	if ( !Util::fileExists(_cfg.hypodd.ctrlFile) )
 	{
-		string msg = "File " + _controlFile + " does not exist";
+		string msg = "File " + _cfg.hypodd.ctrlFile + " does not exist";
 		throw runtime_error(msg);
 	}
 
@@ -421,7 +424,7 @@ HypoDD::~HypoDD()
 }
 
 
-BgCatalogPtr HypoDD::relocateCatalog()
+CatalogPtr HypoDD::relocateCatalog()
 {
 	SEISCOMP_DEBUG("Starting HypoDD relocator in multiple events mode");
 
@@ -440,14 +443,14 @@ BgCatalogPtr HypoDD::relocateCatalog()
 	string stationFile = (boost::filesystem::path(catalogWorkingDir)/"station.dat").string();
 	if ( ! Util::fileExists(stationFile) )
 	{
-		createStationDatFile(stationFile);
+		createStationDatFile(stationFile, _ddbgc);
 	}
 
 	// Create phase.dat for ph2dt (if not already generated)
 	string phaseFile = (boost::filesystem::path(catalogWorkingDir)/"phase.dat").string();
 	if ( ! Util::fileExists(phaseFile) )
 	{
-		createPhaseDatFile(phaseFile);
+		createPhaseDatFile(phaseFile, _ddbgc);
 	}
 
 	// run ph2dt
@@ -484,11 +487,11 @@ BgCatalogPtr HypoDD::relocateCatalog()
 
 	// load a catalog from hypodd output file
 	// input: hypoDD.reloc
-	return loadRelocatedCatalog(ddrelocFile);
+	return loadRelocatedCatalog(ddrelocFile, _ddbgc);
 }
 
 
-BgCatalogPtr HypoDD::relocateSingleEvent(DataModel::Origin *org)
+CatalogPtr HypoDD::relocateSingleEvent(DataModel::Origin *org)
 {
 	SEISCOMP_DEBUG("Starting HypoDD relocator in single event mode");
 
@@ -506,13 +509,14 @@ BgCatalogPtr HypoDD::relocateSingleEvent(DataModel::Origin *org)
 		throw runtime_error(msg);
 	}
 
-	BgCatalogPtr orgCatalog = new BgCatalog({org->publicID()}, DataModel::DatabaseQuery* query); // TODO pass query to the function?
+	CatalogPtr orgCatalog = new Catalog({org->publicID()}, DataModel::DatabaseQuery* query); // TODO pass query to the function?
 
 	// Select neighbouring events
-	BgCatalogPtr subCatalog = selectNeighbouringEvents(_ddbgc, orgCatalog, _cfg.ddse.maxIEdis_CT,
-	                                                   _cfg.ddse.minNumNeigh_CT, _cfg.ddse.maxNumNeigh_CT,
-	                                                   _cfg.ddse.minDTperEvt_CT);
-	BgCatalogPtr subCatalogFull = subCatalog->merge(orgCatalog);
+	CatalogPtr subCatalog = selectNeighbouringEvents(_ddbgc, orgCatalog, _cfg.dtt.maxESdist,
+	                                                   _cfg.dtt.maxIEdist,
+	                                                   _cfg.dtt.minNumNeigh, _cfg.dtt.maxNumNeigh,
+	                                                   _cfg.dtt.minDTperEvt);
+	CatalogPtr subCatalogFull = subCatalog->merge(orgCatalog);
 
 	// Create station.dat for hypodd
 	string stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
@@ -533,8 +537,8 @@ BgCatalogPtr HypoDD::relocateSingleEvent(DataModel::Origin *org)
 
 	// Load the relocated origin from Hypodd
 	string ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
-	BgCatalogPtr relocatedCatalog = loadRelocatedCatalog(ddrelocFile);
-	BgCatalogPtr relocatedOrigin = extractEvent(relocatedCatalog,  );  // TODO, event id
+	CatalogPtr relocatedCatalog = loadRelocatedCatalog(ddrelocFile, subCatalogFull);
+	CatalogPtr relocatedOrigin = extractEvent(relocatedCatalog,  );  // TODO, event id
 
 	if ( _workingDirCleanup )
 	{
@@ -549,9 +553,10 @@ BgCatalogPtr HypoDD::relocateSingleEvent(DataModel::Origin *org)
 	}
 
 	// Select neighbouring events from the relocated origin
-	subCatalog = selectNeighbouringEvents(_ddbgc, relocatedOrigin, _cfg.ddse.maxIEdis_CC,
-	                                      _cfg.ddse.minNumNeigh_CC, _cfg.ddse.maxNumNeigh_CC,
-	                                      _cfg.ddse.minDTperEvt_CC);
+	subCatalog = selectNeighbouringEvents(_ddbgc, relocatedOrigin, _cfg.xcorr.maxESdist,
+	                                      _cfg.xcorr.maxIEdist,
+	                                      _cfg.xcorr.minNumNeigh, _cfg.xcorr.maxNumNeigh,
+	                                      _cfg.xcorr.minDTperEvt);
 	subCatalogFull = subCatalog->merge(relocatedOrigin);
 
 	// Create station.dat for hypodd
@@ -577,7 +582,7 @@ BgCatalogPtr HypoDD::relocateSingleEvent(DataModel::Origin *org)
 
 	// Load the relocated origin from Hypodd
 	ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
-	relocatedCatalog = loadRelocatedCatalog(ddrelocFile);
+	relocatedCatalog = loadRelocatedCatalog(ddrelocFile, subCatalogFull);
 	relocatedOrigin = extractEvent(relocatedCatalog, ); // TODO, event id
 
 	if ( _workingDirCleanup )
@@ -601,30 +606,23 @@ BgCatalogPtr HypoDD::relocateSingleEvent(DataModel::Origin *org)
  NCABR 39.1381 -121.48   14
  *
  */
-void HypoDD::createStationDatFile(string staFileName, BgCatalogPtr catalog)
+void HypoDD::createStationDatFile(const string& staFileName, const CatalogPtr& catalog)
 {
 	SEISCOMP_DEBUG("Creating station file %s", staFileName.c_str());
 
-	if ( !catalog )
-	{
-		catalog = _ddbgc;
-	}
-
-	ofstream mystream;
-	mystream.open(staFileName);
-	if ( !mystream.is_open() ) {
+	ofstream outStream;
+	outStream.open(staFileName);
+	if ( !outStream.is_open() ) {
 		string msg = "Cannot create file " + staFileName;
 		throw runtime_error(msg);
 	}
 	
 	for (const auto& kv :  catalog->getStations() )
 	{
-		const BgCatalog::Station& station = kv.second;
-		mystream << station.id
-		         << " " << setprecision(6) << station.latitude
-		         << " " << setprecision(6) << station.longitude
-		         << " " << station.elevation
-		         << endl;
+		const Catalog::Station& station = kv.second;
+		outStream << stringify("%s %.6f %.6f %d\n",
+		                      station.id, station.latitude,
+		                      station.longitude, station.elevation);
 	}
 }
 
@@ -648,48 +646,50 @@ void HypoDD::createStationDatFile(string staFileName, BgCatalogPtr catalog)
  NCCBW       3.360   0.250   P
  *
  */
-void HypoDD::createPhaseDatFile(string phaseFileName, BgCatalogPtr catalog)
+void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogPtr& catalog)
 {
 	SEISCOMP_DEBUG("Creating phase file %s", phaseFileName.c_str());
 
-	if ( !catalog )
-	{
-		catalog = _ddbgc;
-	}
-
-	ofstream mystream;
-	mystream.open(phaseFileName);
-	if ( !mystream.is_open() ) {
+	ofstream outStream;
+	outStream.open(phaseFileName);
+	if ( !outStream.is_open() ) {
 		string msg = "Cannot create file " + phaseFileName;
 		throw runtime_error(msg);
 	}
 
 	for (const auto& kv :  catalog->getEvents() )
 	{
-		const BgCatalog::Event& event = kv.second;
-		mystream << "# " << event.year << " " << event.month
-		         << " " << event.day   << " " << event.hour
-		         << " " << event.minute
-		         << " " << setprecision(6) << event.second
-		         << " " << setprecision(6) << event.latitude
-		         << " " << setprecision(6) << event.longitude
-		         << " " << setprecision(4) << event.depth  // must be km.
-		         << " " << setprecision(6) << event.magnitude
-		         << " " << setprecision(6) << event.horiz_err
-		         << " " << setprecision(6) << event.depth_err
-		         << " " << setprecision(6) << event.tt_residual
-		         << " " << event.id
-		         << endl;
+		const Catalog::Event& event = kv.second;
+
+		int year, month, day, hour, min, sec, usec;
+		if ( ! event.time.get(&year, &month, &day, &hour, &min, &sec, &usec) )
+		{
+			SEISCOMP_ERROR("Cannot convert origin time for origin %s", event.originId.c_str());
+			continue;
+		}
+
+		outStream << stringify("# %d %d %d %d %d %d %.6f %.6f %.6f %.4f %.6f %.6f %.6f %.6f %s\n",
+		                      year, month, day, hour, min, sec + double(usec)/1.e6,
+		                      event.latitude,event.longitude,event.depth,
+		                      event.magnitude, event.horiz_err, event.depth_err,
+		                      event.tt_residual, event.id);
 
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
 		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
 		{
-			const BgCatalog::Phase& phase = it->second;
-			mystream << phase.station_id
-			          << " " << setprecision(6) << phase.travel_time
-			          << " " << setprecision(2) << phase.weight
-			          << " " << phase.type
-			          << endl;
+			const Catalog::Phase& phase = it->second;
+
+			double travel_time = phase.time - event.time;
+			if (travel_time < 0)
+			{
+				SEISCOMP_ERROR("Ignoring pick (%s) with negative travel time (origin %s)",
+				               phase.id.c_str(), event.originId.c_str());
+				continue; 
+			}
+
+			outStream << stringify("%s %.6f %.2f %s\n",
+			                      phase.station_id, travel_time,
+			                      phase.weight, phase.type.c_str());
 		}
 	}
 }
@@ -707,41 +707,33 @@ void HypoDD::createPhaseDatFile(string phaseFileName, BgCatalogPtr catalog)
 19850402   5571645   37.8825  -122.2420      9.440   1.9    0.12    0.30   0.04      45165
  *
  */
-void HypoDD::createEventDatFile(string eventFileName, BgCatalogPtr catalog)
+void HypoDD::createEventDatFile(const string& eventFileName, const CatalogPtr& catalog)
 {
 	SEISCOMP_DEBUG("Creating station file %s", eventFileName.c_str());
 
-	if ( !catalog )
-	{
-		catalog = _ddbgc;
-	}
-
-	ofstream mystream;
-	mystream.open(eventFileName);
-	if ( !mystream.is_open() ) {
+	ofstream outStream;
+	outStream.open(eventFileName);
+	if ( !outStream.is_open() ) {
 		string msg = "Cannot create file " + eventFileName;
 		throw runtime_error(msg);
 	}
 
 	for (const auto& kv :  catalog->getEvents() )
 	{
-		const BgCatalog::Event& event = kv.second;
-		mystream << event.year
-		         << setfill('0') << setw(2) << event.month
-		         << setfill('0') << setw(2) << event.day
-		         << " "
-		         << setfill('0') << setw(2) << event.hour
-		         << setfill('0') << setw(2) << event.minute
-		         << setfill('0') << setw(4) << event.second
-		         << " " << setprecision(6) << event.latitude
-		         << " " << setprecision(6) << event.longitude
-		         << " " << setprecision(4) << event.depth  // must be km.
-		         << " " << setprecision(6) << event.magnitude
-		         << " " << setprecision(6) << event.horiz_err
-		         << " " << setprecision(6) << event.depth_err
-		         << " " << setprecision(6) << event.tt_residual
-		         << " " << event.id
-		         << endl;
+		const Catalog::Event& event = kv.second;
+
+		int year, month, day, hour, min, sec, usec;
+		if ( ! event.time.get(&year, &month, &day, &hour, &min, &sec, &usec) )
+		{
+			SEISCOMP_ERROR("Cannot convert origin time for origin %s", event.originId.c_str());
+			continue;
+		}
+
+		outStream << stringify("%d%02d%02d %02d%02d%04.f %.6f %.6f %.6f %.6f %.6f %.6f %.6f %s\n",
+		                      year, month, day, hour, min, sec,
+		                      event.latitude, event.longitude, event.depth,
+		                      event.magnitude, event.horiz_err, event.depth_err,
+		                      event.tt_residual, event.id);
 	}
 }
 
@@ -750,7 +742,7 @@ void HypoDD::createEventDatFile(string eventFileName, BgCatalogPtr catalog)
  * input files: ph2dt.inp station.dat phase.dat
  * output files: station.sel event.sel event.dat dt.ct
  */
-void HypoDD::runPh2dt(string workingDir, string stationFile, string phaseFile)
+void HypoDD::runPh2dt(const string& workingDir, const string& stationFile, const string& phaseFile)
 {
 	SEISCOMP_DEBUG("Running ph2dt...");
 
@@ -774,8 +766,7 @@ void HypoDD::runPh2dt(string workingDir, string stationFile, string phaseFile)
 	ph2dtinp.close(); // this flush the data to disk
 
 	// Run ph2dt
-
-	// TODO
+	startExternalProcess({"ph2dt"}, true, workingDir);
 }
 
 /*
@@ -783,8 +774,8 @@ void HypoDD::runPh2dt(string workingDir, string stationFile, string phaseFile)
  * input files: dt.cc dt.ct event.sel station.sel hypoDD.inp
  * output files: hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
  */
-void HypoDD::runHypodd(string workingDir, string dtccFile, string dtctFile,
-                       string eventFile, string stationFile)
+void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const string& dtctFile,
+                       const string& eventFile, const string& stationFile)
 {
 	SEISCOMP_DEBUG("Running hypodd...");
 
@@ -808,7 +799,7 @@ void HypoDD::runHypodd(string workingDir, string dtccFile, string dtctFile,
 	if ( !Util::fileExists(fname) )
 		throw runtime_error("Unable to run hypodd, file doesn't exist: " + fname);
 
-	// TODO
+	startExternalProcess({"hypodd"}, true, workingDir);
 }
 
 
@@ -822,25 +813,26 @@ double HypoDD::computeDistance(double lat1, double lon1, double depth1,
 	Math::Geo::delazi(lat1, lon1, lat2, lon2, &distance, &az, &baz);
 	double Hdist = Math::Geo::deg2km(distance);
 	double Vdist = abs(depth1 - depth2);
-	return std::sqrt( std::pow(Hdist,2), std::pow(Vdist,2) );
+	return std::sqrt( std::pow(Hdist,2) + std::pow(Vdist,2) );
 }
 
 
-BgCatalogPtr HypoDD::selectNeighbouringEvents(BgCatalogPtr catalog,
-                                              BgCatalogPtr org,
+CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
+                                              const CatalogPtr& org,
+                                              double maxESdis,
                                               double maxIEdis,
                                               int minNumNeigh,
                                               int maxNumNeigh,
                                               int minDTperEvt)
 {
-	const BgCatalog::Event& refEv = org->getEvents().begin()->second;
+	const Catalog::Event& refEv = org->getEvents().begin()->second;
 
 	map<double,string> eventDistances; // distance, eventid
 
 	// loop through every event in the catalog and select the ones within maxIEdis distance
 	for (const auto& kv : catalog->getEvents() )
 	{
-		const BgCatalog::Event& event = kv.second;
+		const Catalog::Event& event = kv.second;
 
 		// compute distance between current event and reference origin
 		double distance = computeDistance(event.latitude, event.longitude, event.depth,
@@ -853,7 +845,7 @@ BgCatalogPtr HypoDD::selectNeighbouringEvents(BgCatalogPtr catalog,
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
 		if (minDTperEvt > 0 && std::distance(eqlrng.first, eqlrng.second) < minDTperEvt)
 		{
-			SEISCOMP_DEBUG("Skipping event %s, not enough phases (minDTperEvt)", event.id);
+			SEISCOMP_DEBUG("Skipping event %s, not enough phases (minDTperEvt)", event.id.c_str());
 			continue;
 		}
 
@@ -873,14 +865,14 @@ BgCatalogPtr HypoDD::selectNeighbouringEvents(BgCatalogPtr catalog,
 		throw runtime_error(msg);
 	}
 
-	map<string,BgCatalog::Station> stations;
-	map<string,BgCatalog::Event> events;
-	multimap<string,BgCatalog::Phase> phases;
+	map<string,Catalog::Station> stations;
+	map<string,Catalog::Event> events;
+	multimap<string,Catalog::Phase> phases;
 
 	// Add all the selected events within distance
 	for (const auto& kv : selectedEvents)
 	{
-		const BgCatalog::Event& event = catalog->getEvents().at(kv.second);
+		const Catalog::Event& event = catalog->getEvents().at(kv.second);
 
 		// add this event
 		events[event.id] = event;
@@ -889,9 +881,7 @@ BgCatalogPtr HypoDD::selectNeighbouringEvents(BgCatalogPtr catalog,
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
 		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
 		{
-			const BgCatalog::Phase& phase = it->second;
-			phases.emplace(event.id, phase);
-
+			const Catalog::Phase& phase = it->second;
 			auto search = catalog->getStations().find(phase.station_id);
 			if (search == catalog->getStations().end())
 			{
@@ -900,37 +890,101 @@ BgCatalogPtr HypoDD::selectNeighbouringEvents(BgCatalogPtr catalog,
 				throw runtime_error(msg);
 			}
 
-			const BgCatalog::Station& station = search->second;
+			const Catalog::Station& station = search->second;
+            
+			// compute distance between current event and station
+			double distance = computeDistance(event.latitude, event.longitude, event.depth,
+			                                  station.latitude, station.longitude, -station.elevation);
+			// too far away ?
+			if ( distance > maxESdis )
+				continue;
+
+			phases.emplace(event.id, phase);
 			stations[station.id] = station;
 		}
 	}
 
-	return new BgCatalog(stations, events, phases);
+	return new Catalog(stations, events, phases);
 }
 
 
-// load a catalog from hypodd output file
-// input: hypoDD.reloc
-BgCatalogPtr HypoDD::loadRelocatedCatalog(string ddrelocFile)
+/*
+ * load a catalog from hypodd output file
+ * input: hypoDD.reloc
+ *
+ * One event per line (written in fixed, but may be read in free format):
+ * ID, LAT, LON, DEPTH, X, Y, Z, EX, EY, EZ, YR, MO, DY, HR, MI, SC, MAG, NCCP, NCCS, NCTP,
+NCTS, RCC, RCT, CID
+ *
+ */
+CatalogPtr HypoDD::loadRelocatedCatalog(const string& ddrelocFile, const CatalogPtr& originalCatalog)
 {
 	SEISCOMP_DEBUG("Loading catalog relocated by hypodd...");
 
 	if ( !Util::fileExists(ddrelocFile) )
 		throw runtime_error("Cannot load hypodd relocated catalog file: " + ddrelocFile);
 
-	// TODO
+	map<string,Catalog::Station> stations = originalCatalog->getStations();
+	map<string,Catalog::Event> events = originalCatalog->getEvents();
+	multimap<string,Catalog::Phase> phases = originalCatalog->getPhases();
+
+	// read file one line a time
+	ifstream in(ddrelocFile);
+	while (!in.eof())
+	{
+		string row;
+		std::getline(in, row);
+		if (in.bad() || in.fail())
+			break;
+
+		// split line on space
+		std::regex regex{R"([\s]+)"}; 
+		std::sregex_token_iterator it{row.begin(), row.end(), regex, -1};
+		std::vector<std::string> fields{it, {}};
+
+		if (fields.size() != 24)
+		{
+			SEISCOMP_WARNING("Skipping unrecognized line from '%s' (line='%s')",
+			               ddrelocFile.c_str(), row.c_str());
+			continue;
+		}
+
+		// load corresponding event and update information
+		string eventId = fields[0];
+		auto search = events.find(eventId);
+		if (search == events.end())
+			throw runtime_error("Malformed catalog: cannot find relocated event " +
+			                    eventId + " in the original catalog");
+		Catalog::Event& event = search->second;
+		event.latitude  = std::stod(fields[1]);
+		event.longitude = std::stod(fields[2]);
+		event.depth     = std::stod(fields[3]);
+
+		int year  = std::stoi(fields[10]);
+		int month = std::stoi(fields[11]);
+		int day   = std::stoi(fields[12]);
+		int hour  = std::stoi(fields[13]);
+		int min   = std::stoi(fields[14]);
+		double seconds = std::stod(fields[15]);
+		int sec  = int(seconds);
+		int usec = (seconds - sec) * 1.e6;
+	
+		event.time = Core::Time(year, month, day, hour, min, sec, usec);
+	}
+
+	return new Catalog(stations, events, phases);
 }
 
 
-BgCatalogPtr HypoDD::extractEvent(BgCatalogPtr catalog, string eventId)
+CatalogPtr HypoDD::extractEvent(const CatalogPtr& catalog, const string& eventId)
 {
-	map<string,BgCatalog::Station> stations;
-	map<string,BgCatalog::Event> events;
-	multimap<string,BgCatalog::Phase> phases;
+	map<string,Catalog::Station> stations;
+	map<string,Catalog::Event> events;
+	multimap<string,Catalog::Phase> phases;
 
 	for (const auto& kv : catalog->getEvents() )
 	{
-		const BgCatalog::Event& event = kv.second;
+		const Catalog::Event& event = kv.second;
 
 		if ( event.id == eventId )
 		{
@@ -938,7 +992,7 @@ BgCatalogPtr HypoDD::extractEvent(BgCatalogPtr catalog, string eventId)
 			auto eqlrng = catalog->getPhases().equal_range(event.id);
 			for (auto it = eqlrng.first; it != eqlrng.second; ++it)
 			{
-				const BgCatalog::Phase& phase = it->second;
+				const Catalog::Phase& phase = it->second;
 				phases.emplace(event.id, phase);
 
 				auto search = catalog->getStations().find(phase.station_id);
@@ -946,14 +1000,14 @@ BgCatalogPtr HypoDD::extractEvent(BgCatalogPtr catalog, string eventId)
 					throw runtime_error("Malformed catalog: cannot find station " + phase.station_id
 					                    + " referenced by phase " + phase.id + " for event " + event.id);
 
-				const BgCatalog::Station& station = search->second;
+				const Catalog::Station& station = search->second;
 				stations[station.id] = station;
 			}
 			break;
 		}
 	}
 
-	return new BgCatalog(stations, events, phases);
+	return new Catalog(stations, events, phases);
 }
 
 
@@ -967,87 +1021,381 @@ BgCatalogPtr HypoDD::extractEvent(BgCatalogPtr catalog, string eventId)
  * STA, TT1, TT2, WGHT, PHA
  * 
  */
-void HypoDD::createDtCtFile(BgCatalogPtr catalog, BgCatalogPtr org, string dtctFile)
+void HypoDD::createDtCtFile(const CatalogPtr& catalog, const CatalogPtr& org, const string& dtctFile)
 {
 	SEISCOMP_DEBUG("Creating Catalog travel time file %s", dtctFile.c_str());
 
-	const BgCatalog::Event& refEv = org->getEvents().begin()->second;
+	const Catalog::Event& refEv = org->getEvents().begin()->second;
 
-	ofstream mystream;
-	mystream.open(dtctFile);
-	if ( !mystream.is_open() )
+	ofstream outStream;
+	outStream.open(dtctFile);
+	if ( !outStream.is_open() )
 		throw runtime_error("Cannot create file " + dtctFile);
 
 	// loop through catalog events
 	for (const auto& kv : catalog->getEvents() )
 	{
-		const BgCatalog::Event& event = kv.second;
+		const Catalog::Event& event = kv.second;
+
+		int dtCount = 0;
+		stringstream evStream;
+		evStream << stringify("# %s %s\n", refEv.id, event.id);
 
 		// loop through event phases
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
 		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
 		{
-			const BgCatalog::Phase& phase = it->second;
+			const Catalog::Phase& phase = it->second;
+			if (phase.weight < _cfg.dtt.minWeight)
+				continue;
 
 			// loop through reference event (org to relocate) phases
 			auto eqlrng2 = org->getPhases().equal_range(refEv.id);
 			for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
 			{
-				const BgCatalog::Phase& phase2 = it2->second;
+				const Catalog::Phase& refPhase = it2->second;
+				if (refPhase.weight < _cfg.dtt.minWeight)
+					continue;
 
-				if (phase.station_id == phase2.station_id && 
-				    phase.type == phase2.type)
+				if (phase.station_id == refPhase.station_id && 
+				    phase.type == refPhase.type)
 				{
-					mystream <<  STA, TT1, TT2, WGHT, PHA  
+					double ref_travel_time = refPhase.time - refEv.time;
+					if (ref_travel_time < 0)
+					{
+						SEISCOMP_ERROR("Ignoring pick (%s) with negative travel time (origin %s)",
+						               refPhase.id.c_str(), refEv.originId.c_str());
+						continue; 
+					}
+					double travel_time = phase.time - event.time;
+					if (travel_time < 0)
+					{
+						SEISCOMP_ERROR("Ignoring pick (%s) with negative travel time (origin %s)",
+						               phase.id.c_str(), event.originId.c_str());
+						continue; 
+					}
+					evStream << stringify("%s %.6f %.6f %.2f %s\n",
+					                      refPhase.station_id, ref_travel_time,
+					                      travel_time, 0., refPhase.type.c_str());
+					dtCount++;
 				}
 			}
 		}
+		if (dtCount >= _cfg.dtt.minDTperEvt)
+			outStream << evStream.str();
 	}
-	// TODO
 }
 
 
 /*
  * Reads the event pairs matched in dt.ct which are selected by ph2dt and
  * calculate cross correlated differential travel_times for every pair.
- * input dt.ct
+ * input dt.ct 
  * output dt.cc
  */
-void HypoDD::xcorrCatalog(string dtctFile, string dtccFile)
+void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 {
 	SEISCOMP_DEBUG("Calculating cross correlated differential travel times...");
 
 	if ( !Util::fileExists(dtctFile) )
 		throw runtime_error("Unable to perform cross correlation, cannot find file: " + dtctFile);
 
-	ofstream mystream;
-	mystream.open(dtccFile);
-	if ( !mystream.is_open() )
+	ofstream outStream;
+	outStream.open(dtccFile);
+	if ( !outStream.is_open() )
 		throw runtime_error("Cannot create file " + dtccFile);
 
-	// TODO
+	const std::map<std::string,Catalog::Event>& events = _ddbgc->getEvents();
+	const Catalog::Event *ev1 = nullptr, *ev2 = nullptr;
+	int dtCount;
+	stringstream evStream;
+
+	// read file one line a time
+	ifstream in(dtctFile);
+	while (!in.eof())
+	{
+		string row;
+		std::getline(in, row);
+		if (in.bad() || in.fail())
+			break;
+
+		// split line on space
+		std::regex regex{R"([\s]+)"}; 
+		std::sregex_token_iterator it{row.begin(), row.end(), regex, -1};
+		std::vector<std::string> fields{it, {}};
+
+		// check beginning of a new event pair line (# ID1 ID2)
+		if (fields[0] == "#" && fields.size() == 3)
+		{
+			string evId1 = fields[1];
+			string evId2 = fields[2];
+			auto search1 = events.find(evId1);
+			auto search2 = events.find(evId2);
+			if (search1 == events.end() || search2 == events.end())
+			{
+				string msg = stringify("Relocated catalog contains events ids (%s or %s) "
+				                       "that are not present in the original catalog.");
+				throw runtime_error(msg.c_str());
+			}
+			ev1 = &search1->second;
+			ev2 = &search2->second;
+			dtCount = 0;
+
+			if (dtCount >= _cfg.xcorr.minDTperEvt)
+			{
+				outStream << evStream.str();
+				evStream.str("");
+				evStream.clear();
+			}
+
+			evStream << stringify("# %s %s 0.0\n", ev1->id, ev2->id);
+		}
+		// observation line (STA, TT1, TT2, WGHT, PHA)
+		else if(ev1 != nullptr && ev2 != nullptr && fields.size() == 5)
+		{
+			string stationId = fields[0];
+			string phaseType = fields[4];
+
+			GenericRecordPtr tr1, tr2;
+
+			// loop through event 1 phases
+			auto eqlrng = _ddbgc->getPhases().equal_range(ev1->id);
+			for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+			{
+				const Catalog::Phase& phase = it->second;
+				if (phase.weight < _cfg.xcorr.minWeight)
+					continue;
+				if (phase.station_id != stationId ||
+				    phase.type != phaseType)
+					continue;
+				tr1 = getWaveform(*ev1, phase, _wfCache);
+			}
+
+			// loop through event 2 phases
+			eqlrng = _ddbgc->getPhases().equal_range(ev2->id);
+			for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+			{
+				const Catalog::Phase& phase = it->second;
+				if (phase.weight < _cfg.xcorr.minWeight)
+					continue;
+				if (phase.station_id != stationId ||
+				    phase.type != phaseType)
+					continue;
+				tr1 = getWaveform(*ev2, phase, _wfCache);
+			}
+
+			if ( !tr1 || !tr2)
+			{
+				SEISCOMP_ERROR("Cannot load waveforms. Skipping line '%s' from file '%s')",
+				               row.c_str(), dtctFile.c_str());
+				continue;
+			}
+
+			double xcorr_coeff, xcorr_dt;
+			if ( ! xcorr(tr1, tr2, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
+			{
+				SEISCOMP_ERROR("Cannot cross correlate traces for events %s and %s, "
+				               "station %s, phase %s. Skipping them.",
+				               ev1->id.c_str(), ev2->id.c_str(),
+				               stationId.c_str(), phaseType.c_str() );
+				continue;
+			}
+
+			if ( xcorr_coeff < _cfg.xcorr.minCoef)
+				continue;
+
+			evStream << stringify("%s %.6f %.4f %s\n",
+			                       stationId.c_str(), xcorr_dt, xcorr_coeff, phaseType.c_str());
+			dtCount++;
+		}
+		else
+		{
+			ev1 = ev2 = nullptr;
+			SEISCOMP_WARNING("Skipping unrecognized line from '%s' (line='%s')",
+			               dtctFile.c_str(), row.c_str());
+		}
+	}
+
+	if (dtCount >= _cfg.xcorr.minDTperEvt)
+	{
+		outStream << evStream.str();
+		evStream.str("");
+		evStream.clear();
+	}
 }
 
 
 /*
- * Calculate cross correlated differential travel_times for every event in catalog and org
- * output dt.cc
+ * Compute and store to file differential travel times from cross correlation for pairs
+ * of earthquakes.
+ *
+ * Each event pair is listed by a header line (in free format)
+ * #, ID1, ID2, OTC
+ * followed by lines with observations (in free format):
+ * STA, DT, WGHT, PHA
+ *
  */
-void HypoDD::xcorrSingleEvent(BgCatalogPtr catalog, BgCatalogPtr org, string dtccFile)
+void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog, const CatalogPtr& org, const string& dtccFile)
 {
 	SEISCOMP_DEBUG("Creating Cross correlation differential time file %s", dtccFile.c_str());
 
-	ofstream mystream;
-	mystream.open(dtccFile);
-	if ( !mystream.is_open() )
+	ofstream outStream;
+	outStream.open(dtccFile);
+	if ( !outStream.is_open() )
 		throw runtime_error("Cannot create file " + dtccFile);
 
-	// TODO
+	const Catalog::Event& refEv = org->getEvents().begin()->second;
+
+	map<string, GenericRecordPtr> tmpWfCache;
+
+	// loop through catalog events
+	for (const auto& kv : catalog->getEvents() )
+	{
+		const Catalog::Event& event = kv.second;
+
+		int dtCount = 0;
+		stringstream evStream;
+		evStream << stringify("# %s %s 0.0\n", refEv.id, event.id);
+
+		// loop through event phases
+		auto eqlrng = catalog->getPhases().equal_range(event.id);
+		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+		{
+			const Catalog::Phase& phase = it->second;
+			if (phase.weight < _cfg.xcorr.minWeight)
+				continue;
+
+			GenericRecordPtr trace = getWaveform(event, phase, _wfCache);
+
+			// loop through reference event (org to relocate) phases
+			auto eqlrng2 = org->getPhases().equal_range(refEv.id);
+			for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
+			{
+				const Catalog::Phase& refPhase = it2->second;
+				if (refPhase.weight < _cfg.xcorr.minWeight)
+					continue;
+
+				if (phase.station_id == refPhase.station_id && 
+				    phase.type == refPhase.type)
+				{
+					GenericRecordPtr refTrace = getWaveform(refEv, refPhase, tmpWfCache);
+
+					double xcorr_coeff, xcorr_dt;
+					if ( ! xcorr(trace, refTrace, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
+					{
+						SEISCOMP_ERROR("Cannot cross correlate traces ev./ph. %s/%s - %s/%s,"
+						               "skipping them.",
+						               refEv.id.c_str(), refPhase.id.c_str(),
+						               event.id.c_str(), phase.id.c_str() );
+						continue;
+					}
+
+					if ( xcorr_coeff < _cfg.xcorr.minCoef)
+						continue;
+
+					evStream << stringify("%s %.6f %.4f %s\n",
+					                      refPhase.station_id.c_str(),
+					                      xcorr_dt, xcorr_coeff,
+					                      refPhase.type.c_str());
+					dtCount++;
+				}
+			}
+		}
+		if (dtCount >= _cfg.xcorr.minDTperEvt)
+			outStream << evStream.str();
+	}
+}
+
+
+bool
+HypoDD::xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double maxDelay,
+              double& delayOut, double& coeffOut)
+{
+	delayOut = 0.;
+	coeffOut = -1.;
+
+	if (tr1->samplingFrequency() != tr2->samplingFrequency())
+	{
+		SEISCOMP_ERROR("Cannot cross correlate traces with different sampling"
+					   " freq (%f!=%f), skip them.",
+					   tr1->samplingFrequency(), tr2->samplingFrequency());
+		return false;
+	}
+
+	double freq = tr1->samplingFrequency();
+	int maxDelaySmps = maxDelay * freq; // secs to samples
+
+	// tr1 and tr2 are already demeaned
+	const double *smps1 = DoubleArray::ConstCast(tr1->data())->typedData(); // tr1 samples
+	const double *smps2 = DoubleArray::ConstCast(tr2->data())->typedData(); // tr2 samples
+	int smps1size = tr1->data()->size();
+	int smps2size = tr2->data()->size();
+
+	// Calculate the denominator
+	double s1, s2, denom;
+	s1 = s2 = 0;
+	for (int i = 0; i < smps1size; i++)
+	{
+		s1 += smps1[i] * smps1[i];
+	}
+	for (int i = 0; i < smps2size; i++)
+	{
+		s2 += smps2[i] * smps2[i];
+	}
+	denom = std::sqrt(s1*s2);
+
+	// Calculate the correlation series
+	for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
+	{
+		double sxy = 0;
+		for (int i = 0; i < smps1size; i++)
+		{
+			int j = i + delay;
+			if (j < 0 || j >= smps2size)
+				continue;
+			else
+				sxy += smps1[i] * smps2[j];
+		}
+		double coeff = sxy / denom;
+		if (coeff > coeffOut)
+		{
+			coeffOut = coeff;
+			delayOut = delay / freq; // samples to secs
+		}
+	}
+
+	return true;
 }
 
 
 GenericRecordPtr
-HypoDD::loadWaveform(const Core::Time& starttime,
+HypoDD::getWaveform(const Catalog::Event& ev,
+                    const Catalog::Phase& ph,
+                    map<string,GenericRecordPtr>& cache)
+{
+	Core::Time starttime = ph.time - Core::TimeSpan(_cfg.xcorr.timeBeforePick);
+	double duration = _cfg.xcorr.timeBeforePick + _cfg.xcorr.timeAfterPick;
+
+	string wfId = ph.networkCode + "." + ph.stationCode + "." + ph.locationCode
+	              + "." + ph.channelCode + "." + ph.time.iso();
+
+	const auto it = cache.find(wfId);
+	if ( it == cache.end() )
+	{
+		GenericRecordPtr wf = loadWaveform(starttime,
+		                                   duration,
+		                                   ph.networkCode,
+		                                   ph.stationCode,
+		                                   ph.locationCode,
+		                                   ph.channelCode);
+		cache[wfId] = wf;
+	}
+	return cache[wfId];
+}
+
+
+GenericRecordPtr
+HypoDD::loadWaveform(const Core::Time& time,
                      double duration,
                      const string& networkCode,
                      const string& stationCode,
@@ -1061,7 +1409,7 @@ HypoDD::loadWaveform(const Core::Time& starttime,
 		throw runtime_error(msg);
 	}
 
-	Core::TimeWindow tw(starttime, duration);
+	Core::TimeWindow tw(time, duration);
 	rs->setTimeWindow(tw);
 	rs->addStream(networkCode, stationCode, locationCode, channelCode);
 
@@ -1078,7 +1426,7 @@ HypoDD::loadWaveform(const Core::Time& starttime,
 	{
 		ostringstream msg;
 		msg << "No data for stream " << networkCode << "." << stationCode << "." 
-		    << locationCode << "." << channelCode << " at " << starttime.toString("%FT%T.%fZ");
+		    << locationCode << "." << channelCode << " at " << time.iso();
 		throw runtime_error(msg.str());
 	}
 
@@ -1089,7 +1437,7 @@ HypoDD::loadWaveform(const Core::Time& starttime,
 		ostringstream msg;
 		msg << "Data records could not be merged into a single trace:" << networkCode
 		      << "." << stationCode << "." << locationCode << "." << channelCode
-		      << " at " << starttime.toString("%FT%T.%fZ");
+		      << " at " << time.iso();
 		throw runtime_error(msg.str());
 	}
 
@@ -1098,7 +1446,7 @@ HypoDD::loadWaveform(const Core::Time& starttime,
 		ostringstream msg;
 		msg << "Incomplete trace, not enough data for time window: " << networkCode
 		      << "." << stationCode << "." << locationCode << "." << channelCode
-		      << " at " << starttime.toString("%FT%T.%fZ");
+		      << " at " << time.iso();
 		throw runtime_error(msg.str());
 	}
 
@@ -1277,5 +1625,5 @@ string HypoDD::generateWorkingSubDir(const DataModel::Origin* org)
 	return id;
 }
 
-
+}
 }

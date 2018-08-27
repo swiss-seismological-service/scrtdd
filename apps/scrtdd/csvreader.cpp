@@ -34,61 +34,70 @@ enum class CSVState {
 
 vector<string> readRow(const string &row)
 {
-    CSVState state = CSVState::UnquotedField;
-    vector<string> fields {""};
-    size_t i = 0; // index of the current field
-    for (char c : row) {
-        switch (state) {
-            case CSVState::UnquotedField:
-                switch (c) {
-                    case ',': // end of field
-                              fields.push_back(""); i++;
-                              break;
-                    case '"': state = CSVState::QuotedField;
-                              break;
-                    default:  fields[i].push_back(c);
-                              break; }
-                break;
-            case CSVState::QuotedField:
-                switch (c) {
-                    case '"': state = CSVState::QuotedQuote;
-                              break;
-                    default:  fields[i].push_back(c);
-                              break; }
-                break;
-            case CSVState::QuotedQuote:
-                switch (c) {
-                    case ',': // , after closing quote
-                              fields.push_back(""); i++;
-                              state = CSVState::UnquotedField;
-                              break;
-                    case '"': // "" -> "
-                              fields[i].push_back('"');
-                              state = CSVState::QuotedField;
-                              break;
-                    default:  // end of quote
-                              state = CSVState::UnquotedField;
-                              break; }
-                break;
-        }
-    }
-    return fields;
+	CSVState state = CSVState::UnquotedField;
+	vector<string> fields {""};
+	size_t i = 0; // index of the current field
+	for (char c : row)
+	{
+		switch (state)
+		{
+			case CSVState::UnquotedField:
+				switch (c)
+				{
+					case ',': // end of field
+							  fields.push_back(""); i++;
+							  break;
+					case '"': state = CSVState::QuotedField;
+							  break;
+					default:  fields[i].push_back(c);
+							  break;
+				}
+				break;
+			case CSVState::QuotedField:
+				switch (c)
+				{
+					case '"': state = CSVState::QuotedQuote;
+							  break;
+					default:  fields[i].push_back(c);
+							  break;
+				}
+				break;
+			case CSVState::QuotedQuote:
+				switch (c)
+				{
+					case ',': // , after closing quote
+							  fields.push_back(""); i++;
+							  state = CSVState::UnquotedField;
+							  break;
+					case '"': // "" -> "
+							  fields[i].push_back('"');
+							  state = CSVState::QuotedField;
+							  break;
+					default:  // end of quote
+							  state = CSVState::UnquotedField;
+							  break;
+				}
+				break;
+		}
+	}
+	return fields;
 }
 
 /// Read CSV file, Excel dialect. Accept "quoted fields ""with quotes"""
 vector<vector<string>> read(istream &in)
 {
-    vector<vector<string>> table;
-    string row;
-    while (!in.eof()) {
-        getline(in, row);
-        if (in.bad() || in.fail()) {
-            break;
-        }
-        auto fields = readRow(row);
-        table.push_back(fields);
-    }
-    return table;
+	vector<vector<string>> table;
+	string row;
+	while (!in.eof())
+	{
+		getline(in, row);
+		if (in.bad() || in.fail()) {
+			break;
+		}
+		auto fields = readRow(row);
+		table.push_back(fields);
+	}
+	return table;
 }
 
 vector<vector<string>> read(const string &filename)

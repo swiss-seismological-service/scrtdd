@@ -18,6 +18,7 @@
 #include <seiscomp3/logging/filerotator.h>
 #include <seiscomp3/logging/channel.h>
 
+#include <seiscomp3/core/strings.h>
 #include <seiscomp3/core/genericrecord.h>
 #include <seiscomp3/core/system.h>
 
@@ -41,12 +42,12 @@
 #include <seiscomp3/utils/files.h>
 
 #include <boost/bind.hpp>
-#include <sys/wait.h>
 
 
 using namespace std;
 using namespace Seiscomp::Processing;
 using namespace Seiscomp::DataModel;
+using namespace Seiscomp::HDD;
 
 
 #define JOURNAL_ACTION           "RTDD"
@@ -1111,7 +1112,7 @@ void RTDD::Profile::load(string workingDir)
 {
 	if ( loaded ) return;
 	SEISCOMP_DEBUG("Loading profile %s", name.c_str());
-	BgCatalogPtr ddbgc = new BgCatalog(stationFile, catalogFile, phaFile);
+	CatalogPtr ddbgc = new Catalog(stationFile, catalogFile, phaFile);
 	hypodd = new HypoDD(ddbgc, ddcfg, workingDir);
 	loaded = true;
 	lastUsage = Core::Time::GMT();
@@ -1130,9 +1131,8 @@ void RTDD::Profile::relocateSingleEvent(Origin *org, OriginPtr& newOrg)
 {
 	if ( !loaded )
 	{
-		ostringstream msg;
-		msg << "Cannot relocate origin, profile " << name << " not initialized";
-		throw runtime_error(msg.str());
+		string msg = Core::stringify("Cannot relocate origin, profile %s not initialized", name);
+		throw runtime_error(msg.c_str());
 	}
 	lastUsage = Core::Time::GMT();
 	

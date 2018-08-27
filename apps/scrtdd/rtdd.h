@@ -136,12 +136,12 @@ class RTDD : public Application {
 			std::string catalogFile;
 			std::string phaFile;
 			RegionPtr   region;
-			HypoDDConfig ddcfg;
+			HDD::Config ddcfg;
 
 			private:
 			bool loaded;
 			Core::Time lastUsage;
-			HypoDDPtr hypodd;
+			HDD::HypoDDPtr hypodd;
 		};
 
 		// Cronjob struct created per event

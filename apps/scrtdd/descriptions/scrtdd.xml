@@ -40,14 +40,6 @@
 					</description>
 				</parameter>
 
-				<parameter name="messaging" type="boolean" default="true">
-					<description>
-					Enables messaging output which creates new origins.
-					The default message group is LOCATION. To change this group redefine
-					connection.primaryGroup.
-					</description>
-				</parameter>
-
 				<parameter name="manualOrigin" type="boolean" default="true">
 					<description>
 					Enables relocation of any manual origin. If false, only event preferred origins are relocated.

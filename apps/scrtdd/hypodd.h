@@ -26,11 +26,12 @@
 #include "hypodd.h"
 
 namespace Seiscomp {
+namespace HDD {
 
-DEFINE_SMARTPOINTER(BgCatalog);
+DEFINE_SMARTPOINTER(Catalog);
 
 // DD background catalog
-class BgCatalog : public Core::BaseObject {
+class Catalog : public Core::BaseObject {
 	public:
 		struct Station {
 			std::string id;
@@ -44,12 +45,7 @@ class BgCatalog : public Core::BaseObject {
 
 		struct Event {
 			std::string id;
-			int year;
-			int month;
-			int day;
-			int hour;
-			int minute;
-			double second;
+			Core::Time time;
 			double latitude;
 			double longitude;
 			double depth;   // km
@@ -66,7 +62,7 @@ class BgCatalog : public Core::BaseObject {
 			std::string id;
 			std::string event_id;
 			std::string station_id;
-			double travel_time;  // second
+			Core::Time time;
 			double weight;       // 0-1 interval
 			std::string type;
 			// seiscomp info
@@ -76,18 +72,18 @@ class BgCatalog : public Core::BaseObject {
 			std::string channelCode;
 		};
 
-		BgCatalog(const std::map<std::string,Station>& stations,
+		Catalog(const std::map<std::string,Station>& stations,
                   const std::map<std::string,Event>& events,
                   const std::multimap<std::string,Phase>& phases);
-		BgCatalog(const std::string& stationFile,
+		Catalog(const std::string& stationFile,
 		          const std::string& catalogFile,
 		          const std::string& phaFile);
-		BgCatalog(const std::vector<std::string>& ids, DataModel::DatabaseQuery* query);
-		BgCatalog(const std::string& idFile, DataModel::DatabaseQuery* query);
+		Catalog(const std::vector<std::string>& ids, DataModel::DatabaseQuery* query);
+		Catalog(const std::string& idFile, DataModel::DatabaseQuery* query);
 		const std::map<std::string,Station>& getStations() { return _stations;}
 		const std::map<std::string,Event>& getEvents() { return _events;}
 		const std::multimap<std::string,Phase>& getPhases() { return _phases;}
-		BgCatalogPtr merge(BgCatalogPtr other);
+		CatalogPtr merge(const CatalogPtr& other);
 
 	private:
 		void initFromIds(const std::vector<std::string>& ids, DataModel::DatabaseQuery* query);
@@ -99,8 +95,9 @@ class BgCatalog : public Core::BaseObject {
 		std::multimap<std::string,Phase> _phases; //indexed by event id
 };
 
-struct HypoDDConfig {
-	// catalog relocation specific: ph2dt config
+struct Config {
+
+	// ph2dt config specifig (catalog relocation only)
 	struct {
 		std::string exec = "ph2dt";
 		int minwght; // MINWGHT: min. pick weight allowed [-1]
@@ -111,35 +108,42 @@ struct HypoDDConfig {
 		int minobs;  // MINOBS: min. number of links per pair saved [8]
 		int maxobs;  // MAXOBS: max. number of links per pair saved [20]
 	} ph2dt;
-	// single event relocation specific
-	struct {
-		double maxIEdis_CT = 20.0;   // Max interevent-distance for ct (km)
-		double maxIEdis_CC = 10.0;   // Max interevent-distance for cc (km)
-		int minNumNeigh_CT = 6;      // Min neighbors in DDBGC for ct (fail if not enough)
-		int maxNumNeigh_CT = 20;     // Max neighbors in DDBGC for ct (furthest events are discarded)
-		int minNumNeigh_CC = 3;      // Min neighbors in DDBGC for cc (fail if not enough)
-		int maxNumNeigh_CC = 20;     // Max neighbors in DDBGC for cc (furthest events are discarded)
-		int minDTperEvt_CT = 6;      // Min dt to use an event for ct (Including P+S)
-		int minDTperEvt_CC = 4;      // Min pairs to use an event for cc
 
-		double maxESdis_CT = 80.0;   // Max epi-sta epidistance for ct 
-		double maxESdis_CC = 50.0;   // Max epi-sta epidistance for cc 
-		double minWeight_CT = 0.05;  // Min weight of phases to be considered CT (0-1)
-		double minWeight_CC = 0.0;   // Min weight of phases to be considered CC - Not used at the moment, maybe later, at the moment use threshold in pyXCorr.py
-		std::vector<std::string> allowedPhases = {"P", "S"};
-	} ddse;
 	// hypodd executable specific
 	struct {
 		std::string exec = "hypodd";
 		std::string ctrlFile;
 	} hypodd;
+
+	std::vector<std::string> allowedPhases = {"P", "S"};
+
+	// differential travel time specific
+	struct {
+		double minWeight = 0.05;  // Min weight of phases to be considered for CT (0-1)
+		double maxESdist = 80.0;   // Max epi-sta epidistance to be considered for ct
+		double maxIEdist = 20.0;   // Max interevent-distance for ct (km)
+		int minNumNeigh = 6;      // Min neighbors in DDBGC for ct (fail if not enough)
+		int maxNumNeigh = 20;     // Max neighbors in DDBGC for ct (furthest events are discarded)
+		int minDTperEvt = 6;      // Min dt to use an event for ct (Including P+S)
+	} dtt;
+
 	// cross correlation specific
 	struct {
+		double minWeight = 0.05;  // Min weight of phases to be considered for CC (0-1)
+		double maxESdist = 80.0;   // Max epi-sta epidistance to be considered for CC
+		double maxIEdist = 10.0;   // Max interevent-distance for cc (km)
+		int minNumNeigh = 3;      // Min neighbors in DDBGC for cc (fail if not enough)
+		int maxNumNeigh = 20;     // Max neighbors in DDBGC for cc (furthest events are discarded)
+		int minDTperEvt = 4;      // Min pairs to use an event for cc
+		double minCoef = 0.40;    // Min xcorr coefficient to keep a phase pair   (0-1)
 		std::string recordStreamURL;
 		int filterOrder = 3;
 		double filterFmin = -1;
 		double filterFmax = -1;
 		double filterFsamp = 0;
+		double timeBeforePick = 3; // secs
+		double timeAfterPick = 3;  // secs
+		double maxDelay = 1; //secs
 	} xcorr;
 };
 
@@ -147,28 +151,32 @@ DEFINE_SMARTPOINTER(HypoDD);
 
 class HypoDD : public Core::BaseObject {
 	public:
-		HypoDD(const BgCatalogPtr& input, const HypoDDConfig& cfg, std::string workingDir);
+		HypoDD(const CatalogPtr& input, const Config& cfg, const std::string& workingDir);
 		~HypoDD();
-		BgCatalogPtr relocateCatalog();
-		BgCatalogPtr relocateSingleEvent(DataModel::Origin *org);
+		CatalogPtr relocateCatalog();
+		CatalogPtr relocateSingleEvent(DataModel::Origin *org);
 		void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
 	private:
-		void createStationDatFile(std::string staFileName, BgCatalogPtr catalog=nullptr);
-		void createPhaseDatFile(std::string catFileName, BgCatalogPtr catalog=nullptr);
-		void createEventDatFile(std::string eventFileName, BgCatalogPtr catalog=nullptr);
-		void createDtCtFile(BgCatalogPtr catalog, BgCatalogPtr org, std::string dtctFile);
-		void xcorrCatalog(std::string dtctFile, std::string dtccFile);
-		void xcorrSingleEvent(BgCatalogPtr catalog, BgCatalogPtr org, std::string dtccFile);
-		void runPh2dt(std::string workingDir, std::string stationFile, std::string phaseFile);
-		void runHypodd(std::string workingDir, std::string dtccFile, std::string dtctFile,
-		               std::string eventFile, std::string stationFile);
-		BgCatalogPtr loadRelocatedCatalog(std::string ddrelocFile);
+		void createStationDatFile(const std::string& staFileName, const CatalogPtr& catalog);
+		void createPhaseDatFile(const std::string& catFileName, const CatalogPtr& catalog);
+		void createEventDatFile(const std::string& eventFileName, const CatalogPtr& catalog);
+		void createDtCtFile(const CatalogPtr& catalog, const CatalogPtr& org, const std::string& dtctFile);
+		void xcorrCatalog(const std::string& dtctFile, const std::string& dtccFile);
+		void xcorrSingleEvent(const CatalogPtr& catalog, const CatalogPtr& org, const std::string& dtccFile);
+		bool xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double maxDelay,
+              double& delayOut, double& coeffOut);
+		void runPh2dt(const std::string& workingDir, const std::string& stationFile, const std::string& phaseFile);
+		void runHypodd(const std::string& workingDir, const std::string& dtccFile, const std::string& dtctFile,
+		               const std::string& eventFile, const std::string& stationFile);
+		CatalogPtr loadRelocatedCatalog(const std::string& ddrelocFile, const CatalogPtr& originalCatalog);
 		double computeDistance(double lat1, double lon1, double depth1,
 		                       double lat2, double lon2, double depth2);
-		BgCatalogPtr selectNeighbouringEvents(BgCatalogPtr catalog, BgCatalogPtr org,
-		                                      double maxIEdis, int minNumNeigh=0,
+		CatalogPtr selectNeighbouringEvents(const CatalogPtr& catalog, const CatalogPtr& org,
+		                                      double maxESdis, double maxIEdis, int minNumNeigh=0,
 		                                      int maxNumNeigh=0, int minDTperEvt=0);
-		BgCatalogPtr extractEvent(BgCatalogPtr catalog, std::string eventId);
+		CatalogPtr extractEvent(const CatalogPtr& catalog, const std::string& eventId);
+		GenericRecordPtr getWaveform(const Catalog::Event& ev, const Catalog::Phase& ph,
+		                             std::map<std::string,GenericRecordPtr>& cache);
 		GenericRecordPtr loadWaveform(const Core::Time& starttime,
 		                              double duration,
 		                              const std::string& networkCode,
@@ -182,12 +190,13 @@ class HypoDD : public Core::BaseObject {
 		std::string generateWorkingSubDir(const DataModel::Origin *org);
 	private:
 		std::string _workingDir;
-		std::string _controlFile;
-		BgCatalogPtr _ddbgc;
-		HypoDDConfig _cfg;
+		CatalogPtr _ddbgc;
+		Config _cfg;
 		bool _workingDirCleanup = true;
+		std::map<std::string, GenericRecordPtr> _wfCache;
 };
 
+}
 }
 
 #endif
