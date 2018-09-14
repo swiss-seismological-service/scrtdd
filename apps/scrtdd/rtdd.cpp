@@ -47,7 +47,6 @@
 using namespace std;
 using namespace Seiscomp::Processing;
 using namespace Seiscomp::DataModel;
-using namespace Seiscomp::HDD;
 
 
 #define JOURNAL_ACTION           "RTDD"
@@ -1087,14 +1086,26 @@ OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 	else
 		newOrg = Origin::Create();
 
-	CreationInfo ci;
+	DataModel::CreationInfo ci;
+	ci.setAgencyID(agencyID());
+	ci.setAuthor(author());
 	ci.setCreationTime(Core::Time().gmt());
+
 	newOrg->setCreationInfo(ci);
 	newOrg->setEarthModelID(profile->earthModelID);
 	newOrg->setMethodID(profile->methodID);
 	newOrg->setEvaluationMode(EvaluationMode(AUTOMATIC));
+	newOrg->setEpicenterFixed(true);
 
-	profile->relocateSingleEvent(org, newOrg);
+	HDD::CatalogPtr relocatedOrg = profile->relocateSingleEvent(org, query());
+	// there must be only one event in the catalog, the relocated origin
+	const HDD::Catalog::Event& event = relocatedOrg->getEvents().begin()->second;
+
+	newOrg->setLatitude(DataModel::RealQuantity(event.latitude));
+	newOrg->setLongitude(DataModel::RealQuantity(event.longitude));
+	newOrg->setDepth(DataModel::RealQuantity(event.depth));
+	newOrg->setTime(DataModel::TimeQuantity(event.time));
+
 	return newOrg;
 }
 
@@ -1112,8 +1123,8 @@ void RTDD::Profile::load(string workingDir)
 {
 	if ( loaded ) return;
 	SEISCOMP_DEBUG("Loading profile %s", name.c_str());
-	CatalogPtr ddbgc = new Catalog(stationFile, catalogFile, phaFile);
-	hypodd = new HypoDD(ddbgc, ddcfg, workingDir);
+	HDD::CatalogPtr ddbgc = new HDD::Catalog(stationFile, catalogFile, phaFile);
+	hypodd = new HDD::HypoDD(ddbgc, ddcfg, workingDir);
 	loaded = true;
 	lastUsage = Core::Time::GMT();
 }
@@ -1127,7 +1138,7 @@ void RTDD::Profile::unload()
 }
 
 
-void RTDD::Profile::relocateSingleEvent(Origin *org, OriginPtr& newOrg)
+HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(Origin *org, DataModel::DatabaseQuery* query)
 {
 	if ( !loaded )
 	{
@@ -1135,14 +1146,10 @@ void RTDD::Profile::relocateSingleEvent(Origin *org, OriginPtr& newOrg)
 		throw runtime_error(msg.c_str());
 	}
 	lastUsage = Core::Time::GMT();
-	
-	hypodd->relocateSingleEvent(org);
-	
-	//newOrg->setTime = 
-	//newOrg->setLatitude = 
-	//newOrg->setLongitude =
-	//newOrg->setDepth =
-	
+
+	// FIXME: bad performance since we are not passing the cache but only the query object
+	HDD::CatalogPtr orgToRelocate = new HDD::Catalog({org->publicID()}, query);
+	return hypodd->relocateSingleEvent(orgToRelocate);
 }
 
 // End Profile class

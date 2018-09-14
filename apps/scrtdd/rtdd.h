@@ -127,7 +127,7 @@ class RTDD : public Application {
 			void unload();
 			bool isLoaded() { return loaded; }
 			Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
-			void relocateSingleEvent(DataModel::Origin *org, DataModel::OriginPtr& newOrg);
+			HDD::CatalogPtr relocateSingleEvent(DataModel::Origin *org, DataModel::DatabaseQuery* query);
 
 			std::string name;
 			std::string earthModelID;

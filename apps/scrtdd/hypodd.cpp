@@ -61,7 +61,8 @@ pid_t startExternalProcess(const vector<string> &cmdparams,
 		SEISCOMP_ERROR("Error (%d) in fork()", pid);
 		return pid;
 	}
-	else if ( pid == 0 ) // child
+
+	if ( pid == 0 ) // child
 	{
 		if ( ! workingDir.empty() )
 		{
@@ -93,10 +94,28 @@ pid_t startExternalProcess(const vector<string> &cmdparams,
 			do {
 				pid = waitpid(pid, &status, 0);
 			} while (pid == -1 && errno == EINTR);
-			return pid;
 		}
 	}
+
+	return pid;
 }
+
+
+template <class Map, class Val> typename Map::const_iterator
+searchByValue(const Map & SearchMap, const Val & SearchVal)
+{
+	typename Map::const_iterator iRet = SearchMap.end();
+	for (typename Map::const_iterator iTer = SearchMap.begin(); iTer != SearchMap.end(); iTer ++)
+	{
+		if (iTer->second == SearchVal)
+		{
+			iRet = iTer;
+			break;
+		}
+	}
+	return iRet;
+}
+
 
 }
 
@@ -133,8 +152,6 @@ Catalog::Catalog(const vector<string>& ids, DataModel::DatabaseQuery* query)
 
 void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* query)
 {
-	int eventId = 1;
-
 	for(const string& id : ids)
 	{
 		DataModel::OriginPtr org = DataModel::Origin::Cast(query->getObject(DataModel::Origin::TypeInfo(), id));
@@ -157,18 +174,20 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 
 		// Add event
 		Event ev;
-		ev.id          = eventId++;
+		ev.id          = "";
 		ev.time        = org->time().value().toGMT();
 		ev.latitude    = org->latitude();
 		ev.longitude   = org->longitude();
 		ev.depth       = org->depth(); // FIXME it `has to be km
 		ev.magnitude   = 0; // FIXME
-		ev.horiz_err   = 0;
-		ev.depth_err   = 0;
-		ev.tt_residual = 0;
+		ev.horiz_err   = 0; // FIXME 
+		ev.depth_err   = 0; // FIXME 
+		ev.tt_residual = 0; // FIXME 
 		ev.originId    = org->publicID();
 		ev.eventId     = query->getEvent(ev.originId)->publicID();
-		_events[ev.id] = ev;
+
+		addEvent(ev, false);
+		ev = searchEvent(ev)->second;
 
 		// Add Phases
 		for ( size_t i = 0; i < org->arrivalCount(); ++i )
@@ -190,36 +209,32 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 			}
 
 			// find the station
-			string netCode = pick->waveformID().networkCode();
-			string staCode = pick->waveformID().stationCode();
-			string stationId = netCode + "." + staCode;
+			Station sta;
+			sta.networkCode = pick->waveformID().networkCode();
+			sta.stationCode = pick->waveformID().stationCode();
 
 			// add station if not already there
-			if (_stations.find(stationId) == _stations.end())
+			if (searchStation(sta) == _stations.end())
 			{
-				DataModel::Station* orgArrStation = findStation(netCode, staCode, pick->time(), query);
+				DataModel::Station* orgArrStation = findStation(sta.networkCode, sta.stationCode,
+				                                                pick->time(), query);
 				if ( !orgArrStation )
 				{
 					string msg = stringify("Cannot find station for pick %s, origin %s",
 					                       orgArr->pickID(), org->publicID());
 					throw runtime_error(msg.c_str());
 				}
-				Station sta;
-				sta.id = stationId;
 				sta.latitude = orgArrStation->latitude();
 				sta.longitude = orgArrStation->longitude();
 				sta.elevation = orgArrStation->elevation();
-				sta.networkCode = netCode;
-				sta.stationCode = staCode;
-				_stations[sta.id] = sta;
+				addStation(sta, false);
 			}
-
 			// the station has to be there at this point
-			const Station& sta = _stations.find(stationId)->second;
+			sta = searchStation(sta)->second;
 
 			Phase ph;
-			ph.event_id    = ev.id;
-			ph.station_id  = sta.id;
+			ph.eventId    = ev.id;
+			ph.stationId  = sta.id;
 			ph.time        = pick->time().value().toGMT();
 			ph.weight      = orgArr->weight();
 			ph.type        = orgPh.code();
@@ -227,7 +242,7 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 			ph.stationCode =  pick->waveformID().stationCode();
 			ph.locationCode =  pick->waveformID().locationCode();
 			ph.channelCode =  pick->waveformID().channelCode();
-			_phases.insert( pair<string,Phase>(ph.event_id, ph));
+			addPhase(ph, false);
 		}
 	}
 }
@@ -264,14 +279,22 @@ DataModel::Station* Catalog::findStation(const string& netCode, const string& st
 	return nullptr;
 }
 
+
+Catalog::Catalog() : Catalog(map<string,Station>(),
+                             map<string,Event>(),
+                             multimap<string,Phase>())
+{
+}
+
 Catalog::Catalog(const map<string,Station>& stations,
-                     const map<string,Event>& events,
-                     const multimap<string,Phase>& phases)
+                 const map<string,Event>& events,
+                 const multimap<string,Phase>& phases)
 {
 	_stations = stations;
 	_events = events;
 	_phases = phases;
 }
+
 
 Catalog::Catalog(const string& stationFile, const string& catalogFile, const string& phaFile)
 {
@@ -329,14 +352,14 @@ Catalog::Catalog(const string& stationFile, const string& catalogFile, const str
 		_events[ev.id] = ev;
 	}
 
-	// required headers event_id station_id travel_time weight type
+	// required headers eventId stationId travel_time weight type
 	vector<map<string,string> >phases = CSV::readWithHeader(phaFile);
 
 	for (const auto& row : phases )
 	{
 		Phase ph;
-		ph.event_id    = row.at("event_id");
-		ph.station_id  = row.at("station_id");
+		ph.eventId    = row.at("eventId");
+		ph.stationId  = row.at("stationId");
 		ph.time        = Core::Time::FromString(row.at("isotime").c_str(), "%FT%T.%fZ"); //iso format
 		ph.weight      = std::stod(row.at("weight"));
 		ph.type        = row.at("type");
@@ -344,51 +367,102 @@ Catalog::Catalog(const string& stationFile, const string& catalogFile, const str
 		ph.stationCode   = row.at("stationCode");
 		ph.locationCode  = row.at("locationCode");
 		ph.channelCode   = row.at("channelCode");
-		_phases.emplace(ph.event_id, ph);
+		_phases.emplace(ph.eventId, ph);
 	}
 }
 
 
 CatalogPtr Catalog::merge(const CatalogPtr& other)
 {
-	map<string,Station> stations = getStations();
-	map<string,Event> events = getEvents();
-	multimap<string,Phase> phases = getPhases();
-
-	for (const auto& kv :  other->getStations() )
-	{
-		const Catalog::Station& station = kv.second;
-		if ( stations.count(station.id) == 0 )
-			stations[station.id] = station;
-	}
+	CatalogPtr mergedCatalog = new Catalog(getStations(), getEvents(), getPhases());
 
 	for (const auto& kv :  other->getEvents() )
 	{
 		const Catalog::Event& event = kv.second;
-		if ( events.count(event.id) == 0 )
-			events[event.id] = event;
+		mergedCatalog->addEvent(event, true);
+		string newEventId = mergedCatalog->searchEvent(event)->first;
 
 		auto eqlrng = other->getPhases().equal_range(event.id);
-		auto eqlrng2 = phases.equal_range(event.id);
 		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
 		{
-			const Catalog::Phase& otherPhase = it->second;
-			bool otherPhaseFound = false;
-			for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
+			Catalog::Phase phase = it->second;
+
+			auto search = other->getStations().find(phase.stationId);
+			if (search == other->getStations().end())
 			{
-				const Catalog::Phase& phase = it2->second;
-				if (phase.id == otherPhase.id)
-				{
-					otherPhaseFound = true;
-					break;
-				}
+				string msg = stringify("Malformed catalog: cannot find station '%s' "
+			                       " referenced by phase '%s'",
+			                       phase.stationId.c_str(), phase.id.c_str());
+				throw runtime_error(msg);
 			}
-			if ( ! otherPhaseFound )
-				phases.emplace(event.id, otherPhase);
+			const Catalog::Station& station = search->second;
+			mergedCatalog->addStation(station, true);
+			string newStationId = mergedCatalog->searchStation(station)->first;
+
+			phase.eventId = newEventId;
+			phase.stationId = newStationId;
+
+			mergedCatalog->addPhase(phase, true);
 		} 
 	}
 
-	return new Catalog(stations, events, phases);
+	return mergedCatalog;
+}
+
+
+map<string,Catalog::Station>::const_iterator Catalog::searchStation(const Station& station)
+{
+	return searchByValue(_stations, station);
+}
+
+
+map<string,Catalog::Event>::const_iterator Catalog::searchEvent(const Event& event)
+{
+	return searchByValue(_events, event);
+}
+
+
+map<string,Catalog::Phase>::const_iterator Catalog::searchPhase(const Phase& phase)
+{
+	return searchByValue(_phases, phase);
+}
+
+
+bool Catalog::addStation(const Station& station, bool checkDuplicate)
+{
+	if (checkDuplicate && searchStation(station) != _stations.end())
+	{
+		return false;
+	}
+	Station newStation = station;
+	newStation.id = newStation.networkCode + "." + newStation.stationCode;
+	_stations[newStation.id] = newStation;
+	return true;
+}
+
+
+bool Catalog::addEvent(const Event& event, bool checkDuplicate)
+{
+	decltype(_events)::key_type maxKey = _events.empty() ? 0 : _events.rbegin()->first;
+	if (checkDuplicate && searchEvent(event) != _events.end())
+	{
+		return false;
+	}
+	Event newEvent = event;
+	newEvent.id = std::stoi(maxKey) + 1;
+	_events[newEvent.id] = newEvent;
+	return true;
+}
+
+
+bool Catalog::addPhase(const Phase& phase, bool checkDuplicate)
+{
+	if (checkDuplicate && searchPhase(phase) != _phases.end())
+	{
+		return false;
+	}
+	_phases.emplace(phase.eventId, phase);
+	return true;
 }
 
 
@@ -491,12 +565,15 @@ CatalogPtr HypoDD::relocateCatalog()
 }
 
 
-CatalogPtr HypoDD::relocateSingleEvent(DataModel::Origin *org)
+CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& evToRelocateCat)
 {
 	SEISCOMP_DEBUG("Starting HypoDD relocator in single event mode");
 
+	// there must be only one event in the catalog, the origin to relocate
+	const Catalog::Event& evToRelocate = evToRelocateCat->getEvents().begin()->second;
+
 	// Create working directory
-	string subFolder = generateWorkingSubDir(org);
+	string subFolder = generateWorkingSubDir(evToRelocate);
 	if ( Util::pathExists(subFolder) )
 	{
 		boost::filesystem::remove_all(subFolder);
@@ -509,26 +586,25 @@ CatalogPtr HypoDD::relocateSingleEvent(DataModel::Origin *org)
 		throw runtime_error(msg);
 	}
 
-	CatalogPtr orgCatalog = new Catalog({org->publicID()}, DataModel::DatabaseQuery* query); // TODO pass query to the function?
-
 	// Select neighbouring events
-	CatalogPtr subCatalog = selectNeighbouringEvents(_ddbgc, orgCatalog, _cfg.dtt.maxESdist,
-	                                                   _cfg.dtt.maxIEdist,
-	                                                   _cfg.dtt.minNumNeigh, _cfg.dtt.maxNumNeigh,
-	                                                   _cfg.dtt.minDTperEvt);
-	CatalogPtr subCatalogFull = subCatalog->merge(orgCatalog);
+	CatalogPtr neighbourCat = selectNeighbouringEvents(_ddbgc, evToRelocate,
+	                                                 _cfg.dtt.maxESdist, _cfg.dtt.maxIEdist,
+	                                                 _cfg.dtt.minNumNeigh, _cfg.dtt.maxNumNeigh,
+	                                                 _cfg.dtt.minDTperEvt);
+	neighbourCat = neighbourCat->merge(evToRelocateCat);
+	string evToRelocateNewId = neighbourCat->searchEvent(evToRelocate)->first;
 
 	// Create station.dat for hypodd
 	string stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
-	createStationDatFile(stationFile, subCatalogFull);
+	createStationDatFile(stationFile, neighbourCat);
 
 	// Create event.dat for hypodd
 	string eventFile = (boost::filesystem::path(eventWorkingDir)/"event.dat").string();
-	createEventDatFile(eventFile, subCatalogFull);
+	createEventDatFile(eventFile, neighbourCat);
 
 	// Create differential travel times file (dt.ct) for hypodd
 	string dtctFile = (boost::filesystem::path(eventWorkingDir)/"dt.ct").string();
-	createDtCtFile(subCatalog, orgCatalog, dtctFile);
+	createDtCtFile(neighbourCat, evToRelocateNewId, dtctFile);
 
 	// run hypodd
 	// input : dt.cc dt.ct event.sel station.sel hypoDD.inp
@@ -537,8 +613,8 @@ CatalogPtr HypoDD::relocateSingleEvent(DataModel::Origin *org)
 
 	// Load the relocated origin from Hypodd
 	string ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
-	CatalogPtr relocatedCatalog = loadRelocatedCatalog(ddrelocFile, subCatalogFull);
-	CatalogPtr relocatedOrigin = extractEvent(relocatedCatalog,  );  // TODO, event id
+	CatalogPtr relocatedCatalog = loadRelocatedCatalog(ddrelocFile, neighbourCat);
+	CatalogPtr relocatedEvCat = extractEvent(relocatedCatalog, evToRelocateNewId);
 
 	if ( _workingDirCleanup )
 	{
@@ -553,27 +629,29 @@ CatalogPtr HypoDD::relocateSingleEvent(DataModel::Origin *org)
 	}
 
 	// Select neighbouring events from the relocated origin
-	subCatalog = selectNeighbouringEvents(_ddbgc, relocatedOrigin, _cfg.xcorr.maxESdist,
+	const Catalog::Event& relocatedEv = relocatedEvCat->getEvents().begin()->second;
+	neighbourCat = selectNeighbouringEvents(_ddbgc, relocatedEv, _cfg.xcorr.maxESdist,
 	                                      _cfg.xcorr.maxIEdist,
 	                                      _cfg.xcorr.minNumNeigh, _cfg.xcorr.maxNumNeigh,
 	                                      _cfg.xcorr.minDTperEvt);
-	subCatalogFull = subCatalog->merge(relocatedOrigin);
+	neighbourCat = neighbourCat->merge(relocatedEvCat);
+	string relocatedEvNewId = neighbourCat->searchEvent(relocatedEv)->first;
 
 	// Create station.dat for hypodd
 	stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
-	createStationDatFile(stationFile, subCatalogFull);
+	createStationDatFile(stationFile, neighbourCat);
 
 	// Create event.dat for hypodd
 	eventFile = (boost::filesystem::path(eventWorkingDir)/"event.dat").string();
-	createEventDatFile(eventFile, subCatalogFull);
+	createEventDatFile(eventFile, neighbourCat);
 
 	// Create differential travel times file (dt.ct) for hypodd
 	dtctFile = (boost::filesystem::path(eventWorkingDir)/"dt.ct").string();
-	createDtCtFile(subCatalog, relocatedOrigin, dtctFile);
+	createDtCtFile(neighbourCat, relocatedEvNewId, dtctFile);
 
 	// Create cross correlated differential travel times file (dt.cc) for hypodd
 	string dtccFile = (boost::filesystem::path(eventWorkingDir)/"dt.cc").string();
-	xcorrSingleEvent(subCatalog, relocatedOrigin, dtccFile);
+	xcorrSingleEvent(neighbourCat, relocatedEvNewId, dtccFile);
 
 	// run hypodd
 	// input : dt.cc dt.ct event.sel station.sel hypoDD.inp
@@ -582,15 +660,15 @@ CatalogPtr HypoDD::relocateSingleEvent(DataModel::Origin *org)
 
 	// Load the relocated origin from Hypodd
 	ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
-	relocatedCatalog = loadRelocatedCatalog(ddrelocFile, subCatalogFull);
-	relocatedOrigin = extractEvent(relocatedCatalog, ); // TODO, event id
+	relocatedCatalog = loadRelocatedCatalog(ddrelocFile, neighbourCat);
+	relocatedEvCat = extractEvent(relocatedCatalog, relocatedEvNewId);
 
 	if ( _workingDirCleanup )
 	{
 		boost::filesystem::remove_all(eventWorkingDir);
 	}
 
-	return relocatedOrigin;
+	return relocatedEvCat;
 }
 
 
@@ -688,7 +766,7 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogPtr& c
 			}
 
 			outStream << stringify("%s %.6f %.2f %s\n",
-			                      phase.station_id, travel_time,
+			                      phase.stationId, travel_time,
 			                      phase.weight, phase.type.c_str());
 		}
 	}
@@ -818,15 +896,13 @@ double HypoDD::computeDistance(double lat1, double lon1, double depth1,
 
 
 CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
-                                              const CatalogPtr& org,
-                                              double maxESdis,
-                                              double maxIEdis,
-                                              int minNumNeigh,
-                                              int maxNumNeigh,
-                                              int minDTperEvt)
+                                            const Catalog::Event& refEv,
+                                            double maxESdis,
+                                            double maxIEdis,
+                                            int minNumNeigh,
+                                            int maxNumNeigh,
+                                            int minDTperEvt)
 {
-	const Catalog::Event& refEv = org->getEvents().begin()->second;
-
 	map<double,string> eventDistances; // distance, eventid
 
 	// loop through every event in the catalog and select the ones within maxIEdis distance
@@ -882,11 +958,12 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
 		{
 			const Catalog::Phase& phase = it->second;
-			auto search = catalog->getStations().find(phase.station_id);
+			auto search = catalog->getStations().find(phase.stationId);
 			if (search == catalog->getStations().end())
 			{
-				string msg = "Malformed catalog: cannot find station " + phase.station_id +
-				              " referenced by phase " + phase.id + " for event " + event.id;
+				string msg = stringify("Malformed catalog: cannot find station '%s' "
+			                       " referenced by phase '%s' for event",
+			                       phase.stationId.c_str(), phase.id.c_str(),  event.id.c_str());
 				throw runtime_error(msg);
 			}
 
@@ -978,36 +1055,44 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const string& ddrelocFile, const Catalog
 
 CatalogPtr HypoDD::extractEvent(const CatalogPtr& catalog, const string& eventId)
 {
-	map<string,Catalog::Station> stations;
-	map<string,Catalog::Event> events;
-	multimap<string,Catalog::Phase> phases;
+	CatalogPtr eventToExtract = new Catalog();
 
-	for (const auto& kv : catalog->getEvents() )
+	auto search = catalog->getEvents().find(eventId);
+	if (search == catalog->getEvents().end())
 	{
-		const Catalog::Event& event = kv.second;
-
-		if ( event.id == eventId )
-		{
-			events[event.id] = event;
-			auto eqlrng = catalog->getPhases().equal_range(event.id);
-			for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-			{
-				const Catalog::Phase& phase = it->second;
-				phases.emplace(event.id, phase);
-
-				auto search = catalog->getStations().find(phase.station_id);
-				if (search == catalog->getStations().end())
-					throw runtime_error("Malformed catalog: cannot find station " + phase.station_id
-					                    + " referenced by phase " + phase.id + " for event " + event.id);
-
-				const Catalog::Station& station = search->second;
-				stations[station.id] = station;
-			}
-			break;
-		}
+		string msg = stringify("Cannot find event id '%s' in the catalog.", eventId.c_str());
+		throw runtime_error(msg);
 	}
 
-	return new Catalog(stations, events, phases);
+	const Catalog::Event& event = search->second;
+	eventToExtract->addEvent(event, false);
+
+	string newEventId = eventToExtract->searchEvent(event)->first;
+
+	auto eqlrng = catalog->getPhases().equal_range(event.id);
+	for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+	{
+		Catalog::Phase phase = it->second;
+
+		auto search = catalog->getStations().find(phase.stationId);
+		if (search == catalog->getStations().end())
+		{
+			string msg = stringify("Malformed catalog: cannot find station '%s' "
+			                       " referenced by phase '%s'",
+			                       phase.stationId.c_str(), phase.id.c_str());
+			throw runtime_error(msg);
+		}
+		const Catalog::Station& station = search->second;
+		eventToExtract->addStation(station, true);
+		string newStationId = eventToExtract->searchStation(station)->first;
+
+		phase.eventId = newEventId;
+		phase.stationId = newStationId;
+
+		eventToExtract->addPhase(phase, true);
+	} 
+
+	return eventToExtract;
 }
 
 
@@ -1021,21 +1106,34 @@ CatalogPtr HypoDD::extractEvent(const CatalogPtr& catalog, const string& eventId
  * STA, TT1, TT2, WGHT, PHA
  * 
  */
-void HypoDD::createDtCtFile(const CatalogPtr& catalog, const CatalogPtr& org, const string& dtctFile)
+void HypoDD::createDtCtFile(const CatalogPtr& catalog,
+                            const string& evToRelocateId,
+                            const string& dtctFile)
 {
 	SEISCOMP_DEBUG("Creating Catalog travel time file %s", dtctFile.c_str());
-
-	const Catalog::Event& refEv = org->getEvents().begin()->second;
 
 	ofstream outStream;
 	outStream.open(dtctFile);
 	if ( !outStream.is_open() )
 		throw runtime_error("Cannot create file " + dtctFile);
 
+	auto search = catalog->getEvents().find(evToRelocateId);
+	if (search == catalog->getEvents().end())
+	{
+		string msg = stringify("Cannot find event id '%s' in the catalog.",
+		                       evToRelocateId.c_str());
+		throw runtime_error(msg);
+	}
+
+	const Catalog::Event& refEv = search->second;
+
 	// loop through catalog events
 	for (const auto& kv : catalog->getEvents() )
 	{
 		const Catalog::Event& event = kv.second;
+
+		if (event.id == evToRelocateId)
+			continue;
 
 		int dtCount = 0;
 		stringstream evStream;
@@ -1049,15 +1147,15 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog, const CatalogPtr& org, co
 			if (phase.weight < _cfg.dtt.minWeight)
 				continue;
 
-			// loop through reference event (org to relocate) phases
-			auto eqlrng2 = org->getPhases().equal_range(refEv.id);
+			// loop through reference event phases
+			auto eqlrng2 = catalog->getPhases().equal_range(refEv.id);
 			for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
 			{
 				const Catalog::Phase& refPhase = it2->second;
 				if (refPhase.weight < _cfg.dtt.minWeight)
 					continue;
 
-				if (phase.station_id == refPhase.station_id && 
+				if (phase.stationId == refPhase.stationId && 
 				    phase.type == refPhase.type)
 				{
 					double ref_travel_time = refPhase.time - refEv.time;
@@ -1075,7 +1173,7 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog, const CatalogPtr& org, co
 						continue; 
 					}
 					evStream << stringify("%s %.6f %.6f %.2f %s\n",
-					                      refPhase.station_id, ref_travel_time,
+					                      refPhase.stationId, ref_travel_time,
 					                      travel_time, 0., refPhase.type.c_str());
 					dtCount++;
 				}
@@ -1165,7 +1263,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 				const Catalog::Phase& phase = it->second;
 				if (phase.weight < _cfg.xcorr.minWeight)
 					continue;
-				if (phase.station_id != stationId ||
+				if (phase.stationId != stationId ||
 				    phase.type != phaseType)
 					continue;
 				tr1 = getWaveform(*ev1, phase, _wfCache);
@@ -1178,7 +1276,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 				const Catalog::Phase& phase = it->second;
 				if (phase.weight < _cfg.xcorr.minWeight)
 					continue;
-				if (phase.station_id != stationId ||
+				if (phase.stationId != stationId ||
 				    phase.type != phaseType)
 					continue;
 				tr1 = getWaveform(*ev2, phase, _wfCache);
@@ -1235,7 +1333,9 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
  * STA, DT, WGHT, PHA
  *
  */
-void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog, const CatalogPtr& org, const string& dtccFile)
+void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
+                              const string& evToRelocateId,
+                              const string& dtccFile)
 {
 	SEISCOMP_DEBUG("Creating Cross correlation differential time file %s", dtccFile.c_str());
 
@@ -1244,7 +1344,14 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog, const CatalogPtr& org, 
 	if ( !outStream.is_open() )
 		throw runtime_error("Cannot create file " + dtccFile);
 
-	const Catalog::Event& refEv = org->getEvents().begin()->second;
+	auto search = catalog->getEvents().find(evToRelocateId);
+	if (search == catalog->getEvents().end())
+	{
+		string msg = stringify("Cannot find event id '%s' in the catalog.",
+		                       evToRelocateId.c_str());
+		throw runtime_error(msg);
+	}
+	const Catalog::Event& refEv = search->second;
 
 	map<string, GenericRecordPtr> tmpWfCache;
 
@@ -1252,6 +1359,9 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog, const CatalogPtr& org, 
 	for (const auto& kv : catalog->getEvents() )
 	{
 		const Catalog::Event& event = kv.second;
+
+		if (event.id == evToRelocateId)
+			continue;
 
 		int dtCount = 0;
 		stringstream evStream;
@@ -1267,15 +1377,15 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog, const CatalogPtr& org, 
 
 			GenericRecordPtr trace = getWaveform(event, phase, _wfCache);
 
-			// loop through reference event (org to relocate) phases
-			auto eqlrng2 = org->getPhases().equal_range(refEv.id);
+			// loop through reference event phases
+			auto eqlrng2 = catalog->getPhases().equal_range(refEv.id);
 			for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
 			{
 				const Catalog::Phase& refPhase = it2->second;
 				if (refPhase.weight < _cfg.xcorr.minWeight)
 					continue;
 
-				if (phase.station_id == refPhase.station_id && 
+				if (phase.stationId == refPhase.stationId && 
 				    phase.type == refPhase.type)
 				{
 					GenericRecordPtr refTrace = getWaveform(refEv, refPhase, tmpWfCache);
@@ -1294,7 +1404,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog, const CatalogPtr& org, 
 						continue;
 
 					evStream << stringify("%s %.6f %.4f %s\n",
-					                      refPhase.station_id.c_str(),
+					                      refPhase.stationId.c_str(),
 					                      xcorr_dt, xcorr_coeff,
 					                      refPhase.type.c_str());
 					dtCount++;
@@ -1595,25 +1705,23 @@ void HypoDD::filter(GenericRecord &trace, bool demeaning,
 // Creates dir name from event. This id has the following format:
 // OriginTime_Lat_Lon_CreationDate
 // eg 20111210115715_46343_007519_20111210115740
-string HypoDD::generateWorkingSubDir(const DataModel::Origin* org)
+string HypoDD::generateWorkingSubDir(const Catalog::Event& ev)
 {
 	char buf[20];
 
-	if ( org == nullptr ) return "";
-
 	string id;
-	id = org->time().value().toString("%Y%m%d%H%M%S");
+	id = ev.time.toString("%Y%m%d%H%M%S");
 
 	id += "_";
 
 	// Latitude
-	sprintf(buf, "%05d", int(org->latitude().value()*1000));
+	sprintf(buf, "%05d", int(ev.latitude*1000));
 	id += buf;
 
 	id += "_";
 
 	// Longitude
-	sprintf(buf, "%06d", int(org->longitude().value()*1000));
+	sprintf(buf, "%06d", int(ev.longitude*1000));
 	id += buf;
 
 	id += "_";

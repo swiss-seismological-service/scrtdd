@@ -38,13 +38,22 @@ class Catalog : public Core::BaseObject {
 			double latitude;
 			double longitude;
 			double elevation; // km
-			// seiscomp info
 			std::string networkCode;
 			std::string stationCode;
+			// this equality works between multiple catalogs
+			bool operator==(const Station& other) const
+			{
+			 return (networkCode == other.networkCode) &&
+			        (stationCode == other.stationCode);
+			}
+			bool operator!=(const Station& other) const
+			{
+				return !operator==(other);
+			}
 		};
 
 		struct Event {
-			std::string id;
+			std::string id; // makes it unique in the catalog 
 			Core::Time time;
 			double latitude;
 			double longitude;
@@ -53,25 +62,51 @@ class Catalog : public Core::BaseObject {
 			double horiz_err;
 			double depth_err;
 			double tt_residual;
-			// seiscomp info
 			std::string originId;
 			std::string eventId;
+			// equality works between multiple catalogs
+			bool operator==(const Event& other) const
+			{
+			 return (time == other.time) &&
+			        (latitude == other.latitude) &&
+			        (longitude == other.longitude) &&
+			        (depth == other.depth) &&
+			        (magnitude == other.magnitude);
+			}
+			bool operator!=(const Event& other) const
+			{
+				return !operator==(other);
+			}
 		};
 
 		struct Phase {
-			std::string id;
-			std::string event_id;
-			std::string station_id;
+			std::string id; // makes it unique in the catalog 
+			std::string eventId;
+			std::string stationId;
 			Core::Time time;
-			double weight;       // 0-1 interval
 			std::string type;
-			// seiscomp info
+			double weight;       // 0-1 interval
 			std::string networkCode;
 			std::string stationCode;
 			std::string locationCode;
 			std::string channelCode;
+			// equality works between multiple catalogs
+			bool operator==(const Phase& other) const
+			{
+				return (time == other.time) &&
+				       (type == other.type) &&
+				       (networkCode == other.networkCode) &&
+				       (stationCode == other.stationCode) &&
+				       (locationCode == other.locationCode) &&
+				       (channelCode == other.channelCode);
+			}
+			bool operator!=(const Phase& other) const
+			{
+				return !operator==(other);
+			}
 		};
 
+		Catalog();
 		Catalog(const std::map<std::string,Station>& stations,
                   const std::map<std::string,Event>& events,
                   const std::multimap<std::string,Phase>& phases);
@@ -80,10 +115,20 @@ class Catalog : public Core::BaseObject {
 		          const std::string& phaFile);
 		Catalog(const std::vector<std::string>& ids, DataModel::DatabaseQuery* query);
 		Catalog(const std::string& idFile, DataModel::DatabaseQuery* query);
+
+		CatalogPtr merge(const CatalogPtr& other);
+
 		const std::map<std::string,Station>& getStations() { return _stations;}
 		const std::map<std::string,Event>& getEvents() { return _events;}
 		const std::multimap<std::string,Phase>& getPhases() { return _phases;}
-		CatalogPtr merge(const CatalogPtr& other);
+
+		std::map<std::string,Station>::const_iterator searchStation(const Station&);
+		std::map<std::string,Event>::const_iterator searchEvent(const Event& );
+		std::map<std::string,Phase>::const_iterator searchPhase(const Phase&);
+
+		bool addStation(const Station&, bool checkDuplicate);
+		bool addEvent(const Event&, bool checkDuplicate);
+		bool addPhase(const Phase&, bool checkDuplicate);
 
 	private:
 		void initFromIds(const std::vector<std::string>& ids, DataModel::DatabaseQuery* query);
@@ -154,15 +199,19 @@ class HypoDD : public Core::BaseObject {
 		HypoDD(const CatalogPtr& input, const Config& cfg, const std::string& workingDir);
 		~HypoDD();
 		CatalogPtr relocateCatalog();
-		CatalogPtr relocateSingleEvent(DataModel::Origin *org);
+		CatalogPtr relocateSingleEvent(const CatalogPtr& orgToRelocate);
 		void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
 	private:
 		void createStationDatFile(const std::string& staFileName, const CatalogPtr& catalog);
 		void createPhaseDatFile(const std::string& catFileName, const CatalogPtr& catalog);
 		void createEventDatFile(const std::string& eventFileName, const CatalogPtr& catalog);
-		void createDtCtFile(const CatalogPtr& catalog, const CatalogPtr& org, const std::string& dtctFile);
+		void createDtCtFile(const CatalogPtr& catalog,
+		                    const std::string& evToRelocateId,
+		                    const std::string& dtctFile);
 		void xcorrCatalog(const std::string& dtctFile, const std::string& dtccFile);
-		void xcorrSingleEvent(const CatalogPtr& catalog, const CatalogPtr& org, const std::string& dtccFile);
+		void xcorrSingleEvent(const CatalogPtr& catalog,
+		                      const std::string& evToRelocateId,
+		                      const std::string& dtccFile);
 		bool xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double maxDelay,
               double& delayOut, double& coeffOut);
 		void runPh2dt(const std::string& workingDir, const std::string& stationFile, const std::string& phaseFile);
@@ -171,7 +220,7 @@ class HypoDD : public Core::BaseObject {
 		CatalogPtr loadRelocatedCatalog(const std::string& ddrelocFile, const CatalogPtr& originalCatalog);
 		double computeDistance(double lat1, double lon1, double depth1,
 		                       double lat2, double lon2, double depth2);
-		CatalogPtr selectNeighbouringEvents(const CatalogPtr& catalog, const CatalogPtr& org,
+		CatalogPtr selectNeighbouringEvents(const CatalogPtr& catalog, const Catalog::Event& refEv,
 		                                      double maxESdis, double maxIEdis, int minNumNeigh=0,
 		                                      int maxNumNeigh=0, int minDTperEvt=0);
 		CatalogPtr extractEvent(const CatalogPtr& catalog, const std::string& eventId);
@@ -187,7 +236,7 @@ class HypoDD : public Core::BaseObject {
 		bool trim(GenericRecord &trace, const Core::TimeWindow& tw);
 		void filter(GenericRecord &trace, bool demeaning=true,
                     int order=3, double fmin=-1, double fmax=-1, double fsamp=0);
-		std::string generateWorkingSubDir(const DataModel::Origin *org);
+		std::string generateWorkingSubDir(const Catalog::Event& ev);
 	private:
 		std::string _workingDir;
 		CatalogPtr _ddbgc;
