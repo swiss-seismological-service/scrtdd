@@ -465,6 +465,38 @@ bool Catalog::addPhase(const Phase& phase, bool checkDuplicate)
 	return true;
 }
 
+void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile)
+{
+	ofstream evStream(eventFile);
+	evStream << "id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,tt_residual";
+	for (const auto& kv : _events )
+	{
+		const Catalog::Event& ev = kv.second;
+		evStream << ev.id << "," << ev.time.iso() << "," << ev.latitude << ","
+		         << ev.longitude << "," << ev.depth << "," << ev.magnitude << ","
+		         << ev.horiz_err << "," << ev.depth_err << "," << ev.tt_residual << endl;
+	}
+
+	ofstream phStream(phaseFile);
+	phStream << "eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,channelCode";
+	for (const auto& kv : _phases )
+	{
+		const Catalog::Phase& ph = kv.second;
+		phStream << ph.eventId << "," << ph.stationId << "," << ph.time.iso() << ","
+		         << ph.weight << "," << ph.type << "," << ph.networkCode << ","
+		         << ph.stationCode << "," << ph.locationCode << "," << ph.channelCode << endl;
+	}
+
+	ofstream staStream(stationFile);
+	staStream << "id,latitude,longitude,elevation,networkCode,stationCode";
+	for (const auto& kv : _stations )
+	{
+		const Catalog::Station& sta = kv.second;
+		staStream << sta.id << "," << sta.latitude << "," << sta.longitude << ","
+		          << sta.elevation << "," << sta.networkCode << "," << sta.stationCode << endl;
+	}
+	
+}
 
 HypoDD::HypoDD(const CatalogPtr& input, const Config& cfg, const string& workingDir)
 {

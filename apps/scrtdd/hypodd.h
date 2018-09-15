@@ -141,6 +141,10 @@ class Catalog : public Core::BaseObject {
 		bool addEvent(const Event&, bool checkDuplicate);
 		bool addPhase(const Phase&, bool checkDuplicate);
 
+		void writeToFile(std::string eventFile,
+		                 std::string phaseFile,
+		                 std::string stationFile);
+
 	private:
 		void initFromIds(const std::vector<std::string>& ids, DataModel::DatabaseQuery* query);
 		DataModel::Station* findStation(const std::string& netCode, const std::string& staCode,
