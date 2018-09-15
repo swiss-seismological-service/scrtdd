@@ -50,6 +50,10 @@ class Catalog : public Core::BaseObject {
 			{
 				return !operator==(other);
 			}
+			operator std::string() const
+			{
+				return id;
+			}
 		};
 
 		struct Event {
@@ -62,8 +66,6 @@ class Catalog : public Core::BaseObject {
 			double horiz_err;
 			double depth_err;
 			double tt_residual;
-			std::string originId;
-			std::string eventId;
 			// equality works between multiple catalogs
 			bool operator==(const Event& other) const
 			{
@@ -77,10 +79,13 @@ class Catalog : public Core::BaseObject {
 			{
 				return !operator==(other);
 			}
+			operator std::string() const
+			{
+				return id;
+			}
 		};
 
 		struct Phase {
-			std::string id; // makes it unique in the catalog 
 			std::string eventId;
 			std::string stationId;
 			Core::Time time;
@@ -103,6 +108,12 @@ class Catalog : public Core::BaseObject {
 			bool operator!=(const Phase& other) const
 			{
 				return !operator==(other);
+			}
+			operator std::string() const
+			{
+				return type + " " + time.iso() + " " + networkCode + "." +
+				       stationCode + "." + locationCode + "." + channelCode + 
+				       " evId " + eventId  + " staId " + stationId;
 			}
 		};
 

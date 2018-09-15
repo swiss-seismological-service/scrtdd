@@ -179,12 +179,12 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 		ev.latitude    = org->latitude();
 		ev.longitude   = org->longitude();
 		ev.depth       = org->depth(); // FIXME it `has to be km
-		ev.magnitude   = 0; // FIXME
 		ev.horiz_err   = 0; // FIXME 
 		ev.depth_err   = 0; // FIXME 
 		ev.tt_residual = 0; // FIXME 
-		ev.originId    = org->publicID();
-		ev.eventId     = query->getEvent(ev.originId)->publicID();
+		DataModel::EventPtr dmEvent =  query->getEvent(org->publicID());
+		DataModel::MagnitudePtr mag = DataModel::Magnitude::Cast(query->getObject(DataModel::Magnitude::TypeInfo(), dmEvent->preferredMagnitudeID()));
+		ev.magnitude   = mag->magnitude();
 
 		addEvent(ev, false);
 		ev = searchEvent(ev)->second;
@@ -197,14 +197,16 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 			const DataModel::Phase& orgPh = orgArr->phase();
 			if (orgPh.code() != "P" && orgPh.code() != "S")
 			{
-				SEISCOMP_ERROR("Phase is neither P nor S, skip it (origin %s)", org->publicID().c_str());
+				SEISCOMP_ERROR("Phase is neither P nor S, skip it (arrival %zu of origin '%s')",
+				               i, org->publicID().c_str());
 				continue;
 			}
 
 			DataModel::PickPtr pick = DataModel::Pick::Cast(query->getObject(DataModel::Pick::TypeInfo(), orgArr->pickID()));
 			if ( !pick )
 			{
-				SEISCOMP_ERROR("Cannot load pick (%s) (origin %s)", orgArr->pickID().c_str(), org->publicID().c_str());
+				SEISCOMP_ERROR("Cannot load pick '%s' (origin %s)",
+				               orgArr->pickID().c_str(), org->publicID().c_str());
 				continue;
 			}
 
@@ -220,7 +222,7 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 				                                                pick->time(), query);
 				if ( !orgArrStation )
 				{
-					string msg = stringify("Cannot find station for pick %s, origin %s",
+					string msg = stringify("Cannot find station for arrival '%s' (origin '%s')",
 					                       orgArr->pickID(), org->publicID());
 					throw runtime_error(msg.c_str());
 				}
@@ -347,8 +349,6 @@ Catalog::Catalog(const string& stationFile, const string& catalogFile, const str
 		ev.horiz_err   = std::stod(row.at("horiz_err"));
 		ev.depth_err   = std::stod(row.at("depth_err"));
 		ev.tt_residual = std::stod(row.at("tt_residual"));
-		ev.originId    = row.at("originId");
-		ev.eventId     = row.at("eventId");
 		_events[ev.id] = ev;
 	}
 
@@ -392,7 +392,7 @@ CatalogPtr Catalog::merge(const CatalogPtr& other)
 			{
 				string msg = stringify("Malformed catalog: cannot find station '%s' "
 			                       " referenced by phase '%s'",
-			                       phase.stationId.c_str(), phase.id.c_str());
+			                       phase.stationId.c_str(), string(phase).c_str());
 				throw runtime_error(msg);
 			}
 			const Catalog::Station& station = search->second;
@@ -742,7 +742,7 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogPtr& c
 		int year, month, day, hour, min, sec, usec;
 		if ( ! event.time.get(&year, &month, &day, &hour, &min, &sec, &usec) )
 		{
-			SEISCOMP_ERROR("Cannot convert origin time for origin %s", event.originId.c_str());
+			SEISCOMP_WARNING("Cannot convert origin time for event '%s'", string(event).c_str());
 			continue;
 		}
 
@@ -760,8 +760,8 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogPtr& c
 			double travel_time = phase.time - event.time;
 			if (travel_time < 0)
 			{
-				SEISCOMP_ERROR("Ignoring pick (%s) with negative travel time (origin %s)",
-				               phase.id.c_str(), event.originId.c_str());
+				SEISCOMP_ERROR("Ignoring phase '%s' with negative travel time (event '%s')",
+				               string(phase).c_str(), string(event).c_str());
 				continue; 
 			}
 
@@ -803,7 +803,7 @@ void HypoDD::createEventDatFile(const string& eventFileName, const CatalogPtr& c
 		int year, month, day, hour, min, sec, usec;
 		if ( ! event.time.get(&year, &month, &day, &hour, &min, &sec, &usec) )
 		{
-			SEISCOMP_ERROR("Cannot convert origin time for origin %s", event.originId.c_str());
+			SEISCOMP_WARNING("Cannot convert origin time for event '%s'", string(event).c_str());
 			continue;
 		}
 
@@ -921,7 +921,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
 		if (minDTperEvt > 0 && std::distance(eqlrng.first, eqlrng.second) < minDTperEvt)
 		{
-			SEISCOMP_DEBUG("Skipping event %s, not enough phases (minDTperEvt)", event.id.c_str());
+			SEISCOMP_DEBUG("Skipping event '%s', not enough phases (minDTperEvt)",
+			               string(event).c_str());
 			continue;
 		}
 
@@ -962,8 +963,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 			if (search == catalog->getStations().end())
 			{
 				string msg = stringify("Malformed catalog: cannot find station '%s' "
-			                       " referenced by phase '%s' for event",
-			                       phase.stationId.c_str(), phase.id.c_str(),  event.id.c_str());
+			                       " referenced by phase '%s' for event '%s'",
+			                       phase.stationId.c_str(), string(phase).c_str(),  event.id.c_str());
 				throw runtime_error(msg);
 			}
 
@@ -1022,7 +1023,7 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const string& ddrelocFile, const Catalog
 		if (fields.size() != 24)
 		{
 			SEISCOMP_WARNING("Skipping unrecognized line from '%s' (line='%s')",
-			               ddrelocFile.c_str(), row.c_str());
+			                 ddrelocFile.c_str(), row.c_str());
 			continue;
 		}
 
@@ -1078,8 +1079,8 @@ CatalogPtr HypoDD::extractEvent(const CatalogPtr& catalog, const string& eventId
 		if (search == catalog->getStations().end())
 		{
 			string msg = stringify("Malformed catalog: cannot find station '%s' "
-			                       " referenced by phase '%s'",
-			                       phase.stationId.c_str(), phase.id.c_str());
+			                       " referenced by phase '%s' for event '%s'",
+			                       phase.stationId.c_str(), string(phase).c_str(), string(event).c_str());
 			throw runtime_error(msg);
 		}
 		const Catalog::Station& station = search->second;
@@ -1161,15 +1162,15 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 					double ref_travel_time = refPhase.time - refEv.time;
 					if (ref_travel_time < 0)
 					{
-						SEISCOMP_ERROR("Ignoring pick (%s) with negative travel time (origin %s)",
-						               refPhase.id.c_str(), refEv.originId.c_str());
+						SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
+						               string(refPhase).c_str(), string(refEv).c_str());
 						continue; 
 					}
 					double travel_time = phase.time - event.time;
 					if (travel_time < 0)
 					{
-						SEISCOMP_ERROR("Ignoring pick (%s) with negative travel time (origin %s)",
-						               phase.id.c_str(), event.originId.c_str());
+						SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
+						               string(phase).c_str(), string(event).c_str());
 						continue; 
 					}
 					evStream << stringify("%s %.6f %.6f %.2f %s\n",
@@ -1232,7 +1233,8 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 			if (search1 == events.end() || search2 == events.end())
 			{
 				string msg = stringify("Relocated catalog contains events ids (%s or %s) "
-				                       "that are not present in the original catalog.");
+				                       "that are not present in the original catalog.",
+				                       string(*ev1).c_str(), string(*ev2).c_str());
 				throw runtime_error(msg.c_str());
 			}
 			ev1 = &search1->second;
@@ -1284,7 +1286,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 
 			if ( !tr1 || !tr2)
 			{
-				SEISCOMP_ERROR("Cannot load waveforms. Skipping line '%s' from file '%s')",
+				SEISCOMP_WARNING("Cannot load waveforms. Skipping line '%s' from file '%s')",
 				               row.c_str(), dtctFile.c_str());
 				continue;
 			}
@@ -1292,9 +1294,9 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 			double xcorr_coeff, xcorr_dt;
 			if ( ! xcorr(tr1, tr2, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
 			{
-				SEISCOMP_ERROR("Cannot cross correlate traces for events %s and %s, "
+				SEISCOMP_WARNING("Cannot cross correlate traces for events '%s' and '%s', "
 				               "station %s, phase %s. Skipping them.",
-				               ev1->id.c_str(), ev2->id.c_str(),
+				               string(*ev1).c_str(), string(*ev2).c_str(),
 				               stationId.c_str(), phaseType.c_str() );
 				continue;
 			}
@@ -1393,10 +1395,10 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 					double xcorr_coeff, xcorr_dt;
 					if ( ! xcorr(trace, refTrace, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
 					{
-						SEISCOMP_ERROR("Cannot cross correlate traces ev./ph. %s/%s - %s/%s,"
-						               "skipping them.",
-						               refEv.id.c_str(), refPhase.id.c_str(),
-						               event.id.c_str(), phase.id.c_str() );
+						SEISCOMP_WARNING("Cannot cross correlate traces: ev1 '%s' ph1 '%s' "
+						               "with ev2 '%s' ph2 '%s', skipping them.",
+						               string(refEv).c_str(), string(refPhase).c_str(),
+						               string(event).c_str(), string(phase).c_str() );
 						continue;
 					}
 
@@ -1426,7 +1428,7 @@ HypoDD::xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double m
 
 	if (tr1->samplingFrequency() != tr2->samplingFrequency())
 	{
-		SEISCOMP_ERROR("Cannot cross correlate traces with different sampling"
+		SEISCOMP_WARNING("Cannot cross correlate traces with different sampling"
 					   " freq (%f!=%f), skip them.",
 					   tr1->samplingFrequency(), tr2->samplingFrequency());
 		return false;
