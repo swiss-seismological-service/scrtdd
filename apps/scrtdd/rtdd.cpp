@@ -63,15 +63,12 @@ namespace {
 
 using Seiscomp::Core::fromString;
 
-// Global region class defining a rectangular region
+// Rectangular region class defining a rectangular region
 // by latmin, lonmin, latmax, lonmax.
-struct GlobalRegion : public Seiscomp::RTDD::Region
+struct RectangularRegion : public Seiscomp::RTDD::Region
 {
-	GlobalRegion() {
-		isEmpty = true;
+	RectangularRegion() {
 	}
-
-	bool isGlobal() const { return isEmpty; }
 
 	bool init(const Application* app, const string &prefix) {
 		vector<string> region;
@@ -125,96 +122,52 @@ struct GlobalRegion : public Seiscomp::RTDD::Region
 	double latMax, lonMax;
 };
 
+// Rectangular region class defining a circular region
+// by lat, lon, radius.
+struct CircularRegion : public Seiscomp::RTDD::Region
+{
+	CircularRegion() {
+	}
 
-// Class that implementes the SIMPLE transformation as documented
-// here: http://alomax.free.fr/nlloc/
-// It expects the region to be a grid 
-struct SimpleTransformedRegion : public Seiscomp::RTDD::Region {
 	bool init(const Application* app, const string &prefix) {
-		vector<string> list;
+		vector<string> region;
+		try { region = app->configGetStrings(prefix + "region"); }
+		catch ( ... ) {}
 
-		try { list = app->configGetStrings(prefix + "origin"); }
-		catch ( ... ) {
-			SEISCOMP_ERROR("%s: missing origin definition for simple transformation",
-			               prefix.c_str());
-			return false;
-		}
+		if ( region.empty() )
+			isEmpty = true;
+		else {
+			isEmpty = false;
 
-		if ( list.size() != 2 ) {
-			SEISCOMP_ERROR("%s: expected 2 values in origin definition for simple transformation, got %d",
-			               prefix.c_str(), (int)list.size());
-			return false;
-		}
+			// Parse region
+			if ( region.size() != 3 ) {
+				SEISCOMP_ERROR("%s: expected 3 values in region definition, got %d",
+				               prefix.c_str(), (int)region.size());
+				return false;
+			}
 
-		if ( !fromString(lat0, list[0]) ||
-		     !fromString(lon0, list[1]) ) {
-			SEISCOMP_ERROR("%s: invalid origin value(s)", prefix.c_str());
-			return false;
-		}
-
-		try {
-			angle = app->configGetDouble(prefix + "rotation");
-		}
-		catch ( ... ) {
-			SEISCOMP_ERROR("%s: missing rotation definition for simple transformation",
-			               prefix.c_str());
-			return false;
-		}
-
-		try { list = app->configGetStrings(prefix + "region"); }
-		catch ( ... ) {
-			SEISCOMP_ERROR("%s: missing region definition for simple transformation",
-			               prefix.c_str());
-			return false;
-		}
-
-		// Parse region
-		if ( list.size() != 4 ) {
-			SEISCOMP_ERROR("%s: expected 4 values in region definition for simple transformation, got %d",
-			               prefix.c_str(), (int)list.size());
-			return false;
-		}
-
-		if ( !fromString(xmin, list[0]) ||
-		     !fromString(ymin, list[1]) ||
-		     !fromString(xmax, list[2]) ||
-		     !fromString(ymax, list[3]) ) {
-			SEISCOMP_ERROR("%s: invalid region value(s)", prefix.c_str());
-			return false;
+			if ( !fromString(lat, region[0]) ||
+			     !fromString(lon, region[1]) ||
+			     !fromString(radius, region[2]) ) {
+				SEISCOMP_ERROR("%s: invalid region value(s)", prefix.c_str());
+				return false;
+			}
 		}
 
 		return true;
 	}
 
 	bool isInside(double lat, double lon) const {
-		double lonDiff = lon - lon0;
-		if ( lonDiff < -180 )
-			lonDiff += 360;
-		else if ( lonDiff > 180 )
-			lonDiff -= 360;
+		if ( isEmpty ) return true;
 
-		double x = Math::Geo::deg2km(lonDiff) * cos(deg2rad(lat));
-		double y = Math::Geo::deg2km(lat - lat0);
-
-		double cosa = cos(-deg2rad(angle));
-		double sina = sin(-deg2rad(angle));
-
-		double tx = x * cosa - y * sina;
-		double ty = y * cosa + x * sina;
-
-		if ( tx < xmin ) return false;
-		if ( ty < ymin ) return false;
-		if ( tx > xmax ) return false;
-		if ( ty > ymax ) return false;
-
-		return true;
+		double distance, az, baz;
+		Math::Geo::delazi(this->lat, this->lon, lat, lon, &distance, &az, &baz);
+		double distKm = Math::Geo::deg2km(distance);
+		return distKm <= radius;
 	}
 
-	double lat0, lon0;
-	double angle;
-
-	double xmin, xmax;
-	double ymin, ymax;
+	bool isEmpty;
+	double lat, lon, radius;
 };
 
 
@@ -248,8 +201,7 @@ RTDD::Config::Config()
 {
 	publicIDPattern = "RTDD.@time/%Y%m%d%H%M%S.%f@.@id@";
 	processManualOrigin = true;
-	enableShortEventID = false;
-	outputPath = "/tmp/sc3.rtdd";
+	outputPath = "/tmp/rtdd";
 
 	force = false;
 	testMode = false;
@@ -282,11 +234,9 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	_processingInfoOutput = NULL;
 
 	NEW_OPT(_config.publicIDPattern, "rtdd.publicIDPattern");
-	NEW_OPT(_config.controlFile, "rtdd.controlFile");
-	NEW_OPT(_config.profileNames, "rtdd.profileNames");
+	NEW_OPT(_config.activeProfiles, "rtdd.activeProfiles");
 	NEW_OPT(_config.outputPath, "rtdd.outputPath");
 	NEW_OPT(_config.processManualOrigin, "rtdd.manualOrigin");
-	NEW_OPT(_config.enableShortEventID, "rtdd.shortEventID");
 
 	NEW_OPT(_config.wakeupInterval, "rtdd.cron.wakeupInterval");
 	NEW_OPT(_config.eventMaxIdleTime, "rtdd.cron.eventMaxIdleTime");
@@ -356,16 +306,10 @@ bool RTDD::validateParameters()
 			_config.outputPath += '/';
 	}
 
-	try {
-		_config.controlFile = env->absolutePath(_config.controlFile);
-	} catch ( ... ) {
-		_config.controlFile = "";
-	}
-
 	bool profilesOK = true;
 
-	for ( vector<string>::iterator it = _config.profileNames.begin();
-	      it != _config.profileNames.end(); )
+	for ( vector<string>::iterator it = _config.activeProfiles.begin();
+	      it != _config.activeProfiles.end(); )
 	{
 
 		ProfilePtr prof = new Profile;
@@ -386,28 +330,26 @@ bool RTDD::validateParameters()
 
 		string regionType;
 		try {
-			makeUpper(regionType, configGetString(prefix + "transform"));
+			makeUpper(regionType, configGetString(prefix + "regionType"));
 		}
-		catch ( ... ) {
-			regionType = "GLOBAL";
-		}
+		catch ( ... ) { }
 
-		if ( regionType == "GLOBAL" )
-			prof->region = new GlobalRegion;
-		else if ( regionType == "SIMPLE" )
-			prof->region = new SimpleTransformedRegion;
+		if ( regionType == "RECTANGLE" )
+			prof->region = new RectangularRegion;
+		else if ( regionType == "CIRCLE" )
+			prof->region = new CircularRegion;
 
 		if ( prof->region == NULL ) {
-			SEISCOMP_ERROR("RTDD.profile.%s: invalid transformation: %s",
+			SEISCOMP_ERROR("RTDD.profile.%s: invalid region type: %s",
 			               it->c_str(), regionType.c_str());
-			it = _config.profileNames.erase(it);
+			it = _config.activeProfiles.erase(it);
 			profilesOK = false;
 			continue;
 		}
 
 		if ( !prof->region->init(this, prefix) ) {
 			SEISCOMP_ERROR("RTDD.profile.%s: invalid region parameters", it->c_str());
-			it = _config.profileNames.erase(it);
+			it = _config.activeProfiles.erase(it);
 			profilesOK = false;
 			continue;
 		}
@@ -427,15 +369,12 @@ bool RTDD::validateParameters()
 		}
 		catch ( ... ) {}
 
-		prof->ddcfg.xcorr.recordStreamURL = recordStreamURL();
-
 		try {
 			prof->ddcfg.hypodd.ctrlFile = env->absolutePath(configGetString(prefix + "controlFile"));
 		}
 		catch ( ... ) {}
 
-		if ( prof->ddcfg.hypodd.ctrlFile.empty() )
-			prof->ddcfg.hypodd.ctrlFile = _config.controlFile;
+		prof->ddcfg.xcorr.recordStreamURL = recordStreamURL();
 
 		_profiles.push_back(prof);
 

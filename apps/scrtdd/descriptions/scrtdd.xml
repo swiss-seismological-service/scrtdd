@@ -6,37 +6,21 @@
 
 			<group name="rtdd">
 
-				<parameter name="publicID" type="string" default="RTDD.@time/%Y%m%d%H%M%S.%f@.@id@">
+				<parameter name="publicIDpattern" type="string" default="RTDD.@time/%Y%m%d%H%M%S.%f@.@id@">
 					<description>
 						PublicID creation pattern for an origin created by RTDD.
 					</description>
 				</parameter>
 
-				<parameter name="controlFile" type="path">
+				<parameter name="activeProfiles" type="list:string">
 					<description>
-						The default RTDD control file to use when a profile doesn't specify one
+						Defines a list of active profiles.
 					</description>
 				</parameter>
 
-				<parameter name="profiles" type="list:string">
+				<parameter name="outputPath" type="path" default="/tmp/rtdd">
 					<description>
-						Defines a list of active profiles to be used. The profiles used for an origin
-                        depends on the origin location, as each profile has a region associated with it.
-					</description>
-				</parameter>
-
-				<parameter name="outputPath" type="path" default="/tmp/rtdd.nll">
-					<description>
-						Defines the output path for all native rtdd input and output files.
-					</description>
-				</parameter>
-
-				<parameter name="shortEventID" type="boolean" default="false">
-					<description>
-					Uses short event ids when an event output directory needs to be
-					created. The default pattern is [eventtime]_[mag]_[lat]_[lon]_[updatetime].
-					The short format just contains the first part, namely [eventtime] in
-					the format YEARmmddHHMMSS.
+						Defines the directory used for storing processing input and output files.
 					</description>
 				</parameter>
 
@@ -47,9 +31,26 @@
 				</parameter>
 
 				<group name="cron">
+
 					<parameter name="wakeupInterval" type="int" unit="s" default="10">
 						<description>
 						Specifies the interval in seconds to check/start scheduled operations.
+						</description>
+					</parameter>
+
+					<parameter name="delayTimes" type="list:int">
+						<description>
+						Specifies a list of delay times in seconds relative to event time
+						to trigger the processing. When the first origin of an event arrives
+						this list is used to construct the crontab for this event.
+						Example: &quot;60, 120, 300, 3600&quot;
+						</description>
+					</parameter>
+
+					<parameter name="updateDelay" type="int" default="60">
+						<description>
+						Specifies the delay in seconds to delay processing if a new
+						authoritative origin arrives for an event.
 						</description>
 					</parameter>
 
@@ -71,29 +72,32 @@
 						</description>
 					</parameter>
 
-					<parameter name="updateDelay" type="int" default="60">
-						<description>
-						Specifies the delay in seconds to delay processing if a new
-						authoritative origin arrives for an event.
-						</description>
-					</parameter>
-
-					<parameter name="delayTimes" type="list:int">
-						<description>
-						Specifies a list of delay times in seconds relative to event time
-						to trigger the processing. When the first origin of an event arrives
-						this list is used to construct the crontab for this event.
-						Example: &quot;60, 120, 300, 3600&quot;
-						</description>
-					</parameter>
 				</group>
 
 				<group name="profile">
-					<struct type="rtdd profile" link = "rtdd.profiles">
+					<struct type="rtdd profile" link = "rtdd.activeProfiles">
 						<description>
 							Defines a regional profile that is used if a prelocation falls
-							inside the configured region.
+							inside the configured region. If an origin prelocation falls in multiple
+							profile regions, then the profile with the area center closer to the
+							origin location will be used.
 						</description>
+
+						<parameter name="regionType" type="string">
+							<description>
+								Type of region: RECTANGLE or CIRCLE
+							</description>
+						</parameter>
+
+						<parameter name="region" type="list:double">
+							<description>
+								Defines the region values. If regionType is RECTANGLE then 4 values
+								(min_lat, min_lon, max_lat, max_lon) are expected. If regionType
+								is CIRCLE then 3 values are expected (lat, lon, radius in km).
+								If region is empty, then it will represent a region that matches any
+								origin.
+							</description>
+						</parameter>
 
 						<parameter name="earthModelID" type="string">
 							<description>
@@ -132,33 +136,6 @@
 							</description>
 						</parameter>
 
-						<parameter name="transform" type="string">
-							<description>
-								Transformation type of the configured region. If not set, GLOBAL
-								is assumed.
-							</description>
-						</parameter>
-
-						<parameter name="region" type="list:double">
-							<description>
-								Defines the region values. If transform is GLOBAL 4 values
-								(min_lat, min_lon, max_lat, max_lon) are expected. If transform
-								is SIMPLE then 4 values are expected (xmin, ymin, xmax, ymax).
-							</description>
-						</parameter>
-
-						<parameter name="origin" type="list:double">
-							<description>
-								Only used for transformation SIMPLE. Expects 2 values (lat,lon).
-							</description>
-						</parameter>
-
-						<parameter name="rotation" type="double" unit="deg">
-							<description>
-								Only used for transformation SIMPLE. Defines the rotation around the
-								origin of the defined region.
-							</description>
-						</parameter>
 					</struct>
 				</group>
 

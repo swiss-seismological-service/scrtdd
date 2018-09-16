@@ -54,7 +54,6 @@ class RTDD : public Application {
 		~RTDD();
 
 		struct Region : public Core::BaseObject {
-			virtual bool isGlobal() const { return false; }
 			virtual bool init(const Application* app, const std::string &prefix) = 0;
 			virtual bool isInside(double lat, double lon) const = 0;
 		};
@@ -97,11 +96,9 @@ class RTDD : public Application {
 			Config();
 
 			std::string publicIDPattern;
-			std::string controlFile;
-			std::vector<std::string> profileNames;
+			std::vector<std::string> activeProfiles;
 			std::string outputPath;
 			bool        processManualOrigin;
-			bool        enableShortEventID;
 
             // Mode
 			bool        force;
