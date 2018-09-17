@@ -107,7 +107,7 @@ class RTDD : public Application {
 			std::string originID;
 			std::string eventXML;
 			std::string forceProfile;
-
+			std::string relocateCatalog;
             // cron
 			int         wakeupInterval;
 			int         eventMaxIdleTime;
@@ -119,18 +119,19 @@ class RTDD : public Application {
 
 		class Profile : public Core::BaseObject {
 			public:
-			Profile();
+			Profile(DataModel::DatabaseQuery* query);
 			void load(std::string workingDir);
 			void unload();
 			bool isLoaded() { return loaded; }
 			Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
-			HDD::CatalogPtr relocateSingleEvent(DataModel::Origin *org, DataModel::DatabaseQuery* query);
+			HDD::CatalogPtr relocateSingleEvent(DataModel::Origin *org);
+			HDD::CatalogPtr relocateCatalog();
 
 			std::string name;
 			std::string earthModelID;
 			std::string methodID;
 			std::string stationFile;
-			std::string catalogFile;
+			std::string eventFile;
 			std::string phaFile;
 			RegionPtr   region;
 			HDD::Config ddcfg;
@@ -139,6 +140,7 @@ class RTDD : public Application {
 			bool loaded;
 			Core::Time lastUsage;
 			HDD::HypoDDPtr hypodd;
+			DataModel::DatabaseQuery* query;
 		};
 
 		// Cronjob struct created per event

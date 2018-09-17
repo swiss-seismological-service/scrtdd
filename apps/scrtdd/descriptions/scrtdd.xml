@@ -112,21 +112,35 @@
 						</parameter>
 
 						<group name="catalog">
-							<parameter name="stationFile" type="path">
-								<description>
-									Path to the stations file to be used for this profile
-								</description>
-							</parameter>
+							<description>
+								The file used to define a catalog must be in csv format.
+								The first line must contains the compulsory column names, which
+								can appear in any order. Also the header might contains
+								additional headers, which will not be used by this module but
+								can be there for informationl purpose.
+							</description>
 
-							<parameter name="catalogFile" type="path">
+							<parameter name="eventFile" type="path">
 								<description>
-									Path to catalog file to be used for this profile
+									Path to event file to be used for this profile.
+									Required columns: id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,tt_residual
+									Alternative columns: seiscompId (this must be a valide seiscomp3 origin id or event id)
+									If the alternative format is used, then no phase or station file are required as
+									all the information will be fetched from the database.
 								</description>
 							</parameter>
 
 							<parameter name="phaFile" type="path">
 								<description>
 									Path to catalog picks file to be used for this profile
+									Required columns: eventId,stationId,isotime,weight,type,networkcode,stationcode,locationCode,channelCode
+								</description>
+							</parameter>
+
+							<parameter name="stationFile" type="path">
+								<description>
+									Path to the stations file to be used for this profile
+									Required columns: id,latitude,longitude,elevation,networkcode,stationcode
 								</description>
 							</parameter>
 						</group>

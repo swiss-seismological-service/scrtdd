@@ -14,6 +14,7 @@
 
 
 #include "rtdd.h"
+#include "csvreader.h"
 
 #include <seiscomp3/logging/filerotator.h>
 #include <seiscomp3/logging/channel.h>
@@ -256,7 +257,9 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	NEW_OPT_CLI(_config.eventXML, "Mode", "ep",
 	            "Event parameters XML file for offline processing of all contained origins (imply test option)", true);
 	NEW_OPT_CLI(_config.forceProfile, "Mode", "profile",
-	            "Force this profile to be use", true);
+	            "Force this profile to be used", true);
+	NEW_OPT_CLI(_config.relocateCatalog, "Mode", "catalog-reloc",
+	            "Relocate the full catalog of the passed profile and exit", true);
 }
 
 
@@ -312,7 +315,7 @@ bool RTDD::validateParameters()
 	      it != _config.activeProfiles.end(); )
 	{
 
-		ProfilePtr prof = new Profile;
+		ProfilePtr prof = new Profile(query());
 		string prefix = string("RTDD.profile.") + *it + ".";
 
 		prof->name = *it;
@@ -349,7 +352,7 @@ bool RTDD::validateParameters()
 		prefix = string("RTDD.profile.") + *it + ".catalog.";
 
 		prof->stationFile = env->absolutePath(configGetString(prefix + "stationFile"));
-		prof->catalogFile = env->absolutePath(configGetString(prefix + "catalogFile"));
+		prof->eventFile = env->absolutePath(configGetString(prefix + "eventFile"));
 		prof->phaFile = env->absolutePath(configGetString(prefix + "phaFile"));
 
 		prefix = string("RTDD.profile.") + *it + ".dtct.";
@@ -454,6 +457,26 @@ bool RTDD::init() {
 
 bool RTDD::run() {
 
+	// relocate full catalog and exit
+	if ( !_config.relocateCatalog.empty() )
+	{
+		for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
+		{
+			ProfilePtr profile = *it;
+			if ( profile->name == _config.relocateCatalog)
+			{
+				string workingDir = _config.outputPath + "/" + profile->name;
+				profile->load(workingDir);
+				HDD::CatalogPtr relocatedCat = profile->relocateCatalog();
+				profile->unload();
+				relocatedCat->writeToFile("event.csv","phase.csv","station.csv");
+				break;
+			}
+		}
+		return true;
+	}
+	
+	// relocate passed origin and exit
 	if ( !_config.originID.empty() )
 	{
 		OriginPtr org = _cache.get<Origin>(_config.originID);
@@ -472,6 +495,7 @@ bool RTDD::run() {
 		return true;
 	}
 
+	// relocate xml event and exit
 	if ( !_config.eventXML.empty() )
 	{
 		IO::XMLArchive ar;
@@ -507,6 +531,7 @@ bool RTDD::run() {
         return true;
 	}
 
+	// real time processing
 	return Application::run();
 }
 
@@ -1052,7 +1077,7 @@ OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 	newOrg->setEvaluationMode(EvaluationMode(AUTOMATIC));
 	newOrg->setEpicenterFixed(true);
 
-	HDD::CatalogPtr relocatedOrg = profile->relocateSingleEvent(org, query());
+	HDD::CatalogPtr relocatedOrg = profile->relocateSingleEvent(org);
 	// there must be only one event in the catalog, the relocated origin
 	const HDD::Catalog::Event& event = relocatedOrg->getEvents().begin()->second;
 
@@ -1068,9 +1093,10 @@ OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 
 // Profile class
 
-RTDD::Profile::Profile()
+RTDD::Profile::Profile(DataModel::DatabaseQuery* query)
 {
 	loaded = false;
+	this->query = query;
 }
 
 
@@ -1078,7 +1104,14 @@ void RTDD::Profile::load(string workingDir)
 {
 	if ( loaded ) return;
 	SEISCOMP_DEBUG("Loading profile %s", name.c_str());
-	HDD::CatalogPtr ddbgc = new HDD::Catalog(stationFile, catalogFile, phaFile);
+
+	// check if the catalog uses seiscomp event ids or if contains full information
+	HDD::CatalogPtr ddbgc;
+	if ( CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0)
+		ddbgc = new HDD::Catalog(eventFile, query);
+	else
+		ddbgc = new HDD::Catalog(stationFile, eventFile, phaFile);
+
 	hypodd = new HDD::HypoDD(ddbgc, ddcfg, workingDir);
 	loaded = true;
 	lastUsage = Core::Time::GMT();
@@ -1093,7 +1126,7 @@ void RTDD::Profile::unload()
 }
 
 
-HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(Origin *org, DataModel::DatabaseQuery* query)
+HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(Origin *org)
 {
 	if ( !loaded )
 	{
@@ -1105,6 +1138,19 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(Origin *org, DataModel::Datab
 	// FIXME: bad performance since we are not passing the cache but only the query object
 	HDD::CatalogPtr orgToRelocate = new HDD::Catalog({org->publicID()}, query);
 	return hypodd->relocateSingleEvent(orgToRelocate);
+}
+
+
+
+HDD::CatalogPtr RTDD::Profile::relocateCatalog()
+{
+	if ( !loaded )
+	{
+		string msg = Core::stringify("Cannot relocate catalog, profile %s not initialized", name);
+		throw runtime_error(msg.c_str());
+	}
+	lastUsage = Core::Time::GMT();
+	return hypodd->relocateCatalog();
 }
 
 // End Profile class

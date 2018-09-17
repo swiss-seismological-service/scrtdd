@@ -123,6 +123,24 @@ searchByValue(const Map & SearchMap, const Val & SearchVal)
 namespace Seiscomp {
 namespace HDD {
 
+
+Catalog::Catalog() : Catalog(map<string,Station>(),
+                             map<string,Event>(),
+                             multimap<string,Phase>())
+{
+}
+
+
+Catalog::Catalog(const map<string,Station>& stations,
+                 const map<string,Event>& events,
+                 const multimap<string,Phase>& phases)
+{
+	_stations = stations;
+	_events = events;
+	_phases = phases;
+}
+
+
 Catalog::Catalog(const string& idFile, DataModel::DatabaseQuery* query)
 {
 	if ( !Util::fileExists(idFile) )
@@ -132,11 +150,11 @@ Catalog::Catalog(const string& idFile, DataModel::DatabaseQuery* query)
 	}
 
 	vector<string> ids;
-	vector< map<string,string> > rows = CSV::readWithHeader(idFile, {"id"});
+	vector< map<string,string> > rows = CSV::readWithHeader(idFile);
 
 	for(const auto& row : rows)
 	{
-		const string& id = row.at("id");
+		const string& id = row.at("seiscompId");
 		ids.push_back(id);
 	}
 
@@ -282,23 +300,7 @@ DataModel::Station* Catalog::findStation(const string& netCode, const string& st
 }
 
 
-Catalog::Catalog() : Catalog(map<string,Station>(),
-                             map<string,Event>(),
-                             multimap<string,Phase>())
-{
-}
-
-Catalog::Catalog(const map<string,Station>& stations,
-                 const map<string,Event>& events,
-                 const multimap<string,Phase>& phases)
-{
-	_stations = stations;
-	_events = events;
-	_phases = phases;
-}
-
-
-Catalog::Catalog(const string& stationFile, const string& catalogFile, const string& phaFile)
+Catalog::Catalog(const string& stationFile, const string& eventFile, const string& phaFile)
 {
 	if ( !Util::fileExists(stationFile) )
 	{
@@ -306,9 +308,9 @@ Catalog::Catalog(const string& stationFile, const string& catalogFile, const str
 		throw runtime_error(msg);
 	}
 
-	if ( !Util::fileExists(catalogFile) )
+	if ( !Util::fileExists(eventFile) )
 	{
-		string msg = "File " + catalogFile + " does not exist";
+		string msg = "File " + eventFile + " does not exist";
 		throw runtime_error(msg);
 	}
 
@@ -318,7 +320,6 @@ Catalog::Catalog(const string& stationFile, const string& catalogFile, const str
 		throw runtime_error(msg);
 	}
 
-	// required headers "id" "latitude" "longitude" "elevation"
 	vector<map<string,string> > stations = CSV::readWithHeader(stationFile);
 
 	for (const auto& row : stations )
@@ -333,9 +334,7 @@ Catalog::Catalog(const string& stationFile, const string& catalogFile, const str
 		_stations[sta.id] = sta;
 }
 
-	// required headers year, month, day, hour, minute, second, latitude, 
-	// longitude, depth, magnitude, horizontal_error, depth_error, travel_time_residual, id
-	vector<map<string,string> >events = CSV::readWithHeader(catalogFile);
+	vector<map<string,string> >events = CSV::readWithHeader(eventFile);
 
 	for (const auto& row : events )
 	{
@@ -352,7 +351,6 @@ Catalog::Catalog(const string& stationFile, const string& catalogFile, const str
 		_events[ev.id] = ev;
 	}
 
-	// required headers eventId stationId travel_time weight type
 	vector<map<string,string> >phases = CSV::readWithHeader(phaFile);
 
 	for (const auto& row : phases )
