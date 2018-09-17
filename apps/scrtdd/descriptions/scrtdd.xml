@@ -38,7 +38,7 @@
 						</description>
 					</parameter>
 
-					<parameter name="delayTimes" type="list:int">
+					<parameter name="delayTimes" type="list:int" default="60,120,300,600,3600">
 						<description>
 						Specifies a list of delay times in seconds relative to event time
 						to trigger the processing. When the first origin of an event arrives
@@ -105,36 +105,155 @@
 							</description>
 						</parameter>
 
-						<parameter name="methodID" type="string">
+						<parameter name="methodID" type="string" default="RTDD">
 							<description>
 								methodID that is stored in the created origin.
 							</description>
 						</parameter>
 
-						<parameter name="stationFile" type="path">
-							<description>
-								Path to the stations file to be used for this profile
-							</description>
-						</parameter>
+						<group name="catalog">
+							<parameter name="stationFile" type="path">
+								<description>
+									Path to the stations file to be used for this profile
+								</description>
+							</parameter>
 
-						<parameter name="catalogFile" type="path">
-							<description>
-								Path to catalog file to be used for this profile
-							</description>
-						</parameter>
+							<parameter name="catalogFile" type="path">
+								<description>
+									Path to catalog file to be used for this profile
+								</description>
+							</parameter>
 
-						<parameter name="phaFile" type="path">
-							<description>
-								Path to catalog picks file to be used for this profile
-							</description>
-						</parameter>
+							<parameter name="phaFile" type="path">
+								<description>
+									Path to catalog picks file to be used for this profile
+								</description>
+							</parameter>
+						</group>
 
-						<parameter name="controlFile" type="path">
+						<group name="dtct">
 							<description>
-								Control file of the current profile. If not set, the default
-								control file will be used instead.
+								Differential travel time computation options.
 							</description>
-						</parameter>
+							<parameter name="minWeight" type="double" default="0">
+								<description>Min phase weight allowed</description>
+							</parameter>
+							<parameter name="maxESdist" type="double" default="80">
+								<description>Max epi-sta distance allowed (km)</description>
+							</parameter>
+							<parameter name="maxIEdist" type="double" default="20">
+								<description>Max interevent-distance allowed (km)</description>
+							</parameter>
+							<parameter name="minNumNeigh" type="int" default="6">
+								<description>Min neighbors required</description>
+							</parameter>
+							<parameter name="maxNumNeigh" type="int" default="20">
+								<description>Max neighbors allowed (furthest events are discarded)</description>
+							</parameter>
+							<parameter name="minDTperEvt" type="int" default="6">
+								<description>Min dt per event pair required ((Including P+S)</description>
+							</parameter>
+						</group>
+
+						<group name="dtcc">
+							<description>
+								Cross-correlation differential travel time computation options.
+							</description>
+							<parameter name="minWeight" type="double" default="0">
+								<description>Min phase weight allowed</description>
+							</parameter>
+							<parameter name="maxESdist" type="double" default="80">
+								<description>Max epi-sta distance allowed (km)</description>
+							</parameter>
+							<parameter name="maxIEdist" type="double" default="10">
+								<description>Max interevent-distance allowed (km)</description>
+							</parameter>
+							<parameter name="minNumNeigh" type="int" default="3">
+								<description>Min neighbors required</description>
+							</parameter>
+							<parameter name="maxNumNeigh" type="int" default="20">
+								<description>Max neighbors allowed (furthest events are discarded)</description>
+							</parameter>
+							<parameter name="minDTperEvt" type="int" default="4">
+								<description>Min dt per event pair required ((Including P+S)</description>
+							</parameter>
+							<parameter name="minCCCoef" type="double" default="0.40">
+								<description>Min crosscorrelation coefficient required</description>
+							</parameter>
+							<group name="crosscorrelation">
+								<parameter name="filterFmin" type="double" default="0">
+									<description>(hz, 0 disable)</description>
+								</parameter>
+								<parameter name="filterFmax" type="double" default="0">
+									<description>(hz, 0 disable)</description>
+								</parameter>
+								<parameter name="filterFsamp" type="double" default="0">
+									<description>(hz, 0 disable)</description>
+								</parameter>
+								<parameter name="filterOrder" type="int" default="3">
+									<description></description>
+								</parameter>
+								<parameter name="timeBeforePick" type="double" default="3">
+									<description>(secs)</description>
+								</parameter>
+								<parameter name="timeAfterPick" type="double" default="3">
+									<description>(secs)</description>
+								</parameter>
+								<parameter name="maxDelay" type="double" default="1">
+									<description>(secs)</description>
+								</parameter>
+							</group>
+						</group>
+
+						<group name="hypodd">
+							<parameter name="execPath" type="path" default="hypodd">
+								<description>
+									Path to hypodd executable.
+								</description>
+							</parameter>
+
+							<parameter name="controlFile" type="path">
+								<description>
+									Control file of the current profile. If not set, the default
+									control file will be used instead.
+								</description>
+							</parameter>
+						</group>
+
+						<group name="ph2dt">
+							<description>
+								This configuration is used only for full catalog relocation and it is
+								not useful in real time DD relocation.
+								See command line option --relocate-catalog
+							</description>
+
+							<parameter name="execPath" type="path" default="ph2dt">
+								<description>
+									Path to ph2dt executable.
+								</description>
+							</parameter>
+							<parameter name="minwght" type="double" default="0.">
+								<description>Min. pick weight allowed.</description>
+							</parameter>
+							<parameter name="maxdist" type="double" default="200">
+								<description>Max. distance in km between event pair and stations. </description>
+							</parameter>
+							<parameter name="maxsep" type="double" default="10">
+								<description>Max. hypocentral separation in km</description>
+							</parameter>
+							<parameter name="maxngh" type="int" default="10">
+								<description>Max. number of neighbors per event. </description>
+							</parameter>
+							<parameter name="minlnk" type="int" default="8">
+								<description>Min. number of links required to define a neighbor</description>
+							</parameter>
+							<parameter name="minobs" type="int" default="8">
+								<description>Min. number of links per pair saved</description>
+							</parameter>
+							<parameter name="maxobs" type="int" default="20">
+								<description>Max. number of links per pair saved</description>
+							</parameter>
+						</group>
 
 					</struct>
 				</group>

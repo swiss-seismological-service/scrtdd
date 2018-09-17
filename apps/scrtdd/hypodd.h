@@ -160,9 +160,9 @@ struct Config {
 	// ph2dt config specifig (catalog relocation only)
 	struct {
 		std::string exec = "ph2dt";
-		int minwght; // MINWGHT: min. pick weight allowed [-1]
-		int maxdist; // MAXDIST: max. distance in km between event pair and stations [200]
-		int maxsep;  // MAXSEP: max. hypocentral separation in km [10]
+		double minwght; // MINWGHT: min. pick weight allowed [-1]
+		double maxdist; // MAXDIST: max. distance in km between event pair and stations [200]
+		double maxsep;  // MAXSEP: max. hypocentral separation in km [10]
 		int maxngh;  // MAXNGH: max. number of neighbors per event [10]
 		int minlnk;  // MINLNK: min. number of links required to define a neighbor [8]
 		int minobs;  // MINOBS: min. number of links per pair saved [8]
@@ -179,31 +179,31 @@ struct Config {
 
 	// differential travel time specific
 	struct {
-		double minWeight = 0.05;  // Min weight of phases to be considered for CT (0-1)
-		double maxESdist = 80.0;   // Max epi-sta epidistance to be considered for ct
-		double maxIEdist = 20.0;   // Max interevent-distance for ct (km)
-		int minNumNeigh = 6;      // Min neighbors in DDBGC for ct (fail if not enough)
-		int maxNumNeigh = 20;     // Max neighbors in DDBGC for ct (furthest events are discarded)
-		int minDTperEvt = 6;      // Min dt to use an event for ct (Including P+S)
+		double minWeight;  // Min weight of phases allowed (0-1)
+		double maxESdist;   // Max epi-sta epidistance allowed
+		double maxIEdist;   // Max interevent-distance allowed (km)
+		int minNumNeigh;      // Min neighbors required
+		int maxNumNeigh;     // Max neighbors allowed (furthest events are discarded)
+		int minDTperEvt;      // Min differential times per event pair required (Including P+S)
 	} dtt;
 
 	// cross correlation specific
 	struct {
-		double minWeight = 0.05;  // Min weight of phases to be considered for CC (0-1)
-		double maxESdist = 80.0;   // Max epi-sta epidistance to be considered for CC
-		double maxIEdist = 10.0;   // Max interevent-distance for cc (km)
-		int minNumNeigh = 3;      // Min neighbors in DDBGC for cc (fail if not enough)
-		int maxNumNeigh = 20;     // Max neighbors in DDBGC for cc (furthest events are discarded)
-		int minDTperEvt = 4;      // Min pairs to use an event for cc
-		double minCoef = 0.40;    // Min xcorr coefficient to keep a phase pair   (0-1)
 		std::string recordStreamURL;
-		int filterOrder = 3;
-		double filterFmin = -1;
-		double filterFmax = -1;
-		double filterFsamp = 0;
-		double timeBeforePick = 3; // secs
-		double timeAfterPick = 3;  // secs
-		double maxDelay = 1; //secs
+		double minWeight;  // Min weight of phases allowed (0-1)
+		double maxESdist;   // Max epi-sta epidistance allowed
+		double maxIEdist;   // Max interevent-distance allowed (km)
+		int minNumNeigh;      // Min neighbors required
+		int maxNumNeigh;     // Max neighbors allowed (furthest events are discarded)
+		int minDTperEvt;      // Min differential times per event pair required (Including P+S)
+		double minCoef;    // Min xcorr coefficient required (0-1)
+		int filterOrder;
+		double filterFmin;
+		double filterFmax;
+		double filterFsamp;
+		double timeBeforePick; // secs
+		double timeAfterPick;  // secs
+		double maxDelay; //secs
 	} xcorr;
 };
 

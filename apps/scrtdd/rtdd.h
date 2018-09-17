@@ -101,7 +101,7 @@ class RTDD : public Application {
 			bool        processManualOrigin;
 
             // Mode
-			bool        force;
+			bool        forceProcessing;
 			bool        testMode;
 			double      fExpiry;
 			std::string originID;
