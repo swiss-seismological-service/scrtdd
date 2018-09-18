@@ -260,7 +260,9 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	NEW_OPT_CLI(_config.forceProfile, "Mode", "profile",
 	            "Force this profile to be used", true);
 	NEW_OPT_CLI(_config.relocateCatalog, "Mode", "reloc-catalog",
-	            "Relocate the full catalog of the passed profile and exit", true);
+	            "Relocate the catalog of profile passed as argument", true);
+	NEW_OPT_CLI(_config.dumpCatalog, "Mode", "dump-catalog",
+	            "Dump catalog files from the seiscomp event/origin ids file passed as argument", true);
 }
 
 
@@ -481,6 +483,14 @@ bool RTDD::init() {
 
 
 bool RTDD::run() {
+
+	// dump catalog and exit
+	if ( !_config.dumpCatalog.empty() )
+	{
+		HDD::CatalogPtr cat = new HDD::Catalog(_config.dumpCatalog, query());
+		cat->writeToFile("event.csv","phase.csv","station.csv");
+		return true;
+	}
 
 	// relocate full catalog and exit
 	if ( !_config.relocateCatalog.empty() )

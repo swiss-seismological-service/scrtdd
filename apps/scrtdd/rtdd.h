@@ -108,6 +108,8 @@ class RTDD : public Application {
 			std::string eventXML;
 			std::string forceProfile;
 			std::string relocateCatalog;
+			std::string dumpCatalog;
+
             // cron
 			int         wakeupInterval;
 			int         eventMaxIdleTime;
