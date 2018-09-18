@@ -441,13 +441,13 @@ bool Catalog::addStation(const Station& station, bool checkDuplicate)
 
 bool Catalog::addEvent(const Event& event, bool checkDuplicate)
 {
-	decltype(_events)::key_type maxKey = _events.empty() ? 0 : _events.rbegin()->first;
+	decltype(_events)::key_type maxKey = _events.empty() ? "0" : _events.rbegin()->first;
 	if (checkDuplicate && searchEvent(event) != _events.end())
 	{
 		return false;
 	}
 	Event newEvent = event;
-	newEvent.id = std::stoi(maxKey) + 1;
+	newEvent.id = std::to_string(std::stoi(maxKey) + 1);
 	_events[newEvent.id] = newEvent;
 	return true;
 }
@@ -466,7 +466,7 @@ bool Catalog::addPhase(const Phase& phase, bool checkDuplicate)
 void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile)
 {
 	ofstream evStream(eventFile);
-	evStream << "id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,tt_residual";
+	evStream << "id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,tt_residual" << endl;
 	for (const auto& kv : _events )
 	{
 		const Catalog::Event& ev = kv.second;
@@ -476,7 +476,7 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 	}
 
 	ofstream phStream(phaseFile);
-	phStream << "eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,channelCode";
+	phStream << "eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,channelCode" << endl;
 	for (const auto& kv : _phases )
 	{
 		const Catalog::Phase& ph = kv.second;
@@ -486,7 +486,7 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 	}
 
 	ofstream staStream(stationFile);
-	staStream << "id,latitude,longitude,elevation,networkCode,stationCode";
+	staStream << "id,latitude,longitude,elevation,networkCode,stationCode" << endl;
 	for (const auto& kv : _stations )
 	{
 		const Catalog::Station& sta = kv.second;

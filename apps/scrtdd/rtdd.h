@@ -119,8 +119,8 @@ class RTDD : public Application {
 
 		class Profile : public Core::BaseObject {
 			public:
-			Profile(DataModel::DatabaseQuery* query);
-			void load(std::string workingDir);
+			Profile();
+			void load(DataModel::DatabaseQuery* query, std::string workingDir);
 			void unload();
 			bool isLoaded() { return loaded; }
 			Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }

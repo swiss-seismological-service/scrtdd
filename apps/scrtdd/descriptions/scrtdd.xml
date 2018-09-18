@@ -105,7 +105,7 @@
 							</description>
 						</parameter>
 
-						<parameter name="methodID" type="string" default="RTDD">
+						<parameter name="methodID" type="string">
 							<description>
 								methodID that is stored in the created origin.
 							</description>
@@ -149,22 +149,22 @@
 							<description>
 								Differential travel time computation options.
 							</description>
-							<parameter name="minWeight" type="double" default="0">
+							<parameter name="minWeight" type="double">
 								<description>Min phase weight allowed</description>
 							</parameter>
-							<parameter name="maxESdist" type="double" default="80">
+							<parameter name="maxESdist" type="double">
 								<description>Max epi-sta distance allowed (km)</description>
 							</parameter>
-							<parameter name="maxIEdist" type="double" default="20">
+							<parameter name="maxIEdist" type="double">
 								<description>Max interevent-distance allowed (km)</description>
 							</parameter>
-							<parameter name="minNumNeigh" type="int" default="6">
+							<parameter name="minNumNeigh" type="int">
 								<description>Min neighbors required</description>
 							</parameter>
-							<parameter name="maxNumNeigh" type="int" default="20">
+							<parameter name="maxNumNeigh" type="int">
 								<description>Max neighbors allowed (furthest events are discarded)</description>
 							</parameter>
-							<parameter name="minDTperEvt" type="int" default="6">
+							<parameter name="minDTperEvt" type="int">
 								<description>Min dt per event pair required ((Including P+S)</description>
 							</parameter>
 						</group>
@@ -173,47 +173,47 @@
 							<description>
 								Cross-correlation differential travel time computation options.
 							</description>
-							<parameter name="minWeight" type="double" default="0">
+							<parameter name="minWeight" type="double">
 								<description>Min phase weight allowed</description>
 							</parameter>
-							<parameter name="maxESdist" type="double" default="80">
+							<parameter name="maxESdist" type="double">
 								<description>Max epi-sta distance allowed (km)</description>
 							</parameter>
-							<parameter name="maxIEdist" type="double" default="10">
+							<parameter name="maxIEdist" type="double">
 								<description>Max interevent-distance allowed (km)</description>
 							</parameter>
-							<parameter name="minNumNeigh" type="int" default="3">
+							<parameter name="minNumNeigh" type="int">
 								<description>Min neighbors required</description>
 							</parameter>
-							<parameter name="maxNumNeigh" type="int" default="20">
+							<parameter name="maxNumNeigh" type="int">
 								<description>Max neighbors allowed (furthest events are discarded)</description>
 							</parameter>
-							<parameter name="minDTperEvt" type="int" default="4">
+							<parameter name="minDTperEvt" type="int">
 								<description>Min dt per event pair required ((Including P+S)</description>
 							</parameter>
-							<parameter name="minCCCoef" type="double" default="0.40">
+							<parameter name="minCCCoef" type="double">
 								<description>Min crosscorrelation coefficient required</description>
 							</parameter>
 							<group name="crosscorrelation">
-								<parameter name="filterFmin" type="double" default="0">
+								<parameter name="filterFmin" type="double">
 									<description>(hz, 0 disable)</description>
 								</parameter>
-								<parameter name="filterFmax" type="double" default="0">
+								<parameter name="filterFmax" type="double">
 									<description>(hz, 0 disable)</description>
 								</parameter>
-								<parameter name="filterFsamp" type="double" default="0">
+								<parameter name="filterFsamp" type="double">
 									<description>(hz, 0 disable)</description>
 								</parameter>
-								<parameter name="filterOrder" type="int" default="3">
+								<parameter name="filterOrder" type="int">
 									<description></description>
 								</parameter>
-								<parameter name="timeBeforePick" type="double" default="3">
+								<parameter name="timeBeforePick" type="double">
 									<description>(secs)</description>
 								</parameter>
-								<parameter name="timeAfterPick" type="double" default="3">
+								<parameter name="timeAfterPick" type="double">
 									<description>(secs)</description>
 								</parameter>
-								<parameter name="maxDelay" type="double" default="1">
+								<parameter name="maxDelay" type="double">
 									<description>(secs)</description>
 								</parameter>
 							</group>
@@ -246,25 +246,25 @@
 									Path to ph2dt executable.
 								</description>
 							</parameter>
-							<parameter name="minwght" type="double" default="0.">
+							<parameter name="minwght" type="double">
 								<description>Min. pick weight allowed.</description>
 							</parameter>
-							<parameter name="maxdist" type="double" default="200">
+							<parameter name="maxdist" type="double">
 								<description>Max. distance in km between event pair and stations. </description>
 							</parameter>
-							<parameter name="maxsep" type="double" default="10">
+							<parameter name="maxsep" type="double">
 								<description>Max. hypocentral separation in km</description>
 							</parameter>
-							<parameter name="maxngh" type="int" default="10">
+							<parameter name="maxngh" type="int">
 								<description>Max. number of neighbors per event. </description>
 							</parameter>
-							<parameter name="minlnk" type="int" default="8">
+							<parameter name="minlnk" type="int">
 								<description>Min. number of links required to define a neighbor</description>
 							</parameter>
-							<parameter name="minobs" type="int" default="8">
+							<parameter name="minobs" type="int">
 								<description>Min. number of links per pair saved</description>
 							</parameter>
-							<parameter name="maxobs" type="int" default="20">
+							<parameter name="maxobs" type="int">
 								<description>Max. number of links per pair saved</description>
 							</parameter>
 						</group>
@@ -341,6 +341,10 @@
 
 				<option long-flag="profile" argument="arg">
 					<description>Force this profile to be used</description>
+				</option>
+
+				<option long-flag="reloc-catalog" argument="arg">
+					<description>Relocate the full catalog of the passed profile and exit</description>
 				</option>
 
 				<option long-flag="dump-config">

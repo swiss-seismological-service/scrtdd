@@ -43,6 +43,7 @@
 #include <seiscomp3/utils/files.h>
 
 #include <boost/bind.hpp>
+#include <boost/filesystem.hpp>
 
 
 using namespace std;
@@ -258,7 +259,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	            "Event parameters XML file for offline processing of all contained origins (imply test option)", true);
 	NEW_OPT_CLI(_config.forceProfile, "Mode", "profile",
 	            "Force this profile to be used", true);
-	NEW_OPT_CLI(_config.relocateCatalog, "Mode", "catalog-reloc",
+	NEW_OPT_CLI(_config.relocateCatalog, "Mode", "reloc-catalog",
 	            "Relocate the full catalog of the passed profile and exit", true);
 }
 
@@ -315,13 +316,17 @@ bool RTDD::validateParameters()
 	      it != _config.activeProfiles.end(); )
 	{
 
-		ProfilePtr prof = new Profile(query());
-		string prefix = string("RTDD.profile.") + *it + ".";
+		ProfilePtr prof = new Profile;
+		string prefix = string("rtdd.profile.") + *it + ".";
 
 		prof->name = *it;
 
-		prof->earthModelID = configGetString(prefix + "earthModelID");
-		prof->methodID = configGetString(prefix + "methodID");
+		try {
+			prof->earthModelID = configGetString(prefix + "earthModelID");
+		} catch ( ... ) {}
+		try {
+			prof->methodID = configGetString(prefix + "methodID");
+		} catch ( ... ) {}
 		if ( ! startsWith(prof->methodID, "RTDD", false) )
 		{
 			prof->methodID = "RTDD" + prof->methodID;
@@ -335,7 +340,7 @@ bool RTDD::validateParameters()
 			prof->region = new CircularRegion;
 
 		if ( prof->region == NULL ) {
-			SEISCOMP_ERROR("RTDD.profile.%s: invalid region type: %s",
+			SEISCOMP_ERROR("rtdd.profile.%s: invalid region type: %s",
 			               it->c_str(), regionType.c_str());
 			it = _config.activeProfiles.erase(it);
 			profilesOK = false;
@@ -343,19 +348,23 @@ bool RTDD::validateParameters()
 		}
 
 		if ( !prof->region->init(this, prefix) ) {
-			SEISCOMP_ERROR("RTDD.profile.%s: invalid region parameters", it->c_str());
+			SEISCOMP_ERROR("rtdd.profile.%s: invalid region parameters", it->c_str());
 			it = _config.activeProfiles.erase(it);
 			profilesOK = false;
 			continue;
 		}
 
-		prefix = string("RTDD.profile.") + *it + ".catalog.";
+		prefix = string("rtdd.profile.") + *it + ".catalog.";
 
-		prof->stationFile = env->absolutePath(configGetString(prefix + "stationFile"));
 		prof->eventFile = env->absolutePath(configGetString(prefix + "eventFile"));
-		prof->phaFile = env->absolutePath(configGetString(prefix + "phaFile"));
+		try {
+			prof->stationFile = env->absolutePath(configGetString(prefix + "stationFile"));
+		} catch ( ... ) {}
+		try {
+			prof->phaFile = env->absolutePath(configGetString(prefix + "phaFile"));
+		} catch ( ... ) {}
 
-		prefix = string("RTDD.profile.") + *it + ".dtct.";
+		prefix = string("rtdd.profile.") + *it + ".dtct.";
 		prof->ddcfg.dtt.minWeight = configGetDouble(prefix + "minWeight");
 		prof->ddcfg.dtt.maxESdist = configGetDouble(prefix + "maxESdist");
 		prof->ddcfg.dtt.maxIEdist = configGetDouble(prefix + "maxIEdist");
@@ -363,7 +372,7 @@ bool RTDD::validateParameters()
 		prof->ddcfg.dtt.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
 		prof->ddcfg.dtt.minDTperEvt = configGetInt(prefix + "minDTperEvt");
 
-		prefix = string("RTDD.profile.") + *it + ".dtcc.";
+		prefix = string("rtdd.profile.") + *it + ".dtcc.";
 		prof->ddcfg.xcorr.recordStreamURL = recordStreamURL();
 		prof->ddcfg.xcorr.minWeight = configGetDouble(prefix + "minWeight");
 		prof->ddcfg.xcorr.maxESdist = configGetDouble(prefix + "maxESdist");
@@ -371,29 +380,45 @@ bool RTDD::validateParameters()
 		prof->ddcfg.xcorr.minNumNeigh = configGetInt(prefix + "minNumNeigh");
 		prof->ddcfg.xcorr.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
 		prof->ddcfg.xcorr.minDTperEvt = configGetInt(prefix + "minDTperEvt");
-		prof->ddcfg.xcorr.filterFmin = configGetDouble(prefix + "filterFmin");
-		prof->ddcfg.xcorr.filterFmax = configGetDouble(prefix + "filterFmax");
-		prof->ddcfg.xcorr.filterFsamp = configGetDouble(prefix + "filterFsamp");
-		prof->ddcfg.xcorr.filterOrder = configGetInt(prefix + "filterOrder");
+
+		prefix = string("rtdd.profile.") + *it + ".dtcc.crosscorrelation.";
+		try {
+			prof->ddcfg.xcorr.filterFmin = configGetDouble(prefix + "filterFmin");
+		} catch ( ... ) {}
+		try {
+			prof->ddcfg.xcorr.filterFmax = configGetDouble(prefix + "filterFmax");
+		} catch ( ... ) {}
+		try {
+			prof->ddcfg.xcorr.filterFsamp = configGetDouble(prefix + "filterFsamp");
+		} catch ( ... ) {}
+		try {
+			prof->ddcfg.xcorr.filterOrder = configGetInt(prefix + "filterOrder");
+		} catch ( ... ) { prof->ddcfg.xcorr.filterOrder = 3; }
 		prof->ddcfg.xcorr.timeBeforePick = configGetDouble(prefix + "timeBeforePick");
 		prof->ddcfg.xcorr.timeAfterPick = configGetDouble(prefix + "timeAfterPick");
 		prof->ddcfg.xcorr.maxDelay = configGetDouble(prefix + "maxDelay");
 
-		prefix = string("RTDD.profile.") + *it + ".hypodd.";
+		prefix = string("rtdd.profile.") + *it + ".hypodd.";
 
-		prof->ddcfg.hypodd.exec = env->absolutePath(configGetString(prefix + "execPath"));
+		try {
+			prof->ddcfg.hypodd.exec = env->absolutePath(configGetString(prefix + "execPath"));
+		} catch ( ... ) { prof->ddcfg.hypodd.exec = "hypodd"; }
 		prof->ddcfg.hypodd.ctrlFile = env->absolutePath(configGetString(prefix + "controlFile"));
 
-		prefix = string("RTDD.profile.") + *it + ".ph2dt.";
+		prefix = string("rtdd.profile.") + *it + ".ph2dt.";
 
-		prof->ddcfg.ph2dt.exec = env->absolutePath(configGetString(prefix + "execPath"));
-		prof->ddcfg.ph2dt.minwght = configGetDouble(prefix + "minwght");
-		prof->ddcfg.ph2dt.maxdist = configGetDouble(prefix + "maxdist");
-		prof->ddcfg.ph2dt.maxsep = configGetDouble(prefix + "maxsep");
-		prof->ddcfg.ph2dt.maxngh = configGetInt(prefix + "maxngh");
-		prof->ddcfg.ph2dt.minlnk = configGetInt(prefix + "minlnk");
-		prof->ddcfg.ph2dt.minobs = configGetInt(prefix + "minobs");
-		prof->ddcfg.ph2dt.maxobs = configGetInt(prefix + "maxobs");
+		try {
+			prof->ddcfg.ph2dt.exec = env->absolutePath(configGetString(prefix + "execPath"));
+		} catch ( ... ) { prof->ddcfg.hypodd.exec = "ph2dt"; }
+		try {
+			prof->ddcfg.ph2dt.minwght = configGetDouble(prefix + "minwght");
+			prof->ddcfg.ph2dt.maxdist = configGetDouble(prefix + "maxdist");
+			prof->ddcfg.ph2dt.maxsep = configGetDouble(prefix + "maxsep");
+			prof->ddcfg.ph2dt.maxngh = configGetInt(prefix + "maxngh");
+			prof->ddcfg.ph2dt.minlnk = configGetInt(prefix + "minlnk");
+			prof->ddcfg.ph2dt.minobs = configGetInt(prefix + "minobs");
+			prof->ddcfg.ph2dt.maxobs = configGetInt(prefix + "maxobs");
+		} catch ( ... ) {}
 
 		_profiles.push_back(prof);
 
@@ -465,8 +490,8 @@ bool RTDD::run() {
 			ProfilePtr profile = *it;
 			if ( profile->name == _config.relocateCatalog)
 			{
-				string workingDir = _config.outputPath + "/" + profile->name;
-				profile->load(workingDir);
+				string workingDir = (boost::filesystem::path(_config.outputPath)/ profile->name).string();
+				profile->load(query(), workingDir);
 				HDD::CatalogPtr relocatedCat = profile->relocateCatalog();
 				profile->unload();
 				relocatedCat->writeToFile("event.csv","phase.csv","station.csv");
@@ -1053,8 +1078,8 @@ bool RTDD::send(Origin *org)
 
 OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 {
-	string workingDir = _config.outputPath + "/" + profile->name;
-	profile->load(workingDir);
+	string workingDir = (boost::filesystem::path(_config.outputPath)/profile->name).string();
+	profile->load(query(), workingDir);
 
 	OriginPtr newOrg;
 
@@ -1093,17 +1118,18 @@ OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 
 // Profile class
 
-RTDD::Profile::Profile(DataModel::DatabaseQuery* query)
+RTDD::Profile::Profile()
 {
 	loaded = false;
-	this->query = query;
 }
 
 
-void RTDD::Profile::load(string workingDir)
+void RTDD::Profile::load(DataModel::DatabaseQuery* query, string workingDir)
 {
 	if ( loaded ) return;
 	SEISCOMP_DEBUG("Loading profile %s", name.c_str());
+
+	this->query = query;
 
 	// check if the catalog uses seiscomp event ids or if contains full information
 	HDD::CatalogPtr ddbgc;
