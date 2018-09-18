@@ -404,7 +404,7 @@ bool RTDD::validateParameters()
 
 		try {
 			prof->ddcfg.hypodd.exec = env->absolutePath(configGetString(prefix + "execPath"));
-		} catch ( ... ) { prof->ddcfg.hypodd.exec = "hypodd"; }
+		} catch ( ... ) { prof->ddcfg.hypodd.exec = "hypoDD"; }
 		prof->ddcfg.hypodd.ctrlFile = env->absolutePath(configGetString(prefix + "controlFile"));
 
 		prefix = string("rtdd.profile.") + *it + ".ph2dt.";
@@ -1141,7 +1141,7 @@ void RTDD::Profile::load(DataModel::DatabaseQuery* query, string workingDir)
 
 	this->query = query;
 
-	// check if the catalog uses seiscomp event ids or if contains full information
+	// check if the catalog uses seiscomp event ids or if it contains full information
 	HDD::CatalogPtr ddbgc;
 	if ( CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0)
 		ddbgc = new HDD::Catalog(eventFile, query);

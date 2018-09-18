@@ -196,7 +196,7 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 		ev.time        = org->time().value().toGMT();
 		ev.latitude    = org->latitude();
 		ev.longitude   = org->longitude();
-		ev.depth       = org->depth(); // FIXME it `has to be km
+		ev.depth       = org->depth(); // km
 		ev.horiz_err   = 0; // FIXME 
 		ev.depth_err   = 0; // FIXME 
 		ev.tt_residual = 0; // FIXME 
@@ -246,7 +246,7 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 				}
 				sta.latitude = orgArrStation->latitude();
 				sta.longitude = orgArrStation->longitude();
-				sta.elevation = orgArrStation->elevation();
+				sta.elevation = orgArrStation->elevation(); // meter
 				addStation(sta, false);
 			}
 			// the station has to be there at this point
@@ -433,7 +433,7 @@ bool Catalog::addStation(const Station& station, bool checkDuplicate)
 		return false;
 	}
 	Station newStation = station;
-	newStation.id = newStation.networkCode + "." + newStation.stationCode;
+	newStation.id = newStation.networkCode + newStation.stationCode;
 	_stations[newStation.id] = newStation;
 	return true;
 }
@@ -561,10 +561,10 @@ CatalogPtr HypoDD::relocateCatalog()
 	// input files: ph2dt.inp station.dat phase.dat
 	// output files: station.sel event.sel event.dat dt.ct
 	string dtctFile = (boost::filesystem::path(catalogWorkingDir)/"dt.ct").string();
-	string stationSelFile = (boost::filesystem::path(catalogWorkingDir)/"event.sel").string();
-	string eventSelfile = (boost::filesystem::path(catalogWorkingDir)/"station.sel").string();
-	if ( !Util::fileExists(dtctFile) &&
-	     !Util::fileExists(stationSelFile) &&
+	string stationSelFile = (boost::filesystem::path(catalogWorkingDir)/"station.sel").string();
+	string eventSelfile = (boost::filesystem::path(catalogWorkingDir)/"event.sel").string();
+	if ( !Util::fileExists(dtctFile) ||
+	     !Util::fileExists(stationSelFile) ||
 	     !Util::fileExists(eventSelfile) )
 	{
 		runPh2dt(catalogWorkingDir, stationFile, phaseFile);
@@ -621,7 +621,9 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& evToRelocateCat)
 	                                                 _cfg.dtt.maxESdist, _cfg.dtt.maxIEdist,
 	                                                 _cfg.dtt.minNumNeigh, _cfg.dtt.maxNumNeigh,
 	                                                 _cfg.dtt.minDTperEvt);
+	// add event to relocate to the neighbour catalog
 	neighbourCat = neighbourCat->merge(evToRelocateCat);
+	// extract the new id of the event
 	string evToRelocateNewId = neighbourCat->searchEvent(evToRelocate)->first;
 
 	// Create station.dat for hypodd
@@ -664,7 +666,9 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& evToRelocateCat)
 	                                      _cfg.xcorr.maxIEdist,
 	                                      _cfg.xcorr.minNumNeigh, _cfg.xcorr.maxNumNeigh,
 	                                      _cfg.xcorr.minDTperEvt);
+	// add event to relocate to the neighbour catalog
 	neighbourCat = neighbourCat->merge(relocatedEvCat);
+	// extract the new id of the event
 	string relocatedEvNewId = neighbourCat->searchEvent(relocatedEv)->first;
 
 	// Create station.dat for hypodd
@@ -728,8 +732,8 @@ void HypoDD::createStationDatFile(const string& staFileName, const CatalogPtr& c
 	for (const auto& kv :  catalog->getStations() )
 	{
 		const Catalog::Station& station = kv.second;
-		outStream << stringify("%s %.6f %.6f %d\n",
-		                      station.id, station.latitude,
+		outStream << stringify("%-12s %12.6f %12.6f %12d\n",
+		                      station.id.c_str(), station.latitude,
 		                      station.longitude, station.elevation);
 	}
 }
@@ -776,11 +780,11 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogPtr& c
 			continue;
 		}
 
-		outStream << stringify("# %d %d %d %d %d %d %.6f %.6f %.6f %.4f %.6f %.6f %.6f %.6f %s\n",
+		outStream << stringify("# %d %d %d %d %d %.2f %.6f %.6f %.2f %.4f %.2f %.2f %.2f %10s\n",
 		                      year, month, day, hour, min, sec + double(usec)/1.e6,
 		                      event.latitude,event.longitude,event.depth,
 		                      event.magnitude, event.horiz_err, event.depth_err,
-		                      event.tt_residual, event.id);
+		                      event.tt_residual, event.id.c_str());
 
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
 		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
@@ -795,8 +799,8 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogPtr& c
 				continue; 
 			}
 
-			outStream << stringify("%s %.6f %.2f %s\n",
-			                      phase.stationId, travel_time,
+			outStream << stringify("%-12s %12.6f %5.2f %4s\n",
+			                      phase.stationId.c_str(), travel_time,
 			                      phase.weight, phase.type.c_str());
 		}
 	}
@@ -861,20 +865,36 @@ void HypoDD::runPh2dt(const string& workingDir, const string& stationFile, const
 		throw runtime_error("Unable to run ph2dt, file doesn't exist: " + phaseFile);
 
 	// write ph2dt.inp - input control file for program ph2dt
+	string ph2dtFile = (boost::filesystem::path(workingDir)/"ph2dt.inp").string();
 	ofstream ph2dtinp;
-	ph2dtinp.open((boost::filesystem::path(workingDir)/"ph2dt.inp").string());
+	ph2dtinp.open(ph2dtFile);
 	if ( !ph2dtinp.is_open() )
 		throw runtime_error("Cannot create file ph2dt.inp");
 	
+	ph2dtinp << "* ph2dt.inp - input control file for program ph2dt" << endl;
+	ph2dtinp << "* Input station file:" << endl;
 	ph2dtinp << stationFile << endl;
+	ph2dtinp << "* Input phase file:" << endl;
 	ph2dtinp << phaseFile << endl;
-	ph2dtinp << _cfg.ph2dt.minwght << _cfg.ph2dt.maxdist << _cfg.ph2dt.maxsep
-	         << _cfg.ph2dt.maxngh  << _cfg.ph2dt.minlnk  << _cfg.ph2dt.minobs
-	         << _cfg.ph2dt.maxobs  << endl;
-	ph2dtinp.close(); // this flush the data to disk
+	ph2dtinp << "*MINWGHT: min. pick weight allowed [0]" << endl;
+	ph2dtinp << "*MAXDIST: max. distance in km between event pair and stations [200]" << endl;
+	ph2dtinp << "*MAXSEP: max. hypocentral separation in km [10]" << endl;
+	ph2dtinp << "*MAXNGH: max. number of neighbors per event [10]" << endl;
+	ph2dtinp << "*MINLNK: min. number of links required to define a neighbor [8]" << endl;
+	ph2dtinp << "*MINOBS: min. number of links per pair saved [8]" << endl;
+	ph2dtinp << "*MAXOBS: max. number of links per pair saved [20]" << endl;
+	ph2dtinp << "*MINWGHT MAXDIST MAXSEP MAXNGH MINLNK MINOBS MAXOBS" << endl;
+	ph2dtinp << stringify("%8.2f %7.3f %6.3f %6d %6d %6d %6d\n",
+	                      _cfg.ph2dt.minwght, _cfg.ph2dt.maxdist, _cfg.ph2dt.maxsep,
+	                      _cfg.ph2dt.maxngh, _cfg.ph2dt.minlnk, _cfg.ph2dt.minobs,
+	                      _cfg.ph2dt.maxobs)
+	         << endl;
+
+	// Make sure the content is flushed to disk before running ph2dt
+	ph2dtinp.close(); 
 
 	// Run ph2dt
-	startExternalProcess({"ph2dt"}, true, workingDir);
+	startExternalProcess({"ph2dt", ph2dtFile}, true, workingDir);
 }
 
 /*
@@ -887,25 +907,20 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
 {
 	SEISCOMP_DEBUG("Running hypodd...");
 
-	string fname = (boost::filesystem::path(workingDir)/dtccFile).string();
-	if ( !Util::fileExists(fname) )
-		throw runtime_error("Unable to run hypodd, file doesn't exist: " + fname);
+	if ( !Util::fileExists(dtccFile) )
+		throw runtime_error("Unable to run hypodd, file doesn't exist: " + dtccFile);
 
-	fname = (boost::filesystem::path(workingDir)/dtctFile).string();
-	if ( !Util::fileExists(fname) )
-		throw runtime_error("Unable to run hypodd, file doesn't exist: " + fname);
+	if ( !Util::fileExists(dtctFile) )
+		throw runtime_error("Unable to run hypodd, file doesn't exist: " + dtctFile);
 
-	fname = (boost::filesystem::path(workingDir)/eventFile).string();
-	if ( !Util::fileExists(fname) )
-		throw runtime_error("Unable to run hypodd, file doesn't exist: " + fname);
+	if ( !Util::fileExists(eventFile) )
+		throw runtime_error("Unable to run hypodd, file doesn't exist: " + eventFile);
 
-	fname = (boost::filesystem::path(workingDir)/stationFile).string();
-	if ( !Util::fileExists(fname) )
-		throw runtime_error("Unable to run hypodd, file doesn't exist: " + fname);
+	if ( !Util::fileExists(stationFile) )
+		throw runtime_error("Unable to run hypodd, file doesn't exist: " + stationFile);
 
-	fname = (boost::filesystem::path(workingDir)/_cfg.hypodd.ctrlFile).string();
-	if ( !Util::fileExists(fname) )
-		throw runtime_error("Unable to run hypodd, file doesn't exist: " + fname);
+	if ( !Util::fileExists(_cfg.hypodd.ctrlFile) )
+		throw runtime_error("Unable to run hypodd, file doesn't exist: " + _cfg.hypodd.ctrlFile);
 
 	startExternalProcess({"hypodd"}, true, workingDir);
 }
@@ -1002,7 +1017,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
             
 			// compute distance between current event and station
 			double distance = computeDistance(event.latitude, event.longitude, event.depth,
-			                                  station.latitude, station.longitude, -station.elevation);
+			                                  station.latitude, station.longitude, -(station.elevation/1000.));
 			// too far away ?
 			if ( distance > maxESdis )
 				continue;

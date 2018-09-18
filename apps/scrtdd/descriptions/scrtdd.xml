@@ -196,16 +196,16 @@
 							</parameter>
 							<group name="crosscorrelation">
 								<parameter name="filterFmin" type="double">
-									<description>(hz, 0 disable)</description>
+									<description>Frequency of the hi-pass filter (hz, 0 disable)</description>
 								</parameter>
 								<parameter name="filterFmax" type="double">
-									<description>(hz, 0 disable)</description>
+									<description>Frequency of the low-pass filter (hz, 0 disable)</description>
 								</parameter>
 								<parameter name="filterFsamp" type="double">
-									<description>(hz, 0 disable)</description>
+									<description>Samplig rate (hz, 0 disable)</description>
 								</parameter>
 								<parameter name="filterOrder" type="int">
-									<description></description>
+									<description>Filter order</description>
 								</parameter>
 								<parameter name="timeBeforePick" type="double">
 									<description>(secs)</description>

@@ -37,7 +37,7 @@ class Catalog : public Core::BaseObject {
 			std::string id;
 			double latitude;
 			double longitude;
-			double elevation; // km
+			double elevation; // meter
 			std::string networkCode;
 			std::string stationCode;
 			// this equality works between multiple catalogs
