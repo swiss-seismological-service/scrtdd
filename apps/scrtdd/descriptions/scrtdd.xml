@@ -354,6 +354,10 @@
 					<description>Relocate the full catalog of the passed profile and exit</description>
 				</option>
 
+				<option long-flag="dump-catalog" argument="arg">
+					<description>Dump catalog files from the seiscomp event/origin ids file passed as argument</description>
+				</option>
+
 				<option long-flag="dump-config">
 					<description>Dump the configuration and exit</description>
 				</option>

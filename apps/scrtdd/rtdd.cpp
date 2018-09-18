@@ -271,7 +271,6 @@ RTDD::~RTDD() {
 }
 
 
-
 void RTDD::createCommandLineDescription() {
 	Application::createCommandLineDescription();
 	commandline().addOption("Mode", "dump-config", "Dump the configuration and exit");

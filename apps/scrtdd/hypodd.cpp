@@ -1423,6 +1423,12 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 				continue;
 
 			GenericRecordPtr trace = getWaveform(event, phase, _wfCache);
+			if ( !trace )
+			{
+				SEISCOMP_WARNING("Cannot load phase waveform, skipping xcorr for event '%s' phase '%s')",
+								 string(phase).c_str(), string(event).c_str());
+				continue;
+			}
 
 			// loop through reference event phases
 			auto eqlrng2 = catalog->getPhases().equal_range(refEv.id);
@@ -1436,6 +1442,12 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 				    phase.type == refPhase.type)
 				{
 					GenericRecordPtr refTrace = getWaveform(refEv, refPhase, tmpWfCache);
+					if ( !refTrace )
+					{
+						SEISCOMP_WARNING("Cannot load phase waveform, skipping xcorr for event '%s' phase '%s')",
+						                 string(refPhase).c_str(), string(refEv).c_str());
+						continue;
+					}
 
 					double xcorr_coeff, xcorr_dt;
 					if ( ! xcorr(trace, refTrace, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
@@ -1539,15 +1551,21 @@ HypoDD::getWaveform(const Catalog::Event& ev,
 	const auto it = cache.find(wfId);
 	if ( it == cache.end() )
 	{
-		GenericRecordPtr wf = loadWaveform(starttime,
-		                                   duration,
-		                                   ph.networkCode,
-		                                   ph.stationCode,
-		                                   ph.locationCode,
-		                                   ph.channelCode);
-		cache[wfId] = wf;
+		GenericRecordPtr wf;
+		try {
+			wf = loadWaveform(starttime,
+		                      duration,
+		                      ph.networkCode,
+		                      ph.stationCode,
+		                      ph.locationCode,
+		                      ph.channelCode);
+		} catch ( ... ) {}
+		if (wf)
+			cache[wfId] = wf;
+		return wf;
 	}
-	return cache[wfId];
+	else
+		return it->second;
 }
 
 
