@@ -15,7 +15,11 @@
 </pre>
 **Description**
 
-Real Time Double-Difference Event Location
+This module implements a Real Time Double-Difference Event Location method as described in the paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser.
+
+This module can also be used to perform (non-real-time) an event catalog Double-Difference relocation, which is covered by another paper: "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Felix Waldhauser et al.
+
+The actual Double-Difference inversion method is performed by the hypoDD software, which should be installed in the system (version 2.1b).
 
 **Compile**
 
