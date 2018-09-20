@@ -164,11 +164,11 @@ IMPL_READ_CONFIG(vector<string>, configGetStrings)
 
 
 Application::Application(int argc, char **argv)
-: Seiscomp::Client::Application(argc, argv) {}
+: Seiscomp::Client::StreamApplication(argc, argv) {}
 
 
 void Application::createCommandLineDescription() {
-	Seiscomp::Client::Application::createCommandLineDescription();
+	Seiscomp::Client::StreamApplication::createCommandLineDescription();
 
 	for ( Options::iterator it = _options.begin(); it != _options.end(); ++it )
 		(*it)->bind(&commandline());
@@ -176,7 +176,7 @@ void Application::createCommandLineDescription() {
 
 
 bool Application::validateParameters() {
-	if ( !Seiscomp::Client::Application::validateParameters() ) return false;
+	if ( !Seiscomp::Client::StreamApplication::validateParameters() ) return false;
 
 	for ( Options::iterator it = _options.begin(); it != _options.end(); ++it )
 		if ( !(*it)->get(&commandline()) ) return false;
@@ -186,7 +186,7 @@ bool Application::validateParameters() {
 
 
 bool Application::initConfiguration() {
-	if ( !Seiscomp::Client::Application::initConfiguration() ) return false;
+	if ( !Seiscomp::Client::StreamApplication::initConfiguration() ) return false;
 
 	for ( Options::iterator it = _options.begin(); it != _options.end(); ++it )
 		if ( !(*it)->get(this) ) return false;

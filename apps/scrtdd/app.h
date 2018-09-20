@@ -17,14 +17,14 @@
 #ifndef __SEISCOMP_APPLICATIONS_RTDD_APP_H__
 #define __SEISCOMP_APPLICATIONS_RTDD_APP_H__
 
-#include <seiscomp3/client/application.h>
+#include <seiscomp3/client/streamapplication.h>
 
 #include <iostream>
 #include <vector>
 #include <list>
 
 
-class Application : public Seiscomp::Client::Application {
+class Application : public Seiscomp::Client::StreamApplication {
 	public:
 		DEFINE_SMARTPOINTER(Option);
 		struct Option : public Seiscomp::Core::BaseObject {

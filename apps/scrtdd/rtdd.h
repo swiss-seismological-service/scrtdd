@@ -70,6 +70,7 @@ class RTDD : public Application {
 		void handleMessage(Core::Message *msg);
 		void addObject(const std::string&, DataModel::Object* object);
 		void updateObject(const std::string&, DataModel::Object* object);
+		void handleRecord(Record *rec) { /* we don't really need this */ }
 
 		void handleTimeout();
 		void cleanUnusedProfiles();
