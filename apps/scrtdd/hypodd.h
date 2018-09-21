@@ -175,8 +175,6 @@ struct Config {
 		std::string ctrlFile;
 	} hypodd;
 
-	std::vector<std::string> allowedPhases = {"P", "S"};
-
 	// differential travel time specific
 	struct {
 		double minWeight;  // Min weight of phases allowed (0-1)

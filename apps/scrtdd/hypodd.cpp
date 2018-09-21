@@ -53,6 +53,16 @@ pid_t startExternalProcess(const vector<string> &cmdparams,
 {
 	pid_t pid;
 	string cmdline;
+	vector<char *> params(cmdparams.size());
+	for ( size_t i = 0; i < cmdparams.size(); ++i )
+	{
+		params[i] = (char*)cmdparams[i].c_str();
+		if ( i > 0 ) cmdline += " ";
+		cmdline += cmdparams[i];
+	}
+	params.push_back(NULL);
+
+	SEISCOMP_DEBUG("Executing command: %s", cmdline.c_str());
 
 	pid = fork();
 
@@ -68,21 +78,10 @@ pid_t startExternalProcess(const vector<string> &cmdparams,
 		{
 			if( chdir(workingDir.c_str()) != 0 )
 			{
-				SEISCOMP_ERROR("Cannot change working directory to %s", workingDir.c_str());
 				exit(1);
 			}
 		}
 
-		vector<char *> params(cmdparams.size());
-		for ( size_t i = 0; i < cmdparams.size(); ++i )
-        {
-			params[i] = (char*)cmdparams[i].c_str();
-			if ( i > 0 ) cmdline += " ";
-			cmdline += cmdparams[i];
-		}
-		params.push_back(NULL);
-
-		SEISCOMP_DEBUG("$ %s", cmdline.c_str());
 		execv(params[0], &params[0]);
 		exit(1);
 	}
@@ -94,6 +93,9 @@ pid_t startExternalProcess(const vector<string> &cmdparams,
 			do {
 				pid = waitpid(pid, &status, 0);
 			} while (pid == -1 && errno == EINTR);
+
+			if (status != 0)
+				SEISCOMP_ERROR("Command exited with non zero value (%d)", status);
 		}
 	}
 
@@ -894,7 +896,7 @@ void HypoDD::runPh2dt(const string& workingDir, const string& stationFile, const
 	ph2dtinp.close(); 
 
 	// Run ph2dt
-	startExternalProcess({"ph2dt", ph2dtFile}, true, workingDir);
+	::startExternalProcess({_cfg.ph2dt.exec, ph2dtFile}, true, workingDir);
 }
 
 /*
@@ -922,7 +924,7 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
 	if ( !Util::fileExists(_cfg.hypodd.ctrlFile) )
 		throw runtime_error("Unable to run hypodd, file doesn't exist: " + _cfg.hypodd.ctrlFile);
 
-	startExternalProcess({"hypodd"}, true, workingDir);
+	::startExternalProcess({_cfg.hypodd.exec, _cfg.hypodd.ctrlFile}, true, workingDir);
 }
 
 
