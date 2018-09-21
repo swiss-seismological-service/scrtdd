@@ -1553,12 +1553,9 @@ HypoDD::getWaveform(const Catalog::Event& ev,
 	{
 		GenericRecordPtr wf;
 		try {
-			wf = loadWaveform(starttime,
-		                      duration,
-		                      ph.networkCode,
-		                      ph.stationCode,
-		                      ph.locationCode,
-		                      ph.channelCode);
+			wf = loadWaveform(starttime, duration,
+			                  ph.networkCode, ph.stationCode,
+			                  ph.locationCode, ph.channelCode);
 		} catch ( ... ) {}
 		if (wf)
 			cache[wfId] = wf;
@@ -1584,7 +1581,7 @@ HypoDD::loadWaveform(const Core::Time& time,
 		throw runtime_error(msg);
 	}
 
-	Core::TimeWindow tw(time, duration);
+	Core::TimeWindow tw(time.toLocalTime(), duration);
 	rs->setTimeWindow(tw);
 	rs->addStream(networkCode, stationCode, locationCode, channelCode);
 
