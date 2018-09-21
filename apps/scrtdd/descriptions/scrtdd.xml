@@ -18,15 +18,31 @@
 					</description>
 				</parameter>
 
-				<parameter name="outputPath" type="path" default="/tmp/rtdd">
+				<parameter name="profileCachingTime" type="int" default="1440">
 					<description>
-						Defines the directory used for storing processing input and output files.
+						Defines how long the profile data should be cached for (in minutes). This is mostly useful
+						to avoid reloading catalog waveform data whenever a new event occurs, at the expense
+						of using more memory (this can be an issue or not depending on the catalog size).
+						Set a negative value to keep the profile data always in memory.
 					</description>
 				</parameter>
 
 				<parameter name="manualOrigin" type="boolean" default="true">
 					<description>
 					Enables relocation of any manual origin. If false, only event preferred origins are relocated.
+					</description>
+				</parameter>
+ 
+				<parameter name="workingDirectory" type="path" default="/tmp/rtdd">
+					<description>
+						Defines the directory used for storing temporary processing files.
+					</description>
+				</parameter>
+
+				<parameter name="keepWorkingFiles" type="boolean" default="false">
+					<description>
+						Do not delete temporary processing files from the working directory
+						after the processing is completed.
 					</description>
 				</parameter>
 

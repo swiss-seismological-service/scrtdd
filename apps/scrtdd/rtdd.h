@@ -98,8 +98,10 @@ class RTDD : public Application {
 
 			std::string publicIDPattern;
 			std::vector<std::string> activeProfiles;
-			std::string outputPath;
+			std::string workingDirectory;
+			bool        keepWorkingFiles;
 			bool        processManualOrigin;
+			int         profileCachingTime; //seconds
 
             // Mode
 			bool        forceProcessing;
@@ -123,7 +125,7 @@ class RTDD : public Application {
 		class Profile : public Core::BaseObject {
 			public:
 			Profile();
-			void load(DataModel::DatabaseQuery* query, std::string workingDir);
+			void load(DataModel::DatabaseQuery* query, std::string workingDir, bool cleanupWorkingDir);
 			void unload();
 			bool isLoaded() { return loaded; }
 			Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }

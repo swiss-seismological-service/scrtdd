@@ -203,7 +203,7 @@ RTDD::Config::Config()
 {
 	publicIDPattern = "RTDD.@time/%Y%m%d%H%M%S.%f@.@id@";
 	processManualOrigin = true;
-	outputPath = "/tmp/rtdd";
+	workingDirectory = "/tmp/rtdd";
 
 	forceProcessing = false;
 	testMode = false;
@@ -237,7 +237,9 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 
 	NEW_OPT(_config.publicIDPattern, "rtdd.publicIDPattern");
 	NEW_OPT(_config.activeProfiles, "rtdd.activeProfiles");
-	NEW_OPT(_config.outputPath, "rtdd.outputPath");
+	NEW_OPT(_config.profileCachingTime, "rtdd.profileCachingTime");
+	NEW_OPT(_config.workingDirectory, "rtdd.workingDirectory");
+	NEW_OPT(_config.keepWorkingFiles, "rtdd.keepWorkingFiles");
 	NEW_OPT(_config.processManualOrigin, "rtdd.manualOrigin");
 
 	NEW_OPT(_config.wakeupInterval, "rtdd.cron.wakeupInterval");
@@ -299,16 +301,12 @@ bool RTDD::validateParameters()
 		setDatabaseEnabled(false, false);
     }
 
-	if ( !Util::pathExists(_config.outputPath) ) {
-		if ( ! Util::createPath(_config.outputPath) ) {
-			SEISCOMP_ERROR("rtdd.outputPath: failed to create path %s",_config.outputPath.c_str());
+	_config.workingDirectory = boost::filesystem::path(_config.workingDirectory).string();
+	if ( !Util::pathExists(_config.workingDirectory) ) {
+		if ( ! Util::createPath(_config.workingDirectory) ) {
+			SEISCOMP_ERROR("rtdd.workingDirectory: failed to create path %s",_config.workingDirectory.c_str());
 			return false;
 		}
-	}
-
-	if ( _config.outputPath.size() > 0 ) {
-		if ( _config.outputPath[_config.outputPath.size()-1] != '/' )
-			_config.outputPath += '/';
 	}
 
 	bool profilesOK = true;
@@ -499,8 +497,8 @@ bool RTDD::run() {
 			ProfilePtr profile = *it;
 			if ( profile->name == _config.relocateCatalog)
 			{
-				string workingDir = (boost::filesystem::path(_config.outputPath)/ profile->name).string();
-				profile->load(query(), workingDir);
+				string workingDir = (boost::filesystem::path(_config.workingDirectory)/ profile->name).string();
+				profile->load(query(), workingDir, !_config.keepWorkingFiles);
 				HDD::CatalogPtr relocatedCat = profile->relocateCatalog();
 				profile->unload();
 				relocatedCat->writeToFile("event.csv","phase.csv","station.csv");
@@ -657,10 +655,12 @@ void RTDD::handleTimeout()
 
 void RTDD::cleanUnusedProfiles() 
 {
-	// Peridoically clean up profiles unused for some time as they
-	// use lots of memory (waveform data)
+	if (_config.profileCachingTime < 0)// nevel clean up profiles
+		return;
 
-	Core::TimeSpan expired = Core::TimeSpan(60*60*24); // 1 day
+	// Peridoically clean up profiles unused for some time as they
+	// might use lots of memory (waveform data)
+	Core::TimeSpan expired = Core::TimeSpan(_config.profileCachingTime);
 
 	for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
 	{
@@ -671,7 +671,7 @@ void RTDD::cleanUnusedProfiles()
 			               currProfile->name.c_str(), expired.length());
 			currProfile->unload();
 		}
-	} 
+	}
 }
 
 
@@ -1087,8 +1087,8 @@ bool RTDD::send(Origin *org)
 
 OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 {
-	string workingDir = (boost::filesystem::path(_config.outputPath)/profile->name).string();
-	profile->load(query(), workingDir);
+	string workingDir = (boost::filesystem::path(_config.workingDirectory)/profile->name).string();
+	profile->load(query(), workingDir, !_config.keepWorkingFiles);
 
 	OriginPtr newOrg;
 
@@ -1133,7 +1133,7 @@ RTDD::Profile::Profile()
 }
 
 
-void RTDD::Profile::load(DataModel::DatabaseQuery* query, string workingDir)
+void RTDD::Profile::load(DataModel::DatabaseQuery* query, string workingDir, bool cleanupWorkingDir)
 {
 	if ( loaded ) return;
 	SEISCOMP_DEBUG("Loading profile %s", name.c_str());
@@ -1148,6 +1148,7 @@ void RTDD::Profile::load(DataModel::DatabaseQuery* query, string workingDir)
 		ddbgc = new HDD::Catalog(stationFile, eventFile, phaFile);
 
 	hypodd = new HDD::HypoDD(ddbgc, ddcfg, workingDir);
+	hypodd->setWorkingDirCleanup(cleanupWorkingDir);
 	loaded = true;
 	lastUsage = Core::Time::GMT();
 }
