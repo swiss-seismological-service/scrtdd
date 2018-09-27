@@ -1502,44 +1502,46 @@ HypoDD::xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double m
 	double freq = tr1->samplingFrequency();
 	int maxDelaySmps = maxDelay * freq; // secs to samples
 
-	// tr1 and tr2 are already demeaned
-	const double *smps1 = DoubleArray::ConstCast(tr1->data())->typedData(); // tr1 samples
-	const double *smps2 = DoubleArray::ConstCast(tr2->data())->typedData(); // tr2 samples
-	int smps1size = tr1->data()->size();
-	int smps2size = tr2->data()->size();
+	// check longest/shortest trace
+	bool swap = tr1->data()->size() > tr2->data()->size();
+	GenericRecordPtr trShorter = swap ? tr2 : tr1;
+	GenericRecordPtr trLonger = swap ? tr1 : tr2;
 
-	// Calculate the denominator
-	double s1, s2, denom;
-	s1 = s2 = 0;
-	for (int i = 0; i < smps1size; i++)
-	{
-		s1 += smps1[i] * smps1[i];
-	}
-	for (int i = 0; i < smps2size; i++)
-	{
-		s2 += smps2[i] * smps2[i];
-	}
-	denom = std::sqrt(s1*s2);
+	const double *smpsS = DoubleArray::ConstCast(trShorter->data())->typedData();
+	const double *smpsL = DoubleArray::ConstCast(trLonger->data())->typedData();
+	int smpsSsize = trShorter->data()->size();
+	int smpsLsize = trLonger->data()->size();
 
-	// Calculate the correlation series
+	// Calculate part of the denominator (speed up)
+	double denomS;
+	for (int idxS = 0; idxS < smpsSsize; idxS++)
+	{
+		denomS += smpsS[idxS] * smpsS[idxS];
+	}
+
+	// Calculate the correlation series (tr1 and tr2 are already demeaned)
 	for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
 	{
-		double sxy = 0;
-		for (int i = 0; i < smps1size; i++)
+		double numer = 0, denomL = 0;
+		for (int idxS = 0; idxS < smpsSsize; idxS++)
 		{
-			int j = i + delay;
-			if (j < 0 || j >= smps2size)
+			int idxL = idxS + smpsLsize/2 - smpsSsize/2 + delay;
+			if (idxL < 0 || idxL >= smpsLsize)
 				continue;
-			else
-				sxy += smps1[i] * smps2[j];
+			numer  += smpsS[idxS] * smpsL[idxL];
+			denomL += smpsL[idxL] * smpsL[idxL];
 		}
-		double coeff = sxy / denom;
+		double denom = std::sqrt(denomS*denomL);
+		double coeff = numer / denom;
 		if (coeff > coeffOut)
 		{
 			coeffOut = coeff;
 			delayOut = delay / freq; // samples to secs
 		}
 	}
+
+	if(swap)
+		delayOut = -delayOut;
 
 	return true;
 }
