@@ -199,9 +199,9 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 		ev.latitude    = org->latitude();
 		ev.longitude   = org->longitude();
 		ev.depth       = org->depth(); // km
-		ev.horiz_err   = 0; // FIXME 
-		ev.depth_err   = 0; // FIXME 
-		ev.tt_residual = 0; // FIXME 
+		ev.horiz_err   = 0;
+		ev.depth_err   = 0;
+		ev.tt_residual = 0;
 		DataModel::EventPtr dmEvent =  query->getEvent(org->publicID());
 		DataModel::MagnitudePtr mag = DataModel::Magnitude::Cast(query->getObject(DataModel::Magnitude::TypeInfo(), dmEvent->preferredMagnitudeID()));
 		ev.magnitude   = mag->magnitude();
@@ -938,6 +938,8 @@ double HypoDD::computeDistance(double lat1, double lon1, double depth1,
 	Math::Geo::delazi(lat1, lon1, lat2, lon2, &distance, &az, &baz);
 	double Hdist = Math::Geo::deg2km(distance);
 	double Vdist = abs(depth1 - depth2);
+	// this is an approximation that works when the distance is small
+	// and the Earth curvature can be assumed flat
 	return std::sqrt( std::pow(Hdist,2) + std::pow(Vdist,2) );
 }
 
@@ -1185,7 +1187,7 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 
 		int dtCount = 0;
 		stringstream evStream;
-		evStream << stringify("# %s %s\n", refEv.id, event.id);
+		evStream << stringify("# %s %s\n", event.id, refEv.id);
 
 		// loop through event phases
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
@@ -1220,9 +1222,13 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 						               string(phase).c_str(), string(event).c_str());
 						continue; 
 					}
+
+					// get common observation weight for pair (FIXME: take the lower one? average?)
+					double weight = (refPhase.weight + phase.weight) / 2.0;
+
 					evStream << stringify("%s %.6f %.6f %.2f %s\n",
-					                      refPhase.stationId, ref_travel_time,
-					                      travel_time, 0., refPhase.type.c_str());
+					                      refPhase.stationId, travel_time,
+					                      ref_travel_time, weight, refPhase.type.c_str());
 					dtCount++;
 				}
 			}
@@ -1414,7 +1420,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 
 		int dtCount = 0;
 		stringstream evStream;
-		evStream << stringify("# %s %s 0.0\n", refEv.id, event.id);
+		evStream << stringify("# %s %s 0.0\n", event.id, refEv.id);
 
 		// loop through event phases
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
@@ -1466,7 +1472,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 
 					evStream << stringify("%s %.6f %.4f %s\n",
 					                      refPhase.stationId.c_str(),
-					                      xcorr_dt, xcorr_coeff,
+					                      xcorr_dt, xcorr_coeff*xcorr_coeff,
 					                      refPhase.type.c_str());
 					dtCount++;
 				}
