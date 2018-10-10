@@ -156,6 +156,9 @@ class Catalog : public Core::BaseObject {
 };
 
 struct Config {
+	
+	std::vector<std::string> validPphases = {"P"};
+	std::vector<std::string> validSphases = {"S"};
 
 	// ph2dt config specifig (catalog relocation only)
 	struct {
@@ -215,6 +218,9 @@ class HypoDD : public Core::BaseObject {
 		CatalogPtr relocateSingleEvent(const CatalogPtr& orgToRelocate);
 		void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
 	private:
+		CatalogPtr filterOutPhases(const CatalogPtr& catalog,
+		                           const std::vector<std::string>& PphaseToKeep,
+		                           const std::vector<std::string>& SphaseToKeep);
 		void createStationDatFile(const std::string& staFileName, const CatalogPtr& catalog);
 		void createPhaseDatFile(const std::string& catFileName, const CatalogPtr& catalog);
 		void createEventDatFile(const std::string& eventFileName, const CatalogPtr& catalog);

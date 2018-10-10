@@ -213,14 +213,7 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 		for ( size_t i = 0; i < org->arrivalCount(); ++i )
 		{
 			DataModel::Arrival *orgArr = org->arrival(i);
-
 			const DataModel::Phase& orgPh = orgArr->phase();
-			if (orgPh.code() != "P" && orgPh.code() != "S")
-			{
-				SEISCOMP_ERROR("Phase is neither P nor S, skip it (arrival %zu of origin '%s')",
-				               i, org->publicID().c_str());
-				continue;
-			}
 
 			DataModel::PickPtr pick = DataModel::Pick::Cast(query->getObject(DataModel::Pick::TypeInfo(), orgArr->pickID()));
 			if ( !pick )
@@ -498,9 +491,10 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 	
 }
 
+
 HypoDD::HypoDD(const CatalogPtr& input, const Config& cfg, const string& workingDir)
 {
-	_ddbgc = input;
+	_ddbgc = filterOutPhases(input, cfg.validPphases, cfg.validSphases);
 	_cfg = cfg;
 	_workingDir = workingDir;
 
@@ -527,6 +521,60 @@ HypoDD::~HypoDD()
 	{
 		boost::filesystem::remove_all(_workingDir);
 	}
+}
+
+
+/*
+ * Build a catalog with requested phases only and for the same event/station pair
+ * make sure to have only one phase. If multiple phases are found, keep the first
+ * one arrived
+ */
+CatalogPtr HypoDD::filterOutPhases(const CatalogPtr& catalog,
+                                   const std::vector<std::string>& PphaseToKeep,
+                                   const std::vector<std::string>& SphaseToKeep)
+{
+	multimap<string,Catalog::Phase> filteredPhases;
+
+	// loop through each event
+	for (const auto& kv :  catalog->getEvents() )
+	{
+		const Catalog::Event& event = kv.second;
+
+		// fetch all phases for current event
+		auto eqlrng = catalog->getPhases().equal_range(event.id);
+		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+		{
+			Catalog::Phase phase = it->second; // copying
+			if ( find(PphaseToKeep.begin(), PphaseToKeep.end(), phase.type) != PphaseToKeep.end() )
+				phase.type = "P";
+			if ( find(SphaseToKeep.begin(), SphaseToKeep.end(), phase.type) != SphaseToKeep.end() )
+				phase.type = "S";
+			else {
+				SEISCOMP_DEBUG("Discard phase (%s), the type is not among the selected ones",
+							   string(phase).c_str());
+				continue;
+			}
+
+			// fetch already selected phases for current event
+			bool inserted = false;
+			auto eqlrng2 = filteredPhases.equal_range(event.id);
+			for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
+			{
+				Catalog::Phase& existingPhase = it2->second;
+				if ( existingPhase.type == phase.type &&
+				     existingPhase.stationId == phase.stationId &&
+				     existingPhase.time > phase.time)
+				{
+					existingPhase = phase;
+					inserted = true;
+					break;
+				}
+			}
+			if ( ! inserted )
+				filteredPhases.emplace(phase.eventId, phase);
+		}
+	}
+	return new Catalog(catalog->getStations(), catalog->getEvents(), filteredPhases);
 }
 
 
