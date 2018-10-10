@@ -332,7 +332,9 @@ bool RTDD::validateParameters()
 		}
 
 		string regionType;
-		makeUpper(regionType, configGetString(prefix + "regionType"));
+		try {
+			makeUpper(regionType, configGetString(prefix + "regionType"));
+		} catch ( ... ) {}
 		if ( regionType == "RECTANGLE" )
 			prof->region = new RectangularRegion;
 		else if ( regionType == "CIRCLE" )
@@ -355,30 +357,40 @@ bool RTDD::validateParameters()
 
 		prefix = string("rtdd.profile.") + *it + ".catalog.";
 
-		prof->eventFile = env->absolutePath(configGetString(prefix + "eventFile"));
+		prof->eventFile = env->absolutePath(configGetPath(prefix + "eventFile"));
 		try {
-			prof->stationFile = env->absolutePath(configGetString(prefix + "stationFile"));
+			prof->stationFile = env->absolutePath(configGetPath(prefix + "stationFile"));
 		} catch ( ... ) {}
 		try {
-			prof->phaFile = env->absolutePath(configGetString(prefix + "phaFile"));
+			prof->phaFile = env->absolutePath(configGetPath(prefix + "phaFile"));
 		} catch ( ... ) {}
 
 		prefix = string("rtdd.profile.") + *it + ".dtct.";
-		prof->ddcfg.dtt.minWeight = configGetDouble(prefix + "minWeight");
-		prof->ddcfg.dtt.maxESdist = configGetDouble(prefix + "maxESdist");
-		prof->ddcfg.dtt.maxIEdist = configGetDouble(prefix + "maxIEdist");
-		prof->ddcfg.dtt.minNumNeigh = configGetInt(prefix + "minNumNeigh");
-		prof->ddcfg.dtt.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
-		prof->ddcfg.dtt.minDTperEvt = configGetInt(prefix + "minDTperEvt");
+		try {
+			prof->ddcfg.dtt.minWeight = configGetDouble(prefix + "minWeight");
+			prof->ddcfg.dtt.maxESdist = configGetDouble(prefix + "maxESdist");
+			prof->ddcfg.dtt.maxIEdist = configGetDouble(prefix + "maxIEdist");
+			prof->ddcfg.dtt.minNumNeigh = configGetInt(prefix + "minNumNeigh");
+			prof->ddcfg.dtt.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
+			prof->ddcfg.dtt.minDTperEvt = configGetInt(prefix + "minDTperEvt");
+		} catch ( ... ) {
+			profilesOK = false;
+			continue;
+		}
 
 		prefix = string("rtdd.profile.") + *it + ".dtcc.";
 		prof->ddcfg.xcorr.recordStreamURL = recordStreamURL();
-		prof->ddcfg.xcorr.minWeight = configGetDouble(prefix + "minWeight");
-		prof->ddcfg.xcorr.maxESdist = configGetDouble(prefix + "maxESdist");
-		prof->ddcfg.xcorr.maxIEdist = configGetDouble(prefix + "maxIEdist");
-		prof->ddcfg.xcorr.minNumNeigh = configGetInt(prefix + "minNumNeigh");
-		prof->ddcfg.xcorr.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
-		prof->ddcfg.xcorr.minDTperEvt = configGetInt(prefix + "minDTperEvt");
+		try {
+			prof->ddcfg.xcorr.minWeight = configGetDouble(prefix + "minWeight");
+			prof->ddcfg.xcorr.maxESdist = configGetDouble(prefix + "maxESdist");
+			prof->ddcfg.xcorr.maxIEdist = configGetDouble(prefix + "maxIEdist");
+			prof->ddcfg.xcorr.minNumNeigh = configGetInt(prefix + "minNumNeigh");
+			prof->ddcfg.xcorr.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
+			prof->ddcfg.xcorr.minDTperEvt = configGetInt(prefix + "minDTperEvt");
+		} catch ( ... ) {
+			profilesOK = false;
+			continue;
+		}
 
 		prefix = string("rtdd.profile.") + *it + ".dtcc.crosscorrelation.";
 		try {
@@ -393,21 +405,26 @@ bool RTDD::validateParameters()
 		try {
 			prof->ddcfg.xcorr.filterOrder = configGetInt(prefix + "filterOrder");
 		} catch ( ... ) { prof->ddcfg.xcorr.filterOrder = 3; }
-		prof->ddcfg.xcorr.timeBeforePick = configGetDouble(prefix + "timeBeforePick");
-		prof->ddcfg.xcorr.timeAfterPick = configGetDouble(prefix + "timeAfterPick");
-		prof->ddcfg.xcorr.maxDelay = configGetDouble(prefix + "maxDelay");
+		try {
+			prof->ddcfg.xcorr.timeBeforePick = configGetDouble(prefix + "timeBeforePick");
+			prof->ddcfg.xcorr.timeAfterPick = configGetDouble(prefix + "timeAfterPick");
+			prof->ddcfg.xcorr.maxDelay = configGetDouble(prefix + "maxDelay");
+		} catch ( ... ) {
+			profilesOK = false;
+			continue;
+		}
 
 		prefix = string("rtdd.profile.") + *it + ".hypodd.";
 
 		try {
-			prof->ddcfg.hypodd.exec = env->absolutePath(configGetString(prefix + "execPath"));
+			prof->ddcfg.hypodd.exec = env->absolutePath(configGetPath(prefix + "execPath"));
 		} catch ( ... ) { prof->ddcfg.hypodd.exec = "hypoDD"; }
-		prof->ddcfg.hypodd.ctrlFile = env->absolutePath(configGetString(prefix + "controlFile"));
+		prof->ddcfg.hypodd.ctrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
 
 		prefix = string("rtdd.profile.") + *it + ".ph2dt.";
 
 		try {
-			prof->ddcfg.ph2dt.exec = env->absolutePath(configGetString(prefix + "execPath"));
+			prof->ddcfg.ph2dt.exec = env->absolutePath(configGetPath(prefix + "execPath"));
 		} catch ( ... ) { prof->ddcfg.hypodd.exec = "ph2dt"; }
 		try {
 			prof->ddcfg.ph2dt.minwght = configGetDouble(prefix + "minwght");

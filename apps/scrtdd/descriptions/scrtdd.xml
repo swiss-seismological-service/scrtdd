@@ -93,10 +93,9 @@
 				<group name="profile">
 					<struct type="rtdd profile" link = "rtdd.activeProfiles">
 						<description>
-							Defines a regional profile that is used if a prelocation falls
-							inside the configured region. If an origin prelocation falls in multiple
-							profile regions, then the profile with the area center closer to the
-							origin location will be used.
+							Defines a regional profile. Origins that fall in this region will use this
+							configuration. If an origin falls in multiple profile regions, then the
+							profile defined first will be used.
 						</description>
 
 						<parameter name="regionType" type="string">
@@ -121,7 +120,7 @@
 							</description>
 						</parameter>
 
-						<parameter name="methodID" type="string">
+						<parameter name="methodID" type="string" default="RTDD">
 							<description>
 								methodID that is stored in the created origin.
 							</description>
@@ -129,20 +128,23 @@
 
 						<group name="catalog">
 							<description>
-								The file used to define a catalog must be in csv format.
-								The first line must contains the compulsory column names, which
-								can appear in any order. Also the header might contains
-								additional headers, which will not be used by this module but
-								can be there for informationl purpose.
+								The files used to define a catalog. There are two ways to define a catalog: one is
+								providing an event file containing the ids of existing events or origins; the second
+								way consists in providing extended information (useful when the events are not in the
+								database) and three files are required event, phase and stations.
+								The files must be in csv format with the first line containing the column names. Each file
+								requires a minimum set of columns, which can appear in any order. Additional
+								columns can be present and will not be used but are allowed for informationl purpose.
 							</description>
 
 							<parameter name="eventFile" type="path">
 								<description>
 									Path to event file to be used for this profile.
-									Required columns: id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,tt_residual
-									Alternative columns: seiscompId (this must be a valide seiscomp3 origin id or event id)
-									If the alternative format is used, then no phase or station file are required as
-									all the information will be fetched from the database.
+									Required columns: seiscompId (this must be a valide seiscomp3 origin id or event id)
+									Extended format columns: id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,tt_residual
+									If the extended format is used, then the phase and station files must be provided.
+									Conversely, if the format used is the one with seiscompId, no other files have to be
+									provided and the event information will be fetched from the database.
 								</description>
 							</parameter>
 
@@ -159,6 +161,19 @@
 									Required columns: id,latitude,longitude,elevation,networkcode,stationcode
 								</description>
 							</parameter>
+
+							<parameter name="P-Phases" type="list:string" default="P,Pg,Pn,P1">
+								<description>
+									Defines a list of accepted P phases. Phases not in this list are not be used
+								</description>
+							</parameter>
+
+							<parameter name="S-Phases" type="list:string" default="S,Sg,Sn,S1">
+								<description>
+									Defines a list of accepted S phases. Phases not in this list are not be used
+								</description>
+							</parameter>
+
 						</group>
 
 						<group name="dtct">
