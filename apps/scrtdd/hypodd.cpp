@@ -494,9 +494,9 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 
 HypoDD::HypoDD(const CatalogPtr& input, const Config& cfg, const string& workingDir)
 {
-	_ddbgc = filterOutPhases(input, cfg.validPphases, cfg.validSphases);
 	_cfg = cfg;
 	_workingDir = workingDir;
+	_ddbgc = filterOutPhases(input, cfg.validPphases, cfg.validSphases);
 
 	if ( !Util::fileExists(_cfg.hypodd.ctrlFile) )
 	{
@@ -512,6 +512,11 @@ HypoDD::HypoDD(const CatalogPtr& input, const Config& cfg, const string& working
 			throw runtime_error(msg);
 		}
 	}
+
+	// write filtered catalog for debugging purpose
+	_ddbgc->writeToFile((boost::filesystem::path(_workingDir)/"event.csv").string(),
+	                    (boost::filesystem::path(_workingDir)/"phase.csv").string(),
+	                    (boost::filesystem::path(_workingDir)/"station.csv").string() );
 }
 
 
@@ -547,7 +552,7 @@ CatalogPtr HypoDD::filterOutPhases(const CatalogPtr& catalog,
 			Catalog::Phase phase = it->second; // copying
 			if ( find(PphaseToKeep.begin(), PphaseToKeep.end(), phase.type) != PphaseToKeep.end() )
 				phase.type = "P";
-			if ( find(SphaseToKeep.begin(), SphaseToKeep.end(), phase.type) != SphaseToKeep.end() )
+			else if ( find(SphaseToKeep.begin(), SphaseToKeep.end(), phase.type) != SphaseToKeep.end() )
 				phase.type = "S";
 			else {
 				SEISCOMP_DEBUG("Discard phase (%s), the type is not among the selected ones",
@@ -943,8 +948,13 @@ void HypoDD::runPh2dt(const string& workingDir, const string& stationFile, const
 	// Make sure the content is flushed to disk before running ph2dt
 	ph2dtinp.close(); 
 
-	// Run ph2dt
-	::startExternalProcess({_cfg.ph2dt.exec, ph2dtFile}, true, workingDir);
+	// run ph2dt (use /bin/sh to get stdout/strerr redirection)
+	vector<string> cmd = {"/bin/sh", "-c",
+	                      _cfg.ph2dt.exec + " "
+	                      // silly, ph2dt doesn't support absolute paths, only relative ones!!!
+	                      + boost::filesystem::path(ph2dtFile).lexically_relative(workingDir).string()
+	                      + " >ph2dt.console.out 2>&1"};
+	::startExternalProcess(cmd, true, workingDir);
 }
 
 /*
@@ -972,7 +982,13 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
 	if ( !Util::fileExists(_cfg.hypodd.ctrlFile) )
 		throw runtime_error("Unable to run hypodd, file doesn't exist: " + _cfg.hypodd.ctrlFile);
 
-	::startExternalProcess({_cfg.hypodd.exec, _cfg.hypodd.ctrlFile}, true, workingDir);
+	// run Hypodd (use /bin/sh to get stdout/strerr redirection)
+	vector<string> cmd = {"/bin/sh", "-c",
+	                      _cfg.hypodd.exec + " "
+	                      // silly, hypodd doesn't support absolute paths, only relative ones!!!
+	                      + boost::filesystem::path(_cfg.hypodd.ctrlFile).lexically_relative(workingDir).string()
+	                      + " >hypodd.console.out 2>&1"};
+	::startExternalProcess(cmd, true, workingDir);
 }
 
 

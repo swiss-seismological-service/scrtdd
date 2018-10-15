@@ -367,12 +367,12 @@ bool RTDD::validateParameters()
 		try {
 			prof->ddcfg.validPphases = configGetStrings(prefix + "P-Phases");
 		} catch ( ... ) {
-			prof->ddcfg.validPphases = {"P,Pg,Pn,P1"};
+			prof->ddcfg.validPphases = {"P","Pg","Pn","P1"};
 		}
 		try {
 			prof->ddcfg.validSphases = configGetStrings(prefix + "S-Phases");
 		} catch ( ... ) {
-			prof->ddcfg.validSphases = {"S,Sg,Sn,S1"};
+			prof->ddcfg.validSphases = {"S","Sg","Sn","S1"};
 		}
 
 		prefix = string("rtdd.profile.") + *it + ".dtct.";
