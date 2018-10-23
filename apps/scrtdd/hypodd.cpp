@@ -204,6 +204,12 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 		ev.tt_residual = 0;
 		DataModel::EventPtr dmEvent =  query->getEvent(org->publicID());
 		DataModel::MagnitudePtr mag = DataModel::Magnitude::Cast(query->getObject(DataModel::Magnitude::TypeInfo(), dmEvent->preferredMagnitudeID()));
+		if ( !mag )
+		{
+			SEISCOMP_ERROR("Cannot load preferred magnitude (id '%s'), skipping origin '%s'",
+						   dmEvent->preferredMagnitudeID().c_str(), org->publicID().c_str());
+			continue;
+		}
 		ev.magnitude   = mag->magnitude();
 
 		addEvent(ev, false);
