@@ -202,15 +202,23 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 		ev.horiz_err   = 0;
 		ev.depth_err   = 0;
 		ev.tt_residual = 0;
-		DataModel::EventPtr dmEvent =  query->getEvent(org->publicID());
-		DataModel::MagnitudePtr mag = DataModel::Magnitude::Cast(query->getObject(DataModel::Magnitude::TypeInfo(), dmEvent->preferredMagnitudeID()));
+		DataModel::EventPtr parentEvent =  query->getEvent(org->publicID());
+		if ( !parentEvent )
+		{
+			SEISCOMP_ERROR("Cannot find origin parent event, skipping origin '%s'",
+						   org->publicID().c_str());
+			continue;
+		}
+		DataModel::MagnitudePtr mag = DataModel::Magnitude::Cast(query->getObject(DataModel::Magnitude::TypeInfo(), parentEvent->preferredMagnitudeID()));
 		if ( !mag )
 		{
 			SEISCOMP_ERROR("Cannot load preferred magnitude (id '%s'), skipping origin '%s'",
-						   dmEvent->preferredMagnitudeID().c_str(), org->publicID().c_str());
+						   parentEvent->preferredMagnitudeID().c_str(), org->publicID().c_str());
 			continue;
 		}
 		ev.magnitude   = mag->magnitude();
+
+		SEISCOMP_DEBUG("Adding event '%s' origin '%s'", parentEvent->publicID().c_str(), org->publicID().c_str());
 
 		addEvent(ev, false);
 		ev = searchEvent(ev)->second;
