@@ -910,7 +910,7 @@ void HypoDD::createEventDatFile(const string& eventFileName, const CatalogPtr& c
 			continue;
 		}
 
-		outStream << stringify("%d%02d%02d %02d%02d%04.f %.6f %.6f %.6f %.6f %.6f %.6f %.6f %s\n",
+		outStream << stringify("%d%02d%02d %02d%02d%04.f %.6f %.6f %.6f %.6f %.6f %.6f %.6f %u\n",
 		                      year, month, day, hour, min, sec,
 		                      event.latitude, event.longitude, event.depth,
 		                      event.magnitude, event.horiz_err, event.depth_err,
@@ -967,7 +967,7 @@ void HypoDD::runPh2dt(const string& workingDir, const string& stationFile, const
 	                      _cfg.ph2dt.exec + " "
 	                      // silly, ph2dt doesn't support absolute paths, only relative ones!!!
 	                      + boost::filesystem::path(ph2dtFile).lexically_relative(workingDir).string()
-	                      + " >ph2dt.console.out 2>&1"};
+	                      + " >ph2dt.stdout 2>&1"};
 	::startExternalProcess(cmd, true, workingDir);
 }
 
@@ -1001,7 +1001,7 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
 	                      _cfg.hypodd.exec + " "
 	                      // silly, hypodd doesn't support absolute paths, only relative ones!!!
 	                      + boost::filesystem::path(_cfg.hypodd.ctrlFile).lexically_relative(workingDir).string()
-	                      + " >hypodd.console.out 2>&1"};
+	                      + " >hypodd.stdout 2>&1"};
 	::startExternalProcess(cmd, true, workingDir);
 }
 
@@ -1267,7 +1267,7 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 
 		int dtCount = 0;
 		stringstream evStream;
-		evStream << stringify("# %s %s\n", event.id, refEv.id);
+		evStream << stringify("# %u %u\n", event.id, refEv.id);
 
 		// loop through event phases
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
@@ -1381,7 +1381,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 				evStream.clear();
 			}
 
-			evStream << stringify("# %s %s 0.0\n", ev1->id, ev2->id);
+			evStream << stringify("# %u %u 0.0\n", ev1->id, ev2->id);
 		}
 		// observation line (STA, TT1, TT2, WGHT, PHA)
 		else if(ev1 != nullptr && ev2 != nullptr && fields.size() == 5)
@@ -1499,7 +1499,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 
 		int dtCount = 0;
 		stringstream evStream;
-		evStream << stringify("# %s %s 0.0\n", event.id, refEv.id);
+		evStream << stringify("# %u %u 0.0\n", event.id, refEv.id);
 
 		// loop through event phases
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
