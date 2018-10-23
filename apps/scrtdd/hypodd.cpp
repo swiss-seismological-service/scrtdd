@@ -801,7 +801,7 @@ void HypoDD::createStationDatFile(const string& staFileName, const CatalogPtr& c
 	for (const auto& kv :  catalog->getStations() )
 	{
 		const Catalog::Station& station = kv.second;
-		outStream << stringify("%-12s %12.6f %12.6f %12d\n",
+		outStream << stringify("%-12s %12.6f %12.6f %12.f\n",
 		                      station.id.c_str(), station.latitude,
 		                      station.longitude, station.elevation);
 	}
