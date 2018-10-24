@@ -849,7 +849,7 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogPtr& c
 			continue;
 		}
 
-		outStream << stringify("# %d %d %d %d %d %.2f %.6f %.6f %.2f %.4f %.2f %.2f %.2f %10u\n",
+		outStream << stringify("# %d %d %d %d %d %.2f %.6f %.6f %.2f %.4f %.2f %.2f %.2f %u\n",
 		                      year, month, day, hour, min, sec + double(usec)/1.e6,
 		                      event.latitude,event.longitude,event.depth,
 		                      event.magnitude, event.horiz_err, event.depth_err,
@@ -1339,7 +1339,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 
 	const std::map<unsigned,Catalog::Event>& events = _ddbgc->getEvents();
 	const Catalog::Event *ev1 = nullptr, *ev2 = nullptr;
-	int dtCount;
+	int dtCount = 0;
 	stringstream evStream;
 
 	// read file one line a time
@@ -1372,16 +1372,17 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 			}
 			ev1 = &search1->second;
 			ev2 = &search2->second;
-			dtCount = 0;
 
+			// write the pairs has been built up to now
 			if (dtCount >= _cfg.xcorr.minDTperEvt)
 			{
 				outStream << evStream.str();
 				evStream.str("");
 				evStream.clear();
 			}
+			dtCount = 0;
 
-			evStream << stringify("# %u %u 0.0\n", ev1->id, ev2->id);
+			evStream << stringify("# %10u %10u       0.0\n", ev1->id, ev2->id);
 		}
 		// observation line (STA, TT1, TT2, WGHT, PHA)
 		else if(ev1 != nullptr && ev2 != nullptr && fields.size() == 5)
@@ -1414,12 +1415,12 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 				if (phase.stationId != stationId ||
 				    phase.type != phaseType)
 					continue;
-				tr1 = getWaveform(*ev2, phase, _wfCache);
+				tr2 = getWaveform(*ev2, phase, _wfCache);
 			}
 
 			if ( !tr1 || !tr2)
 			{
-				SEISCOMP_WARNING("Cannot load waveforms. Skipping line '%s' from file '%s')",
+				SEISCOMP_WARNING("Cannot load waveforms. Skipping line '%s' from file '%s'",
 				               row.c_str(), dtctFile.c_str());
 				continue;
 			}
@@ -1437,7 +1438,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 			if ( xcorr_coeff < _cfg.xcorr.minCoef)
 				continue;
 
-			evStream << stringify("%s %.6f %.4f %s\n",
+			evStream << stringify("%-12s %.6f %.4f %s\n",
 			                       stationId.c_str(), xcorr_dt, xcorr_coeff, phaseType.c_str());
 			dtCount++;
 		}
@@ -1499,7 +1500,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 
 		int dtCount = 0;
 		stringstream evStream;
-		evStream << stringify("# %u %u 0.0\n", event.id, refEv.id);
+		evStream << stringify("# %10u %10u       0.0\n", event.id, refEv.id);
 
 		// loop through event phases
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
@@ -1549,7 +1550,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 					if ( xcorr_coeff < _cfg.xcorr.minCoef)
 						continue;
 
-					evStream << stringify("%s %.6f %.4f %s\n",
+					evStream << stringify("%-12s %.6f %.4f %s\n",
 					                      refPhase.stationId.c_str(),
 					                      xcorr_dt, xcorr_coeff*xcorr_coeff,
 					                      refPhase.type.c_str());
