@@ -1143,9 +1143,13 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const string& ddrelocFile, const Catalog
 			break;
 
 		// split line on space
-		std::regex regex{R"([\s]+)"}; 
+		static const std::regex regex(R"([\s]+)", std::regex::optimize);
 		std::sregex_token_iterator it{row.begin(), row.end(), regex, -1};
 		std::vector<std::string> fields{it, {}};
+
+		// remove the first empty element if the line start with spaces
+		if ( !fields.empty() && fields[0] == "")
+			fields.erase(fields.begin());
 
 		if (fields.size() != 24)
 		{
@@ -1352,9 +1356,13 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 			break;
 
 		// split line on space
-		std::regex regex{R"([\s]+)"}; 
+		static const std::regex regex(R"([\s]+)", std::regex::optimize);
 		std::sregex_token_iterator it{row.begin(), row.end(), regex, -1};
 		std::vector<std::string> fields{it, {}};
+
+		// remove the first empty element if the line start with spaces
+		if ( !fields.empty() && fields[0] == "")
+			fields.erase(fields.begin());
 
 		// check beginning of a new event pair line (# ID1 ID2)
 		if (fields[0] == "#" && fields.size() == 3)
