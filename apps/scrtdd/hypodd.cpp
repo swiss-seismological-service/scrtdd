@@ -963,12 +963,11 @@ void HypoDD::runPh2dt(const string& workingDir, const string& stationFile, const
 	ph2dtinp.close(); 
 
 	// run ph2dt (use /bin/sh to get stdout/strerr redirection)
-	vector<string> cmd = {"/bin/sh", "-c",
-	                      _cfg.ph2dt.exec + " "
-	                      // silly, ph2dt doesn't support absolute paths, only relative ones!!!
-	                      + boost::filesystem::path(ph2dtFile).lexically_relative(workingDir).string()
-	                      + " >ph2dt.stdout 2>&1"};
-	::startExternalProcess(cmd, true, workingDir);
+	string cmd = stringify("%s %s >ph2dt.stdout 2>&1",
+	                       _cfg.ph2dt.exec.c_str(),
+	                       // silly, ph2dt doesn't support absolute paths, only relative ones!!!
+	                       boost::filesystem::path(ph2dtFile).lexically_relative(workingDir).string().c_str());
+	::startExternalProcess({"/bin/sh", "-c", cmd}, true, workingDir);
 }
 
 /*
@@ -997,12 +996,10 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
 		throw runtime_error("Unable to run hypodd, file doesn't exist: " + _cfg.hypodd.ctrlFile);
 
 	// run Hypodd (use /bin/sh to get stdout/strerr redirection)
-	vector<string> cmd = {"/bin/sh", "-c",
-	                      _cfg.hypodd.exec + " "
-	                      // silly, hypodd doesn't support absolute paths, only relative ones!!!
-	                      + boost::filesystem::path(_cfg.hypodd.ctrlFile).lexically_relative(workingDir).string()
-	                      + " >hypodd.stdout 2>&1"};
-	::startExternalProcess(cmd, true, workingDir);
+	string cmd = stringify("%s %s >hypodd.stdout 2>&1",
+	                       _cfg.hypodd.exec.c_str(),
+	                       _cfg.hypodd.ctrlFile.c_str());
+	::startExternalProcess({"/bin/sh", "-c", cmd}, true, workingDir);
 }
 
 
