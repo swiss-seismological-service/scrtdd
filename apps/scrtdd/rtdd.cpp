@@ -237,7 +237,8 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 
 	NEW_OPT(_config.publicIDPattern, "rtdd.publicIDPattern");
 	NEW_OPT(_config.activeProfiles, "rtdd.activeProfiles");
-	NEW_OPT(_config.profileCachingTime, "rtdd.profileCachingTime");
+	NEW_OPT(_config.profileTimeAlive, "rtdd.profileTimeAlive");
+	NEW_OPT(_config.cacheWaveforms, "rtdd.cacheWaveforms");
 	NEW_OPT(_config.workingDirectory, "rtdd.workingDirectory");
 	NEW_OPT(_config.keepWorkingFiles, "rtdd.keepWorkingFiles");
 	NEW_OPT(_config.processManualOrigin, "rtdd.manualOrigin");
@@ -525,7 +526,7 @@ bool RTDD::run() {
 			if ( profile->name == _config.relocateCatalog)
 			{
 				string workingDir = (boost::filesystem::path(_config.workingDirectory)/ profile->name).string();
-				profile->load(query(), workingDir, !_config.keepWorkingFiles);
+				profile->load(query(), workingDir, !_config.keepWorkingFiles, _config.cacheWaveforms);
 				HDD::CatalogPtr relocatedCat = profile->relocateCatalog();
 				profile->unload();
 				relocatedCat->writeToFile("event.csv","phase.csv","station.csv");
@@ -682,12 +683,12 @@ void RTDD::handleTimeout()
 
 void RTDD::cleanUnusedProfiles() 
 {
-	if (_config.profileCachingTime < 0)// nevel clean up profiles
+	if (_config.profileTimeAlive < 0)// nevel clean up profiles
 		return;
 
 	// Peridoically clean up profiles unused for some time as they
 	// might use lots of memory (waveform data)
-	Core::TimeSpan expired = Core::TimeSpan(_config.profileCachingTime);
+	Core::TimeSpan expired = Core::TimeSpan(_config.profileTimeAlive);
 
 	for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
 	{
@@ -1115,7 +1116,7 @@ bool RTDD::send(Origin *org)
 OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 {
 	string workingDir = (boost::filesystem::path(_config.workingDirectory)/profile->name).string();
-	profile->load(query(), workingDir, !_config.keepWorkingFiles);
+	profile->load(query(), workingDir, !_config.keepWorkingFiles, _config.cacheWaveforms);
 
 	OriginPtr newOrg;
 
@@ -1160,7 +1161,10 @@ RTDD::Profile::Profile()
 }
 
 
-void RTDD::Profile::load(DataModel::DatabaseQuery* query, string workingDir, bool cleanupWorkingDir)
+void RTDD::Profile::load(DataModel::DatabaseQuery* query,
+                         string workingDir,
+                         bool cleanupWorkingDir,
+                         bool cacheWaveforms)
 {
 	if ( loaded ) return;
 	SEISCOMP_DEBUG("Loading profile %s", name.c_str());
@@ -1176,6 +1180,7 @@ void RTDD::Profile::load(DataModel::DatabaseQuery* query, string workingDir, boo
 
 	hypodd = new HDD::HypoDD(ddbgc, ddcfg, workingDir);
 	hypodd->setWorkingDirCleanup(cleanupWorkingDir);
+	hypodd->setUseWaveformDiskCache(cacheWaveforms);
 	loaded = true;
 	lastUsage = Core::Time::GMT();
 }

@@ -19,6 +19,7 @@
 #include <seiscomp3/core/strings.h>
 #include <seiscomp3/core/typedarray.h>
 #include <seiscomp3/io/recordinput.h>
+#include <seiscomp3/io/records/mseedrecord.h>
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/math/filter/butterworth.h>
 #include <seiscomp3/client/inventory.h>
@@ -36,6 +37,7 @@
 #include <cmath>
 #include <regex>
 #include <boost/filesystem.hpp>
+#include <boost/range/iterator_range_core.hpp>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -118,6 +120,18 @@ searchByValue(const Map & SearchMap, const Val & SearchVal)
 	return iRet;
 }
 
+template <class T>
+T nextPowerOf2(T a, T min=1, T max=1<<31)
+{
+	int b = min;
+	while (b < a)
+	{
+		b <<= 1;
+		if (b > max)
+			return -1;
+	}
+	return b;
+}
 
 }
 
@@ -527,6 +541,16 @@ HypoDD::HypoDD(const CatalogPtr& input, const Config& cfg, const string& working
 		}
 	}
 
+	_cacheDir = (boost::filesystem::path(_workingDir)/"wfcache").string();
+	if ( !Util::pathExists(_cacheDir) )
+	{
+		if ( !Util::createPath(_cacheDir) )
+		{
+			string msg = "Unable to create cache directory: " + _cacheDir;
+			throw runtime_error(msg);
+		}
+	}
+
 	// write filtered catalog for debugging purpose
 	_ddbgc->writeToFile((boost::filesystem::path(_workingDir)/"event.csv").string(),
 	                    (boost::filesystem::path(_workingDir)/"phase.csv").string(),
@@ -538,7 +562,12 @@ HypoDD::~HypoDD()
 {
 	if ( _workingDirCleanup )
 	{
-		boost::filesystem::remove_all(_workingDir);
+		// delete all expect the cache directory
+		for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(_workingDir), {}))
+		{       
+			if ( ! boost::filesystem::equivalent(entry, _cacheDir) )
+				boost::filesystem::remove_all(entry);
+		}
 	}
 }
 
@@ -1407,7 +1436,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 				if (phase.stationId != stationId ||
 				    phase.type != phaseType)
 					continue;
-				tr1 = getWaveform(*ev1, phase, _wfCache);
+				tr1 = getWaveform(*ev1, phase, _wfCache, _wfDiskCache);
 			}
 
 			// loop through event 2 phases
@@ -1420,7 +1449,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 				if (phase.stationId != stationId ||
 				    phase.type != phaseType)
 					continue;
-				tr2 = getWaveform(*ev2, phase, _wfCache);
+				tr2 = getWaveform(*ev2, phase, _wfCache, _wfDiskCache);
 			}
 
 			if ( !tr1 || !tr2)
@@ -1515,7 +1544,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 			if (phase.weight < _cfg.xcorr.minWeight)
 				continue;
 
-			GenericRecordPtr trace = getWaveform(event, phase, _wfCache);
+			GenericRecordPtr trace = getWaveform(event, phase, _wfCache, _wfDiskCache);
 			if ( !trace )
 			{
 				SEISCOMP_WARNING("Cannot load phase waveform, skipping xcorr for event '%s' phase '%s')",
@@ -1534,7 +1563,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 				if (phase.stationId == refPhase.stationId && 
 				    phase.type == refPhase.type)
 				{
-					GenericRecordPtr refTrace = getWaveform(refEv, refPhase, tmpWfCache);
+					GenericRecordPtr refTrace = getWaveform(refEv, refPhase, tmpWfCache, false);
 					if ( !refTrace )
 					{
 						SEISCOMP_WARNING("Cannot load phase waveform, skipping xcorr for event '%s' phase '%s')",
@@ -1631,43 +1660,128 @@ HypoDD::xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double m
 	return true;
 }
 
-
+/*
+ * Return the waveform from the memory cache if present, otherwise load it
+ */
 GenericRecordPtr
 HypoDD::getWaveform(const Catalog::Event& ev,
                     const Catalog::Phase& ph,
-                    map<string,GenericRecordPtr>& cache)
+                    map<string,GenericRecordPtr>& cache,
+                    bool useDiskCache)
 {
 	Core::Time starttime = ph.time - Core::TimeSpan(_cfg.xcorr.timeBeforePick);
 	double duration = _cfg.xcorr.timeBeforePick + _cfg.xcorr.timeAfterPick;
 
-	string wfId = ph.networkCode + "." + ph.stationCode + "." + ph.locationCode
-	              + "." + ph.channelCode + "." + ph.time.iso();
+	string wfId = stringify("%s.%s.%s.%s.%s.%.6f",
+	                        ph.networkCode.c_str(), ph.stationCode.c_str(),
+	                        ph.locationCode.c_str(), ph.channelCode.c_str(),
+	                        ph.time.iso().c_str(), duration);
 
 	const auto it = cache.find(wfId);
-	if ( it == cache.end() )
+	if ( it == cache.end() ) // waveform not cached yet
 	{
 		GenericRecordPtr wf;
+		// load waveform
 		try {
 			wf = loadWaveform(starttime, duration,
 			                  ph.networkCode, ph.stationCode,
-			                  ph.locationCode, ph.channelCode);
+			                  ph.locationCode, ph.channelCode,
+			                  useDiskCache);
 		} catch ( ... ) {}
-		if (wf)
+		// cache waveform
+		if (wf) 
 			cache[wfId] = wf;
 		return wf;
 	}
-	else
+	else // the waveform is already in cache
 		return it->second;
 }
 
 
+/*
+ * Read a waveform from a chached copy on disk if present, otherwise
+ * from the configured RecordStream
+ */
 GenericRecordPtr
 HypoDD::loadWaveform(const Core::Time& time,
                      double duration,
                      const string& networkCode,
                      const string& stationCode,
                      const string& locationCode,
-                     const string& channelCode) const
+                     const string& channelCode,
+                     bool useDiskCache) const
+{
+	Core::TimeWindow tw(time.toLocalTime(), duration);
+
+	string cacheFile = stringify("%s.%s.%s.%s.%s.%.6f.mseed",
+	                             networkCode.c_str(), stationCode.c_str(),
+	                             locationCode.c_str(), channelCode.c_str(),
+	                             tw.startTime().iso().c_str(), tw.length());
+	cacheFile = (boost::filesystem::path(_cacheDir)/cacheFile).string();
+
+	GenericRecordPtr trace;
+	// First try to read trace from disk cache
+	if ( useDiskCache && Util::fileExists(cacheFile) )
+	{
+		try {
+			std::ifstream ifs(cacheFile);
+			IO::MSeedRecord cachedRecord(Array::DOUBLE, Record::Hint::DATA_ONLY);
+			cachedRecord.read(ifs);
+			trace = new GenericRecord(cachedRecord);
+			trace->setData(cachedRecord.data()->clone()); // copy data too
+		} catch ( ... ) {
+			trace = nullptr;
+			SEISCOMP_WARNING("Couldn't load cached waveform %s, read it from record stream",
+			                 cacheFile.c_str());
+		}
+	}
+
+	// if the trace is not cached then read it from the configured recordStream
+	if ( !trace )
+	{
+		trace = readWaveformFromRecordStream(tw,networkCode, stationCode, locationCode, channelCode);
+		// then save the trace to disk for later usage
+		if ( useDiskCache )
+		{
+			std::ofstream ofs(cacheFile);
+			IO::MSeedRecord cachedRecord(*trace);
+			int reclen = cachedRecord.data()->size()*cachedRecord.data()->bytes() + 64;
+			reclen = nextPowerOf2<int>(reclen, 128, 1048576); // MINRECLEN 128, MAXRECLEN 1048576
+			if (reclen > 0)
+			{
+				try {
+					cachedRecord.setOutputRecordLength(reclen);
+					cachedRecord.write(ofs);
+				} catch ( ... ) {
+					SEISCOMP_WARNING("Couldn't write waveform cache to disk %s", cacheFile.c_str());
+				}
+			}
+		}
+	}
+
+	if ( !trim(*trace, tw) )
+	{
+		string msg = stringify("Incomplete trace, not enough data for requested"
+		                       " time window (%s.%s.%s.%s from %s length %.2f)",
+		                       networkCode.c_str(), stationCode.c_str(),
+		                       locationCode.c_str(), channelCode.c_str(),
+		                       tw.startTime().iso().c_str(), tw.length());
+		throw runtime_error(msg);
+	}
+
+	filter(*trace, true, _cfg.xcorr.filterOrder, _cfg.xcorr.filterFmin,
+	       _cfg.xcorr.filterFmax, _cfg.xcorr.filterFsamp);
+
+	return trace;
+}
+
+
+GenericRecordPtr
+HypoDD::readWaveformFromRecordStream(const Core::TimeWindow& tw,
+                                     const string& networkCode,
+                                     const string& stationCode,
+                                     const string& locationCode,
+                                     const string& channelCode) const
 {
 	IO::RecordStreamPtr rs = IO::RecordStream::Open( _cfg.xcorr.recordStreamURL.c_str() );
 	if ( rs == NULL )
@@ -1676,7 +1790,6 @@ HypoDD::loadWaveform(const Core::Time& time,
 		throw runtime_error(msg);
 	}
 
-	Core::TimeWindow tw(time.toLocalTime(), duration);
 	rs->setTimeWindow(tw);
 	rs->addStream(networkCode, stationCode, locationCode, channelCode);
 
@@ -1691,37 +1804,27 @@ HypoDD::loadWaveform(const Core::Time& time,
 	
 	if ( seq->empty() )
 	{
-		ostringstream msg;
-		msg << "No data for stream " << networkCode << "." << stationCode << "." 
-		    << locationCode << "." << channelCode << " at " << time.iso();
-		throw runtime_error(msg.str());
+		string msg = stringify("Data could not be loaded for stream %s.%s.%s.%s from %s length %.2f)",
+		                       networkCode.c_str(), stationCode.c_str(),
+		                       locationCode.c_str(), channelCode.c_str(),
+		                       tw.startTime().iso().c_str(), tw.length());
+		throw runtime_error(msg);
 	}
 
     GenericRecordPtr trace = new GenericRecord();
     
 	if ( !merge(*trace, *seq) )
     {
-		ostringstream msg;
-		msg << "Data records could not be merged into a single trace:" << networkCode
-		      << "." << stationCode << "." << locationCode << "." << channelCode
-		      << " at " << time.iso();
-		throw runtime_error(msg.str());
+		string msg = stringify("Data records could not be merged into a single trace (%s.%s.%s.%s from %s length %.2f)",
+		                       networkCode.c_str(), stationCode.c_str(),
+		                       locationCode.c_str(), channelCode.c_str(),
+		                       tw.startTime().iso().c_str(), tw.length());
+		throw runtime_error(msg);
 	}
-
-	if ( !trim(*trace, tw) )
-    {
-		ostringstream msg;
-		msg << "Incomplete trace, not enough data for time window: " << networkCode
-		      << "." << stationCode << "." << locationCode << "." << channelCode
-		      << " at " << time.iso();
-		throw runtime_error(msg.str());
-	}
-
-	filter(*trace, true, _cfg.xcorr.filterOrder, _cfg.xcorr.filterFmin,
-	       _cfg.xcorr.filterFmax, _cfg.xcorr.filterFsamp);
 
 	return trace;
 }
+
 
 bool HypoDD::merge(GenericRecord &trace, const RecordSequence& seq) const
 {

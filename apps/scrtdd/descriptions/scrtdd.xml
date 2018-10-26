@@ -12,18 +12,26 @@
 					</description>
 				</parameter>
 
-				<parameter name="activeProfiles" type="list:string">
+				<parameter name="activeProfiles" type="list:string" default="">
 					<description>
 						Defines a list of active profiles.
 					</description>
 				</parameter>
 
-				<parameter name="profileCachingTime" type="int" default="1440">
+				<parameter name="profileTimeAlive" type="int" default="1440">
 					<description>
-						Defines how long the profile data should be cached for (in minutes). This is mostly useful
+						Defines how long the profile data should be kept in memery for (in minutes). This is mostly useful
 						to avoid reloading catalog waveform data whenever a new event occurs, at the expense
 						of using more memory (this can be an issue or not depending on the catalog size).
 						Set a negative value to keep the profile data always in memory.
+					</description>
+				</parameter>
+
+				<parameter name="cacheWaveforms" type="boolean" default="false">
+					<description>
+						Save catalog waveforms to local disk to avoid accessing recordStream multiple
+						times (this happens when a profile is loaded, see profileTimeAlive). The
+						waveforms will be saved in the working directory and never deleted.
 					</description>
 				</parameter>
 

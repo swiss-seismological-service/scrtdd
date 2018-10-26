@@ -101,7 +101,8 @@ class RTDD : public Application {
 			std::string workingDirectory;
 			bool        keepWorkingFiles;
 			bool        processManualOrigin;
-			int         profileCachingTime; //seconds
+			int         profileTimeAlive; //seconds
+			bool        cacheWaveforms;
 
             // Mode
 			bool        forceProcessing;
@@ -125,7 +126,8 @@ class RTDD : public Application {
 		class Profile : public Core::BaseObject {
 			public:
 			Profile();
-			void load(DataModel::DatabaseQuery* query, std::string workingDir, bool cleanupWorkingDir);
+			void load(DataModel::DatabaseQuery* query, std::string workingDir,
+			          bool cleanupWorkingDir, bool cacheWaveforms);
 			void unload();
 			bool isLoaded() { return loaded; }
 			Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }

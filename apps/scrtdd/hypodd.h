@@ -118,6 +118,7 @@ class Catalog : public Core::BaseObject {
 		};
 
 		Catalog();
+		virtual ~Catalog() { }
 		Catalog(const std::map<std::string,Station>& stations,
                   const std::map<unsigned,Event>& events,
                   const std::multimap<unsigned,Phase>& phases);
@@ -213,10 +214,14 @@ DEFINE_SMARTPOINTER(HypoDD);
 class HypoDD : public Core::BaseObject {
 	public:
 		HypoDD(const CatalogPtr& input, const Config& cfg, const std::string& workingDir);
-		~HypoDD();
+		virtual ~HypoDD();
 		CatalogPtr relocateCatalog();
 		CatalogPtr relocateSingleEvent(const CatalogPtr& orgToRelocate);
 		void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
+		bool workingDirCleanup() { return _workingDirCleanup; }
+		void setUseWaveformDiskCache(bool cache) { _wfDiskCache = cache; }
+		bool useWaveformDiskCache() { return _wfDiskCache; }
+		
 	private:
 		CatalogPtr filterOutPhases(const CatalogPtr& catalog,
 		                           const std::vector<std::string>& PphaseToKeep,
@@ -244,13 +249,19 @@ class HypoDD : public Core::BaseObject {
 		                                      int maxNumNeigh=0, int minDTperEvt=0);
 		CatalogPtr extractEvent(const CatalogPtr& catalog, unsigned eventId) const;
 		GenericRecordPtr getWaveform(const Catalog::Event& ev, const Catalog::Phase& ph,
-		                             std::map<std::string,GenericRecordPtr>& cache);
+		                             std::map<std::string,GenericRecordPtr>& cache, bool useDiskCache);
 		GenericRecordPtr loadWaveform(const Core::Time& starttime,
 		                              double duration,
 		                              const std::string& networkCode,
 		                              const std::string& stationCode,
 		                              const std::string& locationCode,
-		                              const std::string& channelCode) const;
+		                              const std::string& channelCode,
+		                              bool useDiskCache) const;
+		GenericRecordPtr readWaveformFromRecordStream(const Core::TimeWindow& tw,
+		                                              const std::string& networkCode,
+		                                              const std::string& stationCode,
+		                                              const std::string& locationCode,
+		                                              const std::string& channelCode) const;
 		bool merge(GenericRecord &trace, const RecordSequence& seq) const;
 		bool trim(GenericRecord &trace, const Core::TimeWindow& tw) const;
 		void filter(GenericRecord &trace, bool demeaning=true,
@@ -258,9 +269,11 @@ class HypoDD : public Core::BaseObject {
 		std::string generateWorkingSubDir(const Catalog::Event& ev) const;
 	private:
 		std::string _workingDir;
+		std::string _cacheDir;
 		CatalogPtr _ddbgc;
 		Config _cfg;
 		bool _workingDirCleanup = true;
+		bool _wfDiskCache = false;
 		std::map<std::string, GenericRecordPtr> _wfCache;
 };
 
