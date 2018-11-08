@@ -202,12 +202,15 @@ bool startsWith(const string& haystack, const string& needle, bool caseSensitive
 RTDD::Config::Config()
 {
 	publicIDPattern = "RTDD.@time/%Y%m%d%H%M%S.%f@.@id@";
-	processManualOrigin = true;
 	workingDirectory = "/tmp/rtdd";
+	keepWorkingFiles = false;
+	processManualOrigin = true;
+	profileTimeAlive = -1;
+	cacheWaveforms = false;
 
 	forceProcessing = false;
 	testMode = false;
-    fExpiry = 1.0;
+	fExpiry = 1.0;
 
 	wakeupInterval = 10;
 	eventMaxIdleTime = 3600;
