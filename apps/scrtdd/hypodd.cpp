@@ -572,6 +572,38 @@ HypoDD::~HypoDD()
 }
 
 
+// Creates dir name from event. This id has the following format:
+// OriginTime_Lat_Lon_CreationDate
+// eg 20111210115715_46343_007519_20111210115740
+string HypoDD::generateWorkingSubDir(const Catalog::Event& ev) const
+{
+	char buf[20];
+
+	string id;
+	id = ev.time.toString("%Y%m%d%H%M%S");
+
+	id += "_";
+
+	// Latitude
+	sprintf(buf, "%05d", int(ev.latitude*1000));
+	id += buf;
+
+	id += "_";
+
+	// Longitude
+	sprintf(buf, "%06d", int(ev.longitude*1000));
+	id += buf;
+
+	id += "_";
+
+	Core::Time t = Core::Time::GMT();
+
+	id += t.toString("%Y%m%d%H%M%S");
+
+	return id;
+}
+
+
 /*
  * Build a catalog with requested phases only and for the same event/station pair
  * make sure to have only one phase. If multiple phases are found, keep the first
@@ -1607,9 +1639,8 @@ HypoDD::xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double m
 
 	if (tr1->samplingFrequency() != tr2->samplingFrequency())
 	{
-		SEISCOMP_WARNING("Cannot cross correlate traces with different sampling"
-					   " freq (%f!=%f), skip them.",
-					   tr1->samplingFrequency(), tr2->samplingFrequency());
+		SEISCOMP_WARNING("Cannot cross correlate traces with different sampling freq (%f!=%f)",
+		                 tr1->samplingFrequency(), tr2->samplingFrequency());
 		return false;
 	}
 
@@ -1962,36 +1993,68 @@ void HypoDD::filter(GenericRecord &trace, bool demeaning,
 }
 
 
-// Creates dir name from event. This id has the following format:
-// OriginTime_Lat_Lon_CreationDate
-// eg 20111210115715_46343_007519_20111210115740
-string HypoDD::generateWorkingSubDir(const Catalog::Event& ev) const
+GenericRecordPtr resample(const GenericRecordPtr &trace, int sf, bool average)
 {
-	char buf[20];
+	if ( sf <= 0 )
+		return nullptr;
 
-	string id;
-	id = ev.time.toString("%Y%m%d%H%M%S");
+	GenericRecordPtr newTrace = new GenericRecord(*trace);
 
-	id += "_";
+	if ( newTrace->samplingFrequency() == sf )
+		return newTrace;
 
-	// Latitude
-	sprintf(buf, "%05d", int(ev.latitude*1000));
-	id += buf;
+	DoubleArray *data = DoubleArray::Cast(newTrace->data());
+	double step = newTrace->samplingFrequency() / sf;
 
-	id += "_";
+	int w = average?step*0.5 + 0.5:0;
+	int i = 0;
+	double fi = 0.0;
+	int cnt = data->size();
 
-	// Longitude
-	sprintf(buf, "%06d", int(ev.longitude*1000));
-	id += buf;
+	if ( w <= 0 )
+	{
+		while ( fi < cnt ) {
+			(*data)[i++] = (*data)[(int)fi];
+			fi += step;
+		}
+	}
+	else
+	{
+		while ( fi < cnt )
+		{
+			int ci = (int)fi;
+			double scale = 1.0;
+			double v = (*data)[ci];
 
-	id += "_";
+			for ( int g = 1; g < w; ++g )
+			{
+				if ( ci >= g )
+				{
+					v += (*data)[ci-g];
+					scale += 1.0;
+				}
 
-	Core::Time t = Core::Time::GMT();
+				if ( ci+g < cnt )
+				{
+					v += (*data)[ci+g];
+					scale += 1.0;
+				}
+			}
 
-	id += t.toString("%Y%m%d%H%M%S");
+			v /= scale;
 
-	return id;
+			(*data)[i++] = v;
+			fi += step;
+		}
+	}
+
+	data->resize(i);
+	newTrace->setSamplingFrequency((double)sf);
+	newTrace->dataUpdated();
+
+	return newTrace;
 }
 
-}
-}
+
+} // HDD
+} // Seiscomp
