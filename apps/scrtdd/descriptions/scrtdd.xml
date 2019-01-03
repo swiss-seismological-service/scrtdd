@@ -4,313 +4,309 @@
 		<description>Real Time Double-Difference location module.</description>
 		<configuration>
 
-			<group name="rtdd">
+			<parameter name="publicIDpattern" type="string" default="RTDD.@time/%Y%m%d%H%M%S.%f@.@id@">
+				<description>
+					PublicID creation pattern for an origin created by RTDD.
+				</description>
+			</parameter>
 
-				<parameter name="publicIDpattern" type="string" default="RTDD.@time/%Y%m%d%H%M%S.%f@.@id@">
+			<parameter name="activeProfiles" type="list:string" default="">
+				<description>
+					Defines a list of active profiles.
+				</description>
+			</parameter>
+
+			<parameter name="profileTimeAlive" type="int" default="1440">
+				<description>
+					Defines how long the profile data should be kept in memery for (in minutes). This is mostly useful
+					to avoid reloading catalog waveform data whenever a new event occurs, at the expense
+					of using more memory (this can be an issue or not depending on the catalog size).
+					Set a negative value to keep the profile data always in memory.
+				</description>
+			</parameter>
+
+			<parameter name="cacheWaveforms" type="boolean" default="false">
+				<description>
+					Save catalog waveforms to local disk to avoid accessing recordStream multiple
+					times (this happens when a profile is loaded, see profileTimeAlive). The
+					waveforms will be saved in the working directory and never deleted.
+				</description>
+			</parameter>
+
+			<parameter name="manualOrigin" type="boolean" default="true">
+				<description>
+				Enables relocation of any manual origin. If false, only event preferred origins are relocated.
+				</description>
+			</parameter>
+
+			<parameter name="workingDirectory" type="path" default="/tmp/rtdd">
+				<description>
+					Defines the directory used for storing temporary processing files.
+				</description>
+			</parameter>
+
+			<parameter name="keepWorkingFiles" type="boolean" default="false">
+				<description>
+					Do not delete temporary processing files from the working directory
+					after the processing is completed.
+				</description>
+			</parameter>
+
+			<group name="cron">
+
+				<parameter name="wakeupInterval" type="int" unit="s" default="10">
 					<description>
-						PublicID creation pattern for an origin created by RTDD.
+					Specifies the interval in seconds to check/start scheduled operations.
 					</description>
 				</parameter>
 
-				<parameter name="activeProfiles" type="list:string" default="">
+				<parameter name="delayTimes" type="list:int" default="60,120,300,600,3600">
 					<description>
-						Defines a list of active profiles.
+					Specifies a list of delay times in seconds relative to event time
+					to trigger the processing. When the first origin of an event arrives
+					this list is used to construct the crontab for this event.
+					Example: &quot;60, 120, 300, 3600&quot;
 					</description>
 				</parameter>
 
-				<parameter name="profileTimeAlive" type="int" default="1440">
+				<parameter name="updateDelay" type="int" default="60">
 					<description>
-						Defines how long the profile data should be kept in memery for (in minutes). This is mostly useful
-						to avoid reloading catalog waveform data whenever a new event occurs, at the expense
-						of using more memory (this can be an issue or not depending on the catalog size).
-						Set a negative value to keep the profile data always in memory.
+					Specifies the delay in seconds to delay processing if a new
+					authoritative origin arrives for an event.
 					</description>
 				</parameter>
 
-				<parameter name="cacheWaveforms" type="boolean" default="false">
+				<parameter name="eventMaxIdleTime" type="int" unit="s" default="3600">
 					<description>
-						Save catalog waveforms to local disk to avoid accessing recordStream multiple
-						times (this happens when a profile is loaded, see profileTimeAlive). The
-						waveforms will be saved in the working directory and never deleted.
+					Specifies the maximum allowed idle time of a process before removed.
+					The idle time is calculated if no further processing is scheduled
+					and computes as: [now]-lastRun.
 					</description>
 				</parameter>
 
-				<parameter name="manualOrigin" type="boolean" default="true">
+				<parameter name="logging" type="boolean" default="true">
 					<description>
-					Enables relocation of any manual origin. If false, only event preferred origins are relocated.
-					</description>
-				</parameter>
- 
-				<parameter name="workingDirectory" type="path" default="/tmp/rtdd">
-					<description>
-						Defines the directory used for storing temporary processing files.
-					</description>
-				</parameter>
-
-				<parameter name="keepWorkingFiles" type="boolean" default="false">
-					<description>
-						Do not delete temporary processing files from the working directory
-						after the processing is completed.
+					Enables/disables updating of a cron log file. This file will be
+					created at ~/.seiscomp3/log/[appname].sched
+					and contains information about the scheduled events and the
+					processing queue. The file is updated each n seconds,
+					where n = rtdd.cron.wakeupInterval.
 					</description>
 				</parameter>
 
-				<group name="cron">
+			</group>
 
-					<parameter name="wakeupInterval" type="int" unit="s" default="10">
+			<group name="profile">
+				<struct type="rtdd profile" link = "rtdd.activeProfiles">
+					<description>
+						Defines a regional profile. Origins that fall in this region will use this
+						configuration. If an origin falls in multiple profile regions, then the
+						profile defined first will be used.
+					</description>
+
+					<parameter name="regionType" type="string">
 						<description>
-						Specifies the interval in seconds to check/start scheduled operations.
+							Type of region: RECTANGLE or CIRCLE
 						</description>
 					</parameter>
 
-					<parameter name="delayTimes" type="list:int" default="60,120,300,600,3600">
+					<parameter name="region" type="list:double">
 						<description>
-						Specifies a list of delay times in seconds relative to event time
-						to trigger the processing. When the first origin of an event arrives
-						this list is used to construct the crontab for this event.
-						Example: &quot;60, 120, 300, 3600&quot;
+							Defines the region values. If regionType is RECTANGLE then 4 values
+							(min_lat, min_lon, max_lat, max_lon) are expected. If regionType
+							is CIRCLE then 3 values are expected (lat, lon, radius in km).
+							If region is empty, then it will represent a region that matches any
+							origin.
 						</description>
 					</parameter>
 
-					<parameter name="updateDelay" type="int" default="60">
+					<parameter name="earthModelID" type="string">
 						<description>
-						Specifies the delay in seconds to delay processing if a new
-						authoritative origin arrives for an event.
+							earthModelID that is stored in the created origin.
 						</description>
 					</parameter>
 
-					<parameter name="eventMaxIdleTime" type="int" unit="s" default="3600">
+					<parameter name="methodID" type="string" default="RTDD">
 						<description>
-						Specifies the maximum allowed idle time of a process before removed.
-						The idle time is calculated if no further processing is scheduled
-						and computes as: [now]-lastRun.
+							methodID that is stored in the created origin.
 						</description>
 					</parameter>
 
-					<parameter name="logging" type="boolean" default="true">
+					<group name="catalog">
 						<description>
-						Enables/disables updating of a cron log file. This file will be
-						created at ~/.seiscomp3/log/[appname].sched
-						and contains information about the scheduled events and the
-						processing queue. The file is updated each n seconds,
-						where n = rtdd.cron.wakeupInterval.
-						</description>
-					</parameter>
-
-				</group>
-
-				<group name="profile">
-					<struct type="rtdd profile" link = "rtdd.activeProfiles">
-						<description>
-							Defines a regional profile. Origins that fall in this region will use this
-							configuration. If an origin falls in multiple profile regions, then the
-							profile defined first will be used.
+							The files used to define a catalog. There are two ways to define a catalog: one is
+							providing an event file containing the ids of existing events or origins; the second
+							way consists in providing extended information (useful when the events are not in the
+							database) and three files are required event, phase and stations.
+							The files must be in csv format with the first line containing the column names. Each file
+							requires a minimum set of columns, which can appear in any order. Additional
+							columns can be present and will not be used but are allowed for informationl purpose.
 						</description>
 
-						<parameter name="regionType" type="string">
+						<parameter name="eventFile" type="path">
 							<description>
-								Type of region: RECTANGLE or CIRCLE
+								Path to event file to be used for this profile.
+								Required columns: seiscompId (this must be a valide seiscomp3 origin id or event id)
+								Extended format columns: id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,tt_residual
+								If the extended format is used, then the phase and station files must be provided.
+								Conversely, if the format used is the one with seiscompId, no other files have to be
+								provided and the event information will be fetched from the database.
 							</description>
 						</parameter>
 
-						<parameter name="region" type="list:double">
+						<parameter name="phaFile" type="path">
 							<description>
-								Defines the region values. If regionType is RECTANGLE then 4 values
-								(min_lat, min_lon, max_lat, max_lon) are expected. If regionType
-								is CIRCLE then 3 values are expected (lat, lon, radius in km).
-								If region is empty, then it will represent a region that matches any
-								origin.
+								Path to catalog picks file to be used for this profile
+								Required columns: eventId,stationId,isotime,weight,type,networkcode,stationcode,locationCode,channelCode
 							</description>
 						</parameter>
 
-						<parameter name="earthModelID" type="string">
+						<parameter name="stationFile" type="path">
 							<description>
-								earthModelID that is stored in the created origin.
+								Path to the stations file to be used for this profile
+								Required columns: id,latitude,longitude,elevation,networkcode,stationcode
 							</description>
 						</parameter>
 
-						<parameter name="methodID" type="string" default="RTDD">
+						<parameter name="P-Phases" type="list:string" default="P,Pg,Pn,P1">
 							<description>
-								methodID that is stored in the created origin.
+								Defines a list of accepted P phases. Phases not in this list are not be used
 							</description>
 						</parameter>
 
-						<group name="catalog">
+						<parameter name="S-Phases" type="list:string" default="S,Sg,Sn,S1">
 							<description>
-								The files used to define a catalog. There are two ways to define a catalog: one is
-								providing an event file containing the ids of existing events or origins; the second
-								way consists in providing extended information (useful when the events are not in the
-								database) and three files are required event, phase and stations.
-								The files must be in csv format with the first line containing the column names. Each file
-								requires a minimum set of columns, which can appear in any order. Additional
-								columns can be present and will not be used but are allowed for informationl purpose.
+								Defines a list of accepted S phases. Phases not in this list are not be used
 							</description>
+						</parameter>
 
-							<parameter name="eventFile" type="path">
-								<description>
-									Path to event file to be used for this profile.
-									Required columns: seiscompId (this must be a valide seiscomp3 origin id or event id)
-									Extended format columns: id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,tt_residual
-									If the extended format is used, then the phase and station files must be provided.
-									Conversely, if the format used is the one with seiscompId, no other files have to be
-									provided and the event information will be fetched from the database.
-								</description>
+					</group>
+
+					<group name="dtct">
+						<description>
+							Differential travel time computation options.
+						</description>
+						<parameter name="minWeight" type="double">
+							<description>Min phase weight allowed</description>
+						</parameter>
+						<parameter name="maxESdist" type="double">
+							<description>Max epi-sta distance allowed (km)</description>
+						</parameter>
+						<parameter name="maxIEdist" type="double">
+							<description>Max interevent-distance allowed (km)</description>
+						</parameter>
+						<parameter name="minNumNeigh" type="int">
+							<description>Min neighbors required</description>
+						</parameter>
+						<parameter name="maxNumNeigh" type="int">
+							<description>Max neighbors allowed (furthest events are discarded)</description>
+						</parameter>
+						<parameter name="minDTperEvt" type="int">
+							<description>Min dt per event pair required ((Including P+S)</description>
+						</parameter>
+					</group>
+
+					<group name="dtcc">
+						<description>
+							Cross-correlation differential travel time computation options.
+						</description>
+						<parameter name="minWeight" type="double">
+							<description>Min phase weight allowed</description>
+						</parameter>
+						<parameter name="maxESdist" type="double">
+							<description>Max epi-sta distance allowed (km)</description>
+						</parameter>
+						<parameter name="maxIEdist" type="double">
+							<description>Max interevent-distance allowed (km)</description>
+						</parameter>
+						<parameter name="minNumNeigh" type="int">
+							<description>Min neighbors required</description>
+						</parameter>
+						<parameter name="maxNumNeigh" type="int">
+							<description>Max neighbors allowed (furthest events are discarded)</description>
+						</parameter>
+						<parameter name="minDTperEvt" type="int">
+							<description>Min dt per event pair required ((Including P+S)</description>
+						</parameter>
+						<parameter name="minCCCoef" type="double">
+							<description>Min crosscorrelation coefficient required</description>
+						</parameter>
+						<group name="crosscorrelation">
+							<parameter name="filterFmin" type="double">
+								<description>Frequency of the hi-pass filter (hz, 0 disable)</description>
 							</parameter>
-
-							<parameter name="phaFile" type="path">
-								<description>
-									Path to catalog picks file to be used for this profile
-									Required columns: eventId,stationId,isotime,weight,type,networkcode,stationcode,locationCode,channelCode
-								</description>
+							<parameter name="filterFmax" type="double">
+								<description>Frequency of the low-pass filter (hz, 0 disable)</description>
 							</parameter>
-
-							<parameter name="stationFile" type="path">
-								<description>
-									Path to the stations file to be used for this profile
-									Required columns: id,latitude,longitude,elevation,networkcode,stationcode
-								</description>
+							<parameter name="filterFsamp" type="double">
+								<description>Samplig rate (hz, 0 disable)</description>
 							</parameter>
-
-							<parameter name="P-Phases" type="list:string" default="P,Pg,Pn,P1">
-								<description>
-									Defines a list of accepted P phases. Phases not in this list are not be used
-								</description>
+							<parameter name="filterOrder" type="int">
+								<description>Filter order</description>
 							</parameter>
-
-							<parameter name="S-Phases" type="list:string" default="S,Sg,Sn,S1">
-								<description>
-									Defines a list of accepted S phases. Phases not in this list are not be used
-								</description>
+							<parameter name="timeBeforePick" type="double">
+								<description>(secs)</description>
 							</parameter>
-
+							<parameter name="timeAfterPick" type="double">
+								<description>(secs)</description>
+							</parameter>
+							<parameter name="maxDelay" type="double">
+								<description>(secs)</description>
+							</parameter>
 						</group>
+					</group>
 
-						<group name="dtct">
+					<group name="hypodd">
+						<parameter name="execPath" type="path" default="hypodd">
 							<description>
-								Differential travel time computation options.
+								Path to hypodd executable.
 							</description>
-							<parameter name="minWeight" type="double">
-								<description>Min phase weight allowed</description>
-							</parameter>
-							<parameter name="maxESdist" type="double">
-								<description>Max epi-sta distance allowed (km)</description>
-							</parameter>
-							<parameter name="maxIEdist" type="double">
-								<description>Max interevent-distance allowed (km)</description>
-							</parameter>
-							<parameter name="minNumNeigh" type="int">
-								<description>Min neighbors required</description>
-							</parameter>
-							<parameter name="maxNumNeigh" type="int">
-								<description>Max neighbors allowed (furthest events are discarded)</description>
-							</parameter>
-							<parameter name="minDTperEvt" type="int">
-								<description>Min dt per event pair required ((Including P+S)</description>
-							</parameter>
-						</group>
+						</parameter>
 
-						<group name="dtcc">
+						<parameter name="controlFile" type="path">
 							<description>
-								Cross-correlation differential travel time computation options.
+								Control file of the current profile. If not set, the default
+								control file will be used instead.
 							</description>
-							<parameter name="minWeight" type="double">
-								<description>Min phase weight allowed</description>
-							</parameter>
-							<parameter name="maxESdist" type="double">
-								<description>Max epi-sta distance allowed (km)</description>
-							</parameter>
-							<parameter name="maxIEdist" type="double">
-								<description>Max interevent-distance allowed (km)</description>
-							</parameter>
-							<parameter name="minNumNeigh" type="int">
-								<description>Min neighbors required</description>
-							</parameter>
-							<parameter name="maxNumNeigh" type="int">
-								<description>Max neighbors allowed (furthest events are discarded)</description>
-							</parameter>
-							<parameter name="minDTperEvt" type="int">
-								<description>Min dt per event pair required ((Including P+S)</description>
-							</parameter>
-							<parameter name="minCCCoef" type="double">
-								<description>Min crosscorrelation coefficient required</description>
-							</parameter>
-							<group name="crosscorrelation">
-								<parameter name="filterFmin" type="double">
-									<description>Frequency of the hi-pass filter (hz, 0 disable)</description>
-								</parameter>
-								<parameter name="filterFmax" type="double">
-									<description>Frequency of the low-pass filter (hz, 0 disable)</description>
-								</parameter>
-								<parameter name="filterFsamp" type="double">
-									<description>Samplig rate (hz, 0 disable)</description>
-								</parameter>
-								<parameter name="filterOrder" type="int">
-									<description>Filter order</description>
-								</parameter>
-								<parameter name="timeBeforePick" type="double">
-									<description>(secs)</description>
-								</parameter>
-								<parameter name="timeAfterPick" type="double">
-									<description>(secs)</description>
-								</parameter>
-								<parameter name="maxDelay" type="double">
-									<description>(secs)</description>
-								</parameter>
-							</group>
-						</group>
+						</parameter>
+					</group>
 
-						<group name="hypodd">
-							<parameter name="execPath" type="path" default="hypodd">
-								<description>
-									Path to hypodd executable.
-								</description>
-							</parameter>
+					<group name="ph2dt">
+						<description>
+							This configuration is used only for full catalog relocation and it is
+							not useful in real time DD relocation.
+							See command line option --relocate-catalog
+						</description>
 
-							<parameter name="controlFile" type="path">
-								<description>
-									Control file of the current profile. If not set, the default
-									control file will be used instead.
-								</description>
-							</parameter>
-						</group>
-
-						<group name="ph2dt">
+						<parameter name="execPath" type="path" default="ph2dt">
 							<description>
-								This configuration is used only for full catalog relocation and it is
-								not useful in real time DD relocation.
-								See command line option --relocate-catalog
+								Path to ph2dt executable.
 							</description>
+						</parameter>
+						<parameter name="minwght" type="double">
+							<description>Min. pick weight allowed.</description>
+						</parameter>
+						<parameter name="maxdist" type="double">
+							<description>Max. distance in km between event pair and stations. </description>
+						</parameter>
+						<parameter name="maxsep" type="double">
+							<description>Max. hypocentral separation in km</description>
+						</parameter>
+						<parameter name="maxngh" type="int">
+							<description>Max. number of neighbors per event. </description>
+						</parameter>
+						<parameter name="minlnk" type="int">
+							<description>Min. number of links required to define a neighbor</description>
+						</parameter>
+						<parameter name="minobs" type="int">
+							<description>Min. number of links per pair saved</description>
+						</parameter>
+						<parameter name="maxobs" type="int">
+							<description>Max. number of links per pair saved</description>
+						</parameter>
+					</group>
 
-							<parameter name="execPath" type="path" default="ph2dt">
-								<description>
-									Path to ph2dt executable.
-								</description>
-							</parameter>
-							<parameter name="minwght" type="double">
-								<description>Min. pick weight allowed.</description>
-							</parameter>
-							<parameter name="maxdist" type="double">
-								<description>Max. distance in km between event pair and stations. </description>
-							</parameter>
-							<parameter name="maxsep" type="double">
-								<description>Max. hypocentral separation in km</description>
-							</parameter>
-							<parameter name="maxngh" type="int">
-								<description>Max. number of neighbors per event. </description>
-							</parameter>
-							<parameter name="minlnk" type="int">
-								<description>Min. number of links required to define a neighbor</description>
-							</parameter>
-							<parameter name="minobs" type="int">
-								<description>Min. number of links per pair saved</description>
-							</parameter>
-							<parameter name="maxobs" type="int">
-								<description>Max. number of links per pair saved</description>
-							</parameter>
-						</group>
-
-					</struct>
-				</group>
-
+				</struct>
 			</group>
 
 		</configuration>

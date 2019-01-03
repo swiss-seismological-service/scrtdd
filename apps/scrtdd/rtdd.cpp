@@ -238,19 +238,19 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	_processingInfoChannel = NULL;
 	_processingInfoOutput = NULL;
 
-	NEW_OPT(_config.publicIDPattern, "rtdd.publicIDPattern");
-	NEW_OPT(_config.activeProfiles, "rtdd.activeProfiles");
-	NEW_OPT(_config.profileTimeAlive, "rtdd.profileTimeAlive");
-	NEW_OPT(_config.cacheWaveforms, "rtdd.cacheWaveforms");
-	NEW_OPT(_config.workingDirectory, "rtdd.workingDirectory");
-	NEW_OPT(_config.keepWorkingFiles, "rtdd.keepWorkingFiles");
-	NEW_OPT(_config.processManualOrigin, "rtdd.manualOrigin");
+	NEW_OPT(_config.publicIDPattern, "publicIDPattern");
+	NEW_OPT(_config.activeProfiles, "activeProfiles");
+	NEW_OPT(_config.profileTimeAlive, "profileTimeAlive");
+	NEW_OPT(_config.cacheWaveforms, "cacheWaveforms");
+	NEW_OPT(_config.workingDirectory, "workingDirectory");
+	NEW_OPT(_config.keepWorkingFiles, "keepWorkingFiles");
+	NEW_OPT(_config.processManualOrigin, "manualOrigin");
 
-	NEW_OPT(_config.wakeupInterval, "rtdd.cron.wakeupInterval");
-	NEW_OPT(_config.eventMaxIdleTime, "rtdd.cron.eventMaxIdleTime");
-	NEW_OPT(_config.logCrontab, "rtdd.cron.logging");
-	NEW_OPT(_config.updateDelay, "rtdd.cron.updateDelay");
-	NEW_OPT(_config.delayTimes, "rtdd.cron.delayTimes");
+	NEW_OPT(_config.wakeupInterval, "cron.wakeupInterval");
+	NEW_OPT(_config.eventMaxIdleTime, "cron.eventMaxIdleTime");
+	NEW_OPT(_config.logCrontab, "cron.logging");
+	NEW_OPT(_config.updateDelay, "cron.updateDelay");
+	NEW_OPT(_config.delayTimes, "cron.delayTimes");
 
 	NEW_OPT_CLI(_config.testMode, "Mode", "test",
 	            "Test mode, no messages are sent", false, true);
@@ -308,7 +308,7 @@ bool RTDD::validateParameters()
 	_config.workingDirectory = boost::filesystem::path(_config.workingDirectory).string();
 	if ( !Util::pathExists(_config.workingDirectory) ) {
 		if ( ! Util::createPath(_config.workingDirectory) ) {
-			SEISCOMP_ERROR("rtdd.workingDirectory: failed to create path %s",_config.workingDirectory.c_str());
+			SEISCOMP_ERROR("workingDirectory: failed to create path %s",_config.workingDirectory.c_str());
 			return false;
 		}
 	}
@@ -320,7 +320,7 @@ bool RTDD::validateParameters()
 	{
 
 		ProfilePtr prof = new Profile;
-		string prefix = string("rtdd.profile.") + *it + ".";
+		string prefix = string("profile.") + *it + ".";
 
 		prof->name = *it;
 
@@ -345,7 +345,7 @@ bool RTDD::validateParameters()
 			prof->region = new CircularRegion;
 
 		if ( prof->region == NULL ) {
-			SEISCOMP_ERROR("rtdd.profile.%s: invalid region type: %s",
+			SEISCOMP_ERROR("profile.%s: invalid region type: %s",
 			               it->c_str(), regionType.c_str());
 			it = _config.activeProfiles.erase(it);
 			profilesOK = false;
@@ -353,13 +353,13 @@ bool RTDD::validateParameters()
 		}
 
 		if ( !prof->region->init(this, prefix) ) {
-			SEISCOMP_ERROR("rtdd.profile.%s: invalid region parameters", it->c_str());
+			SEISCOMP_ERROR("profile.%s: invalid region parameters", it->c_str());
 			it = _config.activeProfiles.erase(it);
 			profilesOK = false;
 			continue;
 		}
 
-		prefix = string("rtdd.profile.") + *it + ".catalog.";
+		prefix = string("profile.") + *it + ".catalog.";
 
 		prof->eventFile = env->absolutePath(configGetPath(prefix + "eventFile"));
 		try {
@@ -379,7 +379,7 @@ bool RTDD::validateParameters()
 			prof->ddcfg.validSphases = {"S","Sg","Sn","S1"};
 		}
 
-		prefix = string("rtdd.profile.") + *it + ".dtct.";
+		prefix = string("profile.") + *it + ".dtct.";
 		try {
 			prof->ddcfg.dtt.minWeight = configGetDouble(prefix + "minWeight");
 			prof->ddcfg.dtt.maxESdist = configGetDouble(prefix + "maxESdist");
@@ -392,7 +392,7 @@ bool RTDD::validateParameters()
 			continue;
 		}
 
-		prefix = string("rtdd.profile.") + *it + ".dtcc.";
+		prefix = string("profile.") + *it + ".dtcc.";
 		prof->ddcfg.xcorr.recordStreamURL = recordStreamURL();
 		try {
 			prof->ddcfg.xcorr.minWeight = configGetDouble(prefix + "minWeight");
@@ -406,7 +406,7 @@ bool RTDD::validateParameters()
 			continue;
 		}
 
-		prefix = string("rtdd.profile.") + *it + ".dtcc.crosscorrelation.";
+		prefix = string("profile.") + *it + ".dtcc.crosscorrelation.";
 		try {
 			prof->ddcfg.xcorr.filterFmin = configGetDouble(prefix + "filterFmin");
 		} catch ( ... ) {}
@@ -428,14 +428,14 @@ bool RTDD::validateParameters()
 			continue;
 		}
 
-		prefix = string("rtdd.profile.") + *it + ".hypodd.";
+		prefix = string("profile.") + *it + ".hypodd.";
 
 		try {
 			prof->ddcfg.hypodd.exec = env->absolutePath(configGetPath(prefix + "execPath"));
 		} catch ( ... ) { prof->ddcfg.hypodd.exec = "hypoDD"; }
 		prof->ddcfg.hypodd.ctrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
 
-		prefix = string("rtdd.profile.") + *it + ".ph2dt.";
+		prefix = string("profile.") + *it + ".ph2dt.";
 
 		try {
 			prof->ddcfg.ph2dt.exec = env->absolutePath(configGetPath(prefix + "execPath"));
