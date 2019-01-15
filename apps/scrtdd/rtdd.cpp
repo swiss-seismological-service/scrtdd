@@ -238,7 +238,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	_processingInfoChannel = NULL;
 	_processingInfoOutput = NULL;
 
-	NEW_OPT(_config.publicIDPattern, "publicIDPattern");
+	NEW_OPT(_config.publicIDPattern, "publicIDpattern");
 	NEW_OPT(_config.activeProfiles, "activeProfiles");
 	NEW_OPT(_config.profileTimeAlive, "profileTimeAlive");
 	NEW_OPT(_config.cacheWaveforms, "cacheWaveforms");
@@ -306,12 +306,23 @@ bool RTDD::validateParameters()
     }
 
 	_config.workingDirectory = boost::filesystem::path(_config.workingDirectory).string();
-	if ( !Util::pathExists(_config.workingDirectory) ) {
+	if ( !Util::pathExists(_config.workingDirectory) )
+	{
 		if ( ! Util::createPath(_config.workingDirectory) ) {
 			SEISCOMP_ERROR("workingDirectory: failed to create path %s",_config.workingDirectory.c_str());
 			return false;
 		}
 	}
+
+	std::string hypoddExec = "hypodd";
+	try {
+		hypoddExec = env->absolutePath(configGetPath("hypoddPath"));
+	} catch ( ... ) { }
+
+	std::string ph2dtExec = "ph2dt";
+	try {
+		ph2dtExec = env->absolutePath(configGetPath("ph2dtPath"));
+	} catch ( ... ) { }
 
 	bool profilesOK = true;
 
@@ -429,26 +440,12 @@ bool RTDD::validateParameters()
 		}
 
 		prefix = string("profile.") + *it + ".hypodd.";
-
-		try {
-			prof->ddcfg.hypodd.exec = env->absolutePath(configGetPath(prefix + "execPath"));
-		} catch ( ... ) { prof->ddcfg.hypodd.exec = "hypoDD"; }
 		prof->ddcfg.hypodd.ctrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
+		prof->ddcfg.hypodd.exec = hypoddExec;
 
 		prefix = string("profile.") + *it + ".ph2dt.";
-
-		try {
-			prof->ddcfg.ph2dt.exec = env->absolutePath(configGetPath(prefix + "execPath"));
-		} catch ( ... ) { prof->ddcfg.hypodd.exec = "ph2dt"; }
-		try {
-			prof->ddcfg.ph2dt.minwght = configGetDouble(prefix + "minwght");
-			prof->ddcfg.ph2dt.maxdist = configGetDouble(prefix + "maxdist");
-			prof->ddcfg.ph2dt.maxsep = configGetDouble(prefix + "maxsep");
-			prof->ddcfg.ph2dt.maxngh = configGetInt(prefix + "maxngh");
-			prof->ddcfg.ph2dt.minlnk = configGetInt(prefix + "minlnk");
-			prof->ddcfg.ph2dt.minobs = configGetInt(prefix + "minobs");
-			prof->ddcfg.ph2dt.maxobs = configGetInt(prefix + "maxobs");
-		} catch ( ... ) {}
+		prof->ddcfg.ph2dt.ctrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
+		prof->ddcfg.ph2dt.exec = ph2dtExec;
 
 		_profiles.push_back(prof);
 

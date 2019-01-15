@@ -164,13 +164,7 @@ struct Config {
 	// ph2dt config specifig (catalog relocation only)
 	struct {
 		std::string exec = "ph2dt";
-		double minwght; // MINWGHT: min. pick weight allowed [-1]
-		double maxdist; // MAXDIST: max. distance in km between event pair and stations [200]
-		double maxsep;  // MAXSEP: max. hypocentral separation in km [10]
-		int maxngh;  // MAXNGH: max. number of neighbors per event [10]
-		int minlnk;  // MINLNK: min. number of links required to define a neighbor [8]
-		int minobs;  // MINOBS: min. number of links per pair saved [8]
-		int maxobs;  // MAXOBS: max. number of links per pair saved [20]
+		std::string ctrlFile;
 	} ph2dt;
 
 	// hypodd executable specific

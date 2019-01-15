@@ -52,6 +52,19 @@
 				</description>
 			</parameter>
 
+			<parameter name="hypoddPath" type="path" default="hypodd">
+				<description>
+					Path to hypodd executable.
+				</description>
+			</parameter>
+
+			<parameter name="ph2dtPath" type="path" default="ph2dt">
+				<description>
+					Path to ph2dt executable.
+					This configuration is used only for full catalog relocation  (see command line option --relocate-catalog) and it is not needed in real time DD relocation.
+				</description>
+			</parameter>
+
 			<group name="cron">
 
 				<parameter name="wakeupInterval" type="int" unit="s" default="10">
@@ -257,16 +270,9 @@
 					</group>
 
 					<group name="hypodd">
-						<parameter name="execPath" type="path" default="hypodd">
-							<description>
-								Path to hypodd executable.
-							</description>
-						</parameter>
-
 						<parameter name="controlFile" type="path">
 							<description>
-								Control file of the current profile. If not set, the default
-								control file will be used instead.
+								Path to hypodd control file (e.g. some_path/hypoDD.inp).
 							</description>
 						</parameter>
 					</group>
@@ -277,32 +283,10 @@
 							not useful in real time DD relocation.
 							See command line option --relocate-catalog
 						</description>
-
-						<parameter name="execPath" type="path" default="ph2dt">
+						<parameter name="controlFile" type="path">
 							<description>
-								Path to ph2dt executable.
+								Path to ph2dt control file (e.g. some_path/ph2dt.inp).
 							</description>
-						</parameter>
-						<parameter name="minwght" type="double">
-							<description>Min. pick weight allowed.</description>
-						</parameter>
-						<parameter name="maxdist" type="double">
-							<description>Max. distance in km between event pair and stations. </description>
-						</parameter>
-						<parameter name="maxsep" type="double">
-							<description>Max. hypocentral separation in km</description>
-						</parameter>
-						<parameter name="maxngh" type="int">
-							<description>Max. number of neighbors per event. </description>
-						</parameter>
-						<parameter name="minlnk" type="int">
-							<description>Min. number of links required to define a neighbor</description>
-						</parameter>
-						<parameter name="minobs" type="int">
-							<description>Min. number of links per pair saved</description>
-						</parameter>
-						<parameter name="maxobs" type="int">
-							<description>Max. number of links per pair saved</description>
 						</parameter>
 					</group>
 

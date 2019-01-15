@@ -533,12 +533,6 @@ HypoDD::HypoDD(const CatalogPtr& input, const Config& cfg, const string& working
 	_workingDir = workingDir;
 	_ddbgc = filterOutPhases(input, cfg.validPphases, cfg.validSphases);
 
-	if ( !Util::fileExists(_cfg.hypodd.ctrlFile) )
-	{
-		string msg = "File " + _cfg.hypodd.ctrlFile + " does not exist";
-		throw runtime_error(msg);
-	}
-
 	if ( !Util::pathExists(_workingDir) )
 	{
 		if ( !Util::createPath(_workingDir) )
@@ -1001,40 +995,16 @@ void HypoDD::runPh2dt(const string& workingDir, const string& stationFile, const
 	if ( !Util::fileExists(phaseFile) )
 		throw runtime_error("Unable to run ph2dt, file doesn't exist: " + phaseFile);
 
-	// write ph2dt.inp - input control file for program ph2dt
-	string ph2dtFile = (boost::filesystem::path(workingDir)/"ph2dt.inp").string();
-	ofstream ph2dtinp;
-	ph2dtinp.open(ph2dtFile);
-	if ( !ph2dtinp.is_open() )
-		throw runtime_error("Cannot create file ph2dt.inp");
-	
-	ph2dtinp << "* ph2dt.inp - input control file for program ph2dt" << endl;
-	ph2dtinp << "* Input station file:" << endl;
-	ph2dtinp << stationFile << endl;
-	ph2dtinp << "* Input phase file:" << endl;
-	ph2dtinp << phaseFile << endl;
-	ph2dtinp << "*MINWGHT: min. pick weight allowed [0]" << endl;
-	ph2dtinp << "*MAXDIST: max. distance in km between event pair and stations [200]" << endl;
-	ph2dtinp << "*MAXSEP: max. hypocentral separation in km [10]" << endl;
-	ph2dtinp << "*MAXNGH: max. number of neighbors per event [10]" << endl;
-	ph2dtinp << "*MINLNK: min. number of links required to define a neighbor [8]" << endl;
-	ph2dtinp << "*MINOBS: min. number of links per pair saved [8]" << endl;
-	ph2dtinp << "*MAXOBS: max. number of links per pair saved [20]" << endl;
-	ph2dtinp << "*MINWGHT MAXDIST MAXSEP MAXNGH MINLNK MINOBS MAXOBS" << endl;
-	ph2dtinp << stringify("%8.2f %7.3f %6.3f %6d %6d %6d %6d\n",
-	                      _cfg.ph2dt.minwght, _cfg.ph2dt.maxdist, _cfg.ph2dt.maxsep,
-	                      _cfg.ph2dt.maxngh, _cfg.ph2dt.minlnk, _cfg.ph2dt.minobs,
-	                      _cfg.ph2dt.maxobs)
-	         << endl;
+	if ( !Util::fileExists(_cfg.ph2dt.ctrlFile) )
+		throw runtime_error("Unable to run ph2dt, control file doesn't exist: " + _cfg.ph2dt.ctrlFile);
 
-	// Make sure the content is flushed to disk before running ph2dt
-	ph2dtinp.close(); 
+	boost::filesystem::copy_file(_cfg.ph2dt.ctrlFile,
+	                             (boost::filesystem::path(workingDir)/"ph2dt.inp").string(),
+	                             boost::filesystem::copy_option::overwrite_if_exists);
 
 	// run ph2dt (use /bin/sh to get stdout/strerr redirection)
 	string cmd = stringify("%s %s >ph2dt.stdout 2>&1",
-	                       _cfg.ph2dt.exec.c_str(),
-	                       // silly, ph2dt doesn't support absolute paths, only relative ones!!!
-	                       boost::filesystem::path(ph2dtFile).lexically_relative(workingDir).string().c_str());
+	                       _cfg.ph2dt.exec.c_str(), "ph2dt.inp");
 	::startExternalProcess({"/bin/sh", "-c", cmd}, true, workingDir);
 }
 
@@ -1061,12 +1031,15 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
 		throw runtime_error("Unable to run hypodd, file doesn't exist: " + stationFile);
 
 	if ( !Util::fileExists(_cfg.hypodd.ctrlFile) )
-		throw runtime_error("Unable to run hypodd, file doesn't exist: " + _cfg.hypodd.ctrlFile);
+		throw runtime_error("Unable to run hypodd, control file doesn't exist: " + _cfg.hypodd.ctrlFile);
+
+	boost::filesystem::copy_file(_cfg.hypodd.ctrlFile,
+	                             (boost::filesystem::path(workingDir)/"hypodd.inp").string(),
+	                             boost::filesystem::copy_option::overwrite_if_exists);
 
 	// run Hypodd (use /bin/sh to get stdout/strerr redirection)
 	string cmd = stringify("%s %s >hypodd.stdout 2>&1",
-	                       _cfg.hypodd.exec.c_str(),
-	                       _cfg.hypodd.ctrlFile.c_str());
+	                       _cfg.hypodd.exec.c_str(), "hypodd.inp");
 	::startExternalProcess({"/bin/sh", "-c", cmd}, true, workingDir);
 }
 
