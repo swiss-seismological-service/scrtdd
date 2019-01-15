@@ -264,7 +264,7 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 				if ( !orgArrStation )
 				{
 					string msg = stringify("Cannot find station for arrival '%s' (origin '%s')",
-					                       orgArr->pickID(), org->publicID());
+				                           orgArr->pickID().c_str(), org->publicID().c_str());
 					throw runtime_error(msg.c_str());
 				}
 				sta.latitude = orgArrStation->latitude();
@@ -278,8 +278,15 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 			Phase ph;
 			ph.eventId    = ev.id;
 			ph.stationId  = sta.id;
-			ph.time        = pick->time().value().toGMT();
-			ph.weight      = orgArr->weight();
+			ph.time       = pick->time().value().toGMT();
+			try {
+				ph.weight = orgArr->weight();
+			} catch ( Core::ValueException& ) {
+				ph.weight = 1.;
+				SEISCOMP_INFO("Pick '%s' (origin %s) has no weight set, use default weight of 1.",
+				              orgArr->pickID().c_str(), org->publicID().c_str());
+			}
+
 			ph.type        = orgPh.code();
 			ph.networkCode =  pick->waveformID().networkCode();
 			ph.stationCode =  pick->waveformID().stationCode();
