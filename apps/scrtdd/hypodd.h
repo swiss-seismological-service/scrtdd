@@ -209,7 +209,7 @@ class HypoDD : public Core::BaseObject {
 	public:
 		HypoDD(const CatalogPtr& input, const Config& cfg, const std::string& workingDir);
 		virtual ~HypoDD();
-		CatalogPtr relocateCatalog();
+		CatalogPtr relocateCatalog(bool force = true);
 		CatalogPtr relocateSingleEvent(const CatalogPtr& orgToRelocate);
 		void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
 		bool workingDirCleanup() { return _workingDirCleanup; }

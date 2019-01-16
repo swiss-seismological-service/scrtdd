@@ -659,7 +659,7 @@ CatalogPtr HypoDD::filterOutPhases(const CatalogPtr& catalog,
 }
 
 
-CatalogPtr HypoDD::relocateCatalog()
+CatalogPtr HypoDD::relocateCatalog(bool force)
 {
 	SEISCOMP_DEBUG("Starting HypoDD relocator in multiple events mode");
 
@@ -676,14 +676,14 @@ CatalogPtr HypoDD::relocateCatalog()
 
 	// Create station.dat for ph2dt and hypodd (if not already generated)
 	string stationFile = (boost::filesystem::path(catalogWorkingDir)/"station.dat").string();
-	if ( ! Util::fileExists(stationFile) )
+	if ( force || ! Util::fileExists(stationFile) )
 	{
 		createStationDatFile(stationFile, _ddbgc);
 	}
 
 	// Create phase.dat for ph2dt (if not already generated)
 	string phaseFile = (boost::filesystem::path(catalogWorkingDir)/"phase.dat").string();
-	if ( ! Util::fileExists(phaseFile) )
+	if ( force || ! Util::fileExists(phaseFile) )
 	{
 		createPhaseDatFile(phaseFile, _ddbgc);
 	}
@@ -694,7 +694,8 @@ CatalogPtr HypoDD::relocateCatalog()
 	string dtctFile = (boost::filesystem::path(catalogWorkingDir)/"dt.ct").string();
 	string stationSelFile = (boost::filesystem::path(catalogWorkingDir)/"station.sel").string();
 	string eventSelfile = (boost::filesystem::path(catalogWorkingDir)/"event.sel").string();
-	if ( !Util::fileExists(dtctFile) ||
+	if ( force ||
+	     !Util::fileExists(dtctFile) ||
 	     !Util::fileExists(stationSelFile) ||
 	     !Util::fileExists(eventSelfile) )
 	{
@@ -706,7 +707,7 @@ CatalogPtr HypoDD::relocateCatalog()
 	// input dt.ct
 	// output dt.cc
 	string dtccFile = (boost::filesystem::path(catalogWorkingDir)/"dt.cc").string();
-	if ( ! Util::fileExists(dtccFile) )
+	if ( force || ! Util::fileExists(dtccFile) )
 	{ 
 		xcorrCatalog(dtctFile, dtccFile);
 	}
@@ -715,7 +716,7 @@ CatalogPtr HypoDD::relocateCatalog()
 	// input : dt.cc dt.ct event.sel station.sel hypoDD.inp
 	// output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
 	string ddrelocFile = (boost::filesystem::path(catalogWorkingDir)/"hypoDD.reloc").string();
-	if ( ! Util::fileExists(ddrelocFile) )
+	if ( force || ! Util::fileExists(ddrelocFile) )
 	{
 		runHypodd(catalogWorkingDir, dtccFile, dtctFile, eventSelfile, stationSelFile);
 	}
