@@ -203,19 +203,19 @@
 							<description>Min phase weight allowed</description>
 						</parameter>
 						<parameter name="maxESdist" type="double">
-							<description>Max epi-sta distance allowed (km)</description>
+							<description>Max distance between epicentre and station allowed (km)</description>
 						</parameter>
 						<parameter name="maxIEdist" type="double">
-							<description>Max interevent-distance allowed (km)</description>
+							<description>Max distance between events allowed (km)</description>
 						</parameter>
 						<parameter name="minNumNeigh" type="int">
-							<description>Min neighbors required</description>
+							<description>Min number of neighbors required</description>
 						</parameter>
 						<parameter name="maxNumNeigh" type="int">
-							<description>Max neighbors allowed (furthest events are discarded)</description>
+							<description>Max number of neighbors allowed (furthest events are discarded)</description>
 						</parameter>
 						<parameter name="minDTperEvt" type="int">
-							<description>Min dt per event pair required ((Including P+S)</description>
+							<description>Min number of differential travel times per event pair required ((Including P+S)</description>
 						</parameter>
 					</group>
 
@@ -227,19 +227,19 @@
 							<description>Min phase weight allowed</description>
 						</parameter>
 						<parameter name="maxESdist" type="double">
-							<description>Max epi-sta distance allowed (km)</description>
+							<description>Max distance between epicentre and station allowed (km)</description>
 						</parameter>
 						<parameter name="maxIEdist" type="double">
-							<description>Max interevent-distance allowed (km)</description>
+							<description>Max distance between events allowed (km)</description>
 						</parameter>
 						<parameter name="minNumNeigh" type="int">
-							<description>Min neighbors required</description>
+							<description>Min number of neighbors required</description>
 						</parameter>
 						<parameter name="maxNumNeigh" type="int">
-							<description>Max neighbors allowed (furthest events are discarded)</description>
+							<description>Max number of neighbors allowed (furthest events are discarded)</description>
 						</parameter>
 						<parameter name="minDTperEvt" type="int">
-							<description>Min dt per event pair required ((Including P+S)</description>
+							<description>Min number of differential travel times per event pair required ((Including P+S)</description>
 						</parameter>
 						<parameter name="minCCCoef" type="double">
 							<description>Min crosscorrelation coefficient required</description>
