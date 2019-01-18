@@ -259,7 +259,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	NEW_OPT_CLI(_config.testMode, "Mode", "test",
 	            "Test mode, no messages are sent", false, true);
 	NEW_OPT_CLI(_config.forceProcessing, "Mode", "force",
-	            "Force event processing even if a journal entry exists that processing has completed",
+	            "Force event processing: in single event mode the processing is performed even if a journal entry exists that processing has completed, in catalog mode the processing is performed even if the catalog processing files for each phase are already on disk and they will be overwritten",
 	            false, true);
 	NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
 	            "Time span in hours after which objects expire", true);
@@ -531,7 +531,7 @@ bool RTDD::run() {
 			{
 				string workingDir = (boost::filesystem::path(_config.workingDirectory)/ profile->name).string();
 				profile->load(query(), workingDir, !_config.keepWorkingFiles, _config.cacheWaveforms);
-				HDD::CatalogPtr relocatedCat = profile->relocateCatalog();
+				HDD::CatalogPtr relocatedCat = profile->relocateCatalog(_config.forceProcessing);
 				profile->unload();
 				relocatedCat->writeToFile("event.csv","phase.csv","station.csv");
 				break;
@@ -685,11 +685,6 @@ void RTDD::handleTimeout()
 {
 	cleanUnusedProfiles();
 	runNewJobs();
-
-    //if ( !_config.originID.empty() || !_config.eventXML.empty() )
-	//{
-	//	quit();
-	//}
 }
 
 
@@ -1039,7 +1034,8 @@ void RTDD::process(Origin *origin)
 		return;
 	}
 
-	SEISCOMP_DEBUG("Relocating origin '%s'", origin->publicID().c_str());
+	SEISCOMP_DEBUG("Relocating origin %s using profile %s",
+	               origin->publicID().c_str(), currProfile->name.c_str());
 
 	OriginPtr newOrg;
 
@@ -1189,7 +1185,7 @@ void RTDD::Profile::load(DataModel::DatabaseQuery* query,
 
 	this->query = query;
 
-	// check if the catalog uses seiscomp event ids or if it contains full information
+	// load the catalog either from seiscomp event ids or from extended format
 	HDD::CatalogPtr ddbgc;
 	if ( CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0)
 		ddbgc = new HDD::Catalog(eventFile, query);
@@ -1221,14 +1217,13 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(Origin *org)
 	}
 	lastUsage = Core::Time::GMT();
 
-	// FIXME: bad performance since we are not passing the cache but only the query object
-	HDD::CatalogPtr orgToRelocate = new HDD::Catalog({org->publicID()}, query);
+	HDD::CatalogPtr orgToRelocate = new HDD::Catalog({org}, query);
 	return hypodd->relocateSingleEvent(orgToRelocate);
 }
 
 
 
-HDD::CatalogPtr RTDD::Profile::relocateCatalog()
+HDD::CatalogPtr RTDD::Profile::relocateCatalog(bool force)
 {
 	if ( !loaded )
 	{
@@ -1236,7 +1231,7 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog()
 		throw runtime_error(msg.c_str());
 	}
 	lastUsage = Core::Time::GMT();
-	return hypodd->relocateCatalog(false);
+	return hypodd->relocateCatalog(force);
 }
 
 // End Profile class

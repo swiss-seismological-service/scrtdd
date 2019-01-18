@@ -183,9 +183,16 @@ Catalog::Catalog(const vector<string>& ids, DataModel::DatabaseQuery* query)
 	initFromIds(ids, query);
 }
 
+Catalog::Catalog(const vector<DataModel::Origin*>& origins, DataModel::DatabaseQuery* query)
+{
+	initFromOrigins(origins, query);
+}
 
 void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* query)
 {
+	vector<DataModel::OriginPtr> __origins;
+	vector<DataModel::Origin*> origins;
+
 	for(const string& id : ids)
 	{
 		DataModel::OriginPtr org = DataModel::Origin::Cast(query->getObject(DataModel::Origin::TypeInfo(), id));
@@ -197,14 +204,24 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 				org = DataModel::Origin::Cast(query->getObject(DataModel::Origin::TypeInfo(), (ev->preferredOriginID())));
 			}
 		}
-
 		if ( !org )
 		{
 			string msg = "Cannot find origin/event with id " + id;
 			throw runtime_error(msg);
 		}
+		__origins.push_back(org);
+		origins.push_back(org.get());
+	}
 
-		query->loadArrivals(org.get());
+	initFromOrigins(origins, query);
+}
+
+void Catalog::initFromOrigins(const vector<DataModel::Origin*>& orgs, DataModel::DatabaseQuery* query)
+{
+	for(DataModel::Origin* org : orgs)
+	{
+		if ( query && org->arrivalCount() == 0)
+			query->loadArrivals(org);
 
 		// Add event
 		Event ev;
@@ -216,23 +233,25 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 		ev.horiz_err   = 0;
 		ev.depth_err   = 0;
 		ev.tt_residual = 0;
-		DataModel::EventPtr parentEvent =  query->getEvent(org->publicID());
-		if ( !parentEvent )
+		DataModel::MagnitudePtr mag;
+		// try to fetch preferred magnitude stored in the event
+		if ( query)
 		{
-			SEISCOMP_ERROR("Cannot find origin parent event, skipping origin '%s'",
-						   org->publicID().c_str());
-			continue;
+			DataModel::EventPtr parentEvent = query->getEvent(org->publicID());
+			if ( parentEvent )
+			{
+				mag = DataModel::Magnitude::Cast(query->getObject(DataModel::Magnitude::TypeInfo(), parentEvent->preferredMagnitudeID()));
+			}
 		}
-		DataModel::MagnitudePtr mag = DataModel::Magnitude::Cast(query->getObject(DataModel::Magnitude::TypeInfo(), parentEvent->preferredMagnitudeID()));
 		if ( !mag )
 		{
-			SEISCOMP_ERROR("Cannot load preferred magnitude (id '%s'), skipping origin '%s'",
-						   parentEvent->preferredMagnitudeID().c_str(), org->publicID().c_str());
+			SEISCOMP_ERROR("Cannot load magnitude for origin %s, skipping this origin.",
+			               org->publicID().c_str());
 			continue;
 		}
 		ev.magnitude   = mag->magnitude();
 
-		SEISCOMP_DEBUG("Adding event '%s' origin '%s'", parentEvent->publicID().c_str(), org->publicID().c_str());
+		SEISCOMP_DEBUG("Adding origin '%s' to the catalog", org->publicID().c_str());
 
 		addEvent(ev, false);
 		ev = searchEvent(ev)->second;
@@ -260,7 +279,7 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 			if (searchStation(sta) == _stations.end())
 			{
 				DataModel::Station* orgArrStation = findStation(sta.networkCode, sta.stationCode,
-				                                                pick->time(), query);
+				                                                pick->time());
 				if ( !orgArrStation )
 				{
 					string msg = stringify("Cannot find station for arrival '%s' (origin '%s')",
@@ -299,8 +318,7 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 
 
 DataModel::Station* Catalog::findStation(const string& netCode, const string& stationCode,
-                                            Core::Time atTime,
-                                            DataModel::DatabaseQuery* query) const
+                                            Core::Time atTime) const
 {
 	DataModel::Inventory *inv = Client::Inventory::Instance()->inventory();
 
@@ -727,9 +745,11 @@ CatalogPtr HypoDD::relocateCatalog(bool force)
 }
 
 
-CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& evToRelocateCat)
+CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 {
 	SEISCOMP_DEBUG("Starting HypoDD relocator in single event mode");
+
+	const CatalogPtr evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
 
 	// there must be only one event in the catalog, the origin to relocate
 	const Catalog::Event& evToRelocate = evToRelocateCat->getEvents().begin()->second;
@@ -769,11 +789,15 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& evToRelocateCat)
 	// Create differential travel times file (dt.ct) for hypodd
 	string dtctFile = (boost::filesystem::path(eventWorkingDir)/"dt.ct").string();
 	createDtCtFile(neighbourCat, evToRelocateNewId, dtctFile);
+ 
+	// Create an empty cross correlated differential travel times file (dt.cc) for hypodd
+	string dtccFile = (boost::filesystem::path(eventWorkingDir)/"dt.cc").string();
+	ofstream(dtccFile).close();
 
 	// run hypodd
 	// input : dt.cc dt.ct event.sel station.sel hypoDD.inp
 	// output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
-	runHypodd(eventWorkingDir, "", dtctFile, eventFile, stationFile);
+	runHypodd(eventWorkingDir, dtccFile, dtctFile, eventFile, stationFile);
 
 	// Load the relocated origin from Hypodd
 	string ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
@@ -816,7 +840,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& evToRelocateCat)
 	createDtCtFile(neighbourCat, relocatedEvNewId, dtctFile);
 
 	// Create cross correlated differential travel times file (dt.cc) for hypodd
-	string dtccFile = (boost::filesystem::path(eventWorkingDir)/"dt.cc").string();
+	dtccFile = (boost::filesystem::path(eventWorkingDir)/"dt.cc").string();
 	xcorrSingleEvent(neighbourCat, relocatedEvNewId, dtccFile);
 
 	// run hypodd
@@ -1350,7 +1374,7 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 					double weight = (refPhase.weight + phase.weight) / 2.0;
 
 					evStream << stringify("%s %.6f %.6f %.2f %s\n",
-					                      refPhase.stationId, travel_time,
+					                      refPhase.stationId.c_str(), travel_time,
 					                      ref_travel_time, weight, refPhase.type.c_str());
 					dtCount++;
 				}

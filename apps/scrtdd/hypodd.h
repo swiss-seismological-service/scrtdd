@@ -19,6 +19,7 @@
 #include <seiscomp3/core/genericrecord.h>
 #include <seiscomp3/core/recordsequence.h>
 #include <seiscomp3/datamodel/databasequery.h>
+#include <seiscomp3/datamodel/origin.h>
 
 #include <map>
 #include <vector>
@@ -125,6 +126,7 @@ class Catalog : public Core::BaseObject {
 		Catalog(const std::string& stationFile,
 		          const std::string& catalogFile,
 		          const std::string& phaFile);
+		Catalog(const std::vector<DataModel::Origin*>& origins, DataModel::DatabaseQuery* query);
 		Catalog(const std::vector<std::string>& ids, DataModel::DatabaseQuery* query);
 		Catalog(const std::string& idFile, DataModel::DatabaseQuery* query);
 
@@ -148,8 +150,9 @@ class Catalog : public Core::BaseObject {
 
 	private:
 		void initFromIds(const std::vector<std::string>& ids, DataModel::DatabaseQuery* query);
+		void initFromOrigins(const std::vector<DataModel::Origin*>& orgs, DataModel::DatabaseQuery* query);
 		DataModel::Station* findStation(const std::string& netCode, const std::string& staCode,
-		                                Seiscomp::Core::Time, DataModel::DatabaseQuery* query) const;
+		                                Seiscomp::Core::Time) const;
 
 		std::map<std::string,Station> _stations; // indexed by station id
 		std::map<unsigned,Event> _events; //indexed by event id
