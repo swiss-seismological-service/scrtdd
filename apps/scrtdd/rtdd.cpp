@@ -58,7 +58,7 @@ using namespace Seiscomp::DataModel;
 namespace Seiscomp {
 
 #define NEW_OPT(var, ...) addOption(&var, __VA_ARGS__)
-#define NEW_OPT_CLI(var, ...) addOption(&var, NULL, __VA_ARGS__)
+#define NEW_OPT_CLI(var, ...) addOption(&var, nullptr, __VA_ARGS__)
 
 
 namespace {
@@ -235,8 +235,8 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 
 	_cache.setPopCallback(boost::bind(&RTDD::removedFromCache, this, _1));
 
-	_processingInfoChannel = NULL;
-	_processingInfoOutput = NULL;
+	_processingInfoChannel = nullptr;
+	_processingInfoOutput = nullptr;
 
 	NEW_OPT(_config.publicIDPattern, "publicIDpattern");
 	NEW_OPT(_config.activeProfiles, "activeProfiles");
@@ -355,7 +355,7 @@ bool RTDD::validateParameters()
 		else if ( regionType == "CIRCLE" )
 			prof->region = new CircularRegion;
 
-		if ( prof->region == NULL ) {
+		if ( prof->region == nullptr ) {
 			SEISCOMP_ERROR("profile.%s: invalid region type: %s",
 			               it->c_str(), regionType.c_str());
 			it = _config.activeProfiles.erase(it);
@@ -722,9 +722,9 @@ void RTDD::runNewJobs()
 			Cronjob *job = it->second.get();
 
 			Processes::iterator pit = _processes.find(it->first);
-			ProcessPtr proc = (pit == _processes.end()?NULL:pit->second);
+			ProcessPtr proc = (pit == _processes.end()?nullptr:pit->second);
 
-			if ( proc == NULL )
+			if ( proc == nullptr )
 			{
 				SEISCOMP_WARNING("No processor for cronjob %s", it->first.c_str());
 				++it;
@@ -820,7 +820,7 @@ void RTDD::runNewJobs()
 
 bool RTDD::addProcess(DataModel::PublicObject* obj)
 {
-	if (obj == NULL) return false;
+	if (obj == nullptr) return false;
 
 	_cache.feed(obj);
 
@@ -905,7 +905,7 @@ bool RTDD::startProcess(Process *proc)
 		{
 			SEISCOMP_ERROR("Passed object %s is neither an origin nor an event",
 			               proc->obj->publicID().c_str());
-			_currentProcess = NULL;
+			_currentProcess = nullptr;
 			return false;
 		}
 	}
@@ -968,7 +968,7 @@ void RTDD::process(Origin *origin)
 			DatabaseIterator it;
 			JournalEntryPtr entry;
 			it = query()->getJournalAction(origin->publicID(), JOURNAL_ACTION);
-			while ( (entry = static_cast<JournalEntry*>(*it)) != NULL )
+			while ( (entry = static_cast<JournalEntry*>(*it)) != nullptr )
 			{
 				if ( entry->parameters() == JOURNAL_ACTION_COMPLETED &&
 				     entry->created() >= origin->creationInfo().modificationTime() )
@@ -1072,7 +1072,7 @@ void RTDD::process(Origin *origin)
 		if ( msg ) connection()->send("EVENT", msg.get());
 	}
 
-	_currentProcess = NULL;
+	_currentProcess = nullptr;
 	handleTimeout();
 
 
@@ -1088,7 +1088,7 @@ void RTDD::removedFromCache(Seiscomp::DataModel::PublicObject *po) {
 
 bool RTDD::send(Origin *org)
 {
-	if ( org == NULL ) return false;
+	if ( org == nullptr ) return false;
 
 	logObject(_outputOrgs, Core::Time::GMT());
 

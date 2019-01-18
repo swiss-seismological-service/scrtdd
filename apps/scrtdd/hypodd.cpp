@@ -62,7 +62,7 @@ pid_t startExternalProcess(const vector<string> &cmdparams,
 		if ( i > 0 ) cmdline += " ";
 		cmdline += cmdparams[i];
 	}
-	params.push_back(NULL);
+	params.push_back(nullptr);
 
 	SEISCOMP_DEBUG("Executing command: %s", cmdline.c_str());
 
@@ -1796,7 +1796,7 @@ HypoDD::readWaveformFromRecordStream(const Core::TimeWindow& tw,
                                      const string& channelCode) const
 {
 	IO::RecordStreamPtr rs = IO::RecordStream::Open( _cfg.xcorr.recordStreamURL.c_str() );
-	if ( rs == NULL )
+	if ( rs == nullptr )
 	{
 		string msg = "Cannot open RecordStream: " + _cfg.xcorr.recordStreamURL;
 		throw runtime_error(msg);
@@ -1862,7 +1862,7 @@ bool HypoDD::merge(GenericRecord &trace, const RecordSequence& seq) const
 	trace.setSamplingFrequency(samplingFrequency);
 
 	Array::DataType datatype = first->data()->dataType();
-	ArrayPtr arr = ArrayFactory::Create(datatype, datatype, 0, NULL);
+	ArrayPtr arr = ArrayFactory::Create(datatype, datatype, 0, nullptr);
 
 	for (const RecordCPtr& rec : seq )
 	{

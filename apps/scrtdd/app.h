@@ -29,9 +29,9 @@ class Application : public Seiscomp::Client::StreamApplication {
 		DEFINE_SMARTPOINTER(Option);
 		struct Option : public Seiscomp::Core::BaseObject {
 			Option(const char *cfgname,
-				   const char *cligroup = NULL,
-				   const char *cliparam = NULL,
-				   const char *clidesc = NULL,
+				   const char *cligroup = nullptr,
+				   const char *cliparam = nullptr,
+				   const char *clidesc = nullptr,
 				   bool clidefault = false,
 				   bool cliswitch = false)
 			: cfgName(cfgname), cliGroup(cligroup),
@@ -66,43 +66,43 @@ class Application : public Seiscomp::Client::StreamApplication {
 		void addOption(OptionPtr);
 
 		void addOption(int *var, const char *cfgname,
-		               const char *cligroup = NULL, const char *cliparam = NULL,
-		               const char *clidesc = NULL, bool clidefault = false,
+		               const char *cligroup = nullptr, const char *cliparam = nullptr,
+		               const char *clidesc = nullptr, bool clidefault = false,
 		               bool cliswitch = false);
 
 		void addOption(double *var, const char *cfgname,
-		               const char *cligroup = NULL, const char *cliparam = NULL,
-		               const char *clidesc = NULL, bool clidefault = false,
+		               const char *cligroup = nullptr, const char *cliparam = nullptr,
+		               const char *clidesc = nullptr, bool clidefault = false,
 		               bool cliswitch = false);
 
 		void addOption(bool *var, const char *cfgname,
-		               const char *cligroup = NULL, const char *cliparam = NULL,
-		               const char *clidesc = NULL, bool clidefault = false,
+		               const char *cligroup = nullptr, const char *cliparam = nullptr,
+		               const char *clidesc = nullptr, bool clidefault = false,
 		               bool cliswitch = false);
 
 		void addOption(std::string *var, const char *cfgname,
-		               const char *cligroup = NULL, const char *cliparam = NULL,
-		               const char *clidesc = NULL, bool clidefault = false,
+		               const char *cligroup = nullptr, const char *cliparam = nullptr,
+		               const char *clidesc = nullptr, bool clidefault = false,
 		               bool cliswitch = false);
 
 		void addOption(std::vector<int> *var, const char *cfgname,
-		               const char *cligroup = NULL, const char *cliparam = NULL,
-		               const char *clidesc = NULL, bool clidefault = false,
+		               const char *cligroup = nullptr, const char *cliparam = nullptr,
+		               const char *clidesc = nullptr, bool clidefault = false,
 		               bool cliswitch = false);
 
 		void addOption(std::vector<double> *var, const char *cfgname,
-		               const char *cligroup = NULL, const char *cliparam = NULL,
-		               const char *clidesc = NULL, bool clidefault = false,
+		               const char *cligroup = nullptr, const char *cliparam = nullptr,
+		               const char *clidesc = nullptr, bool clidefault = false,
 		               bool cliswitch = false);
 
 		void addOption(std::vector<bool> *var, const char *cfgname,
-		               const char *cligroup = NULL, const char *cliparam = NULL,
-		               const char *clidesc = NULL, bool clidefault = false,
+		               const char *cligroup = nullptr, const char *cliparam = nullptr,
+		               const char *clidesc = nullptr, bool clidefault = false,
 		               bool cliswitch = false);
 
 		void addOption(std::vector<std::string> *var, const char *cfgname,
-		               const char *cligroup = NULL, const char *cliparam = NULL,
-		               const char *clidesc = NULL, bool clidefault = false,
+		               const char *cligroup = nullptr, const char *cliparam = nullptr,
+		               const char *clidesc = nullptr, bool clidefault = false,
 		               bool cliswitch = false);
 
 		const Options &options() const;

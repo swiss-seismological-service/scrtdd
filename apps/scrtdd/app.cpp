@@ -47,17 +47,17 @@ void readCLI<bool>(const Seiscomp::Client::CommandLine *cli, bool *storage, cons
 template <typename T>
 struct OptionImpl : Application::Option {
 	OptionImpl(T *var, const char *cfgname,
-	           const char *cligroup = NULL,
-	           const char *cliparam = NULL,
-	           const char *clidesc = NULL,
+	           const char *cligroup = nullptr,
+	           const char *cliparam = nullptr,
+	           const char *clidesc = nullptr,
 	           bool clidefault = false,
 	           bool cliswitch = false)
 	: Application::Option(cfgname, cligroup, cliparam,
 	                      clidesc, clidefault, cliswitch), storage(var) {}
 
 	void bind(Seiscomp::Client::CommandLine *cli) {
-		if ( cliParam == NULL ) return;
-		if ( cliGroup != NULL ) cli->addGroup(cliGroup);
+		if ( cliParam == nullptr ) return;
+		if ( cliGroup != nullptr ) cli->addGroup(cliGroup);
 		if ( cliSwitch )
 			cli->addOption(cliGroup?cliGroup:"Generic",
 			               cliParam, cliDesc);
@@ -67,7 +67,7 @@ struct OptionImpl : Application::Option {
 	}
 
 	bool get(Seiscomp::Client::CommandLine *cli) {
-		if ( cliParam == NULL ) return true;
+		if ( cliParam == nullptr ) return true;
 		if ( cliSwitch ) readCLI(cli, storage, cliParam);
 		return true;
 	}
@@ -88,25 +88,25 @@ struct OptionImpl : Application::Option {
 template <typename T>
 struct OptionVecImpl : Application::Option {
 	OptionVecImpl(std::vector<T> *var, const char *cfgname,
-				  const char *cligroup = NULL,
-				  const char *cliparam = NULL,
-				  const char *clidesc = NULL,
+				  const char *cligroup = nullptr,
+				  const char *cliparam = nullptr,
+				  const char *clidesc = nullptr,
 				  bool clidefault = false,
 				  bool cliswitch = false)
 	: Application::Option(cfgname, cligroup, cliparam,
 	                      clidesc, clidefault, cliswitch), storage(var) {}
 
 	void bind(Seiscomp::Client::CommandLine *cli) {
-		if ( cliParam == NULL ) return;
+		if ( cliParam == nullptr ) return;
 
-		if ( cliGroup != NULL ) cli->addGroup(cliGroup);
+		if ( cliGroup != nullptr ) cli->addGroup(cliGroup);
 
 		cli->addOption(cliGroup?cliGroup:"Generic",
 					   cliParam, cliDesc, storage);
 	}
 
 	bool get(Seiscomp::Client::CommandLine *cli) {
-		if ( cliParam == NULL ) return true;
+		if ( cliParam == nullptr ) return true;
 		if ( cliSwitch ) readCLI(cli, storage, cliParam);
 		return true;
 	}
@@ -133,8 +133,8 @@ struct OptionVecImpl : Application::Option {
 template <typename T>
 Application::OptionPtr
 bind(T *var,
-     const char *cfgname, const char *cligroup = NULL,
-     const char *cliparam = NULL, const char *clidesc = NULL,
+     const char *cfgname, const char *cligroup = nullptr,
+     const char *cliparam = nullptr, const char *clidesc = nullptr,
      bool clidefault = false, bool cliswitch = false) {
 	return new OptionImpl<T>(var, cfgname, cligroup, cliparam, clidesc,
                              clidefault, cliswitch);
@@ -142,8 +142,8 @@ bind(T *var,
 
 template <typename T>
 Application::OptionPtr
-bind(std::vector<T> *var, const char *cfgname, const char *cligroup = NULL,
-     const char *cliparam = NULL, const char *clidesc = NULL,
+bind(std::vector<T> *var, const char *cfgname, const char *cligroup = nullptr,
+     const char *cliparam = nullptr, const char *clidesc = nullptr,
      bool clidefault = false, bool cliswitch = false) {
 	return new OptionVecImpl<T>(var, cfgname, cligroup, cliparam, clidesc,
                                 clidefault, cliswitch);
