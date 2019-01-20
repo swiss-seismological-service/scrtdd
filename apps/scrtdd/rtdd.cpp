@@ -234,6 +234,9 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	addMessagingSubscription("LOCATION");
 	addMessagingSubscription("PICK"); // this is only for caching picks
 
+	setAutoAcquisitionStart(false);
+	setAutoCloseOnAcquisitionFinished(false);
+
 	_cache.setPopCallback(boost::bind(&RTDD::removedFromCache, this, _1));
 
 	_processingInfoChannel = nullptr;
