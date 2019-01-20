@@ -232,6 +232,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 
 	addMessagingSubscription("EVENT");
 	addMessagingSubscription("LOCATION");
+	addMessagingSubscription("PICK"); // this is only for caching picks
 
 	_cache.setPopCallback(boost::bind(&RTDD::removedFromCache, this, _1));
 
@@ -633,6 +634,13 @@ void RTDD::addObject(const string& parentID, DataModel::Object* object)
 
 void RTDD::updateObject(const string &parentID, Object* object)
 {
+	Pick *pick = Pick::Cast(object);
+	if ( pick )
+	{
+		_cache.feed(pick);
+		return;
+	}
+
 	Origin *origin = Origin::Cast(object);
 	if ( origin )
 	{
