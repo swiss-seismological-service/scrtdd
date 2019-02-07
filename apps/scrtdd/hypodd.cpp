@@ -888,9 +888,10 @@ void HypoDD::createStationDatFile(const string& staFileName, const CatalogPtr& c
 	for (const auto& kv :  catalog->getStations() )
 	{
 		const Catalog::Station& station = kv.second;
-		outStream << stringify("%-12s %12.6f %12.6f %12.f\n",
+		outStream << stringify("%-12s %12.6f %12.6f %12.f",
 		                      station.id.c_str(), station.latitude,
 		                      station.longitude, station.elevation);
+		outStream << endl;
 	}
 }
 
@@ -936,11 +937,12 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogPtr& c
 			continue;
 		}
 
-		outStream << stringify("# %d %d %d %d %d %.2f %.6f %.6f %.2f %.4f %.2f %.2f %.2f %u\n",
+		outStream << stringify("# %d %d %d %d %d %.2f %.6f %.6f %.2f %.4f %.2f %.2f %.2f %u",
 		                      year, month, day, hour, min, sec + double(usec)/1.e6,
 		                      event.latitude,event.longitude,event.depth,
 		                      event.magnitude, event.horiz_err, event.depth_err,
 		                      event.tt_residual, event.id);
+		outStream << endl;
 
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
 		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
@@ -955,9 +957,10 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogPtr& c
 				continue; 
 			}
 
-			outStream << stringify("%-12s %12.6f %5.2f %4s\n",
+			outStream << stringify("%-12s %12.6f %5.2f %4s",
 			                      phase.stationId.c_str(), travel_time,
 			                      phase.weight, phase.type.c_str());
+			outStream << endl;
 		}
 	}
 }
@@ -997,11 +1000,12 @@ void HypoDD::createEventDatFile(const string& eventFileName, const CatalogPtr& c
 			continue;
 		}
 
-		outStream << stringify("%d%02d%02d %02d%02d%04.f %.6f %.6f %.6f %.6f %.6f %.6f %.6f %u\n",
-		                      year, month, day, hour, min, sec,
+		outStream << stringify("%d%02d%02d  %02d%02d%04d %.4f %.4f %.3f %.2f %.2f %.2f %.2f %u",
+		                      year, month, day, hour, min, int(sec * 1e2 + usec / 1e4),
 		                      event.latitude, event.longitude, event.depth,
 		                      event.magnitude, event.horiz_err, event.depth_err,
 		                      event.tt_residual, event.id);
+		outStream << endl;
 	}
 }
 
@@ -1334,7 +1338,7 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 
 		int dtCount = 0;
 		stringstream evStream;
-		evStream << stringify("# %u %u\n", event.id, refEv.id);
+		evStream << stringify("# %10u %10u", event.id, refEv.id) << endl;
 
 		// loop through event phases
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
@@ -1373,9 +1377,10 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 					// get common observation weight for pair (FIXME: take the lower one? average?)
 					double weight = (refPhase.weight + phase.weight) / 2.0;
 
-					evStream << stringify("%s %.6f %.6f %.2f %s\n",
+					evStream << stringify("%-12s %.6f %.6f %.2f %s",
 					                      refPhase.stationId.c_str(), travel_time,
 					                      ref_travel_time, weight, refPhase.type.c_str());
+					evStream << endl;
 					dtCount++;
 				}
 			}
@@ -1453,7 +1458,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 			}
 			dtCount = 0;
 
-			evStream << stringify("# %10u %10u       0.0\n", ev1->id, ev2->id);
+			evStream << stringify("# %10u %10u       0.0", ev1->id, ev2->id) << endl;
 		}
 		// observation line (STA, TT1, TT2, WGHT, PHA)
 		else if(ev1 != nullptr && ev2 != nullptr && fields.size() == 5)
@@ -1509,8 +1514,9 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 			if ( xcorr_coeff < _cfg.xcorr.minCoef)
 				continue;
 
-			evStream << stringify("%-12s %.6f %.4f %s\n",
+			evStream << stringify("%-12s %.6f %.4f %s",
 			                       stationId.c_str(), xcorr_dt, xcorr_coeff, phaseType.c_str());
+			evStream << endl;
 			dtCount++;
 		}
 		else
@@ -1571,7 +1577,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 
 		int dtCount = 0;
 		stringstream evStream;
-		evStream << stringify("# %10u %10u       0.0\n", event.id, refEv.id);
+		evStream << stringify("# %10u %10u       0.0", event.id, refEv.id) << endl;
 
 		// loop through event phases
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
@@ -1621,10 +1627,11 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 					if ( xcorr_coeff < _cfg.xcorr.minCoef)
 						continue;
 
-					evStream << stringify("%-12s %.6f %.4f %s\n",
+					evStream << stringify("%-12s %.6f %.4f %s",
 					                      refPhase.stationId.c_str(),
 					                      xcorr_dt, xcorr_coeff*xcorr_coeff,
 					                      refPhase.type.c_str());
+					evStream << endl;
 					dtCount++;
 				}
 			}
