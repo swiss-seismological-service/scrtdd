@@ -133,6 +133,39 @@ T nextPowerOf2(T a, T min=1, T max=1<<31)
 	return b;
 }
 
+void copyFileAndReplaceLines(const string& srcFilename,
+                             const string& destFilename,
+                             map<int,string> linesToReplace,
+                             const string& comment="*")
+{
+	ifstream srcFile(srcFilename);
+	ofstream destFile(destFilename);
+	if ( ! srcFile.is_open() || ! destFile.is_open() )
+	{
+		string msg = stringify("Cannot copy %s to %s", srcFilename.c_str(), destFilename.c_str());
+		throw runtime_error(msg);
+	}
+
+	string line;
+	int lineNum = 0;
+	while( std::getline(srcFile, line) )
+	{
+		// increase line number when not a comment
+		if ( line.rfind(comment, 0) != 0 )
+			lineNum++;
+
+		// replace line
+		if ( linesToReplace.find(lineNum) != linesToReplace.end())
+		{
+			line = linesToReplace[lineNum];
+			linesToReplace.erase(lineNum);
+		}
+
+		// copy line to output
+		destFile << line << std::endl;
+	}
+}
+
 }
 
 
@@ -878,8 +911,7 @@ void HypoDD::createStationDatFile(const string& staFileName, const CatalogPtr& c
 {
 	SEISCOMP_DEBUG("Creating station file %s", staFileName.c_str());
 
-	ofstream outStream;
-	outStream.open(staFileName);
+	ofstream outStream(staFileName);
 	if ( !outStream.is_open() ) {
 		string msg = "Cannot create file " + staFileName;
 		throw runtime_error(msg);
@@ -919,8 +951,7 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogPtr& c
 {
 	SEISCOMP_DEBUG("Creating phase file %s", phaseFileName.c_str());
 
-	ofstream outStream;
-	outStream.open(phaseFileName);
+	ofstream outStream(phaseFileName);
 	if ( !outStream.is_open() ) {
 		string msg = "Cannot create file " + phaseFileName;
 		throw runtime_error(msg);
@@ -982,9 +1013,9 @@ void HypoDD::createEventDatFile(const string& eventFileName, const CatalogPtr& c
 {
 	SEISCOMP_DEBUG("Creating station file %s", eventFileName.c_str());
 
-	ofstream outStream;
-	outStream.open(eventFileName);
-	if ( !outStream.is_open() ) {
+	ofstream outStream(eventFileName);
+	if ( !outStream.is_open() )
+	{
 		string msg = "Cannot create file " + eventFileName;
 		throw runtime_error(msg);
 	}
@@ -1027,12 +1058,14 @@ void HypoDD::runPh2dt(const string& workingDir, const string& stationFile, const
 	if ( !Util::fileExists(_cfg.ph2dt.ctrlFile) )
 		throw runtime_error("Unable to run ph2dt, control file doesn't exist: " + _cfg.ph2dt.ctrlFile);
 
-	boost::filesystem::copy_file(_cfg.ph2dt.ctrlFile,
-	                             (boost::filesystem::path(workingDir)/"ph2dt.inp").string(),
-	                             boost::filesystem::copy_option::overwrite_if_exists);
+	// copy control file while replacing input/output file names
+	map<int,string> linesToReplace = { {1,stationFile}, {2,phaseFile} };
+	copyFileAndReplaceLines(_cfg.ph2dt.ctrlFile,
+                            (boost::filesystem::path(workingDir)/"ph2dt.inp").string(),
+                            linesToReplace);
 
 	// run ph2dt (use /bin/sh to get stdout/strerr redirection)
-	string cmd = stringify("%s %s >ph2dt.stdout 2>&1",
+	string cmd = stringify("%s %s >ph2dt.out 2>&1",
 	                       _cfg.ph2dt.exec.c_str(), "ph2dt.inp");
 	::startExternalProcess({"/bin/sh", "-c", cmd}, true, workingDir);
 }
@@ -1062,12 +1095,24 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
 	if ( !Util::fileExists(_cfg.hypodd.ctrlFile) )
 		throw runtime_error("Unable to run hypodd, control file doesn't exist: " + _cfg.hypodd.ctrlFile);
 
-	boost::filesystem::copy_file(_cfg.hypodd.ctrlFile,
-	                             (boost::filesystem::path(workingDir)/"hypodd.inp").string(),
-	                             boost::filesystem::copy_option::overwrite_if_exists);
+	// copy control file while replacing input/output file names
+	map<int,string> linesToReplace = {
+		{2,dtccFile},
+		{3,dtctFile},
+		{4,eventFile},
+		{5,stationFile},
+		{6,"hypoDD.loc"},
+		{7,"hypoDD.reloc"},
+		{8,"hypoDD.sta"},
+		{9,"hypoDD.res"},
+		{10,"hypoDD.src"}
+	};
+	copyFileAndReplaceLines(_cfg.hypodd.ctrlFile,
+                            (boost::filesystem::path(workingDir)/"hypodd.inp").string(),
+                            linesToReplace);
 
 	// run Hypodd (use /bin/sh to get stdout/strerr redirection)
-	string cmd = stringify("%s %s >hypodd.stdout 2>&1",
+	string cmd = stringify("%s %s >hypodd.out 2>&1",
 	                       _cfg.hypodd.exec.c_str(), "hypodd.inp");
 	::startExternalProcess({"/bin/sh", "-c", cmd}, true, workingDir);
 }
@@ -1314,8 +1359,7 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 {
 	SEISCOMP_DEBUG("Creating Catalog travel time file %s", dtctFile.c_str());
 
-	ofstream outStream;
-	outStream.open(dtctFile);
+	ofstream outStream(dtctFile);
 	if ( !outStream.is_open() )
 		throw runtime_error("Cannot create file " + dtctFile);
 
@@ -1404,8 +1448,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 	if ( !Util::fileExists(dtctFile) )
 		throw runtime_error("Unable to perform cross correlation, cannot find file: " + dtctFile);
 
-	ofstream outStream;
-	outStream.open(dtccFile);
+	ofstream outStream(dtccFile);
 	if ( !outStream.is_open() )
 		throw runtime_error("Cannot create file " + dtccFile);
 
@@ -1552,8 +1595,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 {
 	SEISCOMP_DEBUG("Creating Cross correlation differential time file %s", dtccFile.c_str());
 
-	ofstream outStream;
-	outStream.open(dtccFile);
+	ofstream outStream(dtccFile);
 	if ( !outStream.is_open() )
 		throw runtime_error("Cannot create file " + dtccFile);
 
