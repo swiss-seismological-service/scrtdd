@@ -295,8 +295,16 @@ bool RTDD::validateParameters()
 	if ( !Application::validateParameters() )
 		return false;
 
-	// if --ep option is enabled then disable the messaging (offline mode)
-	if ( !_config.eventXML.empty())
+	// Disable messaging (offline mode) with:
+	//  --ep option
+	//  --dump-catalog option
+	//  --relocate-catalog option
+	//  --O and --test (relocate origin and don't send the new one)
+	if ( !_config.eventXML.empty()        ||
+	     !_config.dumpCatalog.empty()     ||
+	     !_config.relocateCatalog.empty() ||
+	     (!_config.originID.empty() && _config.testMode)
+	   )
 	{
 		setMessagingEnabled(false);
 		_config.testMode = true; // we won't send any message
