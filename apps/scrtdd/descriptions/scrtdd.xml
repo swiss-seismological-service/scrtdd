@@ -81,25 +81,11 @@
 
 				<parameter name="delayTimes" type="list:int" default="60,120,300,600,3600">
 					<description>
-					Specifies a list of delay times in seconds relative to event time
-					to trigger the processing. When the first origin of an event arrives
-					this list is used to construct the crontab for this event.
+					Specifies a delay time in seconds, relative to origin time,
+					to trigger the processing. This can be a single value or a list of delay
+					times. In case a list if provided, subsequent delay times are used only
+					if a previous processing attempt fails.
 					Example: &quot;60, 120, 300, 3600&quot;
-					</description>
-				</parameter>
-
-				<parameter name="updateDelay" type="int" default="60">
-					<description>
-					Specifies the delay in seconds to delay processing if a new
-					authoritative origin arrives for an event.
-					</description>
-				</parameter>
-
-				<parameter name="eventMaxIdleTime" type="int" unit="s" default="3600">
-					<description>
-					Specifies the maximum allowed idle time of a process before removed.
-					The idle time is calculated if no further processing is scheduled
-					and computes as: [now]-lastRun.
 					</description>
 				</parameter>
 

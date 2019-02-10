@@ -83,9 +83,9 @@ class RTDD : public Application {
 
 		bool addProcess(DataModel::PublicObject* obj);
 		bool startProcess(Process *proc);
-		void stopProcess(Process *proc);
+		void removeProcess(Process *proc);
 
-		void process(DataModel::Origin *origin);
+		bool process(DataModel::Origin *origin);
 
 		void removedFromCache(DataModel::PublicObject *);
 
@@ -116,9 +116,7 @@ class RTDD : public Application {
 
             // cron
 			int         wakeupInterval;
-			int         eventMaxIdleTime;
 			bool        logCrontab;
-			int         updateDelay;
 			std::vector<int> delayTimes;
 
 		};
@@ -150,42 +148,34 @@ class RTDD : public Application {
 			DataModel::DatabaseQuery* query;
 		};
 
-		// Cronjob struct created per event
 		struct Cronjob : public Core::BaseObject {
 			std::list<Core::Time> runTimes;
 		};
 
-		typedef std::map<std::string, CronjobPtr> Crontab;
-
 		typedef DataModel::PublicObjectTimeSpanBuffer Cache;
-
-		void removeProcess(Crontab::iterator &, Process *proc);
 
 		struct Process : Core::BaseObject {
 			Core::Time          created;
 			Core::Time          lastRun;
 			DataModel::PublicObjectPtr obj;
+			CronjobPtr          cronjob;
 		};
 
 		typedef std::list<ProcessPtr>              ProcessQueue;
 		typedef std::map<std::string, ProcessPtr>  Processes;
-		typedef std::set<DataModel::PublicObjectPtr>      Todos;
+		typedef std::set<DataModel::PublicObjectPtr> Todos;
 
-		DataModel::EventParametersPtr _eventParameters;
-		ProcessPtr                 _currentProcess;
-
-		Crontab                    _crontab;
 		ProcessQueue               _processQueue;
 		Processes                  _processes;
+		int                        _cronCounter;
+		Todos                      _todos;
 
 		Cache                      _cache;
 
 		Config                     _config;
 		std::list<ProfilePtr>      _profiles;
 
-		int                        _cronCounter;
-
-		Todos                      _todos;
+		DataModel::EventParametersPtr _eventParameters;
 
 		Logging::Channel *_processingInfoChannel;
 		Logging::Output  *_processingInfoOutput;

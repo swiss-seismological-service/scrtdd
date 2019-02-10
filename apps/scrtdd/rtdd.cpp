@@ -213,9 +213,7 @@ RTDD::Config::Config()
 	fExpiry = 1.0;
 
 	wakeupInterval = 10;
-	eventMaxIdleTime = 3600;
 	logCrontab = true;
-	updateDelay = 60;
 }
 
 
@@ -251,9 +249,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	NEW_OPT(_config.processManualOrigin, "manualOrigin");
 
 	NEW_OPT(_config.wakeupInterval, "cron.wakeupInterval");
-	NEW_OPT(_config.eventMaxIdleTime, "cron.eventMaxIdleTime");
 	NEW_OPT(_config.logCrontab, "cron.logging");
-	NEW_OPT(_config.updateDelay, "cron.updateDelay");
 	NEW_OPT(_config.delayTimes, "cron.delayTimes");
 
 	NEW_OPT_CLI(_config.testMode, "Mode", "test",
@@ -558,8 +554,7 @@ bool RTDD::run() {
 		}
 
 		// Start processing immediately
-		_config.delayTimes.clear();
-		_config.updateDelay = 0;
+		_config.delayTimes = {0};
 		_cronCounter = 0;
 
 		if ( !addProcess(org.get()) )
@@ -590,8 +585,7 @@ bool RTDD::run() {
 			OriginPtr org = _eventParameters->origin(i);
 
 			// Start processing immediately
-			_config.delayTimes.clear();
-			_config.updateDelay = 0;
+			_config.delayTimes = {0};
 			_cronCounter = 0;
 
 			if ( !addProcess(org.get()) )
@@ -655,35 +649,17 @@ void RTDD::updateObject(const string &parentID, Object* object)
 	Origin *origin = Origin::Cast(object);
 	if ( origin )
 	{
-		_cache.feed(origin);
-		// process manual origin
-		try {
-			if (_config.processManualOrigin && origin->evaluationMode() == MANUAL )
-			{
-				_todos.insert(origin);
-				logObject(_inputOrgs, Core::Time::GMT());
-			}
-		} catch ( ... ) {}
+		_todos.insert(origin);
+		logObject(_inputOrgs, Core::Time::GMT());
 		return;
 	}
 
 	Event *event = Event::Cast(object);
 	if ( event )
 	{
-		logObject(_inputEvts, now);
-
-		// store events in _todos so that they will be processed
-		if ( !event->registered() )
-		{
-			EventPtr cached = Event::Find(event->publicID());
-			if ( cached )
-			{
-				_todos.insert(cached.get());
-				return;
-			}
-		}
 		_todos.insert(event);
-        return;
+		logObject(_inputEvts, now);
+		return;
 	}
 }
 
@@ -727,37 +703,22 @@ void RTDD::runNewJobs()
 		// Reset counter
 		_cronCounter = _config.wakeupInterval;
 
-		Crontab::iterator it;
+		Processes::iterator it;
 		now = Core::Time::GMT();
 
+		std::list<ProcessPtr> procToBeRemoved;
 		// Update crontab
-		for ( it = _crontab.begin(); it != _crontab.end(); )
+		for ( it = _processes.begin(); it != _processes.end(); it++)
 		{
-			Cronjob *job = it->second.get();
-
-			Processes::iterator pit = _processes.find(it->first);
-			ProcessPtr proc = (pit == _processes.end()?nullptr:pit->second);
-
-			if ( proc == nullptr )
-			{
-				SEISCOMP_WARNING("No processor for cronjob %s", it->first.c_str());
-				++it;
-				continue;
-			}
+			ProcessPtr proc = it->second;
+			CronjobPtr job = proc->cronjob;
 
 			// Skip processes where nextRun is not set
 			if ( job->runTimes.empty() )
 			{
-				// Jobs stopped for more than a day now?
-				if ( (now - proc->lastRun).seconds() >= _config.eventMaxIdleTime )
-				{
-					SEISCOMP_DEBUG("Process %s idle time expired, removing",
-					               proc->obj->publicID().c_str());
-					removeProcess(it, proc.get());
-				}
-				else
-					++it;
-
+				SEISCOMP_DEBUG("Process %s expired, removing it",
+				               proc->obj->publicID().c_str());
+				procToBeRemoved.push_back(proc);
 				continue;
 			}
 
@@ -765,10 +726,7 @@ void RTDD::runNewJobs()
 
 			// Time of next run in future?
 			if ( nextRun > now )
-			{
-				++it;
 				continue;
-			}
 
 			// Remove all times in the past
 			while ( !job->runTimes.empty() && (job->runTimes.front() <= now) )
@@ -782,24 +740,23 @@ void RTDD::runNewJobs()
 				               proc->obj->publicID().c_str());
 				_processQueue.push_back(proc);
 			}
-
-			/*
-			// No more jobs to start later?
-			if ( !job->nextRun.valid() ) {
-				_crontab.erase(it++);
-				continue;
-			}
-			*/
-
-			++it;
 		}
+
+		for (ProcessPtr& proc : procToBeRemoved)
+			removeProcess(proc.get());
 
 		// Process event queue
 		if ( !_processQueue.empty() )
 		{
 			ProcessPtr proc = _processQueue.front();
 			_processQueue.pop_front();
-			startProcess(proc.get());
+			if ( startProcess(proc.get()) )
+			{
+				SEISCOMP_DEBUG("No more work to do for %s: removing job",
+				               proc->obj->publicID().c_str());
+				// nothing more to do, remove process
+				removeProcess(proc.get());
+			}
 		}
 
 		// Dump crontab if activated
@@ -809,23 +766,24 @@ void RTDD::runNewJobs()
 			of << "Now: " << now.toString("%F %T") << endl;
 			of << "------------------------" << endl;
 			of << "[Schedule]" << endl;
-			for ( it = _crontab.begin(); it != _crontab.end(); ++it ) {
-				if ( !it->second->runTimes.empty() )
-					of << it->second->runTimes.front().toString("%F %T") << "\t" << it->first
-					   << "\t" << (it->second->runTimes.front()-now).seconds() << endl;
+			for ( it = _processes.begin(); it != _processes.end(); it++)
+			{
+				ProcessPtr proc = it->second;
+				CronjobPtr cronjob = proc->cronjob;
+				if ( !cronjob->runTimes.empty() )
+					of << cronjob->runTimes.front().toString("%F %T") << "\t" << it->first
+					   << "\t" << (cronjob->runTimes.front()-now).seconds() << endl;
 				else
 					of << "STOPPED            \t" << it->first << endl;
 			}
 
 			// Dump process queue if not empty
-			if ( !_processQueue.empty() || _currentProcess ) {
+			if ( !_processQueue.empty() ) {
 				of << endl << "[Queue]" << endl;
 
 				ProcessQueue::iterator it;
 				for ( it = _processQueue.begin(); it != _processQueue.end(); ++it )
 					of << "WAITING            \t" << (*it)->obj->publicID() << endl;
-				if ( _currentProcess )
-					of << "RUNNING            \t" << _currentProcess->obj->publicID() << endl;
 			}
 		}
 	}
@@ -846,54 +804,25 @@ bool RTDD::addProcess(DataModel::PublicObject* obj)
 	if ( pit == _processes.end() )
 	{
 		SEISCOMP_DEBUG("Adding process [%s]", obj->publicID().c_str());
+		// create process
 		proc = new Process;
 		proc->created = now;
 		proc->obj = obj;
+		proc->cronjob = new Cronjob;
+		// add process
 		_processes[obj->publicID()] = proc;
 	}
 	else
 		proc = pit->second;
 
-	Core::Time nextRun = now + Core::TimeSpan(_config.updateDelay);
+	// populate cronjob
+	proc->cronjob->runTimes.clear();
+	for ( size_t i = 0; i < _config.delayTimes.size(); ++i )
+		proc->cronjob->runTimes.push_back(now + Core::TimeSpan(_config.delayTimes[i]));
 
-	Crontab::iterator it = _crontab.find(obj->publicID());
-	if ( it != _crontab.end() )
-	{
-		// Process currently stopped?
-		if ( it->second->runTimes.empty() )
-		{
-			it->second->runTimes.push_back(nextRun);
-			SEISCOMP_DEBUG("Update delay = %ds, next run at %s",
-			               _config.updateDelay, nextRun.toString("%FT%T").c_str());
-		}
-		else
-		{
-			// Insert next run into queue
-			Core::Time first = it->second->runTimes.front();
-			if ( (first-nextRun).seconds() >= _config.updateDelay )
-				it->second->runTimes.push_front(nextRun);
-		}
+	SEISCOMP_DEBUG("Update runTimes for [%s]",  proc->obj->publicID().c_str());
 
-		return true;
-	}
-
-	CronjobPtr job = new Cronjob;
-
-	// Debug to test next run in 20 seconds
-	//job->runTimes.push_back(now+Core::TimeSpan(20));
-
-	if ( _config.delayTimes.empty() )
-		job->runTimes.push_back(nextRun);
-	else
-	{
-		for ( size_t i = 0; i < _config.delayTimes.size(); ++i )
-			job->runTimes.push_back(now + Core::TimeSpan(_config.delayTimes[i]));
-	}
-
-	SEISCOMP_DEBUG("Adding new cronjob: %s", obj->publicID().c_str());
-	_crontab[obj->publicID()] = job;
 	handleTimeout();
-
 	return true;
 }
 
@@ -902,8 +831,6 @@ bool RTDD::addProcess(DataModel::PublicObject* obj)
 bool RTDD::startProcess(Process *proc)
 {
 	SEISCOMP_DEBUG("Starting process [%s]", proc->obj->publicID().c_str());
-	_currentProcess = proc;
-	_currentProcess->lastRun = now;
 
 	// if the process contain an origin, process that
 	OriginPtr org = Origin::Cast(proc->obj);
@@ -919,26 +846,17 @@ bool RTDD::startProcess(Process *proc)
 		{
 			SEISCOMP_ERROR("Passed object %s is neither an origin nor an event",
 			               proc->obj->publicID().c_str());
-			_currentProcess = nullptr;
-			return false;
+			return true;
 		}
 	}
-
-	process(org.get());
-	return true;
+	
+	// return true when there is no more work to do
+	return process(org.get());
 }
 
 
 
-void RTDD::stopProcess(Process *proc)
-{
-	Crontab::iterator cit = _crontab.find(proc->obj->publicID());
-	if ( cit != _crontab.end() ) cit->second->runTimes.clear();
-}
-
-
-
-void RTDD::removeProcess(RTDD::Crontab::iterator &it, Process *proc)
+void RTDD::removeProcess(Process *proc)
 {
 	// Remove process from process map
 	Processes::iterator pit = _processes.find(proc->obj->publicID());
@@ -946,31 +864,35 @@ void RTDD::removeProcess(RTDD::Crontab::iterator &it, Process *proc)
 
 	// Remove process from queue
 	ProcessQueue::iterator qit = find(_processQueue.begin(), _processQueue.end(), proc);
-
 	if ( qit != _processQueue.end() ) _processQueue.erase(qit);
-
-	// Remove cronjob
-	_crontab.erase(it++);
 }
 
 
-
-void RTDD::process(Origin *origin)
+// return true when there is no more work to do
+bool RTDD::process(Origin *origin)
 {
-	if ( !origin ) return;
+	if ( !origin ) return true;
+
+	try {
+		if (_config.processManualOrigin && origin->evaluationMode() == MANUAL )
+		{
+			SEISCOMP_DEBUG("Skip manual origin %s", origin->publicID().c_str());
+			return true;
+		}
+	} catch ( ... ) {}
 
 	if ( startsWith(origin->methodID(), "RTDD", false) )
 	{
-		SEISCOMP_INFO("Origin %s was generated by RTDD, skip it",
+		SEISCOMP_DEBUG("Origin %s was generated by RTDD, skip it",
 		              origin->publicID().c_str());
-		return;
+		return true;
 	}
 
 	if ( isAgencyIDBlocked(objectAgencyID(origin)) )
 	{
-		SEISCOMP_INFO("%s: origin's agencyID '%s' is blocked",
+		SEISCOMP_DEBUG("%s: origin's agencyID '%s' is blocked",
 		              origin->publicID().c_str(), objectAgencyID(origin).c_str());
-		return;
+		return true;
 	}
 
 	if ( !_config.forceProcessing )
@@ -987,10 +909,10 @@ void RTDD::process(Origin *origin)
 				if ( entry->parameters() == JOURNAL_ACTION_COMPLETED &&
 				     entry->created() >= origin->creationInfo().modificationTime() )
 				{
-					SEISCOMP_INFO("%s: found journal entry \"completely processed\", ignoring origin",
+					SEISCOMP_DEBUG("%s: found journal entry \"completely processed\", ignoring origin",
 					              origin->publicID().c_str());
 					it.close();
-					return;
+					return true;
 				}
 				++it;
 			}
@@ -1009,9 +931,9 @@ void RTDD::process(Origin *origin)
 		longitude = origin->longitude().value();
 	}
 	catch ( ... ) {
-		SEISCOMP_WARNING("Ignoring origin %s with unset lat/lon or time",
+		SEISCOMP_WARNING("Ignoring origin %s with unset lat/lon",
 		                 origin->publicID().c_str());
-		return;
+		return true;
 	}
 
 	// Find best earth model based on region information and the initial origin
@@ -1036,13 +958,13 @@ void RTDD::process(Origin *origin)
 
 	if ( !currProfile )
 	{
-		SEISCOMP_ERROR("No profile found for location (lat:%s lon:%s), ignoring origin %s",
+		SEISCOMP_DEBUG("No profile found for location (lat:%s lon:%s), ignoring origin %s",
 		               Core::toString(latitude).c_str(), Core::toString(longitude).c_str(),
 		               origin->publicID().c_str());
-		return;
+		return true;
 	}
 
-	SEISCOMP_DEBUG("Relocating origin %s using profile %s",
+	SEISCOMP_INFO("Relocating origin %s using profile %s",
 	               origin->publicID().c_str(), currProfile->name.c_str());
 
 	OriginPtr newOrg;
@@ -1053,22 +975,20 @@ void RTDD::process(Origin *origin)
 	catch ( exception &e ) {
 		SEISCOMP_ERROR("%s", e.what());
 		SEISCOMP_ERROR("Cannot relocate origin %s", origin->publicID().c_str());
-		return;
+		return false;
 	}
 
 	if ( !newOrg )
 	{
 		SEISCOMP_ERROR("processing of origin '%s' failed", origin->publicID().c_str());
-		return;
+		return false;
 	}
 
 	// finished processing, send new origin and update journal
 	if (!send(newOrg.get()) )
 		SEISCOMP_ERROR("%s: sending of derived origin failed", origin->publicID().c_str());
 
-	SEISCOMP_INFO("Origin %s has been processed, stop process", origin->publicID().c_str());
-
-	stopProcess(_currentProcess.get());
+	SEISCOMP_INFO("Origin %s has been relocated", origin->publicID().c_str());
 
 	if ( connection() && !_config.testMode )
 	{
@@ -1087,10 +1007,7 @@ void RTDD::process(Origin *origin)
 		if ( msg ) connection()->send("EVENT", msg.get());
 	}
 
-	_currentProcess = nullptr;
-	handleTimeout();
-
-
+	return true;
 }
 
 
