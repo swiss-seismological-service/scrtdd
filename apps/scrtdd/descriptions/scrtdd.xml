@@ -16,20 +16,26 @@
 				</description>
 			</parameter>
 
-			<parameter name="profileTimeAlive" type="int" default="1440">
+			<parameter name="profileTimeAlive" type="int" default="-1">
 				<description>
-					Defines how long the profile data should be kept in memery for (in minutes). This is mostly useful
-					to avoid reloading catalog waveform data whenever a new event occurs, at the expense
-					of using more memory (this can be an issue or not depending on the catalog size).
+					Defines how long the profile data should be kept in memery (in minutes). This is useful
+					to release memory (catalog waveform data) after a period of inactivity, but it means the
+					waveforms will have to be reloaded whenever a new event occurs (i.e. it will take more
+					time to relocate an origin).
 					Set a negative value to keep the profile data always in memory.
 				</description>
 			</parameter>
 
 			<parameter name="cacheWaveforms" type="boolean" default="false">
 				<description>
-					Save catalog waveforms to local disk to avoid accessing recordStream multiple
-					times (this happens when a profile is loaded, see profileTimeAlive). The
-					waveforms will be saved in the working directory and never deleted.
+					Save catalog waveforms to local disk to avoid reading them from the configured
+					recordStream when a profile is loaded (see profileTimeAlive). Also the projected
+					waveforms are saved (e.g. ZRT projection for S phase), which saves additional
+					time when a profile is loaded.
+					The waveforms are saved in the working directory and it is safe to delete them,
+					if that's required for any reason. The waveforms will be then saved again on disk
+					the next time the profile is loaded (they will be read again from the configured
+					recordStream).
 				</description>
 			</parameter>
 
