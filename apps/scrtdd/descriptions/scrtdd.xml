@@ -73,7 +73,7 @@
 
 			<group name="cron">
 
-				<parameter name="wakeupInterval" type="int" unit="s" default="10">
+				<parameter name="wakeupInterval" type="int" unit="s" default="5">
 					<description>
 					Specifies the interval in seconds to check/start scheduled operations.
 					</description>

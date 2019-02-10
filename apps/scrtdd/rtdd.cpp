@@ -746,7 +746,7 @@ void RTDD::runNewJobs()
 			removeProcess(proc.get());
 
 		// Process event queue
-		if ( !_processQueue.empty() )
+		while ( !_processQueue.empty() )
 		{
 			ProcessPtr proc = _processQueue.front();
 			_processQueue.pop_front();
@@ -813,7 +813,10 @@ bool RTDD::addProcess(DataModel::PublicObject* obj)
 		_processes[obj->publicID()] = proc;
 	}
 	else
+	{
+		SEISCOMP_DEBUG("Update process [%s]: resetting runTimes", obj->publicID().c_str());
 		proc = pit->second;
+	}
 
 	// populate cronjob
 	proc->cronjob->runTimes.clear();
