@@ -39,9 +39,15 @@
 				</description>
 			</parameter>
 
+			<parameter name="onlyPreferredOrigin" type="boolean" default="true">
+				<description>
+				Allow relocation of preferred origins only.
+				</description>
+			</parameter>
+
 			<parameter name="manualOrigin" type="boolean" default="true">
 				<description>
-				Enables relocation of any manual origin. If false, only event preferred origins are relocated.
+				Enables relocation of any manual origin. If false, only automatic origins are relocated.
 				</description>
 			</parameter>
 

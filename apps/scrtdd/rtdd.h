@@ -100,6 +100,7 @@ class RTDD : public Application {
 			std::vector<std::string> activeProfiles;
 			std::string workingDirectory;
 			bool        keepWorkingFiles;
+			bool        onlyPreferredOrigin;
 			bool        processManualOrigin;
 			int         profileTimeAlive; //seconds
 			bool        cacheWaveforms;
