@@ -1115,6 +1115,9 @@ OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 	newOrg->setDepth(DataModel::RealQuantity(event.depth));
 	newOrg->setTime(DataModel::TimeQuantity(event.time));
 
+	for (size_t i = 0; i < org->arrivalCount(); i++)
+		newOrg->add(Arrival::Cast(org->arrival(i)->clone()));
+
 	return newOrg;
 }
 
