@@ -519,10 +519,29 @@ bool RTDD::init() {
 
 bool RTDD::run() {
 
-	// dump catalog and exit
+	// load Event parameters XML file into _eventParameters
+	if ( !_config.eventXML.empty() )
+	{
+		IO::XMLArchive ar;
+		if ( !ar.open(_config.eventXML.c_str()) ) {
+			SEISCOMP_ERROR("Unable to open %s", _config.eventXML.c_str());
+			return false;
+		}
+
+		ar >> _eventParameters;
+		ar.close();
+
+		if ( !_eventParameters ) {
+			SEISCOMP_ERROR("No event parameters found in %s", _config.eventXML.c_str());
+			return false;
+		}
+	}
+
+ 	// dump catalog and exit
 	if ( !_config.dumpCatalog.empty() )
 	{
-		HDD::CatalogPtr cat = new HDD::Catalog(_config.dumpCatalog, query());
+		HDD::DataSource dataSrc(query(), &_cache, _eventParameters.get());
+		HDD::CatalogPtr cat = new HDD::Catalog(_config.dumpCatalog, dataSrc);
 		cat->writeToFile("event.csv","phase.csv","station.csv");
 		return true;
 	}
@@ -536,7 +555,9 @@ bool RTDD::run() {
 			if ( profile->name == _config.relocateCatalog)
 			{
 				string workingDir = (boost::filesystem::path(_config.workingDirectory)/ profile->name).string();
-				profile->load(query(), workingDir, !_config.keepWorkingFiles, _config.cacheWaveforms);
+				profile->load(query(), &_cache, _eventParameters.get(),
+				              workingDir, !_config.keepWorkingFiles,
+				              _config.cacheWaveforms);
 				HDD::CatalogPtr relocatedCat = profile->relocateCatalog(_config.forceProcessing);
 				profile->unload();
 				relocatedCat->writeToFile("event.csv","phase.csv","station.csv");
@@ -568,20 +589,6 @@ bool RTDD::run() {
 	// relocate xml event and exit
 	if ( !_config.eventXML.empty() )
 	{
-		IO::XMLArchive ar;
-		if ( !ar.open(_config.eventXML.c_str()) ) {
-			SEISCOMP_ERROR("Unable to open %s", _config.eventXML.c_str());
-			return false;
-		}
-
-		ar >> _eventParameters;
-		ar.close();
-
-		if ( !_eventParameters ) {
-			SEISCOMP_ERROR("No event parameters found in %s", _config.eventXML.c_str());
-			return false;
-		}
-
 		for(unsigned i = 0; i < _eventParameters->originCount(); i++)
 		{
 			OriginPtr org = _eventParameters->origin(i);
@@ -594,6 +601,7 @@ bool RTDD::run() {
 			    return false;
 		}
 
+		IO::XMLArchive ar;
 		ar.create("-");
 		ar.setFormattedOutput(true);
 		ar << _eventParameters;
@@ -1083,7 +1091,10 @@ bool RTDD::send(Origin *org)
 OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 {
 	string workingDir = (boost::filesystem::path(_config.workingDirectory)/profile->name).string();
-	profile->load(query(), workingDir, !_config.keepWorkingFiles, _config.cacheWaveforms);
+
+	profile->load(query(), &_cache, _eventParameters.get(),
+	              workingDir, !_config.keepWorkingFiles,
+	              _config.cacheWaveforms);
 
 	OriginPtr newOrg;
 
@@ -1131,7 +1142,9 @@ RTDD::Profile::Profile()
 }
 
 
-void RTDD::Profile::load(DataModel::DatabaseQuery* query,
+void RTDD::Profile::load(DatabaseQuery* query,
+                         PublicObjectTimeSpanBuffer* cache,
+                         EventParameters* eventParameters,
                          string workingDir,
                          bool cleanupWorkingDir,
                          bool cacheWaveforms)
@@ -1140,13 +1153,20 @@ void RTDD::Profile::load(DataModel::DatabaseQuery* query,
 	SEISCOMP_DEBUG("Loading profile %s", name.c_str());
 
 	this->query = query;
+	this->cache = cache;
+	this->eventParameters = eventParameters;
 
 	// load the catalog either from seiscomp event ids or from extended format
 	HDD::CatalogPtr ddbgc;
 	if ( CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0)
-		ddbgc = new HDD::Catalog(eventFile, query);
+	{
+		HDD::DataSource dataSrc(query, cache, eventParameters);
+		ddbgc = new HDD::Catalog(eventFile, dataSrc);
+	}
 	else
+	{
 		ddbgc = new HDD::Catalog(stationFile, eventFile, phaFile);
+	}
 
 	hypodd = new HDD::HypoDD(ddbgc, ddcfg, workingDir);
 	hypodd->setWorkingDirCleanup(cleanupWorkingDir);
@@ -1173,7 +1193,8 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(Origin *org)
 	}
 	lastUsage = Core::Time::GMT();
 
-	HDD::CatalogPtr orgToRelocate = new HDD::Catalog({org}, query);
+	HDD::DataSource dataSrc(query, cache, eventParameters);
+	HDD::CatalogPtr orgToRelocate = new HDD::Catalog({org}, dataSrc);
 	return hypodd->relocateSingleEvent(orgToRelocate);
 }
 

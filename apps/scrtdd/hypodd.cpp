@@ -28,7 +28,7 @@
 #include <seiscomp3/datamodel/pick.h>
 #include <seiscomp3/datamodel/origin.h>
 #include <seiscomp3/datamodel/magnitude.h>
-#include <seiscomp3/datamodel/databasequery.h>
+#include <seiscomp3/datamodel/amplitude.h>
 #include <seiscomp3/utils/files.h>
 #include <stdexcept>
 #include <iostream>
@@ -45,6 +45,7 @@
 #include <seiscomp3/logging/log.h>
  
 using namespace std;
+using namespace Seiscomp;
 using Seiscomp::Core::stringify;
 
 namespace {
@@ -105,6 +106,7 @@ pid_t startExternalProcess(const vector<string> &cmdparams,
 }
 
 
+
 template <class Map, class Val> typename Map::const_iterator
 searchByValue(const Map & SearchMap, const Val & SearchVal)
 {
@@ -120,6 +122,8 @@ searchByValue(const Map & SearchMap, const Val & SearchVal)
 	return iRet;
 }
 
+
+
 template <class T>
 T nextPowerOf2(T a, T min=1, T max=1<<31)
 {
@@ -132,6 +136,8 @@ T nextPowerOf2(T a, T min=1, T max=1<<31)
 	}
 	return b;
 }
+
+
 
 void copyFileAndReplaceLines(const string& srcFilename,
                              const string& destFilename,
@@ -166,6 +172,44 @@ void copyFileAndReplaceLines(const string& srcFilename,
 	}
 }
 
+
+
+DataModel::Station* findStation(const string& netCode,
+                                const string& stationCode,
+                                Core::Time atTime)
+{
+	DataModel::Inventory *inv = Client::Inventory::Instance()->inventory();
+	if ( ! inv )
+	{
+		SEISCOMP_ERROR("Inventory not available");
+		return nullptr;
+	}
+
+	for (size_t n = 0; n < inv->networkCount(); ++n )
+	{
+		DataModel::Network *net = inv->network(n);
+		if ( net->start() > atTime ) continue;
+		try { if ( net->end() < atTime ) continue; }
+		catch ( ... ) {}
+
+		if ( !Core::wildcmp(netCode, net->code()) ) continue;
+
+		for ( size_t s = 0; s < net->stationCount(); ++s )
+		{
+			DataModel::Station *sta = net->station(s);
+			if ( sta->start() > atTime ) continue;
+			try { if ( sta->end() < atTime ) continue; }
+			catch ( ... ) {}
+
+			if ( !Core::wildcmp(stationCode, sta->code()) ) continue;
+
+			return sta;
+		}
+	}
+
+	return nullptr;
+}
+
 }
 
 
@@ -173,68 +217,87 @@ namespace Seiscomp {
 namespace HDD {
 
 
-Catalog::Catalog() : Catalog(map<string,Station>(),
-                             map<unsigned,Event>(),
-                             multimap<unsigned,Phase>())
+
+DataModel::PublicObject* DataSource::getObject(const Core::RTTI& classType,
+                                                const std::string& publicID)
 {
-}
-
-
-Catalog::Catalog(const map<string,Station>& stations,
-                 const map<unsigned,Event>& events,
-                 const multimap<unsigned,Phase>& phases)
-{
-	_stations = stations;
-	_events = events;
-	_phases = phases;
-}
-
-
-Catalog::Catalog(const string& idFile, DataModel::DatabaseQuery* query)
-{
-	if ( !Util::fileExists(idFile) )
+	DataModel::PublicObject* ret = nullptr;
+	if ( _cache )
+		ret = _cache->find(classType, publicID);
+	if ( _eventParameters && ! ret)
 	{
-		string msg = "File " + idFile + " does not exist";
-		throw runtime_error(msg);
+		if (classType == DataModel::Pick::TypeInfo() )
+			ret = _eventParameters->findPick(publicID);
+		else if (classType == DataModel::Amplitude::TypeInfo() )
+			ret = _eventParameters->findAmplitude(publicID);
+		else if (classType == DataModel::Origin::TypeInfo() )
+			ret = _eventParameters->findOrigin(publicID);
+		else if (classType == DataModel::Event::TypeInfo() )
+			ret = _eventParameters->findEvent(publicID);
+	}
+	return ret;
+}
+
+
+
+void DataSource::loadArrivals(DataModel::Origin* org)
+{
+	if ( _query  )
+	{
+		_query->loadArrivals(org);
+	}
+	else if ( _eventParameters )
+	{
+		DataModel::Origin* epOrg = _eventParameters->findOrigin(org->publicID());
+		for (size_t i = 0; i < epOrg->arrivalCount(); i++)
+			org->add(DataModel::Arrival::Cast(epOrg->arrival(i)->clone()));
+	}
+}
+
+
+
+DataModel::Event* DataSource::getParentEvent(const std::string& originID)
+{
+	DataModel::Event* ret = nullptr;
+
+	if ( _query )
+	{
+		ret = _query->getEvent(originID);
 	}
 
-	vector<string> ids;
-	vector< map<string,string> > rows = CSV::readWithHeader(idFile);
-
-	for(const auto& row : rows)
+	if ( _eventParameters && ! ret )
 	{
-		const string& id = row.at("seiscompId");
-		ids.push_back(id);
+		for (size_t i = 0; i <  _eventParameters->eventCount() && !ret; i++)
+		{
+			DataModel::Event* ev = _eventParameters->event(i);
+			for (size_t j = 0; j < ev->originReferenceCount() && !ret; j++)
+			{
+				DataModel::OriginReference* orgRef = ev->originReference(j);
+				if (orgRef->originID() == originID)
+					ret = ev;
+			}
+		}
 	}
-
-	initFromIds(ids, query);
+	return ret;
 }
 
 
-Catalog::Catalog(const vector<string>& ids, DataModel::DatabaseQuery* query)
-{
-	initFromIds(ids, query);
-}
 
-Catalog::Catalog(const vector<DataModel::Origin*>& origins, DataModel::DatabaseQuery* query)
+void Catalog::initFromIds(Catalog* catalog,
+                          const std::vector<std::string>& ids,
+                          DataSource& dataSrc)
 {
-	initFromOrigins(origins, query);
-}
-
-void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* query)
-{
-	vector<DataModel::OriginPtr> __origins;
 	vector<DataModel::Origin*> origins;
 
 	for(const string& id : ids)
 	{
-		DataModel::OriginPtr org = DataModel::Origin::Cast(query->getObject(DataModel::Origin::TypeInfo(), id));
+		DataModel::OriginPtr org = dataSrc.get<DataModel::Origin>(id);
 		if ( !org )
 		{
-			DataModel::EventPtr ev = DataModel::Event::Cast(query->getObject(DataModel::Event::TypeInfo(), id));
+			DataModel::EventPtr ev = dataSrc.get<DataModel::Event>(id);
 			if ( ev )
 			{
-				org = DataModel::Origin::Cast(query->getObject(DataModel::Origin::TypeInfo(), (ev->preferredOriginID())));
+				org = dataSrc.get<DataModel::Origin>(ev->preferredOriginID());
 			}
 		}
 		if ( !org )
@@ -242,19 +305,22 @@ void Catalog::initFromIds(const vector<string>& ids, DataModel::DatabaseQuery* q
 			string msg = "Cannot find origin/event with id " + id;
 			throw runtime_error(msg);
 		}
-		__origins.push_back(org);
 		origins.push_back(org.get());
 	}
 
-	initFromOrigins(origins, query);
+	initFromOrigins(catalog, origins, dataSrc);
 }
 
-void Catalog::initFromOrigins(const vector<DataModel::Origin*>& orgs, DataModel::DatabaseQuery* query)
+
+
+void Catalog::initFromOrigins(Catalog* catalog,
+                              const std::vector<DataModel::Origin*>& orgs,
+                              DataSource& dataSrc)
 {
 	for(DataModel::Origin* org : orgs)
 	{
-		if ( query && org->arrivalCount() == 0)
-			query->loadArrivals(org);
+		if ( org->arrivalCount() == 0)
+			dataSrc.loadArrivals(org);
 
 		// Add event
 		Event ev;
@@ -268,26 +334,26 @@ void Catalog::initFromOrigins(const vector<DataModel::Origin*>& orgs, DataModel:
 		ev.tt_residual = 0;
 		DataModel::MagnitudePtr mag;
 		// try to fetch preferred magnitude stored in the event
-		if ( query)
+		DataModel::EventPtr parentEvent = dataSrc.getParentEvent(org->publicID());
+		if ( parentEvent )
 		{
-			DataModel::EventPtr parentEvent = query->getEvent(org->publicID());
-			if ( parentEvent )
-			{
-				mag = DataModel::Magnitude::Cast(query->getObject(DataModel::Magnitude::TypeInfo(), parentEvent->preferredMagnitudeID()));
-			}
+			mag = dataSrc.get<DataModel::Magnitude>(parentEvent->preferredMagnitudeID());
 		}
-		if ( !mag )
+		if ( mag )
 		{
-			SEISCOMP_ERROR("Cannot load magnitude for origin %s, skipping this origin.",
-			               org->publicID().c_str());
-			continue;
+			ev.magnitude = mag->magnitude();
 		}
-		ev.magnitude   = mag->magnitude();
+		else
+		{
+			SEISCOMP_WARNING("Origin %s: cannot load preferred magnitude from parent event, set it to 0",
+			                 org->publicID().c_str());
+			ev.magnitude = 0.;
+		}
 
 		SEISCOMP_DEBUG("Adding origin '%s' to the catalog", org->publicID().c_str());
 
-		addEvent(ev, false);
-		ev = searchEvent(ev)->second;
+		catalog->addEvent(ev, false);
+		ev = catalog->searchEvent(ev)->second;
 
 		// Add Phases
 		for ( size_t i = 0; i < org->arrivalCount(); ++i )
@@ -295,7 +361,7 @@ void Catalog::initFromOrigins(const vector<DataModel::Origin*>& orgs, DataModel:
 			DataModel::Arrival *orgArr = org->arrival(i);
 			const DataModel::Phase& orgPh = orgArr->phase();
 
-			DataModel::PickPtr pick = DataModel::Pick::Cast(query->getObject(DataModel::Pick::TypeInfo(), orgArr->pickID()));
+			DataModel::PickPtr pick = dataSrc.get<DataModel::Pick>(orgArr->pickID());
 			if ( !pick )
 			{
 				SEISCOMP_ERROR("Cannot load pick '%s' (origin %s)",
@@ -322,10 +388,10 @@ void Catalog::initFromOrigins(const vector<DataModel::Origin*>& orgs, DataModel:
 				sta.latitude = orgArrStation->latitude();
 				sta.longitude = orgArrStation->longitude();
 				sta.elevation = orgArrStation->elevation(); // meter
-				addStation(sta, false);
+				catalog->addStation(sta, false);
 			}
 			// the station has to be there at this point
-			sta = searchStation(sta)->second;
+			sta = catalog->searchStation(sta)->second;
 
 			Phase ph;
 			ph.eventId    = ev.id;
@@ -344,41 +410,70 @@ void Catalog::initFromOrigins(const vector<DataModel::Origin*>& orgs, DataModel:
 			ph.stationCode =  pick->waveformID().stationCode();
 			ph.locationCode =  pick->waveformID().locationCode();
 			ph.channelCode =  pick->waveformID().channelCode();
-			addPhase(ph, false);
+			catalog->addPhase(ph, false);
 		}
 	}
 }
 
 
-DataModel::Station* Catalog::findStation(const string& netCode, const string& stationCode,
-                                            Core::Time atTime) const
+
+Catalog::Catalog(const std::vector<DataModel::Origin*>& origins,
+                 DataSource& dataSrc)
 {
-	DataModel::Inventory *inv = Client::Inventory::Instance()->inventory();
+	initFromOrigins(this, origins, dataSrc);
+}
 
-	for (size_t n = 0; n < inv->networkCount(); ++n )
+
+
+Catalog::Catalog(const std::vector<std::string>& ids,
+                 DataSource& dataSrc)
+{
+
+	initFromIds(this, ids, dataSrc);
+}
+
+
+
+Catalog::Catalog(const std::string& idFile,
+                 DataSource& dataSrc)
+{
+	if ( !Util::fileExists(idFile) )
 	{
-		DataModel::Network *net = inv->network(n);
-		if ( net->start() > atTime ) continue;
-		try { if ( net->end() < atTime ) continue; }
-		catch ( ... ) {}
-
-		if ( !Core::wildcmp(netCode, net->code()) ) continue;
-
-		for ( size_t s = 0; s < net->stationCount(); ++s )
-		{
-			DataModel::Station *sta = net->station(s);
-			if ( sta->start() > atTime ) continue;
-			try { if ( sta->end() < atTime ) continue; }
-			catch ( ... ) {}
-
-			if ( !Core::wildcmp(stationCode, sta->code()) ) continue;
-
-			return sta;
-		}
+		string msg = "File " + idFile + " does not exist";
+		throw runtime_error(msg);
 	}
 
-	return nullptr;
+	vector<string> ids;
+	vector< map<string,string> > rows = CSV::readWithHeader(idFile);
+
+	for(const auto& row : rows)
+	{
+		const string& id = row.at("seiscompId");
+		ids.push_back(id);
+	}
+
+	initFromIds(this, ids, dataSrc);
 }
+
+
+
+Catalog::Catalog() : Catalog(map<string,Station>(),
+                             map<unsigned,Event>(),
+                             multimap<unsigned,Phase>())
+{
+}
+
+
+
+Catalog::Catalog(const map<string,Station>& stations,
+                 const map<unsigned,Event>& events,
+                 const multimap<unsigned,Phase>& phases)
+{
+	_stations = stations;
+	_events = events;
+	_phases = phases;
+}
+
 
 
 Catalog::Catalog(const string& stationFile, const string& eventFile, const string& phaFile)
@@ -449,6 +544,8 @@ Catalog::Catalog(const string& stationFile, const string& eventFile, const strin
 		_phases.emplace(ph.eventId, ph);
 	}
 }
+
+
 
 
 CatalogPtr Catalog::merge(const CatalogPtr& other) const

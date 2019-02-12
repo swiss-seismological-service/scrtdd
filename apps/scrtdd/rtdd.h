@@ -125,8 +125,12 @@ class RTDD : public Application {
 		class Profile : public Core::BaseObject {
 			public:
 			Profile();
-			void load(DataModel::DatabaseQuery* query, std::string workingDir,
-			          bool cleanupWorkingDir, bool cacheWaveforms);
+			void load(DataModel::DatabaseQuery* query,
+			          DataModel::PublicObjectTimeSpanBuffer* cache,
+			          DataModel::EventParameters* eventParameters,
+			          std::string workingDir,
+			          bool cleanupWorkingDir,
+			          bool cacheWaveforms);
 			void unload();
 			bool isLoaded() { return loaded; }
 			Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
@@ -147,13 +151,13 @@ class RTDD : public Application {
 			Core::Time lastUsage;
 			HDD::HypoDDPtr hypodd;
 			DataModel::DatabaseQuery* query;
+			DataModel::PublicObjectTimeSpanBuffer* cache;
+			DataModel::EventParameters* eventParameters;
 		};
 
 		struct Cronjob : public Core::BaseObject {
 			std::list<Core::Time> runTimes;
 		};
-
-		typedef DataModel::PublicObjectTimeSpanBuffer Cache;
 
 		struct Process : Core::BaseObject {
 			Core::Time          created;
@@ -171,7 +175,7 @@ class RTDD : public Application {
 		int                        _cronCounter;
 		Todos                      _todos;
 
-		Cache                      _cache;
+		DataModel::PublicObjectTimeSpanBuffer _cache;
 
 		Config                     _config;
 		std::list<ProfilePtr>      _profiles;

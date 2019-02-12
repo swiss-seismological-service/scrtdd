@@ -18,6 +18,8 @@
 #include <seiscomp3/core/baseobject.h>
 #include <seiscomp3/core/genericrecord.h>
 #include <seiscomp3/core/recordsequence.h>
+#include <seiscomp3/datamodel/eventparameters.h>
+#include <seiscomp3/datamodel/publicobjectcache.h>
 #include <seiscomp3/datamodel/databasequery.h>
 #include <seiscomp3/datamodel/origin.h>
 
@@ -30,6 +32,40 @@ namespace Seiscomp {
 namespace HDD {
 
 DEFINE_SMARTPOINTER(Catalog);
+
+class DataSource {
+	public:
+
+		DataSource(DataModel::DatabaseQuery* query,
+				   DataModel::PublicObjectTimeSpanBuffer* cache)
+		: _query(query), _cache(cache) {}
+
+		DataSource(DataModel::EventParameters* eventParameters)
+		: _eventParameters(eventParameters) {}
+
+		DataSource(DataModel::DatabaseQuery* query,
+				   DataModel::PublicObjectTimeSpanBuffer* cache,
+				   DataModel::EventParameters* eventParameters)
+		: _query(query), _cache(cache), _eventParameters(eventParameters) {}
+
+		template <typename T>
+		typename Core::SmartPointer<T>::Impl
+		get(const std::string& publicID) {
+			return T::Cast(getObject(T::TypeInfo(), publicID));
+		}
+
+		DataModel::PublicObject* getObject(const Seiscomp::Core::RTTI& classType,
+		                                   const std::string& publicID);
+
+		void loadArrivals(DataModel::Origin* org);
+
+		DataModel::Event* getParentEvent(const std::string& originID);
+
+	private:
+		DataModel::DatabaseQuery* _query;
+		DataModel::PublicObjectTimeSpanBuffer* _cache;
+		DataModel::EventParameters* _eventParameters;
+};
 
 // DD background catalog
 class Catalog : public Core::BaseObject {
@@ -120,15 +156,22 @@ class Catalog : public Core::BaseObject {
 
 		Catalog();
 		virtual ~Catalog() { }
+
+		// from custom data format constructors
 		Catalog(const std::map<std::string,Station>& stations,
-                  const std::map<unsigned,Event>& events,
-                  const std::multimap<unsigned,Phase>& phases);
+		        const std::map<unsigned,Event>& events,
+		        const std::multimap<unsigned,Phase>& phases);
 		Catalog(const std::string& stationFile,
-		          const std::string& catalogFile,
-		          const std::string& phaFile);
-		Catalog(const std::vector<DataModel::Origin*>& origins, DataModel::DatabaseQuery* query);
-		Catalog(const std::vector<std::string>& ids, DataModel::DatabaseQuery* query);
-		Catalog(const std::string& idFile, DataModel::DatabaseQuery* query);
+		        const std::string& catalogFile,
+		        const std::string& phaFile);
+
+		// from seiscomp data format constructors
+		Catalog(const std::vector<DataModel::Origin*>& origins,
+				DataSource& dataSrc);
+		Catalog(const std::vector<std::string>& ids,
+				DataSource& dataSrc);
+		Catalog(const std::string& idFile,
+				DataSource& dataSrc);
 
 		CatalogPtr merge(const CatalogPtr& other) const;
 
@@ -149,10 +192,12 @@ class Catalog : public Core::BaseObject {
 		                 std::string stationFile) const;
 
 	private:
-		void initFromIds(const std::vector<std::string>& ids, DataModel::DatabaseQuery* query);
-		void initFromOrigins(const std::vector<DataModel::Origin*>& orgs, DataModel::DatabaseQuery* query);
-		DataModel::Station* findStation(const std::string& netCode, const std::string& staCode,
-		                                Seiscomp::Core::Time) const;
+		void initFromIds(Catalog* catalog,
+                         const std::vector<std::string>& ids,
+                         DataSource& dataSrc);
+		void initFromOrigins(Catalog* catalog,
+                             const std::vector<DataModel::Origin*>& orgs,
+                             DataSource& dataSrc);
 
 		std::map<std::string,Station> _stations; // indexed by station id
 		std::map<unsigned,Event> _events; //indexed by event id
