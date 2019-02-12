@@ -891,6 +891,10 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 		boost::filesystem::remove_all(subFolder);
 	}
 
+	//
+	// Step 1: refine location without cross correlation
+	//
+
 	string eventWorkingDir = (boost::filesystem::path(_workingDir)/subFolder/"step1").string();
 	if ( !Util::createPath(eventWorkingDir) )
 	{
@@ -932,63 +936,76 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 	// Load the relocated origin from Hypodd
 	string ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
 	CatalogPtr relocatedCatalog = loadRelocatedCatalog(ddrelocFile, neighbourCat);
-	CatalogPtr relocatedEvCat = extractEvent(relocatedCatalog, evToRelocateNewId);
+	CatalogPtr relocatedEv = extractEvent(relocatedCatalog, evToRelocateNewId);
 
 	if ( _workingDirCleanup )
 	{
 		boost::filesystem::remove_all(eventWorkingDir);
 	}
 
-	eventWorkingDir = (boost::filesystem::path(_workingDir)/subFolder/"step2").string();
-	if ( !Util::createPath(eventWorkingDir) )
-	{
-		string msg = "Unable to create working directory: " + eventWorkingDir;
-		throw runtime_error(msg);
+	//
+	// Step 2: relocate the refined location this time with cross correlation
+	//
+
+	CatalogPtr relocatedEvWithXcorr;
+
+	try {
+
+		eventWorkingDir = (boost::filesystem::path(_workingDir)/subFolder/"step2").string();
+		if ( !Util::createPath(eventWorkingDir) )
+		{
+			string msg = "Unable to create working directory: " + eventWorkingDir;
+			throw runtime_error(msg);
+		}
+
+		// Select neighbouring events from the relocated origin
+		const Catalog::Event& refinedLoc = relocatedEv->getEvents().begin()->second;
+		neighbourCat = selectNeighbouringEvents(_ddbgc, refinedLoc, _cfg.xcorr.maxESdist,
+		                                        _cfg.xcorr.maxIEdist,
+		                                        _cfg.xcorr.minNumNeigh, _cfg.xcorr.maxNumNeigh,
+		                                        _cfg.xcorr.minDTperEvt);
+		// add event to relocate to the neighbour catalog
+		neighbourCat = neighbourCat->merge(relocatedEv);
+		// extract the new id of the event
+		unsigned refinedLocNewId = neighbourCat->searchEvent(refinedLoc)->first;
+
+		// Create station.dat for hypodd
+		stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
+		createStationDatFile(stationFile, neighbourCat);
+
+		// Create event.dat for hypodd
+		eventFile = (boost::filesystem::path(eventWorkingDir)/"event.dat").string();
+		createEventDatFile(eventFile, neighbourCat);
+
+		// Create differential travel times file (dt.ct) for hypodd
+		dtctFile = (boost::filesystem::path(eventWorkingDir)/"dt.ct").string();
+		createDtCtFile(neighbourCat, refinedLocNewId, dtctFile);
+
+		// Create cross correlated differential travel times file (dt.cc) for hypodd
+		dtccFile = (boost::filesystem::path(eventWorkingDir)/"dt.cc").string();
+		xcorrSingleEvent(neighbourCat, refinedLocNewId, dtccFile);
+
+		// run hypodd
+		// input : dt.cc dt.ct event.sel station.sel hypoDD.inp
+		// output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
+		runHypodd(eventWorkingDir, dtccFile, dtctFile, eventFile, stationFile);
+
+		// Load the relocated origin from Hypodd
+		ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
+		relocatedCatalog = loadRelocatedCatalog(ddrelocFile, neighbourCat);
+		relocatedEvWithXcorr = extractEvent(relocatedCatalog, refinedLocNewId);
+
+		if ( _workingDirCleanup )
+		{
+			boost::filesystem::remove_all(eventWorkingDir);
+		}
+
+	} catch ( exception &e ) {
+		SEISCOMP_ERROR("%s", e.what());
+		SEISCOMP_ERROR("It was not possible to use cross correlation when relocating origin");
 	}
 
-	// Select neighbouring events from the relocated origin
-	const Catalog::Event& relocatedEv = relocatedEvCat->getEvents().begin()->second;
-	neighbourCat = selectNeighbouringEvents(_ddbgc, relocatedEv, _cfg.xcorr.maxESdist,
-	                                      _cfg.xcorr.maxIEdist,
-	                                      _cfg.xcorr.minNumNeigh, _cfg.xcorr.maxNumNeigh,
-	                                      _cfg.xcorr.minDTperEvt);
-	// add event to relocate to the neighbour catalog
-	neighbourCat = neighbourCat->merge(relocatedEvCat);
-	// extract the new id of the event
-	unsigned relocatedEvNewId = neighbourCat->searchEvent(relocatedEv)->first;
-
-	// Create station.dat for hypodd
-	stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
-	createStationDatFile(stationFile, neighbourCat);
-
-	// Create event.dat for hypodd
-	eventFile = (boost::filesystem::path(eventWorkingDir)/"event.dat").string();
-	createEventDatFile(eventFile, neighbourCat);
-
-	// Create differential travel times file (dt.ct) for hypodd
-	dtctFile = (boost::filesystem::path(eventWorkingDir)/"dt.ct").string();
-	createDtCtFile(neighbourCat, relocatedEvNewId, dtctFile);
-
-	// Create cross correlated differential travel times file (dt.cc) for hypodd
-	dtccFile = (boost::filesystem::path(eventWorkingDir)/"dt.cc").string();
-	xcorrSingleEvent(neighbourCat, relocatedEvNewId, dtccFile);
-
-	// run hypodd
-	// input : dt.cc dt.ct event.sel station.sel hypoDD.inp
-	// output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
-	runHypodd(eventWorkingDir, dtccFile, dtctFile, eventFile, stationFile);
-
-	// Load the relocated origin from Hypodd
-	ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
-	relocatedCatalog = loadRelocatedCatalog(ddrelocFile, neighbourCat);
-	relocatedEvCat = extractEvent(relocatedCatalog, relocatedEvNewId);
-
-	if ( _workingDirCleanup )
-	{
-		boost::filesystem::remove_all(eventWorkingDir);
-	}
-
-	return relocatedEvCat;
+	return relocatedEvWithXcorr ? relocatedEvWithXcorr : relocatedEv;
 }
 
 
