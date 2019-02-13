@@ -293,6 +293,28 @@ bool RTDD::validateParameters()
 	if ( !Application::validateParameters() )
 		return false;
 
+	// Disable messaging (offline mode) with:
+	//  --ep option
+	//  --dump-catalog option
+	//  --relocate-catalog option
+	//  --O and --test (relocate origin and don't send the new one)
+	if ( !_config.eventXML.empty()        ||
+	     !_config.dumpCatalog.empty()     ||
+	     !_config.relocateCatalog.empty() ||
+	     (!_config.originID.empty() && _config.testMode)
+	   )
+	{
+		setMessagingEnabled(false);
+		_config.testMode = true; // we won't send any message
+	}
+
+	// If the inventory is provided by an XML file or an event XML
+	// is provided, disable the database because we don't need to access it
+	if ( !isInventoryDatabaseEnabled() || !_config.eventXML.empty() )
+    {
+		setDatabaseEnabled(false, false);
+    }
+ 
 	std::string hypoddExec = "hypodd";
 	try {
 		hypoddExec = env->absolutePath(configGetPath("hypoddPath"));
@@ -462,28 +484,6 @@ bool RTDD::init() {
 
 	if ( !Application::init() )
 		return false;
-
-	// Disable messaging (offline mode) with:
-	//  --ep option
-	//  --dump-catalog option
-	//  --relocate-catalog option
-	//  --O and --test (relocate origin and don't send the new one)
-	if ( !_config.eventXML.empty()        ||
-	     !_config.dumpCatalog.empty()     ||
-	     !_config.relocateCatalog.empty() ||
-	     (!_config.originID.empty() && _config.testMode)
-	   )
-	{
-		setMessagingEnabled(false);
-		_config.testMode = true; // we won't send any message
-	}
-
-	// If the inventory is provided by an XML file or an event XML
-	// is provided, disable the database because we don't need to access it
-	if ( !isInventoryDatabaseEnabled() || !_config.eventXML.empty() )
-    {
-		setDatabaseEnabled(false, false);
-    }
 
 	_config.workingDirectory = boost::filesystem::path(_config.workingDirectory).string();
 	if ( !Util::pathExists(_config.workingDirectory) )
