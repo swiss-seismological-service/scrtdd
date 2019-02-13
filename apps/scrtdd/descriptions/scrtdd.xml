@@ -181,13 +181,15 @@
 
 						<parameter name="P-Phases" type="list:string" default="P,Pg,Pn,P1">
 							<description>
-								Defines a list of accepted P phases. Phases not in this list are not be used
+								Defines a list of accepted P phases. Phases not in this list are not be used.
+								if multiple phases exist, the first one arrived will be used.
 							</description>
 						</parameter>
 
 						<parameter name="S-Phases" type="list:string" default="S,Sg,Sn,S1">
 							<description>
-								Defines a list of accepted S phases. Phases not in this list are not be used
+								Defines a list of accepted S phases. Phases not in this list are not be used.
+								if multiple phases exist, the first one arrived will be used.
 							</description>
 						</parameter>
 
@@ -195,52 +197,52 @@
 
 					<group name="dtct">
 						<description>
-							Differential travel time computation options.
+							Step 1: location refiniment. Generation of differential travel time (from catalog) options.
 						</description>
 						<parameter name="minWeight" type="double">
-							<description>Min phase weight allowed</description>
+							<description>Min weight required to use a phase</description>
 						</parameter>
 						<parameter name="maxESdist" type="double">
-							<description>Max distance between epicentre and station allowed (km)</description>
+							<description>Max distance (km) between epicentre and station allowed</description>
 						</parameter>
 						<parameter name="maxIEdist" type="double">
-							<description>Max distance between events allowed (km)</description>
+							<description>Max distance (km) between event pairs allowed to use a pair</description>
 						</parameter>
 						<parameter name="minNumNeigh" type="int">
-							<description>Min number of neighbors required</description>
+							<description>Min number of neighboring events required to perform this computation step</description>
 						</parameter>
 						<parameter name="maxNumNeigh" type="int">
-							<description>Max number of neighbors allowed (furthest events are discarded)</description>
+							<description>Max number of neighbors used (furthest events are discarded)</description>
 						</parameter>
 						<parameter name="minDTperEvt" type="int">
-							<description>Min number of differential travel times per event pair required ((Including P+S)</description>
+							<description>Min number of differential travel times (Including P+S) per event required to perform this computation step</description>
 						</parameter>
 					</group>
 
 					<group name="dtcc">
 						<description>
-							Cross-correlation differential travel time computation options.
+							Step 2: full relocation. Generation of differential travel time (with cross correlation) options.
 						</description>
 						<parameter name="minWeight" type="double">
-							<description>Min phase weight allowed</description>
+							<description>Min weight required to use a phase</description>
 						</parameter>
 						<parameter name="maxESdist" type="double">
-							<description>Max distance between epicentre and station allowed (km)</description>
+							<description>Max distance (km) between epicentre and station allowed</description>
 						</parameter>
 						<parameter name="maxIEdist" type="double">
-							<description>Max distance between events allowed (km)</description>
+							<description>Max distance (km) between event pairs allowed to use a pair</description>
 						</parameter>
 						<parameter name="minNumNeigh" type="int">
-							<description>Min number of neighbors required</description>
+							<description>Min number of neighboring events required to perform this computation step</description>
 						</parameter>
 						<parameter name="maxNumNeigh" type="int">
-							<description>Max number of neighbors allowed (furthest events are discarded)</description>
+							<description>Max number of neighbors used (furthest events are discarded)</description>
 						</parameter>
 						<parameter name="minDTperEvt" type="int">
-							<description>Min number of differential travel times per event pair required ((Including P+S)</description>
+							<description>Min number of differential travel times (Including P+S) per event required to perform this computation step</description>
 						</parameter>
 						<parameter name="minCCCoef" type="double">
-							<description>Min crosscorrelation coefficient required</description>
+							<description>Min crosscorrelation coefficient required to use a differential travel time</description>
 						</parameter>
 						<group name="crosscorrelation">
 							<parameter name="filterFmin" type="double">
@@ -277,9 +279,10 @@
 
 					<group name="ph2dt">
 						<description>
-							This configuration is used only for full catalog relocation and it is
-							not useful in real time DD relocation.
-							See command line option --relocate-catalog
+							This configuration is used only for full catalog relocation (see command
+							line option --relocate-catalog) and it is not used in real time DD relocation.
+							When relocating a catalog the dtct and dtcc options will not be used,
+							only the cross correlation parameters will be taken into consideration.
 						</description>
 						<parameter name="controlFile" type="path">
 							<description>
