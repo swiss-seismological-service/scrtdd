@@ -1788,6 +1788,9 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 						continue;
 					}
 
+					SEISCOMP_DEBUG("Calculating cross correlation for event pair %u-%u, station %s phase %s",
+					               refEv.id, event.id, refPhase.stationId.c_str(), refPhase.type.c_str());
+
 					double xcorr_coeff, xcorr_dt;
 					if ( ! xcorr(trace, refTrace, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
 					{
@@ -1799,7 +1802,11 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 					}
 
 					if ( xcorr_coeff < _cfg.xcorr.minCoef)
+					{
+						SEISCOMP_DEBUG("Cross correlation coefficient too low (%f < %f): skip pair",
+									   xcorr_coeff, _cfg.xcorr.minCoef);
 						continue;
+					}
 
 					evStream << stringify("%-12s %.6f %.4f %s",
 					                      refPhase.stationId.c_str(),
