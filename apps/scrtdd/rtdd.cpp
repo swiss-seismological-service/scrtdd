@@ -391,6 +391,7 @@ bool RTDD::validateParameters()
 			prof->ddcfg.xcorr.minNumNeigh = configGetInt(prefix + "minNumNeigh");
 			prof->ddcfg.xcorr.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
 			prof->ddcfg.xcorr.minDTperEvt = configGetInt(prefix + "minDTperEvt");
+			prof->ddcfg.xcorr.minCoef = configGetDouble(prefix + "minCCCoef");
 		} catch ( ... ) {
 			profilesOK = false;
 			continue;

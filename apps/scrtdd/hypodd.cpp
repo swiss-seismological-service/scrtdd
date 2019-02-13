@@ -1672,18 +1672,25 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 				continue;
 			}
 
+			SEISCOMP_DEBUG("Calculating cross correlation for event pair %u-%u, line '%s' from file '%s'",
+			               ev1->id, ev2->id, row.c_str(), dtctFile.c_str());
+
 			double xcorr_coeff, xcorr_dt;
 			if ( ! xcorr(tr1, tr2, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
 			{
 				SEISCOMP_WARNING("Cannot cross correlate traces for events '%s' and '%s', "
-				               "station %s, phase %s. Skipping them.",
-				               string(*ev1).c_str(), string(*ev2).c_str(),
-				               stationId.c_str(), phaseType.c_str() );
+				                 "station %s, phase %s. Skipping them.",
+				                 string(*ev1).c_str(), string(*ev2).c_str(),
+				                 stationId.c_str(), phaseType.c_str() );
 				continue;
 			}
 
 			if ( xcorr_coeff < _cfg.xcorr.minCoef)
+			{
+				SEISCOMP_DEBUG("Cross correlation coefficient too low (%f < %f): skip pair",
+				               xcorr_coeff, _cfg.xcorr.minCoef);
 				continue;
+			}
 
 			evStream << stringify("%-12s %.6f %.4f %s",
 			                       stationId.c_str(), xcorr_dt, xcorr_coeff, phaseType.c_str());
