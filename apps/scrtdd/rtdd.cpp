@@ -293,37 +293,6 @@ bool RTDD::validateParameters()
 	if ( !Application::validateParameters() )
 		return false;
 
-	// Disable messaging (offline mode) with:
-	//  --ep option
-	//  --dump-catalog option
-	//  --relocate-catalog option
-	//  --O and --test (relocate origin and don't send the new one)
-	if ( !_config.eventXML.empty()        ||
-	     !_config.dumpCatalog.empty()     ||
-	     !_config.relocateCatalog.empty() ||
-	     (!_config.originID.empty() && _config.testMode)
-	   )
-	{
-		setMessagingEnabled(false);
-		_config.testMode = true; // we won't send any message
-	}
-
-	// If the inventory is provided by an XML file or an event XML
-	// is provided, disable the database because we don't need to access it
-	if ( !isInventoryDatabaseEnabled() || !_config.eventXML.empty() )
-    {
-		setDatabaseEnabled(false, false);
-    }
-
-	_config.workingDirectory = boost::filesystem::path(_config.workingDirectory).string();
-	if ( !Util::pathExists(_config.workingDirectory) )
-	{
-		if ( ! Util::createPath(_config.workingDirectory) ) {
-			SEISCOMP_ERROR("workingDirectory: failed to create path %s",_config.workingDirectory.c_str());
-			return false;
-		}
-	}
-
 	std::string hypoddExec = "hypodd";
 	try {
 		hypoddExec = env->absolutePath(configGetPath("hypoddPath"));
@@ -493,7 +462,38 @@ bool RTDD::init() {
 	if ( !Application::init() )
 		return false;
 
-	// Log into processing/info to avoid logging the same information into the global info channel
+	// Disable messaging (offline mode) with:
+	//  --ep option
+	//  --dump-catalog option
+	//  --relocate-catalog option
+	//  --O and --test (relocate origin and don't send the new one)
+	if ( !_config.eventXML.empty()        ||
+	     !_config.dumpCatalog.empty()     ||
+	     !_config.relocateCatalog.empty() ||
+	     (!_config.originID.empty() && _config.testMode)
+	   )
+	{
+		setMessagingEnabled(false);
+		_config.testMode = true; // we won't send any message
+	}
+
+	// If the inventory is provided by an XML file or an event XML
+	// is provided, disable the database because we don't need to access it
+	if ( !isInventoryDatabaseEnabled() || !_config.eventXML.empty() )
+    {
+		setDatabaseEnabled(false, false);
+    }
+
+	_config.workingDirectory = boost::filesystem::path(_config.workingDirectory).string();
+	if ( !Util::pathExists(_config.workingDirectory) )
+	{
+		if ( ! Util::createPath(_config.workingDirectory) ) {
+			SEISCOMP_ERROR("workingDirectory: failed to create path %s",_config.workingDirectory.c_str());
+			return false;
+		}
+	}
+
+ 	// Log into processing/info to avoid logging the same information into the global info channel
 	_processingInfoChannel = SEISCOMP_DEF_LOGCHANNEL("processing/info", Logging::LL_INFO);
 	_processingInfoOutput = new Logging::FileRotatorOutput(Environment::Instance()->logFile("scrtdd-processing-info").c_str(),  60*60*24, 30);
 
@@ -579,6 +579,8 @@ bool RTDD::run() {
 		// Start processing immediately
 		_config.delayTimes = {0};
 		_cronCounter = 0;
+		// force process of any origin
+		_config.onlyPreferredOrigin = false;
 
 		if ( !addProcess(org.get()) )
 		    return false;
@@ -589,6 +591,7 @@ bool RTDD::run() {
 	// relocate xml event and exit
 	if ( !_config.eventXML.empty() )
 	{
+		_config.onlyPreferredOrigin = false; // force process of any origin
 		for(unsigned i = 0; i < _eventParameters->originCount(); i++)
 		{
 			OriginPtr org = _eventParameters->origin(i);

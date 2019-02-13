@@ -222,8 +222,7 @@ DataModel::PublicObject* DataSource::getObject(const Core::RTTI& classType,
                                                 const std::string& publicID)
 {
 	DataModel::PublicObject* ret = nullptr;
-	if ( _cache )
-		ret = _cache->find(classType, publicID);
+
 	if ( _eventParameters && ! ret)
 	{
 		if (classType == DataModel::Pick::TypeInfo() )
@@ -235,22 +234,36 @@ DataModel::PublicObject* DataSource::getObject(const Core::RTTI& classType,
 		else if (classType == DataModel::Event::TypeInfo() )
 			ret = _eventParameters->findEvent(publicID);
 	}
-	return ret;
+
+ 	if ( _cache && ! ret)
+	{
+		ret = _cache->find(classType, publicID);
+	}
+
+   return ret;
 }
 
 
 
 void DataSource::loadArrivals(DataModel::Origin* org)
 {
-	if ( _query  )
-	{
-		_query->loadArrivals(org);
-	}
-	else if ( _eventParameters )
+	bool found = false;
+
+	if ( _eventParameters && ! found)
 	{
 		DataModel::Origin* epOrg = _eventParameters->findOrigin(org->publicID());
-		for (size_t i = 0; i < epOrg->arrivalCount(); i++)
-			org->add(DataModel::Arrival::Cast(epOrg->arrival(i)->clone()));
+		if ( epOrg )
+		{
+			found = true;
+			for (size_t i = 0; i < epOrg->arrivalCount(); i++)
+				org->add(DataModel::Arrival::Cast(epOrg->arrival(i)->clone()));
+		}
+	}
+
+	if ( _query && ! found )
+	{
+		found = true;
+		_query->loadArrivals(org);
 	}
 }
 
@@ -259,11 +272,6 @@ void DataSource::loadArrivals(DataModel::Origin* org)
 DataModel::Event* DataSource::getParentEvent(const std::string& originID)
 {
 	DataModel::Event* ret = nullptr;
-
-	if ( _query )
-	{
-		ret = _query->getEvent(originID);
-	}
 
 	if ( _eventParameters && ! ret )
 	{
@@ -278,6 +286,12 @@ DataModel::Event* DataSource::getParentEvent(const std::string& originID)
 			}
 		}
 	}
+
+	if ( _query && ! ret)
+	{
+		ret = _query->getEvent(originID);
+	}
+
 	return ret;
 }
 
