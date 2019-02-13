@@ -1624,9 +1624,8 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 			if (dtCount >= _cfg.xcorr.minDTperEvt)
 			{
 				outStream << evStream.str();
-				evStream.str("");
-				evStream.clear();
 			}
+			evStream = stringstream();
 			dtCount = 0;
 
 			evStream << stringify("# %10u %10u       0.0", ev1->id, ev2->id) << endl;
@@ -1708,8 +1707,6 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 	if (dtCount >= _cfg.xcorr.minDTperEvt)
 	{
 		outStream << evStream.str();
-		evStream.str("");
-		evStream.clear();
 	}
 }
 
