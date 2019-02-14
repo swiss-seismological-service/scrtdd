@@ -243,13 +243,17 @@ struct Config {
 		int maxNumNeigh;     // Max neighbors allowed (furthest events are discarded)
 		int minDTperEvt;      // Min differential times per event pair required (Including P+S) 
 		double minCoef;    // Min xcorr coefficient required (0-1)
+
+		double timeBeforePick; // secs
+		double timeAfterPick;  // secs
+		double maxDelay; //secs
+
 		int filterOrder;
 		double filterFmin;
 		double filterFmax;
 		double filterFsamp;
-		double timeBeforePick; // secs
-		double timeAfterPick;  // secs
-		double maxDelay; //secs
+
+		bool allowResampling;
 	} xcorr;
 };
 
@@ -280,7 +284,7 @@ class HypoDD : public Core::BaseObject {
 		void xcorrSingleEvent(const CatalogPtr& catalog,
 		                      unsigned evToRelocateId,
 		                      const std::string& dtccFile);
-		bool xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double maxDelay,
+		bool xcorr(GenericRecordCPtr tr1, GenericRecordCPtr tr2, double maxDelay,
               double& delayOut, double& coeffOut) const;
 		void runPh2dt(const std::string& workingDir, const std::string& stationFile, const std::string& phaseFile) const;
 		void runHypodd(const std::string& workingDir, const std::string& dtccFile, const std::string& dtctFile,
@@ -310,6 +314,7 @@ class HypoDD : public Core::BaseObject {
 		bool trim(GenericRecord &trace, const Core::TimeWindow& tw) const;
 		void filter(GenericRecord &trace, bool demeaning=true,
                     int order=3, double fmin=-1, double fmax=-1, double fsamp=0) const;
+		GenericRecordPtr resample(const GenericRecordCPtr &trace, int sf, bool average) const;
 		std::string generateWorkingSubDir(const Catalog::Event& ev) const;
 	private:
 		std::string _workingDir;

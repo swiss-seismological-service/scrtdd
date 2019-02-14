@@ -422,6 +422,15 @@ bool RTDD::validateParameters()
 
 		prefix = string("profile.") + *it + ".dtcc.crosscorrelation.";
 		try {
+			prof->ddcfg.xcorr.timeBeforePick = configGetDouble(prefix + "timeBeforePick");
+			prof->ddcfg.xcorr.timeAfterPick = configGetDouble(prefix + "timeAfterPick");
+			prof->ddcfg.xcorr.maxDelay = configGetDouble(prefix + "maxDelay");
+			prof->ddcfg.xcorr.minCoef = configGetDouble(prefix + "minCCCoef");
+		} catch ( ... ) {
+			profilesOK = false;
+			continue;
+		}
+ 		try {
 			prof->ddcfg.xcorr.filterFmin = configGetDouble(prefix + "filterFmin");
 		} catch ( ... ) { prof->ddcfg.xcorr.filterFmin = 0.; }
 		try {
@@ -434,15 +443,9 @@ bool RTDD::validateParameters()
 			prof->ddcfg.xcorr.filterOrder = configGetInt(prefix + "filterOrder");
 		} catch ( ... ) { prof->ddcfg.xcorr.filterOrder = 3; }
 		try {
-			prof->ddcfg.xcorr.timeBeforePick = configGetDouble(prefix + "timeBeforePick");
-			prof->ddcfg.xcorr.timeAfterPick = configGetDouble(prefix + "timeAfterPick");
-			prof->ddcfg.xcorr.maxDelay = configGetDouble(prefix + "maxDelay");
-			prof->ddcfg.xcorr.minCoef = configGetDouble(prefix + "minCCCoef");
-		} catch ( ... ) {
-			profilesOK = false;
-			continue;
-		}
-
+			prof->ddcfg.xcorr.allowResampling = configGetBool(prefix + "allowResampling");
+		} catch ( ... ) { prof->ddcfg.xcorr.allowResampling = false; }
+ 
 		prefix = string("profile.") + *it + ".hypodd.";
 		prof->ddcfg.hypodd.ctrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
 		prof->ddcfg.hypodd.exec = hypoddExec;

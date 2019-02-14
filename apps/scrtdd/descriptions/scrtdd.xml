@@ -200,25 +200,39 @@
 							Step 1: location refiniment. Generation of differential travel time (from catalog) options.
 						</description>
 						<parameter name="minWeight" type="double">
-							<description>Min phase weight required. Phases not satisfying this condition will not be used</description>
+							<description>
+								Min phase weight required. Phases not satisfying this condition will not be used
+							</description>
 						</parameter>
 						<parameter name="maxIEdist" type="double">
-							<description>Max distance (km) between events in a pair allowed. Event pairs not satisfying this condition will not be used</description>
+							<description>
+								Max distance (km) between events in a pair allowed. Event pairs not satisfying this condition will not be used
+							</description>
 							</parameter>
 						<parameter name="minESdist" type="double">
-							<description>Min distance (km) between event pair and station required. Event pairs not satisfying this condition will not be used</description>
+							<description>
+								Min distance (km) between event pair and station required. Event pairs not satisfying this condition will not be used
+							</description>
 						</parameter>
  						<parameter name="maxESdist" type="double">
-							<description>Max distance (km) between event pair and station allowed. Event pairs not satisfying this condition will not be used</description>
+							<description>
+								Max distance (km) between event pair and station allowed. Event pairs not satisfying this condition will not be used
+							</description>
 						</parameter>
 						<parameter name="minDTperEvt" type="int">
-							<description>Min number of differential travel times (Including P+S) per event pair required. Event pairs not satisfying this condition will not be used</description>
+							<description>
+								Min number of differential travel times (Including P+S) per event pair required. Event pairs not satisfying this condition will not be used
+							</description>
 							</parameter>
 						<parameter name="minNumNeigh" type="int">
-							<description>Min number of neighboring events required to perform this computation step</description>
+							<description>
+								Min number of neighboring events required to perform this computation step
+							</description>
 						</parameter>
 						<parameter name="maxNumNeigh" type="int">
-							<description>Max number of neighbors used. Further events are discarded</description>
+							<description>
+								Max number of neighbors used. Further events are discarded
+							</description>
 						</parameter>
 					</group>
 
@@ -227,39 +241,41 @@
 							Step 2: full relocation. Generation of differential travel time (with cross correlation) options.
 						</description>
 						<parameter name="minWeight" type="double">
-							<description>Min phase weight required. Phases not satisfying this condition will not be used</description>
+							<description>
+								Min phase weight required. Phases not satisfying this condition will not be used
+							</description>
 						</parameter>
 						<parameter name="maxIEdist" type="double">
-							<description>Max distance (km) between events in a pair allowed. Event pairs not satisfying this condition will not be used</description>
+							<description>
+								Max distance (km) between events in a pair allowed. Event pairs not satisfying this condition will not be used
+							</description>
 							</parameter>
 						<parameter name="minESdist" type="double">
-							<description>Min distance (km) between event pair and station required. Event pairs not satisfying this condition will not be used</description>
+							<description>
+								Min distance (km) between event pair and station required. Event pairs not satisfying this condition will not be used
+							</description>
 						</parameter>
  						<parameter name="maxESdist" type="double">
-							<description>Max distance (km) between event pair and station allowed. Event pairs not satisfying this condition will not be used</description>
+							<description>
+								Max distance (km) between event pair and station allowed. Event pairs not satisfying this condition will not be used
+							</description>
 						</parameter>
 						<parameter name="minDTperEvt" type="int">
-							<description>Min number of differential travel times (Including P+S) per event pair required. Event pairs not satisfying this condition will not be used</description>
+							<description>
+								Min number of differential travel times (Including P+S) per event pair required. Event pairs not satisfying this condition will not be used
+							</description>
 							</parameter>
 						<parameter name="minNumNeigh" type="int">
-							<description>Min number of neighboring events required to perform this computation step</description>
+							<description>
+								Min number of neighboring events required to perform this computation step
+							</description>
 						</parameter>
 						<parameter name="maxNumNeigh" type="int">
-							<description>Max number of neighbors used. Further events are discarded</description>
+							<description>
+								Max number of neighbors used. Further events are discarded
+							</description>
 						</parameter> 
 						<group name="crosscorrelation">
-							<parameter name="filterFmin" type="double">
-								<description>Frequency of the hi-pass filter (hz, 0 disable)</description>
-							</parameter>
-							<parameter name="filterFmax" type="double">
-								<description>Frequency of the low-pass filter (hz, 0 disable)</description>
-							</parameter>
-							<parameter name="filterFsamp" type="double">
-								<description>Samplig rate (hz, 0 disable)</description>
-							</parameter>
-							<parameter name="filterOrder" type="int">
-								<description>Filter order</description>
-							</parameter>
 							<parameter name="timeBeforePick" type="double">
 								<description>(secs)</description>
 							</parameter>
@@ -272,9 +288,28 @@
 							<parameter name="minCCCoef" type="double">
 								<description>Min crosscorrelation coefficient accepted to use a differential travel time</description>
 							</parameter>
- 						</group>
-					</group>
-
+							<parameter name="filterFmin" type="double">
+								<description>Frequency of the hi-pass filter (hz, 0 disable)</description>
+							</parameter>
+							<parameter name="filterFmax" type="double">
+								<description>Frequency of the low-pass filter (hz, 0 disable)</description>
+							</parameter>
+							<parameter name="filterFsamp" type="double">
+								<description>Samplig rate (hz, 0 disable)</description>
+							</parameter>
+							<parameter name="filterOrder" type="int">
+								<description>Filter order</description>
+							</parameter>
+							<parameter name="allowResampling" type="boolean" default="false">
+								<description>
+									When cross correlating two waveforms with different sampling rate,
+									allow to resample the higher sampling rate one, to the lower rate.
+									When enabled, make sure to set a proper filtering to avoid potential
+									aliasing issues
+								</description>
+							</parameter>
+						</group>
+					</group> 
 					<group name="hypodd">
 						<parameter name="controlFile" type="path">
 							<description>

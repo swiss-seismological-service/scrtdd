@@ -1872,8 +1872,9 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 }
 
 
+// Calculate the correlation series (tr1 and tr2 are already demeaned)
 bool
-HypoDD::xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double maxDelay,
+HypoDD::xcorr(GenericRecordCPtr tr1, GenericRecordCPtr tr2, double maxDelay,
               double& delayOut, double& coeffOut) const
 {
 	delayOut = 0.;
@@ -1881,9 +1882,24 @@ HypoDD::xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double m
 
 	if (tr1->samplingFrequency() != tr2->samplingFrequency())
 	{
-		SEISCOMP_WARNING("Cannot cross correlate traces with different sampling freq (%f!=%f)",
-		                 tr1->samplingFrequency(), tr2->samplingFrequency());
-		return false;
+		if ( !_cfg.xcorr.allowResampling )
+		{
+			SEISCOMP_WARNING("Cannot cross correlate traces with different sampling freq (%f!=%f)",
+			                 tr1->samplingFrequency(), tr2->samplingFrequency());
+			return false;
+		}
+		if (tr1->samplingFrequency() > tr2->samplingFrequency() )
+		{
+			SEISCOMP_DEBUG("Resampling trace from %f to %f", 
+			               tr1->samplingFrequency(), tr2->samplingFrequency());
+			tr1 = resample(tr1, tr2->samplingFrequency(), true);
+		}
+		else
+		{
+			SEISCOMP_DEBUG("Resampling trace from %f to %f", 
+			               tr2->samplingFrequency(), tr1->samplingFrequency());
+			tr2 = resample(tr2, tr1->samplingFrequency(), true);
+		}
 	}
 
 	double freq = tr1->samplingFrequency();
@@ -1891,15 +1907,14 @@ HypoDD::xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double m
 
 	// check longest/shortest trace
 	bool swap = tr1->data()->size() > tr2->data()->size();
-	GenericRecordPtr trShorter = swap ? tr2 : tr1;
-	GenericRecordPtr trLonger = swap ? tr1 : tr2;
+	GenericRecordCPtr trShorter = swap ? tr2 : tr1;
+	GenericRecordCPtr trLonger = swap ? tr1 : tr2; 
 
 	const double *smpsS = DoubleArray::ConstCast(trShorter->data())->typedData();
 	const double *smpsL = DoubleArray::ConstCast(trLonger->data())->typedData();
 	int smpsSsize = trShorter->data()->size();
 	int smpsLsize = trLonger->data()->size();
 
-	// Calculate the correlation series (tr1 and tr2 are already demeaned)
 	for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
 	{
 		double numer = 0, denomL = 0, denomS = 0;
@@ -2228,7 +2243,7 @@ void HypoDD::filter(GenericRecord &trace, bool demeaning,
 }
 
 
-GenericRecordPtr resample(const GenericRecordPtr &trace, int sf, bool average)
+GenericRecordPtr HypoDD::resample(const GenericRecordCPtr &trace, int sf, bool average) const
 {
 	if ( sf <= 0 )
 		return nullptr;
