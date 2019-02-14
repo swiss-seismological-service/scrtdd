@@ -200,22 +200,25 @@
 							Step 1: location refiniment. Generation of differential travel time (from catalog) options.
 						</description>
 						<parameter name="minWeight" type="double">
-							<description>Min weight required to use a phase</description>
-						</parameter>
-						<parameter name="maxESdist" type="double">
-							<description>Max distance (km) between epicentre and station allowed</description>
+							<description>Min phase weight required. Phases not satisfying this condition will not be used</description>
 						</parameter>
 						<parameter name="maxIEdist" type="double">
-							<description>Max distance (km) between event pairs allowed to use a pair</description>
+							<description>Max distance (km) between events in a pair allowed. Event pairs not satisfying this condition will not be used</description>
+							</parameter>
+						<parameter name="minESdist" type="double">
+							<description>Min distance (km) between event pair and station required. Event pairs not satisfying this condition will not be used</description>
 						</parameter>
+ 						<parameter name="maxESdist" type="double">
+							<description>Max distance (km) between event pair and station allowed. Event pairs not satisfying this condition will not be used</description>
+						</parameter>
+						<parameter name="minDTperEvt" type="int">
+							<description>Min number of differential travel times (Including P+S) per event pair required. Event pairs not satisfying this condition will not be used</description>
+							</parameter>
 						<parameter name="minNumNeigh" type="int">
 							<description>Min number of neighboring events required to perform this computation step</description>
 						</parameter>
 						<parameter name="maxNumNeigh" type="int">
-							<description>Max number of neighbors used (furthest events are discarded)</description>
-						</parameter>
-						<parameter name="minDTperEvt" type="int">
-							<description>Min number of differential travel times (Including P+S) per event required to perform this computation step</description>
+							<description>Max number of neighbors used. Further events are discarded</description>
 						</parameter>
 					</group>
 
@@ -224,26 +227,26 @@
 							Step 2: full relocation. Generation of differential travel time (with cross correlation) options.
 						</description>
 						<parameter name="minWeight" type="double">
-							<description>Min weight required to use a phase</description>
-						</parameter>
-						<parameter name="maxESdist" type="double">
-							<description>Max distance (km) between epicentre and station allowed</description>
+							<description>Min phase weight required. Phases not satisfying this condition will not be used</description>
 						</parameter>
 						<parameter name="maxIEdist" type="double">
-							<description>Max distance (km) between event pairs allowed to use a pair</description>
+							<description>Max distance (km) between events in a pair allowed. Event pairs not satisfying this condition will not be used</description>
+							</parameter>
+						<parameter name="minESdist" type="double">
+							<description>Min distance (km) between event pair and station required. Event pairs not satisfying this condition will not be used</description>
 						</parameter>
+ 						<parameter name="maxESdist" type="double">
+							<description>Max distance (km) between event pair and station allowed. Event pairs not satisfying this condition will not be used</description>
+						</parameter>
+						<parameter name="minDTperEvt" type="int">
+							<description>Min number of differential travel times (Including P+S) per event pair required. Event pairs not satisfying this condition will not be used</description>
+							</parameter>
 						<parameter name="minNumNeigh" type="int">
 							<description>Min number of neighboring events required to perform this computation step</description>
 						</parameter>
 						<parameter name="maxNumNeigh" type="int">
-							<description>Max number of neighbors used (furthest events are discarded)</description>
-						</parameter>
-						<parameter name="minDTperEvt" type="int">
-							<description>Min number of differential travel times (Including P+S) per event required to perform this computation step</description>
-						</parameter>
-						<parameter name="minCCCoef" type="double">
-							<description>Min crosscorrelation coefficient required to use a differential travel time</description>
-						</parameter>
+							<description>Max number of neighbors used. Further events are discarded</description>
+						</parameter> 
 						<group name="crosscorrelation">
 							<parameter name="filterFmin" type="double">
 								<description>Frequency of the hi-pass filter (hz, 0 disable)</description>
@@ -268,7 +271,8 @@
 							</parameter>
 							<parameter name="minCCCoef" type="double">
 								<description>Min crosscorrelation coefficient accepted to use a differential travel time</description>
- 							</group>
+							</parameter>
+ 						</group>
 					</group>
 
 					<group name="hypodd">

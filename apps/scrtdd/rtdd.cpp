@@ -394,6 +394,7 @@ bool RTDD::validateParameters()
 		prefix = string("profile.") + *it + ".dtct.";
 		try {
 			prof->ddcfg.dtt.minWeight = configGetDouble(prefix + "minWeight");
+			prof->ddcfg.dtt.maxESdist = configGetDouble(prefix + "minESdist");
 			prof->ddcfg.dtt.maxESdist = configGetDouble(prefix + "maxESdist");
 			prof->ddcfg.dtt.maxIEdist = configGetDouble(prefix + "maxIEdist");
 			prof->ddcfg.dtt.minNumNeigh = configGetInt(prefix + "minNumNeigh");
@@ -408,6 +409,7 @@ bool RTDD::validateParameters()
 		prof->ddcfg.xcorr.recordStreamURL = recordStreamURL();
 		try {
 			prof->ddcfg.xcorr.minWeight = configGetDouble(prefix + "minWeight");
+			prof->ddcfg.xcorr.maxESdist = configGetDouble(prefix + "minESdist");
 			prof->ddcfg.xcorr.maxESdist = configGetDouble(prefix + "maxESdist");
 			prof->ddcfg.xcorr.maxIEdist = configGetDouble(prefix + "maxIEdist");
 			prof->ddcfg.xcorr.minNumNeigh = configGetInt(prefix + "minNumNeigh");

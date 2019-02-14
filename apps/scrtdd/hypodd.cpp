@@ -917,7 +917,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 	}
 
 	// Select neighbouring events
-	CatalogPtr neighbourCat = selectNeighbouringEvents(_ddbgc, evToRelocate,
+	CatalogPtr neighbourCat = selectNeighbouringEvents(_ddbgc, evToRelocate, _cfg.dtt.minESdist,
 	                                                 _cfg.dtt.maxESdist, _cfg.dtt.maxIEdist,
 	                                                 _cfg.dtt.minNumNeigh, _cfg.dtt.maxNumNeigh,
 	                                                 _cfg.dtt.minDTperEvt);
@@ -974,8 +974,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 
 		// Select neighbouring events from the relocated origin
 		const Catalog::Event& refinedLoc = relocatedEv->getEvents().begin()->second;
-		neighbourCat = selectNeighbouringEvents(_ddbgc, refinedLoc, _cfg.xcorr.maxESdist,
-		                                        _cfg.xcorr.maxIEdist,
+		neighbourCat = selectNeighbouringEvents(_ddbgc, refinedLoc, _cfg.xcorr.minESdist,
+		                                        _cfg.xcorr.maxESdist, _cfg.xcorr.maxIEdist,
 		                                        _cfg.xcorr.minNumNeigh, _cfg.xcorr.maxNumNeigh,
 		                                        _cfg.xcorr.minDTperEvt);
 		// add event to relocate to the neighbour catalog
@@ -1264,6 +1264,7 @@ double HypoDD::computeDistance(double lat1, double lon1, double depth1,
 
 CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
                                             const Catalog::Event& refEv,
+                                            double minESdis,
                                             double maxESdis,
                                             double maxIEdis,
                                             int minNumNeigh,
@@ -1342,6 +1343,10 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 			                                  station.latitude, station.longitude, -(station.elevation/1000.));
 			// too far away ?
 			if ( distance > maxESdis )
+				continue;
+
+			// too close ?
+			if ( distance < minESdis )
 				continue;
 
 			phases.emplace(event.id, phase);

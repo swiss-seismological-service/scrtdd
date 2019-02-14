@@ -223,7 +223,8 @@ struct Config {
 
 	// differential travel time specific
 	struct {
-		double minWeight;  // Min weight of phases allowed (0-1)
+		double minWeight;  // Min weight of phases required (0-1)
+		double minESdist;   // Min epi-sta epidistance required
 		double maxESdist;   // Max epi-sta epidistance allowed
 		double maxIEdist;   // Max interevent-distance allowed (km)
 		int minNumNeigh;      // Min neighbors required
@@ -234,12 +235,13 @@ struct Config {
 	// cross correlation specific
 	struct {
 		std::string recordStreamURL;
-		double minWeight;  // Min weight of phases allowed (0-1)
+		double minWeight;  // Min weight of phases required (0-1)
+		double minESdist;   // Min epi-sta epidistance required
 		double maxESdist;   // Max epi-sta epidistance allowed
 		double maxIEdist;   // Max interevent-distance allowed (km)
 		int minNumNeigh;      // Min neighbors required
 		int maxNumNeigh;     // Max neighbors allowed (furthest events are discarded)
-		int minDTperEvt;      // Min differential times per event pair required (Including P+S)
+		int minDTperEvt;      // Min differential times per event pair required (Including P+S) 
 		double minCoef;    // Min xcorr coefficient required (0-1)
 		int filterOrder;
 		double filterFmin;
@@ -287,8 +289,8 @@ class HypoDD : public Core::BaseObject {
 		double computeDistance(double lat1, double lon1, double depth1,
 		                       double lat2, double lon2, double depth2);
 		CatalogPtr selectNeighbouringEvents(const CatalogPtr& catalog, const Catalog::Event& refEv,
-		                                      double maxESdis, double maxIEdis, int minNumNeigh=0,
-		                                      int maxNumNeigh=0, int minDTperEvt=0);
+		                                    double minESdis, double maxESdis, double maxIEdis,
+		                                    int minNumNeigh=0, int maxNumNeigh=0, int minDTperEvt=0);
 		CatalogPtr extractEvent(const CatalogPtr& catalog, unsigned eventId) const;
 		GenericRecordPtr getWaveform(const Core::Time& starttime, double duration,
 		                             const Catalog::Event& ev, const Catalog::Phase& ph,
