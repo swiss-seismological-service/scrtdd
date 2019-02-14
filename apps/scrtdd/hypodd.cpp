@@ -1643,6 +1643,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 			string stationId = fields[0];
 			string phaseType = fields[4];
 
+			double travel_time1, travel_time2;;
 			GenericRecordPtr tr1, tr2;
 
 			// loop through event 1 phases
@@ -1655,7 +1656,14 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 				if (phase.stationId != stationId ||
 				    phase.type != phaseType)
 					continue;
- 				tr1 = getWaveform(phase.time - wfTimeCorrection, wfDuration, *ev1, phase, _wfCache, _wfDiskCache);
+				travel_time1 = phase.time - ev1->time;
+				if (travel_time1 < 0)
+				{
+					SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
+					                 string(phase).c_str(), string(*ev1).c_str());
+					continue; 
+				}
+				tr1 = getWaveform(phase.time - wfTimeCorrection, wfDuration, *ev1, phase, _wfCache, _wfDiskCache);
 			}
 
 			// loop through event 2 phases
@@ -1668,6 +1676,13 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 				if (phase.stationId != stationId ||
 				    phase.type != phaseType)
 					continue;
+				travel_time2 = phase.time - ev2->time;
+				if (travel_time2 < 0)
+				{
+					SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
+					                 string(phase).c_str(), string(*ev2).c_str());
+					continue; 
+				}
 				tr2 = getWaveform(phase.time - wfTimeCorrection, wfDuration, *ev2, phase, _wfCache, _wfDiskCache);
 			}
 
@@ -1698,7 +1713,9 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 				continue;
 			}
 
-			evStream << stringify("%-12s %.6f %.4f %s", stationId.c_str(), xcorr_dt,
+			double dtcc = travel_time1 - travel_time2 - xcorr_dt;
+
+			evStream << stringify("%-12s %.6f %.4f %s", stationId.c_str(), dtcc,
 			                      xcorr_coeff * xcorr_coeff, phaseType.c_str());
 			evStream << endl;
 			dtCount++;
@@ -1775,12 +1792,20 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 			if (phase.weight < _cfg.xcorr.minWeight)
 				continue;
 
+			double travel_time = phase.time - event.time;
+			if (travel_time < 0)
+			{
+				SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
+				                 string(phase).c_str(), string(event).c_str());
+				continue; 
+			} 
+
 			GenericRecordPtr trace = getWaveform(phase.time - catWfTimeCorrection, catWfDuration,
 			                                     event, phase, _wfCache, _wfDiskCache);
 			if ( !trace )
 			{
 				SEISCOMP_WARNING("Cannot load phase waveform, skipping xcorr for event '%s' phase '%s')",
-								 string(phase).c_str(), string(event).c_str());
+				                 string(phase).c_str(), string(event).c_str());
 				continue;
 			}
 
@@ -1791,6 +1816,14 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 				const Catalog::Phase& refPhase = it2->second;
 				if (refPhase.weight < _cfg.xcorr.minWeight)
 					continue;
+
+				double ref_travel_time = refPhase.time - refEv.time;
+				if (ref_travel_time < 0)
+				{
+					SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
+					                 string(refPhase).c_str(), string(refEv).c_str());
+					continue; 
+				}
 
 				if (phase.stationId == refPhase.stationId && 
 				    phase.type == refPhase.type)
@@ -1824,8 +1857,10 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 						continue;
 					}
 
+					double dtcc = travel_time - ref_travel_time - xcorr_dt;
+
 					evStream << stringify("%-12s %.6f %.4f %s", refPhase.stationId.c_str(),
-					                      xcorr_dt, xcorr_coeff*xcorr_coeff,  refPhase.type.c_str());
+					                      dtcc, xcorr_coeff*xcorr_coeff,  refPhase.type.c_str());
 					evStream << endl;
 					dtCount++;
 				}
