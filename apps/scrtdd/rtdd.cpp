@@ -413,7 +413,6 @@ bool RTDD::validateParameters()
 			prof->ddcfg.xcorr.minNumNeigh = configGetInt(prefix + "minNumNeigh");
 			prof->ddcfg.xcorr.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
 			prof->ddcfg.xcorr.minDTperEvt = configGetInt(prefix + "minDTperEvt");
-			prof->ddcfg.xcorr.minCoef = configGetDouble(prefix + "minCCCoef");
 		} catch ( ... ) {
 			profilesOK = false;
 			continue;
@@ -422,13 +421,13 @@ bool RTDD::validateParameters()
 		prefix = string("profile.") + *it + ".dtcc.crosscorrelation.";
 		try {
 			prof->ddcfg.xcorr.filterFmin = configGetDouble(prefix + "filterFmin");
-		} catch ( ... ) {}
+		} catch ( ... ) { prof->ddcfg.xcorr.filterFmin = 0.; }
 		try {
 			prof->ddcfg.xcorr.filterFmax = configGetDouble(prefix + "filterFmax");
-		} catch ( ... ) {}
+		} catch ( ... ) { prof->ddcfg.xcorr.filterFmax = 0.; }
 		try {
 			prof->ddcfg.xcorr.filterFsamp = configGetDouble(prefix + "filterFsamp");
-		} catch ( ... ) {}
+		} catch ( ... ) { prof->ddcfg.xcorr.filterFsamp = 0.; }
 		try {
 			prof->ddcfg.xcorr.filterOrder = configGetInt(prefix + "filterOrder");
 		} catch ( ... ) { prof->ddcfg.xcorr.filterOrder = 3; }
@@ -436,6 +435,7 @@ bool RTDD::validateParameters()
 			prof->ddcfg.xcorr.timeBeforePick = configGetDouble(prefix + "timeBeforePick");
 			prof->ddcfg.xcorr.timeAfterPick = configGetDouble(prefix + "timeAfterPick");
 			prof->ddcfg.xcorr.maxDelay = configGetDouble(prefix + "maxDelay");
+			prof->ddcfg.xcorr.minCoef = configGetDouble(prefix + "minCCCoef");
 		} catch ( ... ) {
 			profilesOK = false;
 			continue;

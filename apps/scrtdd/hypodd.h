@@ -290,10 +290,10 @@ class HypoDD : public Core::BaseObject {
 		                                      double maxESdis, double maxIEdis, int minNumNeigh=0,
 		                                      int maxNumNeigh=0, int minDTperEvt=0);
 		CatalogPtr extractEvent(const CatalogPtr& catalog, unsigned eventId) const;
-		GenericRecordPtr getWaveform(const Catalog::Event& ev, const Catalog::Phase& ph,
+		GenericRecordPtr getWaveform(const Core::Time& starttime, double duration,
+		                             const Catalog::Event& ev, const Catalog::Phase& ph,
 		                             std::map<std::string,GenericRecordPtr>& cache, bool useDiskCache);
-		GenericRecordPtr loadWaveform(const Core::Time& starttime,
-		                              double duration,
+		GenericRecordPtr loadWaveform(const Core::TimeWindow& tw,
 		                              const std::string& networkCode,
 		                              const std::string& stationCode,
 		                              const std::string& locationCode,

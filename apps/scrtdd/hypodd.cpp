@@ -1580,6 +1580,10 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 	if ( !outStream.is_open() )
 		throw runtime_error("Cannot create file " + dtccFile);
 
+	// catalog waveforms start time, duration
+	double wfDuration = _cfg.xcorr.timeBeforePick + _cfg.xcorr.timeAfterPick + _cfg.xcorr.maxDelay * 2;
+	Core::TimeSpan wfTimeCorrection = Core::TimeSpan(_cfg.xcorr.timeBeforePick + _cfg.xcorr.maxDelay);
+
 	const std::map<unsigned,Catalog::Event>& events = _ddbgc->getEvents();
 	const Catalog::Event *ev1 = nullptr, *ev2 = nullptr;
 	int dtCount = 0;
@@ -1621,10 +1625,8 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 			ev2 = &search2->second;
 
 			// write the pairs has been built up to now
-			if (dtCount >= _cfg.xcorr.minDTperEvt)
-			{
+			if (dtCount > 0)
 				outStream << evStream.str();
-			}
 			evStream = stringstream();
 			dtCount = 0;
 
@@ -1648,7 +1650,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 				if (phase.stationId != stationId ||
 				    phase.type != phaseType)
 					continue;
-				tr1 = getWaveform(*ev1, phase, _wfCache, _wfDiskCache);
+ 				tr1 = getWaveform(phase.time - wfTimeCorrection, wfDuration, *ev1, phase, _wfCache, _wfDiskCache);
 			}
 
 			// loop through event 2 phases
@@ -1661,7 +1663,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 				if (phase.stationId != stationId ||
 				    phase.type != phaseType)
 					continue;
-				tr2 = getWaveform(*ev2, phase, _wfCache, _wfDiskCache);
+				tr2 = getWaveform(phase.time - wfTimeCorrection, wfDuration, *ev2, phase, _wfCache, _wfDiskCache);
 			}
 
 			if ( !tr1 || !tr2)
@@ -1684,15 +1686,15 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 				continue;
 			}
 
-			if ( xcorr_coeff < _cfg.xcorr.minCoef)
+			if ( ! std::isfinite(xcorr_coeff) || xcorr_coeff < _cfg.xcorr.minCoef)
 			{
 				SEISCOMP_DEBUG("Cross correlation coefficient too low (%f < %f): skip pair",
 				               xcorr_coeff, _cfg.xcorr.minCoef);
 				continue;
 			}
 
-			evStream << stringify("%-12s %.6f %.4f %s",
-			                       stationId.c_str(), xcorr_dt, xcorr_coeff, phaseType.c_str());
+			evStream << stringify("%-12s %.6f %.4f %s", stationId.c_str(), xcorr_dt,
+			                      xcorr_coeff * xcorr_coeff, phaseType.c_str());
 			evStream << endl;
 			dtCount++;
 		}
@@ -1704,7 +1706,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 		}
 	}
 
-	if (dtCount >= _cfg.xcorr.minDTperEvt)
+	if (dtCount > 0)
 	{
 		outStream << evStream.str();
 	}
@@ -1737,11 +1739,18 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 		string msg = stringify("Cannot find event id %u in the catalog.", evToRelocateId);
 		throw runtime_error(msg);
 	}
-	const Catalog::Event& refEv = search->second;
+	const Catalog::Event& refEv = search->second; //reference event
 
 	map<string, GenericRecordPtr> tmpWfCache;
 
-	// loop through catalog events
+	// reference event waveform 
+	double refWfDuration = _cfg.xcorr.timeBeforePick + _cfg.xcorr.timeAfterPick;
+	Core::TimeSpan refWfTimeCorrection = Core::TimeSpan(_cfg.xcorr.timeBeforePick);
+	// catalog waveforms
+ 	double catWfDuration = refWfDuration + _cfg.xcorr.maxDelay * 2;
+	Core::TimeSpan catWfTimeCorrection = refWfTimeCorrection + Core::TimeSpan(_cfg.xcorr.maxDelay);
+
+ 	// loop through catalog events
 	for (const auto& kv : catalog->getEvents() )
 	{
 		const Catalog::Event& event = kv.second;
@@ -1761,7 +1770,8 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 			if (phase.weight < _cfg.xcorr.minWeight)
 				continue;
 
-			GenericRecordPtr trace = getWaveform(event, phase, _wfCache, _wfDiskCache);
+			GenericRecordPtr trace = getWaveform(phase.time - catWfTimeCorrection, catWfDuration,
+			                                     event, phase, _wfCache, _wfDiskCache);
 			if ( !trace )
 			{
 				SEISCOMP_WARNING("Cannot load phase waveform, skipping xcorr for event '%s' phase '%s')",
@@ -1780,7 +1790,8 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 				if (phase.stationId == refPhase.stationId && 
 				    phase.type == refPhase.type)
 				{
-					GenericRecordPtr refTrace = getWaveform(refEv, refPhase, tmpWfCache, false);
+					GenericRecordPtr refTrace = getWaveform(refPhase.time - refWfTimeCorrection, refWfDuration, 
+					                                        refEv, refPhase, tmpWfCache, false);
 					if ( !refTrace )
 					{
 						SEISCOMP_WARNING("Cannot load phase waveform, skipping xcorr for event '%s' phase '%s')",
@@ -1801,17 +1812,15 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 						continue;
 					}
 
-					if ( xcorr_coeff < _cfg.xcorr.minCoef)
+					if ( ! std::isfinite(xcorr_coeff) || xcorr_coeff < _cfg.xcorr.minCoef)
 					{
 						SEISCOMP_DEBUG("Cross correlation coefficient too low (%f < %f): skip pair",
 									   xcorr_coeff, _cfg.xcorr.minCoef);
 						continue;
 					}
 
-					evStream << stringify("%-12s %.6f %.4f %s",
-					                      refPhase.stationId.c_str(),
-					                      xcorr_dt, xcorr_coeff*xcorr_coeff,
-					                      refPhase.type.c_str());
+					evStream << stringify("%-12s %.6f %.4f %s", refPhase.stationId.c_str(),
+					                      xcorr_dt, xcorr_coeff*xcorr_coeff,  refPhase.type.c_str());
 					evStream << endl;
 					dtCount++;
 				}
@@ -1828,7 +1837,7 @@ HypoDD::xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double m
               double& delayOut, double& coeffOut) const
 {
 	delayOut = 0.;
-	coeffOut = -1.;
+	coeffOut = std::nan("");
 
 	if (tr1->samplingFrequency() != tr2->samplingFrequency())
 	{
@@ -1850,17 +1859,10 @@ HypoDD::xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double m
 	int smpsSsize = trShorter->data()->size();
 	int smpsLsize = trLonger->data()->size();
 
-	// Calculate part of the denominator (speed up)
-	double denomS;
-	for (int idxS = 0; idxS < smpsSsize; idxS++)
-	{
-		denomS += smpsS[idxS] * smpsS[idxS];
-	}
-
 	// Calculate the correlation series (tr1 and tr2 are already demeaned)
 	for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
 	{
-		double numer = 0, denomL = 0;
+		double numer = 0, denomL = 0, denomS = 0;
 		for (int idxS = 0; idxS < smpsSsize; idxS++)
 		{
 			int idxL = idxS + smpsLsize/2 - smpsSsize/2 + delay;
@@ -1868,10 +1870,11 @@ HypoDD::xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double m
 				continue;
 			numer  += smpsS[idxS] * smpsL[idxL];
 			denomL += smpsL[idxL] * smpsL[idxL];
+			denomS += smpsS[idxS] * smpsS[idxS];
 		}
-		double denom = std::sqrt(denomS*denomL);
+		double denom =  std::sqrt(denomS * denomL);
 		double coeff = numer / denom;
-		if (coeff > coeffOut)
+		if ( coeff > coeffOut || !std::isfinite(coeffOut) )
 		{
 			coeffOut = coeff;
 			delayOut = delay / freq; // samples to secs
@@ -1888,27 +1891,28 @@ HypoDD::xcorr(const GenericRecordPtr& tr1, const GenericRecordPtr& tr2, double m
  * Return the waveform from the memory cache if present, otherwise load it
  */
 GenericRecordPtr
-HypoDD::getWaveform(const Catalog::Event& ev,
+HypoDD::getWaveform(const Core::Time& starttime,
+                    double duration,
+                    const Catalog::Event& ev,
                     const Catalog::Phase& ph,
                     map<string,GenericRecordPtr>& cache,
                     bool useDiskCache)
 {
-	Core::Time starttime = ph.time - Core::TimeSpan(_cfg.xcorr.timeBeforePick);
-	double duration = _cfg.xcorr.timeBeforePick + _cfg.xcorr.timeAfterPick;
+	Core::TimeWindow tw = Core::TimeWindow(starttime.toLocalTime(), duration);
 
 	string wfId = stringify("%s.%s.%s.%s.%s.%.6f",
 	                        ph.networkCode.c_str(), ph.stationCode.c_str(),
 	                        ph.locationCode.c_str(), ph.channelCode.c_str(),
-	                        ph.time.iso().c_str(), duration);
+	                        tw.startTime().iso().c_str(), tw.length());
 
+	// first try to load the waveform from the cache
 	const auto it = cache.find(wfId);
 	if ( it == cache.end() ) // waveform not cached yet
 	{
 		GenericRecordPtr wf;
 		// load waveform
 		try {
-			wf = loadWaveform(starttime, duration,
-			                  ph.networkCode, ph.stationCode,
+			wf = loadWaveform(tw, ph.networkCode, ph.stationCode,
 			                  ph.locationCode, ph.channelCode,
 			                  useDiskCache);
 		} catch ( ... ) {}
@@ -1927,16 +1931,13 @@ HypoDD::getWaveform(const Catalog::Event& ev,
  * from the configured RecordStream
  */
 GenericRecordPtr
-HypoDD::loadWaveform(const Core::Time& time,
-                     double duration,
+HypoDD::loadWaveform(const Core::TimeWindow& tw,
                      const string& networkCode,
                      const string& stationCode,
                      const string& locationCode,
                      const string& channelCode,
                      bool useDiskCache) const
 {
-	Core::TimeWindow tw(time.toLocalTime(), duration);
-
 	string cacheFile = stringify("%s.%s.%s.%s.%s.%.6f.mseed",
 	                             networkCode.c_str(), stationCode.c_str(),
 	                             locationCode.c_str(), channelCode.c_str(),
@@ -2158,13 +2159,6 @@ void HypoDD::filter(GenericRecord &trace, bool demeaning,
 {
 	DoubleArray *data = DoubleArray::Cast(trace.data());
 
-	if (demeaning)
-	{
-		double mean = data->mean();
-		int cnt = data->size();
-		for ( int i = 0; i < cnt; ++i ) (*data)[i] -= mean;
-	}
-
 	if ( fmin > 0 && fmax > 0 )
 	{
 		Math::Filtering::IIR::ButterworthHighLowpass<double> bp(order, fmin, fmax, fsamp);
@@ -2183,6 +2177,14 @@ void HypoDD::filter(GenericRecord &trace, bool demeaning,
 		lp.setSamplingFrequency(trace.samplingFrequency());
 		lp.apply(data->size(), data->typedData());
 	}
+
+	if (demeaning)
+	{
+		double mean = data->mean();
+		int cnt = data->size();
+		for ( int i = 0; i < cnt; ++i ) (*data)[i] -= mean;
+	}
+
 }
 
 

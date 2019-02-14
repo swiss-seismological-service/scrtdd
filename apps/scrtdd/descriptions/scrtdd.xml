@@ -266,7 +266,9 @@
 							<parameter name="maxDelay" type="double">
 								<description>(secs)</description>
 							</parameter>
-						</group>
+							<parameter name="minCCCoef" type="double">
+								<description>Min crosscorrelation coefficient accepted to use a differential travel time</description>
+ 							</group>
 					</group>
 
 					<group name="hypodd">
