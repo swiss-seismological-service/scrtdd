@@ -1585,10 +1585,6 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 	if ( !outStream.is_open() )
 		throw runtime_error("Cannot create file " + dtccFile);
 
-	// catalog waveforms start time, duration
-	double wfDuration = _cfg.xcorr.timeBeforePick + _cfg.xcorr.timeAfterPick + _cfg.xcorr.maxDelay * 2;
-	Core::TimeSpan wfTimeCorrection = Core::TimeSpan(_cfg.xcorr.timeBeforePick + _cfg.xcorr.maxDelay);
-
 	const std::map<unsigned,Catalog::Event>& events = _ddbgc->getEvents();
 	const Catalog::Event *ev1 = nullptr, *ev2 = nullptr;
 	int dtCount = 0;
@@ -1643,82 +1639,37 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 			string stationId = fields[0];
 			string phaseType = fields[4];
 
-			double travel_time1, travel_time2;;
-			GenericRecordPtr tr1, tr2;
-
 			// loop through event 1 phases
 			auto eqlrng = _ddbgc->getPhases().equal_range(ev1->id);
 			for (auto it = eqlrng.first; it != eqlrng.second; ++it)
 			{
-				const Catalog::Phase& phase = it->second;
-				if (phase.weight < _cfg.xcorr.minWeight)
-					continue;
-				if (phase.stationId != stationId ||
-				    phase.type != phaseType)
-					continue;
-				travel_time1 = phase.time - ev1->time;
-				if (travel_time1 < 0)
+				const Catalog::Phase& phase1 = it->second;
+				if (phase1.stationId == stationId &&
+				    phase1.type == phaseType)
 				{
-					SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
-					                 string(phase).c_str(), string(*ev1).c_str());
-					continue; 
+					// loop through event 2 phases
+					eqlrng = _ddbgc->getPhases().equal_range(ev2->id);
+					for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+					{
+						const Catalog::Phase& phase2 = it->second;
+						if (phase2.stationId == stationId &&
+							phase2.type == phaseType)
+						{
+							double dtcc, weight;
+							if ( xcorr( *ev1, phase1, *ev2, phase2, dtcc, weight,
+							           _wfCache, _wfDiskCache, _wfCache, _wfDiskCache) )
+							{
+								evStream << stringify("%-12s %.6f %.4f %s", stationId.c_str(),
+								                      dtcc, weight, phaseType.c_str());
+								evStream << endl;
+								dtCount++;
+							}
+							break;
+						}
+					}
+					break;
 				}
-				tr1 = getWaveform(phase.time - wfTimeCorrection, wfDuration, *ev1, phase, _wfCache, _wfDiskCache);
 			}
-
-			// loop through event 2 phases
-			eqlrng = _ddbgc->getPhases().equal_range(ev2->id);
-			for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-			{
-				const Catalog::Phase& phase = it->second;
-				if (phase.weight < _cfg.xcorr.minWeight)
-					continue;
-				if (phase.stationId != stationId ||
-				    phase.type != phaseType)
-					continue;
-				travel_time2 = phase.time - ev2->time;
-				if (travel_time2 < 0)
-				{
-					SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
-					                 string(phase).c_str(), string(*ev2).c_str());
-					continue; 
-				}
-				tr2 = getWaveform(phase.time - wfTimeCorrection, wfDuration, *ev2, phase, _wfCache, _wfDiskCache);
-			}
-
-			if ( !tr1 || !tr2)
-			{
-				SEISCOMP_WARNING("Cannot load waveforms. Skipping line '%s' from file '%s'",
-				               row.c_str(), dtctFile.c_str());
-				continue;
-			}
-
-			SEISCOMP_DEBUG("Calculating cross correlation for event pair %u-%u, line '%s' from file '%s'",
-			               ev1->id, ev2->id, row.c_str(), dtctFile.c_str());
-
-			double xcorr_coeff, xcorr_dt;
-			if ( ! xcorr(tr1, tr2, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
-			{
-				SEISCOMP_WARNING("Cannot cross correlate traces for events '%s' and '%s', "
-				                 "station %s, phase %s. Skipping them.",
-				                 string(*ev1).c_str(), string(*ev2).c_str(),
-				                 stationId.c_str(), phaseType.c_str() );
-				continue;
-			}
-
-			if ( ! std::isfinite(xcorr_coeff) || xcorr_coeff < _cfg.xcorr.minCoef)
-			{
-				SEISCOMP_DEBUG("Cross correlation coefficient too low (%f < %f): skip pair",
-				               xcorr_coeff, _cfg.xcorr.minCoef);
-				continue;
-			}
-
-			double dtcc = travel_time1 - travel_time2 - xcorr_dt;
-
-			evStream << stringify("%-12s %.6f %.4f %s", stationId.c_str(), dtcc,
-			                      xcorr_coeff * xcorr_coeff, phaseType.c_str());
-			evStream << endl;
-			dtCount++;
 		}
 		else
 		{
@@ -1729,9 +1680,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 	}
 
 	if (dtCount > 0)
-	{
 		outStream << evStream.str();
-	}
 }
 
 
@@ -1765,14 +1714,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 
 	map<string, GenericRecordPtr> tmpWfCache;
 
-	// reference event waveform 
-	double refWfDuration = _cfg.xcorr.timeBeforePick + _cfg.xcorr.timeAfterPick;
-	Core::TimeSpan refWfTimeCorrection = Core::TimeSpan(_cfg.xcorr.timeBeforePick);
-	// catalog waveforms
- 	double catWfDuration = refWfDuration + _cfg.xcorr.maxDelay * 2;
-	Core::TimeSpan catWfTimeCorrection = refWfTimeCorrection + Core::TimeSpan(_cfg.xcorr.maxDelay);
-
- 	// loop through catalog events
+	// loop through catalog events
 	for (const auto& kv : catalog->getEvents() )
 	{
 		const Catalog::Event& event = kv.second;
@@ -1789,80 +1731,26 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
 		{
 			const Catalog::Phase& phase = it->second;
-			if (phase.weight < _cfg.xcorr.minWeight)
-				continue;
-
-			double travel_time = phase.time - event.time;
-			if (travel_time < 0)
-			{
-				SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
-				                 string(phase).c_str(), string(event).c_str());
-				continue; 
-			} 
-
-			GenericRecordPtr trace = getWaveform(phase.time - catWfTimeCorrection, catWfDuration,
-			                                     event, phase, _wfCache, _wfDiskCache);
-			if ( !trace )
-			{
-				SEISCOMP_WARNING("Cannot load phase waveform, skipping xcorr for event '%s' phase '%s')",
-				                 string(phase).c_str(), string(event).c_str());
-				continue;
-			}
 
 			// loop through reference event phases
 			auto eqlrng2 = catalog->getPhases().equal_range(refEv.id);
 			for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
 			{
 				const Catalog::Phase& refPhase = it2->second;
-				if (refPhase.weight < _cfg.xcorr.minWeight)
-					continue;
-
-				double ref_travel_time = refPhase.time - refEv.time;
-				if (ref_travel_time < 0)
-				{
-					SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
-					                 string(refPhase).c_str(), string(refEv).c_str());
-					continue; 
-				}
 
 				if (phase.stationId == refPhase.stationId && 
 				    phase.type == refPhase.type)
 				{
-					GenericRecordPtr refTrace = getWaveform(refPhase.time - refWfTimeCorrection, refWfDuration, 
-					                                        refEv, refPhase, tmpWfCache, false);
-					if ( !refTrace )
+					double dtcc, weight;
+					if ( xcorr(event, phase, refEv, refPhase, dtcc, weight,
+					           _wfCache, _wfDiskCache, tmpWfCache, false) )
 					{
-						SEISCOMP_WARNING("Cannot load phase waveform, skipping xcorr for event '%s' phase '%s')",
-						                 string(refPhase).c_str(), string(refEv).c_str());
-						continue;
+						evStream << stringify("%-12s %.6f %.4f %s", refPhase.stationId.c_str(),
+						                      dtcc, weight,  refPhase.type.c_str());
+						evStream << endl;
+						dtCount++;
 					}
-
-					SEISCOMP_DEBUG("Calculating cross correlation for event pair %u-%u, station %s phase %s",
-					               refEv.id, event.id, refPhase.stationId.c_str(), refPhase.type.c_str());
-
-					double xcorr_coeff, xcorr_dt;
-					if ( ! xcorr(trace, refTrace, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
-					{
-						SEISCOMP_WARNING("Cannot cross correlate traces: ev1 '%s' ph1 '%s' "
-						               "with ev2 '%s' ph2 '%s', skipping them.",
-						               string(refEv).c_str(), string(refPhase).c_str(),
-						               string(event).c_str(), string(phase).c_str() );
-						continue;
-					}
-
-					if ( ! std::isfinite(xcorr_coeff) || xcorr_coeff < _cfg.xcorr.minCoef)
-					{
-						SEISCOMP_DEBUG("Cross correlation coefficient too low (%f < %f): skip pair",
-									   xcorr_coeff, _cfg.xcorr.minCoef);
-						continue;
-					}
-
-					double dtcc = travel_time - ref_travel_time - xcorr_dt;
-
-					evStream << stringify("%-12s %.6f %.4f %s", refPhase.stationId.c_str(),
-					                      dtcc, xcorr_coeff*xcorr_coeff,  refPhase.type.c_str());
-					evStream << endl;
-					dtCount++;
+					break;
 				}
 			}
 		}
@@ -1870,6 +1758,116 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 			outStream << evStream.str();
 	}
 }
+
+
+
+bool
+HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
+              const Catalog::Event& event2, const Catalog::Phase& phase2,
+              double& dtccOut, double& weightOut,
+              std::map<std::string,GenericRecordPtr>& cache1,  bool useDiskCache1,
+              std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2)
+{
+	dtccOut = 0;
+	weightOut = 0;
+
+	if (phase1.weight < _cfg.xcorr.minWeight)
+		return false;
+
+	if (phase2.weight < _cfg.xcorr.minWeight)
+		return false;
+
+	double travel_time1 = phase1.time - event1.time;
+	if (travel_time1 < 0)
+	{
+		SEISCOMP_WARNING("Ignoring phase1 with negative travel time. Skipping cross correlation "
+		                 "for phase pair phase1='%s', phase2='%s'",
+		                 string(phase1).c_str(), string(phase2).c_str()); 
+		return false;
+	} 
+
+	double travel_time2 = phase2.time - event2.time;
+	if (travel_time2 < 0)
+	{
+		SEISCOMP_WARNING("Ignoring phase2 with negative travel time. Skipping cross correlation "
+		                 "for phase pair phase1='%s', phase2='%s'",
+		                 string(phase1).c_str(), string(phase2).c_str()); 
+		return false; 
+	}
+
+	// compute start time and duration for the two traces
+	double tr2Duration = _cfg.xcorr.timeBeforePick + _cfg.xcorr.timeAfterPick;
+	Core::TimeSpan tr2TimeCorrection = Core::TimeSpan(_cfg.xcorr.timeBeforePick);
+	double tr1Duration = tr2Duration + _cfg.xcorr.maxDelay * 2;
+	Core::TimeSpan tr1TimeCorrection = tr2TimeCorrection + Core::TimeSpan(_cfg.xcorr.maxDelay);
+
+	GenericRecordPtr tr1 = getWaveform(phase1.time - tr1TimeCorrection, tr1Duration,
+	                                   phase1, cache1, useDiskCache1);
+	if ( !tr1 )
+	{
+		SEISCOMP_WARNING("Cannot load phase1 waveform, skipping cross correlation "
+		                 "for phase pair phase1='%s', phase2='%s'",
+		                 string(phase1).c_str(), string(phase2).c_str());
+		return false;
+	} 
+
+	GenericRecordPtr tr2 = getWaveform(phase2.time - tr1TimeCorrection, tr1Duration,
+	                                   phase2, cache2, useDiskCache2);
+	if ( !tr2 )
+	{
+		SEISCOMP_WARNING("Cannot load phase2 waveform, skipping cross correlation "
+		                 "for phase pair phase1='%s', phase2='%s'",
+		                 string(phase1).c_str(), string(phase2).c_str());
+		return false;
+	}
+
+	// copy tr2 and trim to shorter period
+	tr2 = new GenericRecord(*tr2);
+	Core::TimeWindow tw = Core::TimeWindow((phase2.time - tr2TimeCorrection).toLocalTime(), tr2Duration);
+	if ( !trim(*tr2, tw) )
+	{
+		SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation "
+		                 "for phase pair phase1='%s', phase2='%s'",
+		                 string(phase1).c_str(), string(phase2).c_str());
+		return false;
+	}
+
+	if (tr1->samplingFrequency() != tr2->samplingFrequency() && _cfg.xcorr.allowResampling )
+	{
+		if (tr1->samplingFrequency() > tr2->samplingFrequency() )
+		{
+			SEISCOMP_DEBUG("Resampling phase1 waveform from %f to %f",
+			               tr1->samplingFrequency(), tr2->samplingFrequency());
+			tr1 = resample(tr1, tr2->samplingFrequency(), true);
+		}
+		else
+		{
+			SEISCOMP_DEBUG("Resampling phase2 waveform from %f to %f", 
+			               tr2->samplingFrequency(), tr1->samplingFrequency());
+			tr2 = resample(tr2, tr1->samplingFrequency(), true);
+		}
+	}
+
+	SEISCOMP_DEBUG("Calculating cross correlation for phase pair phase1='%s', phase2='%s'",
+		           string(phase1).c_str(), string(phase2).c_str()); 
+
+	double xcorr_coeff, xcorr_dt;
+	if ( ! xcorr(tr1, tr2, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
+	{
+		SEISCOMP_WARNING("Error in cross correlationloa for phase pair phase1='%s', phase2='%s'",
+		                 string(phase1).c_str(), string(phase2).c_str());
+		return false;
+	}
+
+	if ( ! std::isfinite(xcorr_coeff) || xcorr_coeff < _cfg.xcorr.minCoef)
+		return false;
+
+	// compute differential travel time and weight of measurement
+	dtccOut = travel_time1 - travel_time2 - xcorr_dt;
+	weightOut = xcorr_coeff*xcorr_coeff;
+	return true;
+}
+
 
 
 // Calculate the correlation series (tr1 and tr2 are already demeaned)
@@ -1882,24 +1880,9 @@ HypoDD::xcorr(GenericRecordCPtr tr1, GenericRecordCPtr tr2, double maxDelay,
 
 	if (tr1->samplingFrequency() != tr2->samplingFrequency())
 	{
-		if ( !_cfg.xcorr.allowResampling )
-		{
-			SEISCOMP_WARNING("Cannot cross correlate traces with different sampling freq (%f!=%f)",
-			                 tr1->samplingFrequency(), tr2->samplingFrequency());
-			return false;
-		}
-		if (tr1->samplingFrequency() > tr2->samplingFrequency() )
-		{
-			SEISCOMP_DEBUG("Resampling trace from %f to %f", 
-			               tr1->samplingFrequency(), tr2->samplingFrequency());
-			tr1 = resample(tr1, tr2->samplingFrequency(), true);
-		}
-		else
-		{
-			SEISCOMP_DEBUG("Resampling trace from %f to %f", 
-			               tr2->samplingFrequency(), tr1->samplingFrequency());
-			tr2 = resample(tr2, tr1->samplingFrequency(), true);
-		}
+		SEISCOMP_WARNING("Cannot cross correlate traces with different sampling freq (%f!=%f)",
+						 tr1->samplingFrequency(), tr2->samplingFrequency());
+		return false;
 	}
 
 	double freq = tr1->samplingFrequency();
@@ -1948,7 +1931,6 @@ HypoDD::xcorr(GenericRecordCPtr tr1, GenericRecordCPtr tr2, double maxDelay,
 GenericRecordPtr
 HypoDD::getWaveform(const Core::Time& starttime,
                     double duration,
-                    const Catalog::Event& ev,
                     const Catalog::Phase& ph,
                     map<string,GenericRecordPtr>& cache,
                     bool useDiskCache)

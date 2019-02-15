@@ -284,8 +284,13 @@ class HypoDD : public Core::BaseObject {
 		void xcorrSingleEvent(const CatalogPtr& catalog,
 		                      unsigned evToRelocateId,
 		                      const std::string& dtccFile);
+		bool xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
+                   const Catalog::Event& event2, const Catalog::Phase& phase2,
+                   double& dtccOut, double& weightOut,
+                   std::map<std::string,GenericRecordPtr>& cache1,  bool useDiskCache1,
+                   std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2);
 		bool xcorr(GenericRecordCPtr tr1, GenericRecordCPtr tr2, double maxDelay,
-              double& delayOut, double& coeffOut) const;
+                   double& delayOut, double& coeffOut) const;
 		void runPh2dt(const std::string& workingDir, const std::string& stationFile, const std::string& phaseFile) const;
 		void runHypodd(const std::string& workingDir, const std::string& dtccFile, const std::string& dtctFile,
 		               const std::string& eventFile, const std::string& stationFile) const;
@@ -297,8 +302,9 @@ class HypoDD : public Core::BaseObject {
 		                                    int minNumNeigh=0, int maxNumNeigh=0, int minDTperEvt=0);
 		CatalogPtr extractEvent(const CatalogPtr& catalog, unsigned eventId) const;
 		GenericRecordPtr getWaveform(const Core::Time& starttime, double duration,
-		                             const Catalog::Event& ev, const Catalog::Phase& ph,
-		                             std::map<std::string,GenericRecordPtr>& cache, bool useDiskCache);
+		                             const Catalog::Phase& ph,
+		                             std::map<std::string,GenericRecordPtr>& cache,
+		                             bool useDiskCache);
 		GenericRecordPtr loadWaveform(const Core::TimeWindow& tw,
 		                              const std::string& networkCode,
 		                              const std::string& stationCode,
