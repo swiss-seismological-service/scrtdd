@@ -1562,7 +1562,7 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 				}
 			}
 		}
-		if (dtCount >= _cfg.dtt.minDTperEvt)
+		if (dtCount > 0 && dtCount >= _cfg.dtt.minDTperEvt)
 			outStream << evStream.str();
 	}
 }
@@ -1626,7 +1626,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 			ev2 = &search2->second;
 
 			// write the pairs has been built up to now
-			if (dtCount > 0)
+			if (dtCount > 0 && dtCount >= _cfg.xcorr.minDTperEvt)
 				outStream << evStream.str();
 			evStream = stringstream();
 			dtCount = 0;
@@ -1679,7 +1679,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 		}
 	}
 
-	if (dtCount > 0)
+	if (dtCount > 0 && dtCount >= _cfg.xcorr.minDTperEvt)
 		outStream << evStream.str();
 }
 
@@ -1754,7 +1754,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 				}
 			}
 		}
-		if (dtCount >= _cfg.xcorr.minDTperEvt)
+		if (dtCount > 0 && dtCount >= _cfg.xcorr.minDTperEvt)
 			outStream << evStream.str();
 	}
 }
