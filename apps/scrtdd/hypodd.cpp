@@ -1796,23 +1796,25 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 	}
 
 	// compute start time and duration for the two traces
-	double tr2Duration = _cfg.xcorr.timeBeforePick + _cfg.xcorr.timeAfterPick;
-	Core::TimeSpan tr2TimeCorrection = Core::TimeSpan(_cfg.xcorr.timeBeforePick);
-	double tr1Duration = tr2Duration + _cfg.xcorr.maxDelay * 2;
-	Core::TimeSpan tr1TimeCorrection = tr2TimeCorrection + Core::TimeSpan(_cfg.xcorr.maxDelay);
+	double shortDuration = _cfg.xcorr.timeBeforePick + _cfg.xcorr.timeAfterPick;
+	Core::TimeSpan shortTimeCorrection = Core::TimeSpan(_cfg.xcorr.timeBeforePick);
+	double longDuration = shortDuration + _cfg.xcorr.maxDelay * 2;
+	Core::TimeSpan longTimeCorrection = shortTimeCorrection + Core::TimeSpan(_cfg.xcorr.maxDelay);
 
-	GenericRecordPtr tr1 = getWaveform(phase1.time - tr1TimeCorrection, tr1Duration,
-	                                   phase1, cache1, useDiskCache1);
+	// always load the long trace, because we want to cache the longer version
+	Core::TimeWindow tw1Long = Core::TimeWindow(phase1.time.toLocalTime() - longTimeCorrection, longDuration);
+	GenericRecordPtr tr1 = getWaveform(tw1Long, phase1, cache1, useDiskCache1);
 	if ( !tr1 )
 	{
 		SEISCOMP_WARNING("Cannot load phase1 waveform, skipping cross correlation "
 		                 "for phase pair phase1='%s', phase2='%s'",
 		                 string(phase1).c_str(), string(phase2).c_str());
 		return false;
-	} 
+	}
 
-	GenericRecordPtr tr2 = getWaveform(phase2.time - tr1TimeCorrection, tr1Duration,
-	                                   phase2, cache2, useDiskCache2);
+	// always load the long trace, because we want to cache the longer version
+	Core::TimeWindow tw2Long = Core::TimeWindow(phase2.time.toLocalTime() - longTimeCorrection, longDuration);
+	GenericRecordPtr tr2 = getWaveform(tw2Long, phase2, cache2, useDiskCache2);
 	if ( !tr2 )
 	{
 		SEISCOMP_WARNING("Cannot load phase2 waveform, skipping cross correlation "
@@ -1821,19 +1823,17 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 		return false;
 	}
 
-	// copy tr2 and trim to shorter period
-	tr2 = new GenericRecord(*tr2);
-	Core::TimeWindow tw = Core::TimeWindow((phase2.time - tr2TimeCorrection).toLocalTime(), tr2Duration);
-	if ( !trim(*tr2, tw) )
+	if (tr1->samplingFrequency() != tr2->samplingFrequency()  )
 	{
-		SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation "
-		                 "for phase pair phase1='%s', phase2='%s'",
-		                 string(phase1).c_str(), string(phase2).c_str());
-		return false;
-	}
+		if ( ! _cfg.xcorr.allowResampling )
+		{
+			SEISCOMP_WARNING("Cannot cross correlate traces with different sampling freq (%f!=%f)."
+			                 "Skipping cross correlation for phase pair phase1='%s', phase2='%s'",
+			                 tr1->samplingFrequency(), tr2->samplingFrequency(),
+			                 string(phase1).c_str(), string(phase2).c_str());
+			return false;
+		}
 
-	if (tr1->samplingFrequency() != tr2->samplingFrequency() && _cfg.xcorr.allowResampling )
-	{
 		if (tr1->samplingFrequency() > tr2->samplingFrequency() )
 		{
 			SEISCOMP_DEBUG("Resampling phase1 waveform from %f to %f",
@@ -1848,11 +1848,21 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 		}
 	}
 
+	// trim tr2 to shorter length, required for the cross correlation
+	GenericRecordPtr tr2Short = new GenericRecord(*tr2);
+	Core::TimeWindow tw2Short = Core::TimeWindow(phase2.time.toLocalTime() - shortTimeCorrection, shortDuration);
+	if ( !trim(*tr2Short, tw2Short) )
+	{
+		SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation "
+		                 "for phase pair phase1='%s', phase2='%s'",
+		                 string(phase1).c_str(), string(phase2).c_str());
+		return false;
+	} 
 	SEISCOMP_DEBUG("Calculating cross correlation for phase pair phase1='%s', phase2='%s'",
 		           string(phase1).c_str(), string(phase2).c_str()); 
 
 	double xcorr_coeff, xcorr_dt;
-	if ( ! xcorr(tr1, tr2, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
+	if ( ! xcorr(tr1, tr2Short, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
 	{
 		SEISCOMP_WARNING("Error in cross correlationloa for phase pair phase1='%s', phase2='%s'",
 		                 string(phase1).c_str(), string(phase2).c_str());
@@ -1929,14 +1939,11 @@ HypoDD::xcorr(GenericRecordCPtr tr1, GenericRecordCPtr tr2, double maxDelay,
  * Return the waveform from the memory cache if present, otherwise load it
  */
 GenericRecordPtr
-HypoDD::getWaveform(const Core::Time& starttime,
-                    double duration,
+HypoDD::getWaveform(const Core::TimeWindow& tw,
                     const Catalog::Phase& ph,
                     map<string,GenericRecordPtr>& cache,
                     bool useDiskCache)
 {
-	Core::TimeWindow tw = Core::TimeWindow(starttime.toLocalTime(), duration);
-
 	string wfId = stringify("%s.%s.%s.%s.%s.%.6f",
 	                        ph.networkCode.c_str(), ph.stationCode.c_str(),
 	                        ph.locationCode.c_str(), ph.channelCode.c_str(),
