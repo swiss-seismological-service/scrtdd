@@ -139,6 +139,33 @@ T nextPowerOf2(T a, T min=1, T max=1<<31)
 
 
 
+void writeTrace(GenericRecordPtr trace, string file)
+{
+	std::ofstream ofs(file);
+	IO::MSeedRecord msRec(*trace);
+	int reclen = msRec.data()->size()*msRec.data()->bytes() + 64;
+	reclen = nextPowerOf2<int>(reclen, 128, 1048576); // MINRECLEN 128, MAXRECLEN 1048576
+	if (reclen > 0)
+	{
+		msRec.setOutputRecordLength(reclen);
+		msRec.write(ofs);
+	}
+}
+
+
+
+GenericRecordPtr readTrace(string file)
+{
+	std::ifstream ifs(file);
+	IO::MSeedRecord msRec(Array::DOUBLE, Record::Hint::DATA_ONLY);
+	msRec.read(ifs);
+	GenericRecordPtr trace = new GenericRecord(msRec);
+	trace->setData(msRec.data()->clone()); // copy data too
+	return trace;
+}
+
+
+
 void copyFileAndReplaceLines(const string& srcFilename,
                              const string& destFilename,
                              map<int,string> linesToReplace,
@@ -2013,13 +2040,8 @@ HypoDD::loadWaveform(const Core::TimeWindow& tw,
 	if ( useDiskCache && Util::fileExists(cacheFile) )
 	{
 		try {
-			std::ifstream ifs(cacheFile);
-			IO::MSeedRecord cachedRecord(Array::DOUBLE, Record::Hint::DATA_ONLY);
-			cachedRecord.read(ifs);
-			trace = new GenericRecord(cachedRecord);
-			trace->setData(cachedRecord.data()->clone()); // copy data too
+			trace = readTrace(cacheFile);
 		} catch ( ... ) {
-			trace = nullptr;
 			SEISCOMP_WARNING("Couldn't load cached waveform %s, read it from record stream",
 			                 cacheFile.c_str());
 		}
@@ -2032,18 +2054,10 @@ HypoDD::loadWaveform(const Core::TimeWindow& tw,
 		// then save the trace to disk for later usage
 		if ( useDiskCache )
 		{
-			std::ofstream ofs(cacheFile);
-			IO::MSeedRecord cachedRecord(*trace);
-			int reclen = cachedRecord.data()->size()*cachedRecord.data()->bytes() + 64;
-			reclen = nextPowerOf2<int>(reclen, 128, 1048576); // MINRECLEN 128, MAXRECLEN 1048576
-			if (reclen > 0)
-			{
-				try {
-					cachedRecord.setOutputRecordLength(reclen);
-					cachedRecord.write(ofs);
-				} catch ( ... ) {
-					SEISCOMP_WARNING("Couldn't write waveform cache to disk %s", cacheFile.c_str());
-				}
+			try {
+				writeTrace(trace, cacheFile);
+			} catch ( ... ) {
+				SEISCOMP_WARNING("Couldn't write waveform cache to disk %s", cacheFile.c_str());
 			}
 		}
 	}
