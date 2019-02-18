@@ -1810,14 +1810,18 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 	double travel_time1 = phase1.time - event1.time;
 	if (travel_time1 < 0)
 	{
-		SEISCOMP_WARNING("Ignoring phase1 with negative travel time. Skipping cross correlation");
+		SEISCOMP_WARNING("Ignoring phase1 with negative travel time. Skipping cross correlation "
+		                 "for phase pair phase1='%s', phase2='%s'",
+		                 string(phase1).c_str(), string(phase2).c_str()); 
 		return false;
 	} 
 
 	double travel_time2 = phase2.time - event2.time;
 	if (travel_time2 < 0)
 	{
-		SEISCOMP_WARNING("Ignoring phase2 with negative travel time. Skipping cross correlation");
+		SEISCOMP_WARNING("Ignoring phase2 with negative travel time. Skipping cross correlation "
+		                 "for phase pair phase1='%s', phase2='%s'",
+		                 string(phase1).c_str(), string(phase2).c_str()); 
 		return false; 
 	}
 
@@ -1832,7 +1836,9 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 	GenericRecordPtr tr1 = getWaveform(tw1, phase1, cache1, useDiskCache1);
 	if ( !tr1 )
 	{
-		SEISCOMP_WARNING("Cannot load phase1 waveform, skipping cross correlation");
+		SEISCOMP_WARNING("Cannot load phase1 waveform, skipping cross correlation "
+		                 "for phase pair phase1='%s', phase2='%s'",
+		                 string(phase1).c_str(), string(phase2).c_str());
 		return false;
 	}
 
@@ -1841,7 +1847,9 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 	GenericRecordPtr tr2 = getWaveform(tw2, phase2, cache2, useDiskCache2);
 	if ( !tr2 )
 	{
-		SEISCOMP_WARNING("Cannot load phase2 waveform, skipping cross correlation.");
+		SEISCOMP_WARNING("Cannot load phase2 waveform, skipping cross correlation "
+		                 "for phase pair phase1='%s', phase2='%s'",
+		                 string(phase1).c_str(), string(phase2).c_str());
 		return false;
 	}
 
@@ -1850,8 +1858,9 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 		if ( ! _cfg.xcorr.allowResampling )
 		{
 			SEISCOMP_WARNING("Cannot cross correlate traces with different sampling freq (%f!=%f)."
-			                 "Skipping cross correlation",
-			                 tr1->samplingFrequency(), tr2->samplingFrequency());
+			                 "Skipping cross correlation for phase pair phase1='%s', phase2='%s'",
+			                 tr1->samplingFrequency(), tr2->samplingFrequency(),
+			                 string(phase1).c_str(), string(phase2).c_str());
 			return false;
 		}
 
@@ -1874,7 +1883,9 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 	Core::TimeWindow tw2Short = Core::TimeWindow(phase2.time.toLocalTime() - shortTimeCorrection, shortDuration);
 	if ( !trim(*tr2Short, tw2Short) )
 	{
-		SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation");
+		SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation "
+		                 "for phase pair phase1='%s', phase2='%s'",
+		                 string(phase1).c_str(), string(phase2).c_str());
 		return false;
 	}
 
@@ -1891,7 +1902,9 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 	Core::TimeWindow tw1Short = Core::TimeWindow(phase1.time.toLocalTime() - shortTimeCorrection, shortDuration);
 	if ( !trim(*tr1Short, tw1Short) )
 	{
-		SEISCOMP_WARNING("Cannot trim phase1 waveform, skipping cross correlation");
+		SEISCOMP_WARNING("Cannot trim phase1 waveform, skipping cross correlation "
+		                 "for phase pair phase1='%s', phase2='%s'",
+		                 string(phase1).c_str(), string(phase2).c_str());
 		return false;
 	}
 
