@@ -1742,7 +1742,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 				    phase.type == refPhase.type)
 				{
 					double dtcc, weight;
-					if ( xcorr(event, phase, refEv, refPhase, dtcc, weight,
+					if ( xcorr(refEv, refPhase, event, phase, dtcc, weight,
 					           _wfCache, _wfDiskCache, tmpWfCache, false) )
 					{
 						evStream << stringify("%-12s %.6f %.4f %s", refPhase.stationId.c_str(),
@@ -1777,21 +1777,20 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 	if (phase2.weight < _cfg.xcorr.minWeight)
 		return false;
 
+	SEISCOMP_DEBUG("Calculating cross correlation for phase pair phase1='%s', phase2='%s'",
+		           string(phase1).c_str(), string(phase2).c_str());
+
 	double travel_time1 = phase1.time - event1.time;
 	if (travel_time1 < 0)
 	{
-		SEISCOMP_WARNING("Ignoring phase1 with negative travel time. Skipping cross correlation "
-		                 "for phase pair phase1='%s', phase2='%s'",
-		                 string(phase1).c_str(), string(phase2).c_str()); 
+		SEISCOMP_WARNING("Ignoring phase1 with negative travel time. Skipping cross correlation");
 		return false;
 	} 
 
 	double travel_time2 = phase2.time - event2.time;
 	if (travel_time2 < 0)
 	{
-		SEISCOMP_WARNING("Ignoring phase2 with negative travel time. Skipping cross correlation "
-		                 "for phase pair phase1='%s', phase2='%s'",
-		                 string(phase1).c_str(), string(phase2).c_str()); 
+		SEISCOMP_WARNING("Ignoring phase2 with negative travel time. Skipping cross correlation");
 		return false; 
 	}
 
@@ -1802,24 +1801,20 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 	Core::TimeSpan longTimeCorrection = shortTimeCorrection + Core::TimeSpan(_cfg.xcorr.maxDelay);
 
 	// always load the long trace, because we want to cache the longer version
-	Core::TimeWindow tw1Long = Core::TimeWindow(phase1.time.toLocalTime() - longTimeCorrection, longDuration);
-	GenericRecordPtr tr1 = getWaveform(tw1Long, phase1, cache1, useDiskCache1);
+	Core::TimeWindow tw1 = Core::TimeWindow(phase1.time.toLocalTime() - longTimeCorrection, longDuration);
+	GenericRecordPtr tr1 = getWaveform(tw1, phase1, cache1, useDiskCache1);
 	if ( !tr1 )
 	{
-		SEISCOMP_WARNING("Cannot load phase1 waveform, skipping cross correlation "
-		                 "for phase pair phase1='%s', phase2='%s'",
-		                 string(phase1).c_str(), string(phase2).c_str());
+		SEISCOMP_WARNING("Cannot load phase1 waveform, skipping cross correlation");
 		return false;
 	}
 
 	// always load the long trace, because we want to cache the longer version
-	Core::TimeWindow tw2Long = Core::TimeWindow(phase2.time.toLocalTime() - longTimeCorrection, longDuration);
-	GenericRecordPtr tr2 = getWaveform(tw2Long, phase2, cache2, useDiskCache2);
+	Core::TimeWindow tw2 = Core::TimeWindow(phase2.time.toLocalTime() - longTimeCorrection, longDuration);
+	GenericRecordPtr tr2 = getWaveform(tw2, phase2, cache2, useDiskCache2);
 	if ( !tr2 )
 	{
-		SEISCOMP_WARNING("Cannot load phase2 waveform, skipping cross correlation "
-		                 "for phase pair phase1='%s', phase2='%s'",
-		                 string(phase1).c_str(), string(phase2).c_str());
+		SEISCOMP_WARNING("Cannot load phase2 waveform, skipping cross correlation.");
 		return false;
 	}
 
@@ -1828,9 +1823,8 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 		if ( ! _cfg.xcorr.allowResampling )
 		{
 			SEISCOMP_WARNING("Cannot cross correlate traces with different sampling freq (%f!=%f)."
-			                 "Skipping cross correlation for phase pair phase1='%s', phase2='%s'",
-			                 tr1->samplingFrequency(), tr2->samplingFrequency(),
-			                 string(phase1).c_str(), string(phase2).c_str());
+			                 "Skipping cross correlation",
+			                 tr1->samplingFrequency(), tr2->samplingFrequency());
 			return false;
 		}
 
@@ -1848,18 +1842,14 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 		}
 	}
 
-	// trim tr2 to shorter length, required for the cross correlation
+	// trim tr2 to shorter length, we want to cross correlate the short with the long one
 	GenericRecordPtr tr2Short = new GenericRecord(*tr2);
 	Core::TimeWindow tw2Short = Core::TimeWindow(phase2.time.toLocalTime() - shortTimeCorrection, shortDuration);
 	if ( !trim(*tr2Short, tw2Short) )
 	{
-		SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation "
-		                 "for phase pair phase1='%s', phase2='%s'",
-		                 string(phase1).c_str(), string(phase2).c_str());
+		SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation");
 		return false;
-	} 
-	SEISCOMP_DEBUG("Calculating cross correlation for phase pair phase1='%s', phase2='%s'",
-		           string(phase1).c_str(), string(phase2).c_str()); 
+	}
 
 	double xcorr_coeff, xcorr_dt;
 	if ( ! xcorr(tr1, tr2Short, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
@@ -1869,12 +1859,40 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 		return false;
 	}
 
-	if ( ! std::isfinite(xcorr_coeff) || xcorr_coeff < _cfg.xcorr.minCoef)
+	// trim tr1 to shorter length, we want to cross correlate the short with the long one
+	GenericRecordPtr tr1Short = new GenericRecord(*tr1);
+	Core::TimeWindow tw1Short = Core::TimeWindow(phase1.time.toLocalTime() - shortTimeCorrection, shortDuration);
+	if ( !trim(*tr1Short, tw1Short) )
+	{
+		SEISCOMP_WARNING("Cannot trim phase1 waveform, skipping cross correlation");
+		return false;
+	}
+
+	double xcorr_coeff2, xcorr_dt2;
+	if ( ! xcorr(tr1Short, tr2, _cfg.xcorr.maxDelay, xcorr_dt2, xcorr_coeff2) )
+	{
+		SEISCOMP_WARNING("Error in cross correlationloa for phase pair phase1='%s', phase2='%s'",
+		                 string(phase1).c_str(), string(phase2).c_str());
+		return false;
+	}
+
+	if ( ! std::isfinite(xcorr_coeff) && ! std::isfinite(xcorr_coeff2) )
+		return false;
+
+	if ( ! std::isfinite(xcorr_coeff) ||
+	     (std::isfinite(xcorr_coeff2) && xcorr_coeff2 > xcorr_coeff) )
+	{
+		xcorr_coeff = xcorr_coeff2;
+		xcorr_dt = xcorr_dt2;
+	}
+
+	if ( xcorr_coeff < _cfg.xcorr.minCoef )
 		return false;
 
 	// compute differential travel time and weight of measurement
 	dtccOut = travel_time1 - travel_time2 - xcorr_dt;
-	weightOut = xcorr_coeff*xcorr_coeff;
+	weightOut = xcorr_coeff * xcorr_coeff;
+
 	return true;
 }
 
@@ -1913,7 +1931,7 @@ HypoDD::xcorr(GenericRecordCPtr tr1, GenericRecordCPtr tr2, double maxDelay,
 		double numer = 0, denomL = 0, denomS = 0;
 		for (int idxS = 0; idxS < smpsSsize; idxS++)
 		{
-			int idxL = idxS + smpsLsize/2 - smpsSsize/2 + delay;
+			int idxL = idxS + (smpsLsize-smpsSsize)/2 + delay;
 			if (idxL < 0 || idxL >= smpsLsize)
 				continue;
 			numer  += smpsS[idxS] * smpsL[idxL];
@@ -1944,10 +1962,11 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
                     map<string,GenericRecordPtr>& cache,
                     bool useDiskCache)
 {
-	string wfId = stringify("%s.%s.%s.%s.%s.%.6f",
+	string wfId = stringify("%s.%s.%s.%s.%s.%s",
 	                        ph.networkCode.c_str(), ph.stationCode.c_str(),
 	                        ph.locationCode.c_str(), ph.channelCode.c_str(),
-	                        tw.startTime().iso().c_str(), tw.length());
+	                        tw.startTime().iso().c_str(),
+	                        tw.endTime().iso().c_str());
 
 	// first try to load the waveform from the cache
 	const auto it = cache.find(wfId);
@@ -1982,10 +2001,11 @@ HypoDD::loadWaveform(const Core::TimeWindow& tw,
                      const string& channelCode,
                      bool useDiskCache) const
 {
-	string cacheFile = stringify("%s.%s.%s.%s.%s.%.6f.mseed",
+	string cacheFile = stringify("%s.%s.%s.%s.%s.%s.mseed",
 	                             networkCode.c_str(), stationCode.c_str(),
 	                             locationCode.c_str(), channelCode.c_str(),
-	                             tw.startTime().iso().c_str(), tw.length());
+	                             tw.startTime().iso().c_str(),
+	                             tw.endTime().iso().c_str());
 	cacheFile = (boost::filesystem::path(_cacheDir)/cacheFile).string();
 
 	GenericRecordPtr trace;
