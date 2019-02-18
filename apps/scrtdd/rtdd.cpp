@@ -308,12 +308,11 @@ bool RTDD::validateParameters()
 		_config.testMode = true; // we won't send any message
 	}
 
-	// If the inventory is provided by an XML file or an event XML
-	// is provided, disable the database because we don't need to access it
-	if ( !isInventoryDatabaseEnabled() || !_config.eventXML.empty() )
-    {
+	// If the inventory is provided by an XML file disable the database
+	if ( !isInventoryDatabaseEnabled() )
+	{
 		setDatabaseEnabled(false, false);
-    }
+	}
  
 	std::string hypoddExec = "hypodd";
 	try {
