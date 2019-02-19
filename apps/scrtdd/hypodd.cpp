@@ -1550,7 +1550,7 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 
 		int dtCount = 0;
 		stringstream evStream;
-		evStream << stringify("# %10u %10u", event.id, refEv.id) << endl;
+		evStream << stringify("# %10u %10u", refEv.id, event.id) << endl;
 
 		// loop through event phases
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
@@ -1590,8 +1590,8 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 					double weight = (refPhase.weight + phase.weight) / 2.0;
 
 					evStream << stringify("%-12s %.6f %.6f %.2f %s",
-					                      refPhase.stationId.c_str(), travel_time,
-					                      ref_travel_time, weight, refPhase.type.c_str());
+					                      refPhase.stationId.c_str(), ref_travel_time,
+					                      travel_time, weight, refPhase.type.c_str());
 					evStream << endl;
 					dtCount++;
 				}
@@ -1759,7 +1759,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 
 		int dtCount = 0;
 		stringstream evStream;
-		evStream << stringify("# %10u %10u       0.0", event.id, refEv.id) << endl;
+		evStream << stringify("# %10u %10u       0.0", refEv.id, event.id) << endl;
 
 		// loop through event phases
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
