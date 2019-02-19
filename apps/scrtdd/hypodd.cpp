@@ -1166,7 +1166,7 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogPtr& c
  */
 void HypoDD::createEventDatFile(const string& eventFileName, const CatalogPtr& catalog) const
 {
-	SEISCOMP_DEBUG("Creating station file %s", eventFileName.c_str());
+	SEISCOMP_DEBUG("Creating event file %s", eventFileName.c_str());
 
 	ofstream outStream(eventFileName);
 	if ( !outStream.is_open() )
@@ -1725,7 +1725,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
                               unsigned evToRelocateId,
                               const string& dtccFile)
 {
-	SEISCOMP_DEBUG("Creating Cross correlation differential time file %s", dtccFile.c_str());
+	SEISCOMP_DEBUG("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
 
 	ofstream outStream(dtccFile);
 	if ( !outStream.is_open() )
