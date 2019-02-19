@@ -35,6 +35,7 @@
 #include <fstream>
 #include <iomanip>
 #include <cmath>
+#include <set>
 #include <regex>
 #include <boost/filesystem.hpp>
 #include <boost/range/iterator_range_core.hpp>
@@ -1345,6 +1346,9 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 	map<unsigned,Catalog::Event> events;
 	multimap<unsigned,Catalog::Phase> phases;
 
+	set<string> includedStations;
+	set<string> excludedStations;
+
 	// Add all the selected events within distance
 	for (const auto& kv : selectedEvents)
 	{
@@ -1368,21 +1372,40 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 			}
 
 			const Catalog::Station& station = search->second;
-            
+
+			if ( excludedStations.find(station.id) != excludedStations.end() )
+				continue;
+
+			if ( includedStations.find(station.id) == includedStations.end() )
+			{
+				// compute distance between station and reference event
+				double stationDistance = computeDistance(refEv.latitude, refEv.longitude, refEv.depth,
+				                                         station.latitude, station.longitude,
+				                                         -(station.elevation/1000.));
+
+				// check this station distance is ok
+				if ( ( maxESdis > 0 && stationDistance > maxESdis ) ||                  // too far away ?
+					 ( stationDistance < minESdis )                 ||                  // too close ?
+					 ( (stationDistance/distanceByEvent[event.id]) < minEStoIEratio ) ) // ratio too small ?
+				{
+					excludedStations.insert(station.id);
+					continue;
+				}
+				includedStations.insert(station.id);
+			}
+
 			// compute distance between current event and station
 			double stationDistance = computeDistance(event.latitude, event.longitude, event.depth,
 			                                         station.latitude, station.longitude,
 			                                         -(station.elevation/1000.));
-			// too far away ?
-			if ( maxESdis > 0 && stationDistance > maxESdis )
-				continue;
 
-			// too close ?
-			if ( stationDistance < minESdis )
+			// check this station distance is ok
+			if ( ( maxESdis > 0 && stationDistance > maxESdis ) ||                  // too far away ?
+			     ( stationDistance < minESdis )                 ||                  // too close ?
+			     ( (stationDistance / distanceByEvent[event.id]) < minEStoIEratio ) ) // ratio too small ?
+			{
 				continue;
-
-			if ( (stationDistance / distanceByEvent[event.id]) < minEStoIEratio )
-				continue;
+			}
 
 			phases.emplace(event.id, phase);
 			stations[station.id] = station;
