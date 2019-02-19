@@ -1309,14 +1309,14 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 		double distance = computeDistance(event.latitude, event.longitude, event.depth,
 	                                      refEv.latitude, refEv.longitude, refEv.depth);
 		// too far away ?
-		if ( distance > maxIEdis )
+		if ( maxIEdis > 0 && distance > maxIEdis )
 			continue;
 
 		// not enought phases ?
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
-		if (minDTperEvt > 0 && std::distance(eqlrng.first, eqlrng.second) < minDTperEvt)
+		if ( std::distance(eqlrng.first, eqlrng.second) < minDTperEvt )
 		{
-			SEISCOMP_DEBUG("Skipping event '%s', not enough phases (minDTperEvt)",
+			SEISCOMP_DEBUG("Skipping event '%s', not enough phases",
 			               string(event).c_str());
 			continue;
 		}
@@ -1331,9 +1331,10 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 	                                   std::next(eventDistances.begin(), maxEvents));
 
 	// Check if enough neighbors were found
-	if (minNumNeigh > 0 && selectedEvents.size() < minNumNeigh)
+	if ( selectedEvents.size() < minNumNeigh )
 	{
-		string msg = "Insufficient number of neighbors in catalog, skip relocation of origin";
+		string msg = stringify("Insufficient number of neighbors in catalog (%u),"
+		                       " skipping origin relocation", selectedEvents.size());
 		throw runtime_error(msg);
 	}
 
@@ -1369,7 +1370,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 			double distance = computeDistance(event.latitude, event.longitude, event.depth,
 			                                  station.latitude, station.longitude, -(station.elevation/1000.));
 			// too far away ?
-			if ( distance > maxESdis )
+			if ( maxESdis > 0 && distance > maxESdis )
 				continue;
 
 			// too close ?

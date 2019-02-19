@@ -393,31 +393,49 @@ bool RTDD::validateParameters()
 		prefix = string("profile.") + *it + ".dtct.";
 		try {
 			prof->ddcfg.dtt.minWeight = configGetDouble(prefix + "minWeight");
+		} catch ( ... ) { prof->ddcfg.dtt.minWeight = 0; }
+		try {
 			prof->ddcfg.dtt.minESdist = configGetDouble(prefix + "minESdist");
+		} catch ( ... ) { prof->ddcfg.dtt.minESdist = 0; }
+		try {
 			prof->ddcfg.dtt.maxESdist = configGetDouble(prefix + "maxESdist");
+		} catch ( ... ) { prof->ddcfg.dtt.maxESdist = -1; }
+		try {
 			prof->ddcfg.dtt.maxIEdist = configGetDouble(prefix + "maxIEdist");
+		} catch ( ... ) { prof->ddcfg.dtt.maxIEdist = -1; }
+		try {
 			prof->ddcfg.dtt.minNumNeigh = configGetInt(prefix + "minNumNeigh");
+		} catch ( ... ) { prof->ddcfg.dtt.minNumNeigh = 1; }
+		try {
 			prof->ddcfg.dtt.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
+		} catch ( ... ) { prof->ddcfg.dtt.maxNumNeigh = -1; }
+		try {
 			prof->ddcfg.dtt.minDTperEvt = configGetInt(prefix + "minDTperEvt");
-		} catch ( ... ) {
-			profilesOK = false;
-			continue;
-		}
+		} catch ( ... ) { prof->ddcfg.dtt.minDTperEvt = 1; }
 
 		prefix = string("profile.") + *it + ".dtcc.";
 		prof->ddcfg.xcorr.recordStreamURL = recordStreamURL();
 		try {
 			prof->ddcfg.xcorr.minWeight = configGetDouble(prefix + "minWeight");
+		} catch ( ... ) { prof->ddcfg.xcorr.minWeight = 0; }
+		try {
 			prof->ddcfg.xcorr.minESdist = configGetDouble(prefix + "minESdist");
+		} catch ( ... ) { prof->ddcfg.xcorr.minESdist = 0; }
+		try {
 			prof->ddcfg.xcorr.maxESdist = configGetDouble(prefix + "maxESdist");
+		} catch ( ... ) { prof->ddcfg.xcorr.maxESdist = -1; }
+		try {
 			prof->ddcfg.xcorr.maxIEdist = configGetDouble(prefix + "maxIEdist");
+		} catch ( ... ) { prof->ddcfg.xcorr.maxIEdist = -1; }
+		try {
 			prof->ddcfg.xcorr.minNumNeigh = configGetInt(prefix + "minNumNeigh");
+		} catch ( ... ) { prof->ddcfg.xcorr.minNumNeigh = 1; }
+		try {
 			prof->ddcfg.xcorr.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
+		} catch ( ... ) { prof->ddcfg.xcorr.maxNumNeigh = -1; }
+		try {
 			prof->ddcfg.xcorr.minDTperEvt = configGetInt(prefix + "minDTperEvt");
-		} catch ( ... ) {
-			profilesOK = false;
-			continue;
-		}
+		} catch ( ... ) { prof->ddcfg.xcorr.minDTperEvt = 1; }
 
 		prefix = string("profile.") + *it + ".dtcc.crosscorrelation.";
 		try {

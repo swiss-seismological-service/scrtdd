@@ -201,37 +201,37 @@
 						</description>
 						<parameter name="minWeight" type="double">
 							<description>
-								Min phase weight required. Phases not satisfying this condition will not be used
+								Min phase weight required. Phases not satisfying this condition will not be used. Check disabled by default.
 							</description>
 						</parameter>
 						<parameter name="maxIEdist" type="double">
 							<description>
-								Max distance (km) between events in a pair allowed. Event pairs not satisfying this condition will not be used
+								Max distance (km) between events in a pair allowed. Event pairs not satisfying this condition will not be used. No limit by default.
 							</description>
 							</parameter>
 						<parameter name="minESdist" type="double">
 							<description>
-								Min distance (km) between event pair and station required. Event pairs not satisfying this condition will not be used
+								Min distance (km) between event pair and station required. Event pairs not satisfying this condition will not be used. Check disabled by default. 
 							</description>
 						</parameter>
  						<parameter name="maxESdist" type="double">
 							<description>
-								Max distance (km) between event pair and station allowed. Event pairs not satisfying this condition will not be used
+								Max distance (km) between event pair and station allowed. Event pairs not satisfying this condition will not be used. No limit by default.
 							</description>
 						</parameter>
 						<parameter name="minDTperEvt" type="int">
 							<description>
-								Min number of differential travel times (Including P+S) per event pair required. Event pairs not satisfying this condition will not be used
+								Min number of differential travel times (Including P+S) per event pair required. Event pairs not satisfying this condition will not be used. Check disabled by default.
 							</description>
 							</parameter>
 						<parameter name="minNumNeigh" type="int">
 							<description>
-								Min number of neighboring events required to perform this computation step
+								Min number of neighboring events required to perform this computation step. Check disabled by default.
 							</description>
 						</parameter>
 						<parameter name="maxNumNeigh" type="int">
 							<description>
-								Max number of neighbors used. Further events are discarded
+								Max number of neighbors used. Further events are discarded. No limit by default.
 							</description>
 						</parameter>
 					</group>
@@ -242,37 +242,37 @@
 						</description>
 						<parameter name="minWeight" type="double">
 							<description>
-								Min phase weight required. Phases not satisfying this condition will not be used
+								Min phase weight required. Phases not satisfying this condition will not be used. Check disabled by default.
 							</description>
 						</parameter>
 						<parameter name="maxIEdist" type="double">
 							<description>
-								Max distance (km) between events in a pair allowed. Event pairs not satisfying this condition will not be used
+								Max distance (km) between events in a pair allowed. Event pairs not satisfying this condition will not be used. No limit by default.
 							</description>
 							</parameter>
 						<parameter name="minESdist" type="double">
 							<description>
-								Min distance (km) between event pair and station required. Event pairs not satisfying this condition will not be used
+								Min distance (km) between event pair and station required. Event pairs not satisfying this condition will not be used. Check disabled by default. 
 							</description>
 						</parameter>
  						<parameter name="maxESdist" type="double">
 							<description>
-								Max distance (km) between event pair and station allowed. Event pairs not satisfying this condition will not be used
+								Max distance (km) between event pair and station allowed. Event pairs not satisfying this condition will not be used. No limit by default.
 							</description>
 						</parameter>
 						<parameter name="minDTperEvt" type="int">
 							<description>
-								Min number of differential travel times (Including P+S) per event pair required. Event pairs not satisfying this condition will not be used
+								Min number of differential travel times (Including P+S) per event pair required. Event pairs not satisfying this condition will not be used. Check disabled by default.
 							</description>
 							</parameter>
 						<parameter name="minNumNeigh" type="int">
 							<description>
-								Min number of neighboring events required to perform this computation step
+								Min number of neighboring events required to perform this computation step. Check disabled by default.
 							</description>
 						</parameter>
 						<parameter name="maxNumNeigh" type="int">
 							<description>
-								Max number of neighbors used. Further events are discarded
+								Max number of neighbors used. Further events are discarded. No limit by default.
 							</description>
 						</parameter> 
 						<group name="crosscorrelation">
