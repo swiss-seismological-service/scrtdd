@@ -620,11 +620,13 @@ bool RTDD::run() {
 	// relocate xml event and exit
 	if ( !_config.eventXML.empty() )
 	{
-		_config.onlyPreferredOrigin = false; // force process of any origin
+		vector<OriginPtr> origins;
 		for(unsigned i = 0; i < _eventParameters->originCount(); i++)
-		{
-			OriginPtr org = _eventParameters->origin(i);
+			origins.push_back(_eventParameters->origin(i));
 
+		_config.onlyPreferredOrigin = false; // force process of any origin
+		for(const OriginPtr& org : origins)
+		{
 			// Start processing immediately
 			_config.delayTimes = {0};
 			_cronCounter = 0;
