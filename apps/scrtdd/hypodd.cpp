@@ -944,10 +944,10 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 	}
 
 	// Select neighbouring events
-	CatalogPtr neighbourCat = selectNeighbouringEvents(_ddbgc, evToRelocate, _cfg.dtt.minESdist,
-	                                                 _cfg.dtt.maxESdist, _cfg.dtt.maxIEdist,
-	                                                 _cfg.dtt.minNumNeigh, _cfg.dtt.maxNumNeigh,
-	                                                 _cfg.dtt.minDTperEvt);
+	CatalogPtr neighbourCat = selectNeighbouringEvents(_ddbgc, evToRelocate, _cfg.dtt.minEStoIEratio,
+	                                                   _cfg.dtt.minESdist, _cfg.dtt.maxESdist,
+	                                                   _cfg.dtt.maxIEdist, _cfg.dtt.minNumNeigh,
+	                                                   _cfg.dtt.maxNumNeigh, _cfg.dtt.minDTperEvt);
 	// add event to relocate to the neighbour catalog
 	neighbourCat = neighbourCat->merge(evToRelocateCat);
 	// extract the new id of the event
@@ -1001,10 +1001,10 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 
 		// Select neighbouring events from the relocated origin
 		const Catalog::Event& refinedLoc = relocatedEv->getEvents().begin()->second;
-		neighbourCat = selectNeighbouringEvents(_ddbgc, refinedLoc, _cfg.xcorr.minESdist,
-		                                        _cfg.xcorr.maxESdist, _cfg.xcorr.maxIEdist,
-		                                        _cfg.xcorr.minNumNeigh, _cfg.xcorr.maxNumNeigh,
-		                                        _cfg.xcorr.minDTperEvt);
+		neighbourCat = selectNeighbouringEvents(_ddbgc, refinedLoc, _cfg.xcorr.minEStoIEratio,
+		                                        _cfg.xcorr.minESdist, _cfg.xcorr.maxESdist,
+		                                        _cfg.xcorr.maxIEdist, _cfg.xcorr.minNumNeigh,
+		                                        _cfg.xcorr.maxNumNeigh,_cfg.xcorr.minDTperEvt);
 		// add event to relocate to the neighbour catalog
 		neighbourCat = neighbourCat->merge(relocatedEv);
 		// extract the new id of the event
@@ -1291,6 +1291,7 @@ double HypoDD::computeDistance(double lat1, double lon1, double depth1,
 
 CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
                                             const Catalog::Event& refEv,
+                                            double minEStoIEratio,
                                             double minESdis,
                                             double maxESdis,
                                             double maxIEdis,
@@ -1298,7 +1299,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
                                             int maxNumNeigh,
                                             int minDTperEvt)
 {
-	map<double,unsigned> eventDistances; // distance, eventid
+	map<double,unsigned> eventByDistance; // distance, eventid
+	map<unsigned,double> distanceByEvent; // eventid, distance
 
 	// loop through every event in the catalog and select the ones within maxIEdis distance
 	for (const auto& kv : catalog->getEvents() )
@@ -1322,13 +1324,14 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 		}
 
 		// keep a list of added events sorted by distance
-		eventDistances[distance] = event.id;
+		eventByDistance[distance] = event.id;
+		distanceByEvent[event.id] = distance;
 	}
 
 	// Limit num neighbors to maxNumNeigh, choose closest ones
-	int maxEvents = maxNumNeigh > 0 ? maxNumNeigh : eventDistances.size();
-	map<double,unsigned>  selectedEvents(eventDistances.begin(),
-	                                   std::next(eventDistances.begin(), maxEvents));
+	int maxEvents = maxNumNeigh > 0 ? maxNumNeigh : eventByDistance.size();
+	map<double,unsigned>  selectedEvents(eventByDistance.begin(),
+	                                     std::next(eventByDistance.begin(), maxEvents));
 
 	// Check if enough neighbors were found
 	if ( selectedEvents.size() < minNumNeigh )
@@ -1367,14 +1370,18 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 			const Catalog::Station& station = search->second;
             
 			// compute distance between current event and station
-			double distance = computeDistance(event.latitude, event.longitude, event.depth,
-			                                  station.latitude, station.longitude, -(station.elevation/1000.));
+			double stationDistance = computeDistance(event.latitude, event.longitude, event.depth,
+			                                         station.latitude, station.longitude,
+			                                         -(station.elevation/1000.));
 			// too far away ?
-			if ( maxESdis > 0 && distance > maxESdis )
+			if ( maxESdis > 0 && stationDistance > maxESdis )
 				continue;
 
 			// too close ?
-			if ( distance < minESdis )
+			if ( stationDistance < minESdis )
+				continue;
+
+			if ( (stationDistance / distanceByEvent[event.id]) < minEStoIEratio )
 				continue;
 
 			phases.emplace(event.id, phase);

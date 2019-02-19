@@ -395,6 +395,9 @@ bool RTDD::validateParameters()
 			prof->ddcfg.dtt.minWeight = configGetDouble(prefix + "minWeight");
 		} catch ( ... ) { prof->ddcfg.dtt.minWeight = 0; }
 		try {
+			prof->ddcfg.dtt.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
+		} catch ( ... ) { prof->ddcfg.dtt.minEStoIEratio = 0; }
+		try {
 			prof->ddcfg.dtt.minESdist = configGetDouble(prefix + "minESdist");
 		} catch ( ... ) { prof->ddcfg.dtt.minESdist = 0; }
 		try {
@@ -418,6 +421,9 @@ bool RTDD::validateParameters()
 		try {
 			prof->ddcfg.xcorr.minWeight = configGetDouble(prefix + "minWeight");
 		} catch ( ... ) { prof->ddcfg.xcorr.minWeight = 0; }
+		try {
+			prof->ddcfg.xcorr.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
+		} catch ( ... ) { prof->ddcfg.xcorr.minEStoIEratio = 0; }
 		try {
 			prof->ddcfg.xcorr.minESdist = configGetDouble(prefix + "minESdist");
 		} catch ( ... ) { prof->ddcfg.xcorr.minESdist = 0; }

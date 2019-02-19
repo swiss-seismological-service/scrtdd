@@ -208,7 +208,7 @@
 							<description>
 								Max distance (km) between events in a pair allowed. Event pairs not satisfying this condition will not be used. No limit by default.
 							</description>
-							</parameter>
+						</parameter>
 						<parameter name="minESdist" type="double">
 							<description>
 								Min distance (km) between event pair and station required. Event pairs not satisfying this condition will not be used. Check disabled by default. 
@@ -217,6 +217,11 @@
  						<parameter name="maxESdist" type="double">
 							<description>
 								Max distance (km) between event pair and station allowed. Event pairs not satisfying this condition will not be used. No limit by default.
+							</description>
+						</parameter>
+						<parameter name="minEStoIEratio" type="double">
+							<description>
+								Min ratio between event-station distance and pair inter-event distance. Check disabled by default.
 							</description>
 						</parameter>
 						<parameter name="minDTperEvt" type="int">
@@ -258,6 +263,11 @@
  						<parameter name="maxESdist" type="double">
 							<description>
 								Max distance (km) between event pair and station allowed. Event pairs not satisfying this condition will not be used. No limit by default.
+							</description>
+						</parameter>
+						<parameter name="minEStoIEratio" type="double">
+							<description>
+								Min ratio between event-station distance and pair inter-event distance. Check disabled by default.
 							</description>
 						</parameter>
 						<parameter name="minDTperEvt" type="int">
