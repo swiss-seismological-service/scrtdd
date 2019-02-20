@@ -2281,6 +2281,13 @@ void HypoDD::filter(GenericRecord &trace, bool demeaning,
 {
 	DoubleArray *data = DoubleArray::Cast(trace.data());
 
+	if (demeaning)
+	{
+		double mean = data->mean();
+		int cnt = data->size();
+		for ( int i = 0; i < cnt; ++i ) (*data)[i] -= mean;
+	}
+
 	if ( fmin > 0 && fmax > 0 )
 	{
 		Math::Filtering::IIR::ButterworthHighLowpass<double> bp(order, fmin, fmax, fsamp);
@@ -2298,13 +2305,6 @@ void HypoDD::filter(GenericRecord &trace, bool demeaning,
 		Math::Filtering::IIR::ButterworthLowpass<double> lp(order, fmax, fsamp);
 		lp.setSamplingFrequency(trace.samplingFrequency());
 		lp.apply(data->size(), data->typedData());
-	}
-
-	if (demeaning)
-	{
-		double mean = data->mean();
-		int cnt = data->size();
-		for ( int i = 0; i < cnt; ++i ) (*data)[i] -= mean;
 	}
 
 }
