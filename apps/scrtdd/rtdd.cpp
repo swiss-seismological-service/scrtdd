@@ -308,12 +308,8 @@ bool RTDD::validateParameters()
 		_config.testMode = true; // we won't send any message
 	}
 
-	// If the inventory is provided by an XML file disable the database
-	if ( !isInventoryDatabaseEnabled() )
-	{
-		setDatabaseEnabled(false, false);
-	}
- 
+
+
 	std::string hypoddExec = "hypodd";
 	try {
 		hypoddExec = env->absolutePath(configGetPath("hypoddPath"));
@@ -325,6 +321,7 @@ bool RTDD::validateParameters()
 	} catch ( ... ) { }
 
 	bool profilesOK = true;
+	bool profileRequireDB = false;
 
 	for ( vector<string>::iterator it = _config.activeProfiles.begin();
 	      it != _config.activeProfiles.end(); )
@@ -372,13 +369,21 @@ bool RTDD::validateParameters()
 
 		prefix = string("profile.") + *it + ".catalog.";
 
-		prof->eventFile = env->absolutePath(configGetPath(prefix + "eventFile"));
-		try {
+		string eventFile = env->absolutePath(configGetPath(prefix + "eventFile"));
+
+		// check if the file contains only seiscomp event/origin ids
+		if ( CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0)
+		{
+			prof->eventIDFile = eventFile;
+			profileRequireDB = true;
+		}
+		else
+		{
+			prof->eventFile = eventFile;
 			prof->stationFile = env->absolutePath(configGetPath(prefix + "stationFile"));
-		} catch ( ... ) {}
-		try {
 			prof->phaFile = env->absolutePath(configGetPath(prefix + "phaFile"));
-		} catch ( ... ) {}
+		}
+
 		try {
 			prof->ddcfg.validPphases = configGetStrings(prefix + "P-Phases");
 		} catch ( ... ) {
@@ -480,6 +485,14 @@ bool RTDD::validateParameters()
 		_profiles.push_back(prof);
 
 		++it;
+	}
+
+	// If the inventory is provided by an XML file or an event XML
+	// is provided, disable the database because we don't need to access it
+	if (  !isInventoryDatabaseEnabled() ||
+	     ( !_config.eventXML.empty() && ! profileRequireDB ) )
+	{
+		setDatabaseEnabled(false, false);
 	}
 
 	if (!profilesOK) return false;
@@ -1193,11 +1206,11 @@ void RTDD::Profile::load(DatabaseQuery* query,
 
 	// load the catalog either from seiscomp event/origin ids or from extended format
 	HDD::CatalogPtr ddbgc;
-	if ( CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0)
+	if ( ! eventIDFile.empty() )
 	{
 		HDD::DataSource dataSrc(query, cache, eventParameters);
 		ddbgc = new HDD::Catalog();
-		ddbgc->add(eventFile, dataSrc);
+		ddbgc->add(eventIDFile, dataSrc);
 	}
 	else
 	{

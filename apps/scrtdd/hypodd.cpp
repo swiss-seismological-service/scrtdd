@@ -482,9 +482,11 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 				                                                pick->time());
 				if ( !orgArrStation )
 				{
-					string msg = stringify("Cannot find station for arrival '%s' (origin '%s')",
-				                           orgArr->pickID().c_str(), org->publicID().c_str());
-					throw runtime_error(msg.c_str());
+					SEISCOMP_ERROR("Cannot load station %s.%s information for arrival '%s' (origin '%s')."
+					               "All picks associated with this station will not be used.",
+					                sta.networkCode.c_str(), sta.stationCode.c_str(),
+					               orgArr->pickID().c_str(), org->publicID().c_str());
+					continue;
 				}
 				sta.latitude = orgArrStation->latitude();
 				sta.longitude = orgArrStation->longitude();

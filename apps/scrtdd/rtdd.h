@@ -140,6 +140,7 @@ class RTDD : public Application {
 			std::string name;
 			std::string earthModelID;
 			std::string methodID;
+			std::string eventIDFile;
 			std::string stationFile;
 			std::string eventFile;
 			std::string phaFile;
