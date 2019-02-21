@@ -957,7 +957,12 @@ CatalogPtr HypoDD::relocateCatalog(bool force)
 
 	// load a catalog from hypodd output file
 	// input: hypoDD.reloc
-	return loadRelocatedCatalog(ddrelocFile, _ddbgc);
+	CatalogPtr relocatedCatalog = loadRelocatedCatalog(ddrelocFile, _ddbgc);
+	// write catalog for debugging purpose
+	relocatedCatalog->writeToFile((boost::filesystem::path(catalogWorkingDir)/"reloc-event.csv").string(),
+	                              (boost::filesystem::path(catalogWorkingDir)/"reloc-phase.csv").string(),
+	                              (boost::filesystem::path(catalogWorkingDir)/"reloc-station.csv").string());
+	return relocatedCatalog;
 }
 
 
@@ -1023,6 +1028,10 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 	string ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
 	CatalogPtr relocatedCatalog = loadRelocatedCatalog(ddrelocFile, neighbourCat);
 	CatalogPtr relocatedEv = extractEvent(relocatedCatalog, evToRelocateNewId);
+	// write catalog for debugging purpose
+	relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"reloc-event.csv").string(),
+	                              (boost::filesystem::path(eventWorkingDir)/"reloc-phase.csv").string(),
+	                              (boost::filesystem::path(eventWorkingDir)/"reloc-station.csv").string());
 
 	if ( _workingDirCleanup )
 	{
@@ -1080,6 +1089,10 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 		ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
 		relocatedCatalog = loadRelocatedCatalog(ddrelocFile, neighbourCat);
 		relocatedEvWithXcorr = extractEvent(relocatedCatalog, refinedLocNewId);
+		// write catalog for debugging purpose
+		relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"reloc-event.csv").string(),
+		                              (boost::filesystem::path(eventWorkingDir)/"reloc-phase.csv").string(),
+		                              (boost::filesystem::path(eventWorkingDir)/"reloc-station.csv").string());
 
 		if ( _workingDirCleanup )
 		{
