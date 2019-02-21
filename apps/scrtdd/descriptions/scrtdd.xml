@@ -179,17 +179,17 @@
 							</description>
 						</parameter>
 
-						<parameter name="P-Phases" type="list:string" default="P,Pg,Pn,P1">
+						<parameter name="P-Phases" type="list:string" default="Pg,P">
 							<description>
-								Defines a list of accepted P phases. Phases not in this list are not be used.
-								if multiple phases exist, the first one arrived will be used.
+								Defines a priority list of accepted P phases. Phases not in the list will be discarded.
+								if multiple phases exist for the same event/station pair, the first one in the list will be used.
 							</description>
 						</parameter>
 
-						<parameter name="S-Phases" type="list:string" default="S,Sg,Sn,S1">
+						<parameter name="S-Phases" type="list:string" default="Sg,S">
 							<description>
-								Defines a list of accepted S phases. Phases not in this list are not be used.
-								if multiple phases exist, the first one arrived will be used.
+								Defines a priority list of accepted S phases. Phases not in this list will be discarded.
+								if multiple phases exist for the same event/station pair, the first one in the list will be used.
 							</description>
 						</parameter>
 

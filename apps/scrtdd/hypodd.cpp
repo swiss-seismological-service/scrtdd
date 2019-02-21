@@ -784,47 +784,111 @@ CatalogPtr HypoDD::filterOutPhases(const CatalogPtr& catalog,
                                    const std::vector<std::string>& PphaseToKeep,
                                    const std::vector<std::string>& SphaseToKeep) const
 {
-	multimap<unsigned,Catalog::Phase> filteredPhases;
+	SEISCOMP_DEBUG("Selecting preferred phases from catalog");
+
+	multimap<unsigned,Catalog::Phase> filteredS;
+	multimap<unsigned,Catalog::Phase> filteredP;
 
 	// loop through each event
 	for (const auto& kv :  catalog->getEvents() )
 	{
 		const Catalog::Event& event = kv.second;
 
-		// fetch all phases for current event
-		auto eqlrng = catalog->getPhases().equal_range(event.id);
+		// loop through all phases of current event
+		const auto& eqlrng = catalog->getPhases().equal_range(event.id);
 		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
 		{
-			Catalog::Phase phase = it->second; // copying
-			if ( find(PphaseToKeep.begin(), PphaseToKeep.end(), phase.type) != PphaseToKeep.end() )
-				phase.type = "P";
-			else if ( find(SphaseToKeep.begin(), SphaseToKeep.end(), phase.type) != SphaseToKeep.end() )
-				phase.type = "S";
-			else {
-				SEISCOMP_DEBUG("Discard phase (%s), the type is not among the selected ones",
-							   string(phase).c_str());
+			// keep the phase only if it has a higher priority of an existing one
+			// or if this is the only one for a given station
+			const Catalog::Phase& phase = it->second;
+
+			// P phase
+			auto itpp = find(PphaseToKeep.begin(), PphaseToKeep.end(), phase.type);
+			if ( itpp != PphaseToKeep.end() )
+			{
+				auto priority = std::distance(PphaseToKeep.begin(), itpp);
+
+				// fetch already selected P phases for current event, and
+				// check if there is already a P phase for the same station
+				bool inserted = false;
+				auto eqlrng2 = filteredP.equal_range(event.id);
+				for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
+				{
+					Catalog::Phase& existingPhase = it2->second;
+					auto existingPriority = std::distance(
+						PphaseToKeep.begin(),
+						find(PphaseToKeep.begin(), PphaseToKeep.end(), existingPhase.type)
+					);
+					if ( existingPhase.type == phase.type           &&
+					     existingPhase.stationId == phase.stationId &&
+					     existingPriority < priority )
+					{
+						SEISCOMP_DEBUG("Preferring phase '%s' over '%s'",
+						               string(phase).c_str(), string(existingPhase).c_str());
+						existingPhase = phase;
+						inserted = true;
+						break;
+					}
+				}
+				if ( ! inserted )
+					filteredP.emplace(phase.eventId, phase);
 				continue;
 			}
 
-			// fetch already selected phases for current event
-			bool inserted = false;
-			auto eqlrng2 = filteredPhases.equal_range(event.id);
-			for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
+			// S phase
+			auto itsp = find(SphaseToKeep.begin(), SphaseToKeep.end(), phase.type);
+			if ( itsp != SphaseToKeep.end() )
 			{
-				Catalog::Phase& existingPhase = it2->second;
-				if ( existingPhase.type == phase.type &&
-				     existingPhase.stationId == phase.stationId &&
-				     existingPhase.time > phase.time)
+				auto priority = std::distance(SphaseToKeep.begin(), itsp);
+
+				// fetch already selected S phases for current event, and
+				// check if there is already a S phase for the same station
+				bool inserted = false;
+				auto eqlrng2 = filteredS.equal_range(event.id);
+				for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
 				{
-					existingPhase = phase;
-					inserted = true;
-					break;
+					Catalog::Phase& existingPhase = it2->second;
+					auto existingPriority = std::distance(
+						SphaseToKeep.begin(),
+						find(SphaseToKeep.begin(), SphaseToKeep.end(), existingPhase.type)
+					);
+					if ( existingPhase.type == phase.type           &&
+					     existingPhase.stationId == phase.stationId &&
+					     existingPriority < priority )
+					{
+						SEISCOMP_DEBUG("Preferring phase '%s' over '%s'",
+						               string(phase).c_str(), string(existingPhase).c_str());
+						existingPhase = phase;
+						inserted = true;
+						break;
+					}
 				}
+				if ( ! inserted )
+					filteredS.emplace(phase.eventId, phase);
+				continue;
 			}
-			if ( ! inserted )
-				filteredPhases.emplace(phase.eventId, phase);
+			
+			SEISCOMP_DEBUG("Discard phase (%s), the type is not among the selected ones",
+			               string(phase).c_str());
 		}
 	}
+
+	// loop through selected phases and replace actual phase name
+	//  with a generic P or S
+	multimap<unsigned,Catalog::Phase> filteredPhases;
+	for (auto& it : filteredP)
+	{
+		Catalog::Phase& phase = it.second;
+		phase.type = "P";
+		filteredPhases.emplace(phase.eventId, phase);
+	}
+	for (auto& it : filteredS)
+	{
+		Catalog::Phase& phase = it.second;
+		phase.type = "S";
+		filteredPhases.emplace(phase.eventId, phase);
+	}
+
 	return new Catalog(catalog->getStations(), catalog->getEvents(), filteredPhases);
 }
 

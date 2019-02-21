@@ -201,8 +201,8 @@ class Catalog : public Core::BaseObject {
 
 struct Config {
 	
-	std::vector<std::string> validPphases = {"P"};
-	std::vector<std::string> validSphases = {"S"};
+	std::vector<std::string> validPphases = {"Pg,P"};
+	std::vector<std::string> validSphases = {"Sg,S"};
 
 	// ph2dt config specifig (catalog relocation only)
 	struct {
@@ -218,39 +218,41 @@ struct Config {
 
 	// differential travel time specific
 	struct {
-		double minWeight;  // Min weight of phases required (0-1)
-		double minEStoIEratio; // Min epi-sta to  interevent distance ration required
-		double minESdist;   // Min epi-sta distance required
-		double maxESdist;   // Max epi-sta distance allowed
-		double maxIEdist;   // Max interevent-distance allowed (km)
-		int minNumNeigh;      // Min neighbors required
-		int maxNumNeigh;     // Max neighbors allowed (furthest events are discarded)
-		int minDTperEvt;      // Min differential times per event pair required (Including P+S)
+		double minWeight      = 0;  // Min weight of phases required (0-1)
+		double minEStoIEratio = 0;  // Min epi-sta to  interevent distance ration required
+		double minESdist      = 0;  // Min epi-sta distance required
+		double maxESdist      =-1;  // Max epi-sta distance allowed
+		double maxIEdist      =-1;  // Max interevent-distance allowed (km)
+		int minNumNeigh       = 1;  // Min neighbors required
+		int maxNumNeigh       =-1;  // Max neighbors allowed (furthest events are discarded)
+		int minDTperEvt       = 1;  // Min differential times per event pair required (Including P+S)
 	} dtt;
 
 	// cross correlation specific
 	struct {
 		std::string recordStreamURL;
-		double minWeight;  // Min weight of phases required (0-1)
-		double minEStoIEratio; // Min epi-sta to  interevent distance ration required
-		double minESdist;   // Min epi-sta epidistance required
-		double maxESdist;   // Max epi-sta epidistance allowed
-		double maxIEdist;   // Max interevent-distance allowed (km)
-		int minNumNeigh;      // Min neighbors required
-		int maxNumNeigh;     // Max neighbors allowed (furthest events are discarded)
-		int minDTperEvt;      // Min differential times per event pair required (Including P+S) 
-		double minCoef;    // Min xcorr coefficient required (0-1)
+
+		double minWeight      = 0;  // Min weight of phases required (0-1)
+		double minEStoIEratio = 0;  // Min epi-sta to  interevent distance ration required
+		double minESdist      = 0;  // Min epi-sta distance required
+		double maxESdist      =-1;  // Max epi-sta distance allowed
+		double maxIEdist      =-1;  // Max interevent-distance allowed (km)
+		int minNumNeigh       = 1;  // Min neighbors required
+		int maxNumNeigh       =-1;  // Max neighbors allowed (furthest events are discarded)
+		int minDTperEvt       = 1;  // Min differential times per event pair required (Including P+S)
+
+		double minCoef        = 0;    // Min xcorr coefficient required (0-1)
 
 		double timeBeforePick; // secs
 		double timeAfterPick;  // secs
-		double maxDelay; //secs
+		double maxDelay;       //secs
 
 		int filterOrder;
-		double filterFmin;
-		double filterFmax;
-		double filterFsamp;
+		double filterFmin     = 0;
+		double filterFmax     = 0;
+		double filterFsamp    = 0;
 
-		bool allowResampling;
+		bool allowResampling  = false;
 	} xcorr;
 };
 
