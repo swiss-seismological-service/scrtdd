@@ -310,9 +310,17 @@ class HypoDD : public Core::BaseObject {
 		                                    int minNumNeigh=1, int maxNumNeigh=-1, int minDTperEvt=1);
 		CatalogPtr extractEvent(const CatalogPtr& catalog, unsigned eventId) const;
 		GenericRecordPtr getWaveform(const Core::TimeWindow& tw,
+		                             const Catalog::Event& ev,
 		                             const Catalog::Phase& ph,
 		                             std::map<std::string,GenericRecordPtr>& cache,
 		                             bool useDiskCache);
+		GenericRecordPtr loadWaveformCached(const Core::TimeWindow& tw,
+		                                    const std::string& networkCode,
+		                                    const std::string& stationCode,
+		                                    const std::string& locationCode,
+		                                    const std::string& channelCode,
+		                                    bool useDiskCache,
+		                                    std::map<std::string,GenericRecordPtr>& cache) const;
 		GenericRecordPtr loadWaveform(const Core::TimeWindow& tw,
 		                              const std::string& networkCode,
 		                              const std::string& stationCode,

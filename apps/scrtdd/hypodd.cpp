@@ -20,6 +20,8 @@
 #include <seiscomp3/core/typedarray.h>
 #include <seiscomp3/io/recordinput.h>
 #include <seiscomp3/io/records/mseedrecord.h>
+#include <seiscomp3/processing/operator/transformation.h>
+#include <seiscomp3/processing/operator/ncomps.h>
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/math/filter/butterworth.h>
 #include <seiscomp3/client/inventory.h>
@@ -47,6 +49,7 @@
  
 using namespace std;
 using namespace Seiscomp;
+using namespace Seiscomp::Processing;
 using Seiscomp::Core::stringify;
 
 namespace {
@@ -204,7 +207,7 @@ void copyFileAndReplaceLines(const string& srcFilename,
 
 DataModel::Station* findStation(const string& netCode,
                                 const string& stationCode,
-                                Core::Time atTime)
+                                const Core::Time& atTime)
 {
 	DataModel::Inventory *inv = Client::Inventory::Instance()->inventory();
 	if ( ! inv )
@@ -237,6 +240,31 @@ DataModel::Station* findStation(const string& netCode,
 
 	return nullptr;
 }
+
+
+
+DataModel::SensorLocation *findSensorLocation(DataModel::Station *station,
+                                              const std::string &code,
+                                              const Core::Time &atTime)
+{
+	for ( size_t i = 0; i < station->sensorLocationCount(); ++i )
+	{
+		DataModel::SensorLocation *loc = station->sensorLocation(i);
+
+		try {
+			if ( loc->end() <= atTime ) continue;
+		}
+		catch ( Seiscomp::Core::ValueException& ) {}
+
+		if ( loc->start() > atTime ) continue;
+
+		if ( loc->code() == code )
+			return loc;
+	}
+
+	return NULL;
+}
+
 
 }
 
@@ -1921,7 +1949,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
 	// always load the long trace, because we want to cache the longer version
 	Core::TimeWindow tw1 = Core::TimeWindow(phase1.time.toLocalTime() - longTimeCorrection, longDuration);
-	GenericRecordPtr tr1 = getWaveform(tw1, phase1, cache1, useDiskCache1);
+	GenericRecordPtr tr1 = getWaveform(tw1, event1, phase1, cache1, useDiskCache1);
 	if ( !tr1 )
 	{
 		SEISCOMP_WARNING("Cannot load phase1 waveform, skipping cross correlation "
@@ -1932,7 +1960,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
 	// always load the long trace, because we want to cache the longer version
 	Core::TimeWindow tw2 = Core::TimeWindow(phase2.time.toLocalTime() - longTimeCorrection, longDuration);
-	GenericRecordPtr tr2 = getWaveform(tw2, phase2, cache2, useDiskCache2);
+	GenericRecordPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2);
 	if ( !tr2 )
 	{
 		SEISCOMP_WARNING("Cannot load phase2 waveform, skipping cross correlation "
@@ -2086,35 +2114,65 @@ HypoDD::xcorr(GenericRecordCPtr tr1, GenericRecordCPtr tr2, double maxDelay,
  */
 GenericRecordPtr
 HypoDD::getWaveform(const Core::TimeWindow& tw,
+                    const Catalog::Event& ev,
                     const Catalog::Phase& ph,
                     map<string,GenericRecordPtr>& cache,
                     bool useDiskCache)
 {
+		// No projection required
+		return  loadWaveformCached(tw, ph.networkCode, ph.stationCode,
+		                           ph.locationCode, ph.channelCode,
+		                           useDiskCache,  cache);
+}
+
+
+
+
+/*
+ * Return the waveform from the memory cache if present, otherwise load it
+ */
+GenericRecordPtr
+HypoDD::loadWaveformCached(const Core::TimeWindow& tw,
+                           const string& networkCode,
+                           const string& stationCode,
+                           const string& locationCode,
+                           const string& channelCode,
+                           bool useDiskCache,
+                           map<string,GenericRecordPtr>& cache) const
+{
 	string wfId = stringify("%s.%s.%s.%s.%s.%s",
-	                        ph.networkCode.c_str(), ph.stationCode.c_str(),
-	                        ph.locationCode.c_str(), ph.channelCode.c_str(),
+	                        networkCode.c_str(), stationCode.c_str(),
+	                        locationCode.c_str(), channelCode.c_str(),
 	                        tw.startTime().iso().c_str(),
 	                        tw.endTime().iso().c_str());
 
 	// first try to load the waveform from the cache
 	const auto it = cache.find(wfId);
+
 	if ( it == cache.end() ) // waveform not cached yet
 	{
 		GenericRecordPtr wf;
-		// load waveform
+
+		// then load waveform
 		try {
-			wf = loadWaveform(tw, ph.networkCode, ph.stationCode,
-			                  ph.locationCode, ph.channelCode,
+			wf = loadWaveform(tw, networkCode, stationCode,
+			                  locationCode, channelCode,
 			                  useDiskCache);
 		} catch ( ... ) {}
-		// cache waveform
-		if (wf) 
+
+		// save waveform into the cache
+		if (wf)
+		{
 			cache[wfId] = wf;
+		}
 		return wf;
 	}
 	else // the waveform is already in cache
+	{
 		return it->second;
+	}
 }
+
 
 
 /*
