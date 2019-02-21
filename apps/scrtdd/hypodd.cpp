@@ -325,180 +325,6 @@ DataModel::Event* DataSource::getParentEvent(const std::string& originID)
 
 
 
-void Catalog::initFromIds(Catalog* catalog,
-                          const std::vector<std::string>& ids,
-                          DataSource& dataSrc)
-{
-	vector<DataModel::Origin*> origins;
-
-	for(const string& id : ids)
-	{
-		DataModel::OriginPtr org = dataSrc.get<DataModel::Origin>(id);
-		if ( !org )
-		{
-			DataModel::EventPtr ev = dataSrc.get<DataModel::Event>(id);
-			if ( ev )
-			{
-				org = dataSrc.get<DataModel::Origin>(ev->preferredOriginID());
-			}
-		}
-		if ( !org )
-		{
-			string msg = "Cannot find origin/event with id " + id;
-			throw runtime_error(msg);
-		}
-		origins.push_back(org.get());
-	}
-
-	initFromOrigins(catalog, origins, dataSrc);
-}
-
-
-
-void Catalog::initFromOrigins(Catalog* catalog,
-                              const std::vector<DataModel::Origin*>& orgs,
-                              DataSource& dataSrc)
-{
-	for(DataModel::Origin* org : orgs)
-	{
-		if ( org->arrivalCount() == 0)
-			dataSrc.loadArrivals(org);
-
-		// Add event
-		Event ev;
-		ev.id          = 0;
-		ev.time        = org->time().value().toGMT();
-		ev.latitude    = org->latitude();
-		ev.longitude   = org->longitude();
-		ev.depth       = org->depth(); // km
-		ev.horiz_err   = 0;
-		ev.depth_err   = 0;
-		ev.tt_residual = 0;
-		DataModel::MagnitudePtr mag;
-		// try to fetch preferred magnitude stored in the event
-		DataModel::EventPtr parentEvent = dataSrc.getParentEvent(org->publicID());
-		if ( parentEvent )
-		{
-			mag = dataSrc.get<DataModel::Magnitude>(parentEvent->preferredMagnitudeID());
-		}
-		if ( mag )
-		{
-			ev.magnitude = mag->magnitude();
-		}
-		else
-		{
-			SEISCOMP_WARNING("Origin %s: cannot load preferred magnitude from parent event, set it to 0",
-			                 org->publicID().c_str());
-			ev.magnitude = 0.;
-		}
-
-		SEISCOMP_DEBUG("Adding origin '%s' to the catalog", org->publicID().c_str());
-
-		catalog->addEvent(ev, false);
-		ev = catalog->searchEvent(ev)->second;
-
-		// Add Phases
-		for ( size_t i = 0; i < org->arrivalCount(); ++i )
-		{
-			DataModel::Arrival *orgArr = org->arrival(i);
-			const DataModel::Phase& orgPh = orgArr->phase();
-
-			DataModel::PickPtr pick = dataSrc.get<DataModel::Pick>(orgArr->pickID());
-			if ( !pick )
-			{
-				SEISCOMP_ERROR("Cannot load pick '%s' (origin %s)",
-				               orgArr->pickID().c_str(), org->publicID().c_str());
-				continue;
-			}
-
-			// find the station
-			Station sta;
-			sta.networkCode = pick->waveformID().networkCode();
-			sta.stationCode = pick->waveformID().stationCode();
-
-			// add station if not already there
-			if (searchStation(sta) == _stations.end())
-			{
-				DataModel::Station* orgArrStation = findStation(sta.networkCode, sta.stationCode,
-				                                                pick->time());
-				if ( !orgArrStation )
-				{
-					string msg = stringify("Cannot find station for arrival '%s' (origin '%s')",
-				                           orgArr->pickID().c_str(), org->publicID().c_str());
-					throw runtime_error(msg.c_str());
-				}
-				sta.latitude = orgArrStation->latitude();
-				sta.longitude = orgArrStation->longitude();
-				sta.elevation = orgArrStation->elevation(); // meter
-				catalog->addStation(sta, false);
-			}
-			// the station has to be there at this point
-			sta = catalog->searchStation(sta)->second;
-
-			Phase ph;
-			ph.eventId    = ev.id;
-			ph.stationId  = sta.id;
-			ph.time       = pick->time().value().toGMT();
-			try {
-				ph.weight = orgArr->weight();
-			} catch ( Core::ValueException& ) {
-				ph.weight = 1.;
-				SEISCOMP_INFO("Pick '%s' (origin %s) has no weight set, use default weight of 1.",
-				              orgArr->pickID().c_str(), org->publicID().c_str());
-			}
-
-			ph.type        = orgPh.code();
-			ph.networkCode =  pick->waveformID().networkCode();
-			ph.stationCode =  pick->waveformID().stationCode();
-			ph.locationCode =  pick->waveformID().locationCode();
-			ph.channelCode =  pick->waveformID().channelCode();
-			catalog->addPhase(ph, false);
-		}
-	}
-}
-
-
-
-Catalog::Catalog(const std::vector<DataModel::Origin*>& origins,
-                 DataSource& dataSrc)
-{
-	initFromOrigins(this, origins, dataSrc);
-}
-
-
-
-Catalog::Catalog(const std::vector<std::string>& ids,
-                 DataSource& dataSrc)
-{
-
-	initFromIds(this, ids, dataSrc);
-}
-
-
-
-Catalog::Catalog(const std::string& idFile,
-                 DataSource& dataSrc)
-{
-	if ( !Util::fileExists(idFile) )
-	{
-		string msg = "File " + idFile + " does not exist";
-		throw runtime_error(msg);
-	}
-
-	vector<string> ids;
-	vector< map<string,string> > rows = CSV::readWithHeader(idFile);
-
-	for(const auto& row : rows)
-	{
-		const string& id = row.at("seiscompId");
-		ids.push_back(id);
-	}
-
-	initFromIds(this, ids, dataSrc);
-}
-
-
-
 Catalog::Catalog() : Catalog(map<string,Station>(),
                              map<unsigned,Event>(),
                              multimap<unsigned,Phase>())
@@ -589,7 +415,159 @@ Catalog::Catalog(const string& stationFile, const string& eventFile, const strin
 
 
 
+void Catalog::add(const std::vector<DataModel::Origin*>& origins,
+                  DataSource& dataSrc)
+{
+	for(DataModel::Origin* org : origins)
+	{
+		if ( org->arrivalCount() == 0)
+			dataSrc.loadArrivals(org);
 
+		// Add event
+		Event ev;
+		ev.id          = 0;
+		ev.time        = org->time().value().toGMT();
+		ev.latitude    = org->latitude();
+		ev.longitude   = org->longitude();
+		ev.depth       = org->depth(); // km
+		ev.horiz_err   = 0;
+		ev.depth_err   = 0;
+		ev.tt_residual = 0;
+		DataModel::MagnitudePtr mag;
+		// try to fetch preferred magnitude stored in the event
+		DataModel::EventPtr parentEvent = dataSrc.getParentEvent(org->publicID());
+		if ( parentEvent )
+		{
+			mag = dataSrc.get<DataModel::Magnitude>(parentEvent->preferredMagnitudeID());
+		}
+		if ( mag )
+		{
+			ev.magnitude = mag->magnitude();
+		}
+		else
+		{
+			SEISCOMP_WARNING("Origin %s: cannot load preferred magnitude from parent event, set it to 0",
+			                 org->publicID().c_str());
+			ev.magnitude = 0.;
+		}
+
+		SEISCOMP_DEBUG("Adding origin '%s' to the catalog", org->publicID().c_str());
+
+		this->addEvent(ev, false);
+		ev = this->searchEvent(ev)->second;
+
+		// Add Phases
+		for ( size_t i = 0; i < org->arrivalCount(); ++i )
+		{
+			DataModel::Arrival *orgArr = org->arrival(i);
+			const DataModel::Phase& orgPh = orgArr->phase();
+
+			DataModel::PickPtr pick = dataSrc.get<DataModel::Pick>(orgArr->pickID());
+			if ( !pick )
+			{
+				SEISCOMP_ERROR("Cannot load pick '%s' (origin %s)",
+				               orgArr->pickID().c_str(), org->publicID().c_str());
+				continue;
+			}
+
+			// find the station
+			Station sta;
+			sta.networkCode = pick->waveformID().networkCode();
+			sta.stationCode = pick->waveformID().stationCode();
+
+			// add station if not already there
+			if (searchStation(sta) == _stations.end())
+			{
+				DataModel::Station* orgArrStation = findStation(sta.networkCode, sta.stationCode,
+				                                                pick->time());
+				if ( !orgArrStation )
+				{
+					string msg = stringify("Cannot find station for arrival '%s' (origin '%s')",
+				                           orgArr->pickID().c_str(), org->publicID().c_str());
+					throw runtime_error(msg.c_str());
+				}
+				sta.latitude = orgArrStation->latitude();
+				sta.longitude = orgArrStation->longitude();
+				sta.elevation = orgArrStation->elevation(); // meter
+				this->addStation(sta, false);
+			}
+			// the station has to be there at this point
+			sta = this->searchStation(sta)->second;
+
+			Phase ph;
+			ph.eventId    = ev.id;
+			ph.stationId  = sta.id;
+			ph.time       = pick->time().value().toGMT();
+			try {
+				ph.weight = orgArr->weight();
+			} catch ( Core::ValueException& ) {
+				ph.weight = 1.;
+				SEISCOMP_INFO("Pick '%s' (origin %s) has no weight set, use default weight of 1.",
+				              orgArr->pickID().c_str(), org->publicID().c_str());
+			}
+
+			ph.type        = orgPh.code();
+			ph.networkCode =  pick->waveformID().networkCode();
+			ph.stationCode =  pick->waveformID().stationCode();
+			ph.locationCode =  pick->waveformID().locationCode();
+			ph.channelCode =  pick->waveformID().channelCode();
+			this->addPhase(ph, false);
+		}
+	}
+}
+
+
+
+void Catalog::add(const std::vector<std::string>& ids, DataSource& dataSrc)
+{
+	vector<DataModel::Origin*> origins;
+
+	for(const string& id : ids)
+	{
+		DataModel::OriginPtr org = dataSrc.get<DataModel::Origin>(id);
+		if ( !org )
+		{
+			DataModel::EventPtr ev = dataSrc.get<DataModel::Event>(id);
+			if ( ev )
+			{
+				org = dataSrc.get<DataModel::Origin>(ev->preferredOriginID());
+			}
+		}
+		if ( !org )
+		{
+			string msg = "Cannot find origin/event with id " + id;
+			throw runtime_error(msg);
+		}
+		origins.push_back(org.get());
+	}
+
+	add(origins, dataSrc);
+}
+
+
+
+void Catalog::add(const std::string& idFile,  DataSource& dataSrc)
+{
+	if ( !Util::fileExists(idFile) )
+	{
+		string msg = "File " + idFile + " does not exist";
+		throw runtime_error(msg);
+	}
+
+	vector<string> ids;
+	vector< map<string,string> > rows = CSV::readWithHeader(idFile);
+
+	for(const auto& row : rows)
+	{
+		const string& id = row.at("seiscompId");
+		ids.push_back(id);
+	}
+
+	add(ids, dataSrc);
+}
+
+
+ 
 CatalogPtr Catalog::merge(const CatalogPtr& other) const
 {
 	CatalogPtr mergedCatalog = new Catalog(getStations(), getEvents(), getPhases());

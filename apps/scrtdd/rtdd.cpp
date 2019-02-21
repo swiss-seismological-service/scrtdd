@@ -570,7 +570,8 @@ bool RTDD::run() {
 	if ( !_config.dumpCatalog.empty() )
 	{
 		HDD::DataSource dataSrc(query(), &_cache, _eventParameters.get());
-		HDD::CatalogPtr cat = new HDD::Catalog(_config.dumpCatalog, dataSrc);
+		HDD::CatalogPtr cat = new HDD::Catalog();
+		cat->add(_config.dumpCatalog, dataSrc);
 		cat->writeToFile("event.csv","phase.csv","station.csv");
 		return true;
 	}
@@ -1190,12 +1191,13 @@ void RTDD::Profile::load(DatabaseQuery* query,
 	this->cache = cache;
 	this->eventParameters = eventParameters;
 
-	// load the catalog either from seiscomp event ids or from extended format
+	// load the catalog either from seiscomp event/origin ids or from extended format
 	HDD::CatalogPtr ddbgc;
 	if ( CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0)
 	{
 		HDD::DataSource dataSrc(query, cache, eventParameters);
-		ddbgc = new HDD::Catalog(eventFile, dataSrc);
+		ddbgc = new HDD::Catalog();
+		ddbgc->add(eventFile, dataSrc);
 	}
 	else
 	{
@@ -1228,7 +1230,16 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(Origin *org)
 	lastUsage = Core::Time::GMT();
 
 	HDD::DataSource dataSrc(query, cache, eventParameters);
-	HDD::CatalogPtr orgToRelocate = new HDD::Catalog({org}, dataSrc);
+
+	// we pass the stations information from the background catalog, to avoid
+	// wasting time accessing the inventory again for information we already have
+	HDD::CatalogPtr orgToRelocate = new HDD::Catalog(
+		hypodd->getCatalog()->getStations(),
+		map<unsigned,HDD::Catalog::Event>(),
+		multimap<unsigned,HDD::Catalog::Phase>()
+	);
+	orgToRelocate->add({org}, dataSrc);
+
 	return hypodd->relocateSingleEvent(orgToRelocate);
 }
 

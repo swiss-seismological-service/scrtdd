@@ -31,7 +31,6 @@
 namespace Seiscomp {
 namespace HDD {
 
-DEFINE_SMARTPOINTER(Catalog);
 
 class DataSource {
 	public:
@@ -66,6 +65,10 @@ class DataSource {
 		DataModel::PublicObjectTimeSpanBuffer* _cache;
 		DataModel::EventParameters* _eventParameters;
 };
+
+
+
+DEFINE_SMARTPOINTER(Catalog);
 
 // DD background catalog
 class Catalog : public Core::BaseObject {
@@ -157,7 +160,7 @@ class Catalog : public Core::BaseObject {
 		Catalog();
 		virtual ~Catalog() { }
 
-		// from custom data format constructors
+		// custom data format constructors
 		Catalog(const std::map<std::string,Station>& stations,
 		        const std::map<unsigned,Event>& events,
 		        const std::multimap<unsigned,Phase>& phases);
@@ -165,13 +168,10 @@ class Catalog : public Core::BaseObject {
 		        const std::string& catalogFile,
 		        const std::string& phaFile);
 
-		// from seiscomp data format constructors
-		Catalog(const std::vector<DataModel::Origin*>& origins,
-				DataSource& dataSrc);
-		Catalog(const std::vector<std::string>& ids,
-				DataSource& dataSrc);
-		Catalog(const std::string& idFile,
-				DataSource& dataSrc);
+		// add from seiscomp data format
+		void add(const std::vector<DataModel::Origin*>& origins, DataSource& dataSrc);
+		void add(const std::vector<std::string>& ids, DataSource& dataSrc);
+		void add(const std::string& idFile, DataSource& dataSrc);
 
 		CatalogPtr merge(const CatalogPtr& other) const;
 
@@ -192,17 +192,12 @@ class Catalog : public Core::BaseObject {
 		                 std::string stationFile) const;
 
 	private:
-		void initFromIds(Catalog* catalog,
-                         const std::vector<std::string>& ids,
-                         DataSource& dataSrc);
-		void initFromOrigins(Catalog* catalog,
-                             const std::vector<DataModel::Origin*>& orgs,
-                             DataSource& dataSrc);
-
 		std::map<std::string,Station> _stations; // indexed by station id
 		std::map<unsigned,Event> _events; //indexed by event id
 		std::multimap<unsigned,Phase> _phases; //indexed by event id
 };
+
+
 
 struct Config {
 	
@@ -259,18 +254,26 @@ struct Config {
 	} xcorr;
 };
 
+
+
 DEFINE_SMARTPOINTER(HypoDD);
 
 class HypoDD : public Core::BaseObject {
+
 	public:
 		HypoDD(const CatalogPtr& input, const Config& cfg, const std::string& workingDir);
 		virtual ~HypoDD();
+
 		CatalogPtr relocateCatalog(bool force = true);
 		CatalogPtr relocateSingleEvent(const CatalogPtr& orgToRelocate);
+
 		void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
 		bool workingDirCleanup() { return _workingDirCleanup; }
+
 		void setUseWaveformDiskCache(bool cache) { _wfDiskCache = cache; }
 		bool useWaveformDiskCache() { return _wfDiskCache; }
+
+		CatalogCPtr getCatalog() { return _ddbgc; }
 		
 	private:
 		CatalogPtr filterOutPhases(const CatalogPtr& catalog,
@@ -325,6 +328,7 @@ class HypoDD : public Core::BaseObject {
                     int order=3, double fmin=-1, double fmax=-1, double fsamp=0) const;
 		GenericRecordPtr resample(const GenericRecordCPtr &trace, int sf, bool average) const;
 		std::string generateWorkingSubDir(const Catalog::Event& ev) const;
+
 	private:
 		std::string _workingDir;
 		std::string _cacheDir;
