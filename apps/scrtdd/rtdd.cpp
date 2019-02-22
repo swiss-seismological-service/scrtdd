@@ -804,7 +804,7 @@ void RTDD::runNewJobs()
 			removeProcess(proc.get());
 
 		// Process event queue
-		while ( !_processQueue.empty() )
+		if ( !_processQueue.empty() )
 		{
 			ProcessPtr proc = _processQueue.front();
 			_processQueue.pop_front();
