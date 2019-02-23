@@ -193,7 +193,18 @@
 							</description>
 						</parameter>
 
-					</group>
+						<parameter name="incrementalCatalogFile" type="path">
+							<description>
+								Path to incremental catalog file. If this file is specified then every new origin
+								relocated with this profile will be added to the incrementalCatalogFile and used
+								as additional entry for the configured catalog.
+								When scrtdd module starts it reads entries from the incrementalCatalogFile and
+								add them to its configured background catalog. It is safe to edit this file
+								when scrtdd is not running.
+							</description>
+						</parameter>
+
+ 					</group>
 
 					<group name="dtct">
 						<description>

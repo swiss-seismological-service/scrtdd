@@ -263,8 +263,11 @@ DEFINE_SMARTPOINTER(HypoDD);
 class HypoDD : public Core::BaseObject {
 
 	public:
-		HypoDD(const CatalogPtr& input, const Config& cfg, const std::string& workingDir);
+		HypoDD(const CatalogPtr& catalog, const Config& cfg, const std::string& workingDir);
 		virtual ~HypoDD();
+
+		CatalogCPtr getCatalog() { return _ddbgc; }
+		void setCatalog(const CatalogPtr& catalog);
 
 		CatalogPtr relocateCatalog(bool force = true);
 		CatalogPtr relocateSingleEvent(const CatalogPtr& orgToRelocate);
@@ -275,7 +278,6 @@ class HypoDD : public Core::BaseObject {
 		void setUseWaveformDiskCache(bool cache) { _wfDiskCache = cache; }
 		bool useWaveformDiskCache() { return _wfDiskCache; }
 
-		CatalogCPtr getCatalog() { return _ddbgc; }
 		
 	private:
 		CatalogPtr filterOutPhases(const CatalogPtr& catalog,

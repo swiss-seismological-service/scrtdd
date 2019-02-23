@@ -383,6 +383,11 @@ bool RTDD::validateParameters()
 			prof->stationFile = env->absolutePath(configGetPath(prefix + "stationFile"));
 			prof->phaFile = env->absolutePath(configGetPath(prefix + "phaFile"));
 		}
+		try {
+			prof->incrementalCatalogFile = env->absolutePath(configGetPath(prefix + "incrementalCatalogFile"));
+		} catch ( ... ) { }
+
+		if ( ! prof->incrementalCatalogFile.empty() ) profileRequireDB = true;
 
 		try {
 			prof->ddcfg.validPphases = configGetStrings(prefix + "P-Phases");
@@ -1177,6 +1182,8 @@ OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 	for (size_t i = 0; i < org->arrivalCount(); i++)
 		newOrg->add(Arrival::Cast(org->arrival(i)->clone()));
 
+	profile->addIncrementalCatalogEntry(newOrg.get());
+
 	return newOrg;
 }
 
@@ -1215,6 +1222,13 @@ void RTDD::Profile::load(DatabaseQuery* query,
 	else
 	{
 		ddbgc = new HDD::Catalog(stationFile, eventFile, phaFile);
+	}
+
+	// if we have a incremental catalog, then load incremental entries
+	if ( ! incrementalCatalogFile.empty() && Util::fileExists(incrementalCatalogFile) )
+	{ 
+		HDD::DataSource dataSrc(query, cache, eventParameters);
+		ddbgc->add(incrementalCatalogFile, dataSrc);
 	}
 
 	hypodd = new HDD::HypoDD(ddbgc, ddcfg, workingDir);
@@ -1268,6 +1282,40 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog(bool force)
 	lastUsage = Core::Time::GMT();
 	return hypodd->relocateCatalog(force);
 }
+
+
+
+bool RTDD::Profile::addIncrementalCatalogEntry(Origin *org)
+{
+	if ( incrementalCatalogFile.empty() || ! org )
+		return false;
+
+	SEISCOMP_INFO("Adding origin %s to incremental catalog (profile %s file %s)",
+	              org->publicID().c_str(), name.c_str(), incrementalCatalogFile.c_str());
+
+	if ( ! Util::fileExists(incrementalCatalogFile) )
+	{
+		ofstream incStream(incrementalCatalogFile);
+		incStream << "seiscompId" << endl;
+		incStream << org->publicID() << endl;
+	}
+	else
+	{
+		ofstream incStream(incrementalCatalogFile, ofstream::app | ofstream::out);
+		incStream << org->publicID() << endl;
+	}
+    // we could simply unload the profile and let the code upload it again with the
+	// new event, but we don't want to lose all the cached waveforms that hypodd
+	// has in memory
+	HDD::DataSource dataSrc(query, cache, eventParameters);
+	HDD::CatalogPtr newCatalog = new HDD::Catalog(*hypodd->getCatalog());
+	newCatalog->add({org}, dataSrc);
+	hypodd->setCatalog(newCatalog);
+
+	return true;
+}
+
+
 
 // End Profile class
 

@@ -565,8 +565,8 @@ void Catalog::add(const std::vector<std::string>& ids, DataSource& dataSrc)
 		}
 		if ( !org )
 		{
-			string msg = "Cannot find origin/event with id " + id;
-			throw runtime_error(msg);
+			SEISCOMP_ERROR("Cannot find origin/event with id %s", id.c_str());
+			continue;
 		}
 		origins.push_back(org.get());
 	}
@@ -725,11 +725,11 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 }
 
 
-HypoDD::HypoDD(const CatalogPtr& input, const Config& cfg, const string& workingDir)
+HypoDD::HypoDD(const CatalogPtr& catalog, const Config& cfg, const string& workingDir)
 {
 	_cfg = cfg;
 	_workingDir = workingDir;
-	_ddbgc = filterOutPhases(input, cfg.validPphases, cfg.validSphases);
+	setCatalog(catalog);
 
 	if ( !Util::pathExists(_workingDir) )
 	{
@@ -749,11 +749,6 @@ HypoDD::HypoDD(const CatalogPtr& input, const Config& cfg, const string& working
 			throw runtime_error(msg);
 		}
 	}
-
-	// write filtered catalog for debugging purpose
-	_ddbgc->writeToFile((boost::filesystem::path(_workingDir)/"event.csv").string(),
-	                    (boost::filesystem::path(_workingDir)/"phase.csv").string(),
-	                    (boost::filesystem::path(_workingDir)/"station.csv").string() );
 }
 
 
@@ -770,6 +765,10 @@ HypoDD::~HypoDD()
 	}
 }
 
+void HypoDD::setCatalog(const CatalogPtr& catalog)
+{
+	_ddbgc = filterOutPhases(catalog, _cfg.validPphases, _cfg.validSphases);
+}
 
 // Creates dir name from event. This id has the following format:
 // OriginTime_Lat_Lon_CreationDate
@@ -936,6 +935,11 @@ CatalogPtr HypoDD::relocateCatalog(bool force)
 		}
 	}
 
+	// write catalog for debugging purpose
+	_ddbgc->writeToFile((boost::filesystem::path(catalogWorkingDir)/"event.csv").string(),
+	                    (boost::filesystem::path(catalogWorkingDir)/"phase.csv").string(),
+	                    (boost::filesystem::path(catalogWorkingDir)/"station.csv").string() );
+
 	// Create station.dat for ph2dt and hypodd (if not already generated)
 	string stationFile = (boost::filesystem::path(catalogWorkingDir)/"station.dat").string();
 	if ( force || ! Util::fileExists(stationFile) )
@@ -986,10 +990,11 @@ CatalogPtr HypoDD::relocateCatalog(bool force)
 	// load a catalog from hypodd output file
 	// input: hypoDD.reloc
 	CatalogPtr relocatedCatalog = loadRelocatedCatalog(ddrelocFile, _ddbgc);
+
 	// write catalog for debugging purpose
-	relocatedCatalog->writeToFile((boost::filesystem::path(catalogWorkingDir)/"reloc-event.csv").string(),
-	                              (boost::filesystem::path(catalogWorkingDir)/"reloc-phase.csv").string(),
-	                              (boost::filesystem::path(catalogWorkingDir)/"reloc-station.csv").string());
+	relocatedCatalog->writeToFile((boost::filesystem::path(catalogWorkingDir)/"event-reloc.csv").string(),
+	                              (boost::filesystem::path(catalogWorkingDir)/"phase-reloc.csv").string(),
+	                              (boost::filesystem::path(catalogWorkingDir)/"station-reloc.csv").string());
 	return relocatedCatalog;
 }
 
@@ -1009,6 +1014,11 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 	{
 		boost::filesystem::remove_all(subFolder);
 	}
+
+	// write catalog for debugging purpose
+	_ddbgc->writeToFile((boost::filesystem::path(_workingDir)/subFolder/"event.csv").string(),
+	                    (boost::filesystem::path(_workingDir)/subFolder/"phase.csv").string(),
+	                    (boost::filesystem::path(_workingDir)/subFolder/"station.csv").string() );
 
 	//
 	// Step 1: refine location without cross correlation
@@ -1057,9 +1067,9 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 	CatalogPtr relocatedCatalog = loadRelocatedCatalog(ddrelocFile, neighbourCat);
 	CatalogPtr relocatedEv = extractEvent(relocatedCatalog, evToRelocateNewId);
 	// write catalog for debugging purpose
-	relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"reloc-event.csv").string(),
-	                              (boost::filesystem::path(eventWorkingDir)/"reloc-phase.csv").string(),
-	                              (boost::filesystem::path(eventWorkingDir)/"reloc-station.csv").string());
+	relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"event-reloc.csv").string(),
+	                              (boost::filesystem::path(eventWorkingDir)/"phase-reloc.csv").string(),
+	                              (boost::filesystem::path(eventWorkingDir)/"station-reloc.csv").string());
 
 	if ( _workingDirCleanup )
 	{
@@ -1118,9 +1128,9 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 		relocatedCatalog = loadRelocatedCatalog(ddrelocFile, neighbourCat);
 		relocatedEvWithXcorr = extractEvent(relocatedCatalog, refinedLocNewId);
 		// write catalog for debugging purpose
-		relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"reloc-event.csv").string(),
-		                              (boost::filesystem::path(eventWorkingDir)/"reloc-phase.csv").string(),
-		                              (boost::filesystem::path(eventWorkingDir)/"reloc-station.csv").string());
+		relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"event-reloc.csv").string(),
+		                              (boost::filesystem::path(eventWorkingDir)/"phase-reloc.csv").string(),
+		                              (boost::filesystem::path(eventWorkingDir)/"station-reloc.csv").string());
 
 		if ( _workingDirCleanup )
 		{
