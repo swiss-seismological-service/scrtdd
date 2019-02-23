@@ -100,7 +100,7 @@ If both step1 and step2 fail, then a relocation is reattepted at a later time, a
 To test the real time relocation you can use two command line options:
 
 ```
-  -O [ --origin-id ] arg                Reprocess the origin (or event)
+  -O [ --origin-id ] arg                Reprocess the origin (or multiple comma-separated origins)
                                         and send a message
 ```
 

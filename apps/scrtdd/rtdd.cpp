@@ -44,7 +44,8 @@
 
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
-
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/split.hpp>
 
 using namespace std;
 using namespace Seiscomp::Processing;
@@ -262,8 +263,8 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	            false, true);
 	NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
 	            "Time span in hours after which objects expire", true);
-	NEW_OPT_CLI(_config.originID, "Mode", "origin-id,O",
-	            "Reprocess the origin (or event) and send a message", true);
+	NEW_OPT_CLI(_config.originIDs, "Mode", "origin-id,O",
+	            "Reprocess the origin (or multiple comma-separated origins) and send a message ", true);
 	NEW_OPT_CLI(_config.eventXML, "Mode", "ep",
 	            "Event parameters XML file for offline processing of contained origins (imply test option). Ech origin will be processed accordingly with the matching profile configuration", true);
 	NEW_OPT_CLI(_config.forceProfile, "Mode", "profile",
@@ -302,7 +303,7 @@ bool RTDD::validateParameters()
 	if ( !_config.eventXML.empty()        ||
 	     !_config.dumpCatalog.empty()     ||
 	     !_config.relocateCatalog.empty() ||
-	     (!_config.originID.empty() && _config.testMode)
+	     (!_config.originIDs.empty() && _config.testMode)
 	   )
 	{
 		setMessagingEnabled(false);
@@ -615,23 +616,27 @@ bool RTDD::run() {
 	}
 	
 	// relocate passed origin and exit
-	if ( !_config.originID.empty() )
+	if ( !_config.originIDs.empty() )
 	{
-		OriginPtr org = _cache.get<Origin>(_config.originID);
-		if ( !org ) {
-			SEISCOMP_ERROR("Event %s  not found.", _config.originID.c_str());
-			return false;
-		}
-
-		// Start processing immediately
-		_config.delayTimes = {0};
-		_cronCounter = 0;
 		// force process of any origin
 		_config.onlyPreferredOrigin = false;
 
-		if ( !addProcess(org.get()) )
-		    return false;
+		// split multiple origiss
+		std::vector<std::string> ids;
+		boost::split(ids, _config.originIDs, boost::is_any_of(","), boost::token_compress_on);
+		for (const string& originID : ids)
+		{
+			OriginPtr org = _cache.get<Origin>(originID);
+			if ( !org ) {
+				SEISCOMP_ERROR("Event %s  not found.", originID.c_str());
+				continue;
+			}
 
+			// Start processing immediately
+			_config.delayTimes = {0};
+			_cronCounter = 0;
+			addProcess(org.get());
+		}
 		return true;
 	}
 

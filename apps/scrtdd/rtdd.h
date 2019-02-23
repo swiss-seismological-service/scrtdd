@@ -109,7 +109,7 @@ class RTDD : public Application {
 			bool        forceProcessing;
 			bool        testMode;
 			double      fExpiry;
-			std::string originID;
+			std::string originIDs;
 			std::string eventXML;
 			std::string forceProfile;
 			std::string relocateCatalog;

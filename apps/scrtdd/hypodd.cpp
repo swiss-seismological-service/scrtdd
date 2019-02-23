@@ -602,7 +602,7 @@ void Catalog::add(const std::string& idFile,  DataSource& dataSrc)
 }
 
 
- 
+
 CatalogPtr Catalog::merge(const CatalogPtr& other) const
 {
 	CatalogPtr mergedCatalog = new Catalog(getStations(), getEvents(), getPhases());
@@ -638,6 +638,18 @@ CatalogPtr Catalog::merge(const CatalogPtr& other) const
 	}
 
 	return mergedCatalog;
+}
+
+
+void Catalog::removeEvent(const Event& event)
+{
+	map<unsigned,Catalog::Event>::const_iterator it = searchEvent(event);
+	if ( it == _events.end() )
+		return;
+
+	_events.erase(it);
+	auto eqlrng = _phases.equal_range(event.id);
+	_phases.erase(eqlrng.first, eqlrng.second);
 }
 
 
@@ -1026,11 +1038,6 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 		boost::filesystem::remove_all(subFolder);
 	}
 
-	// write catalog for debugging purpose
-	_ddbgc->writeToFile((boost::filesystem::path(subFolder)/"event.csv").string(),
-	                    (boost::filesystem::path(subFolder)/"phase.csv").string(),
-	                    (boost::filesystem::path(subFolder)/"station.csv").string() );
-
 	//
 	// Step 1: refine location without cross correlation
 	//
@@ -1041,6 +1048,11 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 		string msg = "Unable to create working directory: " + eventWorkingDir;
 		throw runtime_error(msg);
 	}
+
+	// write catalog for debugging purpose
+	_ddbgc->writeToFile((boost::filesystem::path(subFolder)/"event.csv").string(),
+	                    (boost::filesystem::path(subFolder)/"phase.csv").string(),
+	                    (boost::filesystem::path(subFolder)/"station.csv").string() );
 
 	// Select neighbouring events
 	CatalogPtr neighbourCat = selectNeighbouringEvents(_ddbgc, evToRelocate, _cfg.dtt.minEStoIEratio,
@@ -2155,10 +2167,10 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
                     map<string,GenericRecordPtr>& cache,
                     bool useDiskCache)
 {
-		// No projection required
-		return  loadWaveformCached(tw, ph.networkCode, ph.stationCode,
-		                           ph.locationCode, ph.channelCode,
-		                           useDiskCache,  cache);
+	// FIXME: check if the phase is on a projected component (e.g. ZRT)
+	return  loadWaveformCached(tw, ph.networkCode, ph.stationCode,
+	                           ph.locationCode, ph.channelCode,
+	                           useDiskCache,  cache);
 }
 
 

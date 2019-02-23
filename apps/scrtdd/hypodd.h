@@ -187,6 +187,8 @@ class Catalog : public Core::BaseObject {
 		bool addEvent(const Event&, bool checkDuplicate);
 		bool addPhase(const Phase&, bool checkDuplicate);
 
+		void removeEvent(const Event& event);
+
 		void writeToFile(std::string eventFile,
 		                 std::string phaseFile,
 		                 std::string stationFile) const;
