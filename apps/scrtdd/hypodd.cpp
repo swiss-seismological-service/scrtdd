@@ -31,6 +31,7 @@
 #include <seiscomp3/datamodel/origin.h>
 #include <seiscomp3/datamodel/magnitude.h>
 #include <seiscomp3/datamodel/amplitude.h>
+#include <seiscomp3/datamodel/utils.h>
 #include <seiscomp3/utils/files.h>
 #include <stdexcept>
 #include <iostream>
@@ -40,6 +41,7 @@
 #include <set>
 #include <regex>
 #include <boost/filesystem.hpp>
+#include <boost/bind.hpp>
 #include <boost/range/iterator_range_core.hpp>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -51,6 +53,7 @@ using namespace std;
 using namespace Seiscomp;
 using namespace Seiscomp::Processing;
 using Seiscomp::Core::stringify;
+using DataModel::ThreeComponents;
 
 namespace {
 
@@ -264,22 +267,24 @@ DataModel::SensorLocation *findSensorLocation(DataModel::Station *station,
                                               const std::string &code,
                                               const Core::Time &atTime)
 {
-	for ( size_t i = 0; i < station->sensorLocationCount(); ++i )
+	if ( station )
 	{
-		DataModel::SensorLocation *loc = station->sensorLocation(i);
+		for ( size_t i = 0; i < station->sensorLocationCount(); ++i )
+		{
+			DataModel::SensorLocation *loc = station->sensorLocation(i);
 
-		try {
-			if ( loc->end() <= atTime ) continue;
+			try {
+				if ( loc->end() <= atTime ) continue;
+			}
+			catch ( Seiscomp::Core::ValueException& ) {}
+
+			if ( loc->start() > atTime ) continue;
+
+			if ( loc->code() == code )
+				return loc;
 		}
-		catch ( Seiscomp::Core::ValueException& ) {}
-
-		if ( loc->start() > atTime ) continue;
-
-		if ( loc->code() == code )
-			return loc;
 	}
-
-	return NULL;
+	return nullptr;
 }
 
 
@@ -2304,61 +2309,265 @@ GenericRecordPtr
 HypoDD::getWaveform(const Core::TimeWindow& tw,
                     const Catalog::Event& ev,
                     const Catalog::Phase& ph,
-                    map<string,GenericRecordPtr>& cache,
+                    map<string,GenericRecordPtr>& memCache,
                     bool useDiskCache) const
 {
-	// FIXME: check if the phase is on a projected component (e.g. ZRT)
-	return  loadWaveformCached(tw, ph.networkCode, ph.stationCode,
-	                           ph.locationCode, ph.channelCode,
-	                           useDiskCache,  cache);
-}
-
-
-
-
-/*
- * Return the waveform from the memory cache if present, otherwise load it
- */
-GenericRecordPtr
-HypoDD::loadWaveformCached(const Core::TimeWindow& tw,
-                           const string& networkCode,
-                           const string& stationCode,
-                           const string& locationCode,
-                           const string& channelCode,
-                           bool useDiskCache,
-                           map<string,GenericRecordPtr>& cache) const
-{
+	//
+	// first try to load the waveform from the memory cache, if present
+	//
 	string wfId = stringify("%s.%s.%s.%s.%s.%s",
-	                        networkCode.c_str(), stationCode.c_str(),
-	                        locationCode.c_str(), channelCode.c_str(),
+	                        ph.networkCode.c_str(), ph.stationCode.c_str(),
+	                        ph.locationCode.c_str(), ph.channelCode.c_str(),
 	                        tw.startTime().iso().c_str(),
 	                        tw.endTime().iso().c_str());
 
-	// first try to load the waveform from the cache
-	const auto it = cache.find(wfId);
+	const auto it = memCache.find(wfId);
 
-	if ( it == cache.end() ) // waveform not cached yet
+	if ( it != memCache.end() )
 	{
-		GenericRecordPtr wf;
+		return it->second; // waveform cached, just return it 
+	}
 
-		// then load waveform
+	//
+	// Load the waveform, possibly perform a projection 123->ZNE or ZNE->ZRT,
+	// filter it and finally save the result in the memory cache  for later re-use
+	//
+	bool projectionRequired = true;
+
+	string channelCodeRoot = ph.channelCode.substr(0, ph.channelCode.size()-1);
+	Core::Time refTime = tw.startTime();
+
+	DataModel::ThreeComponents tc;
+	DataModel::Station* station = findStation(ph.networkCode, ph.stationCode, refTime);
+	DataModel::SensorLocation *loc = findSensorLocation(station, ph.locationCode, refTime);
+	if ( ! loc )
+	{
+		SEISCOMP_WARNING("Unable to fetch SensorLocation of stream %s.%s.%s.%s from %s length %.2f",
+		                 ph.networkCode.c_str(), ph.stationCode.c_str(),
+		                 ph.locationCode.c_str(), ph.channelCode.c_str(),
+		                 tw.startTime().iso().c_str(), tw.length()); 
+		return nullptr;
+	}
+
+	bool allComponents = getThreeComponents(tc, loc, channelCodeRoot.c_str(), refTime);
+
+	if ( tc.comps[ThreeComponents::Vertical] &&
+	     tc.comps[ThreeComponents::Vertical]->code() == ph.channelCode)
+	{
+		projectionRequired = false;
+	}
+	else if ( tc.comps[ThreeComponents::FirstHorizontal] &&
+	          tc.comps[ThreeComponents::FirstHorizontal]->code() == ph.channelCode)
+	{
+		projectionRequired = false;
+	}
+	else if ( tc.comps[ThreeComponents::SecondHorizontal] &&
+              tc.comps[ThreeComponents::SecondHorizontal]->code() == ph.channelCode)
+	{
+		projectionRequired = false;
+	}
+
+	//
+	// If no projection required....
+	//
+	if ( ! projectionRequired )
+	{
+		GenericRecordPtr trace;
+
+		// load waveform
 		try {
-			wf = loadWaveform(tw, networkCode, stationCode,
-			                  locationCode, channelCode,
-			                  useDiskCache);
+			trace = loadWaveform(tw, ph.networkCode, ph.stationCode,
+		                         ph.locationCode, ph.channelCode, useDiskCache);
 		} catch ( ... ) {}
 
-		// save waveform into the cache
-		if (wf)
+		if ( trace )
 		{
-			cache[wfId] = wf;
+			// fitler waveform
+			filter(*trace, true, _cfg.xcorr.filterOrder, _cfg.xcorr.filterFmin,
+			       _cfg.xcorr.filterFmax, _cfg.xcorr.resampleFreq);
+
+			// save waveform into the cache
+			memCache[wfId] = trace;
 		}
-		return wf;
+
+		return trace;
 	}
-	else // the waveform is already in cache
+
+	//
+	// We need to perform the projection 123->ZNE or ZNE->ZRT
+	//
+	if ( ! allComponents )
 	{
-		return it->second;
+		SEISCOMP_WARNING("Unable to fetch orientation of stream %s.%s.%s.%s from %s length %.2f",
+		                 ph.networkCode.c_str(), ph.stationCode.c_str(),
+		                 ph.locationCode.c_str(), ph.channelCode.c_str(),
+		                 tw.startTime().iso().c_str(), tw.length()); 
+		return nullptr;
 	}
+
+	// orientation ZNE
+	Math::Matrix3d orientationZNE;
+	Math::Vector3d n;
+	n.fromAngles(+deg2rad(tc.comps[ThreeComponents::Vertical]->azimuth()),
+	             -deg2rad(tc.comps[ThreeComponents::Vertical]->dip())).normalize();
+	orientationZNE.setColumn(2, n);
+	n.fromAngles(+deg2rad(tc.comps[ThreeComponents::FirstHorizontal]->azimuth()),
+	             -deg2rad(tc.comps[ThreeComponents::FirstHorizontal]->dip())).normalize();
+	orientationZNE.setColumn(1, n);
+	n.fromAngles(+deg2rad(tc.comps[ThreeComponents::SecondHorizontal]->azimuth()),
+	             -deg2rad(tc.comps[ThreeComponents::SecondHorizontal]->dip())).normalize();
+	orientationZNE.setColumn(0, n);
+
+	// orientation ZRT
+	Math::Matrix3d orientationZRT;
+	double delta, az, baz;
+	Math::Geo::delazi(ev.latitude, ev.longitude, loc->latitude(), loc->longitude(),
+	                  &delta, &az, &baz);
+	orientationZRT.loadRotateZ(deg2rad(baz + 180.0));
+
+	// transformation matrix
+	Math::Matrix3d transformation;
+	map<string,string> chCodeMap;
+
+	char component = *ph.channelCode.rbegin();
+
+	if ( component == 'Z' || component == 'N'  || component == 'E' )
+	{
+		transformation = orientationZNE;
+		chCodeMap[channelCodeRoot + "Z"] = tc.comps[ThreeComponents::Vertical]->code();
+		chCodeMap[channelCodeRoot + "N"] = tc.comps[ThreeComponents::FirstHorizontal]->code();
+		chCodeMap[channelCodeRoot + "E"] = tc.comps[ThreeComponents::SecondHorizontal]->code();
+		SEISCOMP_DEBUG("Performing ZNE projection (channelCode %s -> %s)",
+		               chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str());
+	}
+	else if ( component == 'R'  || component == 'T' )
+	{
+		transformation.mult(orientationZRT, orientationZNE);
+		//chCodeMap[channelCodeRoot + "Z"] = tc.comps[ThreeComponents::Vertical]->code();
+		chCodeMap[channelCodeRoot + "R"] = tc.comps[ThreeComponents::FirstHorizontal]->code();
+		chCodeMap[channelCodeRoot + "T"] = tc.comps[ThreeComponents::SecondHorizontal]->code();
+		SEISCOMP_DEBUG("Performing ZRT projection (channelCode %s -> %s)",
+		               chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str());
+	}
+	else
+	{
+		SEISCOMP_WARNING("Unknown channel, cannot load stream %s.%s.%s.%s",
+		                 ph.networkCode.c_str(), ph.stationCode.c_str(),
+		                 ph.locationCode.c_str(), ph.channelCode.c_str());
+		return nullptr;
+	}
+
+	// Load the available components
+	GenericRecordPtr tr1, tr2, tr3;
+	try {
+		tr1 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+	                       tc.comps[ThreeComponents::Vertical]->code(), useDiskCache);
+		tr2 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+	                       tc.comps[ThreeComponents::FirstHorizontal]->code(), useDiskCache);
+		tr3 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+	                       tc.comps[ThreeComponents::SecondHorizontal]->code(), useDiskCache);
+	} catch ( ... ) {}
+
+	if ( ! tr1 || ! tr2 || ! tr3 )
+	{
+		SEISCOMP_WARNING("Could not load the three components to perform the projection "
+		                 "for stream %s.%s.%s.%s from %s length %.2f)",
+		                 ph.networkCode.c_str(), ph.stationCode.c_str(),
+		                 ph.locationCode.c_str(), ph.channelCode.c_str(),
+		                 tw.startTime().iso().c_str(), tw.length());
+		return nullptr;
+	}
+
+	// The wrapper will direct 3 codes into the right slots using the
+	// Stream configuration class and will finally use the transformation
+	// operator. The advantage is that it will apply the configured gain for
+	typedef Operator::StreamConfigWrapper<double,3,Operator::Transformation> OpWrapper;
+
+	// Define the final operator class:
+	//  1. Send channel codes to right slots
+	//  2. Align 3 channels sample wise
+	//  3. Transform the resulting 3 component trace with a rotation matrix
+	typedef NCompsOperator<double,3,OpWrapper> Rotator;
+
+	Processing::Stream streams[3];
+	streams[0].init(tc.comps[0]);
+	streams[1].init(tc.comps[1]);
+	streams[2].init(tc.comps[2]);
+	Rotator op(OpWrapper(streams, Operator::Transformation<double,3>(transformation)));
+
+
+	class DataStorer
+	{
+		public:
+		DataStorer(const string& channelCode, const Core::TimeWindow& tw, map<string,string> chCodeMap)
+		: chMap(chCodeMap[channelCode], channelCode)
+		, _seq( new TimeWindowBuffer(tw) )
+		{  }
+
+		bool store(const Record *rec)
+		{
+			if (rec->channelCode() == chMap.first)
+				_seq->feed(rec);
+			return true;
+		}
+
+		const std::pair<string,string> chMap;
+		std::shared_ptr<RecordSequence> _seq;
+	};
+
+	DataStorer projectedData(ph.channelCode, tw, chCodeMap);
+
+	// The function that will be called after a transformed record was created
+	//op.setStoreFunc(boost::bind(&RecordSequence::feed, seq, _1));
+	op.setStoreFunc(boost::bind(&DataStorer::store, projectedData, _1));
+
+	op.feed(tr1.get());
+	op.feed(tr2.get());
+	op.feed(tr3.get());
+
+	std::shared_ptr<RecordSequence> seq = projectedData._seq;
+
+	if ( seq->empty() )
+	{
+		SEISCOMP_WARNING("Data could not be loaded for stream %s.%s.%s.%s from %s length %.2f)",
+		                 ph.networkCode.c_str(), ph.stationCode.c_str(),
+		                 ph.locationCode.c_str(), ph.channelCode.c_str(),
+		                 tw.startTime().iso().c_str(), tw.length());
+		return nullptr;
+	}
+
+	GenericRecordPtr trace = new GenericRecord();
+
+	if ( ! merge(*trace, *seq) )
+	{
+		SEISCOMP_WARNING("Data records could not be merged into a single trace "
+		                 "(%s.%s.%s.%s from %s length %.2f)",
+		                 ph.networkCode.c_str(), ph.stationCode.c_str(),
+		                 ph.locationCode.c_str(), ph.channelCode.c_str(), 
+		                 tw.startTime().iso().c_str(), tw.length());
+		return nullptr;
+	}
+
+	trace->setChannelCode(ph.channelCode);
+
+	if ( ! trim(*trace, tw) )
+	{
+		SEISCOMP_WARNING("Incomplete trace, not enough data for requested"
+		                  " time window (%s.%s.%s.%s from %s length %.2f)",
+		                 ph.networkCode.c_str(), ph.stationCode.c_str(),
+		                 ph.locationCode.c_str(), ph.channelCode.c_str(),
+		                 tw.startTime().iso().c_str(), tw.length());
+		return nullptr;
+	} 
+
+	// fitler waveform
+	filter(*trace, true, _cfg.xcorr.filterOrder, _cfg.xcorr.filterFmin,
+	       _cfg.xcorr.filterFmax, _cfg.xcorr.resampleFreq);
+
+	// save waveform into the cache
+	memCache[wfId] = trace;
+
+	return trace; 
 }
 
 
@@ -2409,19 +2618,6 @@ HypoDD::loadWaveform(const Core::TimeWindow& tw,
 		}
 	}
 
-	if ( !trim(*trace, tw) )
-	{
-		string msg = stringify("Incomplete trace, not enough data for requested"
-		                       " time window (%s.%s.%s.%s from %s length %.2f)",
-		                       networkCode.c_str(), stationCode.c_str(),
-		                       locationCode.c_str(), channelCode.c_str(),
-		                       tw.startTime().iso().c_str(), tw.length());
-		throw runtime_error(msg);
-	}
-
-	filter(*trace, true, _cfg.xcorr.filterOrder, _cfg.xcorr.filterFmin,
-	       _cfg.xcorr.filterFmax, _cfg.xcorr.resampleFreq);
-
 	return trace;
 }
 
@@ -2461,11 +2657,21 @@ HypoDD::readWaveformFromRecordStream(const Core::TimeWindow& tw,
 		throw runtime_error(msg);
 	}
 
-    GenericRecordPtr trace = new GenericRecord();
-    
-	if ( !merge(*trace, *seq) )
+	GenericRecordPtr trace = new GenericRecord();
+
+	if ( ! merge(*trace, *seq) )
     {
 		string msg = stringify("Data records could not be merged into a single trace (%s.%s.%s.%s from %s length %.2f)",
+		                       networkCode.c_str(), stationCode.c_str(),
+		                       locationCode.c_str(), channelCode.c_str(),
+		                       tw.startTime().iso().c_str(), tw.length());
+		throw runtime_error(msg);
+	}
+
+	if ( ! trim(*trace, tw) )
+	{
+		string msg = stringify("Incomplete trace, not enough data for requested"
+		                       " time window (%s.%s.%s.%s from %s length %.2f)",
 		                       networkCode.c_str(), stationCode.c_str(),
 		                       locationCode.c_str(), channelCode.c_str(),
 		                       tw.startTime().iso().c_str(), tw.length());

@@ -351,15 +351,8 @@ class HypoDD : public Core::BaseObject {
 		GenericRecordPtr getWaveform(const Core::TimeWindow& tw,
 		                             const Catalog::Event& ev,
 		                             const Catalog::Phase& ph,
-		                             std::map<std::string,GenericRecordPtr>& cache,
+		                             std::map<std::string,GenericRecordPtr>& memCache,
 		                             bool useDiskCache) const;
-		GenericRecordPtr loadWaveformCached(const Core::TimeWindow& tw,
-		                                    const std::string& networkCode,
-		                                    const std::string& stationCode,
-		                                    const std::string& locationCode,
-		                                    const std::string& channelCode,
-		                                    bool useDiskCache,
-		                                    std::map<std::string,GenericRecordPtr>& cache) const;
 		GenericRecordPtr loadWaveform(const Core::TimeWindow& tw,
 		                              const std::string& networkCode,
 		                              const std::string& stationCode,
