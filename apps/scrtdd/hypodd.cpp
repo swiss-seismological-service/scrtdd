@@ -1020,21 +1020,22 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 
 	// Create working directory
 	string subFolder = generateWorkingSubDir(evToRelocate);
+	subFolder = (boost::filesystem::path(_workingDir)/subFolder).string();
 	if ( Util::pathExists(subFolder) )
 	{
 		boost::filesystem::remove_all(subFolder);
 	}
 
 	// write catalog for debugging purpose
-	_ddbgc->writeToFile((boost::filesystem::path(_workingDir)/subFolder/"event.csv").string(),
-	                    (boost::filesystem::path(_workingDir)/subFolder/"phase.csv").string(),
-	                    (boost::filesystem::path(_workingDir)/subFolder/"station.csv").string() );
+	_ddbgc->writeToFile((boost::filesystem::path(subFolder)/"event.csv").string(),
+	                    (boost::filesystem::path(subFolder)/"phase.csv").string(),
+	                    (boost::filesystem::path(subFolder)/"station.csv").string() );
 
 	//
 	// Step 1: refine location without cross correlation
 	//
 
-	string eventWorkingDir = (boost::filesystem::path(_workingDir)/subFolder/"step1").string();
+	string eventWorkingDir = (boost::filesystem::path(subFolder)/"step1").string();
 	if ( !Util::createPath(eventWorkingDir) )
 	{
 		string msg = "Unable to create working directory: " + eventWorkingDir;
@@ -1094,7 +1095,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 
 	try {
 
-		eventWorkingDir = (boost::filesystem::path(_workingDir)/subFolder/"step2").string();
+		eventWorkingDir = (boost::filesystem::path(subFolder)/"step2").string();
 		if ( !Util::createPath(eventWorkingDir) )
 		{
 			string msg = "Unable to create working directory: " + eventWorkingDir;
