@@ -100,7 +100,8 @@ If both step1 and step2 fail, then a relocation is reattepted at a later time, a
 To test the real time relocation you can use two command line options:
 
 ```
-  -O [ --origin-id ] arg                Reprocess the origin(s) and send a message
+  -O [ --origin-id ] arg                Reprocess the origin (or event)
+                                        and send a message
 ```
 
 E.g. if we want to process an origin or event, we can run the following command and then check on scolv the relocated origin (the messaging system must be active):

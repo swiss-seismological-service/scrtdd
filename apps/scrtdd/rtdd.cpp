@@ -263,7 +263,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
 	            "Time span in hours after which objects expire", true);
 	NEW_OPT_CLI(_config.originID, "Mode", "origin-id,O",
-	            "Reprocess the origin(s) and send a message", true);
+	            "Reprocess the origin (or event) and send a message", true);
 	NEW_OPT_CLI(_config.eventXML, "Mode", "ep",
 	            "Event parameters XML file for offline processing of contained origins (imply test option). Ech origin will be processed accordingly with the matching profile configuration", true);
 	NEW_OPT_CLI(_config.forceProfile, "Mode", "profile",
