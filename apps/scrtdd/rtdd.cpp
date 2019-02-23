@@ -1231,7 +1231,8 @@ void RTDD::Profile::load(DatabaseQuery* query,
 
 	hypodd = new HDD::HypoDD(ddbgc, ddcfg, workingDir);
 	hypodd->setWorkingDirCleanup(cleanupWorkingDir);
-	hypodd->setUseWaveformDiskCache(cacheWaveforms);
+	hypodd->setUseCatalogDiskCache(cacheWaveforms);
+	hypodd->setUseSingleEvDiskCache(incrementalCatalogFile.empty());
 	loaded = true;
 	lastUsage = Core::Time::GMT();
 }

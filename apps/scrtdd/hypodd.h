@@ -275,8 +275,11 @@ class HypoDD : public Core::BaseObject {
 		void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
 		bool workingDirCleanup() { return _workingDirCleanup; }
 
-		void setUseWaveformDiskCache(bool cache) { _wfDiskCache = cache; }
-		bool useWaveformDiskCache() { return _wfDiskCache; }
+		void setUseCatalogDiskCache(bool cache) { _useCatalogDiskCache = cache; }
+		bool useCatalogDiskCache() { return _useCatalogDiskCache; }
+
+		void setUseSingleEvDiskCache(bool cache) { _useSingleEvDiskCache = cache; }
+		bool useSingleEvDiskCache() { return _useSingleEvDiskCache; }
 
 		
 	private:
@@ -347,7 +350,8 @@ class HypoDD : public Core::BaseObject {
 		CatalogPtr _ddbgc;
 		Config _cfg;
 		bool _workingDirCleanup = true;
-		bool _wfDiskCache = false;
+		bool _useCatalogDiskCache = false;
+		bool _useSingleEvDiskCache = false;
 		std::map<std::string, GenericRecordPtr> _wfCache;
 };
 
