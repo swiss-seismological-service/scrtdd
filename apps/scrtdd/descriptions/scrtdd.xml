@@ -10,35 +10,6 @@
 				</description>
 			</parameter>
 
-			<parameter name="activeProfiles" type="list:string" default="">
-				<description>
-					Defines a list of active profiles.
-				</description>
-			</parameter>
-
-			<parameter name="profileTimeAlive" type="int" default="-1">
-				<description>
-					Defines how long the profile data should be kept in memery (in minutes). This is useful
-					to release memory (catalog waveform data) after a period of inactivity, but it means the
-					waveforms will have to be reloaded whenever a new event occurs (i.e. it will take more
-					time to relocate an origin).
-					Set a negative value to keep the profile data always in memory.
-				</description>
-			</parameter>
-
-			<parameter name="cacheWaveforms" type="boolean" default="false">
-				<description>
-					Save catalog waveforms to local disk to avoid reading them from the configured
-					recordStream when a profile is loaded (see profileTimeAlive). Also the projected
-					waveforms are saved (e.g. ZRT projection for S phase), which saves additional
-					time when a profile is loaded.
-					The waveforms are saved in the working directory and it is safe to delete them,
-					if that's required for any reason. The waveforms will be then saved again on disk
-					the next time the profile is loaded (they will be read again from the configured
-					recordStream).
-				</description>
-			</parameter>
-
 			<parameter name="onlyPreferredOrigin" type="boolean" default="true">
 				<description>
 				Allow relocation of preferred origins only.
@@ -76,6 +47,39 @@
 					This configuration is used only for full catalog relocation  (see command line option --relocate-catalog) and it is not needed in real time DD relocation.
 				</description>
 			</parameter>
+
+			<parameter name="activeProfiles" type="list:string" default="">
+				<description>
+					Defines a list of active profiles.
+				</description>
+			</parameter>
+
+ 			<group name="performance">
+
+				<parameter name="profileTimeAlive" type="int" default="-1">
+					<description>
+						Defines how long the profile data should be kept in memery (in minutes). This is useful
+						to release memory (catalog waveform data) after a period of inactivity, but it means the
+						waveforms will have to be reloaded whenever a new event occurs (i.e. it will take more
+						time to relocate an origin).
+						Set a negative value to keep the profile data always in memory.
+					</description>
+				</parameter>
+
+				<parameter name="cacheWaveforms" type="boolean" default="false">
+					<description>
+						Save catalog waveforms to local disk to avoid reading them from the configured
+						recordStream when a profile is loaded (see profileTimeAlive). Also the projected
+						waveforms are saved (e.g. ZRT projection for S phase), which saves additional
+						time when a profile is loaded.
+						The waveforms are saved in the working directory and it is safe to delete them,
+						if that's required for any reason. The waveforms will be then saved again on disk
+						the next time the profile is loaded (they will be read again from the configured
+						recordStream).
+					</description>
+				</parameter>
+
+		</group>
 
 			<group name="cron">
 
@@ -145,7 +149,9 @@
 
 					<group name="catalog">
 						<description>
-							The files used to define a catalog. There are two ways to define a catalog: one is
+							The files used to define a background catalog. New origins will be relocated using this
+							catalog, which must contains high quality locations.
+							There are two ways to define a catalog: one is
 							providing an event file containing the ids of existing events or origins; the second
 							way consists in providing extended information (useful when the events are not in the
 							database) and three files are required event, phase and stations.

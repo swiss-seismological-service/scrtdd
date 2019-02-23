@@ -242,17 +242,18 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	_processingInfoOutput = nullptr;
 
 	NEW_OPT(_config.publicIDPattern, "publicIDpattern");
-	NEW_OPT(_config.activeProfiles, "activeProfiles");
-	NEW_OPT(_config.profileTimeAlive, "profileTimeAlive");
-	NEW_OPT(_config.cacheWaveforms, "cacheWaveforms");
 	NEW_OPT(_config.workingDirectory, "workingDirectory");
 	NEW_OPT(_config.keepWorkingFiles, "keepWorkingFiles");
 	NEW_OPT(_config.onlyPreferredOrigin, "onlyPreferredOrigin");
 	NEW_OPT(_config.processManualOrigin, "manualOrigin");
+	NEW_OPT(_config.activeProfiles, "activeProfiles");
 
 	NEW_OPT(_config.wakeupInterval, "cron.wakeupInterval");
 	NEW_OPT(_config.logCrontab, "cron.logging");
 	NEW_OPT(_config.delayTimes, "cron.delayTimes");
+
+	NEW_OPT(_config.profileTimeAlive, "performance.profileTimeAlive");
+	NEW_OPT(_config.cacheWaveforms, "performance.cacheWaveforms");
 
 	NEW_OPT_CLI(_config.testMode, "Mode", "test",
 	            "Test mode, no messages are sent", false, true);
@@ -307,8 +308,6 @@ bool RTDD::validateParameters()
 		setMessagingEnabled(false);
 		_config.testMode = true; // we won't send any message
 	}
-
-
 
 	std::string hypoddExec = "hypodd";
 	try {
