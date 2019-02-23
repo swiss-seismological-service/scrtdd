@@ -548,8 +548,13 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 
 
 
-void Catalog::add(const std::vector<std::string>& ids, DataSource& dataSrc)
+void Catalog::add(const std::vector<std::string>& _ids, DataSource& dataSrc)
 {
+	// make sure ids are unique
+	std::list<std::string> ids(_ids.begin(), _ids.end());
+	ids.sort();
+	ids.unique();
+
 	vector<DataModel::Origin*> origins;
 
 	for(const string& id : ids)
