@@ -258,14 +258,14 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	NEW_OPT_CLI(_config.testMode, "Mode", "test",
 	            "Test mode, no messages are sent", false, true);
 	NEW_OPT_CLI(_config.forceProcessing, "Mode", "force",
-	            "Force event processing: in single event mode the processing is performed even on origins that would normally be skipped; In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used",
+	            "Force event processing: in single event mode the processing is performed even on origins that would normally be skipped (already processed, not preferred, manual, etc.); In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used",
 	            false, true);
 	NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
 	            "Time span in hours after which objects expire", true);
 	NEW_OPT_CLI(_config.originID, "Mode", "origin-id,O",
 	            "Reprocess the origin(s) and send a message", true);
 	NEW_OPT_CLI(_config.eventXML, "Mode", "ep",
-	            "Event parameters XML file for offline processing of all contained origins (imply test option)", true);
+	            "Event parameters XML file for offline processing of contained origins (imply test option). Ech origin will be processed accordingly with the matching profile configuration", true);
 	NEW_OPT_CLI(_config.forceProfile, "Mode", "profile",
 	            "Force this profile to be used", true);
 	NEW_OPT_CLI(_config.relocateCatalog, "Mode", "reloc-catalog",
@@ -642,7 +642,6 @@ bool RTDD::run() {
 		for(unsigned i = 0; i < _eventParameters->originCount(); i++)
 			origins.push_back(_eventParameters->origin(i));
 
-		_config.onlyPreferredOrigin = false; // force process of any origin
 		for(const OriginPtr& org : origins)
 		{
 			// Start processing immediately
