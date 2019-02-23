@@ -966,6 +966,11 @@ CatalogPtr HypoDD::relocateCatalog(bool force)
 	     !Util::fileExists(eventSelfile) )
 	{
 		runPh2dt(catalogWorkingDir, stationFile, phaseFile);
+		// compatibility with ph2dt version 1.3
+		if ( !Util::fileExists(stationSelFile) )
+		{
+			boost::filesystem::copy_file(stationFile, stationSelFile);
+		}
 	}
 
 	// Reads the event pairs matched in dt.ct which are selected by ph2dt and
@@ -1346,17 +1351,30 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
 	if ( !Util::fileExists(_cfg.hypodd.ctrlFile) )
 		throw runtime_error("Unable to run hypodd, control file doesn't exist: " + _cfg.hypodd.ctrlFile);
 
+	// check if hypodd.inp is for version 2.1
+	ifstream ctrlFile(_cfg.hypodd.ctrlFile);
+	if ( ! ctrlFile.is_open() )
+	{
+		string msg = stringify("Cannot open hypodd control file %s", _cfg.hypodd.ctrlFile.c_str());
+		throw runtime_error(msg);
+	}
+
+	int lineOffset = 0;
+	string line;
+	if( std::getline(ctrlFile, line) && line == "hypoDD_2")
+		lineOffset = 1;
+
 	// copy control file while replacing input/output file names
 	map<int,string> linesToReplace = {
-		{2,dtccFile},
-		{3,dtctFile},
-		{4,eventFile},
-		{5,stationFile},
-		{6,"hypoDD.loc"},
-		{7,"hypoDD.reloc"},
-		{8,"hypoDD.sta"},
-		{9,"hypoDD.res"},
-		{10,"hypoDD.src"}
+		{lineOffset + 1, dtccFile},
+		{lineOffset + 2, dtctFile},
+		{lineOffset + 3, eventFile},
+		{lineOffset + 4, stationFile},
+		{lineOffset + 5, "hypoDD.loc"},
+		{lineOffset + 6, "hypoDD.reloc"},
+		{lineOffset + 7, "hypoDD.sta"},
+		{lineOffset + 8, "hypoDD.res"},
+		{lineOffset + 9, "hypoDD.src"}
 	};
 	copyFileAndReplaceLines(_cfg.hypodd.ctrlFile,
                             (boost::filesystem::path(workingDir)/"hypodd.inp").string(),
