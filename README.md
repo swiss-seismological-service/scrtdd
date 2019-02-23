@@ -10,10 +10,10 @@
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
  *   SeisComP Public License for more details.                             *
  *                                                                         *
- *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
+ *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>                                         *
  ***************************************************************************/
 </pre>
-#Description
+# Description
 
 This module implements a Real Time Double-Difference Event Location method as described in the paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser.
 
@@ -21,7 +21,7 @@ This module can also be used to perform (non-real-time) full event catalog Doubl
 
 The actual Double-Difference inversion method is performed by the hypoDD software, which has to be installed in the system (currently tested on version 1.3 and 2.1b).
 
-#Compile
+## Compile
 
 In order to use this module the sources have to be compiled to an executable. Merge them into the Seiscomp3 sources and compile Seiscomp3 as usual.
 <pre>
@@ -34,14 +34,14 @@ For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#
 
 
 
-#Getting Started
+# Getting Started
 
-##1. Install hypoDD software
+## 1. Install hypoDD software
 
 Go to https://www.ldeo.columbia.edu/~felixw/hypoDD.html and dowload hypoDD. Untar the sources, go to src folder, run make. Done! 
 
 
-##2. Define a background catalog for real time relocations***
+## 2. Define a background catalog for real time relocations
 
 New origins will be relocated using a background or reference catalog of high quality locations. You might already have one or not.
 
@@ -85,5 +85,58 @@ scrtdd will relocated the catalog and will generate again the files event.csv ph
 You are now ready to perform real time relocation!
 
 
-##3. Real time relocation***
+## 3. Real time relocation
+
+Real time relocation is done in two steps, each once has its own set of options in the configuration.
+
+Step 1: location refiniment. In this step scrtdd compute a preliminary relocation of the origin using only differential travel times from catalog phases (the ones precent in seiscomp database).
+
+Step 2: the refined location is used to perform a more precise relocation using both catalog phases information and deifferentinal travel time computed using cross correlation.
+
+After step2 the relocated origin is sent to the messaging system. If step2 fails, then the relocated origin from step1 is sent to the messaging system.
+
+If both step1 and step2 fail, then a relocation is reattepted at a later time, accordingly to `delayTimes` option.
+
+To test the real time relocation you can use two command line options:
+
+```
+  -O [ --origin-id ] arg                Reprocess the origin(s) and send a message
+```
+
+E.g. if we want to process an origin or event, we can run the following command and then check on scolv the relocated origin (the messaging system must be active):
+
+```
+scrtdd -O event2019dubnfr --verbosity=4  --console=1
+```
+
+Alternatively we can reprocess an XML file:
+
+
+```
+  --ep arg                              Event parameters XML file for offline 
+                                        processing of contained origins (imply 
+                                        test option). Ech origin will be 
+                                        processed accordingly with the matching
+                                        profile configuration
+```
+
+E.g.
+
+```
+scrtdd --ep event.xml --verbosity=4  --console=1
+```
+
+
+## 4. Debugging
+
+Check log file: ~/.seiscomp/log/scrtdd.log 
+
+Alternatively, when running scrtdd from the command line use the following options:
+
+```
+# set log level to debug and log to the console (standard output) insted of log file
+--verbosity=4 --console=1
+```
+
+A useful option you can find in scrtdd configuration is `keepWorkingFiles`, which prevent the deletion of scrtdd processing files from the working directory. In this way you can access the working folder and check input, output files used for running hypodd. Make sure to check the `*.out` files, which contain the console output of hypodd (sometime you can find errors only in there, as they do not appear in hypodd.log file).
 
