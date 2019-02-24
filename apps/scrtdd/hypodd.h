@@ -206,12 +206,6 @@ struct Config {
 	std::vector<std::string> validPphases = {"Pg,P"};
 	std::vector<std::string> validSphases = {"Sg,S"};
 
-	// ph2dt config specifig (catalog relocation only)
-	struct {
-		std::string exec = "ph2dt";
-		std::string ctrlFile;
-	} ph2dt;
-
 	// hypodd executable specific
 	struct {
 		std::string exec = "hypodd";
@@ -290,13 +284,15 @@ class HypoDD : public Core::BaseObject {
 		void createStationDatFile(const std::string& staFileName, const CatalogCPtr& catalog) const;
 		void createPhaseDatFile(const std::string& phaseFileName, const CatalogCPtr& catalog) const;
 		void createEventDatFile(const std::string& eventFileName, const CatalogCPtr& catalog) const;
+		void createDtCtCatalog(const CatalogCPtr& catalog,
+		                       const std::string& dtctFile) const;
 		void createDtCtSingleEvent(const CatalogCPtr& catalog,
 		                           unsigned evToRelocateId,
 		                           const std::string& dtctFile) const;
 		void buildDiffTTimePairs(const CatalogCPtr& catalog,
 		                         unsigned evToRelocateId,
 		                         std::ofstream& outStream) const;
-		void xcorrCatalog(const std::string& dtctFile, const std::string& dtccFile);
+		void xcorrCatalog(const CatalogCPtr& catalog, const std::string& dtccFile);
 		void xcorrSingleEvent(const CatalogCPtr& catalog,
 		                      unsigned evToRelocateId,
 		                      const std::string& dtccFile);
@@ -314,7 +310,6 @@ class HypoDD : public Core::BaseObject {
                    std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2) const;
 		bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
                    double& delayOut, double& coeffOut) const;
-		void runPh2dt(const std::string& workingDir, const std::string& stationFile, const std::string& phaseFile) const;
 		void runHypodd(const std::string& workingDir, const std::string& dtccFile, const std::string& dtctFile,
 		               const std::string& eventFile, const std::string& stationFile) const;
 		CatalogPtr loadRelocatedCatalog(const std::string& ddrelocFile, const CatalogCPtr& originalCatalog);
@@ -325,6 +320,12 @@ class HypoDD : public Core::BaseObject {
 		                                    double maxESdis=-1, double minEStoIEratio=0,
 		                                    double maxIEdis=-1, int minDTperEvt=1,
 		                                    int minNumNeigh=1, int maxNumNeigh=-1) const;
+		std::map<unsigned,CatalogPtr> 
+		selectNeighbouringEventsCatalog(const CatalogCPtr& catalog, double minPhaseWeight,
+		                                double minESdis, double maxESdis,
+		                                double minEStoIEratio, double maxIEdis,
+		                                int minDTperEvt, int minNumNeigh,
+		                                int maxNumNeigh) const;
 		CatalogPtr extractEvent(const CatalogCPtr& catalog, unsigned eventId) const;
 		GenericRecordPtr getWaveform(const Core::TimeWindow& tw,
 		                             const Catalog::Event& ev,

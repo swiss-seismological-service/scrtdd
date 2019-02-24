@@ -41,13 +41,6 @@
 				</description>
 			</parameter>
 
-			<parameter name="ph2dtPath" type="path" default="ph2dt">
-				<description>
-					Path to ph2dt executable.
-					This configuration is used only for full catalog relocation  (see command line option --relocate-catalog) and it is not needed in real time DD relocation.
-				</description>
-			</parameter>
-
 			<parameter name="activeProfiles" type="list:string" default="">
 				<description>
 					Defines a list of active profiles.
@@ -366,22 +359,6 @@
 						<parameter name="controlFile" type="path">
 							<description>
 								Path to hypodd control file (e.g. some_path/hypoDD.inp). The input/output files 
-								will be replaced by SCRTDD with its own files. The values on those lines are
-								not relevant.
-							</description>
-						</parameter>
-					</group>
-
-					<group name="ph2dt">
-						<description>
-							This configuration is used only for full catalog relocation (see command
-							line option --relocate-catalog) and it is not used in real time DD relocation.
-							When relocating a catalog the dtct and dtcc options will not be used,
-							only the cross correlation parameters will be taken into consideration.
-						</description>
-						<parameter name="controlFile" type="path">
-							<description>
-								Path to ph2dt control file (e.g. some_path/ph2dt.inp). The input/output files 
 								will be replaced by SCRTDD with its own files. The values on those lines are
 								not relevant.
 							</description>

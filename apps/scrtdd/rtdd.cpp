@@ -315,11 +315,6 @@ bool RTDD::validateParameters()
 		hypoddExec = env->absolutePath(configGetPath("hypoddPath"));
 	} catch ( ... ) { }
 
-	std::string ph2dtExec = "ph2dt";
-	try {
-		ph2dtExec = env->absolutePath(configGetPath("ph2dtPath"));
-	} catch ( ... ) { }
-
 	bool profilesOK = true;
 	bool profileRequireDB = false;
 
@@ -479,10 +474,6 @@ bool RTDD::validateParameters()
 		prefix = string("profile.") + *it + ".hypodd.";
 		prof->ddcfg.hypodd.ctrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
 		prof->ddcfg.hypodd.exec = hypoddExec;
-
-		prefix = string("profile.") + *it + ".ph2dt.";
-		prof->ddcfg.ph2dt.ctrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
-		prof->ddcfg.ph2dt.exec = ph2dtExec;
 
 		_profiles.push_back(prof);
 
