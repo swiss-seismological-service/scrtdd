@@ -128,7 +128,7 @@ scrtdd --ep event.xml
 ```
 
 
-## 4. Debugging
+## 4. Troubleshooting
 
 Check log file: ~/.seiscomp/log/scrtdd.log 
 
