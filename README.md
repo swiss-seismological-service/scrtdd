@@ -60,29 +60,29 @@ event2019dubnfr
 Origin/20190223103327.031726.346363
 ```
 
-In the more general case in which you don't already have a background catalog, you have to build one using scrtdd. First select the existing candidate events, which will be relocated to achieve the quality needed for a background catalog and then write the ids of those events/origins in a file usign the format of the example above (myCatalog.csv). Once you did that, run the command:
+In the more general case in which we don't already have a background catalog, we have to build one using scrtdd. First select the existing candidate events, which will be relocated to achieve the quality needed for a background catalog and then write the ids of those events/origins in a file usign the format of the example above (myCatalog.csv). Once that's done, we run the command:
 
 ```
 scrtdd --dump-catalog myCatalog.csv
 ```
 
-Or, if the events resides on a different machine you can use the -d option:
+Or, if the events resides on a different machine we can use the -d option:
 
 ```
 scrtdd --dump-catalog myCatalog.csv  -d  mysql://user:password@host/seiscompDbName
 ```
 
-The above command will generate the files event.csv phase.csv and stations.csv. Those file use the extended catalog format, useful when the catalog information is fetched fully from the files instead of fetching it from seiscomp database.
+The above command will generate three files: event.csv, phase.csv and stations.csv. Those file are the alternative extended catalog format, useful when the catalog information is fully contained in those files instead of requiring the catalog to be present on a seiscomp database. Note: it is not compulsory to dump the catalog to perfomr a relcoation, we could also relocate a catalog that uses the siescompId file format, but sometimes it might be useul to dump the catalog to perform some manual editing before relocating it.
 
-Now run scconfig and create a profile in scrtdd configuration. In this profile you have to specify the generated files as catalog, and then configure the hypodd relocation settings. Once done, it's time to relocate this catalog with the command:
+Now it's time to run scconfig, go to scrtdd configuration and create a profile that we use for relocating this catalog. In the profile we have to specify the generated files as source catalog, and then configure the various SCRTDD relocation settings. Once done, it's time to relocate this catalog with the command:
 
 ```
 scrtdd --reloc-catalog profileName
 ```
 
-scrtdd will relocated the catalog and will generate again the files event.csv phase.csv and stations.csv. At this point you should check the relocated evetns and see if you are happy with the results. If not, change scrtdd settings and relocate the catalog again until you are satisfied with the locations. Now change scrtdd profile configuration and set the relocated catalog as background catalog.
+scrtdd will relocated the catalog and will generate again the files event.csv phase.csv and stations.csv. At this point we should check the relocated evetns and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations. Now change scrtdd profile configuration and set the relocated catalog as background catalog.
 
-You are now ready to perform real time relocation!
+We are now ready to perform real time relocation!
 
 
 ## 3. Real time relocation
@@ -97,7 +97,7 @@ After step2 the relocated origin is sent to the messaging system. If step2 fails
 
 If both step1 and step2 fail, then a relocation is reattepted at a later time, accordingly to `delayTimes` option.
 
-To test the real time relocation you can use two command line options:
+To test the real time relocation we can use two command line options:
 
 ```
   -O [ --origin-id ] arg                Reprocess the origin (or multiple comma-separated origins)
@@ -107,7 +107,7 @@ To test the real time relocation you can use two command line options:
 E.g. if we want to process an origin or event, we can run the following command and then check on scolv the relocated origin (the messaging system must be active):
 
 ```
-scrtdd -O event2019dubnfr --verbosity=4  --console=1
+scrtdd -O event2019dubnfr
 ```
 
 Alternatively we can reprocess an XML file:
@@ -124,7 +124,7 @@ Alternatively we can reprocess an XML file:
 E.g.
 
 ```
-scrtdd --ep event.xml --verbosity=4  --console=1
+scrtdd --ep event.xml
 ```
 
 
@@ -139,5 +139,5 @@ Alternatively, when running scrtdd from the command line use the following optio
 --verbosity=4 --console=1
 ```
 
-A useful option you can find in scrtdd configuration is `keepWorkingFiles`, which prevent the deletion of scrtdd processing files from the working directory. In this way you can access the working folder and check input, output files used for running hypodd. Make sure to check the `*.out` files, which contain the console output of hypodd (sometime you can find errors only in there, as they do not appear in hypodd.log file).
+A useful option we can find in scrtdd configuration is `keepWorkingFiles`, which prevent the deletion of scrtdd processing files from the working directory. In this way we can access the working folder and check input, output files used for running hypodd. Make sure to check the `*.out` files, which contain the console output of hypodd (sometimes we can find errors only in there, as they do not appear in hypodd.log file).
 
