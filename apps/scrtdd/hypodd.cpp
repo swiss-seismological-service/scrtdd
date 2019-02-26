@@ -610,35 +610,56 @@ CatalogPtr Catalog::merge(const CatalogPtr& other) const
 	for (const auto& kv :  other->getEvents() )
 	{
 		const Catalog::Event& event = kv.second;
-		mergedCatalog->addEvent(event, true);
-		unsigned newEventId = mergedCatalog->searchEvent(event)->first;
-
-		auto eqlrng = other->getPhases().equal_range(event.id);
-		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-		{
-			Catalog::Phase phase = it->second;
-
-			auto search = other->getStations().find(phase.stationId);
-			if (search == other->getStations().end())
-			{
-				string msg = stringify("Malformed catalog: cannot find station '%s' "
-			                       " referenced by phase '%s'",
-			                       phase.stationId.c_str(), string(phase).c_str());
-				throw runtime_error(msg);
-			}
-			const Catalog::Station& station = search->second;
-			mergedCatalog->addStation(station, true);
-			string newStationId = mergedCatalog->searchStation(station)->first;
-
-			phase.eventId = newEventId;
-			phase.stationId = newStationId;
-
-			mergedCatalog->addPhase(phase, true);
-		} 
+		mergedCatalog->copyEvent(event, other, false);
 	}
 
 	return mergedCatalog;
 }
+
+
+
+bool Catalog::copyEvent(const Catalog::Event& event, const CatalogPtr& other, bool keepEvId)
+{
+	if ( keepEvId )
+	{
+		if  (_events.find(event.id) != _events.end() )
+			throw runtime_error("Cannot add event, internal logic error");
+		_events[event.id] = event;
+	}
+	else
+	{
+		if ( ! addEvent(event, true) )
+			throw runtime_error("Cannot add event, internal logic error");
+	}
+
+	unsigned newEventId = searchEvent(event)->first;
+
+	auto eqlrng = other->getPhases().equal_range(event.id);
+	for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+	{
+		Catalog::Phase phase = it->second;
+
+		auto search = other->getStations().find(phase.stationId);
+		if (search == other->getStations().end())
+		{
+			string msg = stringify("Malformed catalog: cannot find station '%s' "
+			                        " referenced by phase '%s'",
+			                       phase.stationId.c_str(), string(phase).c_str());
+			throw runtime_error(msg);
+		}
+		const Catalog::Station& station = search->second;
+		addStation(station, true);
+		string newStationId = searchStation(station)->first;
+
+		phase.eventId = newEventId;
+		phase.stationId = newStationId;
+
+		addPhase(phase, true);
+	}
+
+	return true;
+}
+
 
 
 void Catalog::removeEvent(const Event& event)
@@ -646,11 +667,11 @@ void Catalog::removeEvent(const Event& event)
 	map<unsigned,Catalog::Event>::const_iterator it = searchEvent(event);
 	if ( it == _events.end() )
 		return;
-
 	_events.erase(it);
 	auto eqlrng = _phases.equal_range(event.id);
 	_phases.erase(eqlrng.first, eqlrng.second);
 }
+
 
 
 map<string,Catalog::Station>::const_iterator Catalog::searchStation(const Station& station) const
@@ -1021,6 +1042,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force)
 }
 
 
+
 CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 {
 	SEISCOMP_DEBUG("Starting HypoDD relocator in single event mode");
@@ -1055,12 +1077,11 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 	                    (boost::filesystem::path(subFolder)/"station.csv").string() );
 
 	// Select neighbouring events
-	CatalogPtr neighbourCat = selectNeighbouringEvents(_ddbgc, evToRelocate, _cfg.dtt.minEStoIEratio,
-	                                                   _cfg.dtt.minESdist, _cfg.dtt.maxESdist,
-	                                                   _cfg.dtt.maxIEdist, _cfg.dtt.minNumNeigh,
-	                                                   _cfg.dtt.maxNumNeigh, _cfg.dtt.minDTperEvt);
-	// add event to relocate to the neighbour catalog
-	neighbourCat = neighbourCat->merge(evToRelocateCat);
+	CatalogPtr neighbourCat = selectNeighbouringEvents(
+		_ddbgc->merge(evToRelocateCat), evToRelocate, _cfg.dtt.minWeight, _cfg.dtt.minESdist,
+		_cfg.dtt.maxESdist, _cfg.dtt.minEStoIEratio, _cfg.dtt.maxIEdist, _cfg.dtt.minDTperEvt,
+		_cfg.dtt.minNumNeigh, _cfg.dtt.maxNumNeigh
+	);
 	// extract the new id of the event
 	unsigned evToRelocateNewId = neighbourCat->searchEvent(evToRelocate)->first;
 
@@ -1074,7 +1095,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 
 	// Create differential travel times file (dt.ct) for hypodd
 	string dtctFile = (boost::filesystem::path(eventWorkingDir)/"dt.ct").string();
-	createDtCtFile(neighbourCat, evToRelocateNewId, dtctFile);
+	createDtCtSingleEvent(neighbourCat, evToRelocateNewId, dtctFile);
  
 	// Create an empty cross correlated differential travel times file (dt.cc) for hypodd
 	string dtccFile = (boost::filesystem::path(eventWorkingDir)/"dt.cc").string();
@@ -1088,7 +1109,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 	// Load the relocated origin from Hypodd
 	string ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
 	CatalogPtr relocatedCatalog = loadRelocatedCatalog(ddrelocFile, neighbourCat);
-	CatalogPtr relocatedEv = extractEvent(relocatedCatalog, evToRelocateNewId);
+	CatalogPtr relocatedEvCat = extractEvent(relocatedCatalog, evToRelocateNewId);
 	// write catalog for debugging purpose
 	relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"event-reloc.csv").string(),
 	                              (boost::filesystem::path(eventWorkingDir)/"phase-reloc.csv").string(),
@@ -1114,16 +1135,15 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 			throw runtime_error(msg);
 		}
 
-		// Select neighbouring events from the relocated origin
-		const Catalog::Event& refinedLoc = relocatedEv->getEvents().begin()->second;
-		neighbourCat = selectNeighbouringEvents(_ddbgc, refinedLoc, _cfg.xcorr.minEStoIEratio,
-		                                        _cfg.xcorr.minESdist, _cfg.xcorr.maxESdist,
-		                                        _cfg.xcorr.maxIEdist, _cfg.xcorr.minNumNeigh,
-		                                        _cfg.xcorr.maxNumNeigh,_cfg.xcorr.minDTperEvt);
-		// add event to relocate to the neighbour catalog
-		neighbourCat = neighbourCat->merge(relocatedEv);
+ 		// Select neighbouring events from the relocated origin
+		const Catalog::Event& relocatedEv = relocatedEvCat->getEvents().begin()->second;
+		neighbourCat = selectNeighbouringEvents(
+			_ddbgc->merge(relocatedEvCat), relocatedEv, _cfg.xcorr.minWeight, _cfg.xcorr.minESdist,
+			_cfg.xcorr.maxESdist, _cfg.xcorr.minEStoIEratio, _cfg.xcorr.maxIEdist, _cfg.xcorr.minDTperEvt,
+			_cfg.xcorr.minNumNeigh, _cfg.xcorr.maxNumNeigh
+		);
 		// extract the new id of the event
-		unsigned refinedLocNewId = neighbourCat->searchEvent(refinedLoc)->first;
+		unsigned refinedLocNewId = neighbourCat->searchEvent(relocatedEv)->first;
 
 		// Create station.dat for hypodd
 		stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
@@ -1135,7 +1155,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 
 		// Create differential travel times file (dt.ct) for hypodd
 		dtctFile = (boost::filesystem::path(eventWorkingDir)/"dt.ct").string();
-		createDtCtFile(neighbourCat, refinedLocNewId, dtctFile);
+		createDtCtSingleEvent(neighbourCat, refinedLocNewId, dtctFile);
 
 		// Create cross correlated differential travel times file (dt.cc) for hypodd
 		dtccFile = (boost::filesystem::path(eventWorkingDir)/"dt.cc").string();
@@ -1165,7 +1185,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 		SEISCOMP_ERROR("It was not possible to use cross correlation when relocating origin");
 	}
 
-	return relocatedEvWithXcorr ? relocatedEvWithXcorr : relocatedEv;
+	return relocatedEvWithXcorr ? relocatedEvWithXcorr : relocatedEvCat;
 }
 
 
@@ -1409,7 +1429,7 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
  * Compute distance in km between two points
  */
 double HypoDD::computeDistance(double lat1, double lon1, double depth1,
-                               double lat2, double lon2, double depth2)
+                               double lat2, double lon2, double depth2) const
 {
 	double distance, az, baz;
 	Math::Geo::delazi(lat1, lon1, lat2, lon2, &distance, &az, &baz);
@@ -1423,13 +1443,14 @@ double HypoDD::computeDistance(double lat1, double lon1, double depth1,
 
 CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
                                             const Catalog::Event& refEv,
-                                            double minEStoIEratio,
+                                            double minPhaseWeight,
                                             double minESdis,
                                             double maxESdis,
+                                            double minEStoIEratio,
                                             double maxIEdis,
+                                            int minDTperEvt,
                                             int minNumNeigh,
-                                            int maxNumNeigh,
-                                            int minDTperEvt)
+                                            int maxNumNeigh) const
 {
 	map<double,unsigned> eventByDistance; // distance, eventid
 	map<unsigned,double> distanceByEvent; // eventid, distance
@@ -1439,6 +1460,9 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 	{
 		const Catalog::Event& event = kv.second;
 
+		if (event == refEv)
+			continue;
+
 		// compute distance between current event and reference origin
 		double distance = computeDistance(event.latitude, event.longitude, event.depth,
 	                                      refEv.latitude, refEv.longitude, refEv.depth);
@@ -1446,53 +1470,40 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 		if ( maxIEdis > 0 && distance > maxIEdis )
 			continue;
 
-		// not enought phases ?
-		auto eqlrng = catalog->getPhases().equal_range(event.id);
-		if ( std::distance(eqlrng.first, eqlrng.second) < minDTperEvt )
-		{
-			SEISCOMP_DEBUG("Skipping event '%s', not enough phases",
-			               string(event).c_str());
-			continue;
-		}
-
 		// keep a list of added events sorted by distance
 		eventByDistance[distance] = event.id;
 		distanceByEvent[event.id] = distance;
 	}
 
-	// Limit num neighbors to maxNumNeigh, choose closest ones
-	int maxEvents = maxNumNeigh > 0 ? maxNumNeigh : eventByDistance.size();
-	map<double,unsigned>  selectedEvents(eventByDistance.begin(),
-	                                     std::next(eventByDistance.begin(), maxEvents));
-
-	// Check if enough neighbors were found
-	if ( selectedEvents.size() < minNumNeigh )
-	{
-		string msg = stringify("Insufficient number of neighbors in catalog (%u),"
-		                       " skipping origin relocation", selectedEvents.size());
-		throw runtime_error(msg);
-	}
-
-	map<string,Catalog::Station> stations;
-	map<unsigned,Catalog::Event> events;
-	multimap<unsigned,Catalog::Phase> phases;
-
+	CatalogPtr filteredCatalog = new Catalog();
 	set<string> includedStations;
 	set<string> excludedStations;
+	int selectedEvents = 0;
 
-	// Add all the selected events within distance
-	for (const auto& kv : selectedEvents)
+	// Add the selected events within distance
+	for (const auto& kv : eventByDistance)
 	{
 		const Catalog::Event& event = catalog->getEvents().at(kv.second);
 
-		// add this event
-		events[event.id] = event;
+		if (event == refEv)
+			continue;
 
-		// add corresponding phases and stations too
+		// select only maxNumNeigh
+		if ( maxNumNeigh > 0 && selectedEvents >= maxNumNeigh )
+			break;
+
+		//  enought phases (> minDTperEvt) ?
+		int dtCount = 0;
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
 		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
 		{
 			const Catalog::Phase& phase = it->second;
+
+			// check pick weight
+			if (phase.weight < minPhaseWeight)
+				continue;
+
+			// check events/station distance
 			auto search = catalog->getStations().find(phase.stationId);
 			if (search == catalog->getStations().end())
 			{
@@ -1538,13 +1549,47 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 				continue;
 			}
 
-			phases.emplace(event.id, phase);
-			stations[station.id] = station;
+			// this phase is ok, now find corresponding phase in reference event phases
+			auto eqlrng2 = catalog->getPhases().equal_range(refEv.id);
+			for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
+			{
+				const Catalog::Phase& refPhase = it2->second;
+				if (phase.stationId == refPhase.stationId && 
+				    phase.type == refPhase.type)
+				{
+					if (refPhase.weight >= minPhaseWeight)
+						dtCount++;
+					break;
+				}
+			}
 		}
+
+		// not enought phases ?
+		if (dtCount > 0 && dtCount >= minDTperEvt)
+		{
+			SEISCOMP_DEBUG("Skipping event '%s', not enough phases",
+			               string(event).c_str());
+			continue;
+		} 
+
+		// add this event
+		filteredCatalog->copyEvent(event, catalog, true);
+		selectedEvents++;
 	}
 
-	return new Catalog(stations, events, phases);
+	// Check if enough neighbors were found
+	if ( selectedEvents < minNumNeigh )
+	{
+		string msg = stringify("Insufficient number of neighbors in catalog (%d)",
+		                       selectedEvents);
+		throw runtime_error(msg);
+	}
+
+	filteredCatalog->copyEvent(refEv, catalog, true);
+
+	return filteredCatalog;
 }
+
 
 
 /*
@@ -1668,6 +1713,24 @@ CatalogPtr HypoDD::extractEvent(const CatalogPtr& catalog, unsigned eventId) con
 /* 
  * Create differential travel times file (dt.ct) for hypodd
  * This is for single event mode
+ */
+void HypoDD::createDtCtSingleEvent(const CatalogPtr& catalog,
+                                   unsigned evToRelocateId,
+                                   const string& dtctFile) const
+{
+	SEISCOMP_DEBUG("Creating differential travel time file %s", dtctFile.c_str());
+
+	ofstream outStream(dtctFile);
+	if ( !outStream.is_open() )
+		throw runtime_error("Cannot create file " + dtctFile);
+
+	buildDiffTTimePairs(catalog, evToRelocateId, outStream);
+}
+
+
+
+/* 
+ * Create differential travel times file (dt.ct) for hypodd
  *
  * Each event pair is listed by a header line (in free format)
  * #, ID1, ID2
@@ -1675,23 +1738,16 @@ CatalogPtr HypoDD::extractEvent(const CatalogPtr& catalog, unsigned eventId) con
  * STA, TT1, TT2, WGHT, PHA
  * 
  */
-void HypoDD::createDtCtFile(const CatalogPtr& catalog,
-                            unsigned evToRelocateId,
-                            const string& dtctFile) const
+void HypoDD::buildDiffTTimePairs(const CatalogPtr& catalog,
+                                 unsigned evToRelocateId,
+                                 ofstream& outStream) const
 {
-	SEISCOMP_DEBUG("Creating Catalog travel time file %s", dtctFile.c_str());
-
-	ofstream outStream(dtctFile);
-	if ( !outStream.is_open() )
-		throw runtime_error("Cannot create file " + dtctFile);
-
 	auto search = catalog->getEvents().find(evToRelocateId);
 	if (search == catalog->getEvents().end())
 	{
 		string msg = stringify("Cannot find event id %u in the catalog.", evToRelocateId);
 		throw runtime_error(msg);
 	}
-
 	const Catalog::Event& refEv = search->second;
 
 	// loop through catalog events
@@ -1699,7 +1755,7 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 	{
 		const Catalog::Event& event = kv.second;
 
-		if (event.id == evToRelocateId)
+		if (event == refEv)
 			continue;
 
 		int dtCount = 0;
@@ -1711,16 +1767,12 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
 		{
 			const Catalog::Phase& phase = it->second;
-			if (phase.weight < _cfg.dtt.minWeight)
-				continue;
 
 			// loop through reference event phases
 			auto eqlrng2 = catalog->getPhases().equal_range(refEv.id);
 			for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
 			{
 				const Catalog::Phase& refPhase = it2->second;
-				if (refPhase.weight < _cfg.dtt.minWeight)
-					continue;
 
 				if (phase.stationId == refPhase.stationId && 
 				    phase.type == refPhase.type)
@@ -1730,14 +1782,14 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 					{
 						SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
 						               string(refPhase).c_str(), string(refEv).c_str());
-						continue; 
+						break;
 					}
 					double travel_time = phase.time - event.time;
 					if (travel_time < 0)
 					{
 						SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
 						               string(phase).c_str(), string(event).c_str());
-						continue; 
+						break;
 					}
 
 					// get common observation weight for pair (FIXME: take the lower one? average?)
@@ -1748,13 +1800,15 @@ void HypoDD::createDtCtFile(const CatalogPtr& catalog,
 					                      travel_time, weight, refPhase.type.c_str());
 					evStream << endl;
 					dtCount++;
+					break;
 				}
 			}
 		}
-		if (dtCount > 0 && dtCount >= _cfg.dtt.minDTperEvt)
+		if (dtCount > 0)
 			outStream << evStream.str();
 	}
 }
+
 
 
 /*
@@ -1875,14 +1929,9 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
 
 
 /*
- * Compute and store to file differential travel times from cross correlation for pairs
- * of earthquakes.
- *
- * Each event pair is listed by a header line (in free format)
- * #, ID1, ID2, OTC
- * followed by lines with observations (in free format):
- * STA, DT, WGHT, PHA
- *
+ * Compute and store to file differential travel times from cross
+ * correlation for pairs of earthquakes.
+ * This is for single event mode
  */
 void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
                               unsigned evToRelocateId,
@@ -1894,22 +1943,48 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 	if ( !outStream.is_open() )
 		throw runtime_error("Cannot create file " + dtccFile);
 
+	map<string, GenericRecordPtr> tmpCahe;
+
+	buildXcorrDiffTTimePairs(catalog, evToRelocateId, outStream,
+	                         _wfCache, _useCatalogDiskCache,
+	                         (_useSingleEvDiskCache ? _wfCache : tmpCahe),
+	                          _useSingleEvDiskCache);
+}
+
+
+
+/*
+ * Compute and store to file differential travel times from cross
+ * correlation for pairs of earthquakes.
+ *
+ * Each event pair is listed by a header line (in free format)
+ * #, ID1, ID2, OTC
+ * followed by lines with observations (in free format):
+ * STA, DT, WGHT, PHA
+ *
+ */
+void HypoDD::buildXcorrDiffTTimePairs(const CatalogPtr& catalog,
+                                      unsigned evToRelocateId,
+                                      ofstream& outStream,
+                                      std::map<std::string,GenericRecordPtr>& catalogCache,
+                                      bool useDiskCacheCatalog,
+                                      std::map<std::string,GenericRecordPtr>& refEvCache,
+                                      bool useDiskCacheRefEv) const
+{
 	auto search = catalog->getEvents().find(evToRelocateId);
 	if (search == catalog->getEvents().end())
 	{
 		string msg = stringify("Cannot find event id %u in the catalog.", evToRelocateId);
 		throw runtime_error(msg);
 	}
-	const Catalog::Event& refEv = search->second; //reference event
-
-	map<string, GenericRecordPtr> tmpWfCache;
+	const Catalog::Event& refEv = search->second;
 
 	// loop through catalog events
 	for (const auto& kv : catalog->getEvents() )
 	{
 		const Catalog::Event& event = kv.second;
 
-		if (event.id == evToRelocateId)
+		if (event == refEv)
 			continue;
 
 		int dtCount = 0;
@@ -1933,8 +2008,8 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 				{
 					double dtcc, weight;
 					if ( xcorr(refEv, refPhase, event, phase, dtcc, weight,
-					           tmpWfCache, _useSingleEvDiskCache,
-					           _wfCache, _useCatalogDiskCache ) )
+					           refEvCache, useDiskCacheRefEv,
+					           catalogCache, useDiskCacheCatalog) )
 					{
 						evStream << stringify("%-12s %.6f %.4f %s", refPhase.stationId.c_str(),
 						                      dtcc, weight,  refPhase.type.c_str());
@@ -1945,7 +2020,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 				}
 			}
 		}
-		if (dtCount > 0 && dtCount >= _cfg.xcorr.minDTperEvt)
+		if (dtCount > 0)
 			outStream << evStream.str();
 	}
 }
@@ -1957,7 +2032,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
               const Catalog::Event& event2, const Catalog::Phase& phase2,
               double& dtccOut, double& weightOut,
               std::map<std::string,GenericRecordPtr>& cache1,  bool useDiskCache1,
-              std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2)
+              std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2) const
 {
 	dtccOut = 0;
 	weightOut = 0;
@@ -2165,7 +2240,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
                     const Catalog::Event& ev,
                     const Catalog::Phase& ph,
                     map<string,GenericRecordPtr>& cache,
-                    bool useDiskCache)
+                    bool useDiskCache) const
 {
 	// FIXME: check if the phase is on a projected component (e.g. ZRT)
 	return  loadWaveformCached(tw, ph.networkCode, ph.stationCode,

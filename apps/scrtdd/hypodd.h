@@ -174,6 +174,12 @@ class Catalog : public Core::BaseObject {
 		void add(const std::string& idFile, DataSource& dataSrc);
 
 		CatalogPtr merge(const CatalogPtr& other) const;
+		bool copyEvent(const Catalog::Event& event, const CatalogPtr& other, bool keepEvId);
+		void removeEvent(const Event& event);
+
+		bool addStation(const Station&, bool checkDuplicate);
+		bool addEvent(const Event&, bool checkDuplicate);
+		bool addPhase(const Phase&, bool checkDuplicate);
 
 		const std::map<std::string,Station>& getStations() const { return _stations;}
 		const std::map<unsigned,Event>& getEvents() const { return _events;}
@@ -182,12 +188,6 @@ class Catalog : public Core::BaseObject {
 		std::map<std::string,Station>::const_iterator searchStation(const Station&) const;
 		std::map<unsigned,Event>::const_iterator searchEvent(const Event&) const;
 		std::map<unsigned,Phase>::const_iterator searchPhase(const Phase&) const;
-
-		bool addStation(const Station&, bool checkDuplicate);
-		bool addEvent(const Event&, bool checkDuplicate);
-		bool addPhase(const Phase&, bool checkDuplicate);
-
-		void removeEvent(const Event& event);
 
 		void writeToFile(std::string eventFile,
 		                 std::string phaseFile,
@@ -289,20 +289,30 @@ class HypoDD : public Core::BaseObject {
 		                           const std::vector<std::string>& PphaseToKeep,
 		                           const std::vector<std::string>& SphaseToKeep) const;
 		void createStationDatFile(const std::string& staFileName, const CatalogPtr& catalog) const;
-		void createPhaseDatFile(const std::string& catFileName, const CatalogPtr& catalog) const;
+		void createPhaseDatFile(const std::string& phaseFileName, const CatalogPtr& catalog) const;
 		void createEventDatFile(const std::string& eventFileName, const CatalogPtr& catalog) const;
-		void createDtCtFile(const CatalogPtr& catalog,
-		                    unsigned evToRelocateId,
-		                    const std::string& dtctFile) const;
+		void createDtCtSingleEvent(const CatalogPtr& catalog,
+		                           unsigned evToRelocateId,
+		                           const std::string& dtctFile) const;
+		void buildDiffTTimePairs(const CatalogPtr& catalog,
+		                         unsigned evToRelocateId,
+		                         std::ofstream& outStream) const;
 		void xcorrCatalog(const std::string& dtctFile, const std::string& dtccFile);
 		void xcorrSingleEvent(const CatalogPtr& catalog,
 		                      unsigned evToRelocateId,
 		                      const std::string& dtccFile);
+		void buildXcorrDiffTTimePairs(const CatalogPtr& catalog,
+		                              unsigned evToRelocateId,
+		                              std::ofstream& outStream,
+		                              std::map<std::string,GenericRecordPtr>& catalogCache,
+		                              bool useDiskCacheCatalog,
+		                              std::map<std::string,GenericRecordPtr>& refEvCache,
+		                              bool useDiskCacheRefEv) const;
 		bool xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
                    const Catalog::Event& event2, const Catalog::Phase& phase2,
                    double& dtccOut, double& weightOut,
                    std::map<std::string,GenericRecordPtr>& cache1,  bool useDiskCache1,
-                   std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2);
+                   std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2) const;
 		bool xcorr(GenericRecordCPtr tr1, GenericRecordCPtr tr2, double maxDelay,
                    double& delayOut, double& coeffOut) const;
 		void runPh2dt(const std::string& workingDir, const std::string& stationFile, const std::string& phaseFile) const;
@@ -310,17 +320,18 @@ class HypoDD : public Core::BaseObject {
 		               const std::string& eventFile, const std::string& stationFile) const;
 		CatalogPtr loadRelocatedCatalog(const std::string& ddrelocFile, const CatalogPtr& originalCatalog);
 		double computeDistance(double lat1, double lon1, double depth1,
-		                       double lat2, double lon2, double depth2);
+		                       double lat2, double lon2, double depth2) const;
 		CatalogPtr selectNeighbouringEvents(const CatalogPtr& catalog, const Catalog::Event& refEv,
-		                                    double minIESdistRatio=0, double minESdis=0,
-		                                    double maxESdis=-1, double maxIEdis=-1,
-		                                    int minNumNeigh=1, int maxNumNeigh=-1, int minDTperEvt=1);
+		                                    double minPhaseWeight = 0, double minESdis=0,
+		                                    double maxESdis=-1, double minEStoIEratio=0,
+		                                    double maxIEdis=-1, int minDTperEvt=1,
+		                                    int minNumNeigh=1, int maxNumNeigh=-1) const;
 		CatalogPtr extractEvent(const CatalogPtr& catalog, unsigned eventId) const;
 		GenericRecordPtr getWaveform(const Core::TimeWindow& tw,
 		                             const Catalog::Event& ev,
 		                             const Catalog::Phase& ph,
 		                             std::map<std::string,GenericRecordPtr>& cache,
-		                             bool useDiskCache);
+		                             bool useDiskCache) const;
 		GenericRecordPtr loadWaveformCached(const Core::TimeWindow& tw,
 		                                    const std::string& networkCode,
 		                                    const std::string& stationCode,
