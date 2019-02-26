@@ -1082,6 +1082,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 		_cfg.dtt.maxESdist, _cfg.dtt.minEStoIEratio, _cfg.dtt.maxIEdist, _cfg.dtt.minDTperEvt,
 		_cfg.dtt.minNumNeigh, _cfg.dtt.maxNumNeigh
 	);
+	// add event
+	neighbourCat->copyEvent(evToRelocate, evToRelocateCat, false);
 	// extract the new id of the event
 	unsigned evToRelocateNewId = neighbourCat->searchEvent(evToRelocate)->first;
 
@@ -1142,6 +1144,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
 			_cfg.xcorr.maxESdist, _cfg.xcorr.minEStoIEratio, _cfg.xcorr.maxIEdist, _cfg.xcorr.minDTperEvt,
 			_cfg.xcorr.minNumNeigh, _cfg.xcorr.maxNumNeigh
 		);
+		// add event
+		neighbourCat->copyEvent(relocatedEv, relocatedEvCat, false);
 		// extract the new id of the event
 		unsigned refinedLocNewId = neighbourCat->searchEvent(relocatedEv)->first;
 
@@ -1565,7 +1569,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 		}
 
 		// not enought phases ?
-		if (dtCount > 0 && dtCount >= minDTperEvt)
+		if (dtCount > 0 && dtCount < minDTperEvt)
 		{
 			SEISCOMP_DEBUG("Skipping event '%s', not enough phases",
 			               string(event).c_str());
@@ -1584,8 +1588,6 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 		                       selectedEvents);
 		throw runtime_error(msg);
 	}
-
-	filteredCatalog->copyEvent(refEv, catalog, true);
 
 	return filteredCatalog;
 }
