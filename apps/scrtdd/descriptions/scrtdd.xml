@@ -85,7 +85,8 @@
 
 				<parameter name="wakeupInterval" type="int" unit="s" default="5">
 					<description>
-					Specifies the interval in seconds to check/start scheduled operations.
+						Specifies the interval in seconds to check/start scheduled operations.
+						This is basically the time resolution for delayTimes option.
 					</description>
 				</parameter>
 
@@ -117,6 +118,8 @@
 						Defines a regional profile. Origins that fall in this region will use this
 						configuration. If an origin falls in multiple profile regions, then the
 						profile defined first will be used.
+						The region check is not used for full catalog relocation (see --relocate-catalog
+						command line option)
 					</description>
 
 					<parameter name="regionType" type="string">
@@ -150,11 +153,12 @@
 					<group name="catalog">
 						<description>
 							The files used to define a background catalog. New origins will be relocated using this
-							catalog, which must contains high quality locations.
-							There are two ways to define a catalog: one is
-							providing an event file containing the ids of existing events or origins; the second
-							way consists in providing extended information (useful when the events are not in the
-							database) and three files are required event, phase and stations.
+							catalog, which must contains high quality locations. In full catalog relocation mode
+							(see --relocate-catalog command line option) this is the catalog that will be relocated.
+							There are two ways to define a catalog: one is providing an event file containing the ids
+							of existing events or origins; the second way consists in providing extended information 
+							(useful when the events are not in the database) and three files are required event, phase
+							and stations.
 							The files must be in csv format with the first line containing the column names. Each file
 							requires a minimum set of columns, which can appear in any order. Additional
 							columns can be present and will not be used but are allowed for informationl purpose.
@@ -214,41 +218,53 @@
 
 					<group name="dtct">
 						<description>
-							Step 1: location refiniment. Generation of differential travel time (from catalog) options.
+							Step 1: location refiniment. Those options control the computation of differential travel time
+							(no cross correlation of phases) for event pairs.
 						</description>
 						<parameter name="minWeight" type="double">
 							<description>
-								Min phase weight required. Phases not satisfying this condition will not be used. Check disabled by default.
-							</description>
-						</parameter>
-						<parameter name="maxIEdist" type="double">
-							<description>
-								Max distance (km) between events in a pair allowed. Event pairs not satisfying this condition will not be used. No limit by default.
+								Min phase weight required. Phases not satisfying this condition will not be used.
+								Check disabled by default.
 							</description>
 						</parameter>
 						<parameter name="minESdist" type="double">
 							<description>
-								Min distance (km) between event pair and station required. Event pairs not satisfying this condition will not be used. Check disabled by default. 
+								Min distance (km) between event pair and station required. Phases belonging
+								to stations not satisfyig this condition will not be used.
+								Check disabled by default. 
 							</description>
 						</parameter>
  						<parameter name="maxESdist" type="double">
 							<description>
-								Max distance (km) between event pair and station allowed. Event pairs not satisfying this condition will not be used. No limit by default.
+								Max distance (km) between event pair and station allowed. Phases belonging
+								to stations not satisfyig this condition will not be used.
+								No limit by default.
 							</description>
 						</parameter>
 						<parameter name="minEStoIEratio" type="double">
 							<description>
-								Min ratio between event-station distance and pair inter-event distance. Check disabled by default.
+								Min ratio between event-station distance and pair inter-event distance. Phases
+								belonging to stations not satisfyig this condition will not be used.
+								Check disabled by default.
+							</description>
+						</parameter>
+						<parameter name="maxIEdist" type="double">
+							<description>
+								Max distance (km) between events in a pair allowed. Event pairs not satisfying 
+								this condition will not be used. No limit by default.
 							</description>
 						</parameter>
 						<parameter name="minDTperEvt" type="int">
 							<description>
-								Min number of differential travel times (Including P+S) per event pair required. Event pairs not satisfying this condition will not be used. Check disabled by default.
+								Min number of differential travel times (Including P+S) per event pair required.
+								Event pairs not satisfying this condition will not be used.
+								Check disabled by default.
 							</description>
 							</parameter>
 						<parameter name="minNumNeigh" type="int">
 							<description>
-								Min number of neighboring events required to perform this computation step. Check disabled by default.
+								Min number of neighboring events required. Events not satisfying this condition
+								will not be used. Check disabled by default.
 							</description>
 						</parameter>
 						<parameter name="maxNumNeigh" type="int">
@@ -260,48 +276,61 @@
 
 					<group name="dtcc">
 						<description>
-							Step 2: full relocation. Generation of differential travel time (with cross correlation) options.
+							Step 2: final relocation. . Those options control the computation of differential travel time
+							(with cross correlation) for event pairs.
 						</description>
 						<parameter name="minWeight" type="double">
 							<description>
-								Min phase weight required. Phases not satisfying this condition will not be used. Check disabled by default.
+								Min phase weight required. Phases not satisfying this condition will not be used.
+								Check disabled by default.
 							</description>
 						</parameter>
-						<parameter name="maxIEdist" type="double">
-							<description>
-								Max distance (km) between events in a pair allowed. Event pairs not satisfying this condition will not be used. No limit by default.
-							</description>
-							</parameter>
 						<parameter name="minESdist" type="double">
 							<description>
-								Min distance (km) between event pair and station required. Event pairs not satisfying this condition will not be used. Check disabled by default. 
+								Min distance (km) between event pair and station required. Phases belonging
+								to stations not satisfyig this condition will not be used.
+								Check disabled by default. 
 							</description>
 						</parameter>
  						<parameter name="maxESdist" type="double">
 							<description>
-								Max distance (km) between event pair and station allowed. Event pairs not satisfying this condition will not be used. No limit by default.
+								Max distance (km) between event pair and station allowed. Phases belonging
+								to stations not satisfyig this condition will not be used.
+								No limit by default.
 							</description>
 						</parameter>
 						<parameter name="minEStoIEratio" type="double">
 							<description>
-								Min ratio between event-station distance and pair inter-event distance. Check disabled by default.
+								Min ratio between event-station distance and pair inter-event distance. Phases
+								belonging to stations not satisfyig this condition will not be used.
+								Check disabled by default.
+							</description>
+						</parameter>
+						<parameter name="maxIEdist" type="double">
+							<description>
+								Max distance (km) between events in a pair allowed. Event pairs not satisfying 
+								this condition will not be used. No limit by default.
 							</description>
 						</parameter>
 						<parameter name="minDTperEvt" type="int">
 							<description>
-								Min number of differential travel times (Including P+S) per event pair required. Event pairs not satisfying this condition will not be used. Check disabled by default.
+								Min number of differential travel times (Including P+S) per event pair required.
+								Event pairs not satisfying this condition will not be used.
+								Check disabled by default.
 							</description>
 							</parameter>
 						<parameter name="minNumNeigh" type="int">
 							<description>
-								Min number of neighboring events required to perform this computation step. Check disabled by default.
+								Min number of neighboring events required. Events not satisfying this condition
+								will not be used. Check disabled by default.
 							</description>
 						</parameter>
 						<parameter name="maxNumNeigh" type="int">
 							<description>
 								Max number of neighbors used. Further events are discarded. No limit by default.
 							</description>
-						</parameter> 
+						</parameter>
+
 						<group name="crosscorrelation">
 							<parameter name="timeBeforePick" type="double">
 								<description>(secs)</description>
@@ -337,10 +366,13 @@
 							</parameter>
 						</group>
 					</group> 
+
 					<group name="hypodd">
 						<parameter name="controlFile" type="path">
 							<description>
-								Path to hypodd control file (e.g. some_path/hypoDD.inp).
+								Path to hypodd control file (e.g. some_path/hypoDD.inp). The input/output files 
+								will be replaced by SCRTDD with its own files. The values on those lines are
+								not relevant.
 							</description>
 						</parameter>
 					</group>
@@ -354,7 +386,9 @@
 						</description>
 						<parameter name="controlFile" type="path">
 							<description>
-								Path to ph2dt control file (e.g. some_path/ph2dt.inp).
+								Path to ph2dt control file (e.g. some_path/ph2dt.inp). The input/output files 
+								will be replaced by SCRTDD with its own files. The values on those lines are
+								not relevant.
 							</description>
 						</parameter>
 					</group>
