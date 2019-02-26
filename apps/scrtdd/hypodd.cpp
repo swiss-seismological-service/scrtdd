@@ -1933,8 +1933,8 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
 				{
 					double dtcc, weight;
 					if ( xcorr(refEv, refPhase, event, phase, dtcc, weight,
-					           _wfCache, _useCatalogDiskCache,
-					           tmpWfCache, _useSingleEvDiskCache) )
+					           tmpWfCache, _useSingleEvDiskCache,
+					           _wfCache, _useCatalogDiskCache ) )
 					{
 						evStream << stringify("%-12s %.6f %.4f %s", refPhase.stationId.c_str(),
 						                      dtcc, weight,  refPhase.type.c_str());
