@@ -1569,7 +1569,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 		}
 
 		// not enought phases ?
-		if (dtCount > 0 && dtCount < minDTperEvt)
+		if ( dtCount < minDTperEvt )
 		{
 			SEISCOMP_DEBUG("Skipping event '%s', not enough phases",
 			               string(event).c_str());
