@@ -603,7 +603,7 @@ void Catalog::add(const std::string& idFile,  DataSource& dataSrc)
 
 
 
-CatalogPtr Catalog::merge(const CatalogPtr& other) const
+CatalogPtr Catalog::merge(const CatalogCPtr& other) const
 {
 	CatalogPtr mergedCatalog = new Catalog(getStations(), getEvents(), getPhases());
 
@@ -618,7 +618,7 @@ CatalogPtr Catalog::merge(const CatalogPtr& other) const
 
 
 
-bool Catalog::copyEvent(const Catalog::Event& event, const CatalogPtr& other, bool keepEvId)
+bool Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& other, bool keepEvId)
 {
 	if ( keepEvId )
 	{
@@ -763,7 +763,7 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 }
 
 
-HypoDD::HypoDD(const CatalogPtr& catalog, const Config& cfg, const string& workingDir)
+HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& workingDir)
 {
 	_cfg = cfg;
 	_workingDir = workingDir;
@@ -803,7 +803,7 @@ HypoDD::~HypoDD()
 	}
 }
 
-void HypoDD::setCatalog(const CatalogPtr& catalog)
+void HypoDD::setCatalog(const CatalogCPtr& catalog)
 {
 	_ddbgc = filterOutPhases(catalog, _cfg.validPphases, _cfg.validSphases);
 }
@@ -845,7 +845,7 @@ string HypoDD::generateWorkingSubDir(const Catalog::Event& ev) const
  * make sure to have only one phase. If multiple phases are found, keep the first
  * one arrived
  */
-CatalogPtr HypoDD::filterOutPhases(const CatalogPtr& catalog,
+CatalogPtr HypoDD::filterOutPhases(const CatalogCPtr& catalog,
                                    const std::vector<std::string>& PphaseToKeep,
                                    const std::vector<std::string>& SphaseToKeep) const
 {
@@ -1043,11 +1043,11 @@ CatalogPtr HypoDD::relocateCatalog(bool force)
 
 
 
-CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
+CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 {
 	SEISCOMP_DEBUG("Starting HypoDD relocator in single event mode");
 
-	const CatalogPtr evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
+	const CatalogCPtr evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
 
 	// there must be only one event in the catalog, the origin to relocate
 	const Catalog::Event& evToRelocate = evToRelocateCat->getEvents().begin()->second;
@@ -1205,7 +1205,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogPtr& singleEvent)
  NCABR 39.1381 -121.48   14
  *
  */
-void HypoDD::createStationDatFile(const string& staFileName, const CatalogPtr& catalog) const
+void HypoDD::createStationDatFile(const string& staFileName, const CatalogCPtr& catalog) const
 {
 	SEISCOMP_DEBUG("Creating station file %s", staFileName.c_str());
 
@@ -1245,7 +1245,7 @@ void HypoDD::createStationDatFile(const string& staFileName, const CatalogPtr& c
  NCCBW       3.360   0.250   P
  *
  */
-void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogPtr& catalog) const
+void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogCPtr& catalog) const
 {
 	SEISCOMP_DEBUG("Creating phase file %s", phaseFileName.c_str());
 
@@ -1307,7 +1307,7 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogPtr& c
 19850402   5571645   37.8825  -122.2420      9.440   1.9    0.12    0.30   0.04      45165
  *
  */
-void HypoDD::createEventDatFile(const string& eventFileName, const CatalogPtr& catalog) const
+void HypoDD::createEventDatFile(const string& eventFileName, const CatalogCPtr& catalog) const
 {
 	SEISCOMP_DEBUG("Creating event file %s", eventFileName.c_str());
 
@@ -1445,7 +1445,7 @@ double HypoDD::computeDistance(double lat1, double lon1, double depth1,
 }
 
 
-CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
+CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             const Catalog::Event& refEv,
                                             double minPhaseWeight,
                                             double minESdis,
@@ -1603,7 +1603,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogPtr& catalog,
 NCTS, RCC, RCT, CID
  *
  */
-CatalogPtr HypoDD::loadRelocatedCatalog(const string& ddrelocFile, const CatalogPtr& originalCatalog)
+CatalogPtr HypoDD::loadRelocatedCatalog(const string& ddrelocFile, const CatalogCPtr& originalCatalog)
 {
 	SEISCOMP_DEBUG("Loading catalog relocated by hypodd...");
 
@@ -1669,7 +1669,7 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const string& ddrelocFile, const Catalog
 }
 
 
-CatalogPtr HypoDD::extractEvent(const CatalogPtr& catalog, unsigned eventId) const
+CatalogPtr HypoDD::extractEvent(const CatalogCPtr& catalog, unsigned eventId) const
 {
 	CatalogPtr eventToExtract = new Catalog();
 
@@ -1716,7 +1716,7 @@ CatalogPtr HypoDD::extractEvent(const CatalogPtr& catalog, unsigned eventId) con
  * Create differential travel times file (dt.ct) for hypodd
  * This is for single event mode
  */
-void HypoDD::createDtCtSingleEvent(const CatalogPtr& catalog,
+void HypoDD::createDtCtSingleEvent(const CatalogCPtr& catalog,
                                    unsigned evToRelocateId,
                                    const string& dtctFile) const
 {
@@ -1740,7 +1740,7 @@ void HypoDD::createDtCtSingleEvent(const CatalogPtr& catalog,
  * STA, TT1, TT2, WGHT, PHA
  * 
  */
-void HypoDD::buildDiffTTimePairs(const CatalogPtr& catalog,
+void HypoDD::buildDiffTTimePairs(const CatalogCPtr& catalog,
                                  unsigned evToRelocateId,
                                  ofstream& outStream) const
 {
@@ -1935,7 +1935,7 @@ void HypoDD::xcorrCatalog(const string& dtctFile, const string& dtccFile)
  * correlation for pairs of earthquakes.
  * This is for single event mode
  */
-void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
+void HypoDD::xcorrSingleEvent(const CatalogCPtr& catalog,
                               unsigned evToRelocateId,
                               const string& dtccFile)
 {
@@ -1965,7 +1965,7 @@ void HypoDD::xcorrSingleEvent(const CatalogPtr& catalog,
  * STA, DT, WGHT, PHA
  *
  */
-void HypoDD::buildXcorrDiffTTimePairs(const CatalogPtr& catalog,
+void HypoDD::buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
                                       unsigned evToRelocateId,
                                       ofstream& outStream,
                                       std::map<std::string,GenericRecordPtr>& catalogCache,
@@ -2094,31 +2094,6 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 		return false;
 	}
 
-	if (tr1->samplingFrequency() != tr2->samplingFrequency()  )
-	{
-		if ( ! _cfg.xcorr.allowResampling )
-		{
-			SEISCOMP_WARNING("Cannot cross correlate traces with different sampling freq (%f!=%f)."
-			                 "Skipping cross correlation for phase pair phase1='%s', phase2='%s'",
-			                 tr1->samplingFrequency(), tr2->samplingFrequency(),
-			                 string(phase1).c_str(), string(phase2).c_str());
-			return false;
-		}
-
-		if (tr1->samplingFrequency() > tr2->samplingFrequency() )
-		{
-			SEISCOMP_DEBUG("Resampling phase1 waveform from %f to %f",
-			               tr1->samplingFrequency(), tr2->samplingFrequency());
-			tr1 = resample(tr1, tr2->samplingFrequency(), true);
-		}
-		else
-		{
-			SEISCOMP_DEBUG("Resampling phase2 waveform from %f to %f", 
-			               tr2->samplingFrequency(), tr1->samplingFrequency());
-			tr2 = resample(tr2, tr1->samplingFrequency(), true);
-		}
-	}
-
 	// trim tr2 to shorter length, we want to cross correlate the short with the long one
 	GenericRecordPtr tr2Short = new GenericRecord(*tr2);
 	Core::TimeWindow tw2Short = Core::TimeWindow(phase2.time.toLocalTime() - shortTimeCorrection, shortDuration);
@@ -2181,7 +2156,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
 // Calculate the correlation series (tr1 and tr2 are already demeaned)
 bool
-HypoDD::xcorr(GenericRecordCPtr tr1, GenericRecordCPtr tr2, double maxDelay,
+HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
               double& delayOut, double& coeffOut) const
 {
 	delayOut = 0.;
@@ -2357,7 +2332,7 @@ HypoDD::loadWaveform(const Core::TimeWindow& tw,
 	}
 
 	filter(*trace, true, _cfg.xcorr.filterOrder, _cfg.xcorr.filterFmin,
-	       _cfg.xcorr.filterFmax, _cfg.xcorr.filterFsamp);
+	       _cfg.xcorr.filterFmax, _cfg.xcorr.resampleFreq);
 
 	return trace;
 }
@@ -2517,7 +2492,7 @@ bool HypoDD::trim(GenericRecord &trace, const Core::TimeWindow& tw) const
 
 
 void HypoDD::filter(GenericRecord &trace, bool demeaning,
-                    int order, double fmin, double fmax, double fsamp) const
+                    int order, double fmin, double fmax, double resampleFreq) const
 {
 	DoubleArray *data = DoubleArray::Cast(trace.data());
 
@@ -2528,88 +2503,101 @@ void HypoDD::filter(GenericRecord &trace, bool demeaning,
 		for ( int i = 0; i < cnt; ++i ) (*data)[i] -= mean;
 	}
 
+	if ( resampleFreq > 0)
+	{
+		resample(trace, resampleFreq, true);
+	}
+
 	if ( fmin > 0 && fmax > 0 )
 	{
-		Math::Filtering::IIR::ButterworthHighLowpass<double> bp(order, fmin, fmax, fsamp);
+		Math::Filtering::IIR::ButterworthHighLowpass<double> bp(order, fmin, fmax);
 		bp.setSamplingFrequency(trace.samplingFrequency());
 		bp.apply(data->size(), data->typedData());
 	}
 	else if ( fmin > 0 )
 	{
-		Math::Filtering::IIR::ButterworthHighpass<double> hp(order, fmin, fsamp);
+		Math::Filtering::IIR::ButterworthHighpass<double> hp(order, fmin);
 		hp.setSamplingFrequency(trace.samplingFrequency());
 		hp.apply(data->size(), data->typedData());
 	}
 	else if ( fmax > 0 )
 	{
-		Math::Filtering::IIR::ButterworthLowpass<double> lp(order, fmax, fsamp);
+		Math::Filtering::IIR::ButterworthLowpass<double> lp(order, fmax);
 		lp.setSamplingFrequency(trace.samplingFrequency());
 		lp.apply(data->size(), data->typedData());
 	}
-
 }
 
 
-GenericRecordPtr HypoDD::resample(const GenericRecordCPtr &trace, int sf, bool average) const
+void HypoDD::resample(GenericRecord &trace, double sf, bool average) const
 {
 	if ( sf <= 0 )
-		return nullptr;
+		return;
 
-	GenericRecordPtr newTrace = new GenericRecord(*trace);
+	if ( trace.samplingFrequency() == sf )
+		return;
 
-	if ( newTrace->samplingFrequency() == sf )
-		return newTrace;
+	DoubleArray *data = DoubleArray::Cast(trace.data());
+	double step = trace.samplingFrequency() / sf;
 
-	DoubleArray *data = DoubleArray::Cast(newTrace->data());
-	double step = newTrace->samplingFrequency() / sf;
-
-	int w = average?step*0.5 + 0.5:0;
-	int i = 0;
-	double fi = 0.0;
-	int cnt = data->size();
-
-	if ( w <= 0 )
+	if ( trace.samplingFrequency() < sf ) // upsampling
 	{
-		while ( fi < cnt ) {
-			(*data)[i++] = (*data)[(int)fi];
-			fi += step;
-		}
-	}
-	else
-	{
-		while ( fi < cnt )
+		double fi = data->size() - 1;
+		data->resize( data->size() / step );
+
+		for( int i = data->size()-1; i >= 0; i-- )
 		{
-			int ci = (int)fi;
-			double scale = 1.0;
-			double v = (*data)[ci];
-
-			for ( int g = 1; g < w; ++g )
-			{
-				if ( ci >= g )
-				{
-					v += (*data)[ci-g];
-					scale += 1.0;
-				}
-
-				if ( ci+g < cnt )
-				{
-					v += (*data)[ci+g];
-					scale += 1.0;
-				}
-			}
-
-			v /= scale;
-
-			(*data)[i++] = v;
-			fi += step;
+			(*data)[i] = (*data)[(int)fi];
+			fi -= step;
 		}
 	}
+	else // downsampling
+	{
+		int w = average?step*0.5 + 0.5:0;
+		int i = 0;
+		double fi = 0.0;
+		int cnt = data->size();
 
-	data->resize(i);
-	newTrace->setSamplingFrequency((double)sf);
-	newTrace->dataUpdated();
+		if ( w <= 0 )
+		{
+			while ( fi < cnt ) {
+				(*data)[i++] = (*data)[(int)fi];
+				fi += step;
+			}
+		}
+		else
+		{
+			while ( fi < cnt )
+			{
+				int ci = (int)fi;
+				double scale = 1.0;
+				double v = (*data)[ci];
 
-	return newTrace;
+				for ( int g = 1; g < w; ++g )
+				{
+					if ( ci >= g )
+					{
+						v += (*data)[ci-g];
+						scale += 1.0;
+					}
+
+					if ( ci+g < cnt )
+					{
+						v += (*data)[ci+g];
+						scale += 1.0;
+					}
+				}
+
+				v /= scale;
+
+				(*data)[i++] = v;
+				fi += step;
+			}
+		}
+		data->resize(i);
+	}
+	trace.setSamplingFrequency((double)sf);
+	trace.dataUpdated();
 }
 
 

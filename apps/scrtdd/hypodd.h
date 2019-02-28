@@ -173,8 +173,8 @@ class Catalog : public Core::BaseObject {
 		void add(const std::vector<std::string>& ids, DataSource& dataSrc);
 		void add(const std::string& idFile, DataSource& dataSrc);
 
-		CatalogPtr merge(const CatalogPtr& other) const;
-		bool copyEvent(const Catalog::Event& event, const CatalogPtr& other, bool keepEvId);
+		CatalogPtr merge(const CatalogCPtr& other) const;
+		bool copyEvent(const Catalog::Event& event, const CatalogCPtr& other, bool keepEvId);
 		void removeEvent(const Event& event);
 
 		bool addStation(const Station&, bool checkDuplicate);
@@ -252,9 +252,8 @@ struct Config {
 		int filterOrder;
 		double filterFmin     = 0;
 		double filterFmax     = 0;
-		double filterFsamp    = 0;
 
-		bool allowResampling  = false;
+		double resampleFreq = 0;
 	} xcorr;
 };
 
@@ -265,14 +264,14 @@ DEFINE_SMARTPOINTER(HypoDD);
 class HypoDD : public Core::BaseObject {
 
 	public:
-		HypoDD(const CatalogPtr& catalog, const Config& cfg, const std::string& workingDir);
+		HypoDD(const CatalogCPtr& catalog, const Config& cfg, const std::string& workingDir);
 		virtual ~HypoDD();
 
 		CatalogCPtr getCatalog() { return _ddbgc; }
-		void setCatalog(const CatalogPtr& catalog);
+		void setCatalog(const CatalogCPtr& catalog);
 
 		CatalogPtr relocateCatalog(bool force = true);
-		CatalogPtr relocateSingleEvent(const CatalogPtr& orgToRelocate);
+		CatalogPtr relocateSingleEvent(const CatalogCPtr& orgToRelocate);
 
 		void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
 		bool workingDirCleanup() { return _workingDirCleanup; }
@@ -285,23 +284,23 @@ class HypoDD : public Core::BaseObject {
 
 		
 	private:
-		CatalogPtr filterOutPhases(const CatalogPtr& catalog,
+		CatalogPtr filterOutPhases(const CatalogCPtr& catalog,
 		                           const std::vector<std::string>& PphaseToKeep,
 		                           const std::vector<std::string>& SphaseToKeep) const;
-		void createStationDatFile(const std::string& staFileName, const CatalogPtr& catalog) const;
-		void createPhaseDatFile(const std::string& phaseFileName, const CatalogPtr& catalog) const;
-		void createEventDatFile(const std::string& eventFileName, const CatalogPtr& catalog) const;
-		void createDtCtSingleEvent(const CatalogPtr& catalog,
+		void createStationDatFile(const std::string& staFileName, const CatalogCPtr& catalog) const;
+		void createPhaseDatFile(const std::string& phaseFileName, const CatalogCPtr& catalog) const;
+		void createEventDatFile(const std::string& eventFileName, const CatalogCPtr& catalog) const;
+		void createDtCtSingleEvent(const CatalogCPtr& catalog,
 		                           unsigned evToRelocateId,
 		                           const std::string& dtctFile) const;
-		void buildDiffTTimePairs(const CatalogPtr& catalog,
+		void buildDiffTTimePairs(const CatalogCPtr& catalog,
 		                         unsigned evToRelocateId,
 		                         std::ofstream& outStream) const;
 		void xcorrCatalog(const std::string& dtctFile, const std::string& dtccFile);
-		void xcorrSingleEvent(const CatalogPtr& catalog,
+		void xcorrSingleEvent(const CatalogCPtr& catalog,
 		                      unsigned evToRelocateId,
 		                      const std::string& dtccFile);
-		void buildXcorrDiffTTimePairs(const CatalogPtr& catalog,
+		void buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
 		                              unsigned evToRelocateId,
 		                              std::ofstream& outStream,
 		                              std::map<std::string,GenericRecordPtr>& catalogCache,
@@ -313,20 +312,20 @@ class HypoDD : public Core::BaseObject {
                    double& dtccOut, double& weightOut,
                    std::map<std::string,GenericRecordPtr>& cache1,  bool useDiskCache1,
                    std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2) const;
-		bool xcorr(GenericRecordCPtr tr1, GenericRecordCPtr tr2, double maxDelay,
+		bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
                    double& delayOut, double& coeffOut) const;
 		void runPh2dt(const std::string& workingDir, const std::string& stationFile, const std::string& phaseFile) const;
 		void runHypodd(const std::string& workingDir, const std::string& dtccFile, const std::string& dtctFile,
 		               const std::string& eventFile, const std::string& stationFile) const;
-		CatalogPtr loadRelocatedCatalog(const std::string& ddrelocFile, const CatalogPtr& originalCatalog);
+		CatalogPtr loadRelocatedCatalog(const std::string& ddrelocFile, const CatalogCPtr& originalCatalog);
 		double computeDistance(double lat1, double lon1, double depth1,
 		                       double lat2, double lon2, double depth2) const;
-		CatalogPtr selectNeighbouringEvents(const CatalogPtr& catalog, const Catalog::Event& refEv,
+		CatalogPtr selectNeighbouringEvents(const CatalogCPtr& catalog, const Catalog::Event& refEv,
 		                                    double minPhaseWeight = 0, double minESdis=0,
 		                                    double maxESdis=-1, double minEStoIEratio=0,
 		                                    double maxIEdis=-1, int minDTperEvt=1,
 		                                    int minNumNeigh=1, int maxNumNeigh=-1) const;
-		CatalogPtr extractEvent(const CatalogPtr& catalog, unsigned eventId) const;
+		CatalogPtr extractEvent(const CatalogCPtr& catalog, unsigned eventId) const;
 		GenericRecordPtr getWaveform(const Core::TimeWindow& tw,
 		                             const Catalog::Event& ev,
 		                             const Catalog::Phase& ph,
@@ -353,8 +352,8 @@ class HypoDD : public Core::BaseObject {
 		bool merge(GenericRecord &trace, const RecordSequence& seq) const;
 		bool trim(GenericRecord &trace, const Core::TimeWindow& tw) const;
 		void filter(GenericRecord &trace, bool demeaning=true,
-                    int order=3, double fmin=-1, double fmax=-1, double fsamp=0) const;
-		GenericRecordPtr resample(const GenericRecordCPtr &trace, int sf, bool average) const;
+                    int order=3, double fmin=-1, double fmax=-1, double resampleFreq=0) const;
+		void resample(GenericRecord& trace, double sf, bool average) const;
 		std::string generateWorkingSubDir(const Catalog::Event& ev) const;
 
 	private:

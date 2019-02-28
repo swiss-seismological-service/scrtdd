@@ -470,15 +470,12 @@ bool RTDD::validateParameters()
 			prof->ddcfg.xcorr.filterFmax = configGetDouble(prefix + "filterFmax");
 		} catch ( ... ) { prof->ddcfg.xcorr.filterFmax = 0.; }
 		try {
-			prof->ddcfg.xcorr.filterFsamp = configGetDouble(prefix + "filterFsamp");
-		} catch ( ... ) { prof->ddcfg.xcorr.filterFsamp = 0.; }
-		try {
 			prof->ddcfg.xcorr.filterOrder = configGetInt(prefix + "filterOrder");
 		} catch ( ... ) { prof->ddcfg.xcorr.filterOrder = 3; }
 		try {
-			prof->ddcfg.xcorr.allowResampling = configGetBool(prefix + "allowResampling");
-		} catch ( ... ) { prof->ddcfg.xcorr.allowResampling = false; }
- 
+			prof->ddcfg.xcorr.resampleFreq = configGetDouble(prefix + "resampling");
+		} catch ( ... ) { prof->ddcfg.xcorr.resampleFreq = 0.; }
+
 		prefix = string("profile.") + *it + ".hypodd.";
 		prof->ddcfg.hypodd.ctrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
 		prof->ddcfg.hypodd.exec = hypoddExec;

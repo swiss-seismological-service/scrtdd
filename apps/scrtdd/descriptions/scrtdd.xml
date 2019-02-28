@@ -350,18 +350,13 @@
 							<parameter name="filterFmax" type="double">
 								<description>Frequency of the low-pass filter (hz, 0 disable)</description>
 							</parameter>
-							<parameter name="filterFsamp" type="double">
-								<description>Samplig rate (hz, 0 disable)</description>
-							</parameter>
 							<parameter name="filterOrder" type="int">
 								<description>Filter order</description>
 							</parameter>
-							<parameter name="allowResampling" type="boolean" default="false">
+							<parameter name="resampling" type="double">
 								<description>
-									When cross correlating two waveforms with different sampling rate,
-									allow to resample the higher sampling rate one, to the lower rate.
-									When enabled, make sure to set a proper filtering to avoid potential
-									aliasing issues
+									Resample all traces at this samplig interval (hz, 0 disable) before
+									performing the cross correlation
 								</description>
 							</parameter>
 						</group>
