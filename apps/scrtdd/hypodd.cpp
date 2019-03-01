@@ -454,7 +454,7 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 		// Add event
 		Event ev;
 		ev.id          = 0;
-		ev.time        = org->time().value().toGMT();
+		ev.time        = org->time().value();
 		ev.latitude    = org->latitude();
 		ev.longitude   = org->longitude();
 		ev.depth       = org->depth(); // km
@@ -527,7 +527,7 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 			Phase ph;
 			ph.eventId    = ev.id;
 			ph.stationId  = sta.id;
-			ph.time       = pick->time().value().toGMT();
+			ph.time       = pick->time().value();
 			try {
 				ph.weight = orgArr->weight();
 			} catch ( Core::ValueException& ) {
@@ -837,6 +837,26 @@ string HypoDD::generateWorkingSubDir(const Catalog::Event& ev) const
 	id += t.toString("%Y%m%d%H%M%S");
 
 	return id;
+}
+
+
+
+void HypoDD::preloadData()
+{
+	double duration = _cfg.xcorr.timeBeforePick + _cfg.xcorr.timeAfterPick + _cfg.xcorr.maxDelay * 2;
+	Core::TimeSpan timeCorrection = Core::TimeSpan(_cfg.xcorr.timeBeforePick) + Core::TimeSpan(_cfg.xcorr.maxDelay);
+
+ 	for (const auto& kv : _ddbgc->getEvents() )
+	{
+		const Catalog::Event& event = kv.second;
+		auto eqlrng = _ddbgc->getPhases().equal_range(event.id);
+		for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+		{
+			const Catalog::Phase& phase = it->second;
+			Core::TimeWindow tw = Core::TimeWindow(phase.time - timeCorrection, duration);
+			getWaveform(tw, event, phase, _wfCache, true);
+		}
+	}
 }
 
 
@@ -2046,7 +2066,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 	Core::TimeSpan longTimeCorrection = shortTimeCorrection + Core::TimeSpan(_cfg.xcorr.maxDelay);
 
 	// always load the long trace, because we want to cache the longer version
-	Core::TimeWindow tw1 = Core::TimeWindow(phase1.time.toLocalTime() - longTimeCorrection, longDuration);
+	Core::TimeWindow tw1 = Core::TimeWindow(phase1.time - longTimeCorrection, longDuration);
 	GenericRecordPtr tr1 = getWaveform(tw1, event1, phase1, cache1, useDiskCache1);
 	if ( !tr1 )
 	{
@@ -2057,7 +2077,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 	}
 
 	// always load the long trace, because we want to cache the longer version
-	Core::TimeWindow tw2 = Core::TimeWindow(phase2.time.toLocalTime() - longTimeCorrection, longDuration);
+	Core::TimeWindow tw2 = Core::TimeWindow(phase2.time - longTimeCorrection, longDuration);
 	GenericRecordPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2);
 	if ( !tr2 )
 	{
@@ -2069,7 +2089,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
 	// trim tr2 to shorter length, we want to cross correlate the short with the long one
 	GenericRecordPtr tr2Short = new GenericRecord(*tr2);
-	Core::TimeWindow tw2Short = Core::TimeWindow(phase2.time.toLocalTime() - shortTimeCorrection, shortDuration);
+	Core::TimeWindow tw2Short = Core::TimeWindow(phase2.time - shortTimeCorrection, shortDuration);
 	if ( !trim(*tr2Short, tw2Short) )
 	{
 		SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation "
@@ -2088,7 +2108,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
 	// trim tr1 to shorter length, we want to cross correlate the short with the long one
 	GenericRecordPtr tr1Short = new GenericRecord(*tr1);
-	Core::TimeWindow tw1Short = Core::TimeWindow(phase1.time.toLocalTime() - shortTimeCorrection, shortDuration);
+	Core::TimeWindow tw1Short = Core::TimeWindow(phase1.time - shortTimeCorrection, shortDuration);
 	if ( !trim(*tr1Short, tw1Short) )
 	{
 		SEISCOMP_WARNING("Cannot trim phase1 waveform, skipping cross correlation "
