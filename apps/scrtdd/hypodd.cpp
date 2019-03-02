@@ -790,6 +790,7 @@ HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& work
 }
 
 
+
 HypoDD::~HypoDD()
 {
 	if ( _workingDirCleanup )
@@ -803,10 +804,14 @@ HypoDD::~HypoDD()
 	}
 }
 
+
+
 void HypoDD::setCatalog(const CatalogCPtr& catalog)
 {
 	_ddbgc = filterOutPhases(catalog, _cfg.validPphases, _cfg.validSphases);
 }
+
+
 
 // Creates dir name from event. This id has the following format:
 // OriginTime_Lat_Lon_CreationDate

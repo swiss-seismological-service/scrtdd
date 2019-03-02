@@ -51,7 +51,7 @@
 
 				<parameter name="profileTimeAlive" type="int" default="-1">
 					<description>
-						Defines how long the profile data should be kept in memery (in minutes). This is useful
+						Defines how long the profile data should be kept in memery (in seconds). This is useful
 						to release memory (catalog waveform data) after a period of inactivity, but it means the
 						waveforms will have to be reloaded whenever a new event occurs (i.e. it will take more
 						time to relocate an origin).

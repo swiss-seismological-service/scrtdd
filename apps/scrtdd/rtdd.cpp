@@ -273,6 +273,8 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	            "Relocate the catalog of profile passed as argument", true);
 	NEW_OPT_CLI(_config.dumpCatalog, "Mode", "dump-catalog",
 	            "Dump catalog files from the seiscomp event/origin ids file passed as argument", true);
+	NEW_OPT_CLI(_config.loadCatalog, "Mode", "load-catalog",
+	            "Load catalog waveforms and save them in the working directory configured for the profile", true);
 }
 
 
@@ -302,6 +304,7 @@ bool RTDD::validateParameters()
 	//  --O and --test (relocate origin and don't send the new one)
 	if ( !_config.eventXML.empty()        ||
 	     !_config.dumpCatalog.empty()     ||
+	     !_config.loadCatalog.empty()     ||
 	     !_config.relocateCatalog.empty() ||
 	     (!_config.originIDs.empty() && _config.testMode)
 	   )
@@ -582,6 +585,24 @@ bool RTDD::run() {
 		return true;
 	}
 
+ 	// load catalog and exit
+	if ( !_config.loadCatalog.empty() )
+	{
+		for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
+		{
+			ProfilePtr profile = *it;
+			if ( profile->name == _config.loadCatalog)
+			{
+				profile->load(query(), &_cache, _eventParameters.get(),
+				              _config.workingDirectory, !_config.keepWorkingFiles,
+				              true, true);
+				profile->unload();
+				break;
+			}
+		} 
+		return true;
+	}
+
 	// relocate full catalog and exit
 	if ( !_config.relocateCatalog.empty() )
 	{
@@ -590,10 +611,9 @@ bool RTDD::run() {
 			ProfilePtr profile = *it;
 			if ( profile->name == _config.relocateCatalog)
 			{
-				string workingDir = (boost::filesystem::path(_config.workingDirectory)/ profile->name).string();
 				profile->load(query(), &_cache, _eventParameters.get(),
-				              workingDir, !_config.keepWorkingFiles,
-				              _config.cacheWaveforms);
+				              _config.workingDirectory, !_config.keepWorkingFiles,
+				              _config.cacheWaveforms, false);
 				HDD::CatalogPtr relocatedCat = profile->relocateCatalog(_config.forceProcessing);
 				profile->unload();
 				relocatedCat->writeToFile("event.csv","phase.csv","station.csv");
@@ -721,29 +741,40 @@ void RTDD::updateObject(const string &parentID, Object* object)
 
 void RTDD::handleTimeout() 
 {
-	cleanUnusedProfiles();
+	checkProfileStatus();
 	runNewJobs();
 }
 
 
 
-void RTDD::cleanUnusedProfiles() 
+void RTDD::checkProfileStatus() 
 {
-	if (_config.profileTimeAlive < 0)// nevel clean up profiles
-		return;
-
 	// Peridoically clean up profiles unused for some time as they
 	// might use lots of memory (waveform data)
-	Core::TimeSpan expired = Core::TimeSpan(_config.profileTimeAlive);
+	// OR, if the profiles are configured to neer expire, make sure
+	// they are loaded
 
 	for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
 	{
 		ProfilePtr currProfile = *it;
-		if ( currProfile->isLoaded() && currProfile->inactiveTime() > expired )
+		if (_config.profileTimeAlive < 0)// nevel clean up profiles
 		{
-			SEISCOMP_DEBUG("Unload profile %s, inactive for more than %f seconds",
-			               currProfile->name.c_str(), expired.length());
-			currProfile->unload();
+			if ( ! currProfile->isLoaded() )
+			{
+				currProfile->load(query(), &_cache, _eventParameters.get(),
+				                  _config.workingDirectory, !_config.keepWorkingFiles,
+				                  _config.cacheWaveforms, true);
+			}
+		}
+		else
+		{
+			Core::TimeSpan expired = Core::TimeSpan(_config.profileTimeAlive);
+			if ( currProfile->isLoaded() && currProfile->inactiveTime() > expired )
+			{
+				SEISCOMP_INFO("Profile %s inactive for more than %f seconds",
+				               currProfile->name.c_str(), expired.length());
+				currProfile->unload();
+			}
 		}
 	}
 }
@@ -1134,11 +1165,9 @@ bool RTDD::send(Origin *org)
 
 OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 {
-	string workingDir = (boost::filesystem::path(_config.workingDirectory)/profile->name).string();
-
 	profile->load(query(), &_cache, _eventParameters.get(),
-	              workingDir, !_config.keepWorkingFiles,
-	              _config.cacheWaveforms);
+	              _config.workingDirectory, !_config.keepWorkingFiles,
+	              _config.cacheWaveforms, false);
 
 	OriginPtr newOrg;
 
@@ -1191,12 +1220,16 @@ RTDD::Profile::Profile()
 void RTDD::Profile::load(DatabaseQuery* query,
                          PublicObjectTimeSpanBuffer* cache,
                          EventParameters* eventParameters,
-                         string workingDir,
+                         const string& workingDir,
                          bool cleanupWorkingDir,
-                         bool cacheWaveforms)
+                         bool cacheWaveforms,
+                         bool preloadData)
 {
 	if ( loaded ) return;
-	SEISCOMP_DEBUG("Loading profile %s", name.c_str());
+
+	string pWorkingDir = (boost::filesystem::path(workingDir)/name).string();
+
+	SEISCOMP_INFO("Loading profile %s", name.c_str());
 
 	this->query = query;
 	this->cache = cache;
@@ -1222,20 +1255,26 @@ void RTDD::Profile::load(DatabaseQuery* query,
 		ddbgc->add(incrementalCatalogFile, dataSrc);
 	}
 
-	hypodd = new HDD::HypoDD(ddbgc, ddcfg, workingDir);
+	hypodd = new HDD::HypoDD(ddbgc, ddcfg, pWorkingDir);
 	hypodd->setWorkingDirCleanup(cleanupWorkingDir);
 	hypodd->setUseCatalogDiskCache(cacheWaveforms);
 	hypodd->setUseSingleEvDiskCache(incrementalCatalogFile.empty());
 	loaded = true;
 	lastUsage = Core::Time::GMT();
+
+	if ( preloadData )
+	{
+		hypodd->preloadData();
+	}
 }
 
 
 void RTDD::Profile::unload()
 {
+	SEISCOMP_INFO("Unloading profile %s", name.c_str());
 	hypodd.reset();
 	loaded = false;
-	lastUsage = Core::Time();
+	lastUsage = Core::Time::GMT();
 }
 
 

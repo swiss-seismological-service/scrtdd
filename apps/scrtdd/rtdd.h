@@ -73,7 +73,7 @@ class RTDD : public Application {
 		void handleRecord(Record *rec) { /* we don't really need this */ }
 
 		void handleTimeout();
-		void cleanUnusedProfiles();
+		void checkProfileStatus();
 		void runNewJobs();
 
 	private:
@@ -114,6 +114,7 @@ class RTDD : public Application {
 			std::string forceProfile;
 			std::string relocateCatalog;
 			std::string dumpCatalog;
+			std::string loadCatalog;
 
             // cron
 			int         wakeupInterval;
@@ -128,9 +129,10 @@ class RTDD : public Application {
 			void load(DataModel::DatabaseQuery* query,
 			          DataModel::PublicObjectTimeSpanBuffer* cache,
 			          DataModel::EventParameters* eventParameters,
-			          std::string workingDir,
+			          const std::string& workingDir,
 			          bool cleanupWorkingDir,
-			          bool cacheWaveforms);
+			          bool cacheWaveforms,
+			          bool preloadData);
 			void unload();
 			bool isLoaded() { return loaded; }
 			Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }

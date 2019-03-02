@@ -261,6 +261,8 @@ class HypoDD : public Core::BaseObject {
 		HypoDD(const CatalogCPtr& catalog, const Config& cfg, const std::string& workingDir);
 		virtual ~HypoDD();
 
+		void preloadData();
+
 		CatalogCPtr getCatalog() { return _ddbgc; }
 		void setCatalog(const CatalogCPtr& catalog);
 
