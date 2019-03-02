@@ -264,11 +264,11 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
 	            "Time span in hours after which objects expire", true);
 	NEW_OPT_CLI(_config.originIDs, "Mode", "origin-id,O",
-	            "Reprocess the origin (or multiple comma-separated origins) and send a message ", true);
+	            "Relocate the origin (or multiple comma-separated origins) and send a message ", true);
 	NEW_OPT_CLI(_config.eventXML, "Mode", "ep",
 	            "Event parameters XML file for offline processing of contained origins (imply test option). Ech origin will be processed accordingly with the matching profile configuration", true);
 	NEW_OPT_CLI(_config.forceProfile, "Mode", "profile",
-	            "Force this profile to be used", true);
+	            "Force a specific profile to be used", true);
 	NEW_OPT_CLI(_config.relocateCatalog, "Mode", "reloc-catalog",
 	            "Relocate the catalog of profile passed as argument", true);
 	NEW_OPT_CLI(_config.dumpCatalog, "Mode", "dump-catalog",
@@ -423,6 +423,7 @@ bool RTDD::validateParameters()
 		try {
 			prof->ddcfg.dtt.minDTperEvt = configGetInt(prefix + "minDTperEvt");
 		} catch ( ... ) { prof->ddcfg.dtt.minDTperEvt = 1; }
+		prof->ddcfg.hypodd.dttCtrlFile = env->absolutePath(configGetPath(prefix + "hypoddControlFile"));
 
 		prefix = string("profile.") + *it + ".dtcc.";
 		prof->ddcfg.xcorr.recordStreamURL = recordStreamURL();
@@ -450,6 +451,7 @@ bool RTDD::validateParameters()
 		try {
 			prof->ddcfg.xcorr.minDTperEvt = configGetInt(prefix + "minDTperEvt");
 		} catch ( ... ) { prof->ddcfg.xcorr.minDTperEvt = 1; }
+		prof->ddcfg.hypodd.xcorrCtrlFile = env->absolutePath(configGetPath(prefix + "hypoddControlFile"));
 
 		prefix = string("profile.") + *it + ".dtcc.crosscorrelation.";
 		try {
@@ -474,8 +476,6 @@ bool RTDD::validateParameters()
 			prof->ddcfg.xcorr.resampleFreq = configGetDouble(prefix + "resampling");
 		} catch ( ... ) { prof->ddcfg.xcorr.resampleFreq = 0.; }
 
-		prefix = string("profile.") + *it + ".hypodd.";
-		prof->ddcfg.hypodd.ctrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
 		prof->ddcfg.hypodd.exec = hypoddExec;
 
 		_profiles.push_back(prof);

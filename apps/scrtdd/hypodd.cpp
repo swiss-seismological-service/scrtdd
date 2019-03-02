@@ -1042,7 +1042,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force)
 	string ddrelocFile = (boost::filesystem::path(catalogWorkingDir)/"hypoDD.reloc").string();
 	if ( force || ! Util::fileExists(ddrelocFile) )
 	{
-		runHypodd(catalogWorkingDir, dtccFile, dtctFile, eventFile, stationFile);
+		runHypodd(catalogWorkingDir, dtccFile, dtctFile, eventFile, stationFile, _cfg.hypodd.xcorrCtrlFile);
 	}
 
 	// load a catalog from hypodd output file
@@ -1121,7 +1121,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 	// run hypodd
 	// input : dt.cc dt.ct event.sel station.sel hypoDD.inp
 	// output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
-	runHypodd(eventWorkingDir, dtccFile, dtctFile, eventFile, stationFile);
+	runHypodd(eventWorkingDir, dtccFile, dtctFile, eventFile, stationFile, _cfg.hypodd.dttCtrlFile);
 
 	// Load the relocated origin from Hypodd
 	string ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
@@ -1183,7 +1183,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 		// run hypodd
 		// input : dt.cc dt.ct event.sel station.sel hypoDD.inp
 		// output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
-		runHypodd(eventWorkingDir, dtccFile, dtctFile, eventFile, stationFile);
+		runHypodd(eventWorkingDir, dtccFile, dtctFile, eventFile, stationFile, _cfg.hypodd.xcorrCtrlFile);
 
 		// Load the relocated origin from Hypodd
 		ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
@@ -1361,7 +1361,7 @@ void HypoDD::createEventDatFile(const string& eventFileName, const CatalogCPtr& 
  * output files: hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
  */
 void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const string& dtctFile,
-                       const string& eventFile, const string& stationFile) const
+                       const string& eventFile, const string& stationFile, const std::string& ctrlFile) const
 {
 	SEISCOMP_DEBUG("Running hypodd...");
 
@@ -1377,20 +1377,20 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
 	if ( !Util::fileExists(stationFile) )
 		throw runtime_error("Unable to run hypodd, file doesn't exist: " + stationFile);
 
-	if ( !Util::fileExists(_cfg.hypodd.ctrlFile) )
-		throw runtime_error("Unable to run hypodd, control file doesn't exist: " + _cfg.hypodd.ctrlFile);
+	if ( !Util::fileExists(ctrlFile) )
+		throw runtime_error("Unable to run hypodd, control file doesn't exist: " + ctrlFile);
 
 	// check if hypodd.inp is for version 2.1
-	ifstream ctrlFile(_cfg.hypodd.ctrlFile);
-	if ( ! ctrlFile.is_open() )
+	ifstream ctrlFileStrm(ctrlFile);
+	if ( ! ctrlFileStrm.is_open() )
 	{
-		string msg = stringify("Cannot open hypodd control file %s", _cfg.hypodd.ctrlFile.c_str());
+		string msg = stringify("Cannot open hypodd control file %s", ctrlFile.c_str());
 		throw runtime_error(msg);
 	}
 
 	int lineOffset = 0;
 	string line;
-	if( std::getline(ctrlFile, line) && line == "hypoDD_2")
+	if( std::getline(ctrlFileStrm, line) && line == "hypoDD_2")
 		lineOffset = 1;
 
 	// copy control file while replacing input/output file names
@@ -1405,8 +1405,7 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
 		{lineOffset + 8, "hypoDD.res"},
 		{lineOffset + 9, "hypoDD.src"}
 	};
-	copyFileAndReplaceLines(_cfg.hypodd.ctrlFile,
-                            (boost::filesystem::path(workingDir)/"hypodd.inp").string(),
+	copyFileAndReplaceLines(ctrlFile, (boost::filesystem::path(workingDir)/"hypodd.inp").string(),
                             linesToReplace);
 
 	// run Hypodd (use /bin/sh to get stdout/strerr redirection)

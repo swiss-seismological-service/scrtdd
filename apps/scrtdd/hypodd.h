@@ -209,7 +209,8 @@ struct Config {
 	// hypodd executable specific
 	struct {
 		std::string exec = "hypodd";
-		std::string ctrlFile;
+		std::string dttCtrlFile;
+		std::string xcorrCtrlFile;
 	} hypodd;
 
 	// differential travel time specific
@@ -312,8 +313,9 @@ class HypoDD : public Core::BaseObject {
                    std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2) const;
 		bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
                    double& delayOut, double& coeffOut) const;
-		void runHypodd(const std::string& workingDir, const std::string& dtccFile, const std::string& dtctFile,
-		               const std::string& eventFile, const std::string& stationFile) const;
+		void runHypodd(const std::string& workingDir, const std::string& dtccFile,
+		               const std::string& dtctFile, const std::string& eventFile,
+		               const std::string& stationFile, const std::string& ctrlFile) const;
 		CatalogPtr loadRelocatedCatalog(const std::string& ddrelocFile, const CatalogCPtr& originalCatalog);
 		double computeDistance(double lat1, double lon1, double depth1,
 		                       double lat2, double lon2, double depth2) const;

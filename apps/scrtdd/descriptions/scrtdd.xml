@@ -265,6 +265,16 @@
 								Max number of neighbors used. Further events are discarded. No limit by default.
 							</description>
 						</parameter>
+						<parameter name="hypoddControlFile" type="path">
+							<description>
+								Path to hypodd control file (e.g. some_path/hypoDD.inp) to be used in the
+								computation without cross correlation. The input/output files 
+								will be replaced by SCRTDD with its own files, thus the values on those lines are
+								not relevant.
+								In full catalog relocation (see --relocate-catalog command line option) this
+								is not used.
+							</description>
+						</parameter>
 					</group>
 
 					<group name="dtcc">
@@ -323,6 +333,16 @@
 								Max number of neighbors used. Further events are discarded. No limit by default.
 							</description>
 						</parameter>
+						<parameter name="hypoddControlFile" type="path">
+							<description>
+								Path to hypodd control file (e.g. some_path/hypoDD.inp) to be used in the
+								computation with cross correlation. The input/output files 
+								will be replaced by SCRTDD with its own files, thus the values on those lines are
+								not relevant.
+								In full catalog relocation (see --relocate-catalog command line option) this
+								is used.
+							</description>
+						</parameter>
 
 						<group name="crosscorrelation">
 							<parameter name="timeBeforePick" type="double">
@@ -353,16 +373,6 @@
 								</description>
 							</parameter>
 						</group>
-					</group> 
-
-					<group name="hypodd">
-						<parameter name="controlFile" type="path">
-							<description>
-								Path to hypodd control file (e.g. some_path/hypoDD.inp). The input/output files 
-								will be replaced by SCRTDD with its own files. The values on those lines are
-								not relevant.
-							</description>
-						</parameter>
 					</group>
 
 				</struct>
@@ -421,37 +431,41 @@
 			<group name="Mode">
 
 				<option long-flag="test">
-					<description>Test mode, no messages are sent</description>
+					<description>"Test mode, no messages are sent</description>
 				</option>
 
 				<option long-flag="force">
-					<description>Force event processing even if a journal entry exists that processing has completed</description>
+					<description>Force event processing: in single event mode the processing is performed even on origins that would normally be skipped (already processed, not preferred, manual, etc.); In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used</description>
 				</option>
 
 				<option long-flag="expiry" flag="x" argument="hours">
-					<description>Time span in hours after which objects expire from the cache (performance)</description>
+					<description>Time span in hours after which objects expire</description>
 				</option>
 
 				<option long-flag="origin-id" flag="O" argument="arg">
-					<description>Reprocess the origin and send a message</description>
+					<description>Relocate the origin (or multiple comma-separated origins) and send a message </description>
 				</option>
 
 				<option long-flag="ep" argument="arg">
-					<description>Event parameters XML file for offline processing of all contained origins (imply test option)</description>
+					<description>Event parameters XML file for offline processing of contained origins (imply test option). Ech origin will be processed accordingly with the matching profile configuration</description>
 				</option>
 
 				<option long-flag="profile" argument="arg">
-					<description>Force this profile to be used</description>
+					<description>Force a specific profile to be used</description>
 				</option>
 
 				<option long-flag="reloc-catalog" argument="arg">
-					<description>Relocate the full catalog of the passed profile and exit</description>
+					<description>Relocate the catalog of profile passed as argument</description>
 				</option>
 
 				<option long-flag="dump-catalog" argument="arg">
 					<description>Dump catalog files from the seiscomp event/origin ids file passed as argument</description>
 				</option>
 
+				<option long-flag="load-catalog" argument="arg">
+					<description>Load catalog waveforms and save them in the working directory configured for the profile</description>
+				</option>
+ 
 				<option long-flag="dump-config">
 					<description>Dump the configuration and exit</description>
 				</option>
