@@ -575,7 +575,7 @@ bool RTDD::run() {
 		}
 	}
 
- 	// dump catalog and exit
+	// dump catalog and exit
 	if ( !_config.dumpCatalog.empty() )
 	{
 		HDD::DataSource dataSrc(query(), &_cache, _eventParameters.get());

@@ -481,6 +481,14 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 
 		SEISCOMP_DEBUG("Adding origin '%s' to the catalog", org->publicID().c_str());
 
+		// make sure we didn't ger duplicated events
+		if ( this->searchEvent(ev) != _events.end())
+		{
+			SEISCOMP_WARNING("Skipping duplicated origin %s (%s)",
+			                 org->publicID().c_str(), string(ev).c_str());
+			continue;
+		}
+
 		this->addEvent(ev, false);
 		ev = this->searchEvent(ev)->second;
 
@@ -548,13 +556,8 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 
 
 
-void Catalog::add(const std::vector<std::string>& _ids, DataSource& dataSrc)
+void Catalog::add(const std::vector<std::string>& ids, DataSource& dataSrc)
 {
-	// make sure ids are unique
-	std::list<std::string> ids(_ids.begin(), _ids.end());
-	ids.sort();
-	ids.unique();
-
 	vector<DataModel::Origin*> origins;
 
 	for(const string& id : ids)
