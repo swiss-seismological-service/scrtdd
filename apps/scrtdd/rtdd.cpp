@@ -1182,7 +1182,7 @@ OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 	DataModel::CreationInfo ci;
 	ci.setAgencyID(agencyID());
 	ci.setAuthor(author());
-	ci.setCreationTime(Core::Time().gmt());
+	ci.setCreationTime(Core::Time::GMT());
 
 	newOrg->setCreationInfo(ci);
 	newOrg->setEarthModelID(profile->earthModelID);

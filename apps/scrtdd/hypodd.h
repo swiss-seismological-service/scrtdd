@@ -105,7 +105,7 @@ class Catalog : public Core::BaseObject {
 			double magnitude;
 			double horiz_err;
 			double depth_err;
-			double tt_residual;
+			double rms;
 			// equality works between multiple catalogs
 			bool operator==(const Event& other) const
 			{

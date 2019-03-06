@@ -111,6 +111,23 @@ pid_t startExternalProcess(const vector<string> &cmdparams,
 
 
 
+template <class Map, class Val> typename Map::iterator
+searchByValue(Map & SearchMap, const Val & SearchVal)
+{
+	typename Map::iterator iRet = SearchMap.end();
+	for (typename Map::iterator iTer = SearchMap.begin(); iTer != SearchMap.end(); iTer ++)
+	{
+		if (iTer->second == SearchVal)
+		{
+			iRet = iTer;
+			break;
+		}
+	}
+	return iRet;
+}
+
+
+
 template <class Map, class Val> typename Map::const_iterator
 searchByValue(const Map & SearchMap, const Val & SearchVal)
 {
@@ -419,7 +436,7 @@ Catalog::Catalog(const string& stationFile, const string& eventFile, const strin
 		ev.magnitude   = std::stod(row.at("magnitude"));
 		ev.horiz_err   = std::stod(row.at("horiz_err"));
 		ev.depth_err   = std::stod(row.at("depth_err"));
-		ev.tt_residual = std::stod(row.at("tt_residual"));
+		ev.rms         = std::stod(row.at("rms"));
 		_events[ev.id] = ev;
 	}
 
@@ -460,7 +477,7 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 		ev.depth       = org->depth(); // km
 		ev.horiz_err   = 0;
 		ev.depth_err   = 0;
-		ev.tt_residual = 0;
+		ev.rms         = 0;
 		DataModel::MagnitudePtr mag;
 		// try to fetch preferred magnitude stored in the event
 		DataModel::EventPtr parentEvent = dataSrc.getParentEvent(org->publicID());
@@ -490,13 +507,19 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 		}
 
 		this->addEvent(ev, false);
-		ev = this->searchEvent(ev)->second;
+		Event& newEvent = searchByValue(this->_events, ev)->second;
 
 		// Add Phases
+		int numResiduals = 0;
 		for ( size_t i = 0; i < org->arrivalCount(); ++i )
 		{
 			DataModel::Arrival *orgArr = org->arrival(i);
 			const DataModel::Phase& orgPh = orgArr->phase();
+
+			try {
+				newEvent.rms += orgArr->timeResidual() *  orgArr->timeResidual();
+				numResiduals++;
+			} catch ( Core::ValueException& ) { }
 
 			DataModel::PickPtr pick = dataSrc.get<DataModel::Pick>(orgArr->pickID());
 			if ( !pick )
@@ -533,14 +556,14 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 			sta = this->searchStation(sta)->second;
 
 			Phase ph;
-			ph.eventId    = ev.id;
+			ph.eventId    = newEvent.id;
 			ph.stationId  = sta.id;
 			ph.time       = pick->time().value();
 			try {
 				ph.weight = orgArr->weight();
 			} catch ( Core::ValueException& ) {
 				ph.weight = 1.;
-				SEISCOMP_INFO("Pick '%s' (origin %s) has no weight set, use default weight of 1.",
+				SEISCOMP_DEBUG("Pick '%s' (origin %s) has no weight set, use default weight of 1.",
 				              orgArr->pickID().c_str(), org->publicID().c_str());
 			}
 
@@ -551,6 +574,8 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 			ph.channelCode =  pick->waveformID().channelCode();
 			this->addPhase(ph, false);
 		}
+		if ( numResiduals > 0)
+			newEvent.rms = std::sqrt( newEvent.rms / numResiduals );
 	}
 }
 
@@ -735,13 +760,13 @@ bool Catalog::addPhase(const Phase& phase, bool checkDuplicate)
 void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile) const
 {
 	ofstream evStream(eventFile);
-	evStream << "id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,tt_residual" << endl;
+	evStream << "id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,rms" << endl;
 	for (const auto& kv : _events )
 	{
 		const Catalog::Event& ev = kv.second;
 		evStream << ev.id << "," << ev.time.iso() << "," << ev.latitude << ","
 		         << ev.longitude << "," << ev.depth << "," << ev.magnitude << ","
-		         << ev.horiz_err << "," << ev.depth_err << "," << ev.tt_residual << endl;
+		         << ev.horiz_err << "," << ev.depth_err << "," << ev.rms << endl;
 	}
 
 	ofstream phStream(phaseFile);
@@ -1285,7 +1310,7 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogCPtr& 
 		                      year, month, day, hour, min, sec + double(usec)/1.e6,
 		                      event.latitude,event.longitude,event.depth,
 		                      event.magnitude, event.horiz_err, event.depth_err,
-		                      event.tt_residual, event.id);
+		                      event.rms, event.id);
 		outStream << endl;
 
 		auto eqlrng = catalog->getPhases().equal_range(event.id);
@@ -1348,7 +1373,7 @@ void HypoDD::createEventDatFile(const string& eventFileName, const CatalogCPtr& 
 		                      year, month, day, hour, min, int(sec * 1e2 + usec / 1e4),
 		                      event.latitude, event.longitude, event.depth,
 		                      event.magnitude, event.horiz_err, event.depth_err,
-		                      event.tt_residual, event.id);
+		                      event.rms, event.id);
 		outStream << endl;
 	}
 }
