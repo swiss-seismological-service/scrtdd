@@ -887,7 +887,7 @@ void HypoDD::preloadData()
 		{
 			const Catalog::Phase& phase = it->second;
 			Core::TimeWindow tw = Core::TimeWindow(phase.time - timeCorrection, duration);
-			getWaveform(tw, event, phase, _wfCache, true);
+			getWaveform(tw, event, phase, _wfCache, _useCatalogDiskCache);
 		}
 	}
 }

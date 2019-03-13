@@ -749,7 +749,7 @@ void RTDD::handleTimeout()
 
 void RTDD::checkProfileStatus() 
 {
-	// Peridoically clean up profiles unused for some time as they
+	// Periodically clean up profiles unused for some time as they
 	// might use lots of memory (waveform data)
 	// OR, if the profiles are configured to neer expire, make sure
 	// they are loaded
@@ -757,7 +757,7 @@ void RTDD::checkProfileStatus()
 	for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
 	{
 		ProfilePtr currProfile = *it;
-		if (_config.profileTimeAlive < 0)// nevel clean up profiles
+		if (_config.profileTimeAlive < 0) // nevel clean up profiles, force loading
 		{
 			if ( ! currProfile->isLoaded() )
 			{
@@ -766,7 +766,7 @@ void RTDD::checkProfileStatus()
 				                  _config.cacheWaveforms, true);
 			}
 		}
-		else
+		else  // periodic clean up of profiles
 		{
 			Core::TimeSpan expired = Core::TimeSpan(_config.profileTimeAlive);
 			if ( currProfile->isLoaded() && currProfile->inactiveTime() > expired )
