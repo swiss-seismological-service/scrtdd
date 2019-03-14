@@ -80,7 +80,8 @@ class Catalog : public Core::BaseObject {
 			double elevation; // meter
 			std::string networkCode;
 			std::string stationCode;
-			// this equality works between multiple catalogs
+
+			// this equality works between multiple catalogs (same id is not required)
 			bool operator==(const Station& other) const
 			{
 			 return (networkCode == other.networkCode) &&
@@ -106,7 +107,20 @@ class Catalog : public Core::BaseObject {
 			double horiz_err;
 			double depth_err;
 			double rms;
-			// equality works between multiple catalogs
+			struct {
+				bool isRelocated = false;
+				double lonUncertainty;
+				double latUncertainty;
+				double depthUncertainty;
+				int numCCp;
+				int numCCs;
+				int numCTp;
+				int numCTs;
+				double residualCC;
+				double residualCT;
+			} relocInfo;
+
+			// this equality works between multiple catalogs (same id is not required)
 			bool operator==(const Event& other) const
 			{
 			 return (time == other.time) &&
@@ -135,7 +149,8 @@ class Catalog : public Core::BaseObject {
 			std::string stationCode;
 			std::string locationCode;
 			std::string channelCode;
-			// equality works between multiple catalogs
+
+			// this equality works between multiple catalogs (same id is not required) 
 			bool operator==(const Phase& other) const
 			{
 				return (time == other.time) &&
@@ -316,7 +331,9 @@ class HypoDD : public Core::BaseObject {
 		void runHypodd(const std::string& workingDir, const std::string& dtccFile,
 		               const std::string& dtctFile, const std::string& eventFile,
 		               const std::string& stationFile, const std::string& ctrlFile) const;
-		CatalogPtr loadRelocatedCatalog(const std::string& ddrelocFile, const CatalogCPtr& originalCatalog);
+		CatalogPtr loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
+		                                const std::string& ddrelocFile,
+		                                const std::string& ddresidualFile="") const;
 		double computeDistance(double lat1, double lon1, double depth1,
 		                       double lat2, double lon2, double depth2) const;
 		CatalogPtr selectNeighbouringEvents(const CatalogCPtr& catalog, const Catalog::Event& refEv,

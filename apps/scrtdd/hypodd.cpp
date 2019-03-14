@@ -760,13 +760,44 @@ bool Catalog::addPhase(const Phase& phase, bool checkDuplicate)
 void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile) const
 {
 	ofstream evStream(eventFile);
-	evStream << "id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,rms" << endl;
+	bool hasHeader = false;
 	for (const auto& kv : _events )
 	{
 		const Catalog::Event& ev = kv.second;
-		evStream << ev.id << "," << ev.time.iso() << "," << ev.latitude << ","
-		         << ev.longitude << "," << ev.depth << "," << ev.magnitude << ","
-		         << ev.horiz_err << "," << ev.depth_err << "," << ev.rms << endl;
+		
+		if ( ! hasHeader )
+		{
+			evStream << "id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,rms";
+			if (ev.relocInfo.isRelocated)
+				evStream << ",lonUncertainty,latUncertainty,depthUncertainty,numCCp,numCCs,numCTp,numCTs,residualCC,residualCT";
+			evStream << endl;
+			hasHeader = true;
+		}
+
+
+		evStream << ev.id << ","
+		         << "," << ev.time.iso()
+		         << "," << ev.latitude
+		         << "," << ev.longitude
+		         << "," << ev.depth
+		         << "," << ev.magnitude
+		         << "," << ev.horiz_err
+		         << "," << ev.depth_err
+		         << "," << ev.rms;
+		if (ev.relocInfo.isRelocated)
+		{
+			evStream
+				<< "," << ev.relocInfo.lonUncertainty
+				<< "," << ev.relocInfo.latUncertainty
+				<< "," << ev.relocInfo.depthUncertainty
+				<< "," << ev.relocInfo.numCCp
+				<< "," << ev.relocInfo.numCCs
+				<< "," << ev.relocInfo.numCTp
+				<< "," << ev.relocInfo.numCTs
+				<< "," << ev.relocInfo.residualCC
+				<< "," << ev.relocInfo.residualCT;
+		}
+		evStream << endl;
 	}
 
 	ofstream phStream(phaseFile);
@@ -774,9 +805,15 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 	for (const auto& kv : _phases )
 	{
 		const Catalog::Phase& ph = kv.second;
-		phStream << ph.eventId << "," << ph.stationId << "," << ph.time.iso() << ","
-		         << ph.weight << "," << ph.type << "," << ph.networkCode << ","
-		         << ph.stationCode << "," << ph.locationCode << "," << ph.channelCode << endl;
+		phStream << ph.eventId
+		         << "," << ph.stationId
+		         << "," << ph.time.iso()
+		         << "," << ph.weight
+		         << "," << ph.type
+		         << "," << ph.networkCode
+		         << "," << ph.stationCode
+		         << "," << ph.locationCode
+		         << "," << ph.channelCode << endl;
 	}
 
 	ofstream staStream(stationFile);
@@ -784,8 +821,12 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 	for (const auto& kv : _stations )
 	{
 		const Catalog::Station& sta = kv.second;
-		staStream << sta.id << "," << sta.latitude << "," << sta.longitude << ","
-		          << sta.elevation << "," << sta.networkCode << "," << sta.stationCode << endl;
+		staStream << sta.id
+		          << "," << sta.latitude
+		          << "," << sta.longitude
+		          << "," << sta.elevation
+		          << "," << sta.networkCode
+		          << "," << sta.stationCode << endl;
 	}
 	
 }
@@ -1065,14 +1106,15 @@ CatalogPtr HypoDD::relocateCatalog(bool force)
 	// input : dt.cc dt.ct event.sel station.sel hypoDD.inp
 	// output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
 	string ddrelocFile = (boost::filesystem::path(catalogWorkingDir)/"hypoDD.reloc").string();
-	if ( force || ! Util::fileExists(ddrelocFile) )
+	string ddresidualFile = (boost::filesystem::path(catalogWorkingDir)/"hypoDD.res").string();
+	if ( force || ! Util::fileExists(ddrelocFile) || ! Util::fileExists(ddresidualFile) )
 	{
 		runHypodd(catalogWorkingDir, dtccFile, dtctFile, eventFile, stationFile, _cfg.hypodd.xcorrCtrlFile);
 	}
 
 	// load a catalog from hypodd output file
 	// input: hypoDD.reloc
-	CatalogPtr relocatedCatalog = loadRelocatedCatalog(ddrelocFile, _ddbgc);
+	CatalogPtr relocatedCatalog = loadRelocatedCatalog(_ddbgc, ddrelocFile, ddresidualFile);
 
 	// write catalog for debugging purpose
 	relocatedCatalog->writeToFile((boost::filesystem::path(catalogWorkingDir)/"event-reloc.csv").string(),
@@ -1150,7 +1192,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
 	// Load the relocated origin from Hypodd
 	string ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
-	CatalogPtr relocatedCatalog = loadRelocatedCatalog(ddrelocFile, neighbourCat);
+	string ddresidualFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.res").string();
+	CatalogPtr relocatedCatalog = loadRelocatedCatalog(neighbourCat, ddrelocFile, ddresidualFile);
 	CatalogPtr relocatedEvCat = extractEvent(relocatedCatalog, evToRelocateNewId);
 	// write catalog for debugging purpose
 	relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"event-reloc.csv").string(),
@@ -1212,7 +1255,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
 		// Load the relocated origin from Hypodd
 		ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
-		relocatedCatalog = loadRelocatedCatalog(ddrelocFile, neighbourCat);
+		ddresidualFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.res").string();
+		relocatedCatalog = loadRelocatedCatalog(neighbourCat, ddrelocFile, ddresidualFile);
 		relocatedEvWithXcorr = extractEvent(relocatedCatalog, refinedLocNewId);
 		// write catalog for debugging purpose
 		relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"event-reloc.csv").string(),
@@ -1434,8 +1478,7 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
                             linesToReplace);
 
 	// run Hypodd (use /bin/sh to get stdout/strerr redirection)
-	string cmd = stringify("%s %s >hypodd.out 2>&1",
-	                       _cfg.hypodd.exec.c_str(), "hypodd.inp");
+	string cmd = stringify("%s %s >hypodd.out 2>&1", _cfg.hypodd.exec.c_str(), "hypodd.inp");
 	::startExternalProcess({"/bin/sh", "-c", cmd}, true, workingDir);
 }
 
@@ -1696,7 +1739,9 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
 NCTS, RCC, RCT, CID
  *
  */
-CatalogPtr HypoDD::loadRelocatedCatalog(const string& ddrelocFile, const CatalogCPtr& originalCatalog)
+CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
+                                        const std::string& ddrelocFile,
+                                        const std::string& ddresidualFile) const
 {
 	SEISCOMP_DEBUG("Loading catalog relocated by hypodd...");
 
@@ -1707,7 +1752,7 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const string& ddrelocFile, const Catalog
 	map<unsigned,Catalog::Event> events = originalCatalog->getEvents();
 	multimap<unsigned,Catalog::Phase> phases = originalCatalog->getPhases();
 
-	// read file one line a time
+	// read relocation file one line a time
 	ifstream in(ddrelocFile);
 	while (!in.eof())
 	{
@@ -1754,8 +1799,19 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const string& ddrelocFile, const Catalog
 		double seconds = std::stod(fields[15]);
 		int sec  = int(seconds);
 		int usec = (seconds - sec) * 1.e6;
-	
+
 		event.time = Core::Time(year, month, day, hour, min, sec, usec);
+
+		event.relocInfo.isRelocated = true;
+		event.relocInfo.lonUncertainty   = std::stod(fields[7])/1000.;
+		event.relocInfo.latUncertainty   = std::stod(fields[8])/1000.;
+		event.relocInfo.depthUncertainty = std::stod(fields[9])/1000.;
+		event.relocInfo.numCCp = std::stoi(fields[17]);
+		event.relocInfo.numCCs = std::stoi(fields[18]);
+		event.relocInfo.numCTp = std::stoi(fields[19]);
+		event.relocInfo.numCTs = std::stoi(fields[20]);
+		event.relocInfo.residualCC = std::stod(fields[21])/1000.;
+		event.relocInfo.residualCT = std::stod(fields[22])/1000.;
 	}
 
 	return new Catalog(stations, events, phases);

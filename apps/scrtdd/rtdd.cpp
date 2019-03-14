@@ -50,6 +50,7 @@
 using namespace std;
 using namespace Seiscomp::Processing;
 using namespace Seiscomp::DataModel;
+using Seiscomp::Core::stringify;
 
 
 #define JOURNAL_ACTION           "RTDD"
@@ -1169,6 +1170,10 @@ OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 	              _config.workingDirectory, !_config.keepWorkingFiles,
 	              _config.cacheWaveforms, false);
 
+	HDD::CatalogPtr relocatedOrg = profile->relocateSingleEvent(org);
+	// there must be only one event in the catalog, the relocated origin
+	const HDD::Catalog::Event& event = relocatedOrg->getEvents().begin()->second;
+
 	OriginPtr newOrg;
 
 	if ( !_config.publicIDPattern.empty() )
@@ -1190,18 +1195,81 @@ OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 	newOrg->setEvaluationMode(EvaluationMode(AUTOMATIC));
 	newOrg->setEpicenterFixed(true);
 
-	HDD::CatalogPtr relocatedOrg = profile->relocateSingleEvent(org);
-	// there must be only one event in the catalog, the relocated origin
-	const HDD::Catalog::Event& event = relocatedOrg->getEvents().begin()->second;
-
-	newOrg->setLatitude(DataModel::RealQuantity(event.latitude));
-	newOrg->setLongitude(DataModel::RealQuantity(event.longitude));
-	newOrg->setDepth(DataModel::RealQuantity(event.depth));
 	newOrg->setTime(DataModel::TimeQuantity(event.time));
 
-	for (size_t i = 0; i < org->arrivalCount(); i++)
-		newOrg->add(Arrival::Cast(org->arrival(i)->clone()));
+	RealQuantity latitude = DataModel::RealQuantity(event.latitude);
+	latitude.setUncertainty(event.relocInfo.latUncertainty);
+	newOrg->setLatitude(latitude);
 
+	RealQuantity longitude = DataModel::RealQuantity(event.longitude);
+	longitude.setUncertainty(event.relocInfo.lonUncertainty);
+	newOrg->setLongitude(longitude);
+
+	RealQuantity depth = DataModel::RealQuantity(event.depth);
+	depth.setUncertainty(event.relocInfo.depthUncertainty);
+	newOrg->setDepth(depth);
+
+	DataModel::Comment *comment = new DataModel::Comment();
+	comment->setText(
+		stringify("Cross-correlated P phases %d, S phases %d. Rms residual %.3f [sec]\n"
+	              "Catalog P phases %d, S phases %d. Rms residual %.2f [sec]\n"
+	              "Error [km]: East-west %.3f, north-south %.3f, depth %.3f",
+	              event.relocInfo.numCCp, event.relocInfo.numCCs, event.relocInfo.residualCC,
+	              event.relocInfo.numCTp, event.relocInfo.numCTs, event.relocInfo.residualCT,
+	              event.relocInfo.lonUncertainty, event.relocInfo.latUncertainty,
+	              event.relocInfo.depthUncertainty)
+	);
+	newOrg->add(comment);
+
+	// add phases used for relocation
+	auto eqlrng = relocatedOrg->getPhases().equal_range(event.id);
+	for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+	{
+		const HDD::Catalog::Phase& phase = it->second;
+		auto search = relocatedOrg->getStations().find(phase.stationId);
+		if (search == relocatedOrg->getStations().end())
+		{
+			SEISCOMP_WARNING("Cannot find station id '%s' referenced by phase '%s'."
+			                 "Cannot add Arrival to relocated origin",
+			                 phase.stationId.c_str(), string(phase).c_str());
+			continue;
+		}
+		const HDD::Catalog::Station& station = search->second;
+
+		for (size_t i = 0; i < org->arrivalCount(); i++)
+		{
+			DataModel::Arrival *orgArr = org->arrival(i);
+			DataModel::PickPtr pick = _cache.get<DataModel::Pick>(orgArr->pickID());
+			if ( !pick )
+			{
+				SEISCOMP_WARNING("Cannot find pick id %s. Cannot add Arrival to relocated origin",
+				                 orgArr->pickID().c_str());
+				continue;
+			}
+
+			if (phase.time         == pick->time().value() &&
+			    phase.networkCode  ==  pick->waveformID().networkCode() &&
+			    phase.stationCode  ==  pick->waveformID().stationCode() &&
+			    phase.locationCode ==  pick->waveformID().locationCode() &&
+			    phase.channelCode  ==  pick->waveformID().channelCode() )
+			{
+				DataModel::Arrival *newArr = new Arrival();
+				newArr->setCreationInfo(ci);
+				newArr->setPickID(org->arrival(i)->pickID());
+				newArr->setPhase(org->arrival(i)->phase());
+				newArr->setTimeCorrection(org->arrival(i)->timeCorrection());
+				double distance, az, baz;
+				Math::Geo::delazi(event.latitude, event.longitude,
+				                  station.latitude, station.longitude,
+				                  &distance, &az, &baz);
+				newArr->setAzimuth(az);
+				newArr->setDistance(Math::Geo::deg2km(distance));
+				newArr->setTimeResidual((event.relocInfo.residualCC+event.relocInfo.residualCT) / 2.); //phase.relocInfo.residual);
+				newArr->setWeight(org->arrival(i)->weight()); //phase.relocInfo.finalWeight);
+				newOrg->add(newArr);
+			}
+		}
+	}
 	profile->addIncrementalCatalogEntry(newOrg.get());
 
 	return newOrg;
