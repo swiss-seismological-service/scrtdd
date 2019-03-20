@@ -59,16 +59,19 @@
 					</description>
 				</parameter>
 
-				<parameter name="cacheWaveforms" type="boolean" default="false">
+				<parameter name="cacheWaveforms" type="boolean" default="true">
 					<description>
 						Save catalog waveforms to local disk to avoid reading them from the configured
-						recordStream when a profile is loaded (see profileTimeAlive). Also the projected
-						waveforms are saved (e.g. ZRT projection for S phase), which saves additional
-						time when a profile is loaded.
-						The waveforms are saved in the working directory and it is safe to delete them,
-						if that's required for any reason. The waveforms will be then saved again on disk
+						recordStream when a profile is (re)loaded (see profileTimeAlive).
+						The waveforms are saved in the working directory and they can also be moved to other
+						machines that don't have access to those waveforms. Also it is safe to delete the
+						cache, in which case the waveforms will be loaded and saved again on disk
 						the next time the profile is loaded (they will be read again from the configured
 						recordStream).
+						Please note that exists a command line options '--load-catalog' useful to load
+						the catalog waveforms from the record stream and save them on disk. This is useful
+						to make sure all the data is ready when the module is started and avoid lenghty
+						loading in case of big catalogs or slow network connection.
 					</description>
 				</parameter>
 
