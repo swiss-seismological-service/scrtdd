@@ -1816,8 +1816,8 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
 		event.relocInfo.numCCs = std::stoi(fields[18]);
 		event.relocInfo.numCTp = std::stoi(fields[19]);
 		event.relocInfo.numCTs = std::stoi(fields[20]);
-		event.relocInfo.rmsResidualCC = std::stod(fields[21])/1000.;
-		event.relocInfo.rmsResidualCT = std::stod(fields[22])/1000.;
+		event.relocInfo.rmsResidualCC = std::stod(fields[21]);
+		event.relocInfo.rmsResidualCT = std::stod(fields[22]);
 		event.rms = (event.relocInfo.rmsResidualCC + event.relocInfo.rmsResidualCT) / 2.;
 	}
 

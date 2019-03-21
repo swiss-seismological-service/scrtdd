@@ -1275,8 +1275,8 @@ OriginPtr RTDD::relocateOrigin(Origin *org, ProfilePtr profile)
 				                  station.latitude, station.longitude,
 				                  &distance, &az, &baz);
 				newArr->setAzimuth(az);
-				newArr->setDistance(Math::Geo::deg2km(distance));
-				//newArr->setTimeResidual(phase.relocInfo.residual);
+				newArr->setDistance(distance);
+				newArr->setTimeResidual(event.rms);   //phase.relocInfo.residual);
 				try {
 					newArr->setWeight(org->arrival(i)->weight()); //phase.relocInfo.finalWeight); 
 				} catch ( ... ) { newArr->setWeight(1.); }
@@ -1285,8 +1285,8 @@ OriginPtr RTDD::relocateOrigin(Origin *org, ProfilePtr profile)
 				// update stats
 				usedPhaseCount++;
 				meanDist += distance;
-				minDist = distance ? distance < minDist : minDist;
-				maxDist = distance ? distance > maxDist : maxDist;
+				minDist = distance < minDist ? distance : minDist;
+				maxDist = distance > maxDist ? distance : maxDist;
 				azi.push_back(az);
 				usedStations.insert(phase.stationId);
 				break;
@@ -1297,18 +1297,20 @@ OriginPtr RTDD::relocateOrigin(Origin *org, ProfilePtr profile)
 	// finish computing stats
 	meanDist /= usedPhaseCount;
 
-	double primaryAz = 0., secondaryAz = 0.;
+	double primaryAz = 360., secondaryAz = 360.;
 	if (azi.size() >= 2)
 	{
+		primaryAz = secondaryAz = 0.;
 		sort(azi.begin(), azi.end());
+		vector<double>::size_type aziCount = azi.size();
 		azi.push_back(azi[0] + 360.);
 		azi.push_back(azi[1] + 360.);
-		for (vector<double>::size_type i = 0; i < azi.size(); i++)
+		for (vector<double>::size_type i = 0; i < aziCount; i++)
 		{
 			double gap = azi[i+1] - azi[i];
 			if (gap > primaryAz)
 				primaryAz = gap;
-			gap = azi[i+2]-azi[i];
+			gap = azi[i+2] - azi[i];
 			if (gap > secondaryAz)
 				secondaryAz = gap;
 		}
