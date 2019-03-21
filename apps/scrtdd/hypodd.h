@@ -105,7 +105,7 @@ class Catalog : public Core::BaseObject {
 			double depth;   // km
 			double magnitude;
 			double horiz_err;
-			double depth_err;
+			double vert_err;
 			double rms;
 			struct {
 				bool isRelocated = false;
@@ -116,8 +116,8 @@ class Catalog : public Core::BaseObject {
 				int numCCs;
 				int numCTp;
 				int numCTs;
-				double residualCC;
-				double residualCT;
+				double rmsResidualCC;
+				double rmsResidualCT;
 			} relocInfo;
 
 			// this equality works between multiple catalogs (same id is not required)

@@ -91,7 +91,7 @@ class RTDD : public Application {
 
 		bool send(DataModel::Origin *org);
 
-		DataModel::OriginPtr runHypoDD(DataModel::Origin *org, ProfilePtr);
+		DataModel::OriginPtr relocateOrigin(DataModel::Origin *org, ProfilePtr);
 
 		struct Config {
 			Config();

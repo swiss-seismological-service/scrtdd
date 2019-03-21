@@ -1082,7 +1082,7 @@ bool RTDD::process(Origin *origin)
 	OriginPtr newOrg;
 
 	try {
-		newOrg = runHypoDD(origin, currProfile);
+		newOrg = relocateOrigin(origin, currProfile);
 	}
 	catch ( exception &e ) {
 		SEISCOMP_ERROR("%s", e.what());
@@ -1164,7 +1164,7 @@ bool RTDD::send(Origin *org)
 
 
 
-OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
+OriginPtr RTDD::relocateOrigin(Origin *org, ProfilePtr profile)
 {
 	profile->load(query(), &_cache, _eventParameters.get(),
 	              _config.workingDirectory, !_config.keepWorkingFiles,
@@ -1214,38 +1214,55 @@ OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 		stringify("Cross-correlated P phases %d, S phases %d. Rms residual %.3f [sec]\n"
 	              "Catalog P phases %d, S phases %d. Rms residual %.2f [sec]\n"
 	              "Error [km]: East-west %.3f, north-south %.3f, depth %.3f",
-	              event.relocInfo.numCCp, event.relocInfo.numCCs, event.relocInfo.residualCC,
-	              event.relocInfo.numCTp, event.relocInfo.numCTs, event.relocInfo.residualCT,
+	              event.relocInfo.numCCp, event.relocInfo.numCCs, event.relocInfo.rmsResidualCC,
+	              event.relocInfo.numCTp, event.relocInfo.numCTs, event.relocInfo.rmsResidualCT,
 	              event.relocInfo.lonUncertainty, event.relocInfo.latUncertainty,
 	              event.relocInfo.depthUncertainty)
 	);
 	newOrg->add(comment);
 
-	// add phases used for relocation
-	auto eqlrng = relocatedOrg->getPhases().equal_range(event.id);
-	for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+	auto evPhases = relocatedOrg->getPhases().equal_range(event.id); // phases of relocated event 
+	int usedPhaseCount = 0;
+	double meanDist = 0;
+	double minDist = std::numeric_limits<double>::max();
+	double maxDist = 0;
+	vector<double> azi;
+	set<string> usedStations;
+
+	// add arrivals
+	for (size_t i = 0; i < org->arrivalCount(); i++)
 	{
-		const HDD::Catalog::Phase& phase = it->second;
-		auto search = relocatedOrg->getStations().find(phase.stationId);
-		if (search == relocatedOrg->getStations().end())
+		DataModel::Arrival *orgArr = org->arrival(i);
+		DataModel::PickPtr pick = _cache.get<DataModel::Pick>(orgArr->pickID());
+		if ( !pick )
 		{
-			SEISCOMP_WARNING("Cannot find station id '%s' referenced by phase '%s'."
-			                 "Cannot add Arrival to relocated origin",
-			                 phase.stationId.c_str(), string(phase).c_str());
+			SEISCOMP_WARNING("Cannot find pick id %s. Cannot add Arrival to relocated origin",
+			                 orgArr->pickID().c_str());
 			continue;
 		}
-		const HDD::Catalog::Station& station = search->second;
 
-		for (size_t i = 0; i < org->arrivalCount(); i++)
+		// prepare the new arrival
+		DataModel::Arrival *newArr = new Arrival();
+		newArr->setCreationInfo(ci);
+		newArr->setPickID(org->arrival(i)->pickID());
+		newArr->setPhase(org->arrival(i)->phase());
+		try { newArr->setTimeCorrection(org->arrival(i)->timeCorrection()); }
+		catch ( ... ) {}
+		newArr->setWeight(0);
+		newArr->setTimeUsed(false);
+
+		for (auto it = evPhases.first; it != evPhases.second; ++it)
 		{
-			DataModel::Arrival *orgArr = org->arrival(i);
-			DataModel::PickPtr pick = _cache.get<DataModel::Pick>(orgArr->pickID());
-			if ( !pick )
+			const HDD::Catalog::Phase& phase = it->second;
+			auto search = relocatedOrg->getStations().find(phase.stationId);
+			if (search == relocatedOrg->getStations().end())
 			{
-				SEISCOMP_WARNING("Cannot find pick id %s. Cannot add Arrival to relocated origin",
-				                 orgArr->pickID().c_str());
+				SEISCOMP_WARNING("Cannot find station id '%s' referenced by phase '%s'."
+								 "Cannot add Arrival to relocated origin",
+								 phase.stationId.c_str(), string(phase).c_str());
 				continue;
 			}
+			const HDD::Catalog::Station& station = search->second;
 
 			if (phase.time         == pick->time().value() &&
 			    phase.networkCode  ==  pick->waveformID().networkCode() &&
@@ -1253,23 +1270,66 @@ OriginPtr RTDD::runHypoDD(Origin *org, ProfilePtr profile)
 			    phase.locationCode ==  pick->waveformID().locationCode() &&
 			    phase.channelCode  ==  pick->waveformID().channelCode() )
 			{
-				DataModel::Arrival *newArr = new Arrival();
-				newArr->setCreationInfo(ci);
-				newArr->setPickID(org->arrival(i)->pickID());
-				newArr->setPhase(org->arrival(i)->phase());
-				newArr->setTimeCorrection(org->arrival(i)->timeCorrection());
 				double distance, az, baz;
 				Math::Geo::delazi(event.latitude, event.longitude,
 				                  station.latitude, station.longitude,
 				                  &distance, &az, &baz);
 				newArr->setAzimuth(az);
 				newArr->setDistance(Math::Geo::deg2km(distance));
-				newArr->setTimeResidual((event.relocInfo.residualCC+event.relocInfo.residualCT) / 2.); //phase.relocInfo.residual);
-				newArr->setWeight(org->arrival(i)->weight()); //phase.relocInfo.finalWeight);
-				newOrg->add(newArr);
+				//newArr->setTimeResidual(phase.relocInfo.residual);
+				try {
+					newArr->setWeight(org->arrival(i)->weight()); //phase.relocInfo.finalWeight); 
+				} catch ( ... ) { newArr->setWeight(1.); }
+				newArr->setTimeUsed(true);
+
+				// update stats
+				usedPhaseCount++;
+				meanDist += distance;
+				minDist = distance ? distance < minDist : minDist;
+				maxDist = distance ? distance > maxDist : maxDist;
+				azi.push_back(az);
+				usedStations.insert(phase.stationId);
+				break;
 			}
 		}
+		newOrg->add(newArr);
 	}
+	// finish computing stats
+	meanDist /= usedPhaseCount;
+
+	double primaryAz = 0., secondaryAz = 0.;
+	if (azi.size() >= 2)
+	{
+		sort(azi.begin(), azi.end());
+		azi.push_back(azi[0] + 360.);
+		azi.push_back(azi[1] + 360.);
+		for (vector<double>::size_type i = 0; i < azi.size(); i++)
+		{
+			double gap = azi[i+1] - azi[i];
+			if (gap > primaryAz)
+				primaryAz = gap;
+			gap = azi[i+2]-azi[i];
+			if (gap > secondaryAz)
+				secondaryAz = gap;
+		}
+	}
+
+	// add quality
+	DataModel::OriginQuality oq;
+	oq.setAssociatedPhaseCount(newOrg->arrivalCount());
+	oq.setUsedPhaseCount(usedPhaseCount);
+	try { oq.setAssociatedStationCount(org->quality().associatedStationCount()); }
+	catch ( ... ) {}
+	oq.setUsedStationCount(usedStations.size());
+	oq.setStandardError(event.rms);
+	oq.setMedianDistance(meanDist);
+	oq.setMinimumDistance(minDist);
+	oq.setMaximumDistance(maxDist);
+	oq.setAzimuthalGap(primaryAz);
+	oq.setSecondaryAzimuthalGap(secondaryAz);
+	newOrg->setQuality(oq);
+
+	// remember to add this entry to the catalog
 	profile->addIncrementalCatalogEntry(newOrg.get());
 
 	return newOrg;

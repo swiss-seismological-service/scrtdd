@@ -434,8 +434,8 @@ Catalog::Catalog(const string& stationFile, const string& eventFile, const strin
 		ev.longitude   = std::stod(row.at("longitude"));
 		ev.depth       = std::stod(row.at("depth"));
 		ev.magnitude   = std::stod(row.at("magnitude"));
-		ev.horiz_err   = std::stod(row.at("horiz_err"));
-		ev.depth_err   = std::stod(row.at("depth_err"));
+		ev.horiz_err   = std::stod(row.at("horizontal_err"));
+		ev.vert_err    = std::stod(row.at("vertical_err"));
 		ev.rms         = std::stod(row.at("rms"));
 		_events[ev.id] = ev;
 	}
@@ -476,7 +476,7 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 		ev.longitude   = org->longitude();
 		ev.depth       = org->depth(); // km
 		ev.horiz_err   = 0;
-		ev.depth_err   = 0;
+		ev.vert_err    = 0;
 		ev.rms         = 0;
 		DataModel::MagnitudePtr mag;
 		// try to fetch preferred magnitude stored in the event
@@ -761,41 +761,47 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 {
 	ofstream evStream(eventFile);
 	bool hasHeader = false;
+	bool relocInfo = false;
 	for (const auto& kv : _events )
 	{
 		const Catalog::Event& ev = kv.second;
 		
 		if ( ! hasHeader )
 		{
-			evStream << "id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,rms";
+			evStream << "id,isotime,latitude,longitude,depth,magnitude,horizontal_err,vertical_err,rms";
 			if (ev.relocInfo.isRelocated)
+			{
 				evStream << ",lonUncertainty,latUncertainty,depthUncertainty,numCCp,numCCs,numCTp,numCTs,residualCC,residualCT";
+				relocInfo = true;
+			}
 			evStream << endl;
 			hasHeader = true;
 		}
 
-
-		evStream << ev.id << ","
+		evStream << ev.id
 		         << "," << ev.time.iso()
 		         << "," << ev.latitude
 		         << "," << ev.longitude
 		         << "," << ev.depth
 		         << "," << ev.magnitude
 		         << "," << ev.horiz_err
-		         << "," << ev.depth_err
+		         << "," << ev.vert_err
 		         << "," << ev.rms;
-		if (ev.relocInfo.isRelocated)
+
+		if ( relocInfo )
 		{
-			evStream
-				<< "," << ev.relocInfo.lonUncertainty
-				<< "," << ev.relocInfo.latUncertainty
-				<< "," << ev.relocInfo.depthUncertainty
-				<< "," << ev.relocInfo.numCCp
-				<< "," << ev.relocInfo.numCCs
-				<< "," << ev.relocInfo.numCTp
-				<< "," << ev.relocInfo.numCTs
-				<< "," << ev.relocInfo.residualCC
-				<< "," << ev.relocInfo.residualCT;
+			if ( ! ev.relocInfo.isRelocated )
+				evStream << ",,,,,,,,,";
+			else
+				evStream << "," << ev.relocInfo.lonUncertainty
+				         << "," << ev.relocInfo.latUncertainty
+				         << "," << ev.relocInfo.depthUncertainty
+				         << "," << ev.relocInfo.numCCp
+				         << "," << ev.relocInfo.numCCs
+				         << "," << ev.relocInfo.numCTp
+				         << "," << ev.relocInfo.numCTs
+				         << "," << ev.relocInfo.rmsResidualCC
+				         << "," << ev.relocInfo.rmsResidualCT;
 		}
 		evStream << endl;
 	}
@@ -1353,7 +1359,7 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogCPtr& 
 		outStream << stringify("# %d %d %d %d %d %.2f %.6f %.6f %.2f %.4f %.2f %.2f %.2f %u",
 		                      year, month, day, hour, min, sec + double(usec)/1.e6,
 		                      event.latitude,event.longitude,event.depth,
-		                      event.magnitude, event.horiz_err, event.depth_err,
+		                      event.magnitude, event.horiz_err, event.vert_err,
 		                      event.rms, event.id);
 		outStream << endl;
 
@@ -1416,7 +1422,7 @@ void HypoDD::createEventDatFile(const string& eventFileName, const CatalogCPtr& 
 		outStream << stringify("%d%02d%02d  %02d%02d%04d %.4f %.4f %.3f %.2f %.2f %.2f %.2f %u",
 		                      year, month, day, hour, min, int(sec * 1e2 + usec / 1e4),
 		                      event.latitude, event.longitude, event.depth,
-		                      event.magnitude, event.horiz_err, event.depth_err,
+		                      event.magnitude, event.horiz_err, event.vert_err,
 		                      event.rms, event.id);
 		outStream << endl;
 	}
@@ -1810,8 +1816,9 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
 		event.relocInfo.numCCs = std::stoi(fields[18]);
 		event.relocInfo.numCTp = std::stoi(fields[19]);
 		event.relocInfo.numCTs = std::stoi(fields[20]);
-		event.relocInfo.residualCC = std::stod(fields[21])/1000.;
-		event.relocInfo.residualCT = std::stod(fields[22])/1000.;
+		event.relocInfo.rmsResidualCC = std::stod(fields[21])/1000.;
+		event.relocInfo.rmsResidualCT = std::stod(fields[22])/1000.;
+		event.rms = (event.relocInfo.rmsResidualCC + event.relocInfo.rmsResidualCT) / 2.;
 	}
 
 	return new Catalog(stations, events, phases);
