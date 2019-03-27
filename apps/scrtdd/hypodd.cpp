@@ -72,7 +72,7 @@ pid_t startExternalProcess(const vector<string> &cmdparams,
 	}
 	params.push_back(nullptr);
 
-	SEISCOMP_DEBUG("Executing command: %s", cmdline.c_str());
+	SEISCOMP_INFO("Executing command: %s", cmdline.c_str());
 
 	pid = fork();
 
@@ -2312,6 +2312,9 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
                     map<string,GenericRecordPtr>& memCache,
                     bool useDiskCache) const
 {
+	string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
+	                          string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
+
 	//
 	// first try to load the waveform from the memory cache, if present
 	//
@@ -2340,31 +2343,28 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 	DataModel::ThreeComponents tc;
 	DataModel::Station* station = findStation(ph.networkCode, ph.stationCode, refTime);
 	DataModel::SensorLocation *loc = findSensorLocation(station, ph.locationCode, refTime);
-	if ( ! loc )
-	{
-		SEISCOMP_WARNING("Unable to fetch SensorLocation of stream %s.%s.%s.%s from %s length %.2f",
-		                 ph.networkCode.c_str(), ph.stationCode.c_str(),
-		                 ph.locationCode.c_str(), ph.channelCode.c_str(),
-		                 tw.startTime().iso().c_str(), tw.length()); 
-		return nullptr;
-	}
 
-	bool allComponents = getThreeComponents(tc, loc, channelCodeRoot.c_str(), refTime);
+	bool allComponents = false;
 
-	if ( tc.comps[ThreeComponents::Vertical] &&
-	     tc.comps[ThreeComponents::Vertical]->code() == ph.channelCode)
+	if ( loc )
 	{
-		projectionRequired = false;
+		allComponents = getThreeComponents(tc, loc, channelCodeRoot.c_str(), refTime);
+
+		if ( ( tc.comps[ThreeComponents::Vertical] &&
+		       tc.comps[ThreeComponents::Vertical]->code() == ph.channelCode)        ||
+		     ( tc.comps[ThreeComponents::FirstHorizontal] &&
+		       tc.comps[ThreeComponents::FirstHorizontal]->code() == ph.channelCode) ||
+		     ( tc.comps[ThreeComponents::SecondHorizontal] &&
+		       tc.comps[ThreeComponents::SecondHorizontal]->code() == ph.channelCode)
+		   )
+		{
+			projectionRequired = false;
+		}
 	}
-	else if ( tc.comps[ThreeComponents::FirstHorizontal] &&
-	          tc.comps[ThreeComponents::FirstHorizontal]->code() == ph.channelCode)
+	else
 	{
-		projectionRequired = false;
-	}
-	else if ( tc.comps[ThreeComponents::SecondHorizontal] &&
-              tc.comps[ThreeComponents::SecondHorizontal]->code() == ph.channelCode)
-	{
-		projectionRequired = false;
+		SEISCOMP_INFO("Unable to fetch SensorLocation info (%s)", wfDesc.c_str());
+		projectionRequired = false; // let's try to load the waveform anyway
 	}
 
 	//
@@ -2378,17 +2378,17 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 		try {
 			trace = loadWaveform(tw, ph.networkCode, ph.stationCode,
 		                         ph.locationCode, ph.channelCode, useDiskCache);
-		} catch ( ... ) {}
-
-		if ( trace )
-		{
-			// fitler waveform
-			filter(*trace, true, _cfg.xcorr.filterOrder, _cfg.xcorr.filterFmin,
-			       _cfg.xcorr.filterFmax, _cfg.xcorr.resampleFreq);
-
-			// save waveform into the cache
-			memCache[wfId] = trace;
+		} catch ( exception &e ) {
+			SEISCOMP_INFO("%s", e.what());
+			return nullptr;
 		}
+
+		// fitler waveform
+		filter(*trace, true, _cfg.xcorr.filterOrder, _cfg.xcorr.filterFmin,
+			   _cfg.xcorr.filterFmax, _cfg.xcorr.resampleFreq);
+
+		// save waveform into the cache
+		memCache[wfId] = trace;
 
 		return trace;
 	}
@@ -2398,12 +2398,14 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 	//
 	if ( ! allComponents )
 	{
-		SEISCOMP_WARNING("Unable to fetch orientation of stream %s.%s.%s.%s from %s length %.2f",
-		                 ph.networkCode.c_str(), ph.stationCode.c_str(),
-		                 ph.locationCode.c_str(), ph.channelCode.c_str(),
-		                 tw.startTime().iso().c_str(), tw.length()); 
+		SEISCOMP_INFO("Unable to fetch orientation information (%s)", wfDesc.c_str());
 		return nullptr;
 	}
+
+	SEISCOMP_DEBUG("Loading the 3 components waveforms (%s %s %s) to perform the projection...",
+	               tc.comps[ThreeComponents::Vertical]->code().c_str(),
+	               tc.comps[ThreeComponents::FirstHorizontal]->code().c_str(),
+	               tc.comps[ThreeComponents::SecondHorizontal]->code().c_str());
 
 	// orientation ZNE
 	Math::Matrix3d orientationZNE;
@@ -2437,8 +2439,9 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 		chCodeMap[channelCodeRoot + "Z"] = tc.comps[ThreeComponents::Vertical]->code();
 		chCodeMap[channelCodeRoot + "N"] = tc.comps[ThreeComponents::FirstHorizontal]->code();
 		chCodeMap[channelCodeRoot + "E"] = tc.comps[ThreeComponents::SecondHorizontal]->code();
-		SEISCOMP_DEBUG("Performing ZNE projection (channelCode %s -> %s)",
-		               chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str());
+
+		SEISCOMP_DEBUG("Performing ZNE projection (channelCode %s -> %s) for %s",
+		    chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(), wfDesc.c_str());
 	}
 	else if ( component == 'R'  || component == 'T' )
 	{
@@ -2446,14 +2449,13 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 		//chCodeMap[channelCodeRoot + "Z"] = tc.comps[ThreeComponents::Vertical]->code();
 		chCodeMap[channelCodeRoot + "R"] = tc.comps[ThreeComponents::FirstHorizontal]->code();
 		chCodeMap[channelCodeRoot + "T"] = tc.comps[ThreeComponents::SecondHorizontal]->code();
-		SEISCOMP_DEBUG("Performing ZRT projection (channelCode %s -> %s)",
-		               chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str());
+
+		SEISCOMP_DEBUG("Performing ZRT projection (channelCode %s -> %s) for %s",
+		    chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(), wfDesc.c_str()); 
 	}
 	else
 	{
-		SEISCOMP_WARNING("Unknown channel, cannot load stream %s.%s.%s.%s",
-		                 ph.networkCode.c_str(), ph.stationCode.c_str(),
-		                 ph.locationCode.c_str(), ph.channelCode.c_str());
+		SEISCOMP_INFO("Unknown channel, cannot load %s", wfDesc.c_str());
 		return nullptr;
 	}
 
@@ -2466,17 +2468,10 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 	                       tc.comps[ThreeComponents::FirstHorizontal]->code(), useDiskCache);
 		tr3 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
 	                       tc.comps[ThreeComponents::SecondHorizontal]->code(), useDiskCache);
-	} catch ( ... ) {}
-
-	if ( ! tr1 || ! tr2 || ! tr3 )
-	{
-		SEISCOMP_WARNING("Could not load the three components to perform the projection "
-		                 "for stream %s.%s.%s.%s from %s length %.2f)",
-		                 ph.networkCode.c_str(), ph.stationCode.c_str(),
-		                 ph.locationCode.c_str(), ph.channelCode.c_str(),
-		                 tw.startTime().iso().c_str(), tw.length());
+	} catch ( exception &e ) {
+		SEISCOMP_INFO("%s", e.what());
 		return nullptr;
-	}
+	} 
 
 	// The wrapper will direct 3 codes into the right slots using the
 	// Stream configuration class and will finally use the transformation
@@ -2529,10 +2524,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
 	if ( seq->empty() )
 	{
-		SEISCOMP_WARNING("Data could not be loaded for stream %s.%s.%s.%s from %s length %.2f)",
-		                 ph.networkCode.c_str(), ph.stationCode.c_str(),
-		                 ph.locationCode.c_str(), ph.channelCode.c_str(),
-		                 tw.startTime().iso().c_str(), tw.length());
+		SEISCOMP_INFO("No data after the projection for %s", wfDesc.c_str());
 		return nullptr;
 	}
 
@@ -2540,11 +2532,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
 	if ( ! merge(*trace, *seq) )
 	{
-		SEISCOMP_WARNING("Data records could not be merged into a single trace "
-		                 "(%s.%s.%s.%s from %s length %.2f)",
-		                 ph.networkCode.c_str(), ph.stationCode.c_str(),
-		                 ph.locationCode.c_str(), ph.channelCode.c_str(), 
-		                 tw.startTime().iso().c_str(), tw.length());
+		SEISCOMP_INFO("Data records could not be merged into a single trace (%s)", wfDesc.c_str());
 		return nullptr;
 	}
 
@@ -2552,11 +2540,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
 	if ( ! trim(*trace, tw) )
 	{
-		SEISCOMP_WARNING("Incomplete trace, not enough data for requested"
-		                  " time window (%s.%s.%s.%s from %s length %.2f)",
-		                 ph.networkCode.c_str(), ph.stationCode.c_str(),
-		                 ph.locationCode.c_str(), ph.channelCode.c_str(),
-		                 tw.startTime().iso().c_str(), tw.length());
+		SEISCOMP_INFO("Incomplete trace, not enough data (%s)", wfDesc.c_str());
 		return nullptr;
 	} 
 
@@ -2661,7 +2645,8 @@ HypoDD::readWaveformFromRecordStream(const Core::TimeWindow& tw,
 
 	if ( ! merge(*trace, *seq) )
     {
-		string msg = stringify("Data records could not be merged into a single trace (%s.%s.%s.%s from %s length %.2f)",
+		string msg = stringify("Data records could not be merged into a single trace "
+		                       "(%s.%s.%s.%s from %s length %.2f)",
 		                       networkCode.c_str(), stationCode.c_str(),
 		                       locationCode.c_str(), channelCode.c_str(),
 		                       tw.startTime().iso().c_str(), tw.length());
@@ -2711,12 +2696,12 @@ bool HypoDD::merge(GenericRecord &trace, const RecordSequence& seq) const
 	for (const RecordCPtr& rec : seq )
 	{
 		if ( rec->samplingFrequency() != samplingFrequency ) {
-			SEISCOMP_WARNING("%s.%s.%s.%s: record sampling frequencies are not consistent: %f != %f",
-			                 trace.networkCode().c_str(),
-			                 trace.stationCode().c_str(),
-			                 trace.locationCode().c_str(),
-			                 trace.channelCode().c_str(),
-			                 samplingFrequency, rec->samplingFrequency());
+			SEISCOMP_INFO("%s.%s.%s.%s: record sampling frequencies are not consistent: %f != %f",
+			              trace.networkCode().c_str(),
+			              trace.stationCode().c_str(),
+			              trace.locationCode().c_str(),
+			              trace.channelCode().c_str(),
+			              samplingFrequency, rec->samplingFrequency());
 			return false;
 		}
 
@@ -2724,22 +2709,22 @@ bool HypoDD::merge(GenericRecord &trace, const RecordSequence& seq) const
 		if ( last ) {
 			Core::TimeSpan diff = rec->startTime()-last->endTime();
 			if ( diff > maxAllowedGap ) {
-				SEISCOMP_WARNING("%s.%s.%s.%s: gap detected of %d.%06ds",
-				                 trace.networkCode().c_str(),
-				                 trace.stationCode().c_str(),
-				                 trace.locationCode().c_str(),
-				                 trace.channelCode().c_str(),
-				                 (int)diff.seconds(), (int)diff.microseconds());
+				SEISCOMP_INFO("%s.%s.%s.%s: gap detected of %d.%06ds",
+				              trace.networkCode().c_str(),
+				              trace.stationCode().c_str(),
+				              trace.locationCode().c_str(),
+				              trace.channelCode().c_str(),
+				              (int)diff.seconds(), (int)diff.microseconds());
 				return false;
 			}
 
 			if ( diff < maxAllowedOverlap ) {
-				SEISCOMP_WARNING("%s.%s.%s.%s: overlap detected of %fs",
-				                 trace.networkCode().c_str(),
-				                 trace.stationCode().c_str(),
-				                 trace.locationCode().c_str(),
-				                 trace.channelCode().c_str(),
-				                 (double)diff);
+				SEISCOMP_INFO("%s.%s.%s.%s: overlap detected of %fs",
+				              trace.networkCode().c_str(),
+				              trace.stationCode().c_str(),
+				              trace.locationCode().c_str(),
+				              trace.channelCode().c_str(),
+				              (double)diff);
 				return false;
 			}
 		}
