@@ -334,8 +334,6 @@ class HypoDD : public Core::BaseObject {
 		CatalogPtr loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
 		                                const std::string& ddrelocFile,
 		                                const std::string& ddresidualFile="") const;
-		double computeDistance(double lat1, double lon1, double depth1,
-		                       double lat2, double lon2, double depth2) const;
 		CatalogPtr selectNeighbouringEvents(const CatalogCPtr& catalog, const Catalog::Event& refEv,
 		                                    double minPhaseWeight = 0, double minESdis=0,
 		                                    double maxESdis=-1, double minEStoIEratio=0,

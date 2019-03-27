@@ -288,6 +288,28 @@ DataModel::SensorLocation *findSensorLocation(DataModel::Station *station,
 }
 
 
+
+/*
+ * Compute distance in km between two points
+ */
+double computeDistance(double lat1, double lon1, double depth1,
+                       double lat2, double lon2, double depth2,
+                       double *azimuth = nullptr, double *backAzimuth = nullptr)
+{
+	double distance, az, baz;
+	Math::Geo::delazi(lat1, lon1, lat2, lon2, &distance, &az, &baz);
+
+	if (azimuth) *azimuth = az;
+	if (backAzimuth) *backAzimuth = baz;
+
+	double Hdist = Math::Geo::deg2km(distance);
+	double Vdist = abs(depth1 - depth2);
+	// this is an approximation that works when the distance is small
+	// and the Earth curvature can be assumed flat
+	return std::sqrt( std::pow(Hdist,2) + std::pow(Vdist,2) );
+}
+
+
 }
 
 
@@ -1494,20 +1516,6 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
 }
 
 
-/*
- * Compute distance in km between two points
- */
-double HypoDD::computeDistance(double lat1, double lon1, double depth1,
-                               double lat2, double lon2, double depth2) const
-{
-	double distance, az, baz;
-	Math::Geo::delazi(lat1, lon1, lat2, lon2, &distance, &az, &baz);
-	double Hdist = Math::Geo::deg2km(distance);
-	double Vdist = abs(depth1 - depth2);
-	// this is an approximation that works when the distance is small
-	// and the Earth curvature can be assumed flat
-	return std::sqrt( std::pow(Hdist,2) + std::pow(Vdist,2) );
-}
 
 
 CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
@@ -1523,6 +1531,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 {
 	map<double,unsigned> eventByDistance; // distance, eventid
 	map<unsigned,double> distanceByEvent; // eventid, distance
+	map<unsigned,double> azimuthByEvent;  // eventid, azimuth
 
 	// loop through every event in the catalog and select the ones within maxIEdist distance
 	for (const auto& kv : catalog->getEvents() )
@@ -1533,8 +1542,10 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 			continue;
 
 		// compute distance between current event and reference origin
+		double azimuth;
 		double distance = computeDistance(event.latitude, event.longitude, event.depth,
-	                                      refEv.latitude, refEv.longitude, refEv.depth);
+	                                      refEv.latitude, refEv.longitude, refEv.depth,
+		                                  &azimuth);
 		// too far away ?
 		if ( maxIEdist > 0 && distance > maxIEdist )
 			continue;
@@ -1542,24 +1553,17 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 		// keep a list of added events sorted by distance
 		eventByDistance[distance] = event.id;
 		distanceByEvent[event.id] = distance;
+		azimuthByEvent[event.id]  = azimuth;
 	}
 
-	CatalogPtr filteredCatalog = new Catalog();
+	// From the events within distance select the ones who respect the constraints
+	vector<unsigned> selectedEvents;
 	set<string> includedStations;
 	set<string> excludedStations;
-	int selectedEvents = 0;
 
-	// Add the selected events within distance
 	for (const auto& kv : eventByDistance)
 	{
 		const Catalog::Event& event = catalog->getEvents().at(kv.second);
-
-		if (event == refEv)
-			continue;
-
-		// select only maxNumNeigh
-		if ( maxNumNeigh > 0 && selectedEvents >= maxNumNeigh )
-			break;
 
 		//  enought phases (> minDTperEvt) ?
 		int dtCount = 0;
@@ -1639,13 +1643,51 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 			continue;
 		} 
 
-		// add this event
-		filteredCatalog->copyEvent(event, catalog, true);
-		selectedEvents++;
+		// add this event to the selected ones
+		selectedEvents.push_back(event.id);
+	}
+
+	// Finally build the catalog of selected events
+	// We prefer closer events over further ones but at the same time
+	// we want to have a broad azimuth coverage
+	CatalogPtr filteredCatalog = new Catalog();
+
+	int numEvents = 0;
+	int nextBin = 0;
+	int numBins = 1;
+
+	while ( !selectedEvents.empty() )
+	{
+		// select only maxNumNeigh
+		if ( maxNumNeigh > 0 && numEvents >= maxNumNeigh )
+			break;
+
+		if ( ++nextBin == numBins )
+		{
+			numBins = std::min( { 8, int(selectedEvents.size()), maxNumNeigh-numEvents } );
+			nextBin = 0;
+		}
+
+		for (auto it = selectedEvents.begin(); it != selectedEvents.end(); it++)
+		{
+			const Catalog::Event& event = catalog->getEvents().at( *it );
+
+			int binSize = 360. / numBins;
+			int eventBin = int(azimuthByEvent[event.id] / binSize) % numBins;
+
+			if ( eventBin == nextBin )
+			{
+				// add this event to the catalog
+				filteredCatalog->copyEvent(event, catalog, true);
+				numEvents++;
+				selectedEvents.erase(it);
+				break;
+			}
+		}
 	}
 
 	// Check if enough neighbors were found
-	if ( selectedEvents < minNumNeigh )
+	if ( numEvents < minNumNeigh )
 	{
 		string msg = stringify("Skipping event %s, insufficient number of neighbors (%d)",
 		                       string(refEv).c_str(), selectedEvents);
