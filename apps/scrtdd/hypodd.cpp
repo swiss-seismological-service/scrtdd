@@ -1914,8 +1914,8 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
 	if ( ! ddresidualFile.empty() )
 	{
 		struct residual {
-			double residuals;
-			double weights;
+			double residuals = 0;
+			double weights = 0;
 			int count = 0;
 		};
 		map<string,struct residual> resInfos;
@@ -1951,7 +1951,7 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
 			unsigned ev1Id = std::stoul(fields[2]);
 			unsigned ev2Id = std::stoul(fields[3]);
 			string dataType = dataTypeMap[ fields[4] ]; // 1=ccP; 2=ccS; 3=ctP; 4=ctS
-			double residual = std::stod(fields[6]); //ms
+			double residual = std::stod(fields[6]) / 1000.; //ms -> s
 			double finalWeight = std::stod(fields[7]);
 
 			string key1 = to_string(ev1Id) + "+" + stationId + "+" + dataType;
