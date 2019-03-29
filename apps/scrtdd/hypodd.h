@@ -195,6 +195,7 @@ class Catalog : public Core::BaseObject {
 		CatalogPtr merge(const CatalogCPtr& other) const;
 		bool copyEvent(const Catalog::Event& event, const CatalogCPtr& other, bool keepEvId);
 		void removeEvent(const Event& event);
+		void removeEvent(unsigned eventId);
 
 		bool addStation(const Station&, bool checkDuplicate);
 		bool addEvent(const Event&, bool checkDuplicate);

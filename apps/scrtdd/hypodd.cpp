@@ -720,13 +720,25 @@ bool Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& other, b
 void Catalog::removeEvent(const Event& event)
 {
 	map<unsigned,Catalog::Event>::const_iterator it = searchEvent(event);
-	if ( it == _events.end() )
-		return;
-	_events.erase(it);
+	if ( it != _events.end() )
+	{
+		_events.erase(it);
+	}
 	auto eqlrng = _phases.equal_range(event.id);
 	_phases.erase(eqlrng.first, eqlrng.second);
 }
 
+
+void Catalog::removeEvent(unsigned eventId)
+{
+	map<unsigned,Catalog::Event>::const_iterator it = _events.find(eventId);
+	if ( it != _events.end() )
+	{
+		_events.erase(it);
+	}
+	auto eqlrng = _phases.equal_range(eventId);
+	_phases.erase(eqlrng.first, eqlrng.second);
+}
 
 
 map<string,Catalog::Station>::const_iterator Catalog::searchStation(const Station& station) const
@@ -1750,10 +1762,14 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
 			}
 			else
 			{
-				// remove event because in next iterations we don't want this
-				tmpCatalog->removeEvent( event) ;
 				removedEvents.push_back( event.id );
 			}
+		}
+
+		// remove event because in next iterations we don't want this
+		for (unsigned eventIdtoRemove : removedEvents)
+		{
+			tmpCatalog->removeEvent(eventIdtoRemove);
 		}
 		
 		// check if the removed events were used as neighbor of any event
@@ -1793,11 +1809,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
 		auto eqlrng = existingPairs.equal_range(currEventId);
 		for (auto existingPair = eqlrng.first; existingPair != eqlrng.second; existingPair++)
 		{
-			auto search = currCat->getEvents().find(existingPair->second);
-			if (search != currCat->getEvents().end())
-			{
-				currCat->removeEvent(search->second);
-			}
+			currCat->removeEvent(existingPair->second);
 		}
 
 		// remove current pairs from following catalogs
