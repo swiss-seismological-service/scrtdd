@@ -504,7 +504,7 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 		ev.depth       = org->depth(); // km
 		ev.horiz_err   = 0;
 		ev.vert_err    = 0;
-		ev.rms         = 0;
+		ev.rms         = org->quality().standardError();
 		DataModel::MagnitudePtr mag;
 		// try to fetch preferred magnitude stored in the event
 		DataModel::EventPtr parentEvent = dataSrc.getParentEvent(org->publicID());
@@ -534,7 +534,7 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 		}
 
 		this->addEvent(ev, false);
-		Event& newEvent = searchByValue(this->_events, ev)->second;
+		Event& newEvent = searchByValue(this->_events, ev)->second;  // fetch the id
 
 		// Add Phases
 		int numResiduals = 0;
@@ -542,11 +542,6 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 		{
 			DataModel::Arrival *orgArr = org->arrival(i);
 			const DataModel::Phase& orgPh = orgArr->phase();
-
-			try {
-				newEvent.rms += orgArr->timeResidual() *  orgArr->timeResidual();
-				numResiduals++;
-			} catch ( Core::ValueException& ) { }
 
 			DataModel::PickPtr pick = dataSrc.get<DataModel::Pick>(orgArr->pickID());
 			if ( !pick )
@@ -601,8 +596,6 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 			ph.channelCode =  pick->waveformID().channelCode();
 			this->addPhase(ph, false);
 		}
-		if ( numResiduals > 0)
-			newEvent.rms = std::sqrt( newEvent.rms / numResiduals );
 	}
 }
 
