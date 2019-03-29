@@ -1718,70 +1718,90 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                                         int minNumNeigh,
                                         int maxNumNeigh) const
 {
+	// build the list of neighbours for each event
 	map<unsigned,CatalogPtr> neighbourCats;
-	map<unsigned,int> dtCount; // eventid, neighbours count
 	CatalogPtr tmpCatalog = new Catalog(*catalog);
-
-	for (const auto& kv : catalog->getEvents() )
-	{
-		const Catalog::Event& event = kv.second;
-
-		CatalogPtr neighbourCat; 
-		try {
-			neighbourCat = selectNeighbouringEvents(
-				tmpCatalog, event, minPhaseWeight, minESdist,
-				maxESdist, minEStoIEratio, maxIEdist,
-				minDTperEvt, minNumNeigh, maxNumNeigh
-			);
-		} catch ( ... ) { }
-
-		// remove event because in next iterations we don't want to build
-		// the same pairs again
-		tmpCatalog->removeEvent(event);
-
-		if ( neighbourCat )
+	bool redo;
+	do {
+		neighbourCats.clear();
+		vector<unsigned> removedEvents;
+		
+		// for each event find the neighbours
+		for (const auto& kv : tmpCatalog->getEvents() )
 		{
-	 		// keep track of neighbours count
-			for (const auto& kv : neighbourCat->getEvents() )
-				dtCount[kv.second.id]++;
-			dtCount[event.id] += neighbourCat->getEvents().size();
+			const Catalog::Event& event = kv.second;
 
-			// add event to neighbourCat and store that
-			neighbourCat->copyEvent(event, catalog, true);
-			neighbourCats[event.id] = neighbourCat;
-		}
-		else
-		{
-			// if this event cannot be used, then remove it from already built
-			// neighbours catalogs
-			vector<Catalog::Event> eventsToRemove;
-			eventsToRemove.push_back(event);
+			CatalogPtr neighbourCat; 
+			try {
+				neighbourCat = selectNeighbouringEvents(
+					tmpCatalog, event, minPhaseWeight, minESdist,
+					maxESdist, minEStoIEratio, maxIEdist,
+					minDTperEvt, minNumNeigh, maxNumNeigh
+				);
+			} catch ( ... ) { }
 
-			while ( ! eventsToRemove.empty() )
+			if ( neighbourCat )
 			{
-				const Catalog::Event& evToRem = eventsToRemove.back();
-				eventsToRemove.pop_back();
-
-				for (auto it = neighbourCats.begin(); it != neighbourCats.end();  )
-				{
-					unsigned currEventId = it->first;
-					CatalogPtr& currCat  = it->second;
-					if ( currCat->searchEvent(evToRem) != currCat->getEvents().end() )
-					{
-						// remove the event, decrease the pair count
-						currCat->removeEvent(evToRem);
-						dtCount[currEventId]--;
-						// if not enough pair, then remove this event and its catalog
-						if ( dtCount[currEventId] < _cfg.dtt.minDTperEvt )
-						{
-							neighbourCats.erase(it++);
-							eventsToRemove.push_back( currCat->getEvents().at(currEventId) );
-							break;
-						}
-					}
-					it++;
-				}
+				// add event to neighbour catalog list and update the list
+				neighbourCat->copyEvent(event, catalog, true);
+				neighbourCats[event.id] = neighbourCat;
 			}
+			else
+			{
+				// remove event because in next iterations we don't want this
+				tmpCatalog->removeEvent( event) ;
+				removedEvents.push_back( event.id );
+			}
+		}
+		
+		// check if the removed events were used as neighbor of any event
+		// if so restart the loop
+		redo = false;
+	    for (auto kv : neighbourCats )
+	    {
+		    CatalogPtr& currCat  = kv.second;
+		    for (unsigned eventIdtoRemove : removedEvents)
+		    {
+			    auto search = currCat->getEvents().find(eventIdtoRemove);
+			    if (search != currCat->getEvents().end())
+			    {
+				    redo = true;
+				    break;
+			    }
+		    }
+		    if ( redo ) break;
+	    }		
+		
+	} while( redo );
+
+	// We don't want to report the same pairs multiple times
+	// when creating dt.cc and dt.ct (e.g. pair eventXX-eventYY
+	// is the same as pair eventYY-eventXX), we'll remove the
+	// pairs that appeared in previous catalogs from the
+	// following catalogs
+	std::multimap<unsigned,unsigned> existingPairs;
+
+	for (auto kv : neighbourCats )
+	{
+		unsigned currEventId = kv.first;
+		CatalogPtr& currCat  = kv.second;
+
+		// remove from currrent catalogl the existing pairs
+		auto eqlrng = existingPairs.equal_range(currEventId);
+		for (auto existingPair = eqlrng.first; existingPair != eqlrng.second; existingPair++)
+		{
+			auto search = currCat->getEvents().find(existingPair->second);
+			if (search != currCat->getEvents().end())
+			{
+				currCat->removeEvent(search->second);
+			}
+		}
+
+		// remove current pairs from following catalogs
+		for ( auto const& kv : currCat->getEvents() )
+		{
+			if ( kv.first != currEventId )
+				existingPairs.emplace(kv.first, currEventId);
 		}
 	}
 
