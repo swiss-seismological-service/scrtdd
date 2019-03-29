@@ -214,8 +214,9 @@
 
 					<group name="dtct">
 						<description>
-							Step 1: location refiniment. Those options control the computation of differential travel time
-							(no cross correlation of phases) for event pairs.
+							Those options control the computation of differential travel times using existing
+							phase information (no cross correlation involved). In hypoDD terminology this is
+							the computation of dt.ct file
 						</description>
 						<parameter name="minWeight" type="double">
 							<description>
@@ -282,8 +283,9 @@
 
 					<group name="dtcc">
 						<description>
-							Step 2: final relocation. . Those options control the computation of differential travel time
-							(with cross correlation) for event pairs.
+							Those options control the computation of differential travel times using cross
+							correlation to refine existing phase information. In hypoDD terminology this is
+							the computation of dt.cc file
 						</description>
 						<parameter name="minWeight" type="double">
 							<description>

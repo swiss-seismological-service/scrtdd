@@ -19,7 +19,7 @@ This module implements a Real Time Double-Difference Event Location method as de
 
 This module can also be used to perform (non-real-time) full event catalog Double-Difference relocation, which is covered by another paper: "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Felix Waldhauser et al.
 
-The actual Double-Difference inversion method is performed by the hypoDD software, which has to be installed in the system (currently tested on version 1.3 and 2.1b).
+The actual Double-Difference inversion method is currently performed by the hypoDD software, which has to be installed in the system (currently tested on version 1.3 and 2.1b).
 
 ## Compile
 
@@ -85,19 +85,21 @@ scrtdd will relocated the catalog and will generate again the files event.csv ph
 We are now ready to perform real time relocation!
 
 
-## 3. Real time relocation
+## 3. Real time single origin relocation
 
 Real time relocation is done in two steps, each once has its own set of options in the configuration.
 
-Step 1: location refiniment. In this step scrtdd compute a preliminary relocation of the origin using only differential travel times from catalog phases (the ones precent in seiscomp database).
+Step 1: location refinement. In this step scrtdd compute a preliminary relocation of the origin using only differential travel times computed from catalog phases (the ones present in seiscomp database).
 
-Step 2: the refined location is used to perform a more precise relocation using both catalog phases information and deifferentinal travel time computed using cross correlation.
+Step 2: the refined location is used to perform a more precise relocation using both catalog phases information and differential travel time computed using cross correlation between phase waveforms.
 
 After step2 the relocated origin is sent to the messaging system. If step2 fails, then the relocated origin from step1 is sent to the messaging system.
 
 If both step1 and step2 fail, then a relocation is reattepted at a later time, accordingly to `delayTimes` option.
 
-To test the real time relocation we can use two command line options:
+Note: when performing the catalog relocation ("scrtdd --reloc-catalog") it is done in a single step
+
+To test the real time relocation we can either run playbacks or use two command line options which relocate existing origins:
 
 ```
   -O [ --origin-id ] arg                Reprocess the origin (or multiple comma-separated origins)
