@@ -1895,6 +1895,77 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
 		event.rms = (event.relocInfo.rmsResidualCC + event.relocInfo.rmsResidualCT) / 2.;
 	}
 
+	// read residual file one line a time to fetch residuals and final weights
+	if ( ! ddresidualFile.empty() )
+	{
+		struct residual {
+			double residuals;
+			double weights;
+			int count = 0;
+		};
+		map<string,struct residual> resInfos;
+
+		// 1=ccP; 2=ccS; 3=ctP; 4=ctS
+		map<string, string> dataTypeMap = { {"1","P"}, {"2","S"}, {"3","P"}, {"4","S"} };
+
+		ifstream in(ddresidualFile);
+		while (!in.eof())
+		{
+			string row;
+			std::getline(in, row);
+			if (in.bad() || in.fail())
+				break;
+
+			// split line on space
+			static const std::regex regex(R"([\s]+)", std::regex::optimize);
+			std::sregex_token_iterator it{row.begin(), row.end(), regex, -1};
+			std::vector<std::string> fields{it, {}};
+
+			// remove the first empty element if the line start with spaces
+			if ( !fields.empty() && fields[0] == "")
+				fields.erase(fields.begin());
+
+			if (fields.size() != 9)
+			{
+				SEISCOMP_WARNING("Skipping unrecognized line from '%s' (line='%s')",
+				                 ddresidualFile.c_str(), row.c_str());
+				continue;
+			}
+
+			string stationId = fields[0];
+			unsigned ev1Id = std::stoul(fields[2]);
+			unsigned ev2Id = std::stoul(fields[3]);
+			string dataType = dataTypeMap[ fields[4] ]; // 1=ccP; 2=ccS; 3=ctP; 4=ctS
+			double residual = std::stod(fields[6]); //ms
+			double finalWeight = std::stod(fields[7]);
+
+			string key1 = to_string(ev1Id) + "+" + stationId + "+" + dataType;
+			struct residual& info1 = resInfos[key1];
+			info1.residuals += residual;
+			info1.weights += finalWeight;
+			info1.count++;
+
+			string key2 = to_string(ev2Id) + "+" + stationId + "+" + dataType;
+			struct residual& info2 = resInfos[key2];
+			info2.residuals += residual;
+			info2.weights += finalWeight;
+			info2.count++;
+		}
+
+		for (auto& pair : phases)
+		{
+			Catalog::Phase &phase = pair.second;
+			string key = to_string(phase.eventId) + "+" + phase.stationId + "+" + phase.type;
+			if ( resInfos.find(key) != resInfos.end() )
+			{
+				struct residual& info = resInfos[key];
+				phase.weight = info.weights / info.count;
+				phase.relocInfo.isRelocated = true;
+				phase.relocInfo.residual = info.residuals / info.count;
+			}
+		}
+	}
+
 	return new Catalog(stations, events, phases);
 }
 

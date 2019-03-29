@@ -149,6 +149,10 @@ class Catalog : public Core::BaseObject {
 			std::string stationCode;
 			std::string locationCode;
 			std::string channelCode;
+			struct {
+				bool isRelocated = false;
+				double residual;
+			} relocInfo;
 
 			// this equality works between multiple catalogs (same id is not required) 
 			bool operator==(const Phase& other) const

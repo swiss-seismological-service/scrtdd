@@ -1276,10 +1276,8 @@ OriginPtr RTDD::relocateOrigin(Origin *org, ProfilePtr profile)
 				                  &distance, &az, &baz);
 				newArr->setAzimuth(az);
 				newArr->setDistance(distance);
-				newArr->setTimeResidual(event.rms);   //phase.relocInfo.residual);
-				try {
-					newArr->setWeight(org->arrival(i)->weight()); //phase.relocInfo.finalWeight); 
-				} catch ( ... ) { newArr->setWeight(1.); }
+				newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
+				newArr->setWeight(phase.weight);
 				newArr->setTimeUsed(true);
 
 				// update stats
