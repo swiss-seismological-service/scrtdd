@@ -1664,7 +1664,9 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 
 		if ( ++nextBin == numBins )
 		{
-			numBins = std::min( { 8, int(selectedEvents.size()), maxNumNeigh-numEvents } );
+			numBins = std::min(8, int(selectedEvents.size()));
+			if ( maxNumNeigh > 0 )
+			    numBins = std::min(numBins, maxNumNeigh-numEvents);
 			nextBin = 0;
 		}
 
