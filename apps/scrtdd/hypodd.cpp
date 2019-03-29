@@ -786,24 +786,19 @@ bool Catalog::addPhase(const Phase& phase, bool checkDuplicate)
 
 void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile) const
 {
-	ofstream evStream(eventFile);
-	bool hasHeader = false;
+	stringstream evStreamNoReloc;
+	stringstream evStreamReloc;
+
+	evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude,horizontal_err,vertical_err,rms"; 
+	evStreamReloc << evStreamNoReloc.str() << ",relocated,lonUncertainty,latUncertainty,depthUncertainty,numCCp,numCCs,numCTp,numCTs,residualCC,residualCT" << endl;
+	evStreamNoReloc << endl;
+
 	bool relocInfo = false;
 	for (const auto& kv : _events )
 	{
 		const Catalog::Event& ev = kv.second;
 		
-		if ( ! hasHeader )
-		{
-			evStream << "id,isotime,latitude,longitude,depth,magnitude,horizontal_err,vertical_err,rms";
-			if (ev.relocInfo.isRelocated)
-			{
-				evStream << ",lonUncertainty,latUncertainty,depthUncertainty,numCCp,numCCs,numCTp,numCTs,residualCC,residualCT";
-				relocInfo = true;
-			}
-			evStream << endl;
-			hasHeader = true;
-		}
+		stringstream evStream;
 
 		evStream << ev.id
 		         << "," << ev.time.iso()
@@ -815,23 +810,33 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 		         << "," << ev.vert_err
 		         << "," << ev.rms;
 
-		if ( relocInfo )
+		evStreamNoReloc << evStream.str() << endl;
+		evStreamReloc   << evStream.str();
+
+		if ( ! ev.relocInfo.isRelocated )
 		{
-			if ( ! ev.relocInfo.isRelocated )
-				evStream << ",,,,,,,,,";
-			else
-				evStream << "," << ev.relocInfo.lonUncertainty
-				         << "," << ev.relocInfo.latUncertainty
-				         << "," << ev.relocInfo.depthUncertainty
-				         << "," << ev.relocInfo.numCCp
-				         << "," << ev.relocInfo.numCCs
-				         << "," << ev.relocInfo.numCTp
-				         << "," << ev.relocInfo.numCTs
-				         << "," << ev.relocInfo.rmsResidualCC
-				         << "," << ev.relocInfo.rmsResidualCT;
+			evStreamReloc << ",false,,,,,,,,,";
 		}
-		evStream << endl;
+		else
+		{
+			relocInfo = true;
+			evStreamReloc << ",true"
+			              << "," << ev.relocInfo.lonUncertainty
+			              << "," << ev.relocInfo.latUncertainty
+			              << "," << ev.relocInfo.depthUncertainty
+			              << "," << ev.relocInfo.numCCp
+			              << "," << ev.relocInfo.numCCs
+			              << "," << ev.relocInfo.numCTp
+			              << "," << ev.relocInfo.numCTs
+			              << "," << ev.relocInfo.rmsResidualCC
+			              << "," << ev.relocInfo.rmsResidualCT;
+		}
+
+		evStreamReloc << endl;
 	}
+
+	ofstream evStream(eventFile);
+	evStream << ( relocInfo ? evStreamReloc.str() : evStreamNoReloc.str() );
 
 	ofstream phStream(phaseFile);
 	phStream << "eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,channelCode" << endl;
