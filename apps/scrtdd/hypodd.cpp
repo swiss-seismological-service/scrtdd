@@ -1534,6 +1534,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             int minNumNeigh,
                                             int maxNumNeigh) const
 {
+	SEISCOMP_DEBUG("Selecting Neighbouring Events for event %s", string(refEv).c_str());
+
 	map<double,unsigned> eventByDistance; // distance, eventid
 	map<unsigned,double> distanceByEvent; // eventid, distance
 	map<unsigned,double> azimuthByEvent;  // eventid, azimuth
@@ -1697,7 +1699,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 	if ( numEvents < minNumNeigh )
 	{
 		string msg = stringify("Skipping event %s, insufficient number of neighbors (%d)",
-		                       string(refEv).c_str(), selectedEvents);
+		                       string(refEv).c_str(), numEvents);
 		SEISCOMP_DEBUG("%s", msg.c_str());
 		throw runtime_error(msg);
 	}
@@ -1757,20 +1759,21 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
 		// check if the removed events were used as neighbor of any event
 		// if so restart the loop
 		redo = false;
-	    for (auto kv : neighbourCats )
-	    {
-		    CatalogPtr& currCat  = kv.second;
-		    for (unsigned eventIdtoRemove : removedEvents)
-		    {
-			    auto search = currCat->getEvents().find(eventIdtoRemove);
-			    if (search != currCat->getEvents().end())
-			    {
-				    redo = true;
-				    break;
-			    }
-		    }
-		    if ( redo ) break;
-	    }		
+		for (auto kv : neighbourCats )
+		{
+			CatalogPtr& currCat  = kv.second;
+			for (unsigned eventIdtoRemove : removedEvents)
+			{
+				auto search = currCat->getEvents().find(eventIdtoRemove);
+				if (search != currCat->getEvents().end())
+				{
+					SEISCOMP_DEBUG("Restart Neighbouring Events selection ");
+					redo = true;
+					break;
+				}
+			}
+			if ( redo ) break;
+		}
 		
 	} while( redo );
 
