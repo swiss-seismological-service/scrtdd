@@ -152,6 +152,7 @@ class Catalog : public Core::BaseObject {
 			struct {
 				bool isRelocated = false;
 				double residual;
+				double finalWeight;
 			} relocInfo;
 
 			// this equality works between multiple catalogs (same id is not required) 

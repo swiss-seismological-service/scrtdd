@@ -537,7 +537,6 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 		Event& newEvent = searchByValue(this->_events, ev)->second;  // fetch the id
 
 		// Add Phases
-		int numResiduals = 0;
 		for ( size_t i = 0; i < org->arrivalCount(); ++i )
 		{
 			DataModel::Arrival *orgArr = org->arrival(i);
@@ -844,7 +843,10 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 	evStream << ( relocInfo ? evStreamReloc.str() : evStreamNoReloc.str() );
 
 	ofstream phStream(phaseFile);
-	phStream << "eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,channelCode" << endl;
+	phStream << "eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,channelCode";
+	if (relocInfo)
+		phStream << ",usedInReloc,residual,finalWeight";
+	phStream << endl;
 	for (const auto& kv : _phases )
 	{
 		const Catalog::Phase& ph = kv.second;
@@ -856,7 +858,22 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 		         << "," << ph.networkCode
 		         << "," << ph.stationCode
 		         << "," << ph.locationCode
-		         << "," << ph.channelCode << endl;
+		         << "," << ph.channelCode;
+
+		if (relocInfo)
+		{
+			if ( ! ph.relocInfo.isRelocated )
+			{
+				phStream << ",false,,";
+			}
+			else
+			{
+				phStream << ",true"
+				         << "," << ph.relocInfo.residual
+				         << "," << ph.relocInfo.finalWeight;
+			}
+		}
+		phStream << endl;
 	}
 
 	ofstream staStream(stationFile);
@@ -1967,9 +1984,9 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
 			if ( resInfos.find(key) != resInfos.end() )
 			{
 				struct residual& info = resInfos[key];
-				phase.weight = info.weights / info.count;
 				phase.relocInfo.isRelocated = true;
 				phase.relocInfo.residual = info.residuals / info.count;
+				phase.relocInfo.finalWeight = info.weights / info.count;
 			}
 		}
 	}
