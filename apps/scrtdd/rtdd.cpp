@@ -1248,7 +1248,8 @@ OriginPtr RTDD::relocateOrigin(Origin *org, ProfilePtr profile)
 		newArr->setPhase(org->arrival(i)->phase());
 		try { newArr->setTimeCorrection(org->arrival(i)->timeCorrection()); }
 		catch ( ... ) {}
-		newArr->setWeight(0);
+		try { newArr->setWeight( org->arrival(i)->weight() ); }
+		catch ( ... ) {}
 		newArr->setTimeUsed(false);
 
 		for (auto it = evPhases.first; it != evPhases.second; ++it)
@@ -1277,7 +1278,7 @@ OriginPtr RTDD::relocateOrigin(Origin *org, ProfilePtr profile)
 				newArr->setAzimuth(az);
 				newArr->setDistance(distance);
 				newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
-				newArr->setWeight(phase.weight);
+				newArr->setWeight(phase.weight); //phase.relocInfo.finalWeight
 				newArr->setTimeUsed(true);
 
 				// update stats
