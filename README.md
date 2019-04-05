@@ -72,7 +72,7 @@ Or, if the events resides on a different machine we can use the -d option:
 scrtdd --dump-catalog myCatalog.csv  -d  mysql://user:password@host/seiscompDbName
 ```
 
-The above command will generate three files: event.csv, phase.csv and stations.csv. Those file are the alternative extended catalog format, useful when the catalog information is fully contained in those files instead of requiring the catalog to be present on a seiscomp database. Note: it is not compulsory to dump the catalog to perfomr a relcoation, we could also relocate a catalog that uses the siescompId file format, but sometimes it might be useul to dump the catalog to perform some manual editing before relocating it.
+The above command will generate three files: event.csv, phase.csv and stations.csv. Those file are the alternative extended catalog format, useful when the catalog information is fully contained in those files instead of requiring the catalog to be present on a seiscomp database. Note: it is not compulsory to dump the catalog to perfomr a relcoation, we could also relocate a catalog that uses the siescompId file format, but sometimes it might be useul to dump the catalog to perform some manual editing before relocating it. For example you might want to keep only events that have been relocated and discard the others.
 
 Now it's time to run scconfig, go to scrtdd configuration and create a profile that we use for relocating this catalog. In the profile we have to specify the generated files as source catalog, and then configure the various SCRTDD relocation settings. Once done, it's time to relocate this catalog with the command:
 
