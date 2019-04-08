@@ -1586,7 +1586,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 	}
 
 	// From the events within distance select the ones who respect the constraints
-	vector<unsigned> selectedEvents;
+	list<unsigned> selectedEvents;
 	set<string> includedStations;
 	set<string> excludedStations;
 
@@ -1742,6 +1742,8 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                                         int minNumNeigh,
                                         int maxNumNeigh) const
 {
+	SEISCOMP_DEBUG("Selecting Catalog Neighbouring Events ");
+
 	// build the list of neighbours for each event
 	map<unsigned,CatalogPtr> neighbourCats;
 	CatalogPtr tmpCatalog = new Catalog(*catalog);
