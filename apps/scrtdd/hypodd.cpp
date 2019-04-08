@@ -1572,8 +1572,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 
 		// compute distance between current event and reference origin
 		double azimuth;
-		double distance = computeDistance(event.latitude, event.longitude, event.depth,
-	                                      refEv.latitude, refEv.longitude, refEv.depth,
+		double distance = computeDistance(refEv.latitude, refEv.longitude, refEv.depth,
+		                                  event.latitude, event.longitude, event.depth,
 		                                  &azimuth);
 		// too far away ?
 		if ( maxIEdist > 0 && distance > maxIEdist )
