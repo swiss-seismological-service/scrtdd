@@ -10,7 +10,7 @@
  *   SeisComP Public License for more details.                             *
  *                                                                         *
  *   Developed by gempa GmbH                                               *
- *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
+ *   Modified by Luca Scarabello <luca.scarabello@sed.ethz.ch>             *
  ***************************************************************************/
 
 
