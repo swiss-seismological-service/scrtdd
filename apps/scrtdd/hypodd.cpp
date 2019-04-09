@@ -1674,6 +1674,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 
 		// add this event to the selected ones
 		selectedEvents.push_back(event.id);
+		SEISCOMP_DEBUG("Selecting possible event %u distance %.1f azimuth %.1f",
+		               event.id, kv.first, azimuthByEvent[event.id]);
 	}
 
 	// Finally build the catalog of selected events
@@ -1703,7 +1705,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 		{
 			const Catalog::Event& event = catalog->getEvents().at( *it );
 
-			int binSize = 360. / numBins;
+			double binSize = 360. / numBins;
 			int eventBin = int(azimuthByEvent[event.id] / binSize) % numBins;
 
 			if ( eventBin == nextBin )
@@ -1712,6 +1714,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 				filteredCatalog->copyEvent(event, catalog, true);
 				numEvents++;
 				selectedEvents.erase(it);
+				SEISCOMP_DEBUG("Chose neighbour event %u distance %.1f azimuth %.1f (numBins %d eventBin %d)",
+				               event.id, distanceByEvent[event.id], azimuthByEvent[event.id], numBins, eventBin);
 				break;
 			}
 		}
