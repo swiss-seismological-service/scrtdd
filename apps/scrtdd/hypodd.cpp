@@ -803,18 +803,12 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 	for (const auto& kv : _events )
 	{
 		const Catalog::Event& ev = kv.second;
-		
-		stringstream evStream;
 
-		evStream << ev.id
-		         << "," << ev.time.iso()
-		         << "," << ev.latitude
-		         << "," << ev.longitude
-		         << "," << ev.depth
-		         << "," << ev.magnitude
-		         << "," << ev.horiz_err
-		         << "," << ev.vert_err
-		         << "," << ev.rms;
+		stringstream evStream;
+		evStream << stringify("%u,%s,%.6f,%.6f,%.4f,%.2f,%.4f,%.4f,%.4f",
+		                      ev.id,ev.time.iso().c_str(),
+		                      ev.latitude,ev.longitude,ev.depth,ev.magnitude,
+		                      ev.horiz_err,ev.vert_err,ev.rms);
 
 		evStreamNoReloc << evStream.str() << endl;
 		evStreamReloc   << evStream.str();
@@ -826,18 +820,12 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 		else
 		{
 			relocInfo = true;
-			evStreamReloc << ",true"
-			              << "," << ev.relocInfo.lonUncertainty
-			              << "," << ev.relocInfo.latUncertainty
-			              << "," << ev.relocInfo.depthUncertainty
-			              << "," << ev.relocInfo.numCCp
-			              << "," << ev.relocInfo.numCCs
-			              << "," << ev.relocInfo.numCTp
-			              << "," << ev.relocInfo.numCTs
-			              << "," << ev.relocInfo.rmsResidualCC
-			              << "," << ev.relocInfo.rmsResidualCT;
+			evStreamReloc <<  stringify(",true,%.6f,%.6f,%.6f,%d,%d,%d,%d,%.4f,%.4f",
+			              ev.relocInfo.lonUncertainty, ev.relocInfo.latUncertainty,
+			              ev.relocInfo.depthUncertainty, ev.relocInfo.numCCp,
+			              ev.relocInfo.numCCs, ev.relocInfo.numCTp, ev.relocInfo.numCTs,
+			              ev.relocInfo.rmsResidualCC, ev.relocInfo.rmsResidualCT);
 		}
-
 		evStreamReloc << endl;
 	}
 
@@ -852,15 +840,10 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 	for (const auto& kv : _phases )
 	{
 		const Catalog::Phase& ph = kv.second;
-		phStream << ph.eventId
-		         << "," << ph.stationId
-		         << "," << ph.time.iso()
-		         << "," << ph.weight
-		         << "," << ph.type
-		         << "," << ph.networkCode
-		         << "," << ph.stationCode
-		         << "," << ph.locationCode
-		         << "," << ph.channelCode;
+		phStream << stringify("%u,%s,%s,%.2f,%s,%s,%s,%s,%s",
+		                      ph.eventId, ph.stationId.c_str(), ph.time.iso().c_str(),
+		                      ph.weight, ph.type.c_str(), ph.networkCode.c_str(),
+		                      ph.stationCode.c_str(), ph.locationCode.c_str(), ph.channelCode.c_str());
 
 		if (relocInfo)
 		{
@@ -870,9 +853,8 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 			}
 			else
 			{
-				phStream << ",true"
-				         << "," << ph.relocInfo.residual
-				         << "," << ph.relocInfo.finalWeight;
+				phStream << stringify(",true,%.4f,%.2f",
+				                      ph.relocInfo.residual, ph.relocInfo.finalWeight);
 			}
 		}
 		phStream << endl;
@@ -883,12 +865,10 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 	for (const auto& kv : _stations )
 	{
 		const Catalog::Station& sta = kv.second;
-		staStream << sta.id
-		          << "," << sta.latitude
-		          << "," << sta.longitude
-		          << "," << sta.elevation
-		          << "," << sta.networkCode
-		          << "," << sta.stationCode << endl;
+		staStream << stringify("%s,%.6f,%.6f,%.1f,%s,%s",
+		                       sta.id.c_str(), sta.latitude, sta.longitude, sta.elevation,
+		                       sta.networkCode.c_str(), sta.stationCode.c_str())
+		          << endl;
 	}
 	
 }
@@ -1412,7 +1392,7 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogCPtr& 
 			continue;
 		}
 
-		outStream << stringify("# %d %d %d %d %d %.2f %.6f %.6f %.2f %.4f %.2f %.2f %.2f %u",
+		outStream << stringify("# %d %d %d %d %d %.2f %.6f %.6f %.3f %.2f %.4f %.4f %.4f %u",
 		                      year, month, day, hour, min, sec + double(usec)/1.e6,
 		                      event.latitude,event.longitude,event.depth,
 		                      event.magnitude, event.horiz_err, event.vert_err,
@@ -1475,7 +1455,7 @@ void HypoDD::createEventDatFile(const string& eventFileName, const CatalogCPtr& 
 			continue;
 		}
 
-		outStream << stringify("%d%02d%02d  %02d%02d%04d %.4f %.4f %.3f %.2f %.2f %.2f %.2f %u",
+		outStream << stringify("%d%02d%02d  %02d%02d%04d %.6f %.6f %.3f %.2f %.4f %.4f %.4f %u",
 		                      year, month, day, hour, min, int(sec * 1e2 + usec / 1e4),
 		                      event.latitude, event.longitude, event.depth,
 		                      event.magnitude, event.horiz_err, event.vert_err,
