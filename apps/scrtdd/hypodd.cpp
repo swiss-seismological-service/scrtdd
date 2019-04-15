@@ -2415,23 +2415,23 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
 		return false;
 	}
 
-	double freq = tr1->samplingFrequency();
-	int maxDelaySmps = maxDelay * freq; // secs to samples
+	const double freq = tr1->samplingFrequency();
+	const int maxDelaySmps = maxDelay * freq; // secs to samples
 
 	// check longest/shortest trace
-	bool swap = tr1->data()->size() > tr2->data()->size();
+	const bool swap = tr1->data()->size() > tr2->data()->size();
 	GenericRecordCPtr trShorter = swap ? tr2 : tr1;
 	GenericRecordCPtr trLonger = swap ? tr1 : tr2; 
 
 	const double *smpsS = DoubleArray::ConstCast(trShorter->data())->typedData();
 	const double *smpsL = DoubleArray::ConstCast(trLonger->data())->typedData();
-	int smpsSsize = trShorter->data()->size();
-	int smpsLsize = trLonger->data()->size();
+	const int smpsSsize = trShorter->data()->size();
+	const int smpsLsize = trLonger->data()->size();
 
-	for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
+	for (const int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
 	{
 		double numer = 0, denomL = 0, denomS = 0;
-		for (int idxS = 0; idxS < smpsSsize; idxS++)
+		for (const int idxS = 0; idxS < smpsSsize; idxS++)
 		{
 			int idxL = idxS + (smpsLsize-smpsSsize)/2 + delay;
 			if (idxL < 0 || idxL >= smpsLsize)
@@ -2440,8 +2440,8 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
 			denomL += smpsL[idxL] * smpsL[idxL];
 			denomS += smpsS[idxS] * smpsS[idxS];
 		}
-		double denom =  std::sqrt(denomS * denomL);
-		double coeff = numer / denom;
+		const double denom =  std::sqrt(denomS * denomL);
+		const double coeff = numer / denom;
 		if ( coeff > coeffOut || !std::isfinite(coeffOut) )
 		{
 			coeffOut = coeff;
