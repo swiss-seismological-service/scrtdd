@@ -1,486 +1,486 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <seiscomp>
-	<module name="scrtdd" category="Processing" inherit-global-bindings="true">
-		<description>Real Time Double-Difference location module.</description>
-		<configuration>
+    <module name="scrtdd" category="Processing" inherit-global-bindings="true">
+        <description>Real Time Double-Difference location module.</description>
+        <configuration>
 
-			<parameter name="publicIDpattern" type="string" default="RTDD.@time/%Y%m%d%H%M%S.%f@.@id@">
-				<description>
-					PublicID creation pattern for an origin created by RTDD.
-				</description>
-			</parameter>
+            <parameter name="publicIDpattern" type="string" default="RTDD.@time/%Y%m%d%H%M%S.%f@.@id@">
+                <description>
+                    PublicID creation pattern for an origin created by RTDD.
+                </description>
+            </parameter>
 
-			<parameter name="onlyPreferredOrigin" type="boolean" default="true">
-				<description>
-				Allow relocation of preferred origins only.
-				</description>
-			</parameter>
+            <parameter name="onlyPreferredOrigin" type="boolean" default="true">
+                <description>
+                Allow relocation of preferred origins only.
+                </description>
+            </parameter>
 
-			<parameter name="manualOrigin" type="boolean" default="true">
-				<description>
-				Enables relocation of any manual origin. If false, only automatic origins are relocated.
-				</description>
-			</parameter>
+            <parameter name="manualOrigin" type="boolean" default="true">
+                <description>
+                Enables relocation of any manual origin. If false, only automatic origins are relocated.
+                </description>
+            </parameter>
 
-			<parameter name="workingDirectory" type="path" default="/tmp/rtdd">
-				<description>
-					Defines the directory used for storing temporary processing files.
-				</description>
-			</parameter>
+            <parameter name="workingDirectory" type="path" default="/tmp/rtdd">
+                <description>
+                    Defines the directory used for storing temporary processing files.
+                </description>
+            </parameter>
 
-			<parameter name="keepWorkingFiles" type="boolean" default="false">
-				<description>
-					Do not delete temporary processing files from the working directory
-					after the processing is completed.
-				</description>
-			</parameter>
+            <parameter name="keepWorkingFiles" type="boolean" default="false">
+                <description>
+                    Do not delete temporary processing files from the working directory
+                    after the processing is completed.
+                </description>
+            </parameter>
 
-			<parameter name="hypoddPath" type="path" default="hypodd">
-				<description>
-					Path to hypodd executable.
-				</description>
-			</parameter>
+            <parameter name="hypoddPath" type="path" default="hypodd">
+                <description>
+                    Path to hypodd executable.
+                </description>
+            </parameter>
 
-			<parameter name="activeProfiles" type="list:string" default="">
-				<description>
-					Defines a list of active profiles.
-				</description>
-			</parameter>
+            <parameter name="activeProfiles" type="list:string" default="">
+                <description>
+                    Defines a list of active profiles.
+                </description>
+            </parameter>
 
- 			<group name="performance">
+            <group name="performance">
 
-				<parameter name="profileTimeAlive" type="int" default="-1">
-					<description>
-						Defines how long the profile data should be kept in memery (in seconds). This is useful
-						to release memory (catalog waveform data) after a period of inactivity, but it means the
-						waveforms will have to be reloaded whenever a new event occurs (i.e. it will take more
-						time to relocate an origin).
-						Set a negative value to keep the profile data always in memory.
-					</description>
-				</parameter>
+                <parameter name="profileTimeAlive" type="int" default="-1">
+                    <description>
+                        Defines how long the profile data should be kept in memery (in seconds). This is useful
+                        to release memory (catalog waveform data) after a period of inactivity, but it means the
+                        waveforms will have to be reloaded whenever a new event occurs (i.e. it will take more
+                        time to relocate an origin).
+                        Set a negative value to keep the profile data always in memory.
+                    </description>
+                </parameter>
 
-				<parameter name="cacheWaveforms" type="boolean" default="true">
-					<description>
-						Save catalog waveforms to local disk to avoid reading them from the configured
-						recordStream when a profile is (re)loaded (see profileTimeAlive).
-						The waveforms are saved in the working directory and they can also be moved to other
-						machines that don't have access to those waveforms. Also it is safe to delete the
-						cache, in which case the waveforms will be loaded and saved again on disk
-						the next time the profile is loaded (they will be read again from the configured
-						recordStream).
-						Please note that exists a command line options '--load-catalog' useful to load
-						the catalog waveforms from the record stream and save them on disk. This is useful
-						to make sure all the data is ready when the module is started and avoid lenghty
-						loading in case of big catalogs or slow network connection.
-					</description>
-				</parameter>
+                <parameter name="cacheWaveforms" type="boolean" default="true">
+                    <description>
+                        Save catalog waveforms to local disk to avoid reading them from the configured
+                        recordStream when a profile is (re)loaded (see profileTimeAlive).
+                        The waveforms are saved in the working directory and they can also be moved to other
+                        machines that don't have access to those waveforms. Also it is safe to delete the
+                        cache, in which case the waveforms will be loaded and saved again on disk
+                        the next time the profile is loaded (they will be read again from the configured
+                        recordStream).
+                        Please note that exists a command line options '--load-catalog' useful to load
+                        the catalog waveforms from the record stream and save them on disk. This is useful
+                        to make sure all the data is ready when the module is started and avoid lenghty
+                        loading in case of big catalogs or slow network connection.
+                    </description>
+                </parameter>
 
-		</group>
+        </group>
 
-			<group name="cron">
+            <group name="cron">
 
-				<parameter name="wakeupInterval" type="int" unit="s" default="5">
-					<description>
-						Specifies the interval in seconds to check/start scheduled operations.
-						This is basically the time resolution for delayTimes option.
-					</description>
-				</parameter>
+                <parameter name="wakeupInterval" type="int" unit="s" default="5">
+                    <description>
+                        Specifies the interval in seconds to check/start scheduled operations.
+                        This is basically the time resolution for delayTimes option.
+                    </description>
+                </parameter>
 
-				<parameter name="delayTimes" type="list:int" default="60,120,300,600,3600">
-					<description>
-					Specifies a delay time in seconds, relative to origin time,
-					to trigger the processing. This can be a single value or a list of delay
-					times. In case a list if provided, subsequent delay times are used only
-					if a previous processing attempt fails.
-					Example: &quot;60, 120, 300, 3600&quot;
-					</description>
-				</parameter>
+                <parameter name="delayTimes" type="list:int" default="60,120,300,600,3600">
+                    <description>
+                    Specifies a delay time in seconds, relative to origin time,
+                    to trigger the processing. This can be a single value or a list of delay
+                    times. In case a list if provided, subsequent delay times are used only
+                    if a previous processing attempt fails.
+                    Example: &quot;60, 120, 300, 3600&quot;
+                    </description>
+                </parameter>
 
-				<parameter name="logging" type="boolean" default="true">
-					<description>
-					Enables/disables updating of a cron log file. This file will be
-					created at ~/.seiscomp3/log/[appname].sched
-					and contains information about the scheduled events and the
-					processing queue. The file is updated each n seconds,
-					where n = rtdd.cron.wakeupInterval.
-					</description>
-				</parameter>
+                <parameter name="logging" type="boolean" default="true">
+                    <description>
+                    Enables/disables updating of a cron log file. This file will be
+                    created at ~/.seiscomp3/log/[appname].sched
+                    and contains information about the scheduled events and the
+                    processing queue. The file is updated each n seconds,
+                    where n = rtdd.cron.wakeupInterval.
+                    </description>
+                </parameter>
 
-			</group>
+            </group>
 
-			<group name="profile">
-				<struct type="rtdd profile" link = "rtdd.activeProfiles">
-					<description>
-						Defines a regional profile. Origins that fall in this region will use this
-						configuration. If an origin falls in multiple profile regions, then the
-						profile defined first will be used.
-						The region check is not used for full catalog relocation (see --relocate-catalog
-						command line option)
-					</description>
+            <group name="profile">
+                <struct type="rtdd profile" link = "rtdd.activeProfiles">
+                    <description>
+                        Defines a regional profile. Origins that fall in this region will use this
+                        configuration. If an origin falls in multiple profile regions, then the
+                        profile defined first will be used.
+                        The region check is not used for full catalog relocation (see --relocate-catalog
+                        command line option)
+                    </description>
 
-					<parameter name="regionType" type="string">
-						<description>
-							Type of region: RECTANGLE or CIRCLE
-						</description>
-					</parameter>
+                    <parameter name="regionType" type="string">
+                        <description>
+                            Type of region: RECTANGLE or CIRCLE
+                        </description>
+                    </parameter>
 
-					<parameter name="region" type="list:double">
-						<description>
-							Defines the region values. If regionType is RECTANGLE then 4 values
-							(min_lat, min_lon, max_lat, max_lon) are expected. If regionType
-							is CIRCLE then 3 values are expected (lat, lon, radius in km).
-							If region is empty, then it will represent a region that matches any
-							origin.
-						</description>
-					</parameter>
+                    <parameter name="region" type="list:double">
+                        <description>
+                            Defines the region values. If regionType is RECTANGLE then 4 values
+                            (min_lat, min_lon, max_lat, max_lon) are expected. If regionType
+                            is CIRCLE then 3 values are expected (lat, lon, radius in km).
+                            If region is empty, then it will represent a region that matches any
+                            origin.
+                        </description>
+                    </parameter>
 
-					<parameter name="earthModelID" type="string">
-						<description>
-							earthModelID that is stored in the created origin.
-						</description>
-					</parameter>
+                    <parameter name="earthModelID" type="string">
+                        <description>
+                            earthModelID that is stored in the created origin.
+                        </description>
+                    </parameter>
 
-					<parameter name="methodID" type="string" default="RTDD">
-						<description>
-							methodID that is stored in the created origin.
-						</description>
-					</parameter>
+                    <parameter name="methodID" type="string" default="RTDD">
+                        <description>
+                            methodID that is stored in the created origin.
+                        </description>
+                    </parameter>
 
-					<group name="catalog">
-						<description>
-							The files used to define a background catalog. New origins will be relocated using this
-							catalog, which must contains high quality locations. In full catalog relocation mode
-							(see --relocate-catalog command line option) this is the catalog that will be relocated.
-							There are two ways to define a catalog: one is providing an event file containing the ids
-							of existing events or origins; the second way consists in providing extended information 
-							(useful when the events are not in the database) and three files are required event, phase
-							and stations.
-							The files must be in csv format with the first line containing the column names. Each file
-							requires a minimum set of columns, which can appear in any order. Additional
-							columns can be present and will not be used but are allowed for informationl purpose.
-						</description>
+                    <group name="catalog">
+                        <description>
+                            The files used to define a background catalog. New origins will be relocated using this
+                            catalog, which must contains high quality locations. In full catalog relocation mode
+                            (see --relocate-catalog command line option) this is the catalog that will be relocated.
+                            There are two ways to define a catalog: one is providing an event file containing the ids
+                            of existing events or origins; the second way consists in providing extended information 
+                            (useful when the events are not in the database) and three files are required event, phase
+                            and stations.
+                            The files must be in csv format with the first line containing the column names. Each file
+                            requires a minimum set of columns, which can appear in any order. Additional
+                            columns can be present and will not be used but are allowed for informationl purpose.
+                        </description>
 
-						<parameter name="eventFile" type="path">
-							<description>
-								Path to event file to be used for this profile.
-								Required columns: seiscompId (this must be a valide seiscomp3 origin id or event id)
-								Extended format columns: id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,tt_residual
-								If the extended format is used, then the phase and station files must be provided.
-								Conversely, if the format used is the one with seiscompId, no other files have to be
-								provided and the event information will be fetched from the database.
-							</description>
-						</parameter>
+                        <parameter name="eventFile" type="path">
+                            <description>
+                                Path to event file to be used for this profile.
+                                Required columns: seiscompId (this must be a valide seiscomp3 origin id or event id)
+                                Extended format columns: id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,tt_residual
+                                If the extended format is used, then the phase and station files must be provided.
+                                Conversely, if the format used is the one with seiscompId, no other files have to be
+                                provided and the event information will be fetched from the database.
+                            </description>
+                        </parameter>
 
-						<parameter name="phaFile" type="path">
-							<description>
-								Path to catalog picks file to be used for this profile
-								Required columns: eventId,stationId,isotime,weight,type,networkcode,stationcode,locationCode,channelCode
-							</description>
-						</parameter>
+                        <parameter name="phaFile" type="path">
+                            <description>
+                                Path to catalog picks file to be used for this profile
+                                Required columns: eventId,stationId,isotime,weight,type,networkcode,stationcode,locationCode,channelCode
+                            </description>
+                        </parameter>
 
-						<parameter name="stationFile" type="path">
-							<description>
-								Path to the stations file to be used for this profile
-								Required columns: id,latitude,longitude,elevation,networkcode,stationcode
-							</description>
-						</parameter>
+                        <parameter name="stationFile" type="path">
+                            <description>
+                                Path to the stations file to be used for this profile
+                                Required columns: id,latitude,longitude,elevation,networkcode,stationcode
+                            </description>
+                        </parameter>
 
-						<parameter name="P-Phases" type="list:string" default="Pg,P">
-							<description>
-								Defines a priority list of accepted P phases. Phases not in the list will be discarded.
-								if multiple phases exist for the same event/station pair, the first one in the list will be used.
-							</description>
-						</parameter>
+                        <parameter name="P-Phases" type="list:string" default="Pg,P">
+                            <description>
+                                Defines a priority list of accepted P phases. Phases not in the list will be discarded.
+                                if multiple phases exist for the same event/station pair, the first one in the list will be used.
+                            </description>
+                        </parameter>
 
-						<parameter name="S-Phases" type="list:string" default="Sg,S">
-							<description>
-								Defines a priority list of accepted S phases. Phases not in this list will be discarded.
-								if multiple phases exist for the same event/station pair, the first one in the list will be used.
-							</description>
-						</parameter>
+                        <parameter name="S-Phases" type="list:string" default="Sg,S">
+                            <description>
+                                Defines a priority list of accepted S phases. Phases not in this list will be discarded.
+                                if multiple phases exist for the same event/station pair, the first one in the list will be used.
+                            </description>
+                        </parameter>
 
-						<parameter name="incrementalCatalogFile" type="path">
-							<description>
-								Path to incremental catalog file. If this file is specified then every new origin
-								relocated with this profile will be added to the incrementalCatalogFile and used
-								as additional entry for the configured catalog.
-								When scrtdd module starts it reads entries from the incrementalCatalogFile and
-								add them to its configured background catalog. It is safe to edit this file
-								when scrtdd is not running.
-							</description>
-						</parameter>
+                        <parameter name="incrementalCatalogFile" type="path">
+                            <description>
+                                Path to incremental catalog file. If this file is specified then every new origin
+                                relocated with this profile will be added to the incrementalCatalogFile and used
+                                as additional entry for the configured catalog.
+                                When scrtdd module starts it reads entries from the incrementalCatalogFile and
+                                add them to its configured background catalog. It is safe to edit this file
+                                when scrtdd is not running.
+                            </description>
+                        </parameter>
 
- 					</group>
+                    </group>
 
-					<group name="dtct">
-						<description>
-							These options control the creation of catalog absolute travel time entries for pairs of
-							earthquakes (dt.ct file in HypoDD terminology).
-						</description>
-						<parameter name="minWeight" type="double">
-							<description>
-								Min phase weight required. Phases not satisfying this condition will not be used.
-								Check disabled by default.
-							</description>
-						</parameter>
-						<parameter name="minESdist" type="double">
-							<description>
-								Min distance (km) between event pair and station required. Phases belonging
-								to stations not satisfyig this condition will not be used.
-								Check disabled by default. 
-							</description>
-						</parameter>
- 						<parameter name="maxESdist" type="double">
-							<description>
-								Max distance (km) between event pair and station allowed. Phases belonging
-								to stations not satisfyig this condition will not be used.
-								No limit by default.
-							</description>
-						</parameter>
-						<parameter name="minEStoIEratio" type="double">
-							<description>
-								Min ratio between event-station distance and pair inter-event distance. Phases
-								belonging to stations not satisfyig this condition will not be used.
-								Check disabled by default.
-							</description>
-						</parameter>
-						<parameter name="maxIEdist" type="double">
-							<description>
-								Max distance (km) between events in a pair allowed. Event pairs not satisfying 
-								this condition will not be used. No limit by default.
-							</description>
-						</parameter>
-						<parameter name="minDTperEvt" type="int">
-							<description>
-								Min number of differential travel times (Including P+S) per event pair required.
-								Event pairs not satisfying this condition will not be used.
-								Check disabled by default.
-							</description>
-							</parameter>
-						<parameter name="minNumNeigh" type="int">
-							<description>
-								Min number of neighboring events required. Events not satisfying this condition
-								will not be used. Check disabled by default.
-							</description>
-						</parameter>
-						<parameter name="maxNumNeigh" type="int">
-							<description>
-								Max number of neighbors used. Further events are discarded. No limit by default.
-							</description>
-						</parameter>
-					</group>
+                    <group name="dtct">
+                        <description>
+                            These options control the creation of catalog absolute travel time entries for pairs of
+                            earthquakes (dt.ct file in HypoDD terminology).
+                        </description>
+                        <parameter name="minWeight" type="double">
+                            <description>
+                                Min phase weight required. Phases not satisfying this condition will not be used.
+                                Check disabled by default.
+                            </description>
+                        </parameter>
+                        <parameter name="minESdist" type="double">
+                            <description>
+                                Min distance (km) between event pair and station required. Phases belonging
+                                to stations not satisfyig this condition will not be used.
+                                Check disabled by default. 
+                            </description>
+                        </parameter>
+                        <parameter name="maxESdist" type="double">
+                            <description>
+                                Max distance (km) between event pair and station allowed. Phases belonging
+                                to stations not satisfyig this condition will not be used.
+                                No limit by default.
+                            </description>
+                        </parameter>
+                        <parameter name="minEStoIEratio" type="double">
+                            <description>
+                                Min ratio between event-station distance and pair inter-event distance. Phases
+                                belonging to stations not satisfyig this condition will not be used.
+                                Check disabled by default.
+                            </description>
+                        </parameter>
+                        <parameter name="maxIEdist" type="double">
+                            <description>
+                                Max distance (km) between events in a pair allowed. Event pairs not satisfying 
+                                this condition will not be used. No limit by default.
+                            </description>
+                        </parameter>
+                        <parameter name="minDTperEvt" type="int">
+                            <description>
+                                Min number of differential travel times (Including P+S) per event pair required.
+                                Event pairs not satisfying this condition will not be used.
+                                Check disabled by default.
+                            </description>
+                            </parameter>
+                        <parameter name="minNumNeigh" type="int">
+                            <description>
+                                Min number of neighboring events required. Events not satisfying this condition
+                                will not be used. Check disabled by default.
+                            </description>
+                        </parameter>
+                        <parameter name="maxNumNeigh" type="int">
+                            <description>
+                                Max number of neighbors used. Further events are discarded. No limit by default.
+                            </description>
+                        </parameter>
+                    </group>
 
-					<group name="dtcc">
-						<description>												
-							Those options control the creation of differential travel times from cross correlation
-							for pairs of earthquakes (dt.cc file in HypoDD terminology). 
-						</description>
-						<parameter name="minWeight" type="double">
-							<description>
-								Min phase weight required. Phases not satisfying this condition will not be used.
-								Check disabled by default.
-							</description>
-						</parameter>
-						<parameter name="minESdist" type="double">
-							<description>
-								Min distance (km) between event pair and station required. Phases belonging
-								to stations not satisfyig this condition will not be used.
-								Check disabled by default. 
-							</description>
-						</parameter>
- 						<parameter name="maxESdist" type="double">
-							<description>
-								Max distance (km) between event pair and station allowed. Phases belonging
-								to stations not satisfyig this condition will not be used.
-								No limit by default.
-							</description>
-						</parameter>
-						<parameter name="minEStoIEratio" type="double">
-							<description>
-								Min ratio between event-station distance and pair inter-event distance. Phases
-								belonging to stations not satisfyig this condition will not be used.
-								Check disabled by default.
-							</description>
-						</parameter>
-						<parameter name="maxIEdist" type="double">
-							<description>
-								Max distance (km) between events in a pair allowed. Event pairs not satisfying 
-								this condition will not be used. No limit by default.
-							</description>
-						</parameter>
-						<parameter name="minDTperEvt" type="int">
-							<description>
-								Min number of differential travel times (Including P+S) per event pair required.
-								Event pairs not satisfying this condition will not be used.
-								Check disabled by default.
-							</description>
-							</parameter>
-						<parameter name="minNumNeigh" type="int">
-							<description>
-								Min number of neighboring events required. Events not satisfying this condition
-								will not be used. Check disabled by default.
-							</description>
-						</parameter>
-						<parameter name="maxNumNeigh" type="int">
-							<description>
-								Max number of neighbors used. Further events are discarded. No limit by default.
-							</description>
-						</parameter>
+                    <group name="dtcc">
+                        <description>                                               
+                            Those options control the creation of differential travel times from cross correlation
+                            for pairs of earthquakes (dt.cc file in HypoDD terminology). 
+                        </description>
+                        <parameter name="minWeight" type="double">
+                            <description>
+                                Min phase weight required. Phases not satisfying this condition will not be used.
+                                Check disabled by default.
+                            </description>
+                        </parameter>
+                        <parameter name="minESdist" type="double">
+                            <description>
+                                Min distance (km) between event pair and station required. Phases belonging
+                                to stations not satisfyig this condition will not be used.
+                                Check disabled by default. 
+                            </description>
+                        </parameter>
+                        <parameter name="maxESdist" type="double">
+                            <description>
+                                Max distance (km) between event pair and station allowed. Phases belonging
+                                to stations not satisfyig this condition will not be used.
+                                No limit by default.
+                            </description>
+                        </parameter>
+                        <parameter name="minEStoIEratio" type="double">
+                            <description>
+                                Min ratio between event-station distance and pair inter-event distance. Phases
+                                belonging to stations not satisfyig this condition will not be used.
+                                Check disabled by default.
+                            </description>
+                        </parameter>
+                        <parameter name="maxIEdist" type="double">
+                            <description>
+                                Max distance (km) between events in a pair allowed. Event pairs not satisfying 
+                                this condition will not be used. No limit by default.
+                            </description>
+                        </parameter>
+                        <parameter name="minDTperEvt" type="int">
+                            <description>
+                                Min number of differential travel times (Including P+S) per event pair required.
+                                Event pairs not satisfying this condition will not be used.
+                                Check disabled by default.
+                            </description>
+                            </parameter>
+                        <parameter name="minNumNeigh" type="int">
+                            <description>
+                                Min number of neighboring events required. Events not satisfying this condition
+                                will not be used. Check disabled by default.
+                            </description>
+                        </parameter>
+                        <parameter name="maxNumNeigh" type="int">
+                            <description>
+                                Max number of neighbors used. Further events are discarded. No limit by default.
+                            </description>
+                        </parameter>
 
-						<group name="crosscorrelation">
-							<parameter name="timeBeforePick" type="double">
-								<description>(secs)</description>
-							</parameter>
-							<parameter name="timeAfterPick" type="double">
-								<description>(secs)</description>
-							</parameter>
-							<parameter name="maxDelay" type="double">
-								<description>(secs)</description>
-							</parameter>
-							<parameter name="minCCCoef" type="double">
-								<description>Min crosscorrelation coefficient accepted to use a differential travel time</description>
-							</parameter>
-							<parameter name="filterFmin" type="double">
-								<description>Frequency of the hi-pass filter (hz, 0 disable)</description>
-							</parameter>
-							<parameter name="filterFmax" type="double">
-								<description>Frequency of the low-pass filter (hz, 0 disable)</description>
-							</parameter>
-							<parameter name="filterOrder" type="int">
-								<description>Filter order</description>
-							</parameter>
-							<parameter name="resampling" type="double">
-								<description>
-									Resample all traces at this samplig interval (hz, 0 disable) before
-									performing the cross correlation
-								</description>
-							</parameter>
-						</group>
-					</group>
-					
+                        <group name="crosscorrelation">
+                            <parameter name="timeBeforePick" type="double">
+                                <description>(secs)</description>
+                            </parameter>
+                            <parameter name="timeAfterPick" type="double">
+                                <description>(secs)</description>
+                            </parameter>
+                            <parameter name="maxDelay" type="double">
+                                <description>(secs)</description>
+                            </parameter>
+                            <parameter name="minCCCoef" type="double">
+                                <description>Min crosscorrelation coefficient accepted to use a differential travel time</description>
+                            </parameter>
+                            <parameter name="filterFmin" type="double">
+                                <description>Frequency of the hi-pass filter (hz, 0 disable)</description>
+                            </parameter>
+                            <parameter name="filterFmax" type="double">
+                                <description>Frequency of the low-pass filter (hz, 0 disable)</description>
+                            </parameter>
+                            <parameter name="filterOrder" type="int">
+                                <description>Filter order</description>
+                            </parameter>
+                            <parameter name="resampling" type="double">
+                                <description>
+                                    Resample all traces at this samplig interval (hz, 0 disable) before
+                                    performing the cross correlation
+                                </description>
+                            </parameter>
+                        </group>
+                    </group>
+                    
                     <group name="hypoDD">
-						<description>
-    						Real time event relocation is done in two steps, each one controlled by a specific hypoDD configuration.
+                        <description>
+                            Real time event relocation is done in two steps, each one controlled by a specific hypoDD configuration.
                             Step 1 is the location refinement: hypoDD is used to compute a preliminary relocation of the origin using
                             only catalog absolute travel time entries (dt.ct file).
                             Step 2 is the final relocation: hypoDD is used with both catalog absolute travel times (dt.ct) and
                             differential travel times from cross correlation (dt.cc). 
-       						In full catalog relocation (see --relocate-catalog command line option) hypoDD is run in one step only,
-       						using step2ControlFile option.							
-						</description>						
-						<parameter name="step1ControlFile" type="path">
-							<description>
-								Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
+                            In full catalog relocation (see --relocate-catalog command line option) hypoDD is run in one step only,
+                            using step2ControlFile option.                          
+                        </description>                      
+                        <parameter name="step1ControlFile" type="path">
+                            <description>
+                                Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
                                 The input/output files will be replaced by SCRTDD with its own files, thus the values
                                 at those lines are not relevant.
-							</description>
-						</parameter>
-						<parameter name="step2ControlFile" type="path">
-							<description>
-								Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
+                            </description>
+                        </parameter>
+                        <parameter name="step2ControlFile" type="path">
+                            <description>
+                                Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
                                 The input/output files will be replaced by SCRTDD with its own files, thus the values
                                 at those lines are not relevant.
-							</description>
-						</parameter>						
-					</group>
-					
-					
-				</struct>
-			</group>
+                            </description>
+                        </parameter>                        
+                    </group>
+                    
+                    
+                </struct>
+            </group>
 
-		</configuration>
-		<command-line>
-			<group name="Generic">
-				<optionReference>generic#help</optionReference>
-				<optionReference>generic#version</optionReference>
-				<optionReference>generic#config-file</optionReference>
-				<optionReference>generic#plugins</optionReference>
-				<optionReference>generic#daemon</optionReference>
-				<optionReference>generic#auto-shutdown</optionReference>
-				<optionReference>generic#shutdown-master-module</optionReference>
-				<optionReference>generic#shutdown-master-username</optionReference>
-			</group>
-			
-			<group name="Verbosity">
-				<optionReference>verbosity#verbosity</optionReference>
-				<optionReference>verbosity#v</optionReference>
-				<optionReference>verbosity#quiet</optionReference>
-				<optionReference>verbosity#component</optionReference>
-				<optionReference>verbosity#syslog</optionReference>
-				<optionReference>verbosity#lockfile</optionReference>
-				<optionReference>verbosity#console</optionReference>
-				<optionReference>verbosity#debug</optionReference>
-				<optionReference>verbosity#log-file</optionReference>
-			</group>
-			
-			<group name="Messaging">
-				<optionReference>messaging#user</optionReference>
-				<optionReference>messaging#host</optionReference>
-				<optionReference>messaging#timeout</optionReference>
-				<optionReference>messaging#primary-group</optionReference>
-				<optionReference>messaging#subscribe-group</optionReference>
-				<optionReference>messaging#encoding</optionReference>
-				<optionReference>messaging#start-stop-msg</optionReference>
-			</group>
+        </configuration>
+        <command-line>
+            <group name="Generic">
+                <optionReference>generic#help</optionReference>
+                <optionReference>generic#version</optionReference>
+                <optionReference>generic#config-file</optionReference>
+                <optionReference>generic#plugins</optionReference>
+                <optionReference>generic#daemon</optionReference>
+                <optionReference>generic#auto-shutdown</optionReference>
+                <optionReference>generic#shutdown-master-module</optionReference>
+                <optionReference>generic#shutdown-master-username</optionReference>
+            </group>
+            
+            <group name="Verbosity">
+                <optionReference>verbosity#verbosity</optionReference>
+                <optionReference>verbosity#v</optionReference>
+                <optionReference>verbosity#quiet</optionReference>
+                <optionReference>verbosity#component</optionReference>
+                <optionReference>verbosity#syslog</optionReference>
+                <optionReference>verbosity#lockfile</optionReference>
+                <optionReference>verbosity#console</optionReference>
+                <optionReference>verbosity#debug</optionReference>
+                <optionReference>verbosity#log-file</optionReference>
+            </group>
+            
+            <group name="Messaging">
+                <optionReference>messaging#user</optionReference>
+                <optionReference>messaging#host</optionReference>
+                <optionReference>messaging#timeout</optionReference>
+                <optionReference>messaging#primary-group</optionReference>
+                <optionReference>messaging#subscribe-group</optionReference>
+                <optionReference>messaging#encoding</optionReference>
+                <optionReference>messaging#start-stop-msg</optionReference>
+            </group>
 
-			<group name="Database">
-				<optionReference>database#db-driver-list</optionReference>
-				<optionReference>database#database</optionReference>
-				<optionReference>database#config-module</optionReference>
-				<optionReference>database#inventory-db</optionReference>
-				<optionReference>database#db-disable</optionReference>
-			</group>
+            <group name="Database">
+                <optionReference>database#db-driver-list</optionReference>
+                <optionReference>database#database</optionReference>
+                <optionReference>database#config-module</optionReference>
+                <optionReference>database#inventory-db</optionReference>
+                <optionReference>database#db-disable</optionReference>
+            </group>
 
-			<group name="Records">
-				<optionReference>records#record-driver-list</optionReference>
-				<optionReference>records#record-url</optionReference>
-				<optionReference>records#record-file</optionReference>
-				<optionReference>records#record-type</optionReference>
-			</group>
+            <group name="Records">
+                <optionReference>records#record-driver-list</optionReference>
+                <optionReference>records#record-url</optionReference>
+                <optionReference>records#record-file</optionReference>
+                <optionReference>records#record-type</optionReference>
+            </group>
 
-			<group name="Mode">
+            <group name="Mode">
 
-				<option long-flag="test">
-					<description>"Test mode, no messages are sent</description>
-				</option>
+                <option long-flag="test">
+                    <description>"Test mode, no messages are sent</description>
+                </option>
 
-				<option long-flag="force">
-					<description>Force event processing: in single event mode the processing is performed even on origins that would normally be skipped (already processed, not preferred, manual, etc.); In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used</description>
-				</option>
+                <option long-flag="force">
+                    <description>Force event processing: in single event mode the processing is performed even on origins that would normally be skipped (already processed, not preferred, manual, etc.); In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used</description>
+                </option>
 
-				<option long-flag="expiry" flag="x" argument="hours">
-					<description>Time span in hours after which objects expire</description>
-				</option>
+                <option long-flag="expiry" flag="x" argument="hours">
+                    <description>Time span in hours after which objects expire</description>
+                </option>
 
-				<option long-flag="origin-id" flag="O" argument="arg">
-					<description>Relocate the origin (or multiple comma-separated origins) and send a message </description>
-				</option>
+                <option long-flag="origin-id" flag="O" argument="arg">
+                    <description>Relocate the origin (or multiple comma-separated origins) and send a message </description>
+                </option>
 
-				<option long-flag="ep" argument="arg">
-					<description>Event parameters XML file for offline processing of contained origins (imply test option). Ech origin will be processed accordingly with the matching profile configuration</description>
-				</option>
+                <option long-flag="ep" argument="arg">
+                    <description>Event parameters XML file for offline processing of contained origins (imply test option). Ech origin will be processed accordingly with the matching profile configuration</description>
+                </option>
 
-				<option long-flag="profile" argument="arg">
-					<description>Force a specific profile to be used</description>
-				</option>
+                <option long-flag="profile" argument="arg">
+                    <description>Force a specific profile to be used</description>
+                </option>
 
-				<option long-flag="reloc-catalog" argument="arg">
-					<description>Relocate the catalog of profile passed as argument</description>
-				</option>
+                <option long-flag="reloc-catalog" argument="arg">
+                    <description>Relocate the catalog of profile passed as argument</description>
+                </option>
 
-				<option long-flag="dump-catalog" argument="arg">
-					<description>Dump catalog files from the seiscomp event/origin ids file passed as argument</description>
-				</option>
+                <option long-flag="dump-catalog" argument="arg">
+                    <description>Dump catalog files from the seiscomp event/origin ids file passed as argument</description>
+                </option>
 
-				<option long-flag="load-catalog" argument="arg">
-					<description>Load catalog waveforms and save them in the working directory configured for the profile</description>
-				</option>
+                <option long-flag="load-catalog" argument="arg">
+                    <description>Load catalog waveforms and save them in the working directory configured for the profile</description>
+                </option>
  
-				<option long-flag="dump-config">
-					<description>Dump the configuration and exit</description>
-				</option>
-			</group>
-		</command-line>
-	</module>
+                <option long-flag="dump-config">
+                    <description>Dump the configuration and exit</description>
+                </option>
+            </group>
+        </command-line>
+    </module>
 
 </seiscomp>

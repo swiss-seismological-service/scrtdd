@@ -51,150 +51,150 @@ class Event;
 
 
 class RTDD : public Application {
-	public:
-		RTDD(int argc, char **argv);
-		~RTDD();
+    public:
+        RTDD(int argc, char **argv);
+        ~RTDD();
 
-		struct Region : public Core::BaseObject {
-			virtual bool init(const Application* app, const std::string &prefix) = 0;
-			virtual bool isInside(double lat, double lon) const = 0;
-		};
-		DEFINE_SMARTPOINTER(Region);
+        struct Region : public Core::BaseObject {
+            virtual bool init(const Application* app, const std::string &prefix) = 0;
+            virtual bool isInside(double lat, double lon) const = 0;
+        };
+        DEFINE_SMARTPOINTER(Region);
 
-	protected:
-		void createCommandLineDescription();
-		bool validateParameters();
+    protected:
+        void createCommandLineDescription();
+        bool validateParameters();
 
-		bool init();
-		bool run();
-		void done();
+        bool init();
+        bool run();
+        void done();
 
-		void handleMessage(Core::Message *msg);
-		void addObject(const std::string&, DataModel::Object* object);
-		void updateObject(const std::string&, DataModel::Object* object);
-		void handleRecord(Record *rec) { /* we don't really need this */ }
+        void handleMessage(Core::Message *msg);
+        void addObject(const std::string&, DataModel::Object* object);
+        void updateObject(const std::string&, DataModel::Object* object);
+        void handleRecord(Record *rec) { /* we don't really need this */ }
 
-		void handleTimeout();
-		void checkProfileStatus();
-		void runNewJobs();
+        void handleTimeout();
+        void checkProfileStatus();
+        void runNewJobs();
 
-	private:
-		DEFINE_SMARTPOINTER(Process);
-		DEFINE_SMARTPOINTER(Profile);
-		DEFINE_SMARTPOINTER(Cronjob);
+    private:
+        DEFINE_SMARTPOINTER(Process);
+        DEFINE_SMARTPOINTER(Profile);
+        DEFINE_SMARTPOINTER(Cronjob);
 
-		bool addProcess(DataModel::PublicObject* obj);
-		bool startProcess(Process *proc);
-		void removeProcess(Process *proc);
+        bool addProcess(DataModel::PublicObject* obj);
+        bool startProcess(Process *proc);
+        void removeProcess(Process *proc);
 
-		bool process(DataModel::Origin *origin);
+        bool process(DataModel::Origin *origin);
 
-		void removedFromCache(DataModel::PublicObject *);
+        void removedFromCache(DataModel::PublicObject *);
 
-		bool send(DataModel::Origin *org);
+        bool send(DataModel::Origin *org);
 
-		DataModel::OriginPtr relocateOrigin(DataModel::Origin *org, ProfilePtr);
+        DataModel::OriginPtr relocateOrigin(DataModel::Origin *org, ProfilePtr);
 
-		struct Config {
-			Config();
+        struct Config {
+            Config();
 
-			std::string publicIDPattern;
-			std::vector<std::string> activeProfiles;
-			std::string workingDirectory;
-			bool        keepWorkingFiles;
-			bool        onlyPreferredOrigin;
-			bool        processManualOrigin;
-			int         profileTimeAlive; //seconds
-			bool        cacheWaveforms;
+            std::string publicIDPattern;
+            std::vector<std::string> activeProfiles;
+            std::string workingDirectory;
+            bool        keepWorkingFiles;
+            bool        onlyPreferredOrigin;
+            bool        processManualOrigin;
+            int         profileTimeAlive; //seconds
+            bool        cacheWaveforms;
 
             // Mode
-			bool        forceProcessing;
-			bool        testMode;
-			double      fExpiry;
-			std::string originIDs;
-			std::string eventXML;
-			std::string forceProfile;
-			std::string relocateCatalog;
-			std::string dumpCatalog;
-			std::string loadCatalog;
+            bool        forceProcessing;
+            bool        testMode;
+            double      fExpiry;
+            std::string originIDs;
+            std::string eventXML;
+            std::string forceProfile;
+            std::string relocateCatalog;
+            std::string dumpCatalog;
+            std::string loadCatalog;
 
             // cron
-			int         wakeupInterval;
-			bool        logCrontab;
-			std::vector<int> delayTimes;
+            int         wakeupInterval;
+            bool        logCrontab;
+            std::vector<int> delayTimes;
 
-		};
+        };
 
-		class Profile : public Core::BaseObject {
-			public:
-			Profile();
-			void load(DataModel::DatabaseQuery* query,
-			          DataModel::PublicObjectTimeSpanBuffer* cache,
-			          DataModel::EventParameters* eventParameters,
-			          const std::string& workingDir,
-			          bool cleanupWorkingDir,
-			          bool cacheWaveforms,
-			          bool preloadData);
-			void unload();
-			bool isLoaded() { return loaded; }
-			Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
-			HDD::CatalogPtr relocateSingleEvent(DataModel::Origin *org);
-			HDD::CatalogPtr relocateCatalog(bool force = true);
-			bool addIncrementalCatalogEntry(DataModel::Origin *org);
+        class Profile : public Core::BaseObject {
+            public:
+            Profile();
+            void load(DataModel::DatabaseQuery* query,
+                      DataModel::PublicObjectTimeSpanBuffer* cache,
+                      DataModel::EventParameters* eventParameters,
+                      const std::string& workingDir,
+                      bool cleanupWorkingDir,
+                      bool cacheWaveforms,
+                      bool preloadData);
+            void unload();
+            bool isLoaded() { return loaded; }
+            Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
+            HDD::CatalogPtr relocateSingleEvent(DataModel::Origin *org);
+            HDD::CatalogPtr relocateCatalog(bool force = true);
+            bool addIncrementalCatalogEntry(DataModel::Origin *org);
 
-			std::string name;
-			std::string earthModelID;
-			std::string methodID;
-			std::string eventIDFile;
-			std::string stationFile;
-			std::string eventFile;
-			std::string phaFile;
-			std::string incrementalCatalogFile;
-			RegionPtr   region;
-			HDD::Config ddcfg;
+            std::string name;
+            std::string earthModelID;
+            std::string methodID;
+            std::string eventIDFile;
+            std::string stationFile;
+            std::string eventFile;
+            std::string phaFile;
+            std::string incrementalCatalogFile;
+            RegionPtr   region;
+            HDD::Config ddcfg;
 
-			private:
-			bool loaded;
-			Core::Time lastUsage;
-			HDD::HypoDDPtr hypodd;
-			DataModel::DatabaseQuery* query;
-			DataModel::PublicObjectTimeSpanBuffer* cache;
-			DataModel::EventParameters* eventParameters;
-		};
+            private:
+            bool loaded;
+            Core::Time lastUsage;
+            HDD::HypoDDPtr hypodd;
+            DataModel::DatabaseQuery* query;
+            DataModel::PublicObjectTimeSpanBuffer* cache;
+            DataModel::EventParameters* eventParameters;
+        };
 
-		struct Cronjob : public Core::BaseObject {
-			std::list<Core::Time> runTimes;
-		};
+        struct Cronjob : public Core::BaseObject {
+            std::list<Core::Time> runTimes;
+        };
 
-		struct Process : Core::BaseObject {
-			Core::Time          created;
-			Core::Time          lastRun;
-			DataModel::PublicObjectPtr obj;
-			CronjobPtr          cronjob;
-		};
+        struct Process : Core::BaseObject {
+            Core::Time          created;
+            Core::Time          lastRun;
+            DataModel::PublicObjectPtr obj;
+            CronjobPtr          cronjob;
+        };
 
-		typedef std::list<ProcessPtr>              ProcessQueue;
-		typedef std::map<std::string, ProcessPtr>  Processes;
-		typedef std::set<DataModel::PublicObjectPtr> Todos;
+        typedef std::list<ProcessPtr>              ProcessQueue;
+        typedef std::map<std::string, ProcessPtr>  Processes;
+        typedef std::set<DataModel::PublicObjectPtr> Todos;
 
-		ProcessQueue               _processQueue;
-		Processes                  _processes;
-		int                        _cronCounter;
-		Todos                      _todos;
+        ProcessQueue               _processQueue;
+        Processes                  _processes;
+        int                        _cronCounter;
+        Todos                      _todos;
 
-		DataModel::PublicObjectTimeSpanBuffer _cache;
+        DataModel::PublicObjectTimeSpanBuffer _cache;
 
-		Config                     _config;
-		std::list<ProfilePtr>      _profiles;
+        Config                     _config;
+        std::list<ProfilePtr>      _profiles;
 
-		DataModel::EventParametersPtr _eventParameters;
+        DataModel::EventParametersPtr _eventParameters;
 
-		Logging::Channel *_processingInfoChannel;
-		Logging::Output  *_processingInfoOutput;
+        Logging::Channel *_processingInfoChannel;
+        Logging::Output  *_processingInfoOutput;
 
-		ObjectLog        *_inputEvts;
-		ObjectLog        *_inputOrgs;
-		ObjectLog        *_outputOrgs;
+        ObjectLog        *_inputEvts;
+        ObjectLog        *_inputOrgs;
+        ObjectLog        *_outputOrgs;
 };
 
 }
