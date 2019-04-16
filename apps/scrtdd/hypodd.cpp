@@ -1094,7 +1094,7 @@ CatalogPtr HypoDD::filterOutPhases(const CatalogCPtr& catalog,
 }
 
 
-CatalogPtr HypoDD::relocateCatalog(bool force)
+CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
 {
 	SEISCOMP_DEBUG("Starting HypoDD relocator in multiple events mode");
 
@@ -1114,34 +1114,70 @@ CatalogPtr HypoDD::relocateCatalog(bool force)
 	                    (boost::filesystem::path(catalogWorkingDir)/"phase.csv").string(),
 	                    (boost::filesystem::path(catalogWorkingDir)/"station.csv").string() );
 
-	// calculate differential travel times from catalog phases
-	// Create dt.ct (if not already generated)
-	string dtctFile = (boost::filesystem::path(catalogWorkingDir)/"dt.ct").string();
-	if ( force || ! Util::fileExists(dtctFile) )
-	{
-		createDtCtCatalog(_ddbgc, dtctFile);
-	}
-
-	// calculate cross correlated differential travel times
-	// Create dt.cc (if not already generated)
-	string dtccFile = (boost::filesystem::path(catalogWorkingDir)/"dt.cc").string();
-	if ( force || ! Util::fileExists(dtccFile) )
-	{ 
-		xcorrCatalog(_ddbgc, dtccFile);
-	}
-
 	// Create event.dat for hypodd (if not already generated)
 	string eventFile = (boost::filesystem::path(catalogWorkingDir)/"event.dat").string();
 	if ( force || ! Util::fileExists(eventFile) )
 	{
 		createEventDatFile(eventFile, _ddbgc);
 	}
-
+	
 	// Create station.dat for hypodd (if not already generated)
 	string stationFile = (boost::filesystem::path(catalogWorkingDir)/"station.dat").string();
 	if ( force || ! Util::fileExists(stationFile) )
 	{
 		createStationDatFile(stationFile, _ddbgc);
+	}
+
+	string dtctFile = (boost::filesystem::path(catalogWorkingDir)/"dt.ct").string();
+	string dtccFile = (boost::filesystem::path(catalogWorkingDir)/"dt.cc").string(); 
+
+	if ( ! usePh2dt )
+	{
+		// calculate absolute travel times from catalog phases
+		// Create dt.ct (if not already generated)
+		if ( force || ! Util::fileExists(dtctFile) )
+		{
+			createDtCtCatalog(_ddbgc, dtctFile);
+		}
+
+		// calculate cross correlated differential travel times
+		// Create dt.cc (if not already generated)
+		if ( force || ! Util::fileExists(dtccFile) )
+		{
+			createDtCcCatalog(_ddbgc, dtccFile);
+		}
+	}
+	else
+	{
+		// Create phase.dat for ph2dt (if not already generated)
+		string phaseFile = (boost::filesystem::path(catalogWorkingDir)/"phase.dat").string();
+		if ( force || ! Util::fileExists(phaseFile) )
+		{
+			createPhaseDatFile(phaseFile, _ddbgc);
+		}
+
+		// run ph2dt
+		// input files: ph2dt.inp station.dat phase.dat
+		// output files: station.sel event.sel event.dat dt.ct
+		if ( force || !Util::fileExists(dtctFile) )
+		{
+			runPh2dt(catalogWorkingDir, stationFile, phaseFile);
+			string stationSelFile = (boost::filesystem::path(catalogWorkingDir)/"station.sel").string();
+			if ( Util::fileExists(stationSelFile) )
+    			boost::filesystem::copy_file(stationSelFile, stationFile, boost::filesystem::copy_option::overwrite_if_exists);
+			string eventSelfile = (boost::filesystem::path(catalogWorkingDir)/"event.sel").string();    			
+            if ( Util::fileExists(eventSelfile) )    			
+                boost::filesystem::copy_file(eventSelfile, eventFile, boost::filesystem::copy_option::overwrite_if_exists);
+		}
+
+		// Reads the event pairs matched in dt.ct which are selected by ph2dt and
+		// calculate cross correlated differential travel_times for every pair.
+		// input dt.ct
+		// output dt.cc
+		if ( force || ! Util::fileExists(dtccFile) )
+		{ 
+			createDtCcPh2dt(dtctFile, dtccFile);
+		}
 	}
 
 	// run hypodd
@@ -1151,7 +1187,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force)
 	string ddresidualFile = (boost::filesystem::path(catalogWorkingDir)/"hypoDD.res").string();
 	if ( force || ! Util::fileExists(ddrelocFile) || ! Util::fileExists(ddresidualFile) )
 	{
-		runHypodd(catalogWorkingDir, dtccFile, dtctFile, eventFile, stationFile, _cfg.hypodd.xcorrCtrlFile);
+		runHypodd(catalogWorkingDir, dtccFile, dtctFile, eventFile, stationFile, _cfg.hypodd.step2CtrlFile);
 	}
 
 	// load a catalog from hypodd output file
@@ -1230,7 +1266,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 	// run hypodd
 	// input : dt.cc dt.ct event.sel station.sel hypoDD.inp
 	// output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
-	runHypodd(eventWorkingDir, dtccFile, dtctFile, eventFile, stationFile, _cfg.hypodd.dttCtrlFile);
+	runHypodd(eventWorkingDir, dtccFile, dtctFile, eventFile, stationFile, _cfg.hypodd.step1CtrlFile);
 
 	// Load the relocated origin from Hypodd
 	string ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
@@ -1288,12 +1324,12 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
 		// Create cross correlated differential travel times file (dt.cc) for hypodd
 		dtccFile = (boost::filesystem::path(eventWorkingDir)/"dt.cc").string();
-		xcorrSingleEvent(neighbourCat, refinedLocNewId, dtccFile);
+		createDtCcSingleEvent(neighbourCat, refinedLocNewId, dtccFile);
 
 		// run hypodd
 		// input : dt.cc dt.ct event.sel station.sel hypoDD.inp
 		// output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
-		runHypodd(eventWorkingDir, dtccFile, dtctFile, eventFile, stationFile, _cfg.hypodd.xcorrCtrlFile);
+		runHypodd(eventWorkingDir, dtccFile, dtctFile, eventFile, stationFile, _cfg.hypodd.step2CtrlFile);
 
 		// Load the relocated origin from Hypodd
 		ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
@@ -1462,6 +1498,38 @@ void HypoDD::createEventDatFile(const string& eventFileName, const CatalogCPtr& 
 		                      event.rms, event.id);
 		outStream << endl;
 	}
+}
+
+
+
+/*
+ * run ph2dt
+ * input files: ph2dt.inp station.dat phase.dat
+ * output files: station.sel event.sel event.dat dt.ct
+ */
+void HypoDD::runPh2dt(const string& workingDir, const string& stationFile, const string& phaseFile) const
+{
+	SEISCOMP_DEBUG("Running ph2dt...");
+
+	if ( !Util::fileExists(stationFile) )
+		throw runtime_error("Unable to run ph2dt, file doesn't exist: " + stationFile);
+
+	if ( !Util::fileExists(phaseFile) )
+		throw runtime_error("Unable to run ph2dt, file doesn't exist: " + phaseFile);
+
+	if ( !Util::fileExists(_cfg.ph2dt.ctrlFile) )
+		throw runtime_error("Unable to run ph2dt, control file doesn't exist: " + _cfg.ph2dt.ctrlFile);
+
+	// copy control file while replacing input/output file names
+	map<int,string> linesToReplace = { {1,stationFile}, {2,phaseFile} };
+	copyFileAndReplaceLines(_cfg.ph2dt.ctrlFile,
+                            (boost::filesystem::path(workingDir)/"ph2dt.inp").string(),
+                            linesToReplace);
+
+	// run ph2dt (use /bin/sh to get stdout/strerr redirection)
+	string cmd = stringify("%s %s >ph2dt.out 2>&1",
+	                       _cfg.ph2dt.exec.c_str(), "ph2dt.inp");
+	::startExternalProcess({"/bin/sh", "-c", cmd}, true, workingDir);
 }
 
 
@@ -2028,7 +2096,7 @@ CatalogPtr HypoDD::extractEvent(const CatalogCPtr& catalog, unsigned eventId) co
 
 
 /* 
- * Create differential travel times file (dt.ct) for hypodd
+ * Create absolute travel times file (dt.ct) for hypodd
  * This is for full catalog mode
  */
 void HypoDD::createDtCtCatalog(const CatalogCPtr& catalog,
@@ -2047,13 +2115,13 @@ void HypoDD::createDtCtCatalog(const CatalogCPtr& catalog,
 		throw runtime_error("Cannot create file " + dtctFile);
 
 	for (const auto& kv : neighbourCats)
-		buildDiffTTimePairs(kv.second, kv.first, outStream);
+		buildAbsTTimePairs(kv.second, kv.first, outStream);
 }
 
 
 
 /* 
- * Create differential travel times file (dt.ct) for hypodd
+ * Create absolute travel times file (dt.ct) for hypodd
  * This is for single event mode
  */
 void HypoDD::createDtCtSingleEvent(const CatalogCPtr& catalog,
@@ -2066,13 +2134,13 @@ void HypoDD::createDtCtSingleEvent(const CatalogCPtr& catalog,
 	if ( !outStream.is_open() )
 		throw runtime_error("Cannot create file " + dtctFile);
 
-	buildDiffTTimePairs(catalog, evToRelocateId, outStream);
+	buildAbsTTimePairs(catalog, evToRelocateId, outStream);
 }
 
 
 
 /* 
- * Create differential travel times file (dt.ct) for hypodd
+ * Create absolute travel times file (dt.ct) for hypodd
  *
  * Each event pair is listed by a header line (in free format)
  * #, ID1, ID2
@@ -2080,7 +2148,7 @@ void HypoDD::createDtCtSingleEvent(const CatalogCPtr& catalog,
  * STA, TT1, TT2, WGHT, PHA
  * 
  */
-void HypoDD::buildDiffTTimePairs(const CatalogCPtr& catalog,
+void HypoDD::buildAbsTTimePairs(const CatalogCPtr& catalog,
                                  unsigned evToRelocateId,
                                  ofstream& outStream) const
 {
@@ -2158,7 +2226,7 @@ void HypoDD::buildDiffTTimePairs(const CatalogCPtr& catalog,
  * correlation for pairs of earthquakes.
  * This is for full catalog mode
  */
-void HypoDD::xcorrCatalog(const CatalogCPtr& catalog,
+void HypoDD::createDtCcCatalog(const CatalogCPtr& catalog,
                           const string& dtccFile)
 {
 	SEISCOMP_DEBUG("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
@@ -2187,9 +2255,9 @@ void HypoDD::xcorrCatalog(const CatalogCPtr& catalog,
  * correlation for pairs of earthquakes.
  * This is for single event mode
  */
-void HypoDD::xcorrSingleEvent(const CatalogCPtr& catalog,
-                              unsigned evToRelocateId,
-                              const string& dtccFile)
+void HypoDD::createDtCcSingleEvent(const CatalogCPtr& catalog,
+                                   unsigned evToRelocateId,
+                                   const string& dtccFile)
 {
 	SEISCOMP_DEBUG("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
 
@@ -2277,6 +2345,124 @@ void HypoDD::buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
 		if (dtCount > 0)
 			outStream << evStream.str();
 	}
+}
+
+
+
+/*
+ * Reads the event pairs matched in dt.ct which are selected by ph2dt and
+ * calculate cross correlated differential travel_times for every pair.
+ * input dt.ct 
+ * output dt.cc
+ */
+void HypoDD::createDtCcPh2dt(const string& dtctFile, const string& dtccFile)
+{
+	SEISCOMP_DEBUG("Calculating cross correlated differential travel times...");
+
+	if ( !Util::fileExists(dtctFile) )
+		throw runtime_error("Unable to perform cross correlation, cannot find file: " + dtctFile);
+
+	ofstream outStream(dtccFile);
+	if ( !outStream.is_open() )
+		throw runtime_error("Cannot create file " + dtccFile);
+
+	const std::map<unsigned,Catalog::Event>& events = _ddbgc->getEvents();
+	const Catalog::Event *ev1 = nullptr, *ev2 = nullptr;
+	int dtCount = 0;
+	stringstream evStream;
+
+	// read file one line a time
+	ifstream in(dtctFile);
+	while (!in.eof())
+	{
+		string row;
+		std::getline(in, row);
+		if (in.bad() || in.fail())
+			break;
+
+		// split line on space
+		static const std::regex regex(R"([\s]+)", std::regex::optimize);
+		std::sregex_token_iterator it{row.begin(), row.end(), regex, -1};
+		std::vector<std::string> fields{it, {}};
+
+		// remove the first empty element if the line start with spaces
+		if ( !fields.empty() && fields[0] == "")
+			fields.erase(fields.begin());
+
+		// check beginning of a new event pair line (# ID1 ID2)
+		if (fields[0] == "#" && fields.size() == 3)
+		{
+			unsigned evId1 = std::stoul(fields[1]);
+			unsigned evId2 = std::stoul(fields[2]);
+			auto search1 = events.find(evId1);
+			auto search2 = events.find(evId2);
+			if (search1 == events.end() || search2 == events.end())
+			{
+				string msg = stringify("Relocated catalog contains events ids (%s or %s) "
+				                       "that are not present in the original catalog.",
+				                       string(*ev1).c_str(), string(*ev2).c_str());
+				throw runtime_error(msg.c_str());
+			}
+			ev1 = &search1->second;
+			ev2 = &search2->second;
+
+			// write the pairs has been built up to now
+			if (dtCount > 0 )
+				outStream << evStream.str();
+			evStream = stringstream();
+			dtCount = 0;
+
+			evStream << stringify("# %10u %10u       0.0", ev1->id, ev2->id) << endl;
+		}
+		// observation line (STA, TT1, TT2, WGHT, PHA)
+		else if(ev1 != nullptr && ev2 != nullptr && fields.size() == 5)
+		{
+			string stationId = fields[0];
+			string phaseType = fields[4];
+
+			// loop through event 1 phases
+			auto eqlrng = _ddbgc->getPhases().equal_range(ev1->id);
+			for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+			{
+				const Catalog::Phase& phase1 = it->second;
+				if (phase1.stationId == stationId &&
+				    phase1.type == phaseType )
+				{
+					// loop through event 2 phases
+					eqlrng = _ddbgc->getPhases().equal_range(ev2->id);
+					for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+					{
+						const Catalog::Phase& phase2 = it->second;
+						if (phase2.stationId == stationId &&
+							phase2.type == phaseType )
+						{
+							double dtcc, weight;
+							if ( xcorr( *ev1, phase1, *ev2, phase2, dtcc, weight,
+							           _wfCache, _useCatalogDiskCache,
+							           _wfCache, _useCatalogDiskCache) )
+							{
+								evStream << stringify("%-12s %.6f %.4f %s", stationId.c_str(),
+								                      dtcc, weight, phaseType.c_str());
+						        evStream << endl;								                      
+								dtCount++;
+							}
+							break;
+						}
+					}
+					break;
+				}
+			}
+		}
+		else
+		{
+			ev1 = ev2 = nullptr;
+			SEISCOMP_WARNING("Skipping unrecognized line from '%s' (line='%s')",
+			               dtctFile.c_str(), row.c_str());
+		}
+	}
+
+	if (dtCount > 0 )
+		outStream << evStream.str();
 }
 
 
@@ -2428,10 +2614,10 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
 	const int smpsSsize = trShorter->data()->size();
 	const int smpsLsize = trLonger->data()->size();
 
-	for (const int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
+	for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
 	{
 		double numer = 0, denomL = 0, denomS = 0;
-		for (const int idxS = 0; idxS < smpsSsize; idxS++)
+		for (int idxS = 0; idxS < smpsSsize; idxS++)
 		{
 			int idxL = idxS + (smpsLsize-smpsSsize)/2 + delay;
 			if (idxL < 0 || idxL >= smpsLsize)

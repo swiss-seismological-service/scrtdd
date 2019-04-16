@@ -232,10 +232,16 @@ struct Config {
 	// hypodd executable specific
 	struct {
 		std::string exec = "hypodd";
-		std::string dttCtrlFile;
-		std::string xcorrCtrlFile;
+		std::string step1CtrlFile;
+		std::string step2CtrlFile;
 	} hypodd;
 
+	// ph2dt executable specific
+	struct {
+		std::string exec = "ph2dt";
+		std::string ctrlFile;
+	} ph2dt;
+	
 	// differential travel time specific
 	struct {
 		double minWeight      = 0;  // Min weight of phases required (0-1)
@@ -290,7 +296,7 @@ class HypoDD : public Core::BaseObject {
 		CatalogCPtr getCatalog() { return _ddbgc; }
 		void setCatalog(const CatalogCPtr& catalog);
 
-		CatalogPtr relocateCatalog(bool force = true);
+		CatalogPtr relocateCatalog(bool force = true, bool usePh2dt = false);
 		CatalogPtr relocateSingleEvent(const CatalogCPtr& orgToRelocate);
 
 		void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
@@ -315,13 +321,14 @@ class HypoDD : public Core::BaseObject {
 		void createDtCtSingleEvent(const CatalogCPtr& catalog,
 		                           unsigned evToRelocateId,
 		                           const std::string& dtctFile) const;
-		void buildDiffTTimePairs(const CatalogCPtr& catalog,
+		void buildAbsTTimePairs(const CatalogCPtr& catalog,
 		                         unsigned evToRelocateId,
 		                         std::ofstream& outStream) const;
-		void xcorrCatalog(const CatalogCPtr& catalog, const std::string& dtccFile);
-		void xcorrSingleEvent(const CatalogCPtr& catalog,
-		                      unsigned evToRelocateId,
-		                      const std::string& dtccFile);
+		void createDtCcPh2dt(const std::string& dtctFile, const std::string& dtccFile);
+		void createDtCcCatalog(const CatalogCPtr& catalog, const std::string& dtccFile);
+		void createDtCcSingleEvent(const CatalogCPtr& catalog,
+		                           unsigned evToRelocateId,
+		                           const std::string& dtccFile);
 		void buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
 		                              unsigned evToRelocateId,
 		                              std::ofstream& outStream,
@@ -330,15 +337,18 @@ class HypoDD : public Core::BaseObject {
 		                              std::map<std::string,GenericRecordPtr>& refEvCache,
 		                              bool useDiskCacheRefEv) const;
 		bool xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
-                   const Catalog::Event& event2, const Catalog::Phase& phase2,
-                   double& dtccOut, double& weightOut,
-                   std::map<std::string,GenericRecordPtr>& cache1,  bool useDiskCache1,
-                   std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2) const;
+		           const Catalog::Event& event2, const Catalog::Phase& phase2,
+		           double& dtccOut, double& weightOut,
+		           std::map<std::string,GenericRecordPtr>& cache1,  bool useDiskCache1,
+		           std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2) const;
 		bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
-                   double& delayOut, double& coeffOut) const;
+		           double& delayOut, double& coeffOut) const;
 		void runHypodd(const std::string& workingDir, const std::string& dtccFile,
 		               const std::string& dtctFile, const std::string& eventFile,
 		               const std::string& stationFile, const std::string& ctrlFile) const;
+		void runPh2dt(const std::string& workingDir,
+		              const std::string& stationFile,
+		              const std::string& phaseFile) const;
 		CatalogPtr loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
 		                                const std::string& ddrelocFile,
 		                                const std::string& ddresidualFile="") const;

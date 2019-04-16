@@ -49,7 +49,7 @@ New origins will be relocated using a background or reference catalog of high qu
 
 If we already have a high quality catalog on your seiscomp database that can be used as background catalog, then you can specify it in scrtdd configuration as a file containing a list of origin id (or event id, in which case the preferred origin will be used). The file format must be a csv file in which there must be at least one column called seiscompId, from which the ids will be fetched by scrtdd.
 
-***E.g. file myCatalog.csv***
+E.g. *file myCatalog.csv*
 
 ```
 seiscompId
@@ -89,11 +89,11 @@ We are now ready to perform real time relocation!
 
 ## 3. Real time single origin relocation
 
-Real time relocation is done in two steps, each once has its own set of options in the configuration.
+Real time relocation is done in two steps, each one controlled by a specific hypoDD configuration:
 
-Step 1: location refinement. In this step scrtdd compute a preliminary relocation of the origin using only differential travel times computed from catalog phases (the ones present in seiscomp database).
+Step 1: location refinement. In this step hypoDD is used to compute a preliminary relocation of the origin using only catalog absolute travel time entries (dt.ct only).
 
-Step 2: the refined location is used to perform a more precise relocation using both catalog phases information and differential travel time computed using cross correlation between phase waveforms.
+Step 2: the refined location is used to perform a more precise relocation using both catalog absolute travel times (dt.ct) and differential travel times from cross correlation (dt.cc). 
 
 After step2 the relocated origin is sent to the messaging system. If step2 fails, then the relocated origin from step1 is sent to the messaging system.
 

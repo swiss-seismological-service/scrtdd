@@ -259,8 +259,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 	NEW_OPT(_config.profileTimeAlive, "performance.profileTimeAlive");
 	NEW_OPT(_config.cacheWaveforms, "performance.cacheWaveforms");
 
-	NEW_OPT_CLI(_config.testMode, "Mode", "test",
-	            "Test mode, no messages are sent", false, true);
+	NEW_OPT_CLI(_config.testMode, "Mode", "test", "Test mode, no messages are sent", false, true);
 	NEW_OPT_CLI(_config.forceProcessing, "Mode", "force",
 	            "Force event processing: in single event mode the processing is performed even on origins that would normally be skipped (already processed, not preferred, manual, etc.); In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used",
 	            false, true);
@@ -288,7 +287,10 @@ RTDD::~RTDD() {
 
 void RTDD::createCommandLineDescription() {
 	Application::createCommandLineDescription();
-	commandline().addOption("Mode", "dump-config", "Dump the configuration and exit");
+	commandline().addOption("Mode", "dump-config", "Dump the configuration and exit");	
+	commandline().addOption<string>("Mode", "ph2dt-path", "Specify path to ph2dt executable", nullptr, false);
+	commandline().addOption<string>("Mode", "use-ph2dt",
+	                        "When relocating a catalog use ph2dt. This option requires a ph2dt control file", nullptr, false);
 }
 
 
@@ -426,7 +428,6 @@ bool RTDD::validateParameters()
 		try {
 			prof->ddcfg.dtt.minDTperEvt = configGetInt(prefix + "minDTperEvt");
 		} catch ( ... ) { prof->ddcfg.dtt.minDTperEvt = 1; }
-		prof->ddcfg.hypodd.dttCtrlFile = env->absolutePath(configGetPath(prefix + "hypoddControlFile"));
 
 		prefix = string("profile.") + *it + ".dtcc.";
 		prof->ddcfg.xcorr.recordStreamURL = recordStreamURL();
@@ -454,7 +455,6 @@ bool RTDD::validateParameters()
 		try {
 			prof->ddcfg.xcorr.minDTperEvt = configGetInt(prefix + "minDTperEvt");
 		} catch ( ... ) { prof->ddcfg.xcorr.minDTperEvt = 1; }
-		prof->ddcfg.hypodd.xcorrCtrlFile = env->absolutePath(configGetPath(prefix + "hypoddControlFile"));
 
 		prefix = string("profile.") + *it + ".dtcc.crosscorrelation.";
 		try {
@@ -479,8 +479,16 @@ bool RTDD::validateParameters()
 			prof->ddcfg.xcorr.resampleFreq = configGetDouble(prefix + "resampling");
 		} catch ( ... ) { prof->ddcfg.xcorr.resampleFreq = 0.; }
 
+		prefix = string("profile.") + *it + ".hypoDD.";
+		prof->ddcfg.hypodd.step1CtrlFile = env->absolutePath(configGetPath(prefix + "step1ControlFile"));
+		prof->ddcfg.hypodd.step2CtrlFile = env->absolutePath(configGetPath(prefix + "step2ControlFile"));
 		prof->ddcfg.hypodd.exec = hypoddExec;
 
+    	if ( commandline().hasOption("ph2dt-path") )
+            prof->ddcfg.ph2dt.exec = env->absolutePath(commandline().option<string>("ph2dt-path"));
+    	if ( commandline().hasOption("use-ph2dt") )
+            prof->ddcfg.ph2dt.ctrlFile = env->absolutePath(commandline().option<string>("use-ph2dt"));
+				
 		_profiles.push_back(prof);
 
 		++it;
@@ -1442,7 +1450,7 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog(bool force)
 		throw runtime_error(msg.c_str());
 	}
 	lastUsage = Core::Time::GMT();
-	return hypodd->relocateCatalog(force);
+	return hypodd->relocateCatalog(force, ! ddcfg.ph2dt.ctrlFile.empty());
 }
 
 

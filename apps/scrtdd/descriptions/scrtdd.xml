@@ -268,18 +268,6 @@
 								Max number of neighbors used. Further events are discarded. No limit by default.
 							</description>
 						</parameter>
-						<parameter name="hypoddControlFile" type="path">
-							<description>
-								Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
-                                The input/output files will be replaced by SCRTDD with its own files, thus the values
-                                on those lines are not relevant.
-			                    In the real time event relocation process, this is the first step aimed to refine the
-								location running hypoDD with catalog absolute travel time entries only (no differential
-								travel times from cross correlation). 
-								In full catalog relocation (see --relocate-catalog command line option) this
-								is not used as the relocation is done in a single step.
-							</description>
-						</parameter>
 					</group>
 
 					<group name="dtcc">
@@ -338,18 +326,6 @@
 								Max number of neighbors used. Further events are discarded. No limit by default.
 							</description>
 						</parameter>
-						<parameter name="hypoddControlFile" type="path">
-							<description>
-								Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
-                                The input/output files will be replaced by SCRTDD with its own files, thus the values
-                                on those lines are not relevant.
-			                    In the real time event relocation process, this is the second step and this time hypoDD
-			                    is run with both catalog absolute travel times and differential travel times from cross
-			                    correlation. 
-								This is also used in the full catalog relocation (see --relocate-catalog command line
-								option)
-							</description>
-						</parameter>
 
 						<group name="crosscorrelation">
 							<parameter name="timeBeforePick" type="double">
@@ -381,7 +357,34 @@
 							</parameter>
 						</group>
 					</group>
-
+					
+                    <group name="hypoDD">
+						<description>
+    						Real time event relocation is done in two steps, each one controlled by a specific hypoDD configuration.
+                            Step 1 is the location refinement: hypoDD is used to compute a preliminary relocation of the origin using
+                            only catalog absolute travel time entries (dt.ct file).
+                            Step 2 is the final relocation: hypoDD is used with both catalog absolute travel times (dt.ct) and
+                            differential travel times from cross correlation (dt.cc). 
+       						In full catalog relocation (see --relocate-catalog command line option) hypoDD is run in one step only,
+       						using step2ControlFile option.							
+						</description>						
+						<parameter name="step1ControlFile" type="path">
+							<description>
+								Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
+                                The input/output files will be replaced by SCRTDD with its own files, thus the values
+                                at those lines are not relevant.
+							</description>
+						</parameter>
+						<parameter name="step2ControlFile" type="path">
+							<description>
+								Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
+                                The input/output files will be replaced by SCRTDD with its own files, thus the values
+                                at those lines are not relevant.
+							</description>
+						</parameter>						
+					</group>
+					
+					
 				</struct>
 			</group>
 
