@@ -214,9 +214,8 @@
 
 					<group name="dtct">
 						<description>
-							Those options control the computation of differential travel times using existing
-							phase information (no cross correlation involved). In hypoDD terminology this is
-							the computation of dt.ct file
+							These options control the creation of catalog absolute travel time entries for pairs of
+							earthquakes (dt.ct file in HypoDD terminology).
 						</description>
 						<parameter name="minWeight" type="double">
 							<description>
@@ -271,21 +270,22 @@
 						</parameter>
 						<parameter name="hypoddControlFile" type="path">
 							<description>
-								Path to hypodd control file (e.g. some_path/hypoDD.inp) to be used in the
-								computation without cross correlation. The input/output files 
-								will be replaced by SCRTDD with its own files, thus the values on those lines are
-								not relevant.
+								Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
+                                The input/output files will be replaced by SCRTDD with its own files, thus the values
+                                on those lines are not relevant.
+			                    In the real time event relocation process, this is the first step aimed to refine the
+								location running hypoDD with catalog absolute travel time entries only (no differential
+								travel times from cross correlation). 
 								In full catalog relocation (see --relocate-catalog command line option) this
-								is not used.
+								is not used as the relocation is done in a single step.
 							</description>
 						</parameter>
 					</group>
 
 					<group name="dtcc">
-						<description>
-							Those options control the computation of differential travel times using cross
-							correlation to refine existing phase information. In hypoDD terminology this is
-							the computation of dt.cc file
+						<description>												
+							Those options control the creation of differential travel times from cross correlation
+							for pairs of earthquakes (dt.cc file in HypoDD terminology). 
 						</description>
 						<parameter name="minWeight" type="double">
 							<description>
@@ -340,12 +340,14 @@
 						</parameter>
 						<parameter name="hypoddControlFile" type="path">
 							<description>
-								Path to hypodd control file (e.g. some_path/hypoDD.inp) to be used in the
-								computation with cross correlation. The input/output files 
-								will be replaced by SCRTDD with its own files, thus the values on those lines are
-								not relevant.
-								In full catalog relocation (see --relocate-catalog command line option) this
-								is used.
+								Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
+                                The input/output files will be replaced by SCRTDD with its own files, thus the values
+                                on those lines are not relevant.
+			                    In the real time event relocation process, this is the second step and this time hypoDD
+			                    is run with both catalog absolute travel times and differential travel times from cross
+			                    correlation. 
+								This is also used in the full catalog relocation (see --relocate-catalog command line
+								option)
 							</description>
 						</parameter>
 
