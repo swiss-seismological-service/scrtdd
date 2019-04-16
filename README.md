@@ -45,9 +45,9 @@ Go to https://www.ldeo.columbia.edu/~felixw/hypoDD.html and dowload hypoDD. Unta
 
 ## 2. Define a background catalog for real time relocations
 
-New origins will be relocated using a background or reference catalog of high quality locations. You might already have one or not.
+New origins will be relocated in real time against a background catalog of high quality locations. Those high quality events that form the background catalog can be already present in seiscompo database or not.
 
-If we already have a high quality catalog on your seiscomp database that can be used as background catalog, then you can specify it in scrtdd configuration as a file containing a list of origin id (or event id, in which case the preferred origin will be used). The file format must be a csv file in which there must be at least one column called seiscompId, from which the ids will be fetched by scrtdd.
+If we already have a high quality catalog, then we can easily specify it in scrtdd configuration as a path to a file containing a list of origin id or event id (in which case the preferred origin will be used). The file format must be a csv file in which there must be at least one column called seiscompId, from which the ids will be fetched by scrtdd.
 
 E.g. *file myCatalog.csv*
 
@@ -62,7 +62,9 @@ event2019dubnfr
 Origin/20190223103327.031726.346363
 ```
 
-In the more general case in which we don't already have a background catalog, we have to build one using scrtdd. First select the existing candidate events that will be relocated to achieve the quality needed for a background catalog. Write the ids of those selected events/origins in a file usign the same format of the example above (myCatalog.csv). Once that's done, we run the command:
+In the more general case in which we don't already have a background catalog, we have to build one using scrtdd. Generating a background catalog involves two steps: first we select the candidate events that might have low quality locations and then we use scrtdd to relocated those to achieve the quality needed for a background catalog. 
+
+Once the candidate events have been selected, we write their seiscomp ids in a file using the same format as the example above (myCatalog.csv). Once that's done, we run the command:
 
 ```
 scrtdd --dump-catalog myCatalog.csv
@@ -74,15 +76,51 @@ Or, if the events resides on a different machine we can use the -d option:
 scrtdd --dump-catalog myCatalog.csv  -d  mysql://user:password@host/seiscompDbName
 ```
 
-The above command will generate three files: event.csv, phase.csv and stations.csv. Those file are the alternative extended catalog format, useful when the catalog information is fully contained in those files instead of requiring the catalog to be present on a seiscomp database. At this point we might perform some editing of those files, if required, otherwise we can go to the next step and relocate those events.
+The above command will generate three files (event.csv, phase.csv and stations.csv) which contain the information needed by scrtdd to relocate the selected events. 
 
-Now we want to configure the relocation process, so we run scconfig, go to scrtdd configuration and create a profile that we use for relocating this catalog. In the profile we have to specify the generated files (event.csv, phase.csv, stations.csv) as source catalog, and then configure the various SCRTDD relocation settings. Once done, we can relocate the catalog with the command:
+Note: those file use the extended catalog format, useful when the catalog information is fully contained in those files. Compare to the previous example format (list of event/origin ids) the extended format doesn't require the catalog to be present on the seiscomp database. This might come in handy when using events coming from a different seiscomp installation e.g the events can be dumped (--dump-catalog) and used in another machine. Also those file can be easily generated from another source.
+
+E.g. *file event.csv*
+
+```
+id,isotime,latitude,longitude,depth,magnitude,horizontal_err,vertical_err,rms
+1,2014-01-10T04:46:47.689331Z,46.262846,7.400132,8.6855,1.63,0.0000,0.0000,0.1815
+2,2014-01-19T05:24:26.754208Z,46.264482,7.404143,8.4316,0.94,0.0000,0.0000,0.1740
+3,2014-02-21T04:05:27.03289Z,46.266118,7.402066,7.3145,0.37,0.0000,0.0000,0.1177
+4,2014-04-02T17:05:28.141739Z,46.262846,7.408248,7.0098,0.42,0.0000,0.0000,0.1319
+```
+
+E.g. *file station.csv*
+
+```
+id,latitude,longitude,elevation,networkCode,stationCode
+4DAG01,46.457412,8.079460,2358.0,4D,AG01
+4DAG02,46.460620,8.078122,2375.0,4D,AG02
+4DAG03,46.458288,8.075408,2369.0,4D,AG03
+4DBSG1,46.107760,7.732020,3378.0,4D,BSG1
+```
+
+E.g. *file phase.csv*
+
+```
+eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,channelCode
+1,CHNALPS,2014-01-10T04:47:06.78218Z,0.95,P,CH,NALPS,,HHR
+1,CHBNALP,2014-01-10T04:47:05.918759Z,0.67,P,CH,BNALP,,HHZ
+1,CHFUSIO,2014-01-10T04:47:04.812236Z,0.95,P,CH,FUSIO,,HHR
+1,FRRSL,2014-01-10T04:47:02.689842Z,1.06,P,FR,RSL,00,HHZ
+1,CHGRIMS,2014-01-10T04:47:01.597023Z,0.95,P,CH,GRIMS,,HHR
+1,IVMRGE,2014-01-10T04:46:58.219541Z,0.95,P,IV,MRGE,,HHR
+```
+
+Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might perform some editing of those files, if required, then we relocate them. To do so we need to create a new profile inside scrtdd configuration. In this profile we set the generated files (event.csv, phase.csv, stations.csv) as the catalog of the profile. Then we can configure the other profile options that control the relocation process.
+
+Once we are happy witht he options, we can relocate the catalog with the command:
 
 ```
 scrtdd --reloc-catalog profileName [--force]
 ```
 
-scrtdd will relocated the catalog and will generate another set of files event.csv phase.csv and stations.csv (save the previous files somewhere before relocating the catalog). At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations, at which point we can finally set the resulting relocated catalog as background catalog in a a scrtdd profile (a new one or the previous one) that we will use for real time relocation.
+scrtdd will relocated the catalog and will generate another set of files event.csv phase.csv and stations.csv (save the previous files somewhere before relocating the catalog). At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations, at which point we can finally set the resulting relocated catalog as background catalog in a scrtdd profile (a new one or the previous one) that we will use for real time relocation.
 
 We are now ready to perform real time relocation!
 
