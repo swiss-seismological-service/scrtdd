@@ -1114,13 +1114,6 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
                         (boost::filesystem::path(catalogWorkingDir)/"phase.csv").string(),
                         (boost::filesystem::path(catalogWorkingDir)/"station.csv").string() );
 
-    // Create event.dat for hypodd (if not already generated)
-    string eventFile = (boost::filesystem::path(catalogWorkingDir)/"event.dat").string();
-    if ( force || ! Util::fileExists(eventFile) )
-    {
-        createEventDatFile(eventFile, _ddbgc);
-    }
-    
     // Create station.dat for hypodd (if not already generated)
     string stationFile = (boost::filesystem::path(catalogWorkingDir)/"station.dat").string();
     if ( force || ! Util::fileExists(stationFile) )
@@ -1128,11 +1121,18 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
         createStationDatFile(stationFile, _ddbgc);
     }
 
+    string eventFile = (boost::filesystem::path(catalogWorkingDir)/"event.dat").string();
     string dtctFile = (boost::filesystem::path(catalogWorkingDir)/"dt.ct").string();
     string dtccFile = (boost::filesystem::path(catalogWorkingDir)/"dt.cc").string(); 
 
     if ( ! usePh2dt )
     {
+        // Create event.dat for hypodd (if not already generated)
+        if ( force || ! Util::fileExists(eventFile) )
+        {
+            createEventDatFile(eventFile, _ddbgc);
+        }
+
         // calculate absolute travel times from catalog phases
         // Create dt.ct (if not already generated)
         if ( force || ! Util::fileExists(dtctFile) )
@@ -1175,7 +1175,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
         // input dt.ct
         // output dt.cc
         if ( force || ! Util::fileExists(dtccFile) )
-        { 
+        {
             createDtCcPh2dt(dtctFile, dtccFile);
         }
     }
@@ -2443,7 +2443,7 @@ void HypoDD::createDtCcPh2dt(const string& dtctFile, const string& dtccFile)
                             {
                                 evStream << stringify("%-12s %.6f %.4f %s", stationId.c_str(),
                                                       dtcc, weight, phaseType.c_str());
-                                evStream << endl;                                                     
+                                evStream << endl;
                                 dtCount++;
                             }
                             break;
