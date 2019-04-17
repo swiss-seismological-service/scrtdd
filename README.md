@@ -45,7 +45,9 @@ Go to https://www.ldeo.columbia.edu/~felixw/hypoDD.html and dowload hypoDD. Unta
 
 ## 2. Define a background catalog for real time relocations
 
-New origins will be relocated in real time against a background catalog of high quality locations. Those high quality events that form the background catalog can be already present in seiscompo database or not.
+New origins will be relocated in real time against a background catalog of high quality locations. Those high quality events that form the background catalog can be already present in seiscompo database or not. In the latter case the background catalog has to be generated. Either way, the catalog has to be specified in scrtdd when configuring it.
+
+![Catalog selection option](/img/catalog-selection.png?raw=true "Catalog selection")
 
 If we already have a high quality catalog, then we can easily specify it in scrtdd configuration as a path to a file containing a list of origin id or event id (in which case the preferred origin will be used). The file format must be a csv file in which there must be at least one column called seiscompId, from which the ids will be fetched by scrtdd.
 
@@ -114,6 +116,9 @@ eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,chann
 
 Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might perform some editing of those files, if required, then we relocate them. To do so we need to create a new profile inside scrtdd configuration. In this profile we set the generated files (event.csv, phase.csv, stations.csv) as the catalog of the profile. Then we can configure the other profile options that control the relocation process.
 
+![Relocation options](/img/difftraveltime.png?raw=true "Relocation options")
+![Relocation options](/img/xcorr.png?raw=true "Relocation options")  
+
 Once we are happy witht he options, we can relocate the catalog with the command:
 
 ```
@@ -127,7 +132,9 @@ We are now ready to perform real time relocation!
 
 ## 3. Real time single origin relocation
 
-Real time relocation is done in two steps, each one controlled by a specific hypoDD configuration:
+Real time relocation uses the same configuration we have seen in full catalog relocation, but real time relocation is done in two steps. Each one controlled by a specific hypoDD configuration:
+
+![Relocation options](/img/hypoDDcfg.png?raw=true "Relocation options") 
 
 Step 1: location refinement. In this step hypoDD is used to compute a preliminary relocation of the origin using only catalog absolute travel time entries (dt.ct only).
 
