@@ -327,7 +327,7 @@ bool RTDD::validateParameters()
     bool profileRequireDB = false;
 
     for ( vector<string>::iterator it = _config.activeProfiles.begin();
-          it != _config.activeProfiles.end(); )
+          it != _config.activeProfiles.end(); it++ )
     {
 
         ProfilePtr prof = new Profile;
@@ -350,9 +350,9 @@ bool RTDD::validateParameters()
         try {
             makeUpper(regionType, configGetString(prefix + "regionType"));
         } catch ( ... ) {}
-        if ( regionType == "RECTANGLE" )
+        if ( regionType == "RECTANGULAR" )
             prof->region = new RectangularRegion;
-        else if ( regionType == "CIRCLE" )
+        else if ( regionType == "CIRCULAR" )
             prof->region = new CircularRegion;
 
         if ( prof->region == nullptr ) {
@@ -463,9 +463,12 @@ bool RTDD::validateParameters()
             prof->ddcfg.xcorr.maxDelay = configGetDouble(prefix + "maxDelay");
             prof->ddcfg.xcorr.minCoef = configGetDouble(prefix + "minCCCoef");
         } catch ( ... ) {
+            SEISCOMP_ERROR("profile.%s: invalid or missing cross correlation parameters", it->c_str());
             profilesOK = false;
             continue;
         }
+
+        prefix = string("profile.") + *it + ".dtcc.waveformFiltering.";
         try {
             prof->ddcfg.xcorr.filterFmin = configGetDouble(prefix + "filterFmin");
         } catch ( ... ) { prof->ddcfg.xcorr.filterFmin = 0.; }
@@ -479,6 +482,24 @@ bool RTDD::validateParameters()
             prof->ddcfg.xcorr.resampleFreq = configGetDouble(prefix + "resampling");
         } catch ( ... ) { prof->ddcfg.xcorr.resampleFreq = 0.; }
 
+        prefix = string("profile.") + *it + ".dtcc.snr.";
+        try {
+            prof->ddcfg.snr.minSnr = configGetDouble(prefix + "minSnr");
+        } catch ( ... ) { prof->ddcfg.snr.minSnr = 0.; }
+        try {
+            prof->ddcfg.snr.noiseStart = configGetDouble(prefix + "noiseStart");
+            prof->ddcfg.snr.noiseEnd = configGetDouble(prefix + "noiseEnd");
+            prof->ddcfg.snr.signalStart = configGetDouble(prefix + "signalStart");
+            prof->ddcfg.snr.signalEnd = configGetDouble(prefix + "signalEnd");
+        } catch ( ... ) {
+            if ( prof->ddcfg.snr.minSnr > 0. )
+            {
+                SEISCOMP_ERROR("profile.%s: invalid or missing snr parameters", it->c_str());
+                profilesOK = false;
+                continue;
+            }
+        }
+
         prefix = string("profile.") + *it + ".hypoDD.";
         prof->ddcfg.hypodd.step1CtrlFile = env->absolutePath(configGetPath(prefix + "step1ControlFile"));
         prof->ddcfg.hypodd.step2CtrlFile = env->absolutePath(configGetPath(prefix + "step2ControlFile"));
@@ -488,10 +509,8 @@ bool RTDD::validateParameters()
             prof->ddcfg.ph2dt.exec = env->absolutePath(commandline().option<string>("ph2dt-path"));
         if ( commandline().hasOption("use-ph2dt") )
             prof->ddcfg.ph2dt.ctrlFile = env->absolutePath(commandline().option<string>("use-ph2dt"));
-                
-        _profiles.push_back(prof);
 
-        ++it;
+        _profiles.push_back(prof);
     }
 
     // If the inventory is provided by an XML file or an event XML

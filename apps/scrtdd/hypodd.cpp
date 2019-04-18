@@ -2515,6 +2515,18 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
         return false;
     }
 
+    // check SNR threshold
+    if ( _cfg.snr.minSnr > 0 )
+    {
+        double snr;
+        if ( ! S2Nratio(tr1, phase1.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
+                        _cfg.snr.signalStart, _cfg.snr.signalEnd, snr) )
+        {
+            return false;
+        }
+        if ( snr < _cfg.snr.minSnr ) return false;
+    }
+
     // always load the long trace, because we want to cache the longer version
     Core::TimeWindow tw2 = Core::TimeWindow(phase2.time - longTimeCorrection, longDuration);
     GenericRecordPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2);
@@ -2524,6 +2536,18 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
                          "for phase pair phase1='%s', phase2='%s'",
                          string(phase1).c_str(), string(phase2).c_str());
         return false;
+    }
+
+    // check SNR threshold
+    if ( _cfg.snr.minSnr > 0 )
+    {
+        double snr;
+        if ( ! S2Nratio(tr2, phase2.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
+                        _cfg.snr.signalStart, _cfg.snr.signalEnd, snr) )
+        {
+            return false;
+        }
+        if ( snr < _cfg.snr.minSnr ) return false;
     }
 
     // trim tr2 to shorter length, we want to cross correlate the short with the long one
@@ -2565,7 +2589,9 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     }
 
     if ( ! std::isfinite(xcorr_coeff) && ! std::isfinite(xcorr_coeff2) )
+    {
         return false;
+    }
 
     if ( ! std::isfinite(xcorr_coeff) ||
          (std::isfinite(xcorr_coeff2) && xcorr_coeff2 > xcorr_coeff) )
@@ -2575,7 +2601,9 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     }
 
     if ( xcorr_coeff < _cfg.xcorr.minCoef )
+    {
         return false;
+    }
 
     // compute differential travel time and weight of measurement
     dtccOut = travel_time1 - travel_time2 - xcorr_dt;
@@ -2596,8 +2624,8 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
 
     if (tr1->samplingFrequency() != tr2->samplingFrequency())
     {
-        SEISCOMP_WARNING("Cannot cross correlate traces with different sampling freq (%f!=%f)",
-                         tr1->samplingFrequency(), tr2->samplingFrequency());
+        SEISCOMP_INFO("Cannot cross correlate traces with different sampling freq (%f!=%f)",
+                      tr1->samplingFrequency(), tr2->samplingFrequency());
         return false;
     }
 
@@ -2641,6 +2669,53 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
     return true;
 }
 
+
+
+bool
+HypoDD::S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
+                 double noiseOffsetStart, double noiseOffsetEnd,
+                 double signalOffsetStart, double signalOffsetEnd,
+                 double& snr) const
+{
+    const double *data = DoubleArray::ConstCast(tr->data())->typedData();
+    const int size = tr->data()->size();
+    const double freq = tr->samplingFrequency();
+    const Core::Time dataStartTime = tr->startTime();
+
+    // convert time w.r.t. guiding pick time to sample number
+    const double baseOffset = (guidingPickTime - dataStartTime).length();
+    const int noiseStart  = (baseOffset + noiseOffsetStart)  * freq;
+    const int noiseEnd    = (baseOffset + noiseOffsetEnd)    * freq;
+    const int signalStart = (baseOffset + signalOffsetStart) * freq;
+    const int signalEnd   = (baseOffset + signalOffsetEnd)   * freq;
+
+    if ( (std::min({noiseStart,noiseEnd,signalStart,signalEnd}) < 0)    ||
+         (std::max({noiseStart,noiseEnd,signalStart,signalEnd}) >= size) )
+    {
+        SEISCOMP_INFO("Cannot compute S2N ratio: noise/signal windows exceed waveform boundaries");
+        return false;
+    }
+
+    // Get maximum (absolute) amplitude in noise window:
+    double noiseMax = -1.0;
+    for (int i = noiseStart; i < noiseEnd; i++)
+    {
+        noiseMax = std::max(std::abs(data[i]), noiseMax);
+    }
+
+    // Get maximum (absolute) amplitude in signal window:
+    double signalMax = -1.0;
+    for (int i = signalStart; i < signalEnd; i++)
+    {
+        signalMax = std::max(std::abs(data[i]), signalMax);
+    }
+
+    snr = signalMax/noiseMax;
+    return true;
+}
+
+
+
 /*
  * Return the waveform from the memory cache if present, otherwise load it
  */
@@ -2654,9 +2729,9 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
                               string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
 
-    //
-    // first try to load the waveform from the memory cache, if present
-    //
+    /*
+     * first try to load the waveform from the memory cache, if present
+     */
     string wfId = stringify("%s.%s.%s.%s.%s.%s",
                             ph.networkCode.c_str(), ph.stationCode.c_str(),
                             ph.locationCode.c_str(), ph.channelCode.c_str(),
@@ -2670,10 +2745,10 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         return it->second; // waveform cached, just return it 
     }
 
-    //
-    // Load the waveform, possibly perform a projection 123->ZNE or ZNE->ZRT,
-    // filter it and finally save the result in the memory cache  for later re-use
-    //
+    /*
+     * Load the waveform, possibly perform a projection 123->ZNE or ZNE->ZRT,
+     * filter it and finally save the result in the memory cache  for later re-use
+     */
     bool projectionRequired = true;
 
     string channelCodeRoot = ph.channelCode.substr(0, ph.channelCode.size()-1);
@@ -2706,9 +2781,9 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         projectionRequired = false; // let's try to load the waveform anyway
     }
 
-    //
-    // If no projection required....
-    //
+    /*
+     * If no projection required....
+     */
     if ( ! projectionRequired )
     {
         GenericRecordPtr trace;
@@ -2732,9 +2807,9 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         return trace;
     }
 
-    //
-    // We need to perform the projection 123->ZNE or ZNE->ZRT
-    //
+    /*
+     * We need to perform the projection 123->ZNE or ZNE->ZRT
+     */
     if ( ! allComponents )
     {
         SEISCOMP_INFO("Unable to fetch orientation information (%s)", wfDesc.c_str());

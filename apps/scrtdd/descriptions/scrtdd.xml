@@ -120,7 +120,7 @@
 
                     <parameter name="regionType" type="string">
                         <description>
-                            Type of region: RECTANGLE or CIRCLE
+                            Type of region: RECTANGULAR or CIRCULAR
                         </description>
                     </parameter>
 
@@ -271,7 +271,7 @@
                     </group>
 
                     <group name="dtcc">
-                        <description>                                               
+                        <description>
                             Those options control the creation of differential travel times from cross correlation
                             for pairs of earthquakes (dt.cc file in HypoDD terminology). 
                         </description>
@@ -328,18 +328,30 @@
                         </parameter>
 
                         <group name="crosscorrelation">
+                            <parameter name="minCCCoef" type="double">
+                                <description>
+                                    Min crosscorrelation coefficient accepted to use a differential travel time
+                                </description>
+                            </parameter>
                             <parameter name="timeBeforePick" type="double">
-                                <description>(secs)</description>
+                                <description>
+                                    Start of data window to cross correlate with respect to pick time (secs)
+                                </description>
                             </parameter>
                             <parameter name="timeAfterPick" type="double">
-                                <description>(secs)</description>
+                                <description>
+                                    End of data window to cross correlate with respect to pick time (secs)
+                                </description>
                             </parameter>
                             <parameter name="maxDelay" type="double">
-                                <description>(secs)</description>
+                                <description>Maximum data window delay accepted (secs)</description>
                             </parameter>
-                            <parameter name="minCCCoef" type="double">
-                                <description>Min crosscorrelation coefficient accepted to use a differential travel time</description>
-                            </parameter>
+                        </group>
+
+                        <group name="waveformFiltering">
+                            <description>
+                                Filter waveforms before performing the cross correlation
+                            </description>
                             <parameter name="filterFmin" type="double">
                                 <description>Frequency of the hi-pass filter (hz, 0 disable)</description>
                             </parameter>
@@ -351,13 +363,37 @@
                             </parameter>
                             <parameter name="resampling" type="double">
                                 <description>
-                                    Resample all traces at this samplig interval (hz, 0 disable) before
-                                    performing the cross correlation
+                                    Resample all traces at this samplig interval (hz)
                                 </description>
                             </parameter>
                         </group>
-                    </group>
-                    
+
+                        <group name="snr">
+                           <description>
+                               Exclude phases from cross correlation when Signal to Noise Ratio is below
+                               a configured threshold.
+                           </description>
+                           <parameter name="minSnr" type="double">
+                                <description>
+                                    Minimum Signal to Noise Ratio value required to use a Pick in cross correlation.
+                                    If minSnr is used, then the noise and signal windows must be defined too.
+                                </description>
+                            </parameter>
+                            <parameter name="noiseStart" type="double">
+                                <description>Start of noise  window with respect to pick time(secs)</description>
+                            </parameter>
+                            <parameter name="noiseEnd" type="double">
+                                <description>End of noise  window with respect to pick time(secs)</description>
+                            </parameter>
+                            <parameter name="signalStart" type="double">
+                                <description>Start of signal window with respect to pick time(secs)</description>
+                            </parameter>
+                            <parameter name="signalEnd" type="double">
+                                <description>End of signal window with respect to pick time(secs)</description>
+                            </parameter> 
+                        </group>
+                     </group>
+
                     <group name="hypoDD">
                         <description>
                             Real time event relocation is done in two steps, each one controlled by a specific hypoDD configuration.
@@ -366,8 +402,8 @@
                             Step 2 is the final relocation: hypoDD is used with both catalog absolute travel times (dt.ct) and
                             differential travel times from cross correlation (dt.cc). 
                             In full catalog relocation (see --relocate-catalog command line option) hypoDD is run in one step only,
-                            using step2ControlFile option.                          
-                        </description>                      
+                            using step2ControlFile option.
+                        </description>
                         <parameter name="step1ControlFile" type="path">
                             <description>
                                 Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
@@ -381,10 +417,9 @@
                                 The input/output files will be replaced by SCRTDD with its own files, thus the values
                                 at those lines are not relevant.
                             </description>
-                        </parameter>                        
+                        </parameter>
                     </group>
-                    
-                    
+
                 </struct>
             </group>
 

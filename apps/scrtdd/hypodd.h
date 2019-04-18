@@ -225,7 +225,7 @@ class Catalog : public Core::BaseObject {
 
 
 struct Config {
-    
+
     std::vector<std::string> validPphases = {"Pg,P"};
     std::vector<std::string> validSphases = {"Sg,S"};
 
@@ -241,7 +241,7 @@ struct Config {
         std::string exec = "ph2dt";
         std::string ctrlFile;
     } ph2dt;
-    
+
     // differential travel time specific
     struct {
         double minWeight      = 0;  // Min weight of phases required (0-1)
@@ -279,6 +279,14 @@ struct Config {
 
         double resampleFreq = 0;
     } xcorr;
+
+    struct {
+        double minSnr = 0;
+        double noiseStart = 0;
+        double noiseEnd = 0;
+        double signalStart = 0;
+        double signalEnd = 0;
+    } snr;
 };
 
 
@@ -308,7 +316,7 @@ class HypoDD : public Core::BaseObject {
         void setUseSingleEvDiskCache(bool cache) { _useSingleEvDiskCache = cache; }
         bool useSingleEvDiskCache() { return _useSingleEvDiskCache; }
 
-        
+
     private:
         CatalogPtr filterOutPhases(const CatalogCPtr& catalog,
                                    const std::vector<std::string>& PphaseToKeep,
@@ -343,6 +351,10 @@ class HypoDD : public Core::BaseObject {
                    std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2) const;
         bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
                    double& delayOut, double& coeffOut) const;
+        bool S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
+                      double noiseOffsetStart, double noiseOffsetEnd,
+                      double signalOffsetStart, double signalOffsetEnd,
+                      double& snr) const;
         void runHypodd(const std::string& workingDir, const std::string& dtccFile,
                        const std::string& dtctFile, const std::string& eventFile,
                        const std::string& stationFile, const std::string& ctrlFile) const;
