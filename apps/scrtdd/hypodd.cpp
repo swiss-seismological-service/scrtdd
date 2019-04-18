@@ -985,7 +985,7 @@ CatalogPtr HypoDD::filterOutPhases(const CatalogCPtr& catalog,
                                    const std::vector<std::string>& PphaseToKeep,
                                    const std::vector<std::string>& SphaseToKeep) const
 {
-    SEISCOMP_DEBUG("Selecting preferred phases from catalog");
+    SEISCOMP_INFO("Selecting preferred phases from catalog");
 
     multimap<unsigned,Catalog::Phase> filteredS;
     multimap<unsigned,Catalog::Phase> filteredP;
@@ -1096,7 +1096,7 @@ CatalogPtr HypoDD::filterOutPhases(const CatalogCPtr& catalog,
 
 CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
 {
-    SEISCOMP_DEBUG("Starting HypoDD relocator in multiple events mode");
+    SEISCOMP_INFO("Starting HypoDD relocator in multiple events mode");
 
     // Create working directory 
     string catalogWorkingDir = (boost::filesystem::path(_workingDir)/"catalog").string(); 
@@ -1205,7 +1205,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
 
 CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 {
-    SEISCOMP_DEBUG("Starting HypoDD relocator in single event mode");
+    SEISCOMP_INFO("Starting HypoDD relocator in single event mode");
 
     const CatalogCPtr evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
 
@@ -1369,7 +1369,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
  */
 void HypoDD::createStationDatFile(const string& staFileName, const CatalogCPtr& catalog) const
 {
-    SEISCOMP_DEBUG("Creating station file %s", staFileName.c_str());
+    SEISCOMP_INFO("Creating station file %s", staFileName.c_str());
 
     ofstream outStream(staFileName);
     if ( !outStream.is_open() ) {
@@ -1409,7 +1409,7 @@ void HypoDD::createStationDatFile(const string& staFileName, const CatalogCPtr& 
  */
 void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogCPtr& catalog) const
 {
-    SEISCOMP_DEBUG("Creating phase file %s", phaseFileName.c_str());
+    SEISCOMP_INFO("Creating phase file %s", phaseFileName.c_str());
 
     ofstream outStream(phaseFileName);
     if ( !outStream.is_open() ) {
@@ -1471,7 +1471,7 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogCPtr& 
  */
 void HypoDD::createEventDatFile(const string& eventFileName, const CatalogCPtr& catalog) const
 {
-    SEISCOMP_DEBUG("Creating event file %s", eventFileName.c_str());
+    SEISCOMP_INFO("Creating event file %s", eventFileName.c_str());
 
     ofstream outStream(eventFileName);
     if ( !outStream.is_open() )
@@ -1509,7 +1509,7 @@ void HypoDD::createEventDatFile(const string& eventFileName, const CatalogCPtr& 
  */
 void HypoDD::runPh2dt(const string& workingDir, const string& stationFile, const string& phaseFile) const
 {
-    SEISCOMP_DEBUG("Running ph2dt...");
+    SEISCOMP_INFO("Running ph2dt...");
 
     if ( !Util::fileExists(stationFile) )
         throw runtime_error("Unable to run ph2dt, file doesn't exist: " + stationFile);
@@ -1542,7 +1542,7 @@ void HypoDD::runPh2dt(const string& workingDir, const string& stationFile, const
 void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const string& dtctFile,
                        const string& eventFile, const string& stationFile, const std::string& ctrlFile) const
 {
-    SEISCOMP_DEBUG("Running hypodd...");
+    SEISCOMP_INFO("Running hypodd...");
 
     if ( !Util::fileExists(dtccFile) )
         throw runtime_error("Unable to run hypodd, file doesn't exist: " + dtccFile);
@@ -1606,7 +1606,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             int minNumNeigh,
                                             int maxNumNeigh) const
 {
-    SEISCOMP_DEBUG("Selecting Neighbouring Events for event %s", string(refEv).c_str());
+    SEISCOMP_INFO("Selecting Neighbouring Events for event %s", string(refEv).c_str());
 
     map<double,unsigned> eventByDistance; // distance, eventid
     map<unsigned,double> distanceByEvent; // eventid, distance
@@ -1796,7 +1796,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                                         int minNumNeigh,
                                         int maxNumNeigh) const
 {
-    SEISCOMP_DEBUG("Selecting Catalog Neighbouring Events ");
+    SEISCOMP_INFO("Selecting Catalog Neighbouring Events ");
 
     // build the list of neighbours for each event
     map<unsigned,CatalogPtr> neighbourCats;
@@ -1904,7 +1904,7 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
                                         const std::string& ddrelocFile,
                                         const std::string& ddresidualFile) const
 {
-    SEISCOMP_DEBUG("Loading catalog relocated by hypodd...");
+    SEISCOMP_INFO("Loading catalog relocated by hypodd...");
 
     if ( !Util::fileExists(ddrelocFile) )
         throw runtime_error("Cannot load hypodd relocated catalog file: " + ddrelocFile);
@@ -2102,7 +2102,7 @@ CatalogPtr HypoDD::extractEvent(const CatalogCPtr& catalog, unsigned eventId) co
 void HypoDD::createDtCtCatalog(const CatalogCPtr& catalog,
                                const string& dtctFile) const
 {
-    SEISCOMP_DEBUG("Creating differential travel time file %s", dtctFile.c_str());
+    SEISCOMP_INFO("Creating differential travel time file %s", dtctFile.c_str());
 
     map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
         catalog, _cfg.dtt.minWeight, _cfg.dtt.minESdist,
@@ -2128,7 +2128,7 @@ void HypoDD::createDtCtSingleEvent(const CatalogCPtr& catalog,
                                    unsigned evToRelocateId,
                                    const string& dtctFile) const
 {
-    SEISCOMP_DEBUG("Creating differential travel time file %s", dtctFile.c_str());
+    SEISCOMP_INFO("Creating differential travel time file %s", dtctFile.c_str());
 
     ofstream outStream(dtctFile);
     if ( !outStream.is_open() )
@@ -2227,9 +2227,9 @@ void HypoDD::buildAbsTTimePairs(const CatalogCPtr& catalog,
  * This is for full catalog mode
  */
 void HypoDD::createDtCcCatalog(const CatalogCPtr& catalog,
-                          const string& dtccFile)
+                               const string& dtccFile)
 {
-    SEISCOMP_DEBUG("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
+    SEISCOMP_INFO("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
 
     map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
         catalog, _cfg.xcorr.minWeight, _cfg.xcorr.minESdist,
@@ -2259,7 +2259,7 @@ void HypoDD::createDtCcSingleEvent(const CatalogCPtr& catalog,
                                    unsigned evToRelocateId,
                                    const string& dtccFile)
 {
-    SEISCOMP_DEBUG("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
+    SEISCOMP_INFO("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
 
     ofstream outStream(dtccFile);
     if ( !outStream.is_open() )
@@ -2357,7 +2357,7 @@ void HypoDD::buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
  */
 void HypoDD::createDtCcPh2dt(const string& dtctFile, const string& dtccFile)
 {
-    SEISCOMP_DEBUG("Calculating cross correlated differential travel times...");
+    SEISCOMP_INFO("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
 
     if ( !Util::fileExists(dtctFile) )
         throw runtime_error("Unable to perform cross correlation, cannot find file: " + dtctFile);
