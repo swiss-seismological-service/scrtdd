@@ -252,7 +252,7 @@ struct Config {
         int minNumNeigh       = 1;  // Min neighbors required
         int maxNumNeigh       =-1;  // Max neighbors allowed (furthest events are discarded)
         int minDTperEvt       = 1;  // Min differential times per event pair required (Including P+S)
-    } dtt;
+    } dtct;
 
     // cross correlation specific
     struct {
@@ -266,19 +266,23 @@ struct Config {
         int minNumNeigh       = 1;  // Min neighbors required
         int maxNumNeigh       =-1;  // Max neighbors allowed (furthest events are discarded)
         int minDTperEvt       = 1;  // Min differential times per event pair required (Including P+S)
-
+    } dtcc;
+            
+    struct {
         double minCoef        = 0;    // Min xcorr coefficient required (0-1)
 
         double timeBeforePick; // secs
         double timeAfterPick;  // secs
         double maxDelay;       //secs
-
+    } xcorr;
+            
+    struct {
         int filterOrder;
         double filterFmin     = 0;
         double filterFmax     = 0;
 
         double resampleFreq = 0;
-    } xcorr;
+    } wfFilter;
 
     struct {
         double minSnr = 0;

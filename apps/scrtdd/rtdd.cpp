@@ -405,56 +405,56 @@ bool RTDD::validateParameters()
 
         prefix = string("profile.") + *it + ".dtct.";
         try {
-            prof->ddcfg.dtt.minWeight = configGetDouble(prefix + "minWeight");
-        } catch ( ... ) { prof->ddcfg.dtt.minWeight = 0; }
+            prof->ddcfg.dtct.minWeight = configGetDouble(prefix + "minWeight");
+        } catch ( ... ) { prof->ddcfg.dtct.minWeight = 0; }
         try {
-            prof->ddcfg.dtt.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
-        } catch ( ... ) { prof->ddcfg.dtt.minEStoIEratio = 0; }
+            prof->ddcfg.dtct.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
+        } catch ( ... ) { prof->ddcfg.dtct.minEStoIEratio = 0; }
         try {
-            prof->ddcfg.dtt.minESdist = configGetDouble(prefix + "minESdist");
-        } catch ( ... ) { prof->ddcfg.dtt.minESdist = 0; }
+            prof->ddcfg.dtct.minESdist = configGetDouble(prefix + "minESdist");
+        } catch ( ... ) { prof->ddcfg.dtct.minESdist = 0; }
         try {
-            prof->ddcfg.dtt.maxESdist = configGetDouble(prefix + "maxESdist");
-        } catch ( ... ) { prof->ddcfg.dtt.maxESdist = -1; }
+            prof->ddcfg.dtct.maxESdist = configGetDouble(prefix + "maxESdist");
+        } catch ( ... ) { prof->ddcfg.dtct.maxESdist = -1; }
         try {
-            prof->ddcfg.dtt.maxIEdist = configGetDouble(prefix + "maxIEdist");
-        } catch ( ... ) { prof->ddcfg.dtt.maxIEdist = -1; }
+            prof->ddcfg.dtct.maxIEdist = configGetDouble(prefix + "maxIEdist");
+        } catch ( ... ) { prof->ddcfg.dtct.maxIEdist = -1; }
         try {
-            prof->ddcfg.dtt.minNumNeigh = configGetInt(prefix + "minNumNeigh");
-        } catch ( ... ) { prof->ddcfg.dtt.minNumNeigh = 1; }
+            prof->ddcfg.dtct.minNumNeigh = configGetInt(prefix + "minNumNeigh");
+        } catch ( ... ) { prof->ddcfg.dtct.minNumNeigh = 1; }
         try {
-            prof->ddcfg.dtt.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
-        } catch ( ... ) { prof->ddcfg.dtt.maxNumNeigh = -1; }
+            prof->ddcfg.dtct.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
+        } catch ( ... ) { prof->ddcfg.dtct.maxNumNeigh = -1; }
         try {
-            prof->ddcfg.dtt.minDTperEvt = configGetInt(prefix + "minDTperEvt");
-        } catch ( ... ) { prof->ddcfg.dtt.minDTperEvt = 1; }
+            prof->ddcfg.dtct.minDTperEvt = configGetInt(prefix + "minDTperEvt");
+        } catch ( ... ) { prof->ddcfg.dtct.minDTperEvt = 1; }
 
         prefix = string("profile.") + *it + ".dtcc.";
-        prof->ddcfg.xcorr.recordStreamURL = recordStreamURL();
+        prof->ddcfg.dtcc.recordStreamURL = recordStreamURL();
         try {
-            prof->ddcfg.xcorr.minWeight = configGetDouble(prefix + "minWeight");
-        } catch ( ... ) { prof->ddcfg.xcorr.minWeight = 0; }
+            prof->ddcfg.dtcc.minWeight = configGetDouble(prefix + "minWeight");
+        } catch ( ... ) { prof->ddcfg.dtcc.minWeight = 0; }
         try {
-            prof->ddcfg.xcorr.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
-        } catch ( ... ) { prof->ddcfg.xcorr.minEStoIEratio = 0; }
+            prof->ddcfg.dtcc.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
+        } catch ( ... ) { prof->ddcfg.dtcc.minEStoIEratio = 0; }
         try {
-            prof->ddcfg.xcorr.minESdist = configGetDouble(prefix + "minESdist");
-        } catch ( ... ) { prof->ddcfg.xcorr.minESdist = 0; }
+            prof->ddcfg.dtcc.minESdist = configGetDouble(prefix + "minESdist");
+        } catch ( ... ) { prof->ddcfg.dtcc.minESdist = 0; }
         try {
-            prof->ddcfg.xcorr.maxESdist = configGetDouble(prefix + "maxESdist");
-        } catch ( ... ) { prof->ddcfg.xcorr.maxESdist = -1; }
+            prof->ddcfg.dtcc.maxESdist = configGetDouble(prefix + "maxESdist");
+        } catch ( ... ) { prof->ddcfg.dtcc.maxESdist = -1; }
         try {
-            prof->ddcfg.xcorr.maxIEdist = configGetDouble(prefix + "maxIEdist");
-        } catch ( ... ) { prof->ddcfg.xcorr.maxIEdist = -1; }
+            prof->ddcfg.dtcc.maxIEdist = configGetDouble(prefix + "maxIEdist");
+        } catch ( ... ) { prof->ddcfg.dtcc.maxIEdist = -1; }
         try {
-            prof->ddcfg.xcorr.minNumNeigh = configGetInt(prefix + "minNumNeigh");
-        } catch ( ... ) { prof->ddcfg.xcorr.minNumNeigh = 1; }
+            prof->ddcfg.dtcc.minNumNeigh = configGetInt(prefix + "minNumNeigh");
+        } catch ( ... ) { prof->ddcfg.dtcc.minNumNeigh = 1; }
         try {
-            prof->ddcfg.xcorr.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
-        } catch ( ... ) { prof->ddcfg.xcorr.maxNumNeigh = -1; }
+            prof->ddcfg.dtcc.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
+        } catch ( ... ) { prof->ddcfg.dtcc.maxNumNeigh = -1; }
         try {
-            prof->ddcfg.xcorr.minDTperEvt = configGetInt(prefix + "minDTperEvt");
-        } catch ( ... ) { prof->ddcfg.xcorr.minDTperEvt = 1; }
+            prof->ddcfg.dtcc.minDTperEvt = configGetInt(prefix + "minDTperEvt");
+        } catch ( ... ) { prof->ddcfg.dtcc.minDTperEvt = 1; }
 
         prefix = string("profile.") + *it + ".dtcc.crosscorrelation.";
         try {
@@ -470,17 +470,17 @@ bool RTDD::validateParameters()
 
         prefix = string("profile.") + *it + ".dtcc.waveformFiltering.";
         try {
-            prof->ddcfg.xcorr.filterFmin = configGetDouble(prefix + "filterFmin");
-        } catch ( ... ) { prof->ddcfg.xcorr.filterFmin = 0.; }
+            prof->ddcfg.wfFilter.filterFmin = configGetDouble(prefix + "filterFmin");
+        } catch ( ... ) { prof->ddcfg.wfFilter.filterFmin = 0.; }
         try {
-            prof->ddcfg.xcorr.filterFmax = configGetDouble(prefix + "filterFmax");
-        } catch ( ... ) { prof->ddcfg.xcorr.filterFmax = 0.; }
+            prof->ddcfg.wfFilter.filterFmax = configGetDouble(prefix + "filterFmax");
+        } catch ( ... ) { prof->ddcfg.wfFilter.filterFmax = 0.; }
         try {
-            prof->ddcfg.xcorr.filterOrder = configGetInt(prefix + "filterOrder");
-        } catch ( ... ) { prof->ddcfg.xcorr.filterOrder = 3; }
+            prof->ddcfg.wfFilter.filterOrder = configGetInt(prefix + "filterOrder");
+        } catch ( ... ) { prof->ddcfg.wfFilter.filterOrder = 3; }
         try {
-            prof->ddcfg.xcorr.resampleFreq = configGetDouble(prefix + "resampling");
-        } catch ( ... ) { prof->ddcfg.xcorr.resampleFreq = 0.; }
+            prof->ddcfg.wfFilter.resampleFreq = configGetDouble(prefix + "resampling");
+        } catch ( ... ) { prof->ddcfg.wfFilter.resampleFreq = 0.; }
 
         prefix = string("profile.") + *it + ".dtcc.snr.";
         try {

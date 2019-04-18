@@ -1238,9 +1238,9 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
     // Select neighbouring events
     CatalogPtr neighbourCat = selectNeighbouringEvents(
-        _ddbgc->merge(evToRelocateCat), evToRelocate, _cfg.dtt.minWeight, _cfg.dtt.minESdist,
-        _cfg.dtt.maxESdist, _cfg.dtt.minEStoIEratio, _cfg.dtt.maxIEdist, _cfg.dtt.minDTperEvt,
-        _cfg.dtt.minNumNeigh, _cfg.dtt.maxNumNeigh
+        _ddbgc->merge(evToRelocateCat), evToRelocate, _cfg.dtct.minWeight, _cfg.dtct.minESdist,
+        _cfg.dtct.maxESdist, _cfg.dtct.minEStoIEratio, _cfg.dtct.maxIEdist, _cfg.dtct.minDTperEvt,
+        _cfg.dtct.minNumNeigh, _cfg.dtct.maxNumNeigh
     );
     // add event
     neighbourCat->copyEvent(evToRelocate, evToRelocateCat, false);
@@ -1301,9 +1301,9 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         // Select neighbouring events from the relocated origin
         const Catalog::Event& relocatedEv = relocatedEvCat->getEvents().begin()->second;
         neighbourCat = selectNeighbouringEvents(
-            _ddbgc->merge(relocatedEvCat), relocatedEv, _cfg.xcorr.minWeight, _cfg.xcorr.minESdist,
-            _cfg.xcorr.maxESdist, _cfg.xcorr.minEStoIEratio, _cfg.xcorr.maxIEdist, _cfg.xcorr.minDTperEvt,
-            _cfg.xcorr.minNumNeigh, _cfg.xcorr.maxNumNeigh
+            _ddbgc->merge(relocatedEvCat), relocatedEv, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist,
+            _cfg.dtcc.maxESdist, _cfg.dtcc.minEStoIEratio, _cfg.dtcc.maxIEdist, _cfg.dtcc.minDTperEvt,
+            _cfg.dtcc.minNumNeigh, _cfg.dtcc.maxNumNeigh
         );
         // add event
         neighbourCat->copyEvent(relocatedEv, relocatedEvCat, false);
@@ -2105,9 +2105,9 @@ void HypoDD::createDtCtCatalog(const CatalogCPtr& catalog,
     SEISCOMP_INFO("Creating differential travel time file %s", dtctFile.c_str());
 
     map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
-        catalog, _cfg.dtt.minWeight, _cfg.dtt.minESdist,
-        _cfg.dtt.maxESdist, _cfg.dtt.minEStoIEratio, _cfg.dtt.maxIEdist,
-        _cfg.dtt.minDTperEvt, _cfg.dtt.minNumNeigh, _cfg.dtt.maxNumNeigh
+        catalog, _cfg.dtct.minWeight, _cfg.dtct.minESdist,
+        _cfg.dtct.maxESdist, _cfg.dtct.minEStoIEratio, _cfg.dtct.maxIEdist,
+        _cfg.dtct.minDTperEvt, _cfg.dtct.minNumNeigh, _cfg.dtct.maxNumNeigh
     );
 
     ofstream outStream(dtctFile);
@@ -2232,9 +2232,9 @@ void HypoDD::createDtCcCatalog(const CatalogCPtr& catalog,
     SEISCOMP_INFO("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
 
     map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
-        catalog, _cfg.xcorr.minWeight, _cfg.xcorr.minESdist,
-        _cfg.xcorr.maxESdist, _cfg.xcorr.minEStoIEratio, _cfg.xcorr.maxIEdist,
-        _cfg.xcorr.minDTperEvt, _cfg.xcorr.minNumNeigh, _cfg.xcorr.maxNumNeigh
+        catalog, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist,
+        _cfg.dtcc.maxESdist, _cfg.dtcc.minEStoIEratio, _cfg.dtcc.maxIEdist,
+        _cfg.dtcc.minDTperEvt, _cfg.dtcc.minNumNeigh, _cfg.dtcc.maxNumNeigh
     );
 
     ofstream outStream(dtccFile);
@@ -2798,8 +2798,8 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         }
 
         // fitler waveform
-        filter(*trace, true, _cfg.xcorr.filterOrder, _cfg.xcorr.filterFmin,
-               _cfg.xcorr.filterFmax, _cfg.xcorr.resampleFreq);
+        filter(*trace, true, _cfg.wfFilter.filterOrder, _cfg.wfFilter.filterFmin,
+               _cfg.wfFilter.filterFmax, _cfg.wfFilter.resampleFreq);
 
         // save waveform into the cache
         memCache[wfId] = trace;
@@ -2959,8 +2959,8 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     } 
 
     // fitler waveform
-    filter(*trace, true, _cfg.xcorr.filterOrder, _cfg.xcorr.filterFmin,
-           _cfg.xcorr.filterFmax, _cfg.xcorr.resampleFreq);
+    filter(*trace, true, _cfg.wfFilter.filterOrder, _cfg.wfFilter.filterFmin,
+           _cfg.wfFilter.filterFmax, _cfg.wfFilter.resampleFreq);
 
     // save waveform into the cache
     memCache[wfId] = trace;
@@ -3027,10 +3027,10 @@ HypoDD::readWaveformFromRecordStream(const Core::TimeWindow& tw,
                                      const string& locationCode,
                                      const string& channelCode) const
 {
-    IO::RecordStreamPtr rs = IO::RecordStream::Open( _cfg.xcorr.recordStreamURL.c_str() );
+    IO::RecordStreamPtr rs = IO::RecordStream::Open( _cfg.dtcc.recordStreamURL.c_str() );
     if ( rs == nullptr )
     {
-        string msg = "Cannot open RecordStream: " + _cfg.xcorr.recordStreamURL;
+        string msg = "Cannot open RecordStream: " + _cfg.dtcc.recordStreamURL;
         throw runtime_error(msg);
     }
 
