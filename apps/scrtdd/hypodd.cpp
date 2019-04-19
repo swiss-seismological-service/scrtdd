@@ -1606,7 +1606,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             int minNumNeigh,
                                             int maxNumNeigh) const
 {
-    SEISCOMP_INFO("Selecting Neighbouring Events for event %s", string(refEv).c_str());
+    SEISCOMP_DEBUG("Selecting Neighbouring Events for event %s", string(refEv).c_str());
 
     map<double,unsigned> eventByDistance; // distance, eventid
     map<unsigned,double> distanceByEvent; // eventid, distance
@@ -2291,7 +2291,7 @@ void HypoDD::buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
                                       std::map<std::string,GenericRecordPtr>& catalogCache,
                                       bool useDiskCacheCatalog,
                                       std::map<std::string,GenericRecordPtr>& refEvCache,
-                                      bool useDiskCacheRefEv) const
+                                      bool useDiskCacheRefEv)
 {
     auto search = catalog->getEvents().find(evToRelocateId);
     if (search == catalog->getEvents().end())
@@ -2467,12 +2467,31 @@ void HypoDD::createDtCcPh2dt(const string& dtctFile, const string& dtccFile)
 
 
 
+string 
+HypoDD::waveformId(const Catalog::Phase& ph, const Core::TimeWindow& tw) const
+{
+    return waveformId(ph.networkCode, ph.stationCode, ph.locationCode, ph.channelCode, tw);
+}
+
+string
+HypoDD::waveformId(const string& networkCode, const string& stationCode,
+                   const string& locationCode, const string& channelCode,
+                   const Core::TimeWindow& tw) const
+{
+    return stringify("%s.%s.%s.%s.%s.%s",
+                     networkCode.c_str(), stationCode.c_str(),
+                     locationCode.c_str(), channelCode.c_str(),
+                     tw.startTime().iso().c_str(),
+                     tw.endTime().iso().c_str());
+}
+
+
 bool
 HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
               const Catalog::Event& event2, const Catalog::Phase& phase2,
               double& dtccOut, double& weightOut,
               std::map<std::string,GenericRecordPtr>& cache1,  bool useDiskCache1,
-              std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2) const
+              std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2)
 {
     dtccOut = 0;
     weightOut = 0;
@@ -2504,50 +2523,65 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     double longDuration = shortDuration + _cfg.xcorr.maxDelay * 2;
     Core::TimeSpan longTimeCorrection = shortTimeCorrection + Core::TimeSpan(_cfg.xcorr.maxDelay);
 
-    // always load the long trace, because we want to cache the longer version
+    // we load the long traces, because we want to cache the longer version
     Core::TimeWindow tw1 = Core::TimeWindow(phase1.time - longTimeCorrection, longDuration);
+    Core::TimeWindow tw2 = Core::TimeWindow(phase2.time - longTimeCorrection, longDuration); 
+
+    // Check if we have already excluded those traces (couldn't load, snr too high, etc..)
+    const string wfId1 = waveformId(phase1, tw1);
+    const string wfId2 = waveformId(phase2, tw2);
+    if ( (_validWfs.count(wfId1) != 0 && ! _validWfs[wfId1] ) ||
+         (_validWfs.count(wfId2) != 0 && ! _validWfs[wfId2] ) )
+    {
+        return false;
+    }
+
+    // load trace 1 long
     GenericRecordPtr tr1 = getWaveform(tw1, event1, phase1, cache1, useDiskCache1);
     if ( !tr1 )
     {
         SEISCOMP_WARNING("Cannot load phase1 waveform, skipping cross correlation "
                          "for phase pair phase1='%s', phase2='%s'",
                          string(phase1).c_str(), string(phase2).c_str());
+        _validWfs[wfId1] = false;
         return false;
     }
 
     // check SNR threshold
-    if ( _cfg.snr.minSnr > 0 )
+    if ( _cfg.snr.minSnr > 0 && _validWfs.count(wfId1) != 0 )
     {
-        double snr;
-        if ( ! S2Nratio(tr1, phase1.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
-                        _cfg.snr.signalStart, _cfg.snr.signalEnd, snr) )
+        double snr = S2Nratio(tr1, phase1.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
+                              _cfg.snr.signalStart, _cfg.snr.signalEnd);
+        if ( snr < _cfg.snr.minSnr )
         {
+            _validWfs[wfId1] = false;
             return false;
         }
-        if ( snr < _cfg.snr.minSnr ) return false;
+        _validWfs[wfId1] = true;
     }
 
-    // always load the long trace, because we want to cache the longer version
-    Core::TimeWindow tw2 = Core::TimeWindow(phase2.time - longTimeCorrection, longDuration);
+    // load trace 2 long
     GenericRecordPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2);
     if ( !tr2 )
     {
         SEISCOMP_WARNING("Cannot load phase2 waveform, skipping cross correlation "
                          "for phase pair phase1='%s', phase2='%s'",
                          string(phase1).c_str(), string(phase2).c_str());
+        _validWfs[wfId2] = false;
         return false;
     }
 
     // check SNR threshold
-    if ( _cfg.snr.minSnr > 0 )
+    if ( _cfg.snr.minSnr > 0 && _validWfs.count(wfId2) != 0 )
     {
-        double snr;
-        if ( ! S2Nratio(tr2, phase2.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
-                        _cfg.snr.signalStart, _cfg.snr.signalEnd, snr) )
+        double snr = S2Nratio(tr2, phase2.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
+                              _cfg.snr.signalStart, _cfg.snr.signalEnd);
+        if ( snr < _cfg.snr.minSnr )
         {
+            _validWfs[wfId2] = false;
             return false;
         }
-        if ( snr < _cfg.snr.minSnr ) return false;
+        _validWfs[wfId2] = true;
     }
 
     // trim tr2 to shorter length, we want to cross correlate the short with the long one
@@ -2558,6 +2592,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
         SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation "
                          "for phase pair phase1='%s', phase2='%s'",
                          string(phase1).c_str(), string(phase2).c_str());
+        _validWfs[wfId2] = false;
         return false;
     }
 
@@ -2577,6 +2612,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
         SEISCOMP_WARNING("Cannot trim phase1 waveform, skipping cross correlation "
                          "for phase pair phase1='%s', phase2='%s'",
                          string(phase1).c_str(), string(phase2).c_str());
+        _validWfs[wfId1] = false;
         return false;
     }
 
@@ -2671,11 +2707,10 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
 
 
 
-bool
+double
 HypoDD::S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
                  double noiseOffsetStart, double noiseOffsetEnd,
-                 double signalOffsetStart, double signalOffsetEnd,
-                 double& snr) const
+                 double signalOffsetStart, double signalOffsetEnd) const
 {
     const double *data = DoubleArray::ConstCast(tr->data())->typedData();
     const int size = tr->data()->size();
@@ -2693,7 +2728,7 @@ HypoDD::S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
          (std::max({noiseStart,noiseEnd,signalStart,signalEnd}) >= size) )
     {
         SEISCOMP_INFO("Cannot compute S2N ratio: noise/signal windows exceed waveform boundaries");
-        return false;
+        return -1;
     }
 
     // Get maximum (absolute) amplitude in noise window:
@@ -2710,8 +2745,7 @@ HypoDD::S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
         signalMax = std::max(std::abs(data[i]), signalMax);
     }
 
-    snr = signalMax/noiseMax;
-    return true;
+    return signalMax/noiseMax;
 }
 
 
@@ -2732,11 +2766,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     /*
      * first try to load the waveform from the memory cache, if present
      */
-    string wfId = stringify("%s.%s.%s.%s.%s.%s",
-                            ph.networkCode.c_str(), ph.stationCode.c_str(),
-                            ph.locationCode.c_str(), ph.channelCode.c_str(),
-                            tw.startTime().iso().c_str(),
-                            tw.endTime().iso().c_str());
+    const string wfId = waveformId(ph, tw);
 
     const auto it = memCache.find(wfId);
 
@@ -2982,11 +3012,8 @@ HypoDD::loadWaveform(const Core::TimeWindow& tw,
                      const string& channelCode,
                      bool useDiskCache) const
 {
-    string cacheFile = stringify("%s.%s.%s.%s.%s.%s.mseed",
-                                 networkCode.c_str(), stationCode.c_str(),
-                                 locationCode.c_str(), channelCode.c_str(),
-                                 tw.startTime().iso().c_str(),
-                                 tw.endTime().iso().c_str());
+    string cacheFile = waveformId(networkCode, stationCode, locationCode, channelCode, tw) + ".mseed";
+
     cacheFile = (boost::filesystem::path(_cacheDir)/cacheFile).string();
 
     GenericRecordPtr trace;

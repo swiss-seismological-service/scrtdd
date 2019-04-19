@@ -267,7 +267,7 @@ struct Config {
         int maxNumNeigh       =-1;  // Max neighbors allowed (furthest events are discarded)
         int minDTperEvt       = 1;  // Min differential times per event pair required (Including P+S)
     } dtcc;
-            
+
     struct {
         double minCoef        = 0;    // Min xcorr coefficient required (0-1)
 
@@ -275,7 +275,7 @@ struct Config {
         double timeAfterPick;  // secs
         double maxDelay;       //secs
     } xcorr;
-            
+
     struct {
         int filterOrder;
         double filterFmin     = 0;
@@ -347,18 +347,13 @@ class HypoDD : public Core::BaseObject {
                                       std::map<std::string,GenericRecordPtr>& catalogCache,
                                       bool useDiskCacheCatalog,
                                       std::map<std::string,GenericRecordPtr>& refEvCache,
-                                      bool useDiskCacheRefEv) const;
+                                      bool useDiskCacheRefEv);
         bool xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
                    const Catalog::Event& event2, const Catalog::Phase& phase2,
                    double& dtccOut, double& weightOut,
                    std::map<std::string,GenericRecordPtr>& cache1,  bool useDiskCache1,
-                   std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2) const;
-        bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
-                   double& delayOut, double& coeffOut) const;
-        bool S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
-                      double noiseOffsetStart, double noiseOffsetEnd,
-                      double signalOffsetStart, double signalOffsetEnd,
-                      double& snr) const;
+                   std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2);
+
         void runHypodd(const std::string& workingDir, const std::string& dtccFile,
                        const std::string& dtctFile, const std::string& eventFile,
                        const std::string& stationFile, const std::string& ctrlFile) const;
@@ -379,6 +374,11 @@ class HypoDD : public Core::BaseObject {
                                         double minEStoIEratio, double maxIEdis,
                                         int minDTperEvt, int minNumNeigh,
                                         int maxNumNeigh) const;
+        bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
+                   double& delayOut, double& coeffOut) const;
+        double S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
+                        double noiseOffsetStart, double noiseOffsetEnd,
+                        double signalOffsetStart, double signalOffsetEnd) const;
         CatalogPtr extractEvent(const CatalogCPtr& catalog, unsigned eventId) const;
         GenericRecordPtr getWaveform(const Core::TimeWindow& tw,
                                      const Catalog::Event& ev,
@@ -402,6 +402,10 @@ class HypoDD : public Core::BaseObject {
                     int order=3, double fmin=-1, double fmax=-1, double resampleFreq=0) const;
         void resample(GenericRecord& trace, double sf, bool average) const;
         std::string generateWorkingSubDir(const Catalog::Event& ev) const;
+        std::string waveformId(const Catalog::Phase& ph, const Core::TimeWindow& tw) const;
+        std::string waveformId(const std::string& networkCode, const std::string& stationCode,
+                               const std::string& locationCode, const std::string& channelCode,
+                               const Core::TimeWindow& tw) const;
 
     private:
         std::string _workingDir;
@@ -412,6 +416,7 @@ class HypoDD : public Core::BaseObject {
         bool _useCatalogDiskCache = false;
         bool _useSingleEvDiskCache = false;
         std::map<std::string, GenericRecordPtr> _wfCache;
+        std::map<std::string, bool> _validWfs;
 };
 
 }
