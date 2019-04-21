@@ -2520,9 +2520,6 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     GenericRecordPtr tr1 = getWaveform(tw1, event1, phase1, cache1, useDiskCache1);
     if ( !tr1 )
     {
-        SEISCOMP_DEBUG("Cannot load phase1 waveform, skipping cross correlation "
-                       "for phase pair phase1='%s', phase2='%s'",
-                       string(phase1).c_str(), string(phase2).c_str());
         _excludedWfs.insert(wfId1);
         return false;
     }
@@ -2531,9 +2528,6 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     GenericRecordPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2);
     if ( !tr2 )
     {
-        SEISCOMP_DEBUG("Cannot load phase2 waveform, skipping cross correlation "
-                       "for phase pair phase1='%s', phase2='%s'",
-                        string(phase1).c_str(), string(phase2).c_str());
         _excludedWfs.insert(wfId2);
         return false;
     }
@@ -2553,8 +2547,6 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     double xcorr_coeff, xcorr_dt;
     if ( ! xcorr(tr1, tr2Short, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
     {
-        SEISCOMP_WARNING("Error in cross correlationloa for phase pair phase1='%s', phase2='%s'",
-                         string(phase1).c_str(), string(phase2).c_str());
         return false;
     }
 
@@ -2573,8 +2565,6 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     double xcorr_coeff2, xcorr_dt2;
     if ( ! xcorr(tr1Short, tr2, _cfg.xcorr.maxDelay, xcorr_dt2, xcorr_coeff2) )
     {
-        SEISCOMP_WARNING("Error in cross correlationloa for phase pair phase1='%s', phase2='%s'",
-                         string(phase1).c_str(), string(phase2).c_str());
         return false;
     }
 
@@ -2616,7 +2606,7 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
 
     if (tr1->samplingFrequency() != tr2->samplingFrequency())
     {
-        SEISCOMP_DEBUG("Cannot cross correlate traces with different sampling freq (%f!=%f)",
+        SEISCOMP_INFO("Cannot cross correlate traces with different sampling freq (%f!=%f)",
                       tr1->samplingFrequency(), tr2->samplingFrequency());
         return false;
     }
@@ -2792,7 +2782,11 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         {
             double snr = S2Nratio(trace, ph.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
                                   _cfg.snr.signalStart, _cfg.snr.signalEnd);
-            if ( snr < _cfg.snr.minSnr ) return nullptr;
+            if ( snr < _cfg.snr.minSnr )
+            {
+                SEISCOMP_INFO("Trace has too low SNR (%.2f), discard it (%s)", snr, wfDesc.c_str());
+                return nullptr;
+            }
         }
 
         // save waveform into the cache
@@ -2877,7 +2871,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         tr3 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
                            tc.comps[ThreeComponents::SecondHorizontal]->code(), useDiskCache);
     } catch ( exception &e ) {
-        SEISCOMP_INFO("%s", e.what());
+        SEISCOMP_WARNING("%s", e.what());
         return nullptr;
     } 
 
@@ -2961,7 +2955,11 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     {
         double snr = S2Nratio(trace, ph.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
                               _cfg.snr.signalStart, _cfg.snr.signalEnd);
-        if ( snr < _cfg.snr.minSnr ) return nullptr;
+        if ( snr < _cfg.snr.minSnr ) 
+        {
+            SEISCOMP_INFO("Trace has too low SNR (%.2f), discard it (%s)", snr, wfDesc.c_str());
+            return nullptr;
+        }
     }
 
     // save waveform into the cache
