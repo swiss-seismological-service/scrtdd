@@ -25,6 +25,7 @@
 #include <seiscomp3/datamodel/databasequery.h>
 #include <seiscomp3/datamodel/origin.h>
 
+#include <set>
 #include <map>
 #include <vector>
 
@@ -416,7 +417,7 @@ class HypoDD : public Core::BaseObject {
         bool _useCatalogDiskCache = false;
         bool _useSingleEvDiskCache = false;
         std::map<std::string, GenericRecordPtr> _wfCache;
-        std::map<std::string, bool> _validWfs;
+        std::set<std::string> _excludedWfs;
 };
 
 }

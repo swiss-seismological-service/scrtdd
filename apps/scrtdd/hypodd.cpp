@@ -2499,89 +2499,43 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     SEISCOMP_DEBUG("Calculating cross correlation for phase pair phase1='%s', phase2='%s'",
                    string(phase1).c_str(), string(phase2).c_str());
 
-    double travel_time1 = phase1.time - event1.time;
-    if (travel_time1 < 0)
-    {
-        SEISCOMP_WARNING("Ignoring phase1 with negative travel time. Skipping cross correlation "
-                         "for phase pair phase1='%s', phase2='%s'",
-                         string(phase1).c_str(), string(phase2).c_str()); 
-        return false;
-    } 
-
-    double travel_time2 = phase2.time - event2.time;
-    if (travel_time2 < 0)
-    {
-        SEISCOMP_WARNING("Ignoring phase2 with negative travel time. Skipping cross correlation "
-                         "for phase pair phase1='%s', phase2='%s'",
-                         string(phase1).c_str(), string(phase2).c_str()); 
-        return false; 
-    }
-
     // compute start time and duration for the two traces
     double shortDuration = _cfg.xcorr.timeBeforePick + _cfg.xcorr.timeAfterPick;
     Core::TimeSpan shortTimeCorrection = Core::TimeSpan(_cfg.xcorr.timeBeforePick);
     double longDuration = shortDuration + _cfg.xcorr.maxDelay * 2;
     Core::TimeSpan longTimeCorrection = shortTimeCorrection + Core::TimeSpan(_cfg.xcorr.maxDelay);
 
-    // we load the long traces, because we want to cache the longer version
     Core::TimeWindow tw1 = Core::TimeWindow(phase1.time - longTimeCorrection, longDuration);
     Core::TimeWindow tw2 = Core::TimeWindow(phase2.time - longTimeCorrection, longDuration); 
 
     // Check if we have already excluded those traces (couldn't load, snr too high, etc..)
     const string wfId1 = waveformId(phase1, tw1);
     const string wfId2 = waveformId(phase2, tw2);
-    if ( (_validWfs.count(wfId1) != 0 && ! _validWfs[wfId1] ) ||
-         (_validWfs.count(wfId2) != 0 && ! _validWfs[wfId2] ) )
+    if ( _excludedWfs.count(wfId1) != 0 || _excludedWfs.count(wfId2) != 0 )
     {
         return false;
     }
 
-    // load trace 1 long
+    // load the long trace 1, because we want to cache the long version. Then we'll trim it.
     GenericRecordPtr tr1 = getWaveform(tw1, event1, phase1, cache1, useDiskCache1);
     if ( !tr1 )
     {
-        SEISCOMP_WARNING("Cannot load phase1 waveform, skipping cross correlation "
-                         "for phase pair phase1='%s', phase2='%s'",
-                         string(phase1).c_str(), string(phase2).c_str());
-        _validWfs[wfId1] = false;
+        SEISCOMP_DEBUG("Cannot load phase1 waveform, skipping cross correlation "
+                       "for phase pair phase1='%s', phase2='%s'",
+                       string(phase1).c_str(), string(phase2).c_str());
+        _excludedWfs.insert(wfId1);
         return false;
     }
 
-    // check SNR threshold
-    if ( _cfg.snr.minSnr > 0 && _validWfs.count(wfId1) != 0 )
-    {
-        double snr = S2Nratio(tr1, phase1.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
-                              _cfg.snr.signalStart, _cfg.snr.signalEnd);
-        if ( snr < _cfg.snr.minSnr )
-        {
-            _validWfs[wfId1] = false;
-            return false;
-        }
-        _validWfs[wfId1] = true;
-    }
-
-    // load trace 2 long
+    // load the long trace 2, because we want to cache the long version. Then we'll trim it
     GenericRecordPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2);
     if ( !tr2 )
     {
-        SEISCOMP_WARNING("Cannot load phase2 waveform, skipping cross correlation "
-                         "for phase pair phase1='%s', phase2='%s'",
-                         string(phase1).c_str(), string(phase2).c_str());
-        _validWfs[wfId2] = false;
+        SEISCOMP_DEBUG("Cannot load phase2 waveform, skipping cross correlation "
+                       "for phase pair phase1='%s', phase2='%s'",
+                        string(phase1).c_str(), string(phase2).c_str());
+        _excludedWfs.insert(wfId2);
         return false;
-    }
-
-    // check SNR threshold
-    if ( _cfg.snr.minSnr > 0 && _validWfs.count(wfId2) != 0 )
-    {
-        double snr = S2Nratio(tr2, phase2.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
-                              _cfg.snr.signalStart, _cfg.snr.signalEnd);
-        if ( snr < _cfg.snr.minSnr )
-        {
-            _validWfs[wfId2] = false;
-            return false;
-        }
-        _validWfs[wfId2] = true;
     }
 
     // trim tr2 to shorter length, we want to cross correlate the short with the long one
@@ -2592,7 +2546,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
         SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation "
                          "for phase pair phase1='%s', phase2='%s'",
                          string(phase1).c_str(), string(phase2).c_str());
-        _validWfs[wfId2] = false;
+        _excludedWfs.insert(wfId2);
         return false;
     }
 
@@ -2612,7 +2566,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
         SEISCOMP_WARNING("Cannot trim phase1 waveform, skipping cross correlation "
                          "for phase pair phase1='%s', phase2='%s'",
                          string(phase1).c_str(), string(phase2).c_str());
-        _validWfs[wfId1] = false;
+        _excludedWfs.insert(wfId1);
         return false;
     }
 
@@ -2642,6 +2596,8 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     }
 
     // compute differential travel time and weight of measurement
+    double travel_time1 = phase1.time - event1.time;
+    double travel_time2 = phase2.time - event2.time;
     dtccOut = travel_time1 - travel_time2 - xcorr_dt;
     weightOut = xcorr_coeff * xcorr_coeff;
 
@@ -2660,7 +2616,7 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
 
     if (tr1->samplingFrequency() != tr2->samplingFrequency())
     {
-        SEISCOMP_INFO("Cannot cross correlate traces with different sampling freq (%f!=%f)",
+        SEISCOMP_DEBUG("Cannot cross correlate traces with different sampling freq (%f!=%f)",
                       tr1->samplingFrequency(), tr2->samplingFrequency());
         return false;
     }
@@ -2807,12 +2763,12 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     }
     else
     {
-        SEISCOMP_INFO("Unable to fetch SensorLocation info (%s)", wfDesc.c_str());
+        SEISCOMP_WARNING("Unable to fetch SensorLocation info (%s)", wfDesc.c_str());
         projectionRequired = false; // let's try to load the waveform anyway
     }
 
     /*
-     * If no projection required....
+     * If no projection requiredi, just load the requested component....
      */
     if ( ! projectionRequired )
     {
@@ -2823,13 +2779,21 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
             trace = loadWaveform(tw, ph.networkCode, ph.stationCode,
                                  ph.locationCode, ph.channelCode, useDiskCache);
         } catch ( exception &e ) {
-            SEISCOMP_INFO("%s", e.what());
+            SEISCOMP_WARNING("%s", e.what());
             return nullptr;
         }
 
         // fitler waveform
         filter(*trace, true, _cfg.wfFilter.filterOrder, _cfg.wfFilter.filterFmin,
                _cfg.wfFilter.filterFmax, _cfg.wfFilter.resampleFreq);
+
+        // check SNR threshold
+        if ( _cfg.snr.minSnr > 0 )
+        {
+            double snr = S2Nratio(trace, ph.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
+                                  _cfg.snr.signalStart, _cfg.snr.signalEnd);
+            if ( snr < _cfg.snr.minSnr ) return nullptr;
+        }
 
         // save waveform into the cache
         memCache[wfId] = trace;
@@ -2842,7 +2806,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
      */
     if ( ! allComponents )
     {
-        SEISCOMP_INFO("Unable to fetch orientation information (%s)", wfDesc.c_str());
+        SEISCOMP_WARNING("Unable to fetch orientation information (%s)", wfDesc.c_str());
         return nullptr;
     }
 
@@ -2899,7 +2863,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     }
     else
     {
-        SEISCOMP_INFO("Unknown channel, cannot load %s", wfDesc.c_str());
+        SEISCOMP_WARNING("Unknown channel, cannot load %s", wfDesc.c_str());
         return nullptr;
     }
 
@@ -2968,7 +2932,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     if ( seq->empty() )
     {
-        SEISCOMP_INFO("No data after the projection for %s", wfDesc.c_str());
+        SEISCOMP_WARNING("No data after the projection for %s", wfDesc.c_str());
         return nullptr;
     }
 
@@ -2976,7 +2940,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     if ( ! merge(*trace, *seq) )
     {
-        SEISCOMP_INFO("Data records could not be merged into a single trace (%s)", wfDesc.c_str());
+        SEISCOMP_WARNING("Data records could not be merged into a single trace (%s)", wfDesc.c_str());
         return nullptr;
     }
 
@@ -2984,13 +2948,21 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     if ( ! trim(*trace, tw) )
     {
-        SEISCOMP_INFO("Incomplete trace, not enough data (%s)", wfDesc.c_str());
+        SEISCOMP_WARNING("Incomplete trace, not enough data (%s)", wfDesc.c_str());
         return nullptr;
     } 
 
     // fitler waveform
     filter(*trace, true, _cfg.wfFilter.filterOrder, _cfg.wfFilter.filterFmin,
            _cfg.wfFilter.filterFmax, _cfg.wfFilter.resampleFreq);
+
+    // check SNR threshold
+    if ( _cfg.snr.minSnr > 0 )
+    {
+        double snr = S2Nratio(trace, ph.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
+                              _cfg.snr.signalStart, _cfg.snr.signalEnd);
+        if ( snr < _cfg.snr.minSnr ) return nullptr;
+    }
 
     // save waveform into the cache
     memCache[wfId] = trace;
@@ -3072,10 +3044,10 @@ HypoDD::readWaveformFromRecordStream(const Core::TimeWindow& tw,
     {
         seq->feed(rec.get());
     }
-    
+
     if ( seq->empty() )
     {
-        string msg = stringify("Data could not be loaded for stream %s.%s.%s.%s from %s length %.2f)",
+        string msg = stringify("Data could not be loaded (stream %s.%s.%s.%s from %s length %.2f)",
                                networkCode.c_str(), stationCode.c_str(),
                                locationCode.c_str(), channelCode.c_str(),
                                tw.startTime().iso().c_str(), tw.length());
@@ -3137,7 +3109,7 @@ bool HypoDD::merge(GenericRecord &trace, const RecordSequence& seq) const
     for (const RecordCPtr& rec : seq )
     {
         if ( rec->samplingFrequency() != samplingFrequency ) {
-            SEISCOMP_INFO("%s.%s.%s.%s: record sampling frequencies are not consistent: %f != %f",
+            SEISCOMP_DEBUG("%s.%s.%s.%s: record sampling frequencies are not consistent: %f != %f",
                           trace.networkCode().c_str(),
                           trace.stationCode().c_str(),
                           trace.locationCode().c_str(),
@@ -3150,7 +3122,7 @@ bool HypoDD::merge(GenericRecord &trace, const RecordSequence& seq) const
         if ( last ) {
             Core::TimeSpan diff = rec->startTime()-last->endTime();
             if ( diff > maxAllowedGap ) {
-                SEISCOMP_INFO("%s.%s.%s.%s: gap detected of %d.%06ds",
+                SEISCOMP_DEBUG("%s.%s.%s.%s: gap detected of %d.%06ds",
                               trace.networkCode().c_str(),
                               trace.stationCode().c_str(),
                               trace.locationCode().c_str(),
@@ -3160,7 +3132,7 @@ bool HypoDD::merge(GenericRecord &trace, const RecordSequence& seq) const
             }
 
             if ( diff < maxAllowedOverlap ) {
-                SEISCOMP_INFO("%s.%s.%s.%s: overlap detected of %fs",
+                SEISCOMP_DEBUG("%s.%s.%s.%s: overlap detected of %fs",
                               trace.networkCode().c_str(),
                               trace.stationCode().c_str(),
                               trace.locationCode().c_str(),
