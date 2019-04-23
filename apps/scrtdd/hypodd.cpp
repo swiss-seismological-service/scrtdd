@@ -2544,7 +2544,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     }
 
     double xcorr_coeff, xcorr_dt;
-    if ( ! xcorr(tr1, tr2Short, _cfg.xcorr.maxDelay, xcorr_dt, xcorr_coeff) )
+    if ( ! xcorr(tr1, tr2Short, _cfg.xcorr.maxDelay, true, xcorr_dt, xcorr_coeff) )
     {
         return false;
     }
@@ -2562,7 +2562,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     }
 
     double xcorr_coeff2, xcorr_dt2;
-    if ( ! xcorr(tr1Short, tr2, _cfg.xcorr.maxDelay, xcorr_dt2, xcorr_coeff2) )
+    if ( ! xcorr(tr1Short, tr2, _cfg.xcorr.maxDelay, true, xcorr_dt2, xcorr_coeff2) )
     {
         return false;
     }
@@ -2598,7 +2598,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 // Calculate the correlation series (tr1 and tr2 are already demeaned)
 bool
 HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
-              double& delayOut, double& coeffOut) const
+              double qualityCheck, double& delayOut, double& coeffOut) const
 {
     delayOut = 0.;
     coeffOut = std::nan("");
@@ -2623,6 +2623,11 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
     const int smpsSsize = trShorter->data()->size();
     const int smpsLsize = trLonger->data()->size();
 
+    // for later quality check: save local maxima
+    vector<double> localMaxs;
+    bool notDecreasing = false;
+    double prevCoeff = -1;
+
     for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
     {
         double numer = 0, denomL = 0, denomS = 0;
@@ -2642,10 +2647,43 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
             coeffOut = coeff;
             delayOut = delay / freq; // samples to secs
         }
+
+        // for later quality check: save local maxima
+        if (coeff < prevCoeff && notDecreasing ) localMaxs.push_back(prevCoeff);
+        notDecreasing = coeff >= prevCoeff;
+        prevCoeff = coeff;
     }
 
-    if(swap)
+    if ( swap )
+    {
         delayOut = -delayOut;
+    }
+
+    /*
+     * To avoid errors introduced by cycle skipping the differential time measurement is
+     *  only accepted, if all side lobe maxima CCslm of the cross-correlation function 
+     *  fulfill the following condition:
+     *
+     *                CCslm < CCmax - ( (1.0-CCmax) / 2.0 )
+     *
+     *  where CCmax corresponds to the global maximum of the cross-correlation function.
+     *  By discarding measurements with local maxima CCslm close to the global maximum CC,
+     *  the number of potential blunders due to cycle skipping is significantly reduced.
+     *
+     * See Diehl et al. (2017): The induced earthquake sequence related to the St. Gallen
+     * deep geothermal project: Fault reactivation and fluid interactions imaged by
+     * microseismicity
+     * */
+    if ( qualityCheck )
+    {
+        double threshold = coeffOut - ( (1.0 - coeffOut) / 2.0 );
+        int numMax = 0;
+        for (double CCslm : localMaxs)
+        {
+            if (CCslm >= threshold) numMax++;
+            if (numMax > 1) return false;
+        }
+    }
 
     return true;
 }
