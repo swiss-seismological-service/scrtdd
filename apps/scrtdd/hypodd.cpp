@@ -33,7 +33,6 @@
 #include <seiscomp3/datamodel/origin.h>
 #include <seiscomp3/datamodel/magnitude.h>
 #include <seiscomp3/datamodel/amplitude.h>
-#include <seiscomp3/datamodel/utils.h>
 #include <seiscomp3/utils/files.h>
 #include <stdexcept>
 #include <iostream>
@@ -2757,14 +2756,12 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         projectionRequired = false; // let's try to load the waveform anyway
     }
 
-    /*
-     * If no projection requiredi, just load the requested component....
-     */
-    if ( ! projectionRequired )
-    {
-        GenericRecordPtr trace;
+    // If no projection required, just load the requested component otherwise
+    // perform the projection 123->ZNE or ZNE->ZRT
+    GenericRecordPtr trace;
 
-        // load waveform
+    if ( ! projectionRequired ) 
+    {
         try {
             trace = loadWaveform(tw, ph.networkCode, ph.stationCode,
                                  ph.locationCode, ph.channelCode, useDiskCache);
@@ -2772,37 +2769,57 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
             SEISCOMP_WARNING("%s", e.what());
             return nullptr;
         }
-
-        // fitler waveform
-        filter(*trace, true, _cfg.wfFilter.filterOrder, _cfg.wfFilter.filterFmin,
-               _cfg.wfFilter.filterFmax, _cfg.wfFilter.resampleFreq);
-
-        // check SNR threshold
-        if ( _cfg.snr.minSnr > 0 )
+    }
+    else 
+    {
+        if ( ! allComponents )
         {
-            double snr = S2Nratio(trace, ph.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
-                                  _cfg.snr.signalStart, _cfg.snr.signalEnd);
-            if ( snr < _cfg.snr.minSnr )
-            {
-                SEISCOMP_INFO("Trace has too low SNR (%.2f), discard it (%s)", snr, wfDesc.c_str());
-                return nullptr;
-            }
+            SEISCOMP_WARNING("Unable to fetch orientation information (%s)", wfDesc.c_str());
+            return nullptr;
         }
 
-        // save waveform into the cache
-        memCache[wfId] = trace;
-
-        return trace;
+        try {
+            trace = loadProjectWaveform(tw, ev, ph, tc, loc, useDiskCache);
+        } catch ( exception &e ) {
+            SEISCOMP_WARNING("%s", e.what());
+            return nullptr;
+        }
     }
 
-    /*
-     * We need to perform the projection 123->ZNE or ZNE->ZRT
-     */
-    if ( ! allComponents )
+    // fitler waveform
+    filter(*trace, true, _cfg.wfFilter.filterOrder, _cfg.wfFilter.filterFmin,
+           _cfg.wfFilter.filterFmax, _cfg.wfFilter.resampleFreq);
+
+    // check SNR threshold
+    if ( _cfg.snr.minSnr > 0 )
     {
-        SEISCOMP_WARNING("Unable to fetch orientation information (%s)", wfDesc.c_str());
-        return nullptr;
+        double snr = S2Nratio(trace, ph.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
+                              _cfg.snr.signalStart, _cfg.snr.signalEnd);
+        if ( snr < _cfg.snr.minSnr ) 
+        {
+            SEISCOMP_INFO("Trace has too low SNR (%.2f), discard it (%s)", snr, wfDesc.c_str());
+            return nullptr;
+        }
     }
+
+    // save waveform into the cache
+    memCache[wfId] = trace;
+
+    return trace; 
+}
+
+
+
+GenericRecordPtr
+HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
+                            const Catalog::Event& ev,
+                            const Catalog::Phase& ph,
+                            const DataModel::ThreeComponents& tc,
+                            const DataModel::SensorLocation *loc,
+                            bool useDiskCache) const
+{
+    string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
+                              string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
 
     SEISCOMP_DEBUG("Loading the 3 components waveforms (%s %s %s) to perform the projection...",
                    tc.comps[ThreeComponents::Vertical]->code().c_str(),
@@ -2833,6 +2850,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     Math::Matrix3d transformation;
     map<string,string> chCodeMap;
 
+    string channelCodeRoot = ph.channelCode.substr(0, ph.channelCode.size()-1);
     char component = *ph.channelCode.rbegin();
 
     if ( component == 'Z' || component == 'N'  || component == 'E' )
@@ -2857,23 +2875,17 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     }
     else
     {
-        SEISCOMP_WARNING("Unknown channel, cannot load %s", wfDesc.c_str());
-        return nullptr;
+        string msg = stringify("Unknown channel '%c', cannot load %s", component, wfDesc.c_str());
+        throw runtime_error(msg); 
     }
 
     // Load the available components
-    GenericRecordPtr tr1, tr2, tr3;
-    try {
-        tr1 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                           tc.comps[ThreeComponents::Vertical]->code(), useDiskCache);
-        tr2 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                           tc.comps[ThreeComponents::FirstHorizontal]->code(), useDiskCache);
-        tr3 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                           tc.comps[ThreeComponents::SecondHorizontal]->code(), useDiskCache);
-    } catch ( exception &e ) {
-        SEISCOMP_WARNING("%s", e.what());
-        return nullptr;
-    } 
+    GenericRecordPtr tr1 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+                                        tc.comps[ThreeComponents::Vertical]->code(), useDiskCache);
+    GenericRecordPtr tr2 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+                                        tc.comps[ThreeComponents::FirstHorizontal]->code(), useDiskCache);
+    GenericRecordPtr tr3 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+                                        tc.comps[ThreeComponents::SecondHorizontal]->code(), useDiskCache);
 
     // The wrapper will direct 3 codes into the right slots using the
     // Stream configuration class and will finally use the transformation
@@ -2926,46 +2938,27 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     if ( seq->empty() )
     {
-        SEISCOMP_WARNING("No data after the projection for %s", wfDesc.c_str());
-        return nullptr;
+        string msg = stringify("No data after the projection for %s", wfDesc.c_str());
+        throw runtime_error(msg);
     }
 
     GenericRecordPtr trace = new GenericRecord();
 
     if ( ! merge(*trace, *seq) )
     {
-        SEISCOMP_WARNING("Data records could not be merged into a single trace (%s)", wfDesc.c_str());
-        return nullptr;
+        string msg = stringify("Data records could not be merged into a single trace (%s)", wfDesc.c_str());
+        throw runtime_error(msg);
     }
 
     trace->setChannelCode(ph.channelCode);
 
     if ( ! trim(*trace, tw) )
     {
-        SEISCOMP_WARNING("Incomplete trace, not enough data (%s)", wfDesc.c_str());
-        return nullptr;
-    } 
-
-    // fitler waveform
-    filter(*trace, true, _cfg.wfFilter.filterOrder, _cfg.wfFilter.filterFmin,
-           _cfg.wfFilter.filterFmax, _cfg.wfFilter.resampleFreq);
-
-    // check SNR threshold
-    if ( _cfg.snr.minSnr > 0 )
-    {
-        double snr = S2Nratio(trace, ph.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
-                              _cfg.snr.signalStart, _cfg.snr.signalEnd);
-        if ( snr < _cfg.snr.minSnr ) 
-        {
-            SEISCOMP_INFO("Trace has too low SNR (%.2f), discard it (%s)", snr, wfDesc.c_str());
-            return nullptr;
-        }
+        string msg = stringify("Incomplete trace, not enough data (%s)", wfDesc.c_str());
+        throw runtime_error(msg);
     }
 
-    // save waveform into the cache
-    memCache[wfId] = trace;
-
-    return trace; 
+    return trace;
 }
 
 

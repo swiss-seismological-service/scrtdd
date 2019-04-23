@@ -24,6 +24,7 @@
 #include <seiscomp3/datamodel/publicobjectcache.h>
 #include <seiscomp3/datamodel/databasequery.h>
 #include <seiscomp3/datamodel/origin.h>
+#include <seiscomp3/datamodel/utils.h>
 
 #include <set>
 #include <map>
@@ -386,6 +387,12 @@ class HypoDD : public Core::BaseObject {
                                      const Catalog::Phase& ph,
                                      std::map<std::string,GenericRecordPtr>& memCache,
                                      bool useDiskCache) const;
+        GenericRecordPtr loadProjectWaveform(const Core::TimeWindow& tw,
+                                             const Catalog::Event& ev,
+                                             const Catalog::Phase& ph,
+                                             const DataModel::ThreeComponents& tc,
+                                             const DataModel::SensorLocation *loc,
+                                             bool useDiskCache) const;
         GenericRecordPtr loadWaveform(const Core::TimeWindow& tw,
                                       const std::string& networkCode,
                                       const std::string& stationCode,
