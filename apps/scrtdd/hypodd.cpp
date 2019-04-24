@@ -2681,7 +2681,11 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
         for (double CCslm : localMaxs)
         {
             if (CCslm >= threshold) numMax++;
-            if (numMax > 1) return false;
+            if (numMax > 1)
+            {
+                coeffOut = std::nan("");
+                break;
+            }
         }
     }
 
