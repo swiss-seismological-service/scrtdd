@@ -129,6 +129,12 @@ scrtdd will relocated the catalog and will generate another set of files event.c
 
 We are now ready to perform real time relocation!
 
+Note: it is possible to use ph2dt utility to perform the catalog relocation. It this case the scrtdd configuraion for generating dt.ct and dt.cc files will not be used. Instead, ph2dt will be run to generate dt.ct file, and for each entry in the generated dt.ct file the cross correlation will be performed and the relative dt.cc file created. 
+
+```
+scrtdd --reloc-catalog profileName --use-ph2dt /some/path/ph2dt.inp [--ph2dt-path /some/path/ph2dt] [--force]
+```
+
 
 ## 3. Real time single origin relocation
 
