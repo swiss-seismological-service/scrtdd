@@ -1750,21 +1750,33 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
             nextBin = 0;
         }
 
+        // Split numBins in 2 sets: one set for events above the reference event and
+        // the other set below the reference event. This is to reduce depth errors
+        int halfBins =  numBins / 2;
+        int azimuthBins = nextBin < halfBins ? halfBins : numBins - halfBins;
+        int expectedAzBin = nextBin < halfBins ? nextBin : nextBin - halfBins;
+        bool expectedAbove = nextBin < halfBins;
+
         for (auto it = selectedEvents.begin(); it != selectedEvents.end(); it++)
         {
             const Catalog::Event& event = catalog->getEvents().at( *it );
 
-            double binSize = 360. / numBins;
-            int eventBin = int(azimuthByEvent[event.id] / binSize) % numBins;
+            double azimuthBinSize = 360. / azimuthBins;
+            int eventAzBin = int(azimuthByEvent[event.id] / azimuthBinSize) % azimuthBins;
 
-            if ( eventBin == nextBin )
+            bool isAboveRefEv = event.depth < refEv.depth;
+            bool depthOk = (isAboveRefEv == expectedAbove) || (numBins == 1);
+
+            if ( eventAzBin == expectedAzBin && depthOk )
             {
                 // add this event to the catalog
                 filteredCatalog->copyEvent(event, catalog, true);
                 numEvents++;
                 selectedEvents.erase(it);
-                SEISCOMP_DEBUG("Chose neighbour event %u distance %.1f azimuth %.1f (numBins %d eventBin %d)",
-                               event.id, distanceByEvent[event.id], azimuthByEvent[event.id], numBins, eventBin);
+                SEISCOMP_DEBUG("Chose neighbour event %u distance %.1f azimuth %.1f depth %.3f "
+                               "(azimuthBins %d eventAzBin %d deltaDepth %.3f)",
+                               event.id, distanceByEvent[event.id], azimuthByEvent[event.id], event.depth,
+                               azimuthBins, eventAzBin, (refEv.depth-event.depth));
                 break;
             }
         }
