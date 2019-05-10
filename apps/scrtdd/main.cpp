@@ -1,15 +1,17 @@
 /***************************************************************************
  *   Copyright (C) by ETHZ/SED                                             *
  *                                                                         *
- *   This program is free software: you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation, either version 3 of the License, or     *
- *   (at your option) any later version.                                   *
+ *   You can redistribute and/or modify this program under the             *
+ *   terms of the "SED Public License for Seiscomp Contributions"          *
+ *                                                                         *
+ *   You should have received a copy of the "SED Public License for        *
+ *   Seiscomp Contributions" with this. If not, you can find it at         *
+ *   http://www.seismo.ethz.ch/static/seiscomp_contrib/license.txt         *
  *                                                                         *
  *   This program is distributed in the hope that it will be useful,       *
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
+ *   "SED Public License for Seiscomp Contributions" for more details      *
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
