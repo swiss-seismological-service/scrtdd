@@ -14,7 +14,7 @@
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
  *   "SED Public License for Seiscomp Contributions" for more details      *
  *                                                                         *
- *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>                                         *
+ *   Developed by Luca Scarabello, Tobias Diehl                            *
  ***************************************************************************/
 </pre>
 # Description
