@@ -960,8 +960,8 @@ string HypoDD::generateWorkingSubDir(const Catalog::Event& ev) const
 
 void HypoDD::preloadData()
 {
-    double duration = _cfg.xcorr.timeBeforePick + _cfg.xcorr.timeAfterPick + _cfg.xcorr.maxDelay * 2;
-    Core::TimeSpan timeCorrection = Core::TimeSpan(_cfg.xcorr.timeBeforePick) + Core::TimeSpan(_cfg.xcorr.maxDelay);
+    double duration = (_cfg.xcorr.endOffset - _cfg.xcorr.startOffset) + _cfg.xcorr.maxDelay * 2;
+    Core::TimeSpan timeCorrection = Core::TimeSpan(_cfg.xcorr.startOffset) - Core::TimeSpan(_cfg.xcorr.maxDelay);
 
     for (const auto& kv : _ddbgc->getEvents() )
     {
@@ -970,7 +970,7 @@ void HypoDD::preloadData()
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
             const Catalog::Phase& phase = it->second;
-            Core::TimeWindow tw = Core::TimeWindow(phase.time - timeCorrection, duration);
+            Core::TimeWindow tw = Core::TimeWindow(phase.time + timeCorrection, duration);
             getWaveform(tw, event, phase, _wfCache, _useCatalogDiskCache);
         }
     }
@@ -2513,13 +2513,13 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
                    string(phase1).c_str(), string(phase2).c_str());
 
     // compute start time and duration for the two traces
-    double shortDuration = _cfg.xcorr.timeBeforePick + _cfg.xcorr.timeAfterPick;
-    Core::TimeSpan shortTimeCorrection = Core::TimeSpan(_cfg.xcorr.timeBeforePick);
+    double shortDuration = _cfg.xcorr.endOffset - _cfg.xcorr.startOffset;
+    Core::TimeSpan shortTimeCorrection = Core::TimeSpan(_cfg.xcorr.startOffset);
     double longDuration = shortDuration + _cfg.xcorr.maxDelay * 2;
-    Core::TimeSpan longTimeCorrection = shortTimeCorrection + Core::TimeSpan(_cfg.xcorr.maxDelay);
+    Core::TimeSpan longTimeCorrection = shortTimeCorrection - Core::TimeSpan(_cfg.xcorr.maxDelay);
 
-    Core::TimeWindow tw1 = Core::TimeWindow(phase1.time - longTimeCorrection, longDuration);
-    Core::TimeWindow tw2 = Core::TimeWindow(phase2.time - longTimeCorrection, longDuration); 
+    Core::TimeWindow tw1 = Core::TimeWindow(phase1.time + longTimeCorrection, longDuration);
+    Core::TimeWindow tw2 = Core::TimeWindow(phase2.time + longTimeCorrection, longDuration); 
 
     // Check if we have already excluded those traces (couldn't load, snr too high, etc..)
     const string wfId1 = waveformId(phase1, tw1);
@@ -2547,7 +2547,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
     // trim tr2 to shorter length, we want to cross correlate the short with the long one
     GenericRecordPtr tr2Short = new GenericRecord(*tr2);
-    Core::TimeWindow tw2Short = Core::TimeWindow(phase2.time - shortTimeCorrection, shortDuration);
+    Core::TimeWindow tw2Short = Core::TimeWindow(phase2.time + shortTimeCorrection, shortDuration);
     if ( !trim(*tr2Short, tw2Short) )
     {
         SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation "
@@ -2565,7 +2565,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
     // trim tr1 to shorter length, we want to cross correlate the short with the long one
     GenericRecordPtr tr1Short = new GenericRecord(*tr1);
-    Core::TimeWindow tw1Short = Core::TimeWindow(phase1.time - shortTimeCorrection, shortDuration);
+    Core::TimeWindow tw1Short = Core::TimeWindow(phase1.time + shortTimeCorrection, shortDuration);
     if ( !trim(*tr1Short, tw1Short) )
     {
         SEISCOMP_WARNING("Cannot trim phase1 waveform, skipping cross correlation "

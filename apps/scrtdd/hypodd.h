@@ -275,8 +275,8 @@ struct Config {
     struct {
         double minCoef        = 0;    // Min xcorr coefficient required (0-1)
 
-        double timeBeforePick; // secs
-        double timeAfterPick;  // secs
+        double startOffset; // secs
+        double endOffset;  // secs
         double maxDelay;       //secs
     } xcorr;
 

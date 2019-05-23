@@ -333,14 +333,14 @@
                                     Min crosscorrelation coefficient accepted to use a differential travel time
                                 </description>
                             </parameter>
-                            <parameter name="timeBeforePick" type="double">
+                            <parameter name="start" type="double">
                                 <description>
-                                    Start of data window to cross correlate with respect to pick time (secs)
+                                    Start of data window to cross correlate with respect to pick time (+/- secs)
                                 </description>
                             </parameter>
-                            <parameter name="timeAfterPick" type="double">
+                            <parameter name="end" type="double">
                                 <description>
-                                    End of data window to cross correlate with respect to pick time (secs)
+                                    End of data window to cross correlate with respect to pick time (+/- secs)
                                 </description>
                             </parameter>
                             <parameter name="maxDelay" type="double">
@@ -380,16 +380,16 @@
                                 </description>
                             </parameter>
                             <parameter name="noiseStart" type="double">
-                                <description>Start of noise  window with respect to pick time(secs)</description>
+                                <description>Start of noise  window with respect to pick time (+/- secs)</description>
                             </parameter>
                             <parameter name="noiseEnd" type="double">
-                                <description>End of noise  window with respect to pick time(secs)</description>
+                                <description>End of noise  window with respect to pick time (+/- secs)</description>
                             </parameter>
                             <parameter name="signalStart" type="double">
-                                <description>Start of signal window with respect to pick time(secs)</description>
+                                <description>Start of signal window with respect to pick time (+/- secs)</description>
                             </parameter>
                             <parameter name="signalEnd" type="double">
-                                <description>End of signal window with respect to pick time(secs)</description>
+                                <description>End of signal window with respect to pick time (+/- secs)</description>
                             </parameter> 
                         </group>
                      </group>

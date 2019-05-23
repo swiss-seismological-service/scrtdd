@@ -460,8 +460,8 @@ bool RTDD::validateParameters()
 
         prefix = string("profile.") + *it + ".dtcc.crosscorrelation.";
         try {
-            prof->ddcfg.xcorr.timeBeforePick = configGetDouble(prefix + "timeBeforePick");
-            prof->ddcfg.xcorr.timeAfterPick = configGetDouble(prefix + "timeAfterPick");
+            prof->ddcfg.xcorr.startOffset = configGetDouble(prefix + "start");
+            prof->ddcfg.xcorr.endOffset = configGetDouble(prefix + "end");
             prof->ddcfg.xcorr.maxDelay = configGetDouble(prefix + "maxDelay");
             prof->ddcfg.xcorr.minCoef = configGetDouble(prefix + "minCCCoef");
         } catch ( ... ) {
