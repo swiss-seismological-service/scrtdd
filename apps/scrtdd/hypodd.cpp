@@ -2709,7 +2709,7 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
 
 
 double
-HypoDD::S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
+HypoDD::S2Nratio(const GenericRecordCPtr& tr, const Core::Time& pickTime,
                  double noiseOffsetStart, double noiseOffsetEnd,
                  double signalOffsetStart, double signalOffsetEnd) const
 {
@@ -2719,11 +2719,12 @@ HypoDD::S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
     const Core::Time dataStartTime = tr->startTime();
 
     // convert time w.r.t. guiding pick time to sample number
-    const double baseOffset = (guidingPickTime - dataStartTime).length();
-    const int noiseStart  = (baseOffset + noiseOffsetStart)  * freq;
-    const int noiseEnd    = (baseOffset + noiseOffsetEnd)    * freq;
-    const int signalStart = (baseOffset + signalOffsetStart) * freq;
-    const int signalEnd   = (baseOffset + signalOffsetEnd)   * freq;
+    auto secToSample = [&, freq](double sec) { return std::round(sec * freq); };
+    const double pickOffset = (pickTime - dataStartTime).length();
+    const int noiseStart  = secToSample(noiseOffsetStart  + pickOffset);
+    const int noiseEnd    = secToSample(noiseOffsetEnd    + pickOffset) - 1;
+    const int signalStart = secToSample(signalOffsetStart + pickOffset);
+    const int signalEnd   = secToSample(signalOffsetEnd   + pickOffset) - 1;
 
     if ( (std::min({noiseStart,noiseEnd,signalStart,signalEnd}) < 0)    ||
          (std::max({noiseStart,noiseEnd,signalStart,signalEnd}) >= size) )
@@ -2812,34 +2813,42 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         projectionRequired = false; // let's try to load the waveform anyway
     }
 
+    // Load waveform (compute the waveform time window)
+    Core::Time winStart = std::min( {
+          tw.startTime(),
+          ph.time + Core::TimeSpan(_cfg.snr.noiseStart),
+          ph.time + Core::TimeSpan(_cfg.snr.signalStart)
+    });
+    Core::Time winEnd = std::max( {
+            tw.endTime(),
+            ph.time + Core::TimeSpan(_cfg.snr.noiseEnd),
+            ph.time + Core::TimeSpan(_cfg.snr.signalEnd)
+    });
+    Core::TimeWindow twToLoad = Core::TimeWindow(winStart, winEnd);
+
     // If no projection required, just load the requested component otherwise
     // perform the projection 123->ZNE or ZNE->ZRT
     GenericRecordPtr trace;
+    try {
 
-    if ( ! projectionRequired ) 
-    {
-        try {
-            trace = loadWaveform(tw, ph.networkCode, ph.stationCode,
-                                 ph.locationCode, ph.channelCode, useDiskCache);
-        } catch ( exception &e ) {
-            SEISCOMP_WARNING("%s", e.what());
-            return nullptr;
-        }
-    }
-    else 
-    {
-        if ( ! allComponents )
+        if ( ! projectionRequired )
         {
-            SEISCOMP_WARNING("Unable to fetch orientation information (%s)", wfDesc.c_str());
-            return nullptr;
+            trace = loadWaveform(twToLoad, ph.networkCode, ph.stationCode,
+                                 ph.locationCode, ph.channelCode, useDiskCache);
+        }
+        else 
+        {
+            if ( ! allComponents )
+            {
+                SEISCOMP_WARNING("Unable to fetch orientation information (%s)", wfDesc.c_str());
+                return nullptr;
+            }
+            trace = loadProjectWaveform(twToLoad, ev, ph, tc, loc, useDiskCache);
         }
 
-        try {
-            trace = loadProjectWaveform(tw, ev, ph, tc, loc, useDiskCache);
-        } catch ( exception &e ) {
-            SEISCOMP_WARNING("%s", e.what());
-            return nullptr;
-        }
+    } catch ( exception &e ) {
+        SEISCOMP_WARNING("%s", e.what());
+        return nullptr;
     }
 
     // fitler waveform
@@ -2855,6 +2864,16 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         {
             SEISCOMP_INFO("Trace has too low SNR (%.2f), discard it (%s)", snr, wfDesc.c_str());
             return nullptr;
+        }
+    }
+
+    // Trim waveform in case we loaded more data than requested (to compute SNR)
+    if ( twToLoad != tw )
+    {
+        if ( ! trim(*trace, tw) )
+        {
+            string msg = stringify("Incomplete trace, not enough data (%s)", wfDesc.c_str());
+            throw runtime_error(msg);
         }
     }
 
