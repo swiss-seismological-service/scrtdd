@@ -2813,21 +2813,28 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         projectionRequired = false; // let's try to load the waveform anyway
     }
 
-    // Load waveform (compute the waveform time window)
-    Core::Time winStart = std::min( {
-          tw.startTime(),
-          ph.time + Core::TimeSpan(_cfg.snr.noiseStart),
-          ph.time + Core::TimeSpan(_cfg.snr.signalStart)
-    });
-    Core::Time winEnd = std::max( {
-            tw.endTime(),
-            ph.time + Core::TimeSpan(_cfg.snr.noiseEnd),
-            ph.time + Core::TimeSpan(_cfg.snr.signalEnd)
-    });
-    Core::TimeWindow twToLoad = Core::TimeWindow(winStart, winEnd);
+    // Compute the waveform time window to load
+    Core::TimeWindow twToLoad = tw;
+    if ( _cfg.snr.minSnr > 0 )
+    {
+        // if the SNR window is bigger than the xcorr window, than extend
+        // the waveform time window
+        Core::Time winStart = std::min( {
+              tw.startTime(),
+              ph.time + Core::TimeSpan(_cfg.snr.noiseStart),
+              ph.time + Core::TimeSpan(_cfg.snr.signalStart)
+        });
+        Core::Time winEnd = std::max( {
+                tw.endTime(),
+                ph.time + Core::TimeSpan(_cfg.snr.noiseEnd),
+                ph.time + Core::TimeSpan(_cfg.snr.signalEnd)
+        });
+        twToLoad = Core::TimeWindow(winStart, winEnd);
+    }
 
-    // If no projection required, just load the requested component otherwise
-    // perform the projection 123->ZNE or ZNE->ZRT
+    // Load waveform:
+    // - if no projection required, just load the requested component
+    // - otherwise perform the projection 123->ZNE or ZNE->ZRT
     GenericRecordPtr trace;
     try {
 
