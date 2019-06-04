@@ -328,24 +328,46 @@
                         </parameter>
 
                         <group name="crosscorrelation">
-                            <parameter name="minCCCoef" type="double">
-                                <description>
-                                    Min crosscorrelation coefficient accepted to use a differential travel time
-                                </description>
-                            </parameter>
-                            <parameter name="start" type="double">
-                                <description>
-                                    Start of data window to cross correlate with respect to pick time (+/- secs)
-                                </description>
-                            </parameter>
-                            <parameter name="end" type="double">
-                                <description>
-                                    End of data window to cross correlate with respect to pick time (+/- secs)
-                                </description>
-                            </parameter>
-                            <parameter name="maxDelay" type="double">
-                                <description>Maximum data window delay accepted (secs)</description>
-                            </parameter>
+                            <group name="p-phase">
+                                <parameter name="minCCCoef" type="double">
+                                    <description>
+                                        Min crosscorrelation coefficient accepted to use a differential travel time
+                                    </description>
+                                </parameter>
+                                <parameter name="start" type="double">
+                                    <description>
+                                        Start of data window to cross correlate with respect to pick time (+/- secs)
+                                    </description>
+                                </parameter>
+                                <parameter name="end" type="double">
+                                    <description>
+                                        End of data window to cross correlate with respect to pick time (+/- secs)
+                                    </description>
+                                </parameter>
+                                <parameter name="maxDelay" type="double">
+                                    <description>Maximum data windows lag accepted (secs)</description>
+                                </parameter>
+                            </group>
+                            <group name="s-phase">
+                                <parameter name="minCCCoef" type="double">
+                                    <description>
+                                        Min crosscorrelation coefficient accepted to use a differential travel time
+                                    </description>
+                                </parameter>
+                                <parameter name="start" type="double">
+                                    <description>
+                                        Start of data window to cross correlate with respect to pick time (+/- secs)
+                                    </description>
+                                </parameter>
+                                <parameter name="end" type="double">
+                                    <description>
+                                        End of data window to cross correlate with respect to pick time (+/- secs)
+                                    </description>
+                                </parameter>
+                                <parameter name="maxDelay" type="double">
+                                    <description>Maximum data windows lag accepted (secs)</description>
+                                </parameter>
+                            </group>
                         </group>
 
                         <group name="waveformFiltering">

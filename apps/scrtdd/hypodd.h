@@ -272,13 +272,16 @@ struct Config {
         int minDTperEvt       = 1;  // Min differential times per event pair required (Including P+S)
     } dtcc;
 
-    struct {
-        double minCoef        = 0;    // Min xcorr coefficient required (0-1)
-
+    struct XCorr {
+        double minCoef;     // Min xcorr coefficient required (0-1)
         double startOffset; // secs
-        double endOffset;  // secs
-        double maxDelay;       //secs
-    } xcorr;
+        double endOffset;   // secs
+        double maxDelay;    //secs
+    };
+    std::map<std::string,struct XCorr> xcorr = {
+        {"P", {}},
+        {"S", {}}
+    };
 
     struct {
         int filterOrder;

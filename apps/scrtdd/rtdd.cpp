@@ -458,12 +458,23 @@ bool RTDD::validateParameters()
             prof->ddcfg.dtcc.minDTperEvt = configGetInt(prefix + "minDTperEvt");
         } catch ( ... ) { prof->ddcfg.dtcc.minDTperEvt = 1; }
 
-        prefix = string("profile.") + *it + ".dtcc.crosscorrelation.";
+        prefix = string("profile.") + *it + ".dtcc.crosscorrelation.p-phase.";
         try {
-            prof->ddcfg.xcorr.startOffset = configGetDouble(prefix + "start");
-            prof->ddcfg.xcorr.endOffset = configGetDouble(prefix + "end");
-            prof->ddcfg.xcorr.maxDelay = configGetDouble(prefix + "maxDelay");
-            prof->ddcfg.xcorr.minCoef = configGetDouble(prefix + "minCCCoef");
+            prof->ddcfg.xcorr["P"].startOffset = configGetDouble(prefix + "start");
+            prof->ddcfg.xcorr["P"].endOffset = configGetDouble(prefix + "end");
+            prof->ddcfg.xcorr["P"].maxDelay = configGetDouble(prefix + "maxDelay");
+            prof->ddcfg.xcorr["P"].minCoef = configGetDouble(prefix + "minCCCoef");
+        } catch ( ... ) {
+            SEISCOMP_ERROR("profile.%s: invalid or missing cross correlation parameters", it->c_str());
+            profilesOK = false;
+            continue;
+        }
+        prefix = string("profile.") + *it + ".dtcc.crosscorrelation.s-phase.";
+        try {
+            prof->ddcfg.xcorr["S"].startOffset = configGetDouble(prefix + "start");
+            prof->ddcfg.xcorr["S"].endOffset = configGetDouble(prefix + "end");
+            prof->ddcfg.xcorr["S"].maxDelay = configGetDouble(prefix + "maxDelay");
+            prof->ddcfg.xcorr["S"].minCoef = configGetDouble(prefix + "minCCCoef");
         } catch ( ... ) {
             SEISCOMP_ERROR("profile.%s: invalid or missing cross correlation parameters", it->c_str());
             profilesOK = false;

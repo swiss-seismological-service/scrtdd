@@ -960,8 +960,6 @@ string HypoDD::generateWorkingSubDir(const Catalog::Event& ev) const
 
 void HypoDD::preloadData()
 {
-    double duration = (_cfg.xcorr.endOffset - _cfg.xcorr.startOffset) + _cfg.xcorr.maxDelay * 2;
-    Core::TimeSpan timeCorrection = Core::TimeSpan(_cfg.xcorr.startOffset) - Core::TimeSpan(_cfg.xcorr.maxDelay);
 
     for (const auto& kv : _ddbgc->getEvents() )
     {
@@ -970,7 +968,12 @@ void HypoDD::preloadData()
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
             const Catalog::Phase& phase = it->second;
+            auto xcorrCfg = _cfg.xcorr[phase.type];
+
+            double duration = (xcorrCfg.endOffset - xcorrCfg.startOffset) + xcorrCfg.maxDelay * 2;
+            Core::TimeSpan timeCorrection = Core::TimeSpan(xcorrCfg.startOffset) - Core::TimeSpan(xcorrCfg.maxDelay);
             Core::TimeWindow tw = Core::TimeWindow(phase.time + timeCorrection, duration);
+
             getWaveform(tw, event, phase, _wfCache, _useCatalogDiskCache);
         }
     }
@@ -2508,15 +2511,16 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 {
     dtccOut = 0;
     weightOut = 0;
+    auto xcorrCfg = _cfg.xcorr[phase1.type];
 
     SEISCOMP_DEBUG("Calculating cross correlation for phase pair phase1='%s', phase2='%s'",
                    string(phase1).c_str(), string(phase2).c_str());
 
     // compute start time and duration for the two traces
-    double shortDuration = _cfg.xcorr.endOffset - _cfg.xcorr.startOffset;
-    Core::TimeSpan shortTimeCorrection = Core::TimeSpan(_cfg.xcorr.startOffset);
-    double longDuration = shortDuration + _cfg.xcorr.maxDelay * 2;
-    Core::TimeSpan longTimeCorrection = shortTimeCorrection - Core::TimeSpan(_cfg.xcorr.maxDelay);
+    double shortDuration = xcorrCfg.endOffset - xcorrCfg.startOffset;
+    Core::TimeSpan shortTimeCorrection = Core::TimeSpan(xcorrCfg.startOffset);
+    double longDuration = shortDuration + xcorrCfg.maxDelay * 2;
+    Core::TimeSpan longTimeCorrection = shortTimeCorrection - Core::TimeSpan(xcorrCfg.maxDelay);
 
     Core::TimeWindow tw1 = Core::TimeWindow(phase1.time + longTimeCorrection, longDuration);
     Core::TimeWindow tw2 = Core::TimeWindow(phase2.time + longTimeCorrection, longDuration); 
@@ -2558,7 +2562,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     }
 
     double xcorr_coeff, xcorr_dt;
-    if ( ! xcorr(tr1, tr2Short, _cfg.xcorr.maxDelay, true, xcorr_dt, xcorr_coeff) )
+    if ( ! xcorr(tr1, tr2Short, xcorrCfg.maxDelay, true, xcorr_dt, xcorr_coeff) )
     {
         return false;
     }
@@ -2576,7 +2580,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     }
 
     double xcorr_coeff2, xcorr_dt2;
-    if ( ! xcorr(tr1Short, tr2, _cfg.xcorr.maxDelay, true, xcorr_dt2, xcorr_coeff2) )
+    if ( ! xcorr(tr1Short, tr2, xcorrCfg.maxDelay, true, xcorr_dt2, xcorr_coeff2) )
     {
         return false;
     }
@@ -2593,7 +2597,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
         xcorr_dt = xcorr_dt2;
     }
 
-    if ( xcorr_coeff < _cfg.xcorr.minCoef )
+    if ( xcorr_coeff < xcorrCfg.minCoef )
     {
         return false;
     }
