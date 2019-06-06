@@ -2642,9 +2642,7 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
     const int smpsLsize = trLonger->data()->size();
 
     // for later quality check: save local maxima
-    vector<double> localMaxs;
-    bool notDecreasing = false;
-    double prevCoeff = -1;
+    vector<double> coeffList;
 
     for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
     {
@@ -2665,11 +2663,7 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
             coeffOut = coeff;
             delayOut = delay / freq; // samples to secs
         }
-
-        // for later quality check: save local maxima
-        if (coeff < prevCoeff && notDecreasing ) localMaxs.push_back(prevCoeff);
-        notDecreasing = coeff >= prevCoeff;
-        prevCoeff = coeff;
+        coeffList.push_back(coeff);
     }
 
     if ( swap )
@@ -2679,26 +2673,26 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
 
     /*
      * To avoid errors introduced by cycle skipping the differential time measurement is
-     *  only accepted, if all side lobe maxima CCslm of the cross-correlation function 
-     *  fulfill the following condition:
+     * only accepted, if all side lobe maxima CCslm of the cross-correlation function 
+     * fulfill the following condition:
      *
      *                CCslm < CCmax - ( (1.0-CCmax) / 2.0 )
      *
-     *  where CCmax corresponds to the global maximum of the cross-correlation function.
-     *  By discarding measurements with local maxima CCslm close to the global maximum CC,
-     *  the number of potential blunders due to cycle skipping is significantly reduced.
+     * where CCmax corresponds to the global maximum of the cross-correlation function.
+     * By discarding measurements with local maxima CCslm close to the global maximum CC,
+     * the number of potential blunders due to cycle skipping is significantly reduced.
      *
      * See Diehl et al. (2017): The induced earthquake sequence related to the St. Gallen
      * deep geothermal project: Fault reactivation and fluid interactions imaged by
      * microseismicity
      * */
-    if ( qualityCheck )
+    if ( qualityCheck && std::isfinite(coeffOut) )
     {
         double threshold = coeffOut - ( (1.0 - coeffOut) / 2.0 );
         int numMax = 0;
-        for (double CCslm : localMaxs)
+        for (double CCslm : coeffList)
         {
-            if (CCslm >= threshold) numMax++;
+            if (std::isfinite(CCslm) && CCslm >= threshold) numMax++;
             if (numMax > 1)
             {
                 coeffOut = std::nan("");
