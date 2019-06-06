@@ -2702,6 +2702,7 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
             if (numMax > 1)
             {
                 coeffOut = std::nan("");
+                SEISCOMP_DEBUG("Cycle skipping detected when cross correlating traces (local max %d)", numMax);
                 break;
             }
         }
@@ -2723,17 +2724,19 @@ HypoDD::S2Nratio(const GenericRecordCPtr& tr, const Core::Time& pickTime,
     const Core::Time dataStartTime = tr->startTime();
 
     // convert time w.r.t. guiding pick time to sample number
-    auto secToSample = [&, freq](double sec) { return std::round(sec * freq); };
+    auto secToSample = [&, freq, size](double sec) { 
+        return std::min(std::max(std::round(sec * freq), 0.), size-1.);
+    };
     const double pickOffset = (pickTime - dataStartTime).length();
     const int noiseStart  = secToSample(noiseOffsetStart  + pickOffset);
-    const int noiseEnd    = secToSample(noiseOffsetEnd    + pickOffset) - 1;
+    const int noiseEnd    = secToSample(noiseOffsetEnd    + pickOffset);
     const int signalStart = secToSample(signalOffsetStart + pickOffset);
-    const int signalEnd   = secToSample(signalOffsetEnd   + pickOffset) - 1;
+    const int signalEnd   = secToSample(signalOffsetEnd   + pickOffset);
 
     if ( (std::min({noiseStart,noiseEnd,signalStart,signalEnd}) < 0)    ||
          (std::max({noiseStart,noiseEnd,signalStart,signalEnd}) >= size) )
     {
-        SEISCOMP_INFO("Cannot compute S2N ratio: noise/signal windows exceed waveform boundaries");
+        SEISCOMP_ERROR("Cannot compute S2N ratio: noise/signal windows exceed waveform boundaries");
         return -1;
     }
 
@@ -2873,7 +2876,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
                               _cfg.snr.signalStart, _cfg.snr.signalEnd);
         if ( snr < _cfg.snr.minSnr ) 
         {
-            SEISCOMP_INFO("Trace has too low SNR (%.2f), discard it (%s)", snr, wfDesc.c_str());
+            SEISCOMP_DEBUG("Trace has too low SNR (%.2f), discard it (%s)", snr, wfDesc.c_str());
             return nullptr;
         }
     }
