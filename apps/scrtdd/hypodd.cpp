@@ -2642,7 +2642,9 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
     const int smpsLsize = trLonger->data()->size();
 
     // for later quality check: save local maxima
-    vector<double> coeffList;
+    vector<double> localMaxs;
+    bool notDecreasing = false;
+    double prevCoeff = -1;
 
     for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
     {
@@ -2663,7 +2665,11 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
             coeffOut = coeff;
             delayOut = delay / freq; // samples to secs
         }
-        coeffList.push_back(coeff);
+
+        // for later quality check: save local maxima
+        if (coeff < prevCoeff && notDecreasing ) localMaxs.push_back(prevCoeff);
+        notDecreasing = coeff >= prevCoeff;
+        prevCoeff = coeff;
     }
 
     if ( swap )
@@ -2690,7 +2696,7 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
     {
         double threshold = coeffOut - ( (1.0 - coeffOut) / 2.0 );
         int numMax = 0;
-        for (double CCslm : coeffList)
+        for (double CCslm : localMaxs)
         {
             if (std::isfinite(CCslm) && CCslm >= threshold) numMax++;
             if (numMax > 1)
