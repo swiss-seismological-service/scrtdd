@@ -1180,18 +1180,14 @@ bool RTDD::send(Origin *org)
 
     if (!_config.eventXML.empty())
     {
+        // Insert origin to event parameters
         _eventParameters->add(org);
     }
 
     if ( _config.testMode ) return true;
 
-    EventParametersPtr ep = new EventParameters;
-
     bool wasEnabled = Notifier::IsEnabled();
     Notifier::Enable();
-
-    // Insert origin to event parameters
-    ep->add(org);
 
     NotifierMessagePtr msg = Notifier::GetMessage();
 
