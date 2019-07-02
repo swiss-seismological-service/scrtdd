@@ -539,8 +539,6 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
         this->addEvent(ev, false);
         Event& newEvent = searchByValue(this->_events, ev)->second;  // fetch the id
 
-        bool onlyManualPick = org->evaluationMode() == DataModel::MANUAL;
-
         // Add Phases
         for ( size_t i = 0; i < org->arrivalCount(); ++i )
         {
@@ -551,13 +549,6 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
             if ( !pick )
             {
                 SEISCOMP_ERROR("Cannot load pick '%s' (origin %s)",
-                               orgArr->pickID().c_str(), org->publicID().c_str());
-                continue;
-            }
-
-            if (onlyManualPick && pick->evaluationMode() != DataModel::MANUAL)
-            {
-                SEISCOMP_DEBUG("Skip automatic pick '%s' for manual origin '%s'",
                                orgArr->pickID().c_str(), org->publicID().c_str());
                 continue;
             }
