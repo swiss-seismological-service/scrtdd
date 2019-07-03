@@ -143,14 +143,20 @@ vector< map<string,string> > readWithHeader(istream &in,
 
 vector< map<string,string> > readWithHeader(const string &filename)
 {
-    ifstream csvfile(filename);
+    ifstream csvfile;
+    csvfile.exceptions(std::ios::failbit | std::ios::badbit);
+    csvfile.open(filename);
+    csvfile.exceptions(std::ios::goodbit);
     return readWithHeader(csvfile);
 }
 
 vector< map<string,string> > readWithHeader(const string &filename,
                                             const vector<string>& header)
 {
-    ifstream csvfile(filename);
+    ifstream csvfile;
+    csvfile.exceptions(std::ios::failbit | std::ios::badbit);
+    csvfile.open(filename);
+    csvfile.exceptions(std::ios::goodbit);
     return readWithHeader(csvfile, header);
 }
 

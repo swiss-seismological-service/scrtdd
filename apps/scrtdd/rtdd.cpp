@@ -377,7 +377,15 @@ bool RTDD::validateParameters()
         string eventFile = env->absolutePath(configGetPath(prefix + "eventFile"));
 
         // check if the file contains only seiscomp event/origin ids
-        if ( CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0)
+        bool eventIdOnly = false;
+        try {
+            eventIdOnly = CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0;
+        } catch ( exception &e ) {
+            SEISCOMP_ERROR("%seventFile: cannot read catalog %s (%s)", prefix.c_str(), eventFile.c_str(), e.what());
+            profilesOK = false;
+            continue;
+        }
+        if ( eventIdOnly )
         {
             prof->eventIDFile = eventFile;
             profileRequireDB = true;
