@@ -2988,9 +2988,9 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
     typedef NCompsOperator<double,3,OpWrapper> Rotator;
 
     Processing::Stream streams[3];
-    streams[0].init(tc.comps[0]);
-    streams[1].init(tc.comps[1]);
-    streams[2].init(tc.comps[2]);
+    streams[2].init(tc.comps[ThreeComponents::Vertical]);
+    streams[1].init(tc.comps[ThreeComponents::FirstHorizontal]);
+    streams[0].init(tc.comps[ThreeComponents::SecondHorizontal]);
     Rotator op(OpWrapper(streams, Operator::Transformation<double,3>(transformation)));
 
 
