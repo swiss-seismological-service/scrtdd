@@ -3047,6 +3047,11 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
         throw runtime_error(msg);
     }
 
+    //writeTrace(trace, waveformId(ph, tw)  + "-projected.mseed");
+    //writeTrace(tr1, waveformId(ph, tw) + "-component-" + tc.comps[ThreeComponents::Vertical]->code() + ".mseed");
+    //writeTrace(tr2, waveformId(ph, tw) + "-component-" + tc.comps[ThreeComponents::FirstHorizontal]->code() + ".mseed");
+    //writeTrace(tr3, waveformId(ph, tw) + "-component-" + tc.comps[ThreeComponents::SecondHorizontal]->code()+ ".mseed");
+
     return trace;
 }
 
