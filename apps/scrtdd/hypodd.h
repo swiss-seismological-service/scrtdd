@@ -382,7 +382,7 @@ class HypoDD : public Core::BaseObject {
                                         int minDTperEvt, int minNumNeigh,
                                         int maxNumNeigh) const;
         bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
-                   double qualityCheck, double& delayOut, double& coeffOut) const;
+                   bool qualityCheck, double& delayOut, double& coeffOut) const;
         double S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
                         double noiseOffsetStart, double noiseOffsetEnd,
                         double signalOffsetStart, double signalOffsetEnd) const;

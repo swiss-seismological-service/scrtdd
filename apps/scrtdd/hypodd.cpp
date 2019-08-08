@@ -2616,7 +2616,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 // Calculate the correlation series (tr1 and tr2 are already demeaned)
 bool
 HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
-              double qualityCheck, double& delayOut, double& coeffOut) const
+              bool qualityCheck, double& delayOut, double& coeffOut) const
 {
     delayOut = 0.;
     coeffOut = std::nan("");
