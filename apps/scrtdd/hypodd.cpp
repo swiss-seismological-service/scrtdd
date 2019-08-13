@@ -2876,6 +2876,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
                               _cfg.snr.signalStart, _cfg.snr.signalEnd);
         if ( snr < _cfg.snr.minSnr ) 
         {
+            //writeTrace(trace, waveformId(ph, tw)  + "-S2Nratio-rejected.mseed");
             SEISCOMP_DEBUG("Trace has too low SNR (%.2f), discard it (%s)", snr, wfDesc.c_str());
             return nullptr;
         }
