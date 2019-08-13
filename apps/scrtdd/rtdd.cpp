@@ -1194,6 +1194,8 @@ bool RTDD::send(Origin *org)
 
     if ( _config.testMode ) return true;
 
+    SEISCOMP_INFO("Sending origin %s", org->publicID().c_str());
+
     EventParametersPtr ep = new EventParameters;
 
     bool wasEnabled = Notifier::IsEnabled();
