@@ -42,7 +42,6 @@
 #include <seiscomp3/datamodel/utils.h>
 
 #include <seiscomp3/math/geo.h>
-#include <seiscomp3/math/filter/butterworth.h>
 
 #include <seiscomp3/utils/files.h>
 
@@ -491,14 +490,8 @@ bool RTDD::validateParameters()
 
         prefix = string("profile.") + *it + ".dtcc.waveformFiltering.";
         try {
-            prof->ddcfg.wfFilter.filterFmin = configGetDouble(prefix + "filterFmin");
-        } catch ( ... ) { prof->ddcfg.wfFilter.filterFmin = 0.; }
-        try {
-            prof->ddcfg.wfFilter.filterFmax = configGetDouble(prefix + "filterFmax");
-        } catch ( ... ) { prof->ddcfg.wfFilter.filterFmax = 0.; }
-        try {
-            prof->ddcfg.wfFilter.filterOrder = configGetInt(prefix + "filterOrder");
-        } catch ( ... ) { prof->ddcfg.wfFilter.filterOrder = 3; }
+            prof->ddcfg.wfFilter.filterStr = configGetString(prefix + "filterString");
+        } catch ( ... ) { prof->ddcfg.wfFilter.filterStr = ""; }
         try {
             prof->ddcfg.wfFilter.resampleFreq = configGetDouble(prefix + "resampling");
         } catch ( ... ) { prof->ddcfg.wfFilter.resampleFreq = 0.; }

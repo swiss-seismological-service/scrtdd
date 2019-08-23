@@ -284,10 +284,7 @@ struct Config {
     };
 
     struct {
-        int filterOrder;
-        double filterFmin     = 0;
-        double filterFmax     = 0;
-
+        std::string filterStr = "";
         double resampleFreq = 0;
     } wfFilter;
 
@@ -411,8 +408,7 @@ class HypoDD : public Core::BaseObject {
                                                       const std::string& channelCode) const;
         bool merge(GenericRecord &trace, const RecordSequence& seq) const;
         bool trim(GenericRecord &trace, const Core::TimeWindow& tw) const;
-        void filter(GenericRecord &trace, bool demeaning=true,
-                    int order=3, double fmin=-1, double fmax=-1, double resampleFreq=0) const;
+        void filter(GenericRecord &trace, bool demeaning=true, const std::string& filterStr="", double resampleFreq=0) const;
         void resample(GenericRecord& trace, double sf, bool average) const;
         std::string generateWorkingSubDir(const Catalog::Event& ev) const;
         std::string waveformId(const Catalog::Phase& ph, const Core::TimeWindow& tw) const;

@@ -27,7 +27,7 @@
 #include <seiscomp3/processing/operator/transformation.h>
 #include <seiscomp3/processing/operator/ncomps.h>
 #include <seiscomp3/math/geo.h>
-#include <seiscomp3/math/filter/butterworth.h>
+#include <seiscomp3/math/filter.h>
 #include <seiscomp3/client/inventory.h>
 #include <seiscomp3/datamodel/station.h>
 #include <seiscomp3/datamodel/event.h>
@@ -2866,8 +2866,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     }
 
     // fitler waveform
-    filter(*trace, true, _cfg.wfFilter.filterOrder, _cfg.wfFilter.filterFmin,
-           _cfg.wfFilter.filterFmax, _cfg.wfFilter.resampleFreq);
+    filter(*trace, true, _cfg.wfFilter.filterStr, _cfg.wfFilter.resampleFreq);
 
     // check SNR threshold
     if ( _cfg.snr.minSnr > 0 )
@@ -3269,16 +3268,15 @@ bool HypoDD::trim(GenericRecord &trace, const Core::TimeWindow& tw) const
 }
 
 
-void HypoDD::filter(GenericRecord &trace, bool demeaning,
-                    int order, double fmin, double fmax, double resampleFreq) const
+
+void HypoDD::filter(GenericRecord &trace, bool demeaning, const std::string& filterStr, double resampleFreq) const
 {
     DoubleArray *data = DoubleArray::Cast(trace.data());
 
     if (demeaning)
     {
-        double mean = data->mean();
-        int cnt = data->size();
-        for ( int i = 0; i < cnt; ++i ) (*data)[i] -= mean;
+        *data -= data->mean();
+        trace.dataUpdated();
     }
 
     if ( resampleFreq > 0)
@@ -3286,23 +3284,19 @@ void HypoDD::filter(GenericRecord &trace, bool demeaning,
         resample(trace, resampleFreq, true);
     }
 
-    if ( fmin > 0 && fmax > 0 )
+    if ( ! filterStr.empty() )
     {
-        Math::Filtering::IIR::ButterworthHighLowpass<double> bp(order, fmin, fmax);
-        bp.setSamplingFrequency(trace.samplingFrequency());
-        bp.apply(data->size(), data->typedData());
-    }
-    else if ( fmin > 0 )
-    {
-        Math::Filtering::IIR::ButterworthHighpass<double> hp(order, fmin);
-        hp.setSamplingFrequency(trace.samplingFrequency());
-        hp.apply(data->size(), data->typedData());
-    }
-    else if ( fmax > 0 )
-    {
-        Math::Filtering::IIR::ButterworthLowpass<double> lp(order, fmax);
-        lp.setSamplingFrequency(trace.samplingFrequency());
-        lp.apply(data->size(), data->typedData());
+        string filterError;
+        auto filter = Math::Filtering::InPlaceFilter<double>::Create(filterStr, &filterError);
+        if ( !filter )
+        {
+            string msg = stringify("Filter creation failed %s: %s", filterStr.c_str(), filterError.c_str());
+            throw runtime_error(msg);
+        }
+        filter->setSamplingFrequency(trace.samplingFrequency());
+        filter->apply(data->size(), data->typedData());
+        delete filter;
+        trace.dataUpdated();
     }
 }
 

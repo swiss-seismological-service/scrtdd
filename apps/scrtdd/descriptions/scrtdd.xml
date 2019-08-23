@@ -374,14 +374,8 @@
                             <description>
                                 Filter waveforms before performing the cross correlation
                             </description>
-                            <parameter name="filterFmin" type="double">
-                                <description>Frequency of the hi-pass filter (hz, 0 disable)</description>
-                            </parameter>
-                            <parameter name="filterFmax" type="double">
-                                <description>Frequency of the low-pass filter (hz, 0 disable)</description>
-                            </parameter>
-                            <parameter name="filterOrder" type="int">
-                                <description>Filter order</description>
+                            <parameter name="filterString" type="string">
+                                <description>SeisComP3 string based filter definition</description>
                             </parameter>
                             <parameter name="resampling" type="double">
                                 <description>
