@@ -105,7 +105,7 @@ class RTDD : public Application {
             std::string workingDirectory;
             bool        keepWorkingFiles;
             bool        onlyPreferredOrigin;
-            bool        processManualOrigin;
+            bool        processAllManualOrigins;
             int         profileTimeAlive; //seconds
             bool        cacheWaveforms;
 

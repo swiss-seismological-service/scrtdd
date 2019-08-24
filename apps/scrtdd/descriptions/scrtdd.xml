@@ -10,15 +10,16 @@
                 </description>
             </parameter>
 
-            <parameter name="onlyPreferredOrigin" type="boolean" default="true">
+            <parameter name="onlyPreferredOrigins" type="boolean" default="true">
                 <description>
                 Allow relocation of preferred origins only.
                 </description>
             </parameter>
 
-            <parameter name="manualOrigin" type="boolean" default="true">
+            <parameter name="allManualOrigins" type="boolean" default="true">
                 <description>
-                Enables relocation of any manual origin. If false, only automatic origins are relocated.
+                    Enables relocation of any manual origin. if false, manual origins are treated as
+                    automatic ones and processed accordingly to 'onlyPreferredOrigins' option.
                 </description>
             </parameter>
 

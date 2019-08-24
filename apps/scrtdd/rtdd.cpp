@@ -210,7 +210,7 @@ RTDD::Config::Config()
     workingDirectory = "/tmp/rtdd";
     keepWorkingFiles = false;
     onlyPreferredOrigin = false;
-    processManualOrigin = true;
+    processAllManualOrigins = true;
     profileTimeAlive = -1;
     cacheWaveforms = false;
 
@@ -249,8 +249,8 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT(_config.publicIDPattern, "publicIDpattern");
     NEW_OPT(_config.workingDirectory, "workingDirectory");
     NEW_OPT(_config.keepWorkingFiles, "keepWorkingFiles");
-    NEW_OPT(_config.onlyPreferredOrigin, "onlyPreferredOrigin");
-    NEW_OPT(_config.processManualOrigin, "manualOrigin");
+    NEW_OPT(_config.onlyPreferredOrigin, "onlyPreferredOrigins");
+    NEW_OPT(_config.processAllManualOrigins, "allManualOrigins");
     NEW_OPT(_config.activeProfiles, "activeProfiles");
 
     NEW_OPT(_config.wakeupInterval, "cron.wakeupInterval");
@@ -666,7 +666,7 @@ bool RTDD::run() {
         }
         return true;
     }
-    
+
     // relocate passed origin and exit
     if ( !_config.originIDs.empty() )
     {
@@ -966,40 +966,35 @@ bool RTDD::startProcess(Process *proc)
 
     OriginPtr org;
 
-    // assume process contain an origin
+    // assume process contain an origin (events are relevant only with _config.onlyPreferredOrigin)
     org = Origin::Cast(proc->obj);
 
-    auto evalMode = Seiscomp::DataModel::AUTOMATIC;
-    if ( org )
+    // If 'onlyPreferredOrigin' is set then make sure we are processing a preferred origin only
+    if ( _config.onlyPreferredOrigin && !_config.forceProcessing )
     {
-        try{ evalMode = org->evaluationMode(); } catch ( ... ) {}
-    }
-
-    if ( org && evalMode == Seiscomp::DataModel::MANUAL )
-    {
-        // allow manual origins only if configured so
-        if ( ! _config.processManualOrigin && !_config.forceProcessing )
+        if ( org )
         {
-            SEISCOMP_DEBUG("Skip manual origin %s", org->publicID().c_str());
-            return true;
+            // either 'org' is a manual origin and processAllManualOrigins is set
+            // or it must be a preferred origin
+            if ( org->evaluationMode() != Seiscomp::DataModel::MANUAL ||
+                 ! _config.processAllManualOrigins )
+            {
+                DataModel::Event* parentEv = query()->getEvent(org->publicID());
+                if ( parentEv->preferredOriginID() != org->publicID() )
+                {
+                    SEISCOMP_INFO("Skipping not preferred origin %s", org->publicID().c_str());
+                    return true;
+                }
+            }
         }
-    }
-    else if ( _config.onlyPreferredOrigin )
-    {
-        if ( ! org )
+        else // then this must be an event....
         {
-            // fetch the preferred origin of the event
+            // ...fetch the preferred origin of the event
             EventPtr evt = Event::Cast(proc->obj);
             if ( evt )
             {
                 org = _cache.get<Origin>(evt->preferredOriginID());
             }
-        }
-        else if ( !_config.forceProcessing )
-        {
-            SEISCOMP_DEBUG("Processing only preferred origin: skipping org %s",
-                           org->publicID().c_str());
-            return true;
         }
     }
 
