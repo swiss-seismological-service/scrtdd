@@ -286,6 +286,7 @@ struct Config {
     struct {
         std::string filterStr = "";
         double resampleFreq = 0;
+        bool dump = false;
     } wfFilter;
 
     struct {

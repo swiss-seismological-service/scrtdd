@@ -496,6 +496,10 @@
                     <description>"Test mode, no messages are sent</description>
                 </option>
 
+                <option long-flag="dump-wf">
+                    <description>"Dump processed waveforms too into 'cacheWaveforms' folder (debug)</description>
+                </option>
+
                 <option long-flag="force">
                     <description>Force event processing: in single event mode the processing is performed even on origins that would normally be skipped (already processed, not preferred, manual, etc.); In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used</description>
                 </option>

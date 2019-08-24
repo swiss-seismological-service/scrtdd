@@ -216,6 +216,7 @@ RTDD::Config::Config()
 
     forceProcessing = false;
     testMode = false;
+    dumpProcessedWf = false;
     fExpiry = 1.0;
 
     wakeupInterval = 10;
@@ -261,6 +262,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT(_config.cacheWaveforms, "performance.cacheWaveforms");
 
     NEW_OPT_CLI(_config.testMode, "Mode", "test", "Test mode, no messages are sent", false, true);
+    NEW_OPT_CLI(_config.dumpProcessedWf, "Mode", "dump-wf", "Dump processed waveforms too into 'cacheWaveforms' folder (debug)", false, true);
     NEW_OPT_CLI(_config.forceProcessing, "Mode", "force",
                 "Force event processing: in single event mode the processing is performed even on origins that would normally be skipped (already processed, not preferred, manual, etc.); In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used",
                 false, true);
@@ -495,6 +497,7 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.wfFilter.resampleFreq = configGetDouble(prefix + "resampling");
         } catch ( ... ) { prof->ddcfg.wfFilter.resampleFreq = 0.; }
+        prof->ddcfg.wfFilter.dump = _config.dumpProcessedWf;
 
         prefix = string("profile.") + *it + ".dtcc.snr.";
         try {
@@ -1428,7 +1431,7 @@ void RTDD::Profile::load(DatabaseQuery* query,
     hypodd = new HDD::HypoDD(ddbgc, ddcfg, pWorkingDir);
     hypodd->setWorkingDirCleanup(cleanupWorkingDir);
     hypodd->setUseCatalogDiskCache(cacheWaveforms);
-    hypodd->setUseSingleEvDiskCache(cacheWaveforms && !incrementalCatalogFile.empty());
+    hypodd->setUseSingleEvDiskCache(true); //cacheWaveforms && !incrementalCatalogFile.empty());
     loaded = true;
     lastUsage = Core::Time::GMT();
 

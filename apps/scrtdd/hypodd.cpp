@@ -1072,7 +1072,7 @@ CatalogPtr HypoDD::filterOutPhases(const CatalogCPtr& catalog,
                     filteredS.emplace(phase.eventId, phase);
                 continue;
             }
-            
+
             SEISCOMP_DEBUG("Discard phase (%s), the type is not among the selected ones",
                            string(phase).c_str());
         }
@@ -2868,6 +2868,13 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     // fitler waveform
     filter(*trace, true, _cfg.wfFilter.filterStr, _cfg.wfFilter.resampleFreq);
 
+    if ( _cfg.wfFilter.dump )
+    {
+        string dumpFile = waveformId(ph, tw) + "-processed.mseed";
+        dumpFile = (boost::filesystem::path(_cacheDir)/dumpFile).string();
+        writeTrace(trace, dumpFile);
+    }
+
     // check SNR threshold
     if ( _cfg.snr.minSnr > 0 )
     {
@@ -3047,6 +3054,7 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
         throw runtime_error(msg);
     }
 
+    // debug
     //writeTrace(trace, waveformId(ph, tw)  + "-projected.mseed");
     //writeTrace(tr1, waveformId(ph, tw) + "-component-" + tc.comps[ThreeComponents::Vertical]->code() + ".mseed");
     //writeTrace(tr2, waveformId(ph, tw) + "-component-" + tc.comps[ThreeComponents::FirstHorizontal]->code() + ".mseed");

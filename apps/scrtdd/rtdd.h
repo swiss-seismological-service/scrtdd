@@ -112,6 +112,7 @@ class RTDD : public Application {
             // Mode
             bool        forceProcessing;
             bool        testMode;
+            bool        dumpProcessedWf;
             double      fExpiry;
             std::string originIDs;
             std::string eventXML;
