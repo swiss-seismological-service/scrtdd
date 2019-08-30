@@ -218,50 +218,10 @@
                             These options control the creation of catalog absolute travel time entries for pairs of
                             earthquakes (dt.ct file in HypoDD terminology).
                         </description>
-                        <parameter name="minWeight" type="double">
-                            <description>
-                                Min phase weight required. Phases not satisfying this condition will not be used.
-                                Check disabled by default.
-                            </description>
-                        </parameter>
-                        <parameter name="minESdist" type="double">
-                            <description>
-                                Min distance (km) between event pair and station required. Phases belonging
-                                to stations not satisfyig this condition will not be used.
-                                Check disabled by default. 
-                            </description>
-                        </parameter>
-                        <parameter name="maxESdist" type="double">
-                            <description>
-                                Max distance (km) between event pair and station allowed. Phases belonging
-                                to stations not satisfyig this condition will not be used.
-                                No limit by default.
-                            </description>
-                        </parameter>
-                        <parameter name="minEStoIEratio" type="double">
-                            <description>
-                                Min ratio between event-station distance and pair inter-event distance. Phases
-                                belonging to stations not satisfyig this condition will not be used.
-                                Check disabled by default.
-                            </description>
-                        </parameter>
-                        <parameter name="maxIEdist" type="double">
-                            <description>
-                                Max distance (km) between events in a pair allowed. Event pairs not satisfying 
-                                this condition will not be used. No limit by default.
-                            </description>
-                        </parameter>
-                        <parameter name="minDTperEvt" type="int">
-                            <description>
-                                Min number of differential travel times (Including P+S) per event pair required.
-                                Event pairs not satisfying this condition will not be used.
-                                Check disabled by default.
-                            </description>
-                            </parameter>
                         <parameter name="minNumNeigh" type="int">
                             <description>
-                                Min number of neighboring events required. Events not satisfying this condition
-                                will not be used. Check disabled by default.
+                                Min number of neighboring events required to relocate an event.
+                                Check disabled by default.
                             </description>
                         </parameter>
                         <parameter name="maxNumNeigh" type="int">
@@ -269,6 +229,70 @@
                                 Max number of neighbors used. Further events are discarded. No limit by default.
                             </description>
                         </parameter>
+                        <group name="neighboringEventSelection">
+                            <description>
+                                From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
+                                events are selected within each of five concentric, vertically elongated
+                                ellipsoidal layers of increasing thickness.
+                            </description>
+                            <parameter name="numEllipsoids" type="int" default="4">
+                                <description>
+                                    Number of concentric ellipsoidal layers to use in neighboring events 
+                                    selection. N ellipsoidal layers will actually generate N+1 ellipsoidal
+                                    volumes in which the neighboring events will be searched into
+                                </description>
+                            </parameter>
+                            <parameter name="maxEllipsoidSize" type="double" default="10">
+                                <description>
+                                    Vertical axis length (km) of the outermost ellipsoidal layer. Each inner
+                                    concentric layer axis will be of size/2 of the previous one.
+                                    If numEllipsoids is 1 this parameter is meaningless.
+                                </description>
+                            </parameter> 
+                            <parameter name="maxIEDist" type="double">
+                                <description>
+                                    Max distance (km) between events in a pair allowed. Event pairs not satisfying 
+                                    this condition will not be used. No limit by default.
+                                    This parameter should be at least maxEllipsoidSize.
+                                </description>
+                            </parameter>
+                            <parameter name="minDTperEvt" type="int">
+                                <description>
+                                    Min number of differential travel times (Including P+S) per event pair required.
+                                    Event pairs not satisfying this condition will not be used.
+                                    Check disabled by default.
+                                </description>
+                            </parameter>
+                        </group>
+                        <group name="phaseSelection">
+                            <parameter name="minWeight" type="double">
+                                <description>
+                                    Min phase weight required. Phases not satisfying this condition will not be used.
+                                    Check disabled by default.
+                                </description>
+                            </parameter>
+                            <parameter name="minESdist" type="double">
+                                <description>
+                                    Min distance (km) between event pair and station required. Phases belonging
+                                    to stations not satisfyig this condition will not be used.
+                                    Check disabled by default. 
+                                </description>
+                            </parameter>
+                            <parameter name="maxESdist" type="double">
+                                <description>
+                                    Max distance (km) between event pair and station allowed. Phases belonging
+                                    to stations not satisfyig this condition will not be used.
+                                    No limit by default.
+                                </description>
+                            </parameter>
+                            <parameter name="minEStoIEratio" type="double">
+                                <description>
+                                    Min ratio between event-station distance and pair inter-event distance. Phases
+                                    belonging to stations not satisfyig this condition will not be used.
+                                    Check disabled by default.
+                                </description>
+                            </parameter> 
+                        </group> 
                     </group>
 
                     <group name="dtcc">
@@ -276,50 +300,10 @@
                             Those options control the creation of differential travel times from cross correlation
                             for pairs of earthquakes (dt.cc file in HypoDD terminology). 
                         </description>
-                        <parameter name="minWeight" type="double">
-                            <description>
-                                Min phase weight required. Phases not satisfying this condition will not be used.
-                                Check disabled by default.
-                            </description>
-                        </parameter>
-                        <parameter name="minESdist" type="double">
-                            <description>
-                                Min distance (km) between event pair and station required. Phases belonging
-                                to stations not satisfyig this condition will not be used.
-                                Check disabled by default. 
-                            </description>
-                        </parameter>
-                        <parameter name="maxESdist" type="double">
-                            <description>
-                                Max distance (km) between event pair and station allowed. Phases belonging
-                                to stations not satisfyig this condition will not be used.
-                                No limit by default.
-                            </description>
-                        </parameter>
-                        <parameter name="minEStoIEratio" type="double">
-                            <description>
-                                Min ratio between event-station distance and pair inter-event distance. Phases
-                                belonging to stations not satisfyig this condition will not be used.
-                                Check disabled by default.
-                            </description>
-                        </parameter>
-                        <parameter name="maxIEdist" type="double">
-                            <description>
-                                Max distance (km) between events in a pair allowed. Event pairs not satisfying 
-                                this condition will not be used. No limit by default.
-                            </description>
-                        </parameter>
-                        <parameter name="minDTperEvt" type="int">
-                            <description>
-                                Min number of differential travel times (Including P+S) per event pair required.
-                                Event pairs not satisfying this condition will not be used.
-                                Check disabled by default.
-                            </description>
-                            </parameter>
                         <parameter name="minNumNeigh" type="int">
                             <description>
-                                Min number of neighboring events required. Events not satisfying this condition
-                                will not be used. Check disabled by default.
+                                Min number of neighboring events required to relocate an event.
+                                Check disabled by default.
                             </description>
                         </parameter>
                         <parameter name="maxNumNeigh" type="int">
@@ -327,6 +311,70 @@
                                 Max number of neighbors used. Further events are discarded. No limit by default.
                             </description>
                         </parameter>
+                        <group name="neighboringEventSelection">
+                            <description>
+                                From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
+                                events are selected within each of five concentric, vertically elongated
+                                ellipsoidal layers of increasing thickness.
+                            </description>
+                            <parameter name="numEllipsoids" type="int" default="4">
+                                <description>
+                                    Number of concentric ellipsoidal layers to use in neighboring events 
+                                    selection. N ellipsoidal layers will actually generate N+1 ellipsoidal
+                                    volumes in which the neighboring events will be searched into
+                                </description>
+                            </parameter>
+                            <parameter name="maxEllipsoidSize" type="double" default="10">
+                                <description>
+                                    Vertical axis length (km) of the outermost ellipsoidal layer. Each inner
+                                    concentric layer axis will be of size/2 of the previous one.
+                                    If numEllipsoids is 1 this parameter is meaningless
+                                </description>
+                            </parameter> 
+                            <parameter name="maxIEDist" type="double">
+                                <description>
+                                    Max distance (km) between events in a pair allowed. Event pairs not satisfying 
+                                    this condition will not be used. No limit by default.
+                                    This parameter should be at least maxEllipsoidSize.
+                                </description>
+                            </parameter>
+                            <parameter name="minDTperEvt" type="int">
+                                <description>
+                                    Min number of differential travel times (Including P+S) per event pair required.
+                                    Event pairs not satisfying this condition will not be used.
+                                    Check disabled by default.
+                                </description>
+                            </parameter>
+                        </group>
+                        <group name="phaseSelection">
+                            <parameter name="minWeight" type="double">
+                                <description>
+                                    Min phase weight required. Phases not satisfying this condition will not be used.
+                                    Check disabled by default.
+                                </description>
+                            </parameter>
+                            <parameter name="minESdist" type="double">
+                                <description>
+                                    Min distance (km) between event pair and station required. Phases belonging
+                                    to stations not satisfyig this condition will not be used.
+                                    Check disabled by default. 
+                                </description>
+                            </parameter>
+                            <parameter name="maxESdist" type="double">
+                                <description>
+                                    Max distance (km) between event pair and station allowed. Phases belonging
+                                    to stations not satisfyig this condition will not be used.
+                                    No limit by default.
+                                </description>
+                            </parameter>
+                            <parameter name="minEStoIEratio" type="double">
+                                <description>
+                                    Min ratio between event-station distance and pair inter-event distance. Phases
+                                    belonging to stations not satisfyig this condition will not be used.
+                                    Check disabled by default.
+                                </description>
+                            </parameter> 
+                        </group> 
 
                         <group name="crosscorrelation">
                             <group name="p-phase">

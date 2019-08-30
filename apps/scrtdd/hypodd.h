@@ -256,6 +256,11 @@ struct Config {
         int minNumNeigh       = 1;  // Min neighbors required
         int maxNumNeigh       =-1;  // Max neighbors allowed (furthest events are discarded)
         int minDTperEvt       = 1;  // Min differential times per event pair required (Including P+S)
+        // From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
+        // events are selected within each of five concentric, vertically longated
+        // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
+        int numEllipsoids     = 5;
+        double maxEllipsoidSize  = 0;
     } dtct;
 
     // cross correlation specific
@@ -270,6 +275,11 @@ struct Config {
         int minNumNeigh       = 1;  // Min neighbors required
         int maxNumNeigh       =-1;  // Max neighbors allowed (furthest events are discarded)
         int minDTperEvt       = 1;  // Min differential times per event pair required (Including P+S)
+        // From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
+        // events are selected within each of five concentric, vertically longated
+        // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
+        int numEllipsoids     = 5;
+        double maxEllipsoidSize  = 0; // km, 0 means auto
     } dtcc;
 
     struct XCorr {
@@ -372,13 +382,14 @@ class HypoDD : public Core::BaseObject {
                                             double minPhaseWeight = 0, double minESdis=0,
                                             double maxESdis=-1, double minEStoIEratio=0,
                                             double maxIEdis=-1, int minDTperEvt=1,
-                                            int minNumNeigh=1, int maxNumNeigh=-1) const;
+                                            int minNumNeigh=1, int maxNumNeigh=-1,
+                                            int numEllipsoids=5, int maxEllipsoidSize=0) const;
         std::map<unsigned,CatalogPtr> 
         selectNeighbouringEventsCatalog(const CatalogCPtr& catalog, double minPhaseWeight,
                                         double minESdis, double maxESdis,
                                         double minEStoIEratio, double maxIEdis,
-                                        int minDTperEvt, int minNumNeigh,
-                                        int maxNumNeigh) const;
+                                        int minDTperEvt, int minNumNeigh, int maxNumNeigh,
+                                        int numEllipsoids, int maxEllipsoidSize) const;
         bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
                    bool qualityCheck, double& delayOut, double& coeffOut) const;
         double S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,

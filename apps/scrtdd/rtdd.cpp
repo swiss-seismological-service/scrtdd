@@ -416,56 +416,85 @@ bool RTDD::validateParameters()
 
         prefix = string("profile.") + *it + ".dtct.";
         try {
+            prof->ddcfg.dtct.minNumNeigh = configGetInt(prefix + "minNumNeigh");
+        } catch ( ... ) { prof->ddcfg.dtct.minNumNeigh = 1; }
+        try {
+            prof->ddcfg.dtct.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
+        } catch ( ... ) { prof->ddcfg.dtct.maxNumNeigh = -1; }
+        prefix = string("profile.") + *it + ".dtct.neighboringEventSelection.";
+        try {
+            prof->ddcfg.dtct.numEllipsoids = configGetInt(prefix + "numEllipsoids");
+        } catch ( ... ) { prof->ddcfg.dtct.numEllipsoids = 4; }
+        if ( prof->ddcfg.dtct.numEllipsoids < 1 )
+        {
+            SEISCOMP_ERROR("profile.%s: numEllipsoids cannot be less than 1", it->c_str());
+            profilesOK = false;
+            continue;
+        }
+        try {
+            prof->ddcfg.dtct.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
+        } catch ( ... ) { prof->ddcfg.dtct.maxEllipsoidSize = 10; }
+        try {
+            prof->ddcfg.dtct.maxIEdist = configGetDouble(prefix + "maxIEdist");
+        } catch ( ... ) { prof->ddcfg.dtct.maxIEdist = -1; }
+        try {
+            prof->ddcfg.dtct.minDTperEvt = configGetInt(prefix + "minDTperEvt");
+        } catch ( ... ) { prof->ddcfg.dtct.minDTperEvt = 1; }
+        prefix = string("profile.") + *it + ".dtct.phaseSelection.";
+        try {
             prof->ddcfg.dtct.minWeight = configGetDouble(prefix + "minWeight");
         } catch ( ... ) { prof->ddcfg.dtct.minWeight = 0; }
-        try {
-            prof->ddcfg.dtct.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
-        } catch ( ... ) { prof->ddcfg.dtct.minEStoIEratio = 0; }
         try {
             prof->ddcfg.dtct.minESdist = configGetDouble(prefix + "minESdist");
         } catch ( ... ) { prof->ddcfg.dtct.minESdist = 0; }
         try {
             prof->ddcfg.dtct.maxESdist = configGetDouble(prefix + "maxESdist");
         } catch ( ... ) { prof->ddcfg.dtct.maxESdist = -1; }
-        try {
-            prof->ddcfg.dtct.maxIEdist = configGetDouble(prefix + "maxIEdist");
-        } catch ( ... ) { prof->ddcfg.dtct.maxIEdist = -1; }
-        try {
-            prof->ddcfg.dtct.minNumNeigh = configGetInt(prefix + "minNumNeigh");
-        } catch ( ... ) { prof->ddcfg.dtct.minNumNeigh = 1; }
-        try {
-            prof->ddcfg.dtct.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
-        } catch ( ... ) { prof->ddcfg.dtct.maxNumNeigh = -1; }
-        try {
-            prof->ddcfg.dtct.minDTperEvt = configGetInt(prefix + "minDTperEvt");
-        } catch ( ... ) { prof->ddcfg.dtct.minDTperEvt = 1; }
+         try {
+            prof->ddcfg.dtct.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
+        } catch ( ... ) { prof->ddcfg.dtct.minEStoIEratio = 0; } 
 
         prefix = string("profile.") + *it + ".dtcc.";
         prof->ddcfg.dtcc.recordStreamURL = recordStreamURL();
-        try {
-            prof->ddcfg.dtcc.minWeight = configGetDouble(prefix + "minWeight");
-        } catch ( ... ) { prof->ddcfg.dtcc.minWeight = 0; }
-        try {
-            prof->ddcfg.dtcc.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
-        } catch ( ... ) { prof->ddcfg.dtcc.minEStoIEratio = 0; }
-        try {
-            prof->ddcfg.dtcc.minESdist = configGetDouble(prefix + "minESdist");
-        } catch ( ... ) { prof->ddcfg.dtcc.minESdist = 0; }
-        try {
-            prof->ddcfg.dtcc.maxESdist = configGetDouble(prefix + "maxESdist");
-        } catch ( ... ) { prof->ddcfg.dtcc.maxESdist = -1; }
-        try {
-            prof->ddcfg.dtcc.maxIEdist = configGetDouble(prefix + "maxIEdist");
-        } catch ( ... ) { prof->ddcfg.dtcc.maxIEdist = -1; }
         try {
             prof->ddcfg.dtcc.minNumNeigh = configGetInt(prefix + "minNumNeigh");
         } catch ( ... ) { prof->ddcfg.dtcc.minNumNeigh = 1; }
         try {
             prof->ddcfg.dtcc.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
         } catch ( ... ) { prof->ddcfg.dtcc.maxNumNeigh = -1; }
+        prefix = string("profile.") + *it + ".dtcc.neighboringEventSelection.";
+         try {
+            prof->ddcfg.dtcc.numEllipsoids = configGetInt(prefix + "numEllipsoids");
+        } catch ( ... ) { prof->ddcfg.dtcc.numEllipsoids = 4; }
+        if ( prof->ddcfg.dtcc.numEllipsoids < 1 )
+        {
+            SEISCOMP_ERROR("profile.%s: numEllipsoids cannot be less than 1", it->c_str());
+            profilesOK = false;
+            continue;
+        }
+        try {
+            prof->ddcfg.dtcc.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
+        } catch ( ... ) { prof->ddcfg.dtcc.maxEllipsoidSize = 10; }
+        try {
+            prof->ddcfg.dtcc.maxIEdist = configGetDouble(prefix + "maxIEdist");
+        } catch ( ... ) { prof->ddcfg.dtcc.maxIEdist = -1; }
         try {
             prof->ddcfg.dtcc.minDTperEvt = configGetInt(prefix + "minDTperEvt");
         } catch ( ... ) { prof->ddcfg.dtcc.minDTperEvt = 1; }
+        prefix = string("profile.") + *it + ".dtcc.phaseSelection.";
+        try {
+            prof->ddcfg.dtcc.minWeight = configGetDouble(prefix + "minWeight");
+        } catch ( ... ) { prof->ddcfg.dtcc.minWeight = 0; }
+        try {
+            prof->ddcfg.dtcc.minESdist = configGetDouble(prefix + "minESdist");
+        } catch ( ... ) { prof->ddcfg.dtcc.minESdist = 0; }
+        try {
+            prof->ddcfg.dtcc.maxESdist = configGetDouble(prefix + "maxESdist");
+        } catch ( ... ) { prof->ddcfg.dtcc.maxESdist = -1; }
+         try {
+            prof->ddcfg.dtcc.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
+        } catch ( ... ) { prof->ddcfg.dtcc.minEStoIEratio = 0; } 
+
 
         prefix = string("profile.") + *it + ".dtcc.crosscorrelation.p-phase.";
         try {

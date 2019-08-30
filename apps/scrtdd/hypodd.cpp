@@ -313,6 +313,101 @@ double computeDistance(double lat1, double lon1, double depth1,
 }
 
 
+
+/*
+ * Ellipsoid standard equation:
+ *
+ *      (x-xo)^2/axix_a + (y-yo)^2/axis_b +(z-zo)^2/axis_c = 1
+ *
+ */
+struct Ellipsoid
+{
+    double axis_a=0, axis_b=0, axis_c=0; // axis in km
+    double lat=0, lon=0, depth=0;        // origin
+    double orientation = 0;              // degress: when 0 -> axis_a is East-West and axis_b is North-South
+
+    bool isInside(double lat, double lon, double depth) const
+    {
+        double distance, az, baz;
+        Math::Geo::delazi(lat, lon, this->lat, this->lon, &distance, &az, &baz);
+
+        distance = Math::Geo::deg2km(distance); // distance to km
+        az += orientation; // correct azimuth by the orientation of a and axes
+
+        double dist_x = distance * std::cos(az);
+        double dist_y = distance * std::sin(az);
+        double dist_z = std::abs(depth - this->depth);
+
+        double one = std::pow(dist_x, 2) / axis_a +
+                     std::pow(dist_y, 2) / axis_b +
+                     std::pow(dist_z, 2) / axis_c;
+        return one <= 1;
+    }
+};
+
+
+/*
+ * Helper class to implement Waldhauser's paper method of neighboring events selection
+ * based on 5 concentric ellipsoidal layers
+ *
+ * Quadrants (1-4 above depth, 5-8 below depth):
+ *
+ *        lat
+ *         ^
+ *         |
+ *    2/6  |   1/5
+ *         |
+ * -----------------> lon
+ *         |
+ *    3/7  |   4/8
+ *         |
+ */
+class HddEllipsoid : public Core::BaseObject
+{
+public:
+    HddEllipsoid(double axis_len, double lat, double lon, double depth)
+    {
+        _ellipsoid.axis_a = axis_len / 2;
+        _ellipsoid.axis_b = _ellipsoid.axis_a;
+        _ellipsoid.axis_c = axis_len;
+        _ellipsoid.lat = lat;
+        _ellipsoid.lon = lon;
+        _ellipsoid.depth = depth;
+    }
+
+    bool isInQuadrant(double lat, double lon, double depth, int quadrant /* 1-8 */) const
+    {
+        if (quadrant < 1 || quadrant > 8)
+            throw std::invalid_argument( "quadrant should be between 1 and 8");
+
+        if (depth < _ellipsoid.depth && set<int>{1,2,3,4}.count(quadrant) != 0) return false;
+        if (depth > _ellipsoid.depth && set<int>{5,6,7,8}.count(quadrant) != 0) return false;
+
+        if (lon < _ellipsoid.lon && set<int>{1,4,5,8}.count(quadrant) != 0) return false;
+        if (lon > _ellipsoid.lon && set<int>{2,3,6,7}.count(quadrant) != 0) return false;
+
+        if (lat < _ellipsoid.lat && set<int>{1,2,5,6}.count(quadrant) != 0) return false;
+        if (lat > _ellipsoid.lat && set<int>{3,4,7,8}.count(quadrant) != 0) return false;
+
+        return true;
+    }
+
+    bool isInside(double lat, double lon, double depth, int quadrant) const
+    {
+        return isInQuadrant(lat, lon, depth, quadrant) && _ellipsoid.isInside(lat, lon, depth);
+    }
+
+    bool isOutside(double lat, double lon, double depth, int quadrant) const
+    {
+        return isInQuadrant(lat, lon, depth, quadrant) && ! _ellipsoid.isInside(lat, lon, depth);
+    }
+
+private:
+    Ellipsoid _ellipsoid;
+};
+
+DEFINE_SMARTPOINTER(HddEllipsoid);
+
 }
 
 
@@ -871,7 +966,6 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
                                sta.networkCode.c_str(), sta.stationCode.c_str())
                   << endl;
     }
-    
 }
 
 
@@ -1169,8 +1263,8 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
             string stationSelFile = (boost::filesystem::path(catalogWorkingDir)/"station.sel").string();
             if ( Util::fileExists(stationSelFile) )
                 boost::filesystem::copy_file(stationSelFile, stationFile, boost::filesystem::copy_option::overwrite_if_exists);
-            string eventSelfile = (boost::filesystem::path(catalogWorkingDir)/"event.sel").string();                
-            if ( Util::fileExists(eventSelfile) )               
+            string eventSelfile = (boost::filesystem::path(catalogWorkingDir)/"event.sel").string();
+            if ( Util::fileExists(eventSelfile) )
                 boost::filesystem::copy_file(eventSelfile, eventFile, boost::filesystem::copy_option::overwrite_if_exists);
         }
 
@@ -1244,7 +1338,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     CatalogPtr neighbourCat = selectNeighbouringEvents(
         _ddbgc->merge(evToRelocateCat), evToRelocate, _cfg.dtct.minWeight, _cfg.dtct.minESdist,
         _cfg.dtct.maxESdist, _cfg.dtct.minEStoIEratio, _cfg.dtct.maxIEdist, _cfg.dtct.minDTperEvt,
-        _cfg.dtct.minNumNeigh, _cfg.dtct.maxNumNeigh
+        _cfg.dtct.minNumNeigh, _cfg.dtct.maxNumNeigh, _cfg.dtct.numEllipsoids, _cfg.dtct.maxEllipsoidSize
     );
     // add event
     neighbourCat->copyEvent(evToRelocate, evToRelocateCat, false);
@@ -1307,7 +1401,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         neighbourCat = selectNeighbouringEvents(
             _ddbgc->merge(relocatedEvCat), relocatedEv, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist,
             _cfg.dtcc.maxESdist, _cfg.dtcc.minEStoIEratio, _cfg.dtcc.maxIEdist, _cfg.dtcc.minDTperEvt,
-            _cfg.dtcc.minNumNeigh, _cfg.dtcc.maxNumNeigh
+            _cfg.dtcc.minNumNeigh, _cfg.dtcc.maxNumNeigh, _cfg.dtcc.numEllipsoids, _cfg.dtcc.maxEllipsoidSize
         );
         // add event
         neighbourCat->copyEvent(relocatedEv, relocatedEvCat, false);
@@ -1598,7 +1692,6 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
 
 
 
-
 CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             const Catalog::Event& refEv,
                                             double minPhaseWeight,
@@ -1608,7 +1701,9 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             double maxIEdist,
                                             int minDTperEvt,
                                             int minNumNeigh,
-                                            int maxNumNeigh) const
+                                            int maxNumNeigh,
+                                            int numEllipsoids,
+                                            int maxEllipsoidSize ) const
 {
     SEISCOMP_DEBUG("Selecting Neighbouring Events for event %s", string(refEv).c_str());
 
@@ -1732,71 +1827,79 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                        event.id, kv.first, azimuthByEvent[event.id]);
     }
 
-    // Finally build the catalog of selected events
-    // We prefer closer events over further ones but at the same time
-    // we want to have a broad azimuth coverage
-    CatalogPtr filteredCatalog = new Catalog();
-
-    int numEvents = 0;
-    int nextBin = 0;
-    int numBins = 1;
-
-    while ( !selectedEvents.empty() )
+    /*
+     * Finally build the catalog of neighboring events
+     * From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
+     * events are selected within each of five concentric, vertically elongated
+     * ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
+     */
+    vector<int> quadrants = {1,2,3,4,5,6,7,8};
+    vector<HddEllipsoidPtr> ellipsoids;
+    double currSize = maxEllipsoidSize;
+    for (int i = 0; i < numEllipsoids; i++)
     {
-        // select only maxNumNeigh
-        if ( maxNumNeigh > 0 && numEvents >= maxNumNeigh )
-            break;
+        ellipsoids.push_back( new HddEllipsoid(currSize, refEv.latitude, refEv.longitude, refEv.depth) );
+        currSize /= 2;
+    }
+    ellipsoids.push_back( new HddEllipsoid(0, refEv.latitude, refEv.longitude, refEv.depth) );
 
-        if ( ++nextBin == numBins )
+    CatalogPtr neighboringEventCat = new Catalog();
+    int numNeighbors = 0;
+    bool workToDo = true;
+    while ( workToDo )
+    {
+        for(int elpsNum = ellipsoids.size() -1; elpsNum >= 0;  elpsNum--)
         {
-            numBins = std::min(8, int(selectedEvents.size()));
-            if ( maxNumNeigh > 0 )
-                numBins = std::min(numBins, maxNumNeigh-numEvents);
-            nextBin = 0;
-        }
-
-        // Split numBins in 2 sets: one set for events above the reference event and
-        // the other set below the reference event. This is to reduce depth errors
-        int halfBins =  numBins / 2;
-        int azimuthBins = nextBin < halfBins ? halfBins : numBins - halfBins;
-        int expectedAzBin = nextBin < halfBins ? nextBin : nextBin - halfBins;
-        bool expectedAbove = nextBin < halfBins;
-
-        for (auto it = selectedEvents.begin(); it != selectedEvents.end(); it++)
-        {
-            const Catalog::Event& event = catalog->getEvents().at( *it );
-
-            double azimuthBinSize = 360. / azimuthBins;
-            int eventAzBin = int(azimuthByEvent[event.id] / azimuthBinSize) % azimuthBins;
-
-            bool isAboveRefEv = event.depth < refEv.depth;
-            bool depthOk = (isAboveRefEv == expectedAbove) || (numBins == 1);
-
-            if ( eventAzBin == expectedAzBin && depthOk )
+            for (int quadrant : quadrants)
             {
-                // add this event to the catalog
-                filteredCatalog->copyEvent(event, catalog, true);
-                numEvents++;
-                selectedEvents.erase(it);
-                SEISCOMP_DEBUG("Chose neighbour event %u distance %.1f azimuth %.1f depth %.3f "
-                               "(azimuthBins %d eventAzBin %d deltaDepth %.3f)",
-                               event.id, distanceByEvent[event.id], azimuthByEvent[event.id], event.depth,
-                               azimuthBins, eventAzBin, (refEv.depth-event.depth));
-                break;
+                // if we don't have events or we have already selected maxNumNeigh neighbors exit
+                if ( selectedEvents.empty() || (maxNumNeigh > 0 && numNeighbors >= maxNumNeigh) )
+                {
+                    workToDo = false;
+                    break;
+                }
+
+                for (auto it = selectedEvents.begin(); it != selectedEvents.end(); it++)
+                {
+                    const Catalog::Event& ev = catalog->getEvents().at( *it );
+
+                    bool found = false;
+
+                    if ( elpsNum == 0 )
+                    {
+                        found = ellipsoids[elpsNum]->isOutside(ev.latitude, ev.longitude, ev.depth, quadrant);
+                    }
+                    else
+                    {
+                        found = ellipsoids[elpsNum]->isOutside(ev.latitude, ev.longitude, ev.depth, quadrant) &&
+                                ellipsoids[elpsNum-1]->isInside(ev.latitude, ev.longitude, ev.depth, quadrant);
+                    }
+
+                    if ( found )
+                    {
+                        // add this event to the catalog
+                        neighboringEventCat->copyEvent(ev, catalog, true);
+                        numNeighbors++;
+                        selectedEvents.erase(it);
+                        SEISCOMP_DEBUG("Chose neighbour event %u ellipsoid %d quadrant %d distance %.1f azimuth %.1f depth %.3f",
+                                       ev.id, elpsNum, quadrant, distanceByEvent[ev.id], azimuthByEvent[ev.id], ev.depth);
+                        break;
+                    }
+                }
             }
         }
     }
 
     // Check if enough neighbors were found
-    if ( numEvents < minNumNeigh )
+    if ( numNeighbors < minNumNeigh )
     {
         string msg = stringify("Skipping event %s, insufficient number of neighbors (%d)",
-                               string(refEv).c_str(), numEvents);
+                               string(refEv).c_str(), numNeighbors);
         SEISCOMP_DEBUG("%s", msg.c_str());
         throw runtime_error(msg);
     }
 
-    return filteredCatalog;
+    return neighboringEventCat;
 }
 
 
@@ -1810,7 +1913,9 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                                         double maxIEdist,
                                         int minDTperEvt,
                                         int minNumNeigh,
-                                        int maxNumNeigh) const
+                                        int maxNumNeigh,
+                                        int numEllipsoids,
+                                        int maxEllipsoidSize ) const 
 {
     SEISCOMP_INFO("Selecting Catalog Neighbouring Events ");
 
@@ -1821,7 +1926,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
     do {
         neighbourCats.clear();
         vector<unsigned> removedEvents;
-        
+
         // for each event find the neighbours
         for (const auto& kv : tmpCatalog->getEvents() )
         {
@@ -1832,7 +1937,8 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                 neighbourCat = selectNeighbouringEvents(
                     tmpCatalog, event, minPhaseWeight, minESdist,
                     maxESdist, minEStoIEratio, maxIEdist,
-                    minDTperEvt, minNumNeigh, maxNumNeigh
+                    minDTperEvt, minNumNeigh, maxNumNeigh,
+                    numEllipsoids, maxEllipsoidSize
                 );
             } catch ( ... ) { }
 
@@ -1853,7 +1959,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
         {
             tmpCatalog->removeEvent(eventIdtoRemove);
         }
-        
+
         // check if the removed events were used as neighbor of any event
         // if so restart the loop
         redo = false;
@@ -1872,7 +1978,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
             }
             if ( redo ) break;
         }
-        
+
     } while( redo );
 
     // We don't want to report the same pairs multiple times
@@ -2123,7 +2229,8 @@ void HypoDD::createDtCtCatalog(const CatalogCPtr& catalog,
     map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
         catalog, _cfg.dtct.minWeight, _cfg.dtct.minESdist,
         _cfg.dtct.maxESdist, _cfg.dtct.minEStoIEratio, _cfg.dtct.maxIEdist,
-        _cfg.dtct.minDTperEvt, _cfg.dtct.minNumNeigh, _cfg.dtct.maxNumNeigh
+        _cfg.dtct.minDTperEvt, _cfg.dtct.minNumNeigh, _cfg.dtct.maxNumNeigh,
+        _cfg.dtct.numEllipsoids , _cfg.dtct.maxEllipsoidSize
     );
 
     ofstream outStream(dtctFile);
@@ -2250,7 +2357,8 @@ void HypoDD::createDtCcCatalog(const CatalogCPtr& catalog,
     map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
         catalog, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist,
         _cfg.dtcc.maxESdist, _cfg.dtcc.minEStoIEratio, _cfg.dtcc.maxIEdist,
-        _cfg.dtcc.minDTperEvt, _cfg.dtcc.minNumNeigh, _cfg.dtcc.maxNumNeigh
+        _cfg.dtcc.minDTperEvt, _cfg.dtcc.minNumNeigh, _cfg.dtcc.maxNumNeigh,
+        _cfg.dtcc.numEllipsoids , _cfg.dtcc.maxEllipsoidSize
     );
 
     ofstream outStream(dtccFile);
