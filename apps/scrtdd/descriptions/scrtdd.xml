@@ -234,8 +234,15 @@
                                 From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
                                 events are selected within each of five concentric, vertically elongated
                                 ellipsoidal layers of increasing thickness.
+                                The dimension of the ellipsoid is based on the assumed error in the routine
+                                locations and the maximum interevent distance over which model errors can still
+                                be effectively minimized (see Waldhauser, 2001).
+                                The layers are twice as thick at the poles than they are at the equator to 
+                                accommodate the generally larger error in the depth of the routine location of
+                                a new event. Each layer is split up into its eight quadrants (or cells), and 
+                                the  neighboring events are selected from each of the 40 cells.
                             </description>
-                            <parameter name="numEllipsoids" type="int" default="4">
+                            <parameter name="numEllipsoids" type="int" default="5">
                                 <description>
                                     Number of concentric ellipsoidal layers to use in neighboring events 
                                     selection. N ellipsoidal layers will actually generate N+1 ellipsoidal
@@ -316,8 +323,15 @@
                                 From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
                                 events are selected within each of five concentric, vertically elongated
                                 ellipsoidal layers of increasing thickness.
+                                The dimension of the ellipsoid is based on the assumed error in the routine
+                                locations and the maximum interevent distance over which model errors can still
+                                be effectively minimized (see Waldhauser, 2001).
+                                The layers are twice as thick at the poles than they are at the equator to 
+                                accommodate the generally larger error in the depth of the routine location of
+                                a new event. Each layer is split up into its eight quadrants (or cells), and 
+                                the  neighboring events are selected from each of the 40 cells.
                             </description>
-                            <parameter name="numEllipsoids" type="int" default="4">
+                            <parameter name="numEllipsoids" type="int" default="5">
                                 <description>
                                     Number of concentric ellipsoidal layers to use in neighboring events 
                                     selection. N ellipsoidal layers will actually generate N+1 ellipsoidal
@@ -328,9 +342,9 @@
                                 <description>
                                     Vertical axis length (km) of the outermost ellipsoidal layer. Each inner
                                     concentric layer axis will be of size/2 of the previous one.
-                                    If numEllipsoids is 1 this parameter is meaningless
+                                    If numEllipsoids is 1 this parameter is meaningless.
                                 </description>
-                            </parameter> 
+                            </parameter>
                             <parameter name="maxIEDist" type="double">
                                 <description>
                                     Max distance (km) between events in a pair allowed. Event pairs not satisfying 

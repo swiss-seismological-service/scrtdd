@@ -259,8 +259,8 @@ struct Config {
         // From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
         // events are selected within each of five concentric, vertically longated
         // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
-        int numEllipsoids     = 5;
-        double maxEllipsoidSize  = 0;
+        int numEllipsoids       = 5;
+        double maxEllipsoidSize = 10; // km
     } dtct;
 
     // cross correlation specific
@@ -278,8 +278,8 @@ struct Config {
         // From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
         // events are selected within each of five concentric, vertically longated
         // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
-        int numEllipsoids     = 5;
-        double maxEllipsoidSize  = 0; // km, 0 means auto
+        int numEllipsoids       = 5;
+        double maxEllipsoidSize = 10; // km
     } dtcc;
 
     struct XCorr {

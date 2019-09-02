@@ -424,7 +424,7 @@ bool RTDD::validateParameters()
         prefix = string("profile.") + *it + ".dtct.neighboringEventSelection.";
         try {
             prof->ddcfg.dtct.numEllipsoids = configGetInt(prefix + "numEllipsoids");
-        } catch ( ... ) { prof->ddcfg.dtct.numEllipsoids = 4; }
+        } catch ( ... ) { prof->ddcfg.dtct.numEllipsoids = 5; }
         if ( prof->ddcfg.dtct.numEllipsoids < 1 )
         {
             SEISCOMP_ERROR("profile.%s: numEllipsoids cannot be less than 1", it->c_str());
@@ -463,9 +463,9 @@ bool RTDD::validateParameters()
             prof->ddcfg.dtcc.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
         } catch ( ... ) { prof->ddcfg.dtcc.maxNumNeigh = -1; }
         prefix = string("profile.") + *it + ".dtcc.neighboringEventSelection.";
-         try {
+        try {
             prof->ddcfg.dtcc.numEllipsoids = configGetInt(prefix + "numEllipsoids");
-        } catch ( ... ) { prof->ddcfg.dtcc.numEllipsoids = 4; }
+        } catch ( ... ) { prof->ddcfg.dtcc.numEllipsoids = 5; }
         if ( prof->ddcfg.dtcc.numEllipsoids < 1 )
         {
             SEISCOMP_ERROR("profile.%s: numEllipsoids cannot be less than 1", it->c_str());

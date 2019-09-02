@@ -1836,7 +1836,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
     vector<int> quadrants = {1,2,3,4,5,6,7,8};
     vector<HddEllipsoidPtr> ellipsoids;
     double currSize = maxEllipsoidSize;
-    for (int i = 0; i < numEllipsoids; i++)
+    for (int i = 0; i < (numEllipsoids-1); i++)
     {
         ellipsoids.push_back( new HddEllipsoid(currSize, refEv.latitude, refEv.longitude, refEv.depth) );
         currSize /= 2;
