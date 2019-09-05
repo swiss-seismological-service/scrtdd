@@ -201,6 +201,25 @@ bool startsWith(const string& haystack, const string& needle, bool caseSensitive
     return _haystack.compare(0, _needle.length(), _needle) == 0;
 }
 
+
+double normalizeAz(double az)
+{
+	if ( az < 0 )
+		az += 360.0;
+	else if ( az >= 360.0 )
+		az -= 360.0;
+	return az;
+}
+
+
+double normalizeLon(double lon)
+{
+	while ( lon < -180.0 ) lon += 360.0;
+	while ( lon >  180.0 ) lon -= 360.0;
+	return lon;
+}
+
+
 } // unnamed namespace
 
 
@@ -1274,7 +1293,7 @@ OriginPtr RTDD::relocateOrigin(Origin *org, ProfilePtr profile)
     latitude.setUncertainty(event.relocInfo.latUncertainty);
     newOrg->setLatitude(latitude);
 
-    RealQuantity longitude = DataModel::RealQuantity(event.longitude);
+    RealQuantity longitude = DataModel::RealQuantity(normalizeLon(event.longitude));
     longitude.setUncertainty(event.relocInfo.lonUncertainty);
     newOrg->setLongitude(longitude);
 
@@ -1320,9 +1339,7 @@ OriginPtr RTDD::relocateOrigin(Origin *org, ProfilePtr profile)
         newArr->setPickID(org->arrival(i)->pickID());
         newArr->setPhase(org->arrival(i)->phase());
         try { newArr->setTimeCorrection(org->arrival(i)->timeCorrection()); }
-        catch ( ... ) {}
-        try { newArr->setWeight( org->arrival(i)->weight() ); }
-        catch ( ... ) {}
+        newArr->setWeight(0);
         newArr->setTimeUsed(false);
 
         for (auto it = evPhases.first; it != evPhases.second; ++it)
@@ -1348,10 +1365,10 @@ OriginPtr RTDD::relocateOrigin(Origin *org, ProfilePtr profile)
                 Math::Geo::delazi(event.latitude, event.longitude,
                                   station.latitude, station.longitude,
                                   &distance, &az, &baz);
-                newArr->setAzimuth(az);
+                newArr->setAzimuth(normalizeAz(az));
                 newArr->setDistance(distance);
                 newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
-                newArr->setWeight(phase.weight); //phase.relocInfo.finalWeight
+                newArr->setWeight( phase.relocInfo.finalWeight );
                 newArr->setTimeUsed(true);
 
                 // update stats
