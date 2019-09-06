@@ -12,16 +12,15 @@
 
             <parameter name="onlyPreferredOrigins" type="boolean" default="true">
                 <description>
-                Allow relocation of preferred origins only.
+                    Allow relocation of preferred origins only.
                 </description>
             </parameter>
-
-            <parameter name="allManualOrigins" type="boolean" default="true">
+            
+            <parameter name="manualOrigins" type="boolean" default="false">
                 <description>
-                    Enables relocation of any manual origin. if false, manual origins are treated as
-                    automatic ones and processed accordingly to 'onlyPreferredOrigins' option.
+                    Allow relocation of manual origins too.
                 </description>
-            </parameter>
+            </parameter>           
 
             <parameter name="workingDirectory" type="path" default="/tmp/rtdd">
                 <description>

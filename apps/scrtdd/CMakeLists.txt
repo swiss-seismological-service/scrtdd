@@ -1,7 +1,6 @@
 SET(RTDD_TARGET scrtdd)
 
-SET(
-    RTDD_SOURCES
+SET(RTDD_SOURCES
 		main.cpp
 		app.cpp
 		rtdd.cpp
@@ -11,8 +10,10 @@ SET(
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
+INCLUDE_DIRECTORIES(${RTDDMSG_DIR}) 
+
 SC_ADD_EXECUTABLE(RTDD ${RTDD_TARGET})
-SC_LINK_LIBRARIES_INTERNAL(${RTDD_TARGET} client)
+SC_LINK_LIBRARIES_INTERNAL(${RTDD_TARGET} client rtddmsg)
 SC_INSTALL_INIT(${RTDD_TARGET} ../../../trunk/apps/templates/initd.py)
 
 FILE(GLOB descs "${CMAKE_CURRENT_SOURCE_DIR}/descriptions/*.xml")

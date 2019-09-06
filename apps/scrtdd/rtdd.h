@@ -89,7 +89,8 @@ class RTDD : public Application {
         bool startProcess(Process *proc);
         void removeProcess(Process *proc);
 
-        bool process(DataModel::Origin *origin);
+        bool process(DataModel::Origin *origin, DataModel::OriginPtr& relocatedOrg,
+                     bool forceProcessing, bool doSend);
 
         void removedFromCache(DataModel::PublicObject *);
 
@@ -105,7 +106,7 @@ class RTDD : public Application {
             std::string workingDirectory;
             bool        keepWorkingFiles;
             bool        onlyPreferredOrigin;
-            bool        processAllManualOrigins;
+            bool        allowManualOrigin;
             int         profileTimeAlive; //seconds
             bool        cacheWaveforms;
 

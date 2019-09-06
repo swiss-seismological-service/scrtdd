@@ -19,6 +19,7 @@
 
 #include "rtdd.h"
 #include "csvreader.h"
+#include "rtddmsg.h"
 
 #include <seiscomp3/logging/filerotator.h>
 #include <seiscomp3/logging/channel.h>
@@ -229,7 +230,7 @@ RTDD::Config::Config()
     workingDirectory = "/tmp/rtdd";
     keepWorkingFiles = false;
     onlyPreferredOrigin = false;
-    processAllManualOrigins = true;
+    allowManualOrigin = false;
     profileTimeAlive = -1;
     cacheWaveforms = false;
 
@@ -257,6 +258,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     addMessagingSubscription("EVENT");
     addMessagingSubscription("LOCATION");
     addMessagingSubscription("PICK"); // this is only for caching picks
+    addMessagingSubscription("SERVICE_REQUEST");
 
     setAutoAcquisitionStart(false);
     setAutoCloseOnAcquisitionFinished(false);
@@ -270,7 +272,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT(_config.workingDirectory, "workingDirectory");
     NEW_OPT(_config.keepWorkingFiles, "keepWorkingFiles");
     NEW_OPT(_config.onlyPreferredOrigin, "onlyPreferredOrigins");
-    NEW_OPT(_config.processAllManualOrigins, "allManualOrigins");
+    NEW_OPT(_config.allowManualOrigin, "manualOrigins");
     NEW_OPT(_config.activeProfiles, "activeProfiles");
 
     NEW_OPT(_config.wakeupInterval, "cron.wakeupInterval");
@@ -327,6 +329,7 @@ bool RTDD::validateParameters()
     // Disable messaging (offline mode) with:
     //  --ep option
     //  --dump-catalog option
+    //  --load-catalog option    
     //  --relocate-catalog option
     //  --O and --test (relocate origin and don't send the new one)
     if ( !_config.eventXML.empty()        ||
@@ -723,8 +726,9 @@ bool RTDD::run() {
     {
         // force process of any origin
         _config.onlyPreferredOrigin = false;
+        _config.allowManualOrigin = true;
 
-        // split multiple origiss
+        // split multiple origins
         std::vector<std::string> ids;
         boost::split(ids, _config.originIDs, boost::is_any_of(","), boost::token_compress_on);
         for (const string& originID : ids)
@@ -746,7 +750,11 @@ bool RTDD::run() {
     // relocate xml event and exit
     if ( !_config.eventXML.empty() )
     {
-        vector<OriginPtr> origins;
+        // force process of any origin
+        _config.onlyPreferredOrigin = false;
+        _config.allowManualOrigin = true;
+
+         vector<OriginPtr> origins;
         for(unsigned i = 0; i < _eventParameters->originCount(); i++)
             origins.push_back(_eventParameters->origin(i));
 
@@ -795,6 +803,54 @@ void RTDD::handleMessage(Core::Message *msg)
     for ( it = _todos.begin(); it != _todos.end(); ++it )
         addProcess(it->get());
     _todos.clear();
+
+    // Relocate origins coming from scolv
+    RTDDRelocateRequestMessage *reloc_req = RTDDRelocateRequestMessage::Cast(msg);
+    if ( reloc_req )
+    {
+        SEISCOMP_DEBUG("Received relocation request");
+        RTDDRelocateResponseMessage reloc_resp;
+
+        OriginPtr originToReloc;
+        if ( !reloc_req->getOriginId().empty() )
+        {
+            originToReloc = _cache.get<Origin>(reloc_req->getOriginId());
+            if ( !originToReloc )
+                reloc_resp.setError(stringify("OriginId %s not found.", 
+                                    reloc_req->getOriginId().c_str()));
+        }
+        else if ( reloc_req->getOrigin() )
+        {
+            originToReloc = new DataModel::Origin(*reloc_req->getOrigin());
+        }
+
+        if ( !originToReloc )
+        {
+            reloc_resp.setError("No origin to relocate has been received");
+        }
+        else
+        {
+            OriginPtr relocatedOrg;
+            process(originToReloc.get(), relocatedOrg, true, false);
+            if ( relocatedOrg )
+            {
+                reloc_resp.setOrigin(relocatedOrg.get());
+            }
+            else
+            {
+                reloc_resp.setError(stringify("OriginId %s has not been relocated",
+                                     originToReloc->publicID().c_str()));
+            }
+        }
+
+        SEISCOMP_DEBUG("Sending relocation response (%s)", 
+                       (reloc_resp.hasError() ? reloc_resp.getError() : "no relocation errors").c_str() );
+
+        if ( !connection()->send("SERVICE_REQUEST", &reloc_resp) )
+        {
+            SEISCOMP_ERROR("Failed sending relocation response");
+        }
+    }
 }
 
 
@@ -852,7 +908,7 @@ void RTDD::checkProfileStatus()
     for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
     {
         ProfilePtr currProfile = *it;
-        if (_config.profileTimeAlive < 0) // nevel clean up profiles, force loading
+        if (_config.profileTimeAlive < 0) // never clean up profiles, force loading
         {
             if ( ! currProfile->isLoaded() )
             {
@@ -1020,32 +1076,24 @@ bool RTDD::startProcess(Process *proc)
     // assume process contain an origin (events are relevant only with _config.onlyPreferredOrigin)
     org = Origin::Cast(proc->obj);
 
-    // If 'onlyPreferredOrigin' is set then make sure we are processing a preferred origin only
-    if ( _config.onlyPreferredOrigin && !_config.forceProcessing )
+    if ( ! org ) // then this must be an event....
     {
-        if ( org )
+        // ...fetch the preferred origin of the event
+        EventPtr evt = Event::Cast(proc->obj);
+        if ( evt )
         {
-            // either 'org' is a manual origin and processAllManualOrigins is set
-            // or it must be a preferred origin
-            if ( org->evaluationMode() != Seiscomp::DataModel::MANUAL ||
-                 ! _config.processAllManualOrigins )
-            {
-                DataModel::Event* parentEv = query()->getEvent(org->publicID());
-                if ( parentEv->preferredOriginID() != org->publicID() )
-                {
-                    SEISCOMP_INFO("Skipping not preferred origin %s", org->publicID().c_str());
-                    return true;
-                }
-            }
+            org = _cache.get<Origin>(evt->preferredOriginID());
         }
-        else // then this must be an event....
+    }
+    // If 'onlyPreferredOrigin' is set then make sure we are processing a preferred origin only
+    else if ( _config.onlyPreferredOrigin && !_config.forceProcessing )
+    {
+        // 'org'  must be a preferred origin
+        DataModel::Event* parentEv = query()->getEvent(org->publicID());
+        if ( parentEv->preferredOriginID() != org->publicID() )
         {
-            // ...fetch the preferred origin of the event
-            EventPtr evt = Event::Cast(proc->obj);
-            if ( evt )
-            {
-                org = _cache.get<Origin>(evt->preferredOriginID());
-            }
+            SEISCOMP_INFO("Skipping non-preferred origin %s", org->publicID().c_str());
+            return true;
         }
     }
 
@@ -1056,7 +1104,8 @@ bool RTDD::startProcess(Process *proc)
     }
 
     // return true when there is no more work to do
-    return process(org.get());
+    OriginPtr relocatedOrg;
+    return process(org.get(), relocatedOrg, _config.forceProcessing, !_config.testMode);
 }
 
 
@@ -1074,29 +1123,46 @@ void RTDD::removeProcess(Process *proc)
 
 
 
-// return true when there is no more work to do
-bool RTDD::process(Origin *origin)
+// return true when there is no more work to do, it is not related
+// to an error
+bool RTDD::process(Origin *origin, OriginPtr& relocatedOrg, bool forceProcessing, bool doSend)
 {
+    relocatedOrg = nullptr;
+
     if ( !origin ) return true;
 
     SEISCOMP_DEBUG("Process origin %s",  origin->publicID().c_str());
 
+    // ignore non automatic origins
+    if ( ! _config.allowManualOrigin && ! forceProcessing )
+    {
+        try {
+            if ( origin->evaluationMode() != Seiscomp::DataModel::AUTOMATIC )
+            {
+                SEISCOMP_DEBUG("Skipping non-automatic origin %s",  origin->publicID().c_str());
+                return true;
+            }
+        }
+        // origins without an evaluation mode are treated as
+        // automatic origins
+        catch ( ... ) {}
+    }
 
-    if ( startsWith(origin->methodID(), "RTDD", false) && !_config.forceProcessing )
+    if ( startsWith(origin->methodID(), "RTDD", false) && !forceProcessing )
     {
         SEISCOMP_DEBUG("Origin %s was generated by RTDD, skip it",
                       origin->publicID().c_str());
         return true;
     }
 
-    if ( isAgencyIDBlocked(objectAgencyID(origin)) && !_config.forceProcessing )
+    if ( isAgencyIDBlocked(objectAgencyID(origin)) && !forceProcessing )
     {
         SEISCOMP_DEBUG("%s: origin's agencyID '%s' is blocked",
                       origin->publicID().c_str(), objectAgencyID(origin).c_str());
         return true;
     }
 
-    if ( !_config.forceProcessing )
+    if ( !forceProcessing )
     {
         // Check the origin hasn't been already processed and if it was processed
         // check the processing time is older than origin modification time
@@ -1168,10 +1234,8 @@ bool RTDD::process(Origin *origin)
     SEISCOMP_INFO("Relocating origin %s using profile %s",
                    origin->publicID().c_str(), currProfile->name.c_str());
 
-    OriginPtr newOrg;
-
     try {
-        newOrg = relocateOrigin(origin, currProfile);
+        relocatedOrg = relocateOrigin(origin, currProfile);
     }
     catch ( exception &e ) {
         SEISCOMP_ERROR("%s", e.what());
@@ -1179,19 +1243,33 @@ bool RTDD::process(Origin *origin)
         return false;
     }
 
-    if ( !newOrg )
+    if ( !relocatedOrg )
     {
         SEISCOMP_ERROR("processing of origin '%s' failed", origin->publicID().c_str());
         return false;
     }
 
+    //
     // finished processing, send new origin and update journal
-    if (!send(newOrg.get()) )
-        SEISCOMP_ERROR("%s: sending of derived origin failed", origin->publicID().c_str());
+    //
+
+    if ( !_config.eventXML.empty() )
+    {
+        // Insert origin to event parameters
+        _eventParameters->add(relocatedOrg.get());
+    }
+
+    if ( doSend )
+    {
+        // send origin
+        if ( ! send(relocatedOrg.get() ) )
+            SEISCOMP_ERROR("%s: sending of relocated origin failed", origin->publicID().c_str());
+    }
 
     SEISCOMP_INFO("Origin %s has been relocated", origin->publicID().c_str());
 
-    if ( connection() && !_config.testMode )
+    // update journal with processing information
+    if ( connection() && doSend )
     {
         DataModel::Journaling journal;
         JournalEntryPtr entry = new JournalEntry;
@@ -1213,25 +1291,11 @@ bool RTDD::process(Origin *origin)
 
 
 
-void RTDD::removedFromCache(Seiscomp::DataModel::PublicObject *po) {
-    // do nothing
-}
-
-
-
-bool RTDD::send(Origin *org)
+bool RTDD::send(DataModel::Origin *org)
 {
     if ( org == nullptr ) return false;
 
     logObject(_outputOrgs, Core::Time::GMT());
-
-    if (!_config.eventXML.empty())
-    {
-        // Insert origin to event parameters
-        _eventParameters->add(org);
-    }
-
-    if ( _config.testMode ) return true;
 
     SEISCOMP_INFO("Sending origin %s", org->publicID().c_str());
 
@@ -1256,7 +1320,13 @@ bool RTDD::send(Origin *org)
 
 
 
-OriginPtr RTDD::relocateOrigin(Origin *org, ProfilePtr profile)
+void RTDD::removedFromCache(Seiscomp::DataModel::PublicObject *po) {
+    // do nothing
+}
+
+
+
+OriginPtr RTDD::relocateOrigin(DataModel::Origin *org, ProfilePtr profile)
 {
     profile->load(query(), &_cache, _eventParameters.get(),
                   _config.workingDirectory, !_config.keepWorkingFiles,
@@ -1339,6 +1409,7 @@ OriginPtr RTDD::relocateOrigin(Origin *org, ProfilePtr profile)
         newArr->setPickID(org->arrival(i)->pickID());
         newArr->setPhase(org->arrival(i)->phase());
         try { newArr->setTimeCorrection(org->arrival(i)->timeCorrection()); }
+        catch ( ... ) {}
         newArr->setWeight(0);
         newArr->setTimeUsed(false);
 
@@ -1497,7 +1568,7 @@ void RTDD::Profile::unload()
 }
 
 
-HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(Origin *org)
+HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
 {
     if ( !loaded )
     {
