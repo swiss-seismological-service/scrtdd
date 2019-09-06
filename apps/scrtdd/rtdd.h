@@ -90,7 +90,8 @@ class RTDD : public Application {
         void removeProcess(Process *proc);
 
         bool process(DataModel::Origin *origin, DataModel::OriginPtr& relocatedOrg,
-                     bool forceProcessing, bool doSend);
+                     const std::string& forceProfile="", bool forceProcessing=false,
+                     bool allowManualOrigin=false, bool doSend=true);
 
         void removedFromCache(DataModel::PublicObject *);
 

@@ -811,17 +811,16 @@ void RTDD::handleMessage(Core::Message *msg)
         SEISCOMP_DEBUG("Received relocation request");
         RTDDRelocateResponseMessage reloc_resp;
 
-        OriginPtr originToReloc;
+        OriginPtr dummy;
+        Origin* originToReloc = nullptr;
         if ( !reloc_req->getOriginId().empty() )
         {
-            originToReloc = _cache.get<Origin>(reloc_req->getOriginId());
-            if ( !originToReloc )
-                reloc_resp.setError(stringify("OriginId %s not found.", 
-                                    reloc_req->getOriginId().c_str()));
+            dummy = _cache.get<Origin>(reloc_req->getOriginId());
+            originToReloc = dummy.get();
         }
         else if ( reloc_req->getOrigin() )
         {
-            originToReloc = new DataModel::Origin(*reloc_req->getOrigin());
+            originToReloc = reloc_req->getOrigin();
         }
 
         if ( !originToReloc )
@@ -831,7 +830,7 @@ void RTDD::handleMessage(Core::Message *msg)
         else
         {
             OriginPtr relocatedOrg;
-            process(originToReloc.get(), relocatedOrg, true, false);
+            process(originToReloc, relocatedOrg, reloc_req->getProfile(), true, true, false);
             if ( relocatedOrg )
             {
                 reloc_resp.setOrigin(relocatedOrg.get());
@@ -1105,7 +1104,10 @@ bool RTDD::startProcess(Process *proc)
 
     // return true when there is no more work to do
     OriginPtr relocatedOrg;
-    return process(org.get(), relocatedOrg, _config.forceProcessing, !_config.testMode);
+    return process(
+        org.get(), relocatedOrg, _config.forceProfile, 
+        _config.forceProcessing, _config.allowManualOrigin, !_config.testMode
+    );
 }
 
 
@@ -1125,7 +1127,8 @@ void RTDD::removeProcess(Process *proc)
 
 // return true when there is no more work to do, it is not related
 // to an error
-bool RTDD::process(Origin *origin, OriginPtr& relocatedOrg, bool forceProcessing, bool doSend)
+bool RTDD::process(Origin *origin, OriginPtr& relocatedOrg, const string& forceProfile,
+                    bool forceProcessing, bool allowManualOrigin, bool doSend)
 {
     relocatedOrg = nullptr;
 
@@ -1134,7 +1137,7 @@ bool RTDD::process(Origin *origin, OriginPtr& relocatedOrg, bool forceProcessing
     SEISCOMP_DEBUG("Process origin %s",  origin->publicID().c_str());
 
     // ignore non automatic origins
-    if ( ! _config.allowManualOrigin && ! forceProcessing )
+    if ( ! allowManualOrigin && ! forceProcessing )
     {
         try {
             if ( origin->evaluationMode() != Seiscomp::DataModel::AUTOMATIC )
@@ -1208,10 +1211,10 @@ bool RTDD::process(Origin *origin, OriginPtr& relocatedOrg, bool forceProcessing
 
     for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
     {
-        if ( ! _config.forceProfile.empty() )
+        if ( ! forceProfile.empty() )
         {
             // if user forced a profile, use that
-            if ( (*it)->name == _config.forceProfile)
+            if ( (*it)->name == forceProfile)
                 currProfile = *it;
         }
         else

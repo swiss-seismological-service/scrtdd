@@ -18,19 +18,23 @@ class SC_SYSTEM_CLIENT_API RTDDRelocateRequestMessage : public Seiscomp::Core::M
     public:
         //! Constructor
         RTDDRelocateRequestMessage() : _origin(0), _publicID("") { }
-        
-        void setOrigin(const DataModel::Origin* org) { _origin = org; _publicID = ""; }
-        const DataModel::Origin* getOrigin() const { return _origin; }
-        
+
+        void setOrigin(DataModel::Origin* org) { _origin = org; _publicID = ""; }
+        DataModel::Origin* getOrigin() const { return _origin; }
+
         void setOriginId(const std::string& orgId) { _publicID = orgId; _origin = 0; }
         std::string getOriginId() const { return _publicID; }
 
+        void setProfile(const std::string& name) { _profile = name; }
+        std::string getProfile() const { return _profile; }
+
         //! Implemented interface from Message
         virtual bool empty() const  { return false; }
-        
+
     private:
-        const DataModel::Origin* _origin;
+        DataModel::Origin* _origin; // either _origin or _publicID must be defined
         std::string _publicID;
+        std::string _profile;
 };
 
 DEFINE_SMARTPOINTER(RTDDRelocateResponseMessage);

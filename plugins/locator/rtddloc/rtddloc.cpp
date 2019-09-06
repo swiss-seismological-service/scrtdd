@@ -58,7 +58,7 @@ bool RTDDLocator::init(const Config::Config &config)
         _allowedParameters.push_back("RELOC_TIMEOUT");
     }
     // Set defaults value
-    _parameters["RTDD_HOST"] = "localhost";     
+    _parameters["RTDD_HOST"] = "localhost";
     _parameters["RELOC_TIMEOUT"] = "120"; // seconds
 
     //
@@ -66,11 +66,11 @@ bool RTDDLocator::init(const Config::Config &config)
     //
     _profileNames.clear();
 
-    try { _profileNames = config.getStrings("scrtdd.activeProfiles"); }
-    catch ( ... ) { return false; }
+    try { _profileNames = config.getStrings("rtddloc.activeProfiles"); }
+    catch ( ... ) { }
 
     _profileNames.insert(_profileNames.begin(), "automatic");
-    _currentProfile = "automatic";
+    _currentProfile = "";
 
     return true;
 }
@@ -82,7 +82,7 @@ void RTDDLocator::setProfile(const string &name)
          _profileNames.end() )
         return;
 
-    _currentProfile = name;
+    _currentProfile = (name == "automatic" ? "" : name);
 }
 
 
@@ -134,10 +134,19 @@ Origin* RTDDLocator::relocate(const Origin *origin)
 
     double msgWaitTimeout = std::stod(_parameters["RELOC_TIMEOUT"]);
 
+    //
+    // send relocation request
+    //
     RTDDRelocateRequestMessage msg;
-    msg.setOrigin(origin);
+    OriginPtr nonConstOrg = new Origin(*origin);
+    msg.setOrigin(nonConstOrg.get());
+    msg.setProfile(_currentProfile);
+
     _static_connection->send(&msg);
 
+    //
+    // want for reply
+    //
     Core::Time started = Core::Time::GMT();
     while ( (Core::Time::GMT() - started).length() < msgWaitTimeout)
     {

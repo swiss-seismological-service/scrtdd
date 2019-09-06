@@ -143,7 +143,7 @@ scrtdd --reloc-catalog profileName --use-ph2dt /some/path/ph2dt.inp [--ph2dt-pat
 
 Real time relocation uses the same configuration we have seen in full catalog relocation, but real time relocation is done in two steps. Each one controlled by a specific hypoDD configuration:
 
-![Relocation options](/img/hypoDDcfg.png?raw=true "Relocation options") 
+![HypoDD options](/img/hypoDDcfg.png?raw=true "HypoDD options") 
 
 Step 1: location refinement. In this step hypoDD is used to compute a preliminary relocation of the origin using only catalog absolute travel time entries (dt.ct only).
 
@@ -186,7 +186,13 @@ scrtdd --ep event.xml [--force]
 ```
 
 
-## 4. Troubleshooting
+## 4. Locator plugin
+
+A (re)locator plugin is also avaiable in the code, which makes scrtdd available via scolv. To enable this plugin just add `rtddloc` to the list of plugins in the global configuration.
+
+![Locator plugin](/img/locator-plugin.png?raw=true "Locator plugin")
+
+## 5. Troubleshooting
 
 Check log file: ~/.seiscomp/log/scrtdd.log 
 
