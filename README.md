@@ -118,7 +118,8 @@ eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,chann
 
 Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might perform some editing of those files, if required, then we relocate them. To do so we need to create a new profile inside scrtdd configuration. In this profile we set the generated files (event.csv, phase.csv, stations.csv) as the catalog of the profile. Then we can configure the other profile options that control the relocation process.
 
-![Relocation options](/img/difftraveltime.png?raw=true "Relocation options")
+![Relocation options](/img/difftraveltime-dtct.png?raw=true "Relocation options")
+![Relocation options](/img/difftraveltime-dtcc.png?raw=true "Relocation options")
 ![Relocation options](/img/xcorr.png?raw=true "Relocation options")  
 
 Once we are happy witht he options, we can relocate the catalog with the command:
