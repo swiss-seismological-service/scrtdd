@@ -16,6 +16,9 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
+#ifndef __RTDD_PLUGIN_RTDDLOC_H__
+#define __RTDD_PLUGIN_RTDDLOC_H__
+
 #include <seiscomp3/core/plugin.h>
 #include <seiscomp3/seismology/locatorinterface.h>
 #include <seiscomp3/communication/connection.h>
@@ -97,4 +100,6 @@ class RTDDLocator : public Seiscomp::Seismology::LocatorInterface {
 }
 
 }
+
+#endif
 

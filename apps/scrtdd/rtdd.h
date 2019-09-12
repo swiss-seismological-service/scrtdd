@@ -17,8 +17,8 @@
  ***************************************************************************/
 
 
-#ifndef __SEISCOMP_APPLICATIONS_RTDD_H__
-#define __SEISCOMP_APPLICATIONS_RTDD_H__
+#ifndef __RTDD_APPLICATIONS_RTDD_H__
+#define __RTDD_APPLICATIONS_RTDD_H__
 
 #include <seiscomp3/client/application.h>
 #include <seiscomp3/processing/amplitudeprocessor.h>
@@ -89,16 +89,16 @@ class RTDD : public Application {
         bool startProcess(Process *proc);
         void removeProcess(Process *proc);
 
-        bool process(DataModel::Origin *origin, DataModel::OriginPtr& relocatedOrg,
-                     const std::string& forceProfile="", bool forceProcessing=false,
-                     bool allowManualOrigin=false, bool doSend=true);
-
+        bool processOrigin(DataModel::Origin *origin, DataModel::OriginPtr& relocatedOrg,
+                           const std::string& forceProfile="", bool forceProcessing=false,
+                           bool allowManualOrigin=false, bool doSend=true);
+                           
+        DataModel::OriginPtr relocateOrigin(DataModel::Origin *org, ProfilePtr);
+        
         void removedFromCache(DataModel::PublicObject *);
 
         bool send(DataModel::Origin *org);
-
-        DataModel::OriginPtr relocateOrigin(DataModel::Origin *org, ProfilePtr);
-
+        
         struct Config {
             Config();
 

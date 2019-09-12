@@ -830,7 +830,7 @@ void RTDD::handleMessage(Core::Message *msg)
         else
         {
             OriginPtr relocatedOrg;
-            process(originToReloc, relocatedOrg, reloc_req->getProfile(), true, true, false);
+            processOrigin(originToReloc, relocatedOrg, reloc_req->getProfile(), true, true, false);
             if ( relocatedOrg )
             {
                 reloc_resp.setOrigin(relocatedOrg.get());
@@ -1104,7 +1104,7 @@ bool RTDD::startProcess(Process *proc)
 
     // return true when there is no more work to do
     OriginPtr relocatedOrg;
-    return process(
+    return processOrigin(
         org.get(), relocatedOrg, _config.forceProfile, 
         _config.forceProcessing, _config.allowManualOrigin, !_config.testMode
     );
@@ -1127,8 +1127,8 @@ void RTDD::removeProcess(Process *proc)
 
 // return true when there is no more work to do, it is not related
 // to an error
-bool RTDD::process(Origin *origin, OriginPtr& relocatedOrg, const string& forceProfile,
-                    bool forceProcessing, bool allowManualOrigin, bool doSend)
+bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg, const string& forceProfile,
+                         bool forceProcessing, bool allowManualOrigin, bool doSend)
 {
     relocatedOrg = nullptr;
 

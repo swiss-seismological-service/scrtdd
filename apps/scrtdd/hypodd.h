@@ -16,8 +16,8 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#ifndef __SEISCOMP_APPLICATIONS_HYPODD_H__
-#define __SEISCOMP_APPLICATIONS_HYPODD_H__
+#ifndef __RTDD_APPLICATIONS_HYPODD_H__
+#define __RTDD_APPLICATIONS_HYPODD_H__
 
 #include <seiscomp3/core/baseobject.h>
 #include <seiscomp3/core/genericrecord.h>

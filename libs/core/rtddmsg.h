@@ -16,6 +16,9 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
  
+#ifndef __RTDD_CORE_RTDDMSG_H__
+#define __RTDD_CORE_RTDDMSG_H__
+
 #include <seiscomp3/io/archive/xmlarchive.h>
 #include <seiscomp3/communication/systemmessages.h>
 #include <seiscomp3/core/genericmessage.h>
@@ -84,4 +87,6 @@ class SC_SYSTEM_CLIENT_API RTDDRelocateResponseMessage : public Seiscomp::Core::
 };
 
 } // namespace Seiscomp
+
+#endif
 

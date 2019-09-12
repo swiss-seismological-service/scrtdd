@@ -17,8 +17,8 @@
  ***************************************************************************/
 
 
-#ifndef __SEISCOMP_APPLICATIONS_RTDD_APP_H__
-#define __SEISCOMP_APPLICATIONS_RTDD_APP_H__
+#ifndef __RTDD_APPLICATIONS_APP_H__
+#define __RTDD_APPLICATIONS_APP_H__
 
 #include <seiscomp3/client/streamapplication.h>
 

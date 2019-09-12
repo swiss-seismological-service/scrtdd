@@ -17,8 +17,8 @@
  ***************************************************************************/
 
 
-#ifndef __CSVREADER_H__
-#define __CSVREADER_H__
+#ifndef __RTDD_APPLICATIONS_CSVREADER_H__
+#define __RTDD_APPLICATIONS_CSVREADER_H__
 
 namespace CSV {
 
