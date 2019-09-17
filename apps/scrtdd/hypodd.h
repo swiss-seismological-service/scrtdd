@@ -155,6 +155,7 @@ class Catalog : public Core::BaseObject {
             std::string stationCode;
             std::string locationCode;
             std::string channelCode;
+            bool isManual;
             struct {
                 bool isRelocated = false;
                 double residual;
@@ -169,7 +170,8 @@ class Catalog : public Core::BaseObject {
                        (networkCode == other.networkCode) &&
                        (stationCode == other.stationCode) &&
                        (locationCode == other.locationCode) &&
-                       (channelCode == other.channelCode);
+                       (channelCode == other.channelCode) &&
+                       (isManual == other.isManual);
             }
             bool operator!=(const Phase& other) const
             {
@@ -177,8 +179,8 @@ class Catalog : public Core::BaseObject {
             }
             operator std::string() const
             {
-                return type + " " + time.iso() + " " + networkCode + "." +
-                       stationCode + "." + locationCode + "." + channelCode + 
+                return type + " " + (isManual ? "(manual)" : "(auto)" ) + time.iso() + " " +
+                       networkCode + "." +  stationCode + "." + locationCode + "." + channelCode + 
                        " evId " + std::to_string(eventId)  + " staId " + stationId;
             }
         };

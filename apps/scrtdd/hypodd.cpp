@@ -575,10 +575,11 @@ Catalog::Catalog(const string& stationFile, const string& eventFile, const strin
         ph.time        = Core::Time::FromString(row.at("isotime").c_str(), "%FT%T.%fZ"); //iso format
         ph.weight      = std::stod(row.at("weight"));
         ph.type        = row.at("type");
-        ph.networkCode   = row.at("networkCode");
-        ph.stationCode   = row.at("stationCode");
-        ph.locationCode  = row.at("locationCode");
-        ph.channelCode   = row.at("channelCode");
+        ph.networkCode  = row.at("networkCode");
+        ph.stationCode  = row.at("stationCode");
+        ph.locationCode = row.at("locationCode");
+        ph.channelCode  = row.at("channelCode");
+        ph.isManual     = row.at("evalMode") == "manual";
         _phases.emplace(ph.eventId, ph);
     }
 }
@@ -686,11 +687,12 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
                               orgArr->pickID().c_str(), org->publicID().c_str());
             }
 
-            ph.type        = orgPh.code();
-            ph.networkCode =  pick->waveformID().networkCode();
-            ph.stationCode =  pick->waveformID().stationCode();
-            ph.locationCode =  pick->waveformID().locationCode();
-            ph.channelCode =  pick->waveformID().channelCode();
+            ph.type         = orgPh.code();
+            ph.networkCode  = pick->waveformID().networkCode();
+            ph.stationCode  = pick->waveformID().stationCode();
+            ph.locationCode = pick->waveformID().locationCode();
+            ph.channelCode  = pick->waveformID().channelCode();
+            ph.isManual     = (pick->evaluationMode() == Seiscomp::DataModel::MANUAL);
             this->addPhase(ph, false);
         }
     }
@@ -929,17 +931,18 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
     evStream << ( relocInfo ? evStreamReloc.str() : evStreamNoReloc.str() );
 
     ofstream phStream(phaseFile);
-    phStream << "eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,channelCode";
+    phStream << "eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,channelCode,evalMode";
     if (relocInfo)
         phStream << ",usedInReloc,residual,finalWeight";
     phStream << endl;
     for (const auto& kv : _phases )
     {
         const Catalog::Phase& ph = kv.second;
-        phStream << stringify("%u,%s,%s,%.2f,%s,%s,%s,%s,%s",
+        phStream << stringify("%u,%s,%s,%.2f,%s,%s,%s,%s,%s,%s",
                               ph.eventId, ph.stationId.c_str(), ph.time.iso().c_str(),
                               ph.weight, ph.type.c_str(), ph.networkCode.c_str(),
-                              ph.stationCode.c_str(), ph.locationCode.c_str(), ph.channelCode.c_str());
+                              ph.stationCode.c_str(), ph.locationCode.c_str(), ph.channelCode.c_str(),
+                              (ph.isManual ? "manual" : "automatic"));
 
         if (relocInfo)
         {
@@ -2657,41 +2660,53 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
         return false;
     }
 
-    // trim tr2 to shorter length, we want to cross correlate the short with the long one
-    GenericRecordPtr tr2Short = new GenericRecord(*tr2);
-    Core::TimeWindow tw2Short = Core::TimeWindow(phase2.time + shortTimeCorrection, shortDuration);
-    if ( !trim(*tr2Short, tw2Short) )
+    // trust the manual pick on phase 2: keet trace2 short and xcorr it with
+    // a larger trace1 window
+    double xcorr_coeff = std::nan(""), xcorr_dt = 0;
+ 
+    if ( phase2.isManual || (! phase1.isManual && ! phase2.isManual) )
     {
-        SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation "
-                         "for phase pair phase1='%s', phase2='%s'",
-                         string(phase1).c_str(), string(phase2).c_str());
-        _excludedWfs.insert(wfId2);
-        return false;
+        // trim tr2 to shorter length, we want to cross correlate the short with the long one
+        GenericRecordPtr tr2Short = new GenericRecord(*tr2);
+        Core::TimeWindow tw2Short = Core::TimeWindow(phase2.time + shortTimeCorrection, shortDuration);
+        if ( !trim(*tr2Short, tw2Short) )
+        {
+            SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation "
+                             "for phase pair phase1='%s', phase2='%s'",
+                             string(phase1).c_str(), string(phase2).c_str());
+            _excludedWfs.insert(wfId2);
+            return false;
+        }
+
+        if ( ! xcorr(tr1, tr2Short, xcorrCfg.maxDelay, true, xcorr_dt, xcorr_coeff) )
+        {
+            return false;
+        }
     }
 
-    double xcorr_coeff, xcorr_dt;
-    if ( ! xcorr(tr1, tr2Short, xcorrCfg.maxDelay, true, xcorr_dt, xcorr_coeff) )
-    {
-        return false;
-    }
+    // trust the manual pick on phase 1: keet trace1 short and xcorr it with
+    // a larger trace2 window
+    double xcorr_coeff2 = std::nan(""), xcorr_dt2 = 0;
 
-    // trim tr1 to shorter length, we want to cross correlate the short with the long one
-    GenericRecordPtr tr1Short = new GenericRecord(*tr1);
-    Core::TimeWindow tw1Short = Core::TimeWindow(phase1.time + shortTimeCorrection, shortDuration);
-    if ( !trim(*tr1Short, tw1Short) )
+    if ( phase1.isManual || (! phase1.isManual && ! phase2.isManual) )
     {
-        SEISCOMP_WARNING("Cannot trim phase1 waveform, skipping cross correlation "
-                         "for phase pair phase1='%s', phase2='%s'",
-                         string(phase1).c_str(), string(phase2).c_str());
-        _excludedWfs.insert(wfId1);
-        return false;
-    }
+        // trim tr1 to shorter length, we want to cross correlate the short with the long one
+        GenericRecordPtr tr1Short = new GenericRecord(*tr1);
+        Core::TimeWindow tw1Short = Core::TimeWindow(phase1.time + shortTimeCorrection, shortDuration);
+        if ( !trim(*tr1Short, tw1Short) )
+        {
+            SEISCOMP_WARNING("Cannot trim phase1 waveform, skipping cross correlation "
+                             "for phase pair phase1='%s', phase2='%s'",
+                             string(phase1).c_str(), string(phase2).c_str());
+            _excludedWfs.insert(wfId1);
+            return false;
+        }
 
-    double xcorr_coeff2, xcorr_dt2;
-    if ( ! xcorr(tr1Short, tr2, xcorrCfg.maxDelay, true, xcorr_dt2, xcorr_coeff2) )
-    {
-        return false;
-    }
+        if ( ! xcorr(tr1Short, tr2, xcorrCfg.maxDelay, true, xcorr_dt2, xcorr_coeff2) )
+        {
+            return false;
+        }
+    }   
 
     if ( ! std::isfinite(xcorr_coeff) && ! std::isfinite(xcorr_coeff2) )
     {
