@@ -90,8 +90,10 @@
                     <description>
                     Specifies a delay time in seconds, relative to origin time,
                     to trigger the processing. This can be a single value or a list of delay
-                    times. In case a list if provided, subsequent delay times are used only
-                    if a previous processing attempt fails.
+                    times. The list case can be useful when a quick solution is wanted but
+                    more data (e.g. waveforms) becomes available at a later time. In this
+                    scenario multiple times are configured so that an early solution is attempted
+                    and a more refined one is computed later.
                     Example: &quot;60, 120, 300, 3600&quot;
                     </description>
                 </parameter>

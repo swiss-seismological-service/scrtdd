@@ -1289,7 +1289,7 @@ bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg, const string& 
         if ( msg ) connection()->send("EVENT", msg.get());
     }
 
-    return true;
+    return false;
 }
 
 
