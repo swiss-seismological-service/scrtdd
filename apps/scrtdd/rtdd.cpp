@@ -1080,7 +1080,7 @@ bool RTDD::startProcess(Process *proc)
     {
         // 'org'  must be a preferred origin
         DataModel::Event* parentEv = query()->getEvent(org->publicID());
-        if ( parentEv->preferredOriginID() != org->publicID() )
+        if ( ! parentEv || ( parentEv->preferredOriginID() != org->publicID() ) )
         {
             SEISCOMP_INFO("Skipping non-preferred origin %s", org->publicID().c_str());
             return true;
