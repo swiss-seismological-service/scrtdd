@@ -196,12 +196,13 @@ class Catalog : public Core::BaseObject {
                 const std::string& catalogFile,
                 const std::string& phaFile);
 
-        // add from seiscomp data format
+        // populate from seiscomp data format
         void add(const std::vector<DataModel::Origin*>& origins, DataSource& dataSrc);
         void add(const std::vector<std::string>& ids, DataSource& dataSrc);
         void add(const std::string& idFile, DataSource& dataSrc);
 
         CatalogPtr merge(const CatalogCPtr& other) const;
+        CatalogPtr extractEvent(unsigned eventId) const;
         bool copyEvent(const Catalog::Event& event, const CatalogCPtr& other, bool keepEvId);
         void removeEvent(const Event& event);
         void removeEvent(unsigned eventId);
@@ -397,7 +398,6 @@ class HypoDD : public Core::BaseObject {
         double S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
                         double noiseOffsetStart, double noiseOffsetEnd,
                         double signalOffsetStart, double signalOffsetEnd) const;
-        CatalogPtr extractEvent(const CatalogCPtr& catalog, unsigned eventId) const;
         GenericRecordPtr getWaveform(const Core::TimeWindow& tw,
                                      const Catalog::Event& ev,
                                      const Catalog::Phase& ph,

@@ -107,13 +107,13 @@ id,latitude,longitude,elevation,networkCode,stationCode
 E.g. *file phase.csv*
 
 ```
-eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,channelCode
-1,CHNALPS,2014-01-10T04:47:06.78218Z,0.95,P,CH,NALPS,,HHR
-1,CHBNALP,2014-01-10T04:47:05.918759Z,0.67,P,CH,BNALP,,HHZ
-1,CHFUSIO,2014-01-10T04:47:04.812236Z,0.95,P,CH,FUSIO,,HHR
-1,FRRSL,2014-01-10T04:47:02.689842Z,1.06,P,FR,RSL,00,HHZ
-1,CHGRIMS,2014-01-10T04:47:01.597023Z,0.95,P,CH,GRIMS,,HHR
-1,IVMRGE,2014-01-10T04:46:58.219541Z,0.95,P,IV,MRGE,,HHR
+eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,channelCode,evalMode
+1,CHNALPS,2014-01-10T04:47:06.78218Z,0.95,P,CH,NALPS,,HHR,manual
+1,CHBNALP,2014-01-10T04:47:05.918759Z,0.67,P,CH,BNALP,,HHZ,manual
+1,CHFUSIO,2014-01-10T04:47:04.812236Z,0.95,P,CH,FUSIO,,HHR,manual
+1,FRRSL,2014-01-10T04:47:02.689842Z,1.06,P,FR,RSL,00,HHZ,automatic
+1,CHGRIMS,2014-01-10T04:47:01.597023Z,0.95,P,CH,GRIMS,,HHR,automatic
+1,IVMRGE,2014-01-10T04:46:58.219541Z,0.95,P,IV,MRGE,,HHR,manual
 ```
 
 Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might perform some editing of those files, if required, then we relocate them. To do so we need to create a new profile inside scrtdd configuration. In this profile we set the generated files (event.csv, phase.csv, stations.csv) as the catalog of the profile. Then we can configure the other profile options that control the relocation process.
@@ -158,8 +158,11 @@ Note: when performing the catalog relocation ("scrtdd --reloc-catalog") it is do
 To test the real time relocation we can either run playbacks or use two command line options which relocate existing origins:
 
 ```
-  -O [ --origin-id ] arg                Reprocess the origin (or multiple comma-separated origins)
-                                        and send a message
+  -O [ --origin-id ] arg                Relocate the origin (or multiple 
+                                        comma-separated origins) and send a 
+                                        message. Each origin will be processed 
+                                        accordingly with the matching profile 
+                                        region unless --profile option is used
 ```
 
 E.g. if we want to process an origin or event, we can run the following command and then check on scolv the relocated origin (the messaging system must be active):
@@ -174,9 +177,10 @@ Alternatively we can reprocess an XML file:
 ```
   --ep arg                              Event parameters XML file for offline 
                                         processing of contained origins (imply 
-                                        test option). Ech origin will be 
-                                        processed accordingly with the matching
-                                        profile configuration
+                                        test option). Each contained origin 
+                                        will be processed accordingly with the 
+                                        matching profile region unless 
+                                        --profile option is used
 ```
 
 E.g.

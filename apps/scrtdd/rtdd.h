@@ -92,13 +92,21 @@ class RTDD : public Application {
         bool processOrigin(DataModel::Origin *origin, DataModel::OriginPtr& relocatedOrg,
                            const std::string& forceProfile="", bool forceProcessing=false,
                            bool allowManualOrigin=false, bool doSend=true);
-                           
-        DataModel::OriginPtr relocateOrigin(DataModel::Origin *org, ProfilePtr);
-        
+
+        void relocateOrigin(DataModel::Origin *org, ProfilePtr profile,
+                            DataModel::OriginPtr& newOrg,
+                            std::vector<DataModel::PickPtr>& newOrgPicks);
+
+        void convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
+                           ProfilePtr profile,     // can be nullptr
+                           const DataModel::Origin *org, // can be nullptr
+                           DataModel::OriginPtr& newOrg,
+                           std::vector<DataModel::PickPtr>& newOrgPicks);
+
         void removedFromCache(DataModel::PublicObject *);
 
         bool send(DataModel::Origin *org);
-        
+
         struct Config {
             Config();
 
@@ -121,6 +129,7 @@ class RTDD : public Application {
             std::string forceProfile;
             std::string relocateCatalog;
             std::string dumpCatalog;
+            std::string dumpCatalogXML;
             std::string loadCatalog;
 
             // cron

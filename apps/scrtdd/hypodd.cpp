@@ -772,6 +772,50 @@ CatalogPtr Catalog::merge(const CatalogCPtr& other) const
 
 
 
+CatalogPtr Catalog::extractEvent(unsigned eventId) const
+{
+    CatalogPtr eventToExtract = new Catalog();
+
+    auto search = this->getEvents().find(eventId);
+    if (search == this->getEvents().end())
+    {
+        string msg = stringify("Cannot find event id %u in the catalog.", eventId);
+        throw runtime_error(msg);
+    }
+
+    const Catalog::Event& event = search->second;
+    eventToExtract->addEvent(event, false);
+
+    unsigned newEventId = eventToExtract->searchEvent(event)->first;
+
+    auto eqlrng = this->getPhases().equal_range(event.id);
+    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+    {
+        Catalog::Phase phase = it->second;
+
+        auto search = this->getStations().find(phase.stationId);
+        if (search == this->getStations().end())
+        {
+            string msg = stringify("Malformed catalog: cannot find station '%s' "
+                                   " referenced by phase '%s' for event '%s'",
+                                   phase.stationId.c_str(), string(phase).c_str(), string(event).c_str());
+            throw runtime_error(msg);
+        }
+        const Catalog::Station& station = search->second;
+        eventToExtract->addStation(station, true);
+        string newStationId = eventToExtract->searchStation(station)->first;
+
+        phase.eventId = newEventId;
+        phase.stationId = newStationId;
+
+        eventToExtract->addPhase(phase, true);
+    } 
+
+    return eventToExtract;
+}
+
+
+
 bool Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& other, bool keepEvId)
 {
     if ( keepEvId )
@@ -1380,7 +1424,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     string ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
     string ddresidualFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.res").string();
     CatalogPtr relocatedCatalog = loadRelocatedCatalog(neighbourCat, ddrelocFile, ddresidualFile);
-    CatalogPtr relocatedEvCat = extractEvent(relocatedCatalog, evToRelocateNewId);
+    CatalogPtr relocatedEvCat = relocatedCatalog->extractEvent(evToRelocateNewId);
     // write catalog for debugging purpose
     relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"event-reloc.csv").string(),
                                   (boost::filesystem::path(eventWorkingDir)/"phase-reloc.csv").string(),
@@ -1443,7 +1487,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
         ddresidualFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.res").string();
         relocatedCatalog = loadRelocatedCatalog(neighbourCat, ddrelocFile, ddresidualFile);
-        relocatedEvWithXcorr = extractEvent(relocatedCatalog, refinedLocNewId);
+        relocatedEvWithXcorr = relocatedCatalog->extractEvent(refinedLocNewId);
         // write catalog for debugging purpose
         relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"event-reloc.csv").string(),
                                       (boost::filesystem::path(eventWorkingDir)/"phase-reloc.csv").string(),
@@ -2179,49 +2223,6 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
     }
 
     return new Catalog(stations, events, phases);
-}
-
-
-CatalogPtr HypoDD::extractEvent(const CatalogCPtr& catalog, unsigned eventId) const
-{
-    CatalogPtr eventToExtract = new Catalog();
-
-    auto search = catalog->getEvents().find(eventId);
-    if (search == catalog->getEvents().end())
-    {
-        string msg = stringify("Cannot find event id %u in the catalog.", eventId);
-        throw runtime_error(msg);
-    }
-
-    const Catalog::Event& event = search->second;
-    eventToExtract->addEvent(event, false);
-
-    unsigned newEventId = eventToExtract->searchEvent(event)->first;
-
-    auto eqlrng = catalog->getPhases().equal_range(event.id);
-    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-    {
-        Catalog::Phase phase = it->second;
-
-        auto search = catalog->getStations().find(phase.stationId);
-        if (search == catalog->getStations().end())
-        {
-            string msg = stringify("Malformed catalog: cannot find station '%s' "
-                                   " referenced by phase '%s' for event '%s'",
-                                   phase.stationId.c_str(), string(phase).c_str(), string(event).c_str());
-            throw runtime_error(msg);
-        }
-        const Catalog::Station& station = search->second;
-        eventToExtract->addStation(station, true);
-        string newStationId = eventToExtract->searchStation(station)->first;
-
-        phase.eventId = newEventId;
-        phase.stationId = newStationId;
-
-        eventToExtract->addPhase(phase, true);
-    } 
-
-    return eventToExtract;
 }
 
 

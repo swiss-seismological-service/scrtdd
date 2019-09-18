@@ -205,19 +205,19 @@ bool startsWith(const string& haystack, const string& needle, bool caseSensitive
 
 double normalizeAz(double az)
 {
-	if ( az < 0 )
-		az += 360.0;
-	else if ( az >= 360.0 )
-		az -= 360.0;
-	return az;
+    if ( az < 0 )
+        az += 360.0;
+    else if ( az >= 360.0 )
+        az -= 360.0;
+    return az;
 }
 
 
 double normalizeLon(double lon)
 {
-	while ( lon < -180.0 ) lon += 360.0;
-	while ( lon >  180.0 ) lon -= 360.0;
-	return lon;
+    while ( lon < -180.0 ) lon += 360.0;
+    while ( lon >  180.0 ) lon -= 360.0;
+    return lon;
 }
 
 
@@ -282,25 +282,26 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT(_config.profileTimeAlive, "performance.profileTimeAlive");
     NEW_OPT(_config.cacheWaveforms, "performance.cacheWaveforms");
 
-    NEW_OPT_CLI(_config.testMode, "Mode", "test", "Test mode, no messages are sent", false, true);
-    NEW_OPT_CLI(_config.dumpProcessedWf, "Mode", "dump-wf", "Dump processed waveforms too into 'cacheWaveforms' folder (debug)", false, true);
-    NEW_OPT_CLI(_config.forceProcessing, "Mode", "force",
-                "Force event processing: in single event mode the processing is performed even on origins that would normally be skipped (already processed, not preferred, manual, etc.); In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used",
-                false, true);
-    NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
-                "Time span in hours after which objects expire", true);
-    NEW_OPT_CLI(_config.originIDs, "Mode", "origin-id,O",
-                "Relocate the origin (or multiple comma-separated origins) and send a message ", true);
-    NEW_OPT_CLI(_config.eventXML, "Mode", "ep",
-                "Event parameters XML file for offline processing of contained origins (imply test option). Ech origin will be processed accordingly with the matching profile configuration", true);
-    NEW_OPT_CLI(_config.forceProfile, "Mode", "profile",
-                "Force a specific profile to be used", true);
     NEW_OPT_CLI(_config.relocateCatalog, "Mode", "reloc-catalog",
                 "Relocate the catalog of profile passed as argument", true);
     NEW_OPT_CLI(_config.dumpCatalog, "Mode", "dump-catalog",
-                "Dump catalog files from the seiscomp event/origin ids file passed as argument", true);
+                "Dump the seiscomp event/origin id file passed as argument into a catalog file triplet (station.csv,event.csv,phase.csv)", true);
+    NEW_OPT_CLI(_config.dumpCatalogXML, "Mode", "dump-catalog-xml",
+                "Convert the input catalog into XML format. The input can be a single file (containing seiscomp event/origin ids) or a catalog file triple (station.csv,event.csv,phase.csv)", true);
     NEW_OPT_CLI(_config.loadCatalog, "Mode", "load-catalog",
-                "Load catalog waveforms and save them in the working directory configured for the profile", true);
+                "Load catalog waveforms from the configured recordstream and save them in the working directory configured for the profile", true);
+    NEW_OPT_CLI(_config.originIDs, "Mode", "origin-id,O",
+                "Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed accordingly with the matching profile region unless --profile option is used", true);
+    NEW_OPT_CLI(_config.eventXML, "Mode", "ep",
+                "Event parameters XML file for offline processing of contained origins (imply test option). Each contained origin will be processed accordingly with the matching profile region unless --profile option is used", true);
+    NEW_OPT_CLI(_config.testMode, "Mode", "test", "Test mode, no messages are sent", false, true);
+    NEW_OPT_CLI(_config.forceProfile, "Mode", "profile", "Force a specific profile to be used", true);    
+    NEW_OPT_CLI(_config.forceProcessing, "Mode", "force",
+                "Force event processing: in single event mode the processing is performed even on origins that would normally be skipped (already processed, not preferred, manual, etc.); In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used",
+                false, true);
+    NEW_OPT_CLI(_config.dumpProcessedWf, "Mode", "dump-wf", "Dump processed waveforms into 'cacheWaveforms' folder, together with raw data (debug)", false, true);
+    NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
+                "Time span in hours after which objects expire", true);
 }
 
 
@@ -329,11 +330,13 @@ bool RTDD::validateParameters()
     // Disable messaging (offline mode) with:
     //  --ep option
     //  --dump-catalog option
+    //  --dump-catalog-xml option
     //  --load-catalog option    
     //  --relocate-catalog option
     //  --O and --test (relocate origin and don't send the new one)
     if ( !_config.eventXML.empty()        ||
          !_config.dumpCatalog.empty()     ||
+         !_config.dumpCatalogXML.empty()  ||
          !_config.loadCatalog.empty()     ||
          !_config.relocateCatalog.empty() ||
          (!_config.originIDs.empty() && _config.testMode)
@@ -673,16 +676,6 @@ bool RTDD::run() {
         }
     }
 
-    // dump catalog and exit
-    if ( !_config.dumpCatalog.empty() )
-    {
-        HDD::DataSource dataSrc(query(), &_cache, _eventParameters.get());
-        HDD::CatalogPtr cat = new HDD::Catalog();
-        cat->add(_config.dumpCatalog, dataSrc);
-        cat->writeToFile("event.csv","phase.csv","station.csv");
-        return true;
-    }
-
     // load catalog and exit
     if ( !_config.loadCatalog.empty() )
     {
@@ -698,6 +691,58 @@ bool RTDD::run() {
                 break;
             }
         } 
+        return true;
+    }
+
+    // dump catalog and exit
+    if ( !_config.dumpCatalog.empty() )
+    {
+        HDD::DataSource dataSrc(query(), &_cache, _eventParameters.get());
+        HDD::CatalogPtr cat = new HDD::Catalog();
+        cat->add(_config.dumpCatalog, dataSrc);
+        cat->writeToFile("event.csv","phase.csv","station.csv");
+        return true;
+    }
+
+    // dump catalog and exit
+    if ( !_config.dumpCatalogXML.empty() )
+    {
+        std::vector<std::string> tokens;
+        boost::split(tokens, _config.dumpCatalogXML, boost::is_any_of(","), boost::token_compress_on);
+
+        HDD::CatalogPtr cat;
+        if ( tokens.size() == 1 )
+        {
+            HDD::DataSource dataSrc(query(), &_cache, _eventParameters.get());
+            cat = new HDD::Catalog();
+            cat->add(tokens[0], dataSrc);
+        }
+        else if ( tokens.size() == 3 )
+        {
+            cat = new HDD::Catalog(tokens[0],tokens[1],tokens[2]);
+        }
+        else
+        {
+            SEISCOMP_ERROR("Invalid argument for --dump-catalog option");
+            return false;
+        }
+
+        DataModel::EventParametersPtr evParam = new DataModel::EventParameters();
+        for (const auto& kv : cat->getEvents() )
+        {
+            HDD::CatalogPtr ev = cat->extractEvent(kv.second.id);
+            DataModel::OriginPtr newOrg;
+            std::vector<DataModel::PickPtr> newOrgPicks;
+            convertOrigin(ev, nullptr, nullptr, newOrg, newOrgPicks);
+            evParam->add(newOrg.get());
+            for (DataModel::PickPtr p : newOrgPicks)
+                evParam->add(p.get());
+        }
+        IO::XMLArchive ar;
+        ar.create("-");
+        ar.setFormattedOutput(true);
+        ar << evParam;
+        ar.close();
         return true;
     }
 
@@ -809,7 +854,7 @@ void RTDD::handleMessage(Core::Message *msg)
     if ( reloc_req )
     {
         SEISCOMP_DEBUG("Received relocation request");
-        
+
         RTDDRelocateResponseMessage reloc_resp;
 
         OriginPtr originToReloc = reloc_req->getOrigin();
@@ -1229,7 +1274,8 @@ bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg, const string& 
                    origin->publicID().c_str(), currProfile->name.c_str());
 
     try {
-        relocatedOrg = relocateOrigin(origin, currProfile);
+        std::vector<DataModel::PickPtr> relocatedOrgPicks;
+        relocateOrigin(origin, currProfile, relocatedOrg, relocatedOrgPicks);
     }
     catch ( exception &e ) {
         SEISCOMP_ERROR("Cannot relocate origin %s (%s)", origin->publicID().c_str(), e.what());
@@ -1319,17 +1365,27 @@ void RTDD::removedFromCache(Seiscomp::DataModel::PublicObject *po) {
 
 
 
-OriginPtr RTDD::relocateOrigin(DataModel::Origin *org, ProfilePtr profile)
+void RTDD::relocateOrigin(DataModel::Origin *org, ProfilePtr profile,
+                          DataModel::OriginPtr& newOrg,
+                          std::vector<DataModel::PickPtr>& newOrgPicks)
 {
     profile->load(query(), &_cache, _eventParameters.get(),
                   _config.workingDirectory, !_config.keepWorkingFiles,
                   _config.cacheWaveforms, false);
-
     HDD::CatalogPtr relocatedOrg = profile->relocateSingleEvent(org);
+    convertOrigin(relocatedOrg, profile, org, newOrg, newOrgPicks);
+}
+
+
+
+void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
+                         ProfilePtr profile,     // can be nullptr
+                         const DataModel::Origin *org, // can be nullptr
+                         DataModel::OriginPtr& newOrg,
+                         std::vector<DataModel::PickPtr>& newOrgPicks)
+{
     // there must be only one event in the catalog, the relocated origin
     const HDD::Catalog::Event& event = relocatedOrg->getEvents().begin()->second;
-
-    OriginPtr newOrg;
 
     if ( !_config.publicIDPattern.empty() )
     {
@@ -1345,8 +1401,8 @@ OriginPtr RTDD::relocateOrigin(DataModel::Origin *org, ProfilePtr profile)
     ci.setCreationTime(Core::Time::GMT());
 
     newOrg->setCreationInfo(ci);
-    newOrg->setEarthModelID(profile->earthModelID);
-    newOrg->setMethodID(profile->methodID);
+    newOrg->setEarthModelID(profile ? profile->earthModelID : "");
+    newOrg->setMethodID(profile ? profile->methodID : "RTDD");
     newOrg->setEvaluationMode(EvaluationMode(AUTOMATIC));
     newOrg->setEpicenterFixed(true);
 
@@ -1382,71 +1438,151 @@ OriginPtr RTDD::relocateOrigin(DataModel::Origin *org, ProfilePtr profile)
     double minDist = std::numeric_limits<double>::max();
     double maxDist = 0;
     vector<double> azi;
+    set<string> associatedStations;
     set<string> usedStations;
 
-    // add arrivals
-    for (size_t i = 0; i < org->arrivalCount(); i++)
+    // add arrivals with information coming from the original Origin
+    if ( org )
     {
-        DataModel::Arrival *orgArr = org->arrival(i);
-        DataModel::PickPtr pick = _cache.get<DataModel::Pick>(orgArr->pickID());
-        if ( !pick )
+        for (size_t i = 0; i < org->arrivalCount(); i++)
         {
-            SEISCOMP_WARNING("Cannot find pick id %s. Cannot add Arrival to relocated origin",
-                             orgArr->pickID().c_str());
+            DataModel::Arrival *orgArr = org->arrival(i);
+            DataModel::PickPtr pick = _cache.get<DataModel::Pick>(orgArr->pickID());
+            if ( !pick )
+            {
+                SEISCOMP_WARNING("Cannot find pick id %s. Cannot add Arrival to relocated origin",
+                                 orgArr->pickID().c_str());
+                continue;
+            }
+            newOrgPicks.push_back(pick);
+
+            // prepare the new arrival
+            DataModel::Arrival *newArr = new Arrival();
+            newArr->setCreationInfo(ci);
+            newArr->setPickID(org->arrival(i)->pickID());
+            newArr->setPhase(org->arrival(i)->phase());
+            try { newArr->setTimeCorrection(org->arrival(i)->timeCorrection()); }
+            catch ( ... ) {}
+            newArr->setWeight(0);
+            newArr->setTimeUsed(false);
+
+            for (auto it = evPhases.first; it != evPhases.second; ++it)
+            {
+                const HDD::Catalog::Phase& phase = it->second;
+                auto search = relocatedOrg->getStations().find(phase.stationId);
+                if (search == relocatedOrg->getStations().end())
+                {
+                    SEISCOMP_WARNING("Cannot find station id '%s' referenced by phase '%s'."
+                                     "Cannot add Arrival to relocated origin",
+                                     phase.stationId.c_str(), string(phase).c_str());
+                    continue;
+                }
+                const HDD::Catalog::Station& station = search->second;
+
+                if (phase.time         == pick->time().value()              &&
+                    phase.networkCode  == pick->waveformID().networkCode()  &&
+                    phase.stationCode  == pick->waveformID().stationCode()  &&
+                    phase.locationCode == pick->waveformID().locationCode() &&
+                    phase.channelCode  == pick->waveformID().channelCode() )
+                {
+                    double distance, az, baz;
+                    Math::Geo::delazi(event.latitude, event.longitude,
+                                      station.latitude, station.longitude,
+                                      &distance, &az, &baz);
+                    newArr->setAzimuth(normalizeAz(az));
+                    newArr->setDistance(distance);
+                    newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
+                    newArr->setWeight( phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : phase.weight);
+                    newArr->setTimeUsed(true);
+
+                    // update stats
+                    usedPhaseCount++;
+                    meanDist += distance;
+                    minDist = distance < minDist ? distance : minDist;
+                    maxDist = distance > maxDist ? distance : maxDist;
+                    azi.push_back(az);
+                    usedStations.insert(phase.stationId);
+                    break;
+                }
+            }
+            newOrg->add(newArr);
+        }
+    }
+
+    // add remaning arrivals
+    for (auto it = evPhases.first; it != evPhases.second; ++it)
+    {
+        const HDD::Catalog::Phase& phase = it->second;
+        associatedStations.insert(phase.stationId);
+
+        bool alreadyAdded = false;
+
+        for (size_t i = 0; i < newOrg->arrivalCount(); i++)
+        {
+            DataModel::Arrival *orgArr = newOrg->arrival(i);
+            DataModel::PickPtr pick = _cache.get<DataModel::Pick>(orgArr->pickID());
+
+            if ( pick                                                    &&
+                 phase.time         == pick->time().value()              &&
+                 phase.networkCode  == pick->waveformID().networkCode()  &&
+                 phase.stationCode  == pick->waveformID().stationCode()  &&
+                 phase.locationCode == pick->waveformID().locationCode() &&
+                 phase.channelCode  == pick->waveformID().channelCode() )
+            {
+                alreadyAdded = true;
+                break;
+            }
+        }
+
+        if ( alreadyAdded )
+            continue;
+
+        auto search = relocatedOrg->getStations().find(phase.stationId);
+        if (search == relocatedOrg->getStations().end())
+        {
+            SEISCOMP_WARNING("Cannot find station id '%s' referenced by phase '%s'."
+                             "Cannot add Arrival to relocated origin",
+                             phase.stationId.c_str(), string(phase).c_str());
             continue;
         }
+        const HDD::Catalog::Station& station = search->second;
+
+        // prepare the new pick
+        DataModel::PickPtr newPick = Pick::Create();
+        newPick->setCreationInfo(ci);
+        newPick->setMethodID(profile ? profile->methodID : "RTDD");
+        newPick->setEvaluationMode(phase.isManual ? EvaluationMode(MANUAL) : EvaluationMode(AUTOMATIC));
+        newPick->setTime(phase.time);
+        newPick->setWaveformID(WaveformStreamID(phase.networkCode, phase.stationCode, phase.locationCode, phase.channelCode, ""));
+        newOrgPicks.push_back(newPick);
 
         // prepare the new arrival
         DataModel::Arrival *newArr = new Arrival();
         newArr->setCreationInfo(ci);
-        newArr->setPickID(org->arrival(i)->pickID());
-        newArr->setPhase(org->arrival(i)->phase());
-        try { newArr->setTimeCorrection(org->arrival(i)->timeCorrection()); }
-        catch ( ... ) {}
-        newArr->setWeight(0);
-        newArr->setTimeUsed(false);
+        newArr->setPickID(newPick->publicID());
+        newArr->setPhase(phase.type);
+        newArr->setWeight(phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : phase.weight);
+        newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );        
+        newArr->setTimeUsed(true);
 
-        for (auto it = evPhases.first; it != evPhases.second; ++it)
-        {
-            const HDD::Catalog::Phase& phase = it->second;
-            auto search = relocatedOrg->getStations().find(phase.stationId);
-            if (search == relocatedOrg->getStations().end())
-            {
-                SEISCOMP_WARNING("Cannot find station id '%s' referenced by phase '%s'."
-                                 "Cannot add Arrival to relocated origin",
-                                 phase.stationId.c_str(), string(phase).c_str());
-                continue;
-            }
-            const HDD::Catalog::Station& station = search->second;
+        double distance, az, baz;
+        Math::Geo::delazi(event.latitude, event.longitude,
+                          station.latitude, station.longitude,
+                          &distance, &az, &baz);
+        newArr->setAzimuth(normalizeAz(az));
+        newArr->setDistance(distance);
 
-            if (phase.time         == pick->time().value() &&
-                phase.networkCode  ==  pick->waveformID().networkCode() &&
-                phase.stationCode  ==  pick->waveformID().stationCode() &&
-                phase.locationCode ==  pick->waveformID().locationCode() &&
-                phase.channelCode  ==  pick->waveformID().channelCode() )
-            {
-                double distance, az, baz;
-                Math::Geo::delazi(event.latitude, event.longitude,
-                                  station.latitude, station.longitude,
-                                  &distance, &az, &baz);
-                newArr->setAzimuth(normalizeAz(az));
-                newArr->setDistance(distance);
-                newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
-                newArr->setWeight( phase.relocInfo.finalWeight );
-                newArr->setTimeUsed(true);
+        // update stats
+        usedPhaseCount++;
+        meanDist += distance;
+        minDist = distance < minDist ? distance : minDist;
+        maxDist = distance > maxDist ? distance : maxDist;
+        azi.push_back(az);
+        usedStations.insert(phase.stationId);
 
-                // update stats
-                usedPhaseCount++;
-                meanDist += distance;
-                minDist = distance < minDist ? distance : minDist;
-                maxDist = distance > maxDist ? distance : maxDist;
-                azi.push_back(az);
-                usedStations.insert(phase.stationId);
-                break;
-            }
-        }
         newOrg->add(newArr);
     }
+
     // finish computing stats
     meanDist /= usedPhaseCount;
 
@@ -1473,8 +1609,7 @@ OriginPtr RTDD::relocateOrigin(DataModel::Origin *org, ProfilePtr profile)
     DataModel::OriginQuality oq;
     oq.setAssociatedPhaseCount(newOrg->arrivalCount());
     oq.setUsedPhaseCount(usedPhaseCount);
-    try { oq.setAssociatedStationCount(org->quality().associatedStationCount()); }
-    catch ( ... ) {}
+    oq.setAssociatedStationCount(associatedStations.size());
     oq.setUsedStationCount(usedStations.size());
     oq.setStandardError(event.rms);
     oq.setMedianDistance(meanDist);
@@ -1485,9 +1620,8 @@ OriginPtr RTDD::relocateOrigin(DataModel::Origin *org, ProfilePtr profile)
     newOrg->setQuality(oq);
 
     // remember to add this entry to the catalog
-    profile->addIncrementalCatalogEntry(newOrg.get());
-
-    return newOrg;
+    if ( profile )
+        profile->addIncrementalCatalogEntry(newOrg.get());
 }
 
 
