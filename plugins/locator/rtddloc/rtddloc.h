@@ -85,13 +85,13 @@ class RTDDLocator : public Seiscomp::Seismology::LocatorInterface {
     // ----------------------------------------------------------------------
     private:
     
+        Communication::ConnectionPtr createConnection();
+    
         ParameterMap  _parameters;
         IDList        _profileNames;
         std::string   _currentProfile;
         
-        // singleton
-        static IDList _allowedParameters;        
-        static Communication::ConnectionPtr _static_connection;
+        static IDList _allowedParameters;
 };
 
 

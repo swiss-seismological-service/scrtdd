@@ -809,19 +809,10 @@ void RTDD::handleMessage(Core::Message *msg)
     if ( reloc_req )
     {
         SEISCOMP_DEBUG("Received relocation request");
+        
         RTDDRelocateResponseMessage reloc_resp;
 
-        OriginPtr dummy;
-        Origin* originToReloc = nullptr;
-        if ( !reloc_req->getOriginId().empty() )
-        {
-            dummy = _cache.get<Origin>(reloc_req->getOriginId());
-            originToReloc = dummy.get();
-        }
-        else if ( reloc_req->getOrigin() )
-        {
-            originToReloc = reloc_req->getOrigin();
-        }
+        OriginPtr originToReloc = reloc_req->getOrigin();
 
         if ( !originToReloc )
         {
@@ -830,15 +821,15 @@ void RTDD::handleMessage(Core::Message *msg)
         else
         {
             OriginPtr relocatedOrg;
-            processOrigin(originToReloc, relocatedOrg, reloc_req->getProfile(), true, true, false);
+            processOrigin(originToReloc.get(), relocatedOrg, reloc_req->getProfile(), true, true, false);
             if ( relocatedOrg )
             {
-                reloc_resp.setOrigin(relocatedOrg.get());
+                reloc_resp.setOrigin(relocatedOrg);
             }
             else
             {
                 reloc_resp.setError(stringify("OriginId %s has not been relocated",
-                                     originToReloc->publicID().c_str()));
+                                    originToReloc->publicID().c_str()));
             }
         }
 
@@ -1241,8 +1232,7 @@ bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg, const string& 
         relocatedOrg = relocateOrigin(origin, currProfile);
     }
     catch ( exception &e ) {
-        SEISCOMP_ERROR("%s", e.what());
-        SEISCOMP_ERROR("Cannot relocate origin %s", origin->publicID().c_str());
+        SEISCOMP_ERROR("Cannot relocate origin %s (%s)", origin->publicID().c_str(), e.what());
         return false;
     }
 

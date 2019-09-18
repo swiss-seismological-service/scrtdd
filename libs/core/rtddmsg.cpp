@@ -26,7 +26,6 @@ void RTDDRelocateRequestMessage::serialize(Archive& ar)
     Core::Message::serialize(ar);
     if ( !ar.success() ) return;
     ar & NAMED_OBJECT("origin", _origin);
-    ar & NAMED_OBJECT("publicID", _publicID);
     ar & NAMED_OBJECT("profile", _profile);
 }
 

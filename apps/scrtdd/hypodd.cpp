@@ -592,7 +592,14 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
     for(DataModel::Origin* org : origins)
     {
         if ( org->arrivalCount() == 0)
-            dataSrc.loadArrivals(org);
+            dataSrc.loadArrivals(org); // try to load arrivals
+
+        if ( org->arrivalCount() == 0)
+        {
+            SEISCOMP_WARNING("Origin %s doesn't have any arrival. Skip it.", org->publicID().c_str());
+            continue;
+        }
+
 
         // Add event
         Event ev;
@@ -1448,8 +1455,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         }
 
     } catch ( exception &e ) {
-        SEISCOMP_ERROR("%s", e.what());
-        SEISCOMP_ERROR("It was not possible to use cross correlation when relocating origin");
+        SEISCOMP_ERROR("It was not possible to use cross correlation when relocating origin (%s)", e.what());
     }
 
     return relocatedEvWithXcorr ? relocatedEvWithXcorr : relocatedEvCat;

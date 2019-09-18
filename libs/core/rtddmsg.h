@@ -38,13 +38,10 @@ class SC_SYSTEM_CLIENT_API RTDDRelocateRequestMessage : public Seiscomp::Core::M
 
     public:
         //! Constructor
-        RTDDRelocateRequestMessage() : _origin(0), _publicID("") { }
+        RTDDRelocateRequestMessage() : _origin(0), _profile("") {}
 
-        void setOrigin(DataModel::Origin* org) { _origin = org; _publicID = ""; }
-        DataModel::Origin* getOrigin() const { return _origin; }
-
-        void setOriginId(const std::string& orgId) { _publicID = orgId; _origin = 0; }
-        std::string getOriginId() const { return _publicID; }
+        void setOrigin(DataModel::OriginPtr org) { _origin = org; }
+        DataModel::OriginPtr getOrigin() const { return _origin; }
 
         void setProfile(const std::string& name) { _profile = name; }
         std::string getProfile() const { return _profile; }
@@ -53,8 +50,7 @@ class SC_SYSTEM_CLIENT_API RTDDRelocateRequestMessage : public Seiscomp::Core::M
         virtual bool empty() const  { return false; }
 
     private:
-        DataModel::Origin* _origin; // either _origin or _publicID must be defined
-        std::string _publicID;
+        DataModel::OriginPtr _origin;
         std::string _profile;
 };
 
@@ -71,8 +67,8 @@ class SC_SYSTEM_CLIENT_API RTDDRelocateResponseMessage : public Seiscomp::Core::
         //! Constructor
         RTDDRelocateResponseMessage() : _relocatedOrigin(0), _error("") {}
 
-        void setOrigin(DataModel::Origin* org) { _relocatedOrigin = org; }
-        DataModel::Origin* getOrigin() { return _relocatedOrigin; }
+        void setOrigin(DataModel::OriginPtr org) { _relocatedOrigin = org; }
+        DataModel::OriginPtr getOrigin() { return _relocatedOrigin; }
 
         void setError(const std::string err) { _error = err; }
         std::string getError() const { return _error; }
@@ -82,7 +78,7 @@ class SC_SYSTEM_CLIENT_API RTDDRelocateResponseMessage : public Seiscomp::Core::
         virtual bool empty() const  { return false; }
 
     private:
-        DataModel::Origin* _relocatedOrigin;
+        DataModel::OriginPtr _relocatedOrigin;
         std::string _error;
 };
 
