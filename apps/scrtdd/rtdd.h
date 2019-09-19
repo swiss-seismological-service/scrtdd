@@ -90,8 +90,8 @@ class RTDD : public Application {
         void removeProcess(Process *proc);
 
         bool processOrigin(DataModel::Origin *origin, DataModel::OriginPtr& relocatedOrg,
-                           const std::string& forceProfile="", bool forceProcessing=false,
-                           bool allowManualOrigin=false, bool doSend=true);
+                           const std::string& forceProfile="", bool recompute=false,
+                           bool forceProcessing=false, bool allowManualOrigin=false, bool doSend=true);
 
         void relocateOrigin(DataModel::Origin *org, ProfilePtr profile,
                             DataModel::OriginPtr& newOrg,
@@ -182,7 +182,7 @@ class RTDD : public Application {
 
         struct Process : Core::BaseObject {
             Core::Time          created;
-            Core::Time          lastRun;
+            unsigned            runCount;
             DataModel::PublicObjectPtr obj;
             CronjobPtr          cronjob;
         };
