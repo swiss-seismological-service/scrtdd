@@ -323,7 +323,7 @@ class HypoDD : public Core::BaseObject {
 
         void preloadData();
 
-        CatalogCPtr getCatalog() { return _ddbgc; }
+        CatalogCPtr getCatalog() { return _srcCat; }
         void setCatalog(const CatalogCPtr& catalog);
 
         CatalogPtr relocateCatalog(bool force = true, bool usePh2dt = false);
@@ -433,6 +433,7 @@ class HypoDD : public Core::BaseObject {
     private:
         std::string _workingDir;
         std::string _cacheDir;
+        CatalogCPtr _srcCat;
         CatalogPtr _ddbgc;
         Config _cfg;
         bool _workingDirCleanup = true;

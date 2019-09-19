@@ -1068,7 +1068,8 @@ HypoDD::~HypoDD()
 
 void HypoDD::setCatalog(const CatalogCPtr& catalog)
 {
-    _ddbgc = filterOutPhases(catalog, _cfg.validPphases, _cfg.validSphases);
+    _srcCat = catalog;
+    _ddbgc = filterOutPhases(_srcCat, _cfg.validPphases, _cfg.validSphases);
 }
 
 

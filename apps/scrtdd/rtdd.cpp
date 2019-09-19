@@ -1140,14 +1140,18 @@ bool RTDD::startProcess(Process *proc)
         return false;
     }
 
+    // force to recompute the relocation after the first time
     bool recompute = (proc->runCount > 0);
 
-    // return true when there is no more work to do
+    // Relocate origin
     OriginPtr relocatedOrg;
-    return processOrigin(
-        org.get(), relocatedOrg, _config.forceProfile, recompute,
-        _config.forceProcessing, _config.allowManualOrigin, !_config.testMode
-    );
+    bool feasible = processOrigin(org.get(), relocatedOrg, _config.forceProfile, recompute,
+                                 _config.forceProcessing, _config.allowManualOrigin, !_config.testMode);
+
+    // remember to add this entry to the catalog
+    profile->addIncrementalCatalogEntry(relocatedOrg.get());
+
+    return feasible;
 }
 
 
@@ -1276,8 +1280,8 @@ bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg, const string& 
     SEISCOMP_INFO("Relocating origin %s using profile %s",
                    origin->publicID().c_str(), currProfile->name.c_str());
 
+    std::vector<DataModel::PickPtr> relocatedOrgPicks;
     try {
-        std::vector<DataModel::PickPtr> relocatedOrgPicks;
         relocateOrigin(origin, currProfile, relocatedOrg, relocatedOrgPicks);
     }
     catch ( exception &e ) {
@@ -1291,6 +1295,8 @@ bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg, const string& 
         return true;
     }
 
+    SEISCOMP_INFO("Origin %s has been relocated", origin->publicID().c_str());
+
     //
     // finished processing, send new origin and update journal
     //
@@ -1299,20 +1305,36 @@ bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg, const string& 
     {
         // Insert origin to event parameters
         _eventParameters->add(relocatedOrg.get());
+        for (DataModel::PickPtr p : relocatedOrgPicks) _eventParameters->add(p.get());
     }
 
-    if ( doSend )
+    if ( connection() )
     {
+        bool wasEnabled = Notifier::IsEnabled();
+        //
         // send origin
-        if ( ! send(relocatedOrg.get() ) )
-            SEISCOMP_ERROR("%s: sending of relocated origin failed", origin->publicID().c_str());
-    }
+        //
+        if ( doSend )
+        {
+            SEISCOMP_INFO("Sending origin %s", relocatedOrg->publicID().c_str());
 
-    SEISCOMP_INFO("Origin %s has been relocated", origin->publicID().c_str());
+            logObject(_outputOrgs, Core::Time::GMT());
 
-    // update journal with processing information
-    if ( connection() && doSend )
-    {
+            EventParametersPtr ep = new EventParameters;
+            Notifier::Enable();
+            ep->add(relocatedOrg.get());
+            for (DataModel::PickPtr p : relocatedOrgPicks) ep->add(p.get());
+            Notifier::SetEnabled(wasEnabled);
+
+            NotifierMessagePtr msg = Notifier::GetMessage();
+            bool result = false;
+            if ( msg && connection() ) result = connection()->send(msg.get());
+            if ( ! result ) SEISCOMP_ERROR("%s: sending of relocated origin failed", relocatedOrg->publicID().c_str());
+        }
+
+        //
+        // update journal with processing information
+        //
         DataModel::Journaling journal;
         JournalEntryPtr entry = new JournalEntry;
         entry->setObjectID(origin->publicID());
@@ -1320,45 +1342,16 @@ bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg, const string& 
         entry->setParameters(JOURNAL_ACTION_COMPLETED);
         entry->setSender(name() + "@" + Core::getHostname());
         entry->setCreated(Core::Time::GMT());
-        bool wasEnabled = Notifier::IsEnabled();
+
         Notifier::Enable();
         Notifier::Create(journal.publicID(), OP_ADD, entry.get());
         Notifier::SetEnabled(wasEnabled);
 
-        Core::MessagePtr msg = Notifier::GetMessage();
+        NotifierMessagePtr msg = Notifier::GetMessage();
         if ( msg && connection() ) connection()->send("EVENT", msg.get());
     }
 
     return true;
-}
-
-
-
-bool RTDD::send(DataModel::Origin *org)
-{
-    if ( org == nullptr ) return false;
-
-    logObject(_outputOrgs, Core::Time::GMT());
-
-    SEISCOMP_INFO("Sending origin %s", org->publicID().c_str());
-
-    EventParametersPtr ep = new EventParameters;
-
-    bool wasEnabled = Notifier::IsEnabled();
-    Notifier::Enable();
-
-    // Insert origin to event parameters
-    ep->add(org);
-
-    NotifierMessagePtr msg = Notifier::GetMessage();
-
-    bool result = false;
-    if ( msg && connection() )
-        result = connection()->send(msg.get());
-
-    Notifier::SetEnabled(wasEnabled);
-
-    return result;
 }
 
 
@@ -1458,7 +1451,6 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
                                  orgArr->pickID().c_str());
                 continue;
             }
-            newOrgPicks.push_back(pick);
 
             // prepare the new arrival
             DataModel::Arrival *newArr = new Arrival();
@@ -1497,7 +1489,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
                     newArr->setDistance(distance);
                     newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
                     newArr->setWeight( phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : phase.weight);
-                    newArr->setTimeUsed(true);
+                    newArr->setTimeUsed(phase.relocInfo.isRelocated);
 
                     // update stats
                     usedPhaseCount++;
@@ -1505,7 +1497,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
                     minDist = distance < minDist ? distance : minDist;
                     maxDist = distance > maxDist ? distance : maxDist;
                     azi.push_back(az);
-                    usedStations.insert(phase.stationId);
+                    if ( newArr->timeUsed() ) usedStations.insert(phase.stationId);
                     break;
                 }
             }
@@ -1567,7 +1559,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
         newArr->setPhase(phase.type);
         newArr->setWeight(phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : phase.weight);
         newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );        
-        newArr->setTimeUsed(true);
+        newArr->setTimeUsed(phase.relocInfo.isRelocated);
 
         double distance, az, baz;
         Math::Geo::delazi(event.latitude, event.longitude,
@@ -1582,7 +1574,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
         minDist = distance < minDist ? distance : minDist;
         maxDist = distance > maxDist ? distance : maxDist;
         azi.push_back(az);
-        usedStations.insert(phase.stationId);
+        if ( newArr->timeUsed() ) usedStations.insert(phase.stationId);
 
         newOrg->add(newArr);
     }
@@ -1614,6 +1606,8 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     oq.setAssociatedPhaseCount(newOrg->arrivalCount());
     oq.setUsedPhaseCount(usedPhaseCount);
     oq.setAssociatedStationCount(associatedStations.size());
+    try { if ( org ) oq.setAssociatedStationCount(org->quality().associatedStationCount()); }
+    catch ( ... ) { }
     oq.setUsedStationCount(usedStations.size());
     oq.setStandardError(event.rms);
     oq.setMedianDistance(meanDist);
@@ -1622,10 +1616,6 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     oq.setAzimuthalGap(primaryAz);
     oq.setSecondaryAzimuthalGap(secondaryAz);
     newOrg->setQuality(oq);
-
-    // remember to add this entry to the catalog
-    if ( profile )
-        profile->addIncrementalCatalogEntry(newOrg.get());
 }
 
 
@@ -1737,7 +1727,7 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog(bool force)
 
 
 
-bool RTDD::Profile::addIncrementalCatalogEntry(Origin *org)
+bool RTDD::Profile::addIncrementalCatalogEntry(DataModel::Origin *org)
 {
     if ( incrementalCatalogFile.empty() || ! org )
         return false;
@@ -1761,7 +1751,7 @@ bool RTDD::Profile::addIncrementalCatalogEntry(Origin *org)
     // has in memory
     HDD::DataSource dataSrc(query, cache, eventParameters);
     HDD::CatalogPtr newCatalog = new HDD::Catalog(*hypodd->getCatalog());
-    newCatalog->add({org}, dataSrc);
+    newCatalog->add(incrementalCatalogFile, dataSrc);
     hypodd->setCatalog(newCatalog);
 
     return true;

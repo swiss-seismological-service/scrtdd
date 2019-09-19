@@ -105,8 +105,6 @@ class RTDD : public Application {
 
         void removedFromCache(DataModel::PublicObject *);
 
-        bool send(DataModel::Origin *org);
-
         struct Config {
             Config();
 
