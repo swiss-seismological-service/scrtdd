@@ -282,14 +282,15 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT(_config.profileTimeAlive, "performance.profileTimeAlive");
     NEW_OPT(_config.cacheWaveforms, "performance.cacheWaveforms");
 
-    NEW_OPT_CLI(_config.relocateCatalog, "Mode", "reloc-catalog",
-                "Relocate the catalog of profile passed as argument", true);
     NEW_OPT_CLI(_config.dumpCatalog, "Mode", "dump-catalog",
                 "Dump the seiscomp event/origin id file passed as argument into a catalog file triplet (station.csv,event.csv,phase.csv)", true);
     NEW_OPT_CLI(_config.dumpCatalogXML, "Mode", "dump-catalog-xml",
                 "Convert the input catalog into XML format. The input can be a single file (containing seiscomp event/origin ids) or a catalog file triple (station.csv,event.csv,phase.csv)", true);
-    NEW_OPT_CLI(_config.loadCatalog, "Mode", "load-catalog",
-                "Load catalog waveforms from the configured recordstream and save them in the working directory configured for the profile", true);
+    NEW_OPT_CLI(_config.relocateCatalog, "Mode", "reloc-profile",
+                "Relocate the catalog of profile passed as argument", true);
+    NEW_OPT_CLI(_config.loadCatalog, "Mode", "load-profile-wf",
+                "Load catalog waveforms from the configured recordstream and save them into the profile working directory ('cacheWaveforms' folder)", true);
+    NEW_OPT_CLI(_config.dumpProcessedWf, "Mode", "processed-wf", "(Debugging) Enable the dumping of processed waveforms into the profile working directory ('cacheWaveforms' folder). Useful when run in combination with --load-profile-wf", false, true);
     NEW_OPT_CLI(_config.originIDs, "Mode", "origin-id,O",
                 "Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed accordingly with the matching profile region unless --profile option is used", true);
     NEW_OPT_CLI(_config.eventXML, "Mode", "ep",
@@ -299,7 +300,6 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT_CLI(_config.forceProcessing, "Mode", "force",
                 "Force event processing: in single event mode the processing is performed even on origins that would normally be skipped (already processed, not preferred, manual, etc.); In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used",
                 false, true);
-    NEW_OPT_CLI(_config.dumpProcessedWf, "Mode", "dump-wf", "Dump processed waveforms into 'cacheWaveforms' folder, together with raw data (debug)", false, true);
     NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
                 "Time span in hours after which objects expire", true);
 }
@@ -866,7 +866,8 @@ void RTDD::handleMessage(Core::Message *msg)
         else
         {
             OriginPtr relocatedOrg;
-            processOrigin(originToReloc.get(), relocatedOrg, reloc_req->getProfile(), true, true, true, false);
+            processOrigin(originToReloc.get(), relocatedOrg, reloc_req->getProfile(),
+                          true, true, true, false, false);
             if ( relocatedOrg )
             {
                 reloc_resp.setOrigin(relocatedOrg);
@@ -932,14 +933,15 @@ void RTDD::handleTimeout()
 }
 
 
-
+/*
+ * Periodically clean up profiles unused for some time as they
+ * might use lots of memory (waveform data)
+ * OR, if the profiles are configured to neer expire, make sure
+ * they are loaded
+ * Also clean up unused resources by the profiles
+ */
 void RTDD::checkProfileStatus() 
 {
-    // Periodically clean up profiles unused for some time as they
-    // might use lots of memory (waveform data)
-    // OR, if the profiles are configured to neer expire, make sure
-    // they are loaded
-
     for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
     {
         ProfilePtr currProfile = *it;
@@ -957,10 +959,19 @@ void RTDD::checkProfileStatus()
             Core::TimeSpan expired = Core::TimeSpan(_config.profileTimeAlive);
             if ( currProfile->isLoaded() && currProfile->inactiveTime() > expired )
             {
-                SEISCOMP_INFO("Profile %s inactive for more than %f seconds",
+                SEISCOMP_INFO("Profile %s inactive for more than %f seconds: unload it",
                                currProfile->name.c_str(), expired.length());
                 currProfile->unload();
             }
+        }
+
+        // either way clean unused resources (memory and files) after 1 hour
+        Core::TimeSpan cleanupTimeout = Core::TimeSpan(60);
+        if ( currProfile->needResourcesCleaning() && currProfile->inactiveTime() > cleanupTimeout )
+        {
+            SEISCOMP_INFO("Profile %s inactive for more than %f seconds: clean unused resources",
+                          currProfile->name.c_str(), cleanupTimeout.length());
+            currProfile->cleanUnusedResources();
         }
     }
 }
@@ -1103,7 +1114,7 @@ bool RTDD::addProcess(DataModel::PublicObject* obj)
 }
 
 
-
+// return false when the process cannot run and should not be retried in the future
 bool RTDD::startProcess(Process *proc)
 {
     SEISCOMP_DEBUG("Starting process [%s]", proc->obj->publicID().c_str());
@@ -1145,13 +1156,9 @@ bool RTDD::startProcess(Process *proc)
 
     // Relocate origin
     OriginPtr relocatedOrg;
-    bool feasible = processOrigin(org.get(), relocatedOrg, _config.forceProfile, recompute,
-                                 _config.forceProcessing, _config.allowManualOrigin, !_config.testMode);
-
-    // remember to add this entry to the catalog
-    profile->addIncrementalCatalogEntry(relocatedOrg.get());
-
-    return feasible;
+    return processOrigin(org.get(), relocatedOrg, _config.forceProfile, recompute,
+                        _config.forceProcessing, _config.allowManualOrigin,
+                        !_config.testMode, true);
 }
 
 
@@ -1169,9 +1176,9 @@ void RTDD::removeProcess(Process *proc)
 
 
 
-// return false when the process cannot run
 bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg, const string& forceProfile,
-                         bool recompute, bool forceProcessing, bool allowManualOrigin, bool doSend)
+                         bool recompute, bool forceProcessing, bool allowManualOrigin,
+                         bool doSend, bool updateIncrementalCatalog)
 {
     relocatedOrg = nullptr;
 
@@ -1350,6 +1357,10 @@ bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg, const string& 
         NotifierMessagePtr msg = Notifier::GetMessage();
         if ( msg && connection() ) connection()->send("EVENT", msg.get());
     }
+
+    // add this entry to the catalog
+    if ( updateIncrementalCatalog )
+         currProfile->addIncrementalCatalogEntry(relocatedOrg.get());
 
     return true;
 }
@@ -1625,6 +1636,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
 RTDD::Profile::Profile()
 {
     loaded = false;
+    needCleaning = false;
 }
 
 
@@ -1661,7 +1673,7 @@ void RTDD::Profile::load(DatabaseQuery* query,
 
     // if we have a incremental catalog, then load incremental entries
     if ( ! incrementalCatalogFile.empty() && Util::fileExists(incrementalCatalogFile) )
-    { 
+    {
         HDD::DataSource dataSrc(query, cache, eventParameters);
         ddbgc->add(incrementalCatalogFile, dataSrc);
     }
@@ -1669,7 +1681,6 @@ void RTDD::Profile::load(DatabaseQuery* query,
     hypodd = new HDD::HypoDD(ddbgc, ddcfg, pWorkingDir);
     hypodd->setWorkingDirCleanup(cleanupWorkingDir);
     hypodd->setUseCatalogDiskCache(cacheWaveforms);
-    hypodd->setUseSingleEvDiskCache(cacheWaveforms && !incrementalCatalogFile.empty());
     loaded = true;
     lastUsage = Core::Time::GMT();
 
@@ -1685,7 +1696,16 @@ void RTDD::Profile::unload()
     SEISCOMP_INFO("Unloading profile %s", name.c_str());
     hypodd.reset();
     loaded = false;
+    needCleaning = false;
     lastUsage = Core::Time::GMT();
+}
+
+
+void RTDD::Profile::cleanUnusedResources()
+{
+    if ( ! needResourcesCleaning() ) return;
+    hypodd->cleanUnusedResources();
+    needCleaning = false;
 }
 
 
@@ -1697,6 +1717,7 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
         throw runtime_error(msg.c_str());
     }
     lastUsage = Core::Time::GMT();
+    needCleaning = true;
 
     HDD::DataSource dataSrc(query, cache, eventParameters);
 
@@ -1708,7 +1729,6 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
         multimap<unsigned,HDD::Catalog::Phase>()
     );
     orgToRelocate->add({org}, dataSrc);
-
     return hypodd->relocateSingleEvent(orgToRelocate);
 }
 
@@ -1722,6 +1742,7 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog(bool force)
         throw runtime_error(msg.c_str());
     }
     lastUsage = Core::Time::GMT();
+    needCleaning = true;
     return hypodd->relocateCatalog(force, ! ddcfg.ph2dt.ctrlFile.empty());
 }
 

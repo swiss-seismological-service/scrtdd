@@ -554,10 +554,6 @@
             </group>
 
             <group name="Mode">
-            
-                <option long-flag="reloc-catalog" argument="arg">
-                    <description>Relocate the catalog of profile passed as argument</description>
-                </option>
 
                 <option long-flag="dump-catalog" argument="arg">
                     <description>Dump the seiscomp event/origin id file passed as argument into a catalog file triplet (station.csv,event.csv,phase.csv)</description>
@@ -566,10 +562,17 @@
                 <option long-flag="dump-catalog-xml" argument="arg">
                     <description>Convert the input catalog into XML format. The input can be a single file (containing seiscomp event/origin ids) or a catalog file triplet (station.csv,event.csv,phase.csv)</description>
                 </option>
+                            
+                <option long-flag="reloc-profile" argument="arg">
+                    <description>Relocate the catalog of profile passed as argument</description>
+                </option>
 
-
-                <option long-flag="load-catalog" argument="arg">
+                <option long-flag="load-profile-wf" argument="arg">
                     <description>Load catalog waveforms from the configured recordstream and save them in the working directory configured for the profile</description>
+                </option>
+
+                <option long-flag="processed-wf">
+                    <description>Enable the dumping of processed waveforms into 'cacheWaveforms' folder (debug). Useful when run in combination with --load-profile-wf</description>
                 </option>
 
                 <option long-flag="origin-id" flag="O" argument="arg">
@@ -592,10 +595,6 @@
                     <description>Force event processing: in single event mode the processing is performed even on origins that would normally be skipped (already processed, not preferred, manual, etc.); In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used</description>
                 </option>
                
-                <option long-flag="dump-wf">
-                    <description>Dump processed waveforms into 'cacheWaveforms' folder, together with raw data (debug)</description>
-                </option>
-
                 <option long-flag="expiry" flag="x" argument="hours">
                     <description>Time span in hours after which objects expire</description>
                 </option>

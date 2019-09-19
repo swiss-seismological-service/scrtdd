@@ -322,6 +322,7 @@ class HypoDD : public Core::BaseObject {
         virtual ~HypoDD();
 
         void preloadData();
+        void cleanUnusedResources();
 
         CatalogCPtr getCatalog() { return _srcCat; }
         void setCatalog(const CatalogCPtr& catalog);
@@ -334,10 +335,6 @@ class HypoDD : public Core::BaseObject {
 
         void setUseCatalogDiskCache(bool cache) { _useCatalogDiskCache = cache; }
         bool useCatalogDiskCache() { return _useCatalogDiskCache; }
-
-        void setUseSingleEvDiskCache(bool cache) { _useSingleEvDiskCache = cache; }
-        bool useSingleEvDiskCache() { return _useSingleEvDiskCache; }
-
 
     private:
         CatalogPtr filterOutPhases(const CatalogCPtr& catalog,
@@ -361,17 +358,14 @@ class HypoDD : public Core::BaseObject {
                                    const std::string& dtccFile);
         void buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
                                       unsigned evToRelocateId,
-                                      std::ofstream& outStream,
-                                      std::map<std::string,GenericRecordPtr>& catalogCache,
-                                      bool useDiskCacheCatalog,
-                                      std::map<std::string,GenericRecordPtr>& refEvCache,
-                                      bool useDiskCacheRefEv);
+                                      std::ofstream& outStream);
         bool xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
                    const Catalog::Event& event2, const Catalog::Phase& phase2,
                    double& dtccOut, double& weightOut,
                    std::map<std::string,GenericRecordPtr>& cache1,  bool useDiskCache1,
                    std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2);
-
+        Core::TimeWindow xcorrTimeWindowLong(const Catalog::Phase& phase) const;
+        Core::TimeWindow xcorrTimeWindowShort(const Catalog::Phase& phase) const;
         void runHypodd(const std::string& workingDir, const std::string& dtccFile,
                        const std::string& dtctFile, const std::string& eventFile,
                        const std::string& stationFile, const std::string& ctrlFile) const;
@@ -409,6 +403,8 @@ class HypoDD : public Core::BaseObject {
                                              const DataModel::ThreeComponents& tc,
                                              const DataModel::SensorLocation *loc,
                                              bool useDiskCache) const;
+        Core::TimeWindow traceTimeWindowToLoad(const Catalog::Phase& ph,
+                                               const Core::TimeWindow& neededTW) const;
         GenericRecordPtr loadWaveform(const Core::TimeWindow& tw,
                                       const std::string& networkCode,
                                       const std::string& stationCode,
@@ -425,6 +421,10 @@ class HypoDD : public Core::BaseObject {
         void filter(GenericRecord &trace, bool demeaning=true, const std::string& filterStr="", double resampleFreq=0) const;
         void resample(GenericRecord& trace, double sf, bool average) const;
         std::string generateWorkingSubDir(const Catalog::Event& ev) const;
+        std::string waveformFilename(const Catalog::Phase& ph, const Core::TimeWindow& tw) const;
+        std::string waveformFilename(const std::string& networkCode, const std::string& stationCode,
+                                     const std::string& locationCode, const std::string& channelCode,
+                                     const Core::TimeWindow& tw) const;
         std::string waveformId(const Catalog::Phase& ph, const Core::TimeWindow& tw) const;
         std::string waveformId(const std::string& networkCode, const std::string& stationCode,
                                const std::string& locationCode, const std::string& channelCode,
@@ -438,7 +438,6 @@ class HypoDD : public Core::BaseObject {
         Config _cfg;
         bool _workingDirCleanup = true;
         bool _useCatalogDiskCache = false;
-        bool _useSingleEvDiskCache = false;
         std::map<std::string, GenericRecordPtr> _wfCache;
         std::set<std::string> _excludedWfs;
 };

@@ -1053,15 +1053,7 @@ HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& work
 
 HypoDD::~HypoDD()
 {
-    if ( _workingDirCleanup )
-    {
-        // delete all expect the cache directory
-        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(_workingDir), {}))
-        {       
-            if ( ! boost::filesystem::equivalent(entry, _cacheDir) )
-                boost::filesystem::remove_all(entry);
-        }
-    }
+    cleanUnusedResources();
 }
 
 
@@ -1109,7 +1101,9 @@ string HypoDD::generateWorkingSubDir(const Catalog::Event& ev) const
 
 void HypoDD::preloadData()
 {
-
+    //
+    // Preload waveforms on disk and cache them in memory (pre-processed)
+    //
     for (const auto& kv : _ddbgc->getEvents() )
     {
         const Catalog::Event& event = kv.second;
@@ -1117,16 +1111,80 @@ void HypoDD::preloadData()
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
             const Catalog::Phase& phase = it->second;
-            auto xcorrCfg = _cfg.xcorr[phase.type];
-
-            double duration = (xcorrCfg.endOffset - xcorrCfg.startOffset) + xcorrCfg.maxDelay * 2;
-            Core::TimeSpan timeCorrection = Core::TimeSpan(xcorrCfg.startOffset) - Core::TimeSpan(xcorrCfg.maxDelay);
-            Core::TimeWindow tw = Core::TimeWindow(phase.time + timeCorrection, duration);
-
+            Core::TimeWindow tw = xcorrTimeWindowLong(phase);
             getWaveform(tw, event, phase, _wfCache, _useCatalogDiskCache);
         }
     }
 }
+
+
+
+void HypoDD::cleanUnusedResources()
+{
+    //
+    // delete all in working directory expect the cache directory
+    //
+    if ( _workingDirCleanup )
+    {
+        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(_workingDir), {}))
+        {
+            if ( ! boost::filesystem::equivalent(entry, _cacheDir) )
+            {
+                SEISCOMP_INFO("Deleting %s", entry.path().string().c_str());
+                try { boost::filesystem::remove_all(entry); } catch ( ... ) { }
+            }
+        }
+    } 
+
+    //
+    // Keep track of the waveforms that we want to keep (catalog waveforms)
+    //
+    std::set<string> wfToKeep;
+    std::set<string> wfFileToKeep;
+    for (const auto& kv : _ddbgc->getEvents() )
+    {
+        const Catalog::Event& event = kv.second;
+        auto eqlrng = _ddbgc->getPhases().equal_range(event.id);
+        for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+        {
+            const Catalog::Phase& phase = it->second;
+            Core::TimeWindow tw = xcorrTimeWindowLong(phase);
+            wfToKeep.insert(waveformId(phase, tw));
+            Core::TimeWindow twToLoad = traceTimeWindowToLoad(phase, tw);
+            wfFileToKeep.insert(waveformFilename(phase, twToLoad));
+            wfFileToKeep.insert(waveformFilename(phase, twToLoad) + ".processed");
+        }
+    }
+
+    //
+    // Remove from the memory cache unused traces
+    //
+    std::map<string, GenericRecordPtr> cleanCache;
+    for (const string& wfId: wfToKeep)
+    {
+        cleanCache[wfId] = _wfCache[wfId];
+    }
+    _wfCache = cleanCache;  // use the new cleaned cache 
+
+    //
+    // Remove from disk cache unused traces (not belonging to the catalog)
+    //
+    if ( _useCatalogDiskCache )
+    {
+        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(_cacheDir), {}))
+        {
+            const auto it = wfFileToKeep.find(entry.path().string());
+            if ( it == wfFileToKeep.end() )
+            {
+                SEISCOMP_INFO("Deleting %s", entry.path().string().c_str());
+                try { boost::filesystem::remove_all(entry); } catch ( ... ) { }
+            }
+        }
+    }
+}
+
+
+
 
 
 /*
@@ -1431,11 +1489,6 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
                                   (boost::filesystem::path(eventWorkingDir)/"phase-reloc.csv").string(),
                                   (boost::filesystem::path(eventWorkingDir)/"station-reloc.csv").string());
 
-    if ( _workingDirCleanup )
-    {
-        boost::filesystem::remove_all(eventWorkingDir);
-    }
-
     //
     // Step 2: relocate the refined location this time with cross correlation
     //
@@ -1493,12 +1546,6 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"event-reloc.csv").string(),
                                       (boost::filesystem::path(eventWorkingDir)/"phase-reloc.csv").string(),
                                       (boost::filesystem::path(eventWorkingDir)/"station-reloc.csv").string());
-
-        if ( _workingDirCleanup )
-        {
-            boost::filesystem::remove_all(eventWorkingDir);
-        }
-
     } catch ( exception &e ) {
         SEISCOMP_ERROR("It was not possible to use cross correlation when relocating origin (%s)", e.what());
     }
@@ -2378,9 +2425,7 @@ void HypoDD::createDtCcCatalog(const CatalogCPtr& catalog,
 
     for (const auto& kv : neighbourCats)
     {
-        buildXcorrDiffTTimePairs(kv.second, kv.first, outStream,
-                                 _wfCache, _useCatalogDiskCache,
-                                 _wfCache, _useCatalogDiskCache);
+        buildXcorrDiffTTimePairs(kv.second, kv.first, outStream);
     }
 }
 
@@ -2400,12 +2445,7 @@ void HypoDD::createDtCcSingleEvent(const CatalogCPtr& catalog,
     if ( !outStream.is_open() )
         throw runtime_error("Cannot create file " + dtccFile);
 
-    map<string, GenericRecordPtr> tmpCahe;
-
-    buildXcorrDiffTTimePairs(catalog, evToRelocateId, outStream,
-                             _wfCache, _useCatalogDiskCache,
-                             (_useSingleEvDiskCache ? _wfCache : tmpCahe),
-                              _useSingleEvDiskCache);
+    buildXcorrDiffTTimePairs(catalog, evToRelocateId, outStream);
 }
 
 
@@ -2422,11 +2462,7 @@ void HypoDD::createDtCcSingleEvent(const CatalogCPtr& catalog,
  */
 void HypoDD::buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
                                       unsigned evToRelocateId,
-                                      ofstream& outStream,
-                                      std::map<std::string,GenericRecordPtr>& catalogCache,
-                                      bool useDiskCacheCatalog,
-                                      std::map<std::string,GenericRecordPtr>& refEvCache,
-                                      bool useDiskCacheRefEv)
+                                      ofstream& outStream)
 {
     auto search = catalog->getEvents().find(evToRelocateId);
     if (search == catalog->getEvents().end())
@@ -2465,8 +2501,8 @@ void HypoDD::buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
                 {
                     double dtcc, weight;
                     if ( xcorr(refEv, refPhase, event, phase, dtcc, weight,
-                               refEvCache, useDiskCacheRefEv,
-                               catalogCache, useDiskCacheCatalog) )
+                               _wfCache, _useCatalogDiskCache,
+                               _wfCache, _useCatalogDiskCache) )
                     {
                         evStream << stringify("%-12s %.6f %.4f %s", refPhase.stationId.c_str(),
                                               dtcc, weight,  refPhase.type.c_str());
@@ -2602,6 +2638,26 @@ void HypoDD::createDtCcPh2dt(const string& dtctFile, const string& dtccFile)
 
 
 
+string
+HypoDD::waveformFilename(const Catalog::Phase& ph, const Core::TimeWindow& tw) const
+{
+    return waveformFilename(ph.networkCode, ph.stationCode, ph.locationCode, ph.channelCode, tw);
+}
+
+
+
+string
+HypoDD::waveformFilename(const string& networkCode, const string& stationCode,
+                         const string& locationCode, const string& channelCode,
+                         const Core::TimeWindow& tw) const
+{
+    string cacheFile = waveformId(networkCode, stationCode, locationCode, channelCode, tw) + ".mseed";
+    cacheFile = (boost::filesystem::path(_cacheDir)/cacheFile).string();
+    return cacheFile;
+}
+
+
+
 string 
 HypoDD::waveformId(const Catalog::Phase& ph, const Core::TimeWindow& tw) const
 {
@@ -2621,6 +2677,28 @@ HypoDD::waveformId(const string& networkCode, const string& stationCode,
 }
 
 
+Core::TimeWindow
+HypoDD::xcorrTimeWindowLong(const Catalog::Phase& phase) const
+{
+    const auto xcorrCfg = _cfg.xcorr.at(phase.type);
+    double shortDuration = xcorrCfg.endOffset - xcorrCfg.startOffset;
+    Core::TimeSpan shortTimeCorrection = Core::TimeSpan(xcorrCfg.startOffset);
+    double longDuration = shortDuration + xcorrCfg.maxDelay * 2;
+    Core::TimeSpan longTimeCorrection = shortTimeCorrection - Core::TimeSpan(xcorrCfg.maxDelay);
+    return Core::TimeWindow(phase.time + longTimeCorrection, longDuration);
+}
+
+
+Core::TimeWindow
+HypoDD::xcorrTimeWindowShort(const Catalog::Phase& phase) const
+{
+    const auto xcorrCfg = _cfg.xcorr.at(phase.type);
+    double shortDuration = xcorrCfg.endOffset - xcorrCfg.startOffset;
+    Core::TimeSpan shortTimeCorrection = Core::TimeSpan(xcorrCfg.startOffset);
+    return Core::TimeWindow(phase.time + shortTimeCorrection, shortDuration);
+}
+
+
 bool
 HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
               const Catalog::Event& event2, const Catalog::Phase& phase2,
@@ -2635,14 +2713,8 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     SEISCOMP_DEBUG("Calculating cross correlation for phase pair phase1='%s', phase2='%s'",
                    string(phase1).c_str(), string(phase2).c_str());
 
-    // compute start time and duration for the two traces
-    double shortDuration = xcorrCfg.endOffset - xcorrCfg.startOffset;
-    Core::TimeSpan shortTimeCorrection = Core::TimeSpan(xcorrCfg.startOffset);
-    double longDuration = shortDuration + xcorrCfg.maxDelay * 2;
-    Core::TimeSpan longTimeCorrection = shortTimeCorrection - Core::TimeSpan(xcorrCfg.maxDelay);
-
-    Core::TimeWindow tw1 = Core::TimeWindow(phase1.time + longTimeCorrection, longDuration);
-    Core::TimeWindow tw2 = Core::TimeWindow(phase2.time + longTimeCorrection, longDuration); 
+    Core::TimeWindow tw1 = xcorrTimeWindowLong(phase1);
+    Core::TimeWindow tw2 = xcorrTimeWindowLong(phase2);
 
     // Check if we have already excluded those traces (couldn't load, snr too high, etc..)
     const string wfId1 = waveformId(phase1, tw1);
@@ -2676,7 +2748,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     {
         // trim tr2 to shorter length, we want to cross correlate the short with the long one
         GenericRecordPtr tr2Short = new GenericRecord(*tr2);
-        Core::TimeWindow tw2Short = Core::TimeWindow(phase2.time + shortTimeCorrection, shortDuration);
+        Core::TimeWindow tw2Short = xcorrTimeWindowShort(phase2);
         if ( !trim(*tr2Short, tw2Short) )
         {
             SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation "
@@ -2700,7 +2772,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     {
         // trim tr1 to shorter length, we want to cross correlate the short with the long one
         GenericRecordPtr tr1Short = new GenericRecord(*tr1);
-        Core::TimeWindow tw1Short = Core::TimeWindow(phase1.time + shortTimeCorrection, shortDuration);
+        Core::TimeWindow tw1Short = xcorrTimeWindowShort(phase1);
         if ( !trim(*tr1Short, tw1Short) )
         {
             SEISCOMP_WARNING("Cannot trim phase1 waveform, skipping cross correlation "
@@ -2889,6 +2961,30 @@ HypoDD::S2Nratio(const GenericRecordCPtr& tr, const Core::Time& pickTime,
 }
 
 
+Core::TimeWindow
+HypoDD::traceTimeWindowToLoad(const Catalog::Phase& ph, const Core::TimeWindow& neededTW) const
+{
+    // Compute the waveform time window to load
+    Core::TimeWindow twToLoad = neededTW;
+    if ( _cfg.snr.minSnr > 0 )
+    {
+        // if the SNR window is bigger than the xcorr window, than extend
+        // the waveform time window
+        Core::Time winStart = std::min( {
+              neededTW.startTime(),
+              ph.time + Core::TimeSpan(_cfg.snr.noiseStart),
+              ph.time + Core::TimeSpan(_cfg.snr.signalStart)
+        });
+        Core::Time winEnd = std::max( {
+                neededTW.endTime(),
+                ph.time + Core::TimeSpan(_cfg.snr.noiseEnd),
+                ph.time + Core::TimeSpan(_cfg.snr.signalEnd)
+        });
+        twToLoad = Core::TimeWindow(winStart, winEnd);
+    }
+    return twToLoad;
+}
+
 
 /*
  * Return the waveform from the memory cache if present, otherwise load it
@@ -2951,24 +3047,9 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         projectionRequired = false; // let's try to load the waveform anyway
     }
 
-    // Compute the waveform time window to load
-    Core::TimeWindow twToLoad = tw;
-    if ( _cfg.snr.minSnr > 0 )
-    {
-        // if the SNR window is bigger than the xcorr window, than extend
-        // the waveform time window
-        Core::Time winStart = std::min( {
-              tw.startTime(),
-              ph.time + Core::TimeSpan(_cfg.snr.noiseStart),
-              ph.time + Core::TimeSpan(_cfg.snr.signalStart)
-        });
-        Core::Time winEnd = std::max( {
-                tw.endTime(),
-                ph.time + Core::TimeSpan(_cfg.snr.noiseEnd),
-                ph.time + Core::TimeSpan(_cfg.snr.signalEnd)
-        });
-        twToLoad = Core::TimeWindow(winStart, winEnd);
-    }
+    // if the SNR window is bigger than the xcorr window, than extend
+    // the waveform time window
+    Core::TimeWindow twToLoad = traceTimeWindowToLoad(ph, tw);
 
     // Load waveform:
     // - if no projection required, just load the requested component
@@ -3001,8 +3082,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     if ( _cfg.wfFilter.dump )
     {
-        string dumpFile = waveformId(ph, tw) + "-processed.mseed";
-        dumpFile = (boost::filesystem::path(_cacheDir)/dumpFile).string();
+        string dumpFile = waveformFilename(ph, tw) + ".processed";
         writeTrace(trace, dumpFile);
     }
 
@@ -3208,9 +3288,7 @@ HypoDD::loadWaveform(const Core::TimeWindow& tw,
                      const string& channelCode,
                      bool useDiskCache) const
 {
-    string cacheFile = waveformId(networkCode, stationCode, locationCode, channelCode, tw) + ".mseed";
-
-    cacheFile = (boost::filesystem::path(_cacheDir)/cacheFile).string();
+    string cacheFile = waveformFilename(networkCode, stationCode, locationCode, channelCode, tw);
 
     GenericRecordPtr trace;
     // First try to read trace from disk cache

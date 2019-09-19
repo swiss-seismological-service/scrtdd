@@ -91,7 +91,8 @@ class RTDD : public Application {
 
         bool processOrigin(DataModel::Origin *origin, DataModel::OriginPtr& relocatedOrg,
                            const std::string& forceProfile="", bool recompute=false,
-                           bool forceProcessing=false, bool allowManualOrigin=false, bool doSend=true);
+                           bool forceProcessing=false, bool allowManualOrigin=false,
+                           bool doSend=true, bool updateIncrementalCatalog=false);
 
         void relocateOrigin(DataModel::Origin *org, ProfilePtr profile,
                             DataModel::OriginPtr& newOrg,
@@ -149,6 +150,8 @@ class RTDD : public Application {
                       bool preloadData);
             void unload();
             bool isLoaded() { return loaded; }
+            void cleanUnusedResources();
+            bool needResourcesCleaning() { return isLoaded() && needCleaning; }
             Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
             HDD::CatalogPtr relocateSingleEvent(DataModel::Origin *org);
             HDD::CatalogPtr relocateCatalog(bool force = true);
@@ -167,6 +170,7 @@ class RTDD : public Application {
 
             private:
             bool loaded;
+            bool needCleaning;
             Core::Time lastUsage;
             HDD::HypoDDPtr hypodd;
             DataModel::DatabaseQuery* query;
