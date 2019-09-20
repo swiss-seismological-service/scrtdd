@@ -965,8 +965,8 @@ void RTDD::checkProfileStatus()
             }
         }
 
-        // either way clean unused resources (memory and files) after 1 hour
-        Core::TimeSpan cleanupTimeout = Core::TimeSpan(60);
+        // either way clean unused resources (memory and files) after 10 minutes of inactivity
+        Core::TimeSpan cleanupTimeout = Core::TimeSpan(60*10);
         if ( currProfile->needResourcesCleaning() && currProfile->inactiveTime() > cleanupTimeout )
         {
             SEISCOMP_INFO("Profile %s inactive for more than %f seconds: clean unused resources",
