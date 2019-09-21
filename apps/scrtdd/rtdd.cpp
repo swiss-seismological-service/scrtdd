@@ -290,7 +290,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
                 "Relocate the catalog of profile passed as argument", true);
     NEW_OPT_CLI(_config.loadCatalog, "Mode", "load-profile-wf",
                 "Load catalog waveforms from the configured recordstream and save them into the profile working directory ('cacheWaveforms' folder)", true);
-    NEW_OPT_CLI(_config.dumpProcessedWf, "Mode", "processed-wf", "(Debugging) Enable the dumping of processed waveforms into the profile working directory ('cacheWaveforms' folder). Useful when run in combination with --load-profile-wf", false, true);
+    NEW_OPT_CLI(_config.dumpProcessedWf, "Mode", "debug-wf", "Enable the dumping of waveforms (filtered and resampled phases, artificial phases, SNR rejected phases) into the profile working directory ('cacheWaveforms' folder). Useful when run in combination with --load-profile-wf", false, true);
     NEW_OPT_CLI(_config.originIDs, "Mode", "origin-id,O",
                 "Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed accordingly with the matching profile region unless --profile option is used", true);
     NEW_OPT_CLI(_config.eventXML, "Mode", "ep",
@@ -446,6 +446,10 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.dtct.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
         } catch ( ... ) { prof->ddcfg.dtct.maxNumNeigh = -1; }
+        try {
+            prof->ddcfg.dtct.findMissingPhase = configGetBool(prefix + "findMissingPhase");
+        } catch ( ... ) { prof->ddcfg.dtct.findMissingPhase = false; }
+
         prefix = string("profile.") + *it + ".dtct.neighboringEventSelection.";
         try {
             prof->ddcfg.dtct.numEllipsoids = configGetInt(prefix + "numEllipsoids");
@@ -465,6 +469,7 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.dtct.minDTperEvt = configGetInt(prefix + "minDTperEvt");
         } catch ( ... ) { prof->ddcfg.dtct.minDTperEvt = 1; }
+
         prefix = string("profile.") + *it + ".dtct.phaseSelection.";
         try {
             prof->ddcfg.dtct.minWeight = configGetDouble(prefix + "minWeight");
@@ -475,7 +480,7 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.dtct.maxESdist = configGetDouble(prefix + "maxESdist");
         } catch ( ... ) { prof->ddcfg.dtct.maxESdist = -1; }
-         try {
+        try {
             prof->ddcfg.dtct.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
         } catch ( ... ) { prof->ddcfg.dtct.minEStoIEratio = 0; } 
 
@@ -487,6 +492,10 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.dtcc.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
         } catch ( ... ) { prof->ddcfg.dtcc.maxNumNeigh = -1; }
+        try {
+            prof->ddcfg.dtcc.findMissingPhase = configGetBool(prefix + "findMissingPhase");
+        } catch ( ... ) { prof->ddcfg.dtcc.findMissingPhase = false; }
+
         prefix = string("profile.") + *it + ".dtcc.neighboringEventSelection.";
         try {
             prof->ddcfg.dtcc.numEllipsoids = configGetInt(prefix + "numEllipsoids");
@@ -506,6 +515,7 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.dtcc.minDTperEvt = configGetInt(prefix + "minDTperEvt");
         } catch ( ... ) { prof->ddcfg.dtcc.minDTperEvt = 1; }
+
         prefix = string("profile.") + *it + ".dtcc.phaseSelection.";
         try {
             prof->ddcfg.dtcc.minWeight = configGetDouble(prefix + "minWeight");
@@ -519,7 +529,6 @@ bool RTDD::validateParameters()
          try {
             prof->ddcfg.dtcc.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
         } catch ( ... ) { prof->ddcfg.dtcc.minEStoIEratio = 0; } 
-
 
         prefix = string("profile.") + *it + ".dtcc.crosscorrelation.p-phase.";
         try {
@@ -543,6 +552,17 @@ bool RTDD::validateParameters()
             profilesOK = false;
             continue;
         }
+
+        prefix = string("profile.") + *it + ".dtcc.crosscorrelation.findMissingPhase.";
+        try {
+            prof->ddcfg.artificialPhases.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
+        } catch ( ... ) {  prof->ddcfg.artificialPhases.minEStoIEratio = 5; }
+        try {
+            prof->ddcfg.artificialPhases.numCC = configGetInt(prefix + "numCC");
+        } catch ( ... ) {  prof->ddcfg.artificialPhases.numCC = 2; }
+        try {
+            prof->ddcfg.artificialPhases.maxCCtw = configGetDouble(prefix + "maxCCtw");
+        } catch ( ... ) {  prof->ddcfg.artificialPhases.maxCCtw = 10; }
 
         prefix = string("profile.") + *it + ".dtcc.waveformFiltering.";
         try {

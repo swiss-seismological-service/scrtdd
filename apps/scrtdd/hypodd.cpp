@@ -1112,7 +1112,7 @@ void HypoDD::preloadData()
         {
             const Catalog::Phase& phase = it->second;
             Core::TimeWindow tw = xcorrTimeWindowLong(phase);
-            getWaveform(tw, event, phase, _wfCache, _useCatalogDiskCache);
+            getWaveform(tw, event, phase, _wfCache, _useCatalogDiskCache, true);
         }
     }
 }
@@ -1121,6 +1121,7 @@ void HypoDD::preloadData()
 
 void HypoDD::cleanUnusedResources()
 {
+    SEISCOMP_INFO("Cleaning unused resources");
     //
     // delete all in working directory expect the cache directory
     //
@@ -1194,6 +1195,271 @@ void HypoDD::cleanUnusedResources()
 }
 
 
+
+CatalogPtr
+HypoDD::createMissingPhasesCatalog(const CatalogCPtr& catalog)
+{
+    CatalogPtr newCatalog = new Catalog(*catalog);
+
+    for (const auto& kv : catalog->getEvents() )
+    {
+        const Catalog::Event& event = kv.second;
+        std::vector<Catalog::Phase> newPhases = createMissingPhasesForEvent(catalog, event);
+        for (Catalog::Phase& ph : newPhases)
+        {
+            newCatalog->addPhase(ph, true);
+        }
+    }
+    return newCatalog;
+}
+
+
+
+std::vector<Catalog::Phase>
+HypoDD::createMissingPhasesForEvent(const CatalogCPtr& catalog, const Catalog::Event& refEv)
+{
+    // find phases of refEv, let's do it once and keep the results
+    const auto& refEvPhases = catalog->getPhases().equal_range(refEv.id);
+
+    SEISCOMP_INFO("Creating missing phases for event %u (current num phases %ld)",
+                   refEv.id, std::distance(refEvPhases.first, refEvPhases.second));
+
+    //
+    // loop through stations and find those for which the refEv doesn't have phases
+    // also compute distance refEv and station 
+    //
+    typedef std::pair<string,string> MissingStationPhase;
+    map<MissingStationPhase,double> missingPhases;
+    for (const auto& kv : catalog->getStations() )
+    {
+        const Catalog::Station& station = kv.second;
+
+        bool foundP = false, foundS = false;
+        for (auto it = refEvPhases.first; it != refEvPhases.second; ++it)
+        {
+            const Catalog::Phase& phase = it->second;
+            if ( station.networkCode == phase.networkCode &&
+                 station.stationCode == phase.stationCode )
+            {
+                if ( phase.type == "P" ) foundP = true;
+                if ( phase.type == "S" ) foundS = true;
+            }
+            if ( foundP and foundS ) break;
+        }
+        if ( ! foundP || ! foundS )
+        {
+            double stationDistance = computeDistance(refEv.latitude, refEv.longitude, refEv.depth,
+                                                     station.latitude, station.longitude,
+                                                     -(station.elevation/1000.));
+            if ( ! foundP )
+            {
+                SEISCOMP_DEBUG("Event %u misses P phase for station %s", refEv.id, string(station).c_str());
+                missingPhases[ MissingStationPhase(station.id,"P") ] = stationDistance;
+            }
+            if ( ! foundS )
+            {
+                SEISCOMP_DEBUG("Event %u misses S phase for station %s", refEv.id, string(station).c_str());
+                missingPhases[ MissingStationPhase(station.id,"S") ] = stationDistance;
+            }
+        }
+    }
+
+    //
+    // Compute distance between refEv and other events, we will use this in the next step
+    //
+    map<double,unsigned> eventByRefEvDistance; // distance to refEv, eventid
+    for (const auto& kv : catalog->getEvents() )
+    {
+        const Catalog::Event& event = kv.second;
+        if (event == refEv)
+            continue;
+        double distance = computeDistance(refEv.latitude, refEv.longitude, refEv.depth,
+                                          event.latitude, event.longitude, event.depth);
+        eventByRefEvDistance[distance] = event.id;
+    }
+
+    //
+    // for each missing station
+    //
+    std::vector<Catalog::Phase> newPhases;
+    std::map<std::string, GenericRecordPtr> _tmpCache;
+    for ( const auto& kv : missingPhases )
+    {
+        const Catalog::Station& station = catalog->getStations().at(kv.first.first);
+        const string phaseType = kv.first.second;
+        const double refEvDistToStation = kv.second;
+
+        //
+        // loop through each other event and select the ones who:
+        // - have a manaully picked phase for the missing station
+        // - whose station-distance to inter-events distance ratio is high enough
+        //
+        typedef std::pair<Catalog::Event, Catalog::Phase> XCorrPeer;
+        map<double,XCorrPeer> xcorrPeers;
+
+        struct {
+            string locationCode;
+            string channelCode;
+            Core::Time lastSeen;
+        } streamInfo = {"", "", Core::Time()};
+
+        for (const auto& kv : eventByRefEvDistance)
+        {
+            const double eventToRefEvDistance = kv.first;
+            const Catalog::Event& event = catalog->getEvents().at(kv.second);
+
+            const auto& phases = catalog->getPhases().equal_range(event.id);
+            for (auto it = phases.first; it != phases.second; ++it)
+            {
+                const Catalog::Phase& phase = it->second;
+
+                if ( station.networkCode == phase.networkCode &&
+                     station.stationCode == phase.stationCode &&
+                     phaseType           == phase.type        &&
+                     phase.isManual )
+                {
+                    double stationDistance = computeDistance(event.latitude, event.longitude, event.depth,
+                                                             station.latitude, station.longitude,
+                                                             -(station.elevation/1000.));
+                    // skip station whose event-station to inter-events ratio is too small
+                    if ( (refEvDistToStation / eventToRefEvDistance) >= _cfg.artificialPhases.minEStoIEratio )
+                    {
+                        // keep track of close events with a phase for the missing station
+                        xcorrPeers[stationDistance] = XCorrPeer(event, phase);
+                    }
+                    break;
+                }
+
+                if ( station.networkCode == phase.networkCode &&
+                     station.stationCode == phase.stationCode &&
+                     streamInfo.lastSeen <  phase.time)
+                {
+                      streamInfo = {phase.locationCode, phase.channelCode, phase.time};
+                }
+            }
+        }
+
+        if ( xcorrPeers.size() < _cfg.artificialPhases.numCC || xcorrPeers.size() < 2 )
+        {
+            SEISCOMP_DEBUG("Event %u: cannot create phase %s for station %s. Not enough close-by events",
+                           refEv.id, phaseType.c_str(), string(station).c_str());
+            continue;
+        }
+
+        //
+        // from those close by events select the further from the station and the closer
+        // we'll use those two events to compute the interval over which crosscorrelate
+        // to find out the missing phase
+        //
+        const XCorrPeer& closerPeer  = xcorrPeers.begin()->second;
+        const XCorrPeer& furtherPeer = xcorrPeers.rbegin()->second;
+
+        Core::TimeSpan closer_travel_time  = closerPeer.second.time - closerPeer.first.time;
+        Core::TimeSpan further_travel_time = furtherPeer.second.time - furtherPeer.first.time;
+        const auto xcorrCfg = _cfg.xcorr.at(phaseType);
+        Core::Time startTime = refEv.time + closer_travel_time + Core::TimeSpan(xcorrCfg.startOffset);
+        Core::Time endTime = refEv.time + further_travel_time + Core::TimeSpan(xcorrCfg.endOffset);
+
+        Core::TimeWindow xcorrTw = Core::TimeWindow(startTime, endTime);
+        if ( xcorrTw.length() > _cfg.artificialPhases.maxCCtw )
+        {
+            SEISCOMP_DEBUG("Event %u: cannot create phase %s for station %s. Detectied xcorr time window is too big (secs %.2f)",
+                           refEv.id, phaseType.c_str(), string(station).c_str(), xcorrTw.length());
+            continue;
+        }
+
+        // create new phase
+        Catalog::Phase refEvNewPhase;
+        refEvNewPhase.eventId      = refEv.id;
+        refEvNewPhase.stationId    = station.id;
+        refEvNewPhase.time         = startTime + Core::TimeSpan((endTime - startTime).length() / 2);
+        refEvNewPhase.weight       = 0;
+        refEvNewPhase.type         = phaseType;
+        refEvNewPhase.networkCode  = station.networkCode;
+        refEvNewPhase.stationCode  = station.stationCode;
+        refEvNewPhase.locationCode = streamInfo.locationCode;
+        refEvNewPhase.channelCode  = streamInfo.channelCode;
+        refEvNewPhase.isManual     = false;
+
+        GenericRecordPtr refTr = getWaveform(xcorrTw, refEv, refEvNewPhase, _tmpCache, false, false);
+        if ( ! refTr )
+        {
+            SEISCOMP_DEBUG("Event %u: cannot create phase %s for station %s. Cannot load waveform",
+                           refEv.id, phaseType.c_str(), string(station).c_str());
+            continue;
+        }
+
+
+        //
+        // loop through the close-by events and compute the cross correlation with their known
+        // phase to the missing one
+        // Eventually compute the average cross correlation coefficient and if the results
+        // is satisfying then keep the phase
+        //
+        map<double,double> xcorr_out; // xcorr_coeff, xcorr_dt
+        for (const auto& kv : xcorrPeers)
+        {
+            const XCorrPeer& peer = kv.second;
+            const Catalog::Event& event = peer.first;
+            const Catalog::Phase& phase = peer.second;
+
+            Core::TimeWindow twLong = xcorrTimeWindowLong(phase);
+            GenericRecordPtr tr = getWaveform(twLong, event, phase, _wfCache, _useCatalogDiskCache, true);
+            if ( ! tr ) continue;
+
+            Core::TimeWindow twShort = xcorrTimeWindowShort(phase);
+            if ( !trim(*tr, twShort) ) continue;
+
+            double maxDelay = (xcorrTw.length() - twShort.length()) / 2;
+            double xcorr_coeff = std::nan(""), xcorr_dt = 0;
+            if ( ! xcorr(tr, refTr, maxDelay, true, xcorr_dt, xcorr_coeff) ) continue;
+
+            if ( ! std::isfinite(xcorr_coeff) ) continue;
+
+            xcorr_out[xcorr_coeff] = xcorr_dt;
+        }
+
+        if ( xcorr_out.size() < _cfg.artificialPhases.numCC )
+        {
+            SEISCOMP_INFO("Event %u: rejected artificial phase %s for station %s. Not enough close-by events to crosscorelate (%ld)",
+                          refEv.id, phaseType.c_str(), string(station).c_str(), xcorr_out.size());
+            continue;
+        }
+
+        // compute average xcorr coefficient and timedelta
+        double xcorr_coeff_tot = 0, xcorr_dt_tot = 0;
+        int ccCount = 0;
+        for (auto i = xcorr_out.rbegin(); i != xcorr_out.rend(); ++i) // reverse because we want highest CC
+        {
+            xcorr_coeff_tot += i->first;
+            xcorr_dt_tot    += i->second;
+            if (++ccCount >= _cfg.artificialPhases.numCC) break;
+        }
+        xcorr_coeff_tot /= ccCount;
+        xcorr_dt_tot /= ccCount;
+
+        if ( xcorr_coeff_tot < xcorrCfg.minCoef )
+        {
+            SEISCOMP_INFO("Event %u: rejected artificial phase %s for station %s. Crosscorrelation coefficient too low (%.2f)",
+                          refEv.id, phaseType.c_str(), string(station).c_str(), xcorr_coeff_tot);
+            continue;
+        }
+
+        refEvNewPhase.time   = refEv.time - Core::TimeSpan(xcorr_dt_tot);
+        newPhases.push_back(refEvNewPhase);
+
+        SEISCOMP_INFO("Event %u: new phase %s for station %s created (average crosscorrelation coefficient %.2f over %d close-by events)",
+                      refEv.id, phaseType.c_str(), string(station).c_str(), xcorr_coeff_tot,  _cfg.artificialPhases.numCC);
+        if ( _cfg.wfFilter.dump )
+        {
+            string ext = stringify(".artificial-%s-phase-cc-%.2f", phaseType.c_str(), xcorr_coeff_tot);
+            writeTrace(refTr, waveformFilename(refEvNewPhase, xcorrTw) + ext);
+        }
+    }
+
+    SEISCOMP_INFO("Event %u: created %ld new phases", refEv.id, newPhases.size());
+    return newPhases;
+}
 
 
 
@@ -1319,6 +1585,13 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
 {
     SEISCOMP_INFO("Starting HypoDD relocator in multiple events mode");
 
+    CatalogCPtr catToReloc = _ddbgc;
+
+    if ( _cfg.dtcc.findMissingPhase )
+    {
+        catToReloc = createMissingPhasesCatalog(catToReloc);
+    }
+
     // Create working directory 
     string catalogWorkingDir = (boost::filesystem::path(_workingDir)/"catalog").string(); 
     if ( !Util::pathExists(catalogWorkingDir) )
@@ -1331,7 +1604,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
     }
 
     // write catalog for debugging purpose
-    _ddbgc->writeToFile((boost::filesystem::path(catalogWorkingDir)/"event.csv").string(),
+    catToReloc->writeToFile((boost::filesystem::path(catalogWorkingDir)/"event.csv").string(),
                         (boost::filesystem::path(catalogWorkingDir)/"phase.csv").string(),
                         (boost::filesystem::path(catalogWorkingDir)/"station.csv").string() );
 
@@ -1339,7 +1612,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
     string stationFile = (boost::filesystem::path(catalogWorkingDir)/"station.dat").string();
     if ( force || ! Util::fileExists(stationFile) )
     {
-        createStationDatFile(stationFile, _ddbgc);
+        createStationDatFile(catToReloc, stationFile);
     }
 
     string eventFile = (boost::filesystem::path(catalogWorkingDir)/"event.dat").string();
@@ -1351,21 +1624,21 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
         // Create event.dat for hypodd (if not already generated)
         if ( force || ! Util::fileExists(eventFile) )
         {
-            createEventDatFile(eventFile, _ddbgc);
+            createEventDatFile(catToReloc, eventFile);
         }
 
         // calculate absolute travel times from catalog phases
         // Create dt.ct (if not already generated)
         if ( force || ! Util::fileExists(dtctFile) )
         {
-            createDtCtCatalog(_ddbgc, dtctFile);
+            createDtCtCatalog(catToReloc, dtctFile);
         }
 
         // calculate cross correlated differential travel times
         // Create dt.cc (if not already generated)
         if ( force || ! Util::fileExists(dtccFile) )
         {
-            createDtCcCatalog(_ddbgc, dtccFile);
+            createDtCcCatalog(catToReloc, dtccFile);
         }
     }
     else
@@ -1374,7 +1647,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
         string phaseFile = (boost::filesystem::path(catalogWorkingDir)/"phase.dat").string();
         if ( force || ! Util::fileExists(phaseFile) )
         {
-            createPhaseDatFile(phaseFile, _ddbgc);
+            createPhaseDatFile(catToReloc, phaseFile);
         }
 
         // run ph2dt
@@ -1397,7 +1670,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
         // output dt.cc
         if ( force || ! Util::fileExists(dtccFile) )
         {
-            createDtCcPh2dt(dtctFile, dtccFile);
+            createDtCcPh2dt(catToReloc, dtctFile, dtccFile);
         }
     }
 
@@ -1413,7 +1686,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
 
     // load a catalog from hypodd output file
     // input: hypoDD.reloc
-    CatalogPtr relocatedCatalog = loadRelocatedCatalog(_ddbgc, ddrelocFile, ddresidualFile);
+    CatalogPtr relocatedCatalog = loadRelocatedCatalog(catToReloc, ddrelocFile, ddresidualFile);
 
     // write catalog for debugging purpose
     relocatedCatalog->writeToFile((boost::filesystem::path(catalogWorkingDir)/"event-reloc.csv").string(),
@@ -1428,10 +1701,19 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 {
     SEISCOMP_INFO("Starting HypoDD relocator in single event mode");
 
-    const CatalogCPtr evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
+    CatalogPtr evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
 
     // there must be only one event in the catalog, the origin to relocate
     const Catalog::Event& evToRelocate = evToRelocateCat->getEvents().begin()->second;
+
+    if( _cfg.dtct.findMissingPhase )
+    {
+        std::vector<Catalog::Phase> newPhases = createMissingPhasesForEvent(_ddbgc->merge(evToRelocateCat), evToRelocate);
+        for (Catalog::Phase& ph : newPhases)
+        {
+            evToRelocateCat->addPhase(ph, true);
+        }
+    }
 
     // Create working directory
     string subFolder = generateWorkingSubDir(evToRelocate);
@@ -1470,11 +1752,11 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
     // Create station.dat for hypodd
     string stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
-    createStationDatFile(stationFile, neighbourCat);
+    createStationDatFile(neighbourCat, stationFile);
 
     // Create event.dat for hypodd
     string eventFile = (boost::filesystem::path(eventWorkingDir)/"event.dat").string();
-    createEventDatFile(eventFile, neighbourCat);
+    createEventDatFile(neighbourCat, eventFile);
 
     // Create differential travel times file (dt.ct) for hypodd
     string dtctFile = (boost::filesystem::path(eventWorkingDir)/"dt.ct").string();
@@ -1514,8 +1796,17 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
             throw runtime_error(msg);
         }
 
-        // Select neighbouring events from the relocated origin
         const Catalog::Event& relocatedEv = relocatedEvCat->getEvents().begin()->second;
+        if( _cfg.dtcc.findMissingPhase )
+        {
+            std::vector<Catalog::Phase> newPhases = createMissingPhasesForEvent(_ddbgc->merge(relocatedEvCat), relocatedEv);
+            for (Catalog::Phase& ph : newPhases)
+            {
+                relocatedEvCat->addPhase(ph, true);
+            }
+        }
+
+        // Select neighbouring events from the relocated origin
         neighbourCat = selectNeighbouringEvents(
             _ddbgc->merge(relocatedEvCat), relocatedEv, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist,
             _cfg.dtcc.maxESdist, _cfg.dtcc.minEStoIEratio, _cfg.dtcc.maxIEdist, _cfg.dtcc.minDTperEvt,
@@ -1528,11 +1819,11 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
         // Create station.dat for hypodd
         stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
-        createStationDatFile(stationFile, neighbourCat);
+        createStationDatFile(neighbourCat, stationFile);
 
         // Create event.dat for hypodd
         eventFile = (boost::filesystem::path(eventWorkingDir)/"event.dat").string();
-        createEventDatFile(eventFile, neighbourCat);
+        createEventDatFile(neighbourCat, eventFile);
 
         // Create differential travel times file (dt.ct) for hypodd
         dtctFile = (boost::filesystem::path(eventWorkingDir)/"dt.ct").string();
@@ -1576,7 +1867,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
  NCABR 39.1381 -121.48   14
  *
  */
-void HypoDD::createStationDatFile(const string& staFileName, const CatalogCPtr& catalog) const
+void HypoDD::createStationDatFile(const CatalogCPtr& catalog, const string& staFileName) const
 {
     SEISCOMP_INFO("Creating station file %s", staFileName.c_str());
 
@@ -1585,7 +1876,7 @@ void HypoDD::createStationDatFile(const string& staFileName, const CatalogCPtr& 
         string msg = "Cannot create file " + staFileName;
         throw runtime_error(msg);
     }
-    
+
     for (const auto& kv :  catalog->getStations() )
     {
         const Catalog::Station& station = kv.second;
@@ -1616,7 +1907,7 @@ void HypoDD::createStationDatFile(const string& staFileName, const CatalogCPtr& 
  NCCBW       3.360   0.250   P
  *
  */
-void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogCPtr& catalog) const
+void HypoDD::createPhaseDatFile(const CatalogCPtr& catalog, const string& phaseFileName) const
 {
     SEISCOMP_INFO("Creating phase file %s", phaseFileName.c_str());
 
@@ -1678,7 +1969,7 @@ void HypoDD::createPhaseDatFile(const string& phaseFileName, const CatalogCPtr& 
 19850402   5571645   37.8825  -122.2420      9.440   1.9    0.12    0.30   0.04      45165
  *
  */
-void HypoDD::createEventDatFile(const string& eventFileName, const CatalogCPtr& catalog) const
+void HypoDD::createEventDatFile(const CatalogCPtr& catalog, const string& eventFileName) const
 {
     SEISCOMP_INFO("Creating event file %s", eventFileName.c_str());
 
@@ -2536,7 +2827,7 @@ void HypoDD::buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
  * input dt.ct 
  * output dt.cc
  */
-void HypoDD::createDtCcPh2dt(const string& dtctFile, const string& dtccFile)
+void HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, const string& dtccFile)
 {
     SEISCOMP_INFO("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
 
@@ -2547,7 +2838,7 @@ void HypoDD::createDtCcPh2dt(const string& dtctFile, const string& dtccFile)
     if ( !outStream.is_open() )
         throw runtime_error("Cannot create file " + dtccFile);
 
-    const std::map<unsigned,Catalog::Event>& events = _ddbgc->getEvents();
+    const std::map<unsigned,Catalog::Event>& events = catalog->getEvents();
     const Catalog::Event *ev1 = nullptr, *ev2 = nullptr;
     int dtCount = 0;
     stringstream evStream;
@@ -2602,7 +2893,7 @@ void HypoDD::createDtCcPh2dt(const string& dtctFile, const string& dtccFile)
             string phaseType = fields[4];
 
             // loop through event 1 phases
-            auto eqlrng = _ddbgc->getPhases().equal_range(ev1->id);
+            auto eqlrng = catalog->getPhases().equal_range(ev1->id);
             for (auto it = eqlrng.first; it != eqlrng.second; ++it)
             {
                 const Catalog::Phase& phase1 = it->second;
@@ -2610,7 +2901,7 @@ void HypoDD::createDtCcPh2dt(const string& dtctFile, const string& dtccFile)
                     phase1.type == phaseType )
                 {
                     // loop through event 2 phases
-                    eqlrng = _ddbgc->getPhases().equal_range(ev2->id);
+                    eqlrng = catalog->getPhases().equal_range(ev2->id);
                     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
                     {
                         const Catalog::Phase& phase2 = it->second;
@@ -2726,27 +3017,17 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     Core::TimeWindow tw1 = xcorrTimeWindowLong(phase1);
     Core::TimeWindow tw2 = xcorrTimeWindowLong(phase2);
 
-    // Check if we have already excluded those traces (couldn't load, snr too high, etc..)
-    const string wfId1 = waveformId(phase1, tw1);
-    const string wfId2 = waveformId(phase2, tw2);
-    if ( _excludedWfs.count(wfId1) != 0 || _excludedWfs.count(wfId2) != 0 )
-    {
-        return false;
-    }
-
     // load the long trace 1, because we want to cache the long version. Then we'll trim it.
-    GenericRecordPtr tr1 = getWaveform(tw1, event1, phase1, cache1, useDiskCache1);
+    GenericRecordPtr tr1 = getWaveform(tw1, event1, phase1, cache1, useDiskCache1, true);
     if ( !tr1 )
     {
-        _excludedWfs.insert(wfId1);
         return false;
     }
 
     // load the long trace 2, because we want to cache the long version. Then we'll trim it
-    GenericRecordPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2);
+    GenericRecordPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2, true);
     if ( !tr2 )
     {
-        _excludedWfs.insert(wfId2);
         return false;
     }
 
@@ -2764,7 +3045,6 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
             SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation "
                              "for phase pair phase1='%s', phase2='%s'",
                              string(phase1).c_str(), string(phase2).c_str());
-            _excludedWfs.insert(wfId2);
             return false;
         }
 
@@ -2788,7 +3068,6 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
             SEISCOMP_WARNING("Cannot trim phase1 waveform, skipping cross correlation "
                              "for phase pair phase1='%s', phase2='%s'",
                              string(phase1).c_str(), string(phase2).c_str());
-            _excludedWfs.insert(wfId1);
             return false;
         }
 
@@ -2796,7 +3075,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
         {
             return false;
         }
-    }   
+    }
 
     if ( ! std::isfinite(xcorr_coeff) && ! std::isfinite(xcorr_coeff2) )
     {
@@ -3004,11 +3283,11 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
                     const Catalog::Event& ev,
                     const Catalog::Phase& ph,
                     map<string,GenericRecordPtr>& memCache,
-                    bool useDiskCache) const
+                    bool useDiskCache,
+                    bool checkSnr)
 {
     string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
                               string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
-
     /*
      * first try to load the waveform from the memory cache, if present
      */
@@ -3019,6 +3298,12 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     if ( it != memCache.end() )
     {
         return it->second; // waveform cached, just return it 
+    }
+
+    // Check if we have already excluded the trace (couldn't load, snr too high, etc..)
+    if ( _excludedWfs.count(wfId) != 0 )
+    {
+        return nullptr;
     }
 
     /*
@@ -3059,7 +3344,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     // if the SNR window is bigger than the xcorr window, than extend
     // the waveform time window
-    Core::TimeWindow twToLoad = traceTimeWindowToLoad(ph, tw);
+    const Core::TimeWindow twToLoad = checkSnr ? traceTimeWindowToLoad(ph, tw) : tw;
 
     // Load waveform:
     // - if no projection required, just load the requested component
@@ -3077,6 +3362,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
             if ( ! allComponents )
             {
                 SEISCOMP_WARNING("Unable to fetch orientation information (%s)", wfDesc.c_str());
+                _excludedWfs.insert(wfId);
                 return nullptr;
             }
             trace = loadProjectWaveform(twToLoad, ev, ph, tc, loc, useDiskCache);
@@ -3084,6 +3370,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     } catch ( exception &e ) {
         SEISCOMP_WARNING("%s", e.what());
+        _excludedWfs.insert(wfId);
         return nullptr;
     }
 
@@ -3092,19 +3379,22 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     if ( _cfg.wfFilter.dump )
     {
-        string dumpFile = waveformFilename(ph, tw) + ".processed";
-        writeTrace(trace, dumpFile);
+        writeTrace(trace, waveformFilename(ph, twToLoad) + ".processed");
     }
 
     // check SNR threshold
-    if ( _cfg.snr.minSnr > 0 )
+    if ( checkSnr && _cfg.snr.minSnr > 0 )
     {
         double snr = S2Nratio(trace, ph.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
                               _cfg.snr.signalStart, _cfg.snr.signalEnd);
         if ( snr < _cfg.snr.minSnr ) 
         {
-            //writeTrace(trace, waveformId(ph, tw)  + "-S2Nratio-rejected.mseed");
             SEISCOMP_DEBUG("Trace has too low SNR (%.2f), discard it (%s)", snr, wfDesc.c_str());
+            if ( _cfg.wfFilter.dump )
+            {
+                writeTrace(trace, waveformFilename(ph, twToLoad) + "-S2Nratio-rejected.mseed");
+            }
+            _excludedWfs.insert(wfId);
             return nullptr;
         }
     }
@@ -3114,8 +3404,9 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     {
         if ( ! trim(*trace, tw) )
         {
-            string msg = stringify("Incomplete trace, not enough data (%s)", wfDesc.c_str());
-            throw runtime_error(msg);
+            SEISCOMP_DEBUG("Incomplete trace, not enough data (%s)", wfDesc.c_str());
+            _excludedWfs.insert(wfId);
+            return nullptr;
         }
     }
 
@@ -3359,7 +3650,7 @@ HypoDD::readWaveformFromRecordStream(const Core::TimeWindow& tw,
 
     if ( seq->empty() )
     {
-        string msg = stringify("Data could not be loaded (stream %s.%s.%s.%s from %s length %.2f)",
+        string msg = stringify("Data could not be loaded (stream %s.%s.%s.%s from %s length %.2f sec)",
                                networkCode.c_str(), stationCode.c_str(),
                                locationCode.c_str(), channelCode.c_str(),
                                tw.startTime().iso().c_str(), tw.length());
@@ -3371,7 +3662,7 @@ HypoDD::readWaveformFromRecordStream(const Core::TimeWindow& tw,
     if ( ! merge(*trace, *seq) )
     {
         string msg = stringify("Data records could not be merged into a single trace "
-                               "(%s.%s.%s.%s from %s length %.2f)",
+                               "(%s.%s.%s.%s from %s length %.2f sec)",
                                networkCode.c_str(), stationCode.c_str(),
                                locationCode.c_str(), channelCode.c_str(),
                                tw.startTime().iso().c_str(), tw.length());
@@ -3381,7 +3672,7 @@ HypoDD::readWaveformFromRecordStream(const Core::TimeWindow& tw,
     if ( ! trim(*trace, tw) )
     {
         string msg = stringify("Incomplete trace, not enough data for requested"
-                               " time window (%s.%s.%s.%s from %s length %.2f)",
+                               " time window (%s.%s.%s.%s from %s length %.2f sec)",
                                networkCode.c_str(), stationCode.c_str(),
                                locationCode.c_str(), channelCode.c_str(),
                                tw.startTime().iso().c_str(), tw.length());

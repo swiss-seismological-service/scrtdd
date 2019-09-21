@@ -179,8 +179,9 @@ class Catalog : public Core::BaseObject {
             }
             operator std::string() const
             {
-                return type + " " + (isManual ? "(manual)" : "(auto)" ) + time.iso() + " " +
-                       networkCode + "." +  stationCode + "." + locationCode + "." + channelCode + 
+                return networkCode + "." +  stationCode + "." +
+                       locationCode + "." + channelCode + " type " +
+                       type + (isManual ? " (manual) " : " (auto) " ) + time.iso() +
                        " evId " + std::to_string(eventId)  + " staId " + stationId;
             }
         };
@@ -264,6 +265,7 @@ struct Config {
         // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
         int numEllipsoids       = 5;
         double maxEllipsoidSize = 10; // km
+        bool findMissingPhase   = false;
     } dtct;
 
     // cross correlation specific
@@ -283,6 +285,7 @@ struct Config {
         // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
         int numEllipsoids       = 5;
         double maxEllipsoidSize = 10; // km
+        bool findMissingPhase   = false;
     } dtcc;
 
     struct XCorr {
@@ -295,6 +298,13 @@ struct Config {
         {"P", {}},
         {"S", {}}
     };
+
+    // artificial phases
+    struct {
+        double minEStoIEratio = 5;
+        int numCC             = 2;
+        double maxCCtw        = 10;
+    } artificialPhases;
 
     struct {
         std::string filterStr = "";
@@ -340,9 +350,12 @@ class HypoDD : public Core::BaseObject {
         CatalogPtr filterOutPhases(const CatalogCPtr& catalog,
                                    const std::vector<std::string>& PphaseToKeep,
                                    const std::vector<std::string>& SphaseToKeep) const;
-        void createStationDatFile(const std::string& staFileName, const CatalogCPtr& catalog) const;
-        void createPhaseDatFile(const std::string& phaseFileName, const CatalogCPtr& catalog) const;
-        void createEventDatFile(const std::string& eventFileName, const CatalogCPtr& catalog) const;
+        CatalogPtr createMissingPhasesCatalog(const CatalogCPtr& catalog);
+        std::vector<Catalog::Phase> createMissingPhasesForEvent(const CatalogCPtr& catalog,
+                                                                const Catalog::Event& refEv);
+        void createStationDatFile(const CatalogCPtr& catalog, const std::string& staFileName) const;
+        void createPhaseDatFile(const CatalogCPtr& catalog, const std::string& phaseFileName) const;
+        void createEventDatFile(const CatalogCPtr& catalog, const std::string& eventFileName) const;
         void createDtCtCatalog(const CatalogCPtr& catalog,
                                const std::string& dtctFile) const;
         void createDtCtSingleEvent(const CatalogCPtr& catalog,
@@ -351,7 +364,9 @@ class HypoDD : public Core::BaseObject {
         void buildAbsTTimePairs(const CatalogCPtr& catalog,
                                  unsigned evToRelocateId,
                                  std::ofstream& outStream) const;
-        void createDtCcPh2dt(const std::string& dtctFile, const std::string& dtccFile);
+        void createDtCcPh2dt(const CatalogCPtr& catalog,
+                             const std::string& dtctFile,
+                             const std::string& dtccFile);
         void createDtCcCatalog(const CatalogCPtr& catalog, const std::string& dtccFile);
         void createDtCcSingleEvent(const CatalogCPtr& catalog,
                                    unsigned evToRelocateId,
@@ -396,7 +411,8 @@ class HypoDD : public Core::BaseObject {
                                      const Catalog::Event& ev,
                                      const Catalog::Phase& ph,
                                      std::map<std::string,GenericRecordPtr>& memCache,
-                                     bool useDiskCache) const;
+                                     bool useDiskCache,
+                                     bool checkSnr);
         GenericRecordPtr loadProjectWaveform(const Core::TimeWindow& tw,
                                              const Catalog::Event& ev,
                                              const Catalog::Phase& ph,

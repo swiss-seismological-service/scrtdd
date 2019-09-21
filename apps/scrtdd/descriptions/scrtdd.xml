@@ -230,6 +230,12 @@
                                 Max number of neighbors used. Further events are discarded. No limit by default.
                             </description>
                         </parameter>
+                        <parameter name="findMissingPhase" type="boolean" default="false">
+                           <description>
+                               Use cross correlation to find event undetected phases on stations
+                               for which other close by events have phases
+                           </description>
+                        </parameter>
                         <group name="neighboringEventSelection">
                             <description>
                                 From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
@@ -319,6 +325,12 @@
                                 Max number of neighbors used. Further events are discarded. No limit by default.
                             </description>
                         </parameter>
+                        <parameter name="findMissingPhase" type="boolean" default="false">
+                           <description>
+                               Use cross correlation to find event undetected phases on stations
+                               for which other close by events have phases
+                           </description>
+                        </parameter>
                         <group name="neighboringEventSelection">
                             <description>
                                 From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
@@ -389,7 +401,7 @@
                                     Check disabled by default.
                                 </description>
                             </parameter> 
-                        </group> 
+                        </group>
 
                         <group name="crosscorrelation">
                             <group name="p-phase">
@@ -430,6 +442,20 @@
                                 </parameter>
                                 <parameter name="maxDelay" type="double">
                                     <description>Maximum data windows lag accepted (secs)</description>
+                                </parameter>
+                            </group>
+                            <group name="findMissingPhase">
+                                <parameter name="minEStoIEratio" type="double" default="5">
+                                   <description>
+                                   </description>
+                                </parameter>  
+                                <parameter name="numCC" type="int" default="2">
+                                    <description>
+                                    </description>
+                                </parameter>
+                                <parameter name="maxCCtw" type="double" default="10">
+                                   <description>
+                                   </description>
                                 </parameter>
                             </group>
                         </group>
@@ -562,7 +588,7 @@
                 <option long-flag="dump-catalog-xml" argument="arg">
                     <description>Convert the input catalog into XML format. The input can be a single file (containing seiscomp event/origin ids) or a catalog file triplet (station.csv,event.csv,phase.csv)</description>
                 </option>
-                            
+
                 <option long-flag="reloc-profile" argument="arg">
                     <description>Relocate the catalog of profile passed as argument</description>
                 </option>
@@ -571,8 +597,8 @@
                     <description>Load catalog waveforms from the configured recordstream and save them in the working directory configured for the profile</description>
                 </option>
 
-                <option long-flag="processed-wf">
-                    <description>Enable the dumping of processed waveforms into 'cacheWaveforms' folder (debug). Useful when run in combination with --load-profile-wf</description>
+                <option long-flag="debug-wf">
+                    <description>Enable the dumping of waveforms (filtered and resampled phases, artificial phases, SNR rejected phases) into the profile working directory ('cacheWaveforms' folder). Useful when run in combination with --load-profile-wf</description>
                 </option>
 
                 <option long-flag="origin-id" flag="O" argument="arg">
@@ -582,7 +608,7 @@
                 <option long-flag="ep" argument="arg">
                     <description>Event parameters XML file for offline processing of contained origins (imply test option). Each origin will be processed accordingly with the matching profile region unless --profile option is used</description>
                 </option>
-                                
+
                 <option long-flag="test">
                     <description>"Test mode, no messages are sent</description>
                 </option>
@@ -594,11 +620,11 @@
                 <option long-flag="force">
                     <description>Force event processing: in single event mode the processing is performed even on origins that would normally be skipped (already processed, not preferred, manual, etc.); In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used</description>
                 </option>
-               
+
                 <option long-flag="expiry" flag="x" argument="hours">
                     <description>Time span in hours after which objects expire</description>
                 </option>
-                
+
                 <option long-flag="dump-config">
                     <description>Dump the configuration and exit</description>
                 </option>
