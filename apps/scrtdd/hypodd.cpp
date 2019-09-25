@@ -1150,10 +1150,11 @@ void HypoDD::cleanUnusedResources()
             const Catalog::Phase& phase = it->second;
             Core::TimeWindow tw = xcorrTimeWindowLong(phase);
             wfToKeep.insert(waveformId(phase, tw));
-            Core::TimeWindow twToLoad = traceTimeWindowToLoad(phase, tw);
-            wfFileToKeep.insert(waveformFilename(phase, twToLoad));
-            wfFileToKeep.insert(waveformFilename(phase, twToLoad) + ".processed");
-        }
+
+            string filePrefix = stringify("%s.%s.%s.", phase.networkCode.c_str(), phase.stationCode.c_str(), phase.locationCode.c_str());
+            filePrefix = (boost::filesystem::path(_cacheDir)/filePrefix).string();
+            wfFileToKeep.insert(filePrefix);
+         }
     }
 
     //
@@ -1173,8 +1174,17 @@ void HypoDD::cleanUnusedResources()
     {
         for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(_cacheDir), {}))
         {
-            const auto it = wfFileToKeep.find(entry.path().string());
-            if ( it == wfFileToKeep.end() )
+            string filename = entry.path().string();
+            bool found = false;
+            for (const string& filePrefix : wfFileToKeep)
+            {
+                if ( filename.compare(0, filePrefix.length(), filePrefix) == 0 )
+                {
+                    found = true;
+                    break;
+                }
+            }
+            if ( ! found )
             {
                 SEISCOMP_INFO("Deleting %s", entry.path().string().c_str());
                 try { boost::filesystem::remove_all(entry); } catch ( ... ) { }
