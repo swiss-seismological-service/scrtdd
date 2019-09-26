@@ -205,8 +205,11 @@ class Catalog : public Core::BaseObject {
         CatalogPtr merge(const CatalogCPtr& other) const;
         CatalogPtr extractEvent(unsigned eventId) const;
         bool copyEvent(const Catalog::Event& event, const CatalogCPtr& eventCatalog, bool keepEvId);
+
         void removeEvent(const Event& event);
         void removeEvent(unsigned eventId);
+        void removePhase(const Phase& phase);
+        void removePhase(unsigned eventId, const std::string& stationId);
 
         bool addStation(const Station&, bool checkDuplicate);
         bool addEvent(const Event&, bool checkDuplicate);
@@ -302,7 +305,7 @@ struct Config {
     // artificial phases
     struct {
         double minEStoIEratio = 5;
-        int numCC             = 2;
+        unsigned numCC         = 2;
         double maxCCtw        = 10;
     } artificialPhases;
 

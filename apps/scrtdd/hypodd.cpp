@@ -884,6 +884,31 @@ void Catalog::removeEvent(unsigned eventId)
 }
 
 
+void Catalog::removePhase(const Phase& phase)
+{
+    std::map<unsigned,Phase>::const_iterator it = searchPhase(phase);
+    if ( it != _phases.end() )
+    {
+        _phases.erase(it);
+    }
+}
+
+
+void Catalog::removePhase(unsigned eventId, const std::string& stationId)
+{
+    auto eqlrng = _phases.equal_range(eventId);
+    auto it = eqlrng.first;
+    while ( it != eqlrng.second )
+    {
+        const Catalog::Phase& ph = it->second;
+        if ( ph.stationId == stationId )
+            _phases.erase(it++);
+        else
+            ++it;
+    }
+}
+
+
 map<string,Catalog::Station>::const_iterator Catalog::searchStation(const Station& station) const
 {
     return searchByValue(_stations, station);
@@ -1207,6 +1232,7 @@ HypoDD::createMissingPhasesCatalog(const CatalogCPtr& catalog)
         std::vector<Catalog::Phase> newPhases = createMissingPhasesForEvent(catalog, event);
         for (Catalog::Phase& ph : newPhases)
         {
+            newCatalog->removePhase(ph.eventId, ph.stationId);
             newCatalog->addPhase(ph, true);
         }
     }
@@ -1239,7 +1265,8 @@ HypoDD::createMissingPhasesForEvent(const CatalogCPtr& catalog, const Catalog::E
         {
             const Catalog::Phase& phase = it->second;
             if ( station.networkCode == phase.networkCode &&
-                 station.stationCode == phase.stationCode )
+                 station.stationCode == phase.stationCode /*&&
+                 phase.isManual */)
             {
                 if ( phase.type == "P" ) foundP = true;
                 if ( phase.type == "S" ) foundS = true;
@@ -1432,7 +1459,7 @@ HypoDD::createMissingPhasesForEvent(const CatalogCPtr& catalog, const Catalog::E
 
         // compute average xcorr coefficient and timedelta
         double xcorr_coeff_tot = 0, xcorr_dt_tot = 0;
-        int ccCount = 0;
+        unsigned ccCount = 0;
         for (auto i = xcorr_out.rbegin(); i != xcorr_out.rend(); ++i) // reverse because we want highest CC
         {
             xcorr_coeff_tot += i->first;
@@ -1706,19 +1733,9 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 {
     SEISCOMP_INFO("Starting HypoDD relocator in single event mode");
 
-    CatalogPtr evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
-
     // there must be only one event in the catalog, the origin to relocate
-    const Catalog::Event& evToRelocate = evToRelocateCat->getEvents().begin()->second;
-
-    if( _cfg.dtct.findMissingPhase )
-    {
-        std::vector<Catalog::Phase> newPhases = createMissingPhasesForEvent(_ddbgc->merge(evToRelocateCat), evToRelocate);
-        for (Catalog::Phase& ph : newPhases)
-        {
-            evToRelocateCat->addPhase(ph, true);
-        }
-    }
+    CatalogPtr evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
+    Catalog::Event evToRelocate = evToRelocateCat->getEvents().begin()->second;
 
     // Create working directory
     string subFolder = generateWorkingSubDir(evToRelocate);
@@ -1739,6 +1756,21 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         throw runtime_error(msg);
     }
 
+    // build a catalog with the event to be relocated
+    evToRelocateCat = _ddbgc->merge(evToRelocateCat);
+    evToRelocate = evToRelocateCat->searchEvent(evToRelocate)->second; // it has now a new eventID
+
+    // optionally find missing phases
+    if( _cfg.dtct.findMissingPhase )
+    {
+        std::vector<Catalog::Phase> newPhases = createMissingPhasesForEvent(evToRelocateCat, evToRelocate);
+        for (Catalog::Phase& ph : newPhases)
+        {
+            evToRelocateCat->removePhase(ph.eventId, ph.stationId);
+            evToRelocateCat->addPhase(ph, true);
+        }
+    }
+
     // write catalog for debugging purpose
     _ddbgc->writeToFile((boost::filesystem::path(subFolder)/"event.csv").string(),
                         (boost::filesystem::path(subFolder)/"phase.csv").string(),
@@ -1746,11 +1778,12 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
     // Select neighbouring events
     CatalogPtr neighbourCat = selectNeighbouringEvents(
-        _ddbgc->merge(evToRelocateCat), evToRelocate, _cfg.dtct.minWeight, _cfg.dtct.minESdist,
+        evToRelocateCat, evToRelocate, _cfg.dtct.minWeight, _cfg.dtct.minESdist,
         _cfg.dtct.maxESdist, _cfg.dtct.minEStoIEratio, _cfg.dtct.maxIEdist, _cfg.dtct.minDTperEvt,
         _cfg.dtct.minNumNeigh, _cfg.dtct.maxNumNeigh, _cfg.dtct.numEllipsoids, _cfg.dtct.maxEllipsoidSize
     );
-    // add event
+
+    // add event to be relocated to the neighbours
     neighbourCat->copyEvent(evToRelocate, evToRelocateCat, false);
     // extract the new id of the event
     unsigned evToRelocateNewId = neighbourCat->searchEvent(evToRelocate)->first;
@@ -1781,6 +1814,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     string ddresidualFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.res").string();
     CatalogPtr relocatedCatalog = loadRelocatedCatalog(neighbourCat, ddrelocFile, ddresidualFile);
     CatalogPtr relocatedEvCat = relocatedCatalog->extractEvent(evToRelocateNewId);
+    Catalog::Event relocatedEv = relocatedEvCat->getEvents().begin()->second;
+
     // write catalog for debugging purpose
     relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"event-reloc.csv").string(),
                                   (boost::filesystem::path(eventWorkingDir)/"phase-reloc.csv").string(),
@@ -1801,23 +1836,29 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
             throw runtime_error(msg);
         }
 
-        const Catalog::Event& relocatedEv = relocatedEvCat->getEvents().begin()->second;
+        // build a catalog with the event to be relocated
+        relocatedEvCat = _ddbgc->merge(relocatedEvCat);
+        relocatedEv = relocatedEvCat->searchEvent(relocatedEv)->second; // it has now a new eventID
+
+        // optionally find missing phases
         if( _cfg.dtcc.findMissingPhase )
         {
-            std::vector<Catalog::Phase> newPhases = createMissingPhasesForEvent(_ddbgc->merge(relocatedEvCat), relocatedEv);
+            std::vector<Catalog::Phase> newPhases = createMissingPhasesForEvent(relocatedEvCat, relocatedEv);
             for (Catalog::Phase& ph : newPhases)
             {
+                relocatedEvCat->removePhase(ph.eventId, ph.stationId);
                 relocatedEvCat->addPhase(ph, true);
             }
         }
 
         // Select neighbouring events from the relocated origin
         neighbourCat = selectNeighbouringEvents(
-            _ddbgc->merge(relocatedEvCat), relocatedEv, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist,
+            relocatedEvCat, relocatedEv, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist,
             _cfg.dtcc.maxESdist, _cfg.dtcc.minEStoIEratio, _cfg.dtcc.maxIEdist, _cfg.dtcc.minDTperEvt,
             _cfg.dtcc.minNumNeigh, _cfg.dtcc.maxNumNeigh, _cfg.dtcc.numEllipsoids, _cfg.dtcc.maxEllipsoidSize
         );
-        // add event
+
+        // add event to the neighbours
         neighbourCat->copyEvent(relocatedEv, relocatedEvCat, false);
         // extract the new id of the event
         unsigned refinedLocNewId = neighbourCat->searchEvent(relocatedEv)->first;
@@ -1948,7 +1989,7 @@ void HypoDD::createPhaseDatFile(const CatalogCPtr& catalog, const string& phaseF
             double travel_time = phase.time - event.time;
             if (travel_time < 0)
             {
-                SEISCOMP_ERROR("Ignoring phase '%s' with negative travel time (event '%s')",
+                SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
                                string(phase).c_str(), string(event).c_str());
                 continue; 
             }
