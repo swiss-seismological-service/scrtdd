@@ -562,7 +562,7 @@ bool RTDD::validateParameters()
         } catch ( ... ) {  prof->ddcfg.artificialPhases.numCC = 2; }
         try {
             prof->ddcfg.artificialPhases.maxCCtw = configGetDouble(prefix + "maxCCtw");
-        } catch ( ... ) {  prof->ddcfg.artificialPhases.maxCCtw = 10; }
+        } catch ( ... ) {  prof->ddcfg.artificialPhases.maxCCtw = 5; }
 
         prefix = string("profile.") + *it + ".dtcc.waveformFiltering.";
         try {

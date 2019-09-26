@@ -816,7 +816,7 @@ CatalogPtr Catalog::extractEvent(unsigned eventId) const
 
 
 
-bool Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& other, bool keepEvId)
+bool Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& evCat, bool keepEvId)
 {
     if ( keepEvId )
     {
@@ -832,13 +832,13 @@ bool Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& other, b
 
     unsigned newEventId = searchEvent(event)->first;
 
-    auto eqlrng = other->getPhases().equal_range(event.id);
+    auto eqlrng = evCat->getPhases().equal_range(event.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
         Catalog::Phase phase = it->second;
 
-        auto search = other->getStations().find(phase.stationId);
-        if (search == other->getStations().end())
+        auto search = evCat->getStations().find(phase.stationId);
+        if (search == evCat->getStations().end())
         {
             string msg = stringify("Malformed catalog: cannot find station '%s' "
                                     " referenced by phase '%s'",
@@ -1221,8 +1221,8 @@ HypoDD::createMissingPhasesForEvent(const CatalogCPtr& catalog, const Catalog::E
     // find phases of refEv, let's do it once and keep the results
     const auto& refEvPhases = catalog->getPhases().equal_range(refEv.id);
 
-    SEISCOMP_INFO("Creating missing phases for event %u (current num phases %ld)",
-                   refEv.id, std::distance(refEvPhases.first, refEvPhases.second));
+    SEISCOMP_INFO("Creating missing phases for event %s (current num phases %ld)",
+                  string(refEv).c_str(), std::distance(refEvPhases.first, refEvPhases.second));
 
     //
     // loop through stations and find those for which the refEv doesn't have phases
@@ -1253,12 +1253,12 @@ HypoDD::createMissingPhasesForEvent(const CatalogCPtr& catalog, const Catalog::E
                                                      -(station.elevation/1000.));
             if ( ! foundP )
             {
-                SEISCOMP_DEBUG("Event %u misses P phase for station %s", refEv.id, string(station).c_str());
+                SEISCOMP_DEBUG("Event %s misses P phase for station %s", string(refEv).c_str(), string(station).c_str());
                 missingPhases[ MissingStationPhase(station.id,"P") ] = stationDistance;
             }
             if ( ! foundS )
             {
-                SEISCOMP_DEBUG("Event %u misses S phase for station %s", refEv.id, string(station).c_str());
+                SEISCOMP_DEBUG("Event %s misses S phase for station %s", string(refEv).c_str(), string(station).c_str());
                 missingPhases[ MissingStationPhase(station.id,"S") ] = stationDistance;
             }
         }
@@ -1300,7 +1300,7 @@ HypoDD::createMissingPhasesForEvent(const CatalogCPtr& catalog, const Catalog::E
         struct {
             string locationCode;
             string channelCode;
-            Core::Time lastSeen;
+            Core::Time time;
         } streamInfo = {"", "", Core::Time()};
 
         for (const auto& kv : eventByRefEvDistance)
@@ -1308,41 +1308,39 @@ HypoDD::createMissingPhasesForEvent(const CatalogCPtr& catalog, const Catalog::E
             const double eventToRefEvDistance = kv.first;
             const Catalog::Event& event = catalog->getEvents().at(kv.second);
 
+            // skip station whose event-station to inter-events ratio is too small
+            if ( (refEvDistToStation / eventToRefEvDistance) < _cfg.artificialPhases.minEStoIEratio )
+                continue;
+
             const auto& phases = catalog->getPhases().equal_range(event.id);
             for (auto it = phases.first; it != phases.second; ++it)
             {
                 const Catalog::Phase& phase = it->second;
 
                 if ( station.networkCode == phase.networkCode &&
-                     station.stationCode == phase.stationCode &&
-                     phaseType           == phase.type        &&
-                     phase.isManual )
+                     station.stationCode == phase.stationCode)
                 {
-                    double stationDistance = computeDistance(event.latitude, event.longitude, event.depth,
-                                                             station.latitude, station.longitude,
-                                                             -(station.elevation/1000.));
-                    // skip station whose event-station to inter-events ratio is too small
-                    if ( (refEvDistToStation / eventToRefEvDistance) >= _cfg.artificialPhases.minEStoIEratio )
+                    if ( phaseType == phase.type && phase.isManual )
                     {
                         // keep track of close events with a phase for the missing station
-                        xcorrPeers[stationDistance] = XCorrPeer(event, phase);
+                        double travel_time = (phase.time - event.time).length();
+                        xcorrPeers[travel_time] = XCorrPeer(event, phase);
+                    }
+
+                    if ( (refEv.time - phase.time).abs() < (refEv.time - streamInfo.time).abs() )
+                    {
+                        // get the closest in time to refEv stream information
+                        streamInfo = {phase.locationCode, phase.channelCode, phase.time};
                     }
                     break;
-                }
-
-                if ( station.networkCode == phase.networkCode &&
-                     station.stationCode == phase.stationCode &&
-                     streamInfo.lastSeen <  phase.time)
-                {
-                      streamInfo = {phase.locationCode, phase.channelCode, phase.time};
                 }
             }
         }
 
         if ( xcorrPeers.size() < _cfg.artificialPhases.numCC || xcorrPeers.size() < 2 )
         {
-            SEISCOMP_DEBUG("Event %u: cannot create phase %s for station %s. Not enough close-by events",
-                           refEv.id, phaseType.c_str(), string(station).c_str());
+            SEISCOMP_DEBUG("Event %s: cannot create phase %s for station %s. Not enough close-by events",
+                           string(refEv).c_str(), phaseType.c_str(), string(station).c_str());
             continue;
         }
 
@@ -1351,20 +1349,27 @@ HypoDD::createMissingPhasesForEvent(const CatalogCPtr& catalog, const Catalog::E
         // we'll use those two events to compute the interval over which crosscorrelate
         // to find out the missing phase
         //
-        const XCorrPeer& closerPeer  = xcorrPeers.begin()->second;
-        const XCorrPeer& furtherPeer = xcorrPeers.rbegin()->second;
+        Core::TimeSpan closer_travel_time  = xcorrPeers.begin()->first;
+        Core::TimeSpan further_travel_time = xcorrPeers.rbegin()->first;
 
-        Core::TimeSpan closer_travel_time  = closerPeer.second.time - closerPeer.first.time;
-        Core::TimeSpan further_travel_time = furtherPeer.second.time - furtherPeer.first.time;
+        if ( closer_travel_time > further_travel_time )
+        {
+            SEISCOMP_WARNING("Event %s: cannot create phase %s for station %s. "
+                             "Internal logic error (closer travel time %.2f further travel time %.2f)",
+                             string(refEv).c_str(), phaseType.c_str(), string(station).c_str(),
+                             closer_travel_time.length(), further_travel_time.length());
+            continue;
+        }
+
         const auto xcorrCfg = _cfg.xcorr.at(phaseType);
-        Core::Time startTime = refEv.time + closer_travel_time + Core::TimeSpan(xcorrCfg.startOffset);
-        Core::Time endTime = refEv.time + further_travel_time + Core::TimeSpan(xcorrCfg.endOffset);
-
+        Core::Time startTime = refEv.time + closer_travel_time  + Core::TimeSpan(xcorrCfg.startOffset);
+        Core::Time endTime   = refEv.time + further_travel_time + Core::TimeSpan(xcorrCfg.endOffset);
         Core::TimeWindow xcorrTw = Core::TimeWindow(startTime, endTime);
+
         if ( xcorrTw.length() > _cfg.artificialPhases.maxCCtw )
         {
-            SEISCOMP_DEBUG("Event %u: cannot create phase %s for station %s. Detectied xcorr time window is too big (secs %.2f)",
-                           refEv.id, phaseType.c_str(), string(station).c_str(), xcorrTw.length());
+            SEISCOMP_DEBUG("Event %s: cannot create phase %s for station %s. Detectied xcorr time window is too big (secs %.2f)",
+                           string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), xcorrTw.length());
             continue;
         }
 
@@ -1384,11 +1389,10 @@ HypoDD::createMissingPhasesForEvent(const CatalogCPtr& catalog, const Catalog::E
         GenericRecordPtr refTr = getWaveform(xcorrTw, refEv, refEvNewPhase, _tmpCache, false, false);
         if ( ! refTr )
         {
-            SEISCOMP_DEBUG("Event %u: cannot create phase %s for station %s. Cannot load waveform",
-                           refEv.id, phaseType.c_str(), string(station).c_str());
+            SEISCOMP_DEBUG("Event %s: cannot create phase %s for station %s. Cannot load waveform",
+                           string(refEv).c_str(), phaseType.c_str(), string(station).c_str());
             continue;
         }
-
 
         //
         // loop through the close-by events and compute the cross correlation with their known
@@ -1421,8 +1425,8 @@ HypoDD::createMissingPhasesForEvent(const CatalogCPtr& catalog, const Catalog::E
 
         if ( xcorr_out.size() < _cfg.artificialPhases.numCC )
         {
-            SEISCOMP_INFO("Event %u: rejected artificial phase %s for station %s. Not enough close-by events to crosscorelate (%ld)",
-                          refEv.id, phaseType.c_str(), string(station).c_str(), xcorr_out.size());
+            SEISCOMP_INFO("Event %s: rejected artificial phase %s for station %s. Not enough close-by events to crosscorelate (%ld)",
+                           string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), xcorr_out.size());
             continue;
         }
 
@@ -1440,16 +1444,17 @@ HypoDD::createMissingPhasesForEvent(const CatalogCPtr& catalog, const Catalog::E
 
         if ( xcorr_coeff_tot < xcorrCfg.minCoef )
         {
-            SEISCOMP_INFO("Event %u: rejected artificial phase %s for station %s. Crosscorrelation coefficient too low (%.2f)",
-                          refEv.id, phaseType.c_str(), string(station).c_str(), xcorr_coeff_tot);
+            SEISCOMP_INFO("Event %s: rejected artificial phase %s for station %s. Crosscorrelation coefficient too low (%.2f)",
+                          string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), xcorr_coeff_tot);
             continue;
         }
 
-        refEvNewPhase.time   = refEv.time - Core::TimeSpan(xcorr_dt_tot);
+        refEvNewPhase.time = refEv.time + Core::TimeSpan(xcorr_dt_tot);
         newPhases.push_back(refEvNewPhase);
 
-        SEISCOMP_INFO("Event %u: new phase %s for station %s created (average crosscorrelation coefficient %.2f over %d close-by events)",
-                      refEv.id, phaseType.c_str(), string(station).c_str(), xcorr_coeff_tot,  _cfg.artificialPhases.numCC);
+        SEISCOMP_INFO("Event %s: new phase %s for station %s created (average crosscorrelation coefficient %.2f over %d close-by events)",
+                      string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), xcorr_coeff_tot,  _cfg.artificialPhases.numCC);
+
         if ( _cfg.wfFilter.dump )
         {
             string ext = stringify(".artificial-%s-phase-cc-%.2f", phaseType.c_str(), xcorr_coeff_tot);
@@ -1457,7 +1462,7 @@ HypoDD::createMissingPhasesForEvent(const CatalogCPtr& catalog, const Catalog::E
         }
     }
 
-    SEISCOMP_INFO("Event %u: created %ld new phases", refEv.id, newPhases.size());
+    SEISCOMP_INFO("Event %s: created %ld new phases", string(refEv).c_str(), newPhases.size());
     return newPhases;
 }
 
@@ -2161,8 +2166,9 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
             if (search == catalog->getStations().end())
             {
                 string msg = stringify("Malformed catalog: cannot find station '%s' "
-                                   " referenced by phase '%s' for event '%u'",
-                                   phase.stationId.c_str(), string(phase).c_str(),  event.id);
+                                       "referenced by phase '%s' for event %s",
+                                       phase.stationId.c_str(), string(phase).c_str(),
+                                       string(event).c_str());
                 throw runtime_error(msg);
             }
 
@@ -2225,8 +2231,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 
         // add this event to the selected ones
         selectedEvents.push_back(event.id);
-        SEISCOMP_DEBUG("Selecting possible event %u distance %.1f azimuth %.1f",
-                       event.id, kv.first, azimuthByEvent[event.id]);
+        SEISCOMP_DEBUG("Selecting possible event %s distance %.1f azimuth %.1f",
+                       string(event).c_str(), kv.first, azimuthByEvent[event.id]);
     }
 
     /*
@@ -2283,8 +2289,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                         neighboringEventCat->copyEvent(ev, catalog, true);
                         numNeighbors++;
                         selectedEvents.erase(it);
-                        SEISCOMP_DEBUG("Chose neighbour event %u ellipsoid %d quadrant %d distance %.1f azimuth %.1f depth %.3f",
-                                       ev.id, elpsNum, quadrant, distanceByEvent[ev.id], azimuthByEvent[ev.id], ev.depth);
+                        SEISCOMP_DEBUG("Chose neighbour event %s ellipsoid %d quadrant %d distance %.1f azimuth %.1f depth %.3f",
+                                       string(ev).c_str(), elpsNum, quadrant, distanceByEvent[ev.id], azimuthByEvent[ev.id], ev.depth);
                         break;
                     }
                 }

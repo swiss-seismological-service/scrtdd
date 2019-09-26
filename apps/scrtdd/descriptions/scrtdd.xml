@@ -453,7 +453,7 @@
                                     <description>
                                     </description>
                                 </parameter>
-                                <parameter name="maxCCtw" type="double" default="10">
+                                <parameter name="maxCCtw" type="double" default="5">
                                    <description>
                                    </description>
                                 </parameter>

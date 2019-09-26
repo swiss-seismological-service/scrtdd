@@ -204,7 +204,7 @@ class Catalog : public Core::BaseObject {
 
         CatalogPtr merge(const CatalogCPtr& other) const;
         CatalogPtr extractEvent(unsigned eventId) const;
-        bool copyEvent(const Catalog::Event& event, const CatalogCPtr& other, bool keepEvId);
+        bool copyEvent(const Catalog::Event& event, const CatalogCPtr& eventCatalog, bool keepEvId);
         void removeEvent(const Event& event);
         void removeEvent(unsigned eventId);
 
