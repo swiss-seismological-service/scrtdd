@@ -1222,27 +1222,32 @@ void HypoDD::cleanUnusedResources()
 
 
 CatalogPtr
-HypoDD::createMissingPhasesCatalog(const CatalogCPtr& catalog)
+HypoDD::createMissingPhases(const CatalogCPtr& catalog)
 {
     CatalogPtr newCatalog = new Catalog(*catalog);
-
     for (const auto& kv : catalog->getEvents() )
     {
         const Catalog::Event& event = kv.second;
-        std::vector<Catalog::Phase> newPhases = createMissingPhasesForEvent(catalog, event);
-        for (Catalog::Phase& ph : newPhases)
-        {
-            newCatalog->removePhase(ph.eventId, ph.stationId);
-            newCatalog->addPhase(ph, true);
-        }
+        addMissingEventPhases(newCatalog, event);
     }
     return newCatalog;
 }
 
 
+void
+HypoDD::addMissingEventPhases(CatalogPtr& catalog, const Catalog::Event& refEv)
+{
+    std::vector<Catalog::Phase> newPhases = findMissingEventPhases(catalog, refEv);
+    for (Catalog::Phase& ph : newPhases)
+    {
+        catalog->removePhase(ph.eventId, ph.stationId);
+        catalog->addPhase(ph, true);
+    }
+}
+
 
 std::vector<Catalog::Phase>
-HypoDD::createMissingPhasesForEvent(const CatalogCPtr& catalog, const Catalog::Event& refEv)
+HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event& refEv)
 {
     // find phases of refEv, let's do it once and keep the results
     const auto& refEvPhases = catalog->getPhases().equal_range(refEv.id);
@@ -1621,7 +1626,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
 
     if ( _cfg.dtcc.findMissingPhase )
     {
-        catToReloc = createMissingPhasesCatalog(catToReloc);
+        catToReloc = createMissingPhases(catToReloc);
     }
 
     // Create working directory 
@@ -1763,12 +1768,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     // optionally find missing phases
     if( _cfg.dtct.findMissingPhase )
     {
-        std::vector<Catalog::Phase> newPhases = createMissingPhasesForEvent(evToRelocateCat, evToRelocate);
-        for (Catalog::Phase& ph : newPhases)
-        {
-            evToRelocateCat->removePhase(ph.eventId, ph.stationId);
-            evToRelocateCat->addPhase(ph, true);
-        }
+        addMissingEventPhases(evToRelocateCat, evToRelocate);
     }
 
     // write catalog for debugging purpose
@@ -1843,12 +1843,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         // optionally find missing phases
         if( _cfg.dtcc.findMissingPhase )
         {
-            std::vector<Catalog::Phase> newPhases = createMissingPhasesForEvent(relocatedEvCat, relocatedEv);
-            for (Catalog::Phase& ph : newPhases)
-            {
-                relocatedEvCat->removePhase(ph.eventId, ph.stationId);
-                relocatedEvCat->addPhase(ph, true);
-            }
+            addMissingEventPhases(relocatedEvCat, relocatedEv);
         }
 
         // Select neighbouring events from the relocated origin

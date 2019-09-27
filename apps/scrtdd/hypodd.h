@@ -353,9 +353,10 @@ class HypoDD : public Core::BaseObject {
         CatalogPtr filterOutPhases(const CatalogCPtr& catalog,
                                    const std::vector<std::string>& PphaseToKeep,
                                    const std::vector<std::string>& SphaseToKeep) const;
-        CatalogPtr createMissingPhasesCatalog(const CatalogCPtr& catalog);
-        std::vector<Catalog::Phase> createMissingPhasesForEvent(const CatalogCPtr& catalog,
-                                                                const Catalog::Event& refEv);
+        CatalogPtr createMissingPhases(const CatalogCPtr& catalog);
+        void addMissingEventPhases(CatalogPtr& catalog, const Catalog::Event& refEv);
+        std::vector<Catalog::Phase> findMissingEventPhases(const CatalogCPtr& catalog,
+                                                           const Catalog::Event& refEv);
         void createStationDatFile(const CatalogCPtr& catalog, const std::string& staFileName) const;
         void createPhaseDatFile(const CatalogCPtr& catalog, const std::string& phaseFileName) const;
         void createEventDatFile(const CatalogCPtr& catalog, const std::string& eventFileName) const;
