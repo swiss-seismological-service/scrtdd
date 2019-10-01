@@ -639,7 +639,7 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
             continue;
         }
 
-        this->addEvent(ev, false);
+        this->addEvent(ev, false, false);
         Event& newEvent = searchByValue(this->_events, ev)->second;  // fetch the id
 
         // Add Phases
@@ -677,7 +677,7 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
                 sta.latitude = orgArrStation->latitude();
                 sta.longitude = orgArrStation->longitude();
                 sta.elevation = orgArrStation->elevation(); // meter
-                this->addStation(sta, false);
+                this->addStation(sta, true, true);
             }
             // the station has to be there at this point
             sta = this->searchStation(sta)->second;
@@ -700,7 +700,7 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
             ph.locationCode = pick->waveformID().locationCode();
             ph.channelCode  = pick->waveformID().channelCode();
             ph.isManual     = (pick->evaluationMode() == Seiscomp::DataModel::MANUAL);
-            this->addPhase(ph, false);
+            this->addPhase(ph, false, false);
         }
     }
 }
@@ -784,7 +784,7 @@ CatalogPtr Catalog::extractEvent(unsigned eventId) const
     }
 
     const Catalog::Event& event = search->second;
-    eventToExtract->addEvent(event, false);
+    eventToExtract->addEvent(event, false, false);
 
     unsigned newEventId = eventToExtract->searchEvent(event)->first;
 
@@ -802,13 +802,13 @@ CatalogPtr Catalog::extractEvent(unsigned eventId) const
             throw runtime_error(msg);
         }
         const Catalog::Station& station = search->second;
-        eventToExtract->addStation(station, true);
+        eventToExtract->addStation(station, true, true);
         string newStationId = eventToExtract->searchStation(station)->first;
 
         phase.eventId = newEventId;
         phase.stationId = newStationId;
 
-        eventToExtract->addPhase(phase, true);
+        eventToExtract->addPhase(phase, false, false);
     } 
 
     return eventToExtract;
@@ -826,7 +826,7 @@ bool Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& evCat, b
     }
     else
     {
-        if ( ! addEvent(event, true) )
+        if ( ! addEvent(event, true, false) )
             throw runtime_error("Cannot add event, internal logic error");
     }
 
@@ -846,13 +846,13 @@ bool Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& evCat, b
             throw runtime_error(msg);
         }
         const Catalog::Station& station = search->second;
-        addStation(station, true);
+        addStation(station, true, true);
         string newStationId = searchStation(station)->first;
 
         phase.eventId = newEventId;
         phase.stationId = newStationId;
 
-        addPhase(phase, true);
+        addPhase(phase, false, false);
     }
 
     return true;
@@ -969,12 +969,18 @@ map<unsigned,Catalog::Phase>::const_iterator Catalog::searchPhase(const Phase& p
 }
 
 
-bool Catalog::addStation(const Station& station, bool checkDuplicate)
+bool Catalog::addStation(const Station& station, bool checkDuplicateValue, bool checkDuplicateId)
 {
-    if (checkDuplicate && searchStation(station) != _stations.end())
+    if ( checkDuplicateValue && searchStation(station) != _stations.end() )
     {
         return false;
     }
+
+    if ( checkDuplicateId && _stations.find(station.id) != _stations.end() )
+    {
+        return false;
+    }
+
     Station newStation = station;
     newStation.id = newStation.networkCode + newStation.stationCode;
     _stations[newStation.id] = newStation;
@@ -982,13 +988,19 @@ bool Catalog::addStation(const Station& station, bool checkDuplicate)
 }
 
 
-bool Catalog::addEvent(const Event& event, bool checkDuplicate)
+bool Catalog::addEvent(const Event& event, bool checkDuplicateValue, bool checkDuplicateId)
 {
-    decltype(_events)::key_type maxKey = _events.empty() ? 0 : _events.rbegin()->first;
-    if (checkDuplicate && searchEvent(event) != _events.end())
+    if ( checkDuplicateValue && searchEvent(event) != _events.end() )
     {
         return false;
     }
+
+    if ( checkDuplicateId && _events.find(event.id) != _events.end() )
+    {
+        return false;
+    }
+
+    decltype(_events)::key_type maxKey = _events.empty() ? 0 : _events.rbegin()->first;
     Event newEvent = event;
     newEvent.id = maxKey + 1;
     _events[newEvent.id] = newEvent;
@@ -996,12 +1008,24 @@ bool Catalog::addEvent(const Event& event, bool checkDuplicate)
 }
 
 
-bool Catalog::addPhase(const Phase& phase, bool checkDuplicate)
+bool Catalog::addPhase(const Phase& phase, bool checkDuplicateValue, bool checkDuplicateId)
 {
-    if (checkDuplicate && searchPhase(phase) != _phases.end())
+    if ( checkDuplicateValue && searchPhase(phase) != _phases.end() )
     {
         return false;
     }
+
+    if ( checkDuplicateId )
+    {
+        auto eqlrng = _phases.equal_range(phase.eventId);
+        for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+        {
+            const Catalog::Phase& currPh = it->second;
+            if ( phase.stationId == currPh.stationId )
+                return false;
+        }
+    }
+
     _phases.emplace(phase.eventId, phase);
     return true;
 }
@@ -1284,7 +1308,7 @@ HypoDD::addMissingEventPhases(CatalogPtr& catalog, const Catalog::Event& refEv)
     for (Catalog::Phase& ph : newPhases)
     {
         catalog->removePhase(ph.eventId, ph.stationId);
-        catalog->addPhase(ph, true);
+        catalog->addPhase(ph, true, true);
         firstPhaseTime = min(ph.time, firstPhaseTime);
     }
     if ( firstPhaseTime < refEv.time)
