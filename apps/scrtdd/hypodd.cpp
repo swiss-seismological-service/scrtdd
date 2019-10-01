@@ -2590,7 +2590,16 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
         event.relocInfo.numCTs = std::stoi(fields[20]);
         event.relocInfo.rmsResidualCC = std::stod(fields[21]);
         event.relocInfo.rmsResidualCT = std::stod(fields[22]);
-        event.rms = (event.relocInfo.rmsResidualCC + event.relocInfo.rmsResidualCT) / 2.;
+        if  ( (event.relocInfo.numCTp +  event.relocInfo.numCTs) > 0 &&
+              (event.relocInfo.numCCp +  event.relocInfo.numCCs) > 0   )
+            event.rms = (event.relocInfo.rmsResidualCC + event.relocInfo.rmsResidualCT) / 2.;
+        else if ( (event.relocInfo.numCTp +  event.relocInfo.numCTs) > 0)
+            event.rms = event.relocInfo.rmsResidualCT;
+        else if ( (event.relocInfo.numCCp +  event.relocInfo.numCCs) > 0)
+            event.rms = event.relocInfo.rmsResidualCC;
+        else
+            event.rms = 0;
+
     }
 
     // read residual file one line a time to fetch residuals and final weights
