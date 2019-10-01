@@ -446,9 +446,6 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.dtct.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
         } catch ( ... ) { prof->ddcfg.dtct.maxNumNeigh = -1; }
-        try {
-            prof->ddcfg.dtct.findMissingPhase = configGetBool(prefix + "findMissingPhase");
-        } catch ( ... ) { prof->ddcfg.dtct.findMissingPhase = false; }
 
         prefix = string("profile.") + *it + ".dtct.neighboringEventSelection.";
         try {
@@ -492,9 +489,6 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.dtcc.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
         } catch ( ... ) { prof->ddcfg.dtcc.maxNumNeigh = -1; }
-        try {
-            prof->ddcfg.dtcc.findMissingPhase = configGetBool(prefix + "findMissingPhase");
-        } catch ( ... ) { prof->ddcfg.dtcc.findMissingPhase = false; }
 
         prefix = string("profile.") + *it + ".dtcc.neighboringEventSelection.";
         try {
@@ -554,6 +548,9 @@ bool RTDD::validateParameters()
         }
 
         prefix = string("profile.") + *it + ".dtcc.crosscorrelation.findMissingPhase.";
+        try {
+            prof->ddcfg.artificialPhases.enable = configGetBool(prefix + "enable");
+        } catch ( ... ) { prof->ddcfg.artificialPhases.enable = false; }
         try {
             prof->ddcfg.artificialPhases.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
         } catch ( ... ) {  prof->ddcfg.artificialPhases.minEStoIEratio = 5; }

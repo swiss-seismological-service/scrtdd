@@ -78,7 +78,9 @@ DEFINE_SMARTPOINTER(Catalog);
 
 // DD background catalog
 class Catalog : public Core::BaseObject {
+
     public:
+
         struct Station {
             std::string id;
             double latitude;
@@ -215,6 +217,10 @@ class Catalog : public Core::BaseObject {
         bool addEvent(const Event&, bool checkDuplicate);
         bool addPhase(const Phase&, bool checkDuplicate);
 
+        bool updateStation(const Station& newStation);
+        bool updateEvent(const Event& newEv);
+        bool updatePhase(const Phase& newPh);
+
         const std::map<std::string,Station>& getStations() const { return _stations;}
         const std::map<unsigned,Event>& getEvents() const { return _events;}
         const std::multimap<unsigned,Phase>& getPhases() const { return _phases;}
@@ -228,6 +234,7 @@ class Catalog : public Core::BaseObject {
                          std::string stationFile) const;
 
     private:
+
         std::map<std::string,Station> _stations; // indexed by station id
         std::map<unsigned,Event> _events; //indexed by event id
         std::multimap<unsigned,Phase> _phases; //indexed by event id
@@ -268,7 +275,6 @@ struct Config {
         // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
         int numEllipsoids       = 5;
         double maxEllipsoidSize = 10; // km
-        bool findMissingPhase   = false;
     } dtct;
 
     // cross correlation specific
@@ -288,7 +294,6 @@ struct Config {
         // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
         int numEllipsoids       = 5;
         double maxEllipsoidSize = 10; // km
-        bool findMissingPhase   = false;
     } dtcc;
 
     struct XCorr {
@@ -304,8 +309,9 @@ struct Config {
 
     // artificial phases
     struct {
+        bool enable           = false;
         double minEStoIEratio = 5;
-        unsigned numCC         = 2;
+        unsigned numCC        = 2;
         double maxCCtw        = 10;
     } artificialPhases;
 

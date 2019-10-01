@@ -230,12 +230,6 @@
                                 Max number of neighbors used. Further events are discarded. No limit by default.
                             </description>
                         </parameter>
-                        <parameter name="findMissingPhase" type="boolean" default="false">
-                           <description>
-                               Use cross correlation to find event undetected phases on stations
-                               for which other close by events have phases
-                           </description>
-                        </parameter>
                         <group name="neighboringEventSelection">
                             <description>
                                 From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
@@ -324,12 +318,6 @@
                             <description>
                                 Max number of neighbors used. Further events are discarded. No limit by default.
                             </description>
-                        </parameter>
-                        <parameter name="findMissingPhase" type="boolean" default="false">
-                           <description>
-                               Use cross correlation to find event undetected phases on stations
-                               for which other close by events have phases
-                           </description>
                         </parameter>
                         <group name="neighboringEventSelection">
                             <description>
@@ -445,6 +433,14 @@
                                 </parameter>
                             </group>
                             <group name="findMissingPhase">
+                                <description>
+                                   Use cross correlation to find undetected event phases on stations
+                                   for which other close by events have phases
+                                </description>
+                                <parameter name="enable" type="boolean" default="false">
+                                   <description>
+                                   </description>
+                                </parameter>
                                 <parameter name="minEStoIEratio" type="double" default="5">
                                    <description>
                                    </description>
