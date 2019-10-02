@@ -1366,7 +1366,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
     //
     // Compute distance between refEv and other events, we will use this in the next step
     //
-    map<double,unsigned> eventByRefEvDistance; // distance to refEv, eventid
+    multimap<double,unsigned> eventByRefEvDistance; // distance to refEv, eventid
     for (const auto& kv : catalog->getEvents() )
     {
         const Catalog::Event& event = kv.second;
@@ -1374,7 +1374,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
             continue;
         double distance = computeDistance(refEv.latitude, refEv.longitude, refEv.depth,
                                           event.latitude, event.longitude, event.depth);
-        eventByRefEvDistance[distance] = event.id;
+        eventByRefEvDistance.emplace(distance, event.id);
     }
 
     //
@@ -1397,7 +1397,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         // - whose station-distance to inter-events distance ratio is high enough
         //
         typedef std::pair<Catalog::Event, Catalog::Phase> XCorrPeer;
-        map<double,XCorrPeer> xcorrPeers;
+        multimap<double,XCorrPeer> xcorrPeers;
 
         struct {
             string locationCode;
@@ -1426,7 +1426,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
                     {
                         // keep track of close events with a phase for the missing station
                         double travel_time = (phase.time - event.time).length();
-                        xcorrPeers[travel_time] = XCorrPeer(event, phase);
+                        xcorrPeers.emplace(travel_time, XCorrPeer(event, phase));
                     }
 
                     if ( (refEv.time - phase.time).abs() < (refEv.time - streamInfo.time).abs() )
@@ -1502,7 +1502,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         // Eventually compute the average cross correlation coefficient and if the results
         // is satisfying then keep the phase
         //
-        map<double,double> xcorr_out; // xcorr_coeff, xcorr_dt
+        multimap<double,double> xcorr_out; // xcorr_coeff, xcorr_dt
         for (const auto& kv : xcorrPeers)
         {
             const XCorrPeer& peer = kv.second;
@@ -1522,7 +1522,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
 
             if ( ! std::isfinite(xcorr_coeff) ) continue;
 
-            xcorr_out[xcorr_coeff] = xcorr_dt;
+            xcorr_out.emplace(xcorr_coeff, xcorr_dt);
         }
 
         if ( xcorr_out.size() < _cfg.artificialPhases.numCC )
@@ -2250,7 +2250,6 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 {
     SEISCOMP_DEBUG("Selecting Neighbouring Events for event %s", string(refEv).c_str());
 
-    map<double,unsigned> eventByDistance; // distance, eventid
     map<unsigned,double> distanceByEvent; // eventid, distance
     map<unsigned,double> azimuthByEvent;  // eventid, azimuth
 
@@ -2271,20 +2270,19 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         if ( maxIEdist > 0 && distance > maxIEdist )
             continue;
 
-        // keep a list of added events sorted by distance
-        eventByDistance[distance] = event.id;
+        // keep a list of added events
         distanceByEvent[event.id] = distance;
         azimuthByEvent[event.id]  = azimuth;
     }
 
     // From the events within distance select the ones who respect the constraints
-    list<unsigned> selectedEvents;
+    multimap<int,unsigned> selectedEvents; // number of dt, event id
     set<string> includedStations;
     set<string> excludedStations;
 
-    for (const auto& kv : eventByDistance)
+    for (const auto& kv : distanceByEvent)
     {
-        const Catalog::Event& event = catalog->getEvents().at(kv.second);
+        const Catalog::Event& event = catalog->getEvents().at(kv.first);
 
         //  enought phases (> minDTperEvt) ?
         int dtCount = 0;
@@ -2366,9 +2364,9 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         } 
 
         // add this event to the selected ones
-        selectedEvents.push_back(event.id);
+        selectedEvents.emplace(dtCount, event.id);
         SEISCOMP_DEBUG("Selecting possible event %s distance %.1f azimuth %.1f",
-                       string(event).c_str(), kv.first, azimuthByEvent[event.id]);
+                       string(event).c_str(), kv.second, azimuthByEvent[event.id]);
     }
 
     /*
@@ -2403,9 +2401,13 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                     break;
                 }
 
-                for (auto it = selectedEvents.begin(); it != selectedEvents.end(); it++)
+                //
+                // since selectedEvents is sorted by number of differential times we always choose
+                // firstly the neighbour with maximum differential times
+                //
+                for (auto it = selectedEvents.rbegin(); it != selectedEvents.rend(); it++)
                 {
-                    const Catalog::Event& ev = catalog->getEvents().at( *it );
+                    const Catalog::Event& ev = catalog->getEvents().at( it->second );
 
                     bool found = false;
 
@@ -2424,7 +2426,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                         // add this event to the catalog
                         neighboringEventCat->copyEvent(ev, catalog, true);
                         numNeighbors++;
-                        selectedEvents.erase(it);
+                        selectedEvents.erase( std::next(it).base() );
                         SEISCOMP_DEBUG("Chose neighbour event %s ellipsoid %d quadrant %d distance %.1f azimuth %.1f depth %.3f",
                                        string(ev).c_str(), elpsNum, quadrant, distanceByEvent[ev.id], azimuthByEvent[ev.id], ev.depth);
                         break;
