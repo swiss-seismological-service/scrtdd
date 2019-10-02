@@ -1304,18 +1304,11 @@ void
 HypoDD::addMissingEventPhases(CatalogPtr& catalog, const Catalog::Event& refEv)
 {
     std::vector<Catalog::Phase> newPhases = findMissingEventPhases(catalog, refEv);
-    Core::Time firstPhaseTime = refEv.time;
     for (Catalog::Phase& ph : newPhases)
     {
         catalog->removePhase(ph.eventId, ph.stationId);
         catalog->addPhase(ph, true, true);
         firstPhaseTime = min(ph.time, firstPhaseTime);
-    }
-    if ( firstPhaseTime < refEv.time)
-    {
-         Catalog::Event event = catalog->searchEvent(refEv)->second;
-         event.time = firstPhaseTime;
-         catalog->updateEvent(event);
     }
 }
 
