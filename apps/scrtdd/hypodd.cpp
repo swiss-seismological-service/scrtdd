@@ -1308,7 +1308,6 @@ HypoDD::addMissingEventPhases(CatalogPtr& catalog, const Catalog::Event& refEv)
     {
         catalog->removePhase(ph.eventId, ph.stationId);
         catalog->addPhase(ph, true, true);
-        firstPhaseTime = min(ph.time, firstPhaseTime);
     }
 }
 
