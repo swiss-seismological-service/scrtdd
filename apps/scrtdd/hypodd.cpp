@@ -1832,15 +1832,16 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
             throw runtime_error(msg);
         }
 
+        // write catalog for debugging purpose
+        _ddbgc->writeToFile((boost::filesystem::path(subFolder)/"event.csv").string(),
+                            (boost::filesystem::path(subFolder)/"phase.csv").string(),
+                            (boost::filesystem::path(subFolder)/"station.csv").string() );
+
         // build a catalog with the event to be relocated
         CatalogPtr evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
         evToRelocateCat = _ddbgc->merge(evToRelocateCat);
         evToRelocate = evToRelocateCat->searchEvent(evToRelocate)->second; // it has now a new eventID
 
-        // write catalog for debugging purpose
-        _ddbgc->writeToFile((boost::filesystem::path(subFolder)/"event.csv").string(),
-                            (boost::filesystem::path(subFolder)/"phase.csv").string(),
-                            (boost::filesystem::path(subFolder)/"station.csv").string() );
 
         // Select neighbouring events
         CatalogPtr neighbourCat = selectNeighbouringEvents(
@@ -1881,13 +1882,23 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         CatalogPtr relocatedCatalog = loadRelocatedCatalog(neighbourCat, ddrelocFile, ddresidualFile);
         relocatedEvCat = relocatedCatalog->extractEvent(evToRelocateNewId);
 
+        // sometimes hypoDD.reloc file is there but it doesn't contain the relocated event 
+        Catalog::Event firstAndOnlyEv = relocatedEvCat->getEvents().begin()->second;
+        if ( ! firstAndOnlyEv.relocInfo.isRelocated )
+            relocatedEvCat.reset();
+
         // write catalog for debugging purpose
         relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"event-reloc.csv").string(),
                                       (boost::filesystem::path(eventWorkingDir)/"phase-reloc.csv").string(),
                                       (boost::filesystem::path(eventWorkingDir)/"station-reloc.csv").string());
 
     } catch ( exception &e ) {
-        SEISCOMP_ERROR("It was not possible to perform first step origin relocation (%s)", e.what());
+        SEISCOMP_ERROR("%s", e.what());
+    }
+
+    if ( ! relocatedEvCat )
+    {
+        SEISCOMP_ERROR("It was not possible to perform first step origin relocation (no xcorr)");
     }
 
     //
@@ -1904,31 +1915,34 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
             throw runtime_error(msg);
         }
 
-        if ( ! relocatedEvCat )
-            relocatedEvCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
+        CatalogPtr evToRelocateCat = relocatedEvCat;
+        if ( ! evToRelocateCat )
+            evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
 
         // build a catalog with the event to be relocated
-        Catalog::Event relocatedEv = relocatedEvCat->getEvents().begin()->second;
-        relocatedEvCat = _ddbgc->merge(relocatedEvCat);
-        relocatedEv = relocatedEvCat->searchEvent(relocatedEv)->second; // it has now a new eventID
+        Catalog::Event evToRelocate = evToRelocateCat->getEvents().begin()->second;
+        evToRelocateCat = _ddbgc->merge(evToRelocateCat);
+        evToRelocate = evToRelocateCat->searchEvent(evToRelocate)->second; // it has now a new eventID
 
         // optionally find missing phases
         if( _cfg.artificialPhases.enable )
         {
-            addMissingEventPhases(relocatedEvCat, relocatedEv);
+            addMissingEventPhases(evToRelocateCat, evToRelocate);
+            // event might have changed the time
+            evToRelocate = evToRelocateCat->getEvents().find(evToRelocate.id)->second;
         }
 
         // Select neighbouring events from the relocated origin
         CatalogPtr neighbourCat = selectNeighbouringEvents(
-            relocatedEvCat, relocatedEv, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist,
+            evToRelocateCat, evToRelocate, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist,
             _cfg.dtcc.maxESdist, _cfg.dtcc.minEStoIEratio, _cfg.dtcc.maxIEdist, _cfg.dtcc.minDTperEvt,
             _cfg.dtcc.minNumNeigh, _cfg.dtcc.maxNumNeigh, _cfg.dtcc.numEllipsoids, _cfg.dtcc.maxEllipsoidSize
         );
 
         // add event to the neighbours
-        neighbourCat->copyEvent(relocatedEv, relocatedEvCat, false);
+        neighbourCat->copyEvent(evToRelocate, evToRelocateCat, false);
         // extract the new id of the event
-        unsigned refinedLocNewId = neighbourCat->searchEvent(relocatedEv)->first;
+        unsigned refinedLocNewId = neighbourCat->searchEvent(evToRelocate)->first;
 
         // Create station.dat for hypodd
         string stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
@@ -1956,16 +1970,27 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         string ddresidualFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.res").string();
         CatalogPtr relocatedCatalog = loadRelocatedCatalog(neighbourCat, ddrelocFile, ddresidualFile);
         relocatedEvWithXcorr = relocatedCatalog->extractEvent(refinedLocNewId);
+
+        // sometimes hypoDD.reloc file is there but it doesn't contain the relocated event 
+        Catalog::Event firstAndOnlyEv = relocatedEvWithXcorr->getEvents().begin()->second;
+        if ( ! firstAndOnlyEv.relocInfo.isRelocated )
+            relocatedEvWithXcorr.reset();
+
         // write catalog for debugging purpose
         relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"event-reloc.csv").string(),
                                       (boost::filesystem::path(eventWorkingDir)/"phase-reloc.csv").string(),
                                       (boost::filesystem::path(eventWorkingDir)/"station-reloc.csv").string());
     } catch ( exception &e ) {
-        SEISCOMP_ERROR("It was not possible to perform second step origin relocation (%s)", e.what());
+        SEISCOMP_ERROR("%s", e.what());
+    }
+
+    if ( ! relocatedEvWithXcorr )
+    {
+        SEISCOMP_ERROR("It was not possible to perform second step origin relocation (with xcorr)");
     }
 
     if ( ! relocatedEvWithXcorr && ! relocatedEvCat )
-        throw runtime_error("It was not possible to relocate the origin");
+        throw runtime_error("Failed origin relocation with and without crosscorrelation");
 
     return relocatedEvWithXcorr ? relocatedEvWithXcorr : relocatedEvCat;
 }
