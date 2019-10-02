@@ -1290,7 +1290,7 @@ void HypoDD::cleanUnusedResources()
 CatalogPtr
 HypoDD::createMissingPhases(const CatalogCPtr& catalog)
 {
-    CatalogPtr newCatalog = new Catalog(*catalog);
+    CatalogPtr newCatalog = new Catalog(catalog->getStations(), catalog->getEvents(), catalog->getPhases());
     for (const auto& kv : catalog->getEvents() )
     {
         const Catalog::Event& event = kv.second;
@@ -1304,7 +1304,7 @@ void
 HypoDD::addMissingEventPhases(CatalogPtr& catalog, const Catalog::Event& refEv)
 {
     std::vector<Catalog::Phase> newPhases = findMissingEventPhases(catalog, refEv);
-    Core::Time firstPhaseTime;
+    Core::Time firstPhaseTime = refEv.time;
     for (Catalog::Phase& ph : newPhases)
     {
         catalog->removePhase(ph.eventId, ph.stationId);
