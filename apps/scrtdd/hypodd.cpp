@@ -1543,7 +1543,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
             continue;
         }
 
-        refEvNewPhase.time = refEv.time + Core::TimeSpan(xcorr_dt_tot);
+        refEvNewPhase.time += Core::TimeSpan(xcorr_dt_tot);
         newPhases.push_back(refEvNewPhase);
 
         SEISCOMP_INFO("Event %s: new phase %s for station %s created (average crosscorrelation coefficient %.2f over %d close-by events)",
