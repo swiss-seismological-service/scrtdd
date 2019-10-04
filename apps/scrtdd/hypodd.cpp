@@ -1336,8 +1336,11 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         {
             const Catalog::Phase& phase = it->second;
             if ( station.networkCode == phase.networkCode &&
-                 station.stationCode == phase.stationCode )
+                 station.stationCode == phase.stationCode)
             {
+                if ( _cfg.artificialPhases.fixAutoPhase && ! phase.isManual )
+                    continue;
+
                 if ( phase.type == "P" ) foundP = true;
                 if ( phase.type == "S" ) foundS = true;
             }
@@ -1472,7 +1475,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         refEvNewPhase.eventId      = refEv.id;
         refEvNewPhase.stationId    = station.id;
         refEvNewPhase.time         = startTime + Core::TimeSpan((endTime - startTime).length() / 2);
-        refEvNewPhase.weight       = 0;
+        refEvNewPhase.weight       = _cfg.artificialPhases.weight;
         refEvNewPhase.type         = phaseType;
         refEvNewPhase.networkCode  = station.networkCode;
         refEvNewPhase.stationCode  = station.stationCode;
@@ -1546,8 +1549,8 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         refEvNewPhase.time += Core::TimeSpan(xcorr_dt_tot);
         newPhases.push_back(refEvNewPhase);
 
-        SEISCOMP_INFO("Event %s: new phase %s for station %s created (average crosscorrelation coefficient %.2f over %d close-by events)",
-                      string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), xcorr_coeff_tot,  _cfg.artificialPhases.numCC);
+        SEISCOMP_INFO("Event %s: new phase %s for station %s created with weight %.2f (average crosscorrelation coefficient %.2f over %d close-by events)",
+                      string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), refEvNewPhase.weight, xcorr_coeff_tot,  _cfg.artificialPhases.numCC);
 
         if ( _cfg.wfFilter.dump )
         {

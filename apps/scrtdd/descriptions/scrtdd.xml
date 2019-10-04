@@ -295,7 +295,7 @@
                             </parameter>
                             <parameter name="minEStoIEratio" type="double">
                                 <description>
-                                    Min ratio between event-station distance and pair inter-event distance. Phases
+                                    Min ratio between event-station distance and pair inter-event-pair distance. Phases
                                     belonging to stations not satisfyig this condition will not be used.
                                     Check disabled by default.
                                 </description>
@@ -384,7 +384,7 @@
                             </parameter>
                             <parameter name="minEStoIEratio" type="double">
                                 <description>
-                                    Min ratio between event-station distance and pair inter-event distance. Phases
+                                    Min ratio between event-station distance and inter-event-pair distance. Phases
                                     belonging to stations not satisfyig this condition will not be used.
                                     Check disabled by default.
                                 </description>
@@ -438,19 +438,36 @@
                                    for which other close by events have phases
                                 </description>
                                 <parameter name="enable" type="boolean" default="false">
-                                   <description>
+                                    <description>
+                                        Enable the detected and creation of new phases
+                                   </description>
+                                </parameter>
+                                <parameter name="fixAutomaticPhase" type="boolean" default="false">
+                                    <description>
+                                        Use cross correlation to improve the picks of existing
+                                        automatic phases
+                                   </description>
+                                </parameter>
+                                <parameter name="weight" type="double" default="1">
+                                    <description>
+                                        Weight of newely detected phases
                                    </description>
                                 </parameter>
                                 <parameter name="minEStoIEratio" type="double" default="5">
-                                   <description>
+                                    <description>
+                                        Min ratio between event-station distance and inter-event-pair distance.
+                                        This parameters restrincts the phases to be used in cross correlation, allowing 
+                                        to use only events that satisfy the condition.
                                    </description>
                                 </parameter>  
                                 <parameter name="numCC" type="int" default="2">
                                     <description>
+                                        Number of good cross correlations required to define a new phase.
                                     </description>
                                 </parameter>
                                 <parameter name="maxCCtw" type="double" default="5">
-                                   <description>
+                                    <description>
+                                        Maximum time window to be used when looking for the pick with cross correlation
                                    </description>
                                 </parameter>
                             </group>

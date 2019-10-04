@@ -310,6 +310,8 @@ struct Config {
     // artificial phases
     struct {
         bool enable           = false;
+        bool fixAutoPhase     = false;
+        double weight         = 1;
         double minEStoIEratio = 5;
         unsigned numCC        = 2;
         double maxCCtw        = 10;
