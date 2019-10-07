@@ -167,7 +167,9 @@ class Catalog : public Core::BaseObject {
             // this equality works between multiple catalogs (same id is not required) 
             bool operator==(const Phase& other) const
             {
-                return (time == other.time) &&
+                return (eventId == other.eventId) &&
+                       (stationId == other.stationId) &&
+                       (time == other.time) &&
                        (type == other.type) &&
                        (networkCode == other.networkCode) &&
                        (stationCode == other.stationCode) &&

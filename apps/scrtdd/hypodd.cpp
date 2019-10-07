@@ -677,7 +677,7 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
                 sta.latitude = orgArrStation->latitude();
                 sta.longitude = orgArrStation->longitude();
                 sta.elevation = orgArrStation->elevation(); // meter
-                this->addStation(sta, true, true);
+                this->addStation(sta, false, false);
             }
             // the station has to be there at this point
             sta = this->searchStation(sta)->second;
@@ -700,7 +700,7 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
             ph.locationCode = pick->waveformID().locationCode();
             ph.channelCode  = pick->waveformID().channelCode();
             ph.isManual     = (pick->evaluationMode() == Seiscomp::DataModel::MANUAL);
-            this->addPhase(ph, false, false);
+            this->addPhase(ph, true, false);
         }
     }
 }
@@ -802,13 +802,13 @@ CatalogPtr Catalog::extractEvent(unsigned eventId) const
             throw runtime_error(msg);
         }
         const Catalog::Station& station = search->second;
-        eventToExtract->addStation(station, true, true);
+        eventToExtract->addStation(station, true, false);
         string newStationId = eventToExtract->searchStation(station)->first;
 
         phase.eventId = newEventId;
         phase.stationId = newStationId;
 
-        eventToExtract->addPhase(phase, false, false);
+        eventToExtract->addPhase(phase, true, false);
     } 
 
     return eventToExtract;
@@ -826,8 +826,8 @@ bool Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& evCat, b
     }
     else
     {
-        if ( ! addEvent(event, true, false) )
-            throw runtime_error("Cannot add event, internal logic error");
+        // don't add an event with same values, but keep merging phases
+        addEvent(event, true, false);
     }
 
     unsigned newEventId = searchEvent(event)->first;
@@ -846,13 +846,13 @@ bool Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& evCat, b
             throw runtime_error(msg);
         }
         const Catalog::Station& station = search->second;
-        addStation(station, true, true);
+        addStation(station, true, false);
         string newStationId = searchStation(station)->first;
 
         phase.eventId = newEventId;
         phase.stationId = newStationId;
 
-        addPhase(phase, false, false);
+        addPhase(phase, true, false);
     }
 
     return true;
@@ -1465,7 +1465,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
 
         if ( xcorrTw.length() > _cfg.artificialPhases.maxCCtw )
         {
-            SEISCOMP_DEBUG("Event %s: cannot create phase %s for station %s. Detectied xcorr time window is too big (secs %.2f)",
+            SEISCOMP_DEBUG("Event %s: cannot create phase %s for station %s. Detected xcorr time window is too big (secs %.2f)",
                            string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), xcorrTw.length());
             continue;
         }

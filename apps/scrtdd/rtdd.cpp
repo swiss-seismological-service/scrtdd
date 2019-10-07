@@ -236,7 +236,7 @@ RTDD::Config::Config()
 
     forceProcessing = false;
     testMode = false;
-    dumpProcessedWf = false;
+    dumpWaveforms = false;
     fExpiry = 1.0;
 
     wakeupInterval = 10;
@@ -285,12 +285,14 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT_CLI(_config.dumpCatalog, "Mode", "dump-catalog",
                 "Dump the seiscomp event/origin id file passed as argument into a catalog file triplet (station.csv,event.csv,phase.csv)", true);
     NEW_OPT_CLI(_config.dumpCatalogXML, "Mode", "dump-catalog-xml",
-                "Convert the input catalog into XML format. The input can be a single file (containing seiscomp event/origin ids) or a catalog file triple (station.csv,event.csv,phase.csv)", true);
-    NEW_OPT_CLI(_config.relocateCatalog, "Mode", "reloc-profile",
+                "Convert the input catalog into XML format. The input can be a single file (containing seiscomp event/origin ids) or a catalog file triplet (station.csv,event.csv,phase.csv)", true);
+    NEW_OPT_CLI(_config.mergeCatalogs, "Mode", "merge-catalogs",
+                "Merge in a single catalog all the catalog file triplets (station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,phase2.csv,...) passed as arguments", true);
+    NEW_OPT_CLI(_config.relocateProfile, "Mode", "reloc-profile",
                 "Relocate the catalog of profile passed as argument", true);
-    NEW_OPT_CLI(_config.loadCatalog, "Mode", "load-profile-wf",
+    NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
                 "Load catalog waveforms from the configured recordstream and save them into the profile working directory ('cacheWaveforms' folder)", true);
-    NEW_OPT_CLI(_config.dumpProcessedWf, "Mode", "debug-wf", "Enable the dumping of waveforms (filtered and resampled phases, artificial phases, SNR rejected phases) into the profile working directory ('cacheWaveforms' folder). Useful when run in combination with --load-profile-wf", false, true);
+    NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf", "Enable the dumping of waveforms (filtered and resampled phases, artificial phases, SNR rejected phases) into the profile working directory ('cacheWaveforms' folder). Useful when run in combination with --load-profile-wf", false, true);
     NEW_OPT_CLI(_config.originIDs, "Mode", "origin-id,O",
                 "Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed accordingly with the matching profile region unless --profile option is used", true);
     NEW_OPT_CLI(_config.eventXML, "Mode", "ep",
@@ -327,18 +329,13 @@ bool RTDD::validateParameters()
     if ( !Application::validateParameters() )
         return false;
 
-    // Disable messaging (offline mode) with:
-    //  --ep option
-    //  --dump-catalog option
-    //  --dump-catalog-xml option
-    //  --load-catalog option    
-    //  --relocate-catalog option
-    //  --O and --test (relocate origin and don't send the new one)
+    // Disable messaging (offline mode) with certain command line options:
     if ( !_config.eventXML.empty()        ||
          !_config.dumpCatalog.empty()     ||
+         !_config.mergeCatalogs.empty()   ||
          !_config.dumpCatalogXML.empty()  ||
-         !_config.loadCatalog.empty()     ||
-         !_config.relocateCatalog.empty() ||
+         !_config.loadProfile.empty()     ||
+         !_config.relocateProfile.empty() ||
          (!_config.originIDs.empty() && _config.testMode)
        )
     {
@@ -574,7 +571,7 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.wfFilter.resampleFreq = configGetDouble(prefix + "resampling");
         } catch ( ... ) { prof->ddcfg.wfFilter.resampleFreq = 0.; }
-        prof->ddcfg.wfFilter.dump = _config.dumpProcessedWf;
+        prof->ddcfg.wfFilter.dump = _config.dumpWaveforms;
 
         prefix = string("profile.") + *it + ".dtcc.snr.";
         try {
@@ -700,12 +697,12 @@ bool RTDD::run() {
     }
 
     // load catalog and exit
-    if ( !_config.loadCatalog.empty() )
+    if ( !_config.loadProfile.empty() )
     {
         for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
         {
             ProfilePtr profile = *it;
-            if ( profile->name == _config.loadCatalog)
+            if ( profile->name == _config.loadProfile)
             {
                 profile->load(query(), &_cache, _eventParameters.get(),
                               _config.workingDirectory, !_config.keepWorkingFiles,
@@ -724,6 +721,30 @@ bool RTDD::run() {
         HDD::CatalogPtr cat = new HDD::Catalog();
         cat->add(_config.dumpCatalog, dataSrc);
         cat->writeToFile("event.csv","phase.csv","station.csv");
+        SEISCOMP_INFO("Wrote files event.csv, phase.csv, station.csv");
+        return true;
+    }
+
+    // merge catalogs and exit
+    if ( !_config.mergeCatalogs.empty() )
+    {
+        std::vector<std::string> tokens;
+        boost::split(tokens, _config.mergeCatalogs, boost::is_any_of(","), boost::token_compress_on);
+
+        if ( (tokens.size() % 3) != 0)
+        {
+            SEISCOMP_ERROR("--merge-catalogs accepts catalog event triplets only");
+            return false;
+        }
+
+        HDD::CatalogPtr outCat = new HDD::Catalog();
+        for ( size_t i = 0; i < tokens.size(); i+=3 )
+        {
+            HDD::CatalogPtr cat = new HDD::Catalog(tokens[i+0],tokens[i+1],tokens[i+2]);
+            outCat = outCat->merge(cat);
+        }
+        outCat->writeToFile("event.csv","phase.csv","station.csv");
+        SEISCOMP_INFO("Wrote files event.csv, phase.csv, station.csv");
         return true;
     }
 
@@ -770,12 +791,12 @@ bool RTDD::run() {
     }
 
     // relocate full catalog and exit
-    if ( !_config.relocateCatalog.empty() )
+    if ( !_config.relocateProfile.empty() )
     {
         for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
         {
             ProfilePtr profile = *it;
-            if ( profile->name == _config.relocateCatalog)
+            if ( profile->name == _config.relocateProfile)
             {
                 profile->load(query(), &_cache, _eventParameters.get(),
                               _config.workingDirectory, !_config.keepWorkingFiles,
@@ -783,6 +804,7 @@ bool RTDD::run() {
                 HDD::CatalogPtr relocatedCat = profile->relocateCatalog(_config.forceProcessing);
                 profile->unload();
                 relocatedCat->writeToFile("event.csv","phase.csv","station.csv");
+                SEISCOMP_INFO("Wrote files event.csv, phase.csv, station.csv");
                 break;
             }
         }

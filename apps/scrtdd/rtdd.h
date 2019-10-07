@@ -121,15 +121,16 @@ class RTDD : public Application {
             // Mode
             bool        forceProcessing;
             bool        testMode;
-            bool        dumpProcessedWf;
+            bool        dumpWaveforms;
             double      fExpiry;
             std::string originIDs;
             std::string eventXML;
             std::string forceProfile;
-            std::string relocateCatalog;
+            std::string relocateProfile;
             std::string dumpCatalog;
+            std::string mergeCatalogs;
             std::string dumpCatalogXML;
-            std::string loadCatalog;
+            std::string loadProfile;
 
             // cron
             int         wakeupInterval;
