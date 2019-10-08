@@ -125,7 +125,7 @@ Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might
 Once we are happy witht he options, we can relocate the catalog with the command:
 
 ```
-scrtdd --reloc-catalog profileName [--force]
+scrtdd --reloc-catalog profileName
 ```
 
 scrtdd will relocated the catalog and will generate another set of files event.csv phase.csv and stations.csv (save the previous files somewhere before relocating the catalog). At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations, at which point we can finally set the resulting relocated catalog as background catalog in a scrtdd profile (a new one or the previous one) that we will use for real time relocation.
@@ -135,7 +135,7 @@ We are now ready to perform real time relocation!
 Note: it is possible to use ph2dt utility to perform the catalog relocation. It this case the scrtdd configuraion for generating dt.ct and dt.cc files will not be used. Instead, ph2dt will be run to generate dt.ct file, and for each entry in the generated dt.ct file the cross correlation will be performed and the relative dt.cc file created. 
 
 ```
-scrtdd --reloc-catalog profileName --use-ph2dt /some/path/ph2dt.inp [--ph2dt-path /some/path/ph2dt] [--force]
+scrtdd --reloc-catalog profileName --use-ph2dt /some/path/ph2dt.inp [--ph2dt-path /some/path/ph2dt]
 ```
 
 
@@ -168,7 +168,7 @@ To test the real time relocation we can either run playbacks or use two command 
 E.g. if we want to process an origin or event, we can run the following command and then check on scolv the relocated origin (the messaging system must be active):
 
 ```
-scrtdd -O event2019dubnfr [--force]
+scrtdd -O event2019dubnfr
 ```
 
 Alternatively we can reprocess an XML file:
@@ -186,7 +186,7 @@ Alternatively we can reprocess an XML file:
 E.g.
 
 ```
-scrtdd --ep event.xml [--force]
+scrtdd --ep event.xml
 ```
 
 

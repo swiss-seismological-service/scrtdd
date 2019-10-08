@@ -634,10 +634,6 @@
                     <description>Force a specific profile to be used</description>
                 </option>
 
-                <option long-flag="force">
-                    <description>Force event processing: in single event mode the processing is performed even on origins that would normally be skipped (already processed, not preferred, manual, etc.); In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used</description>
-                </option>
-
                 <option long-flag="expiry" flag="x" argument="hours">
                     <description>Time span in hours after which objects expire</description>
                 </option>

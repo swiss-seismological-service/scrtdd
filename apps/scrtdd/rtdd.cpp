@@ -299,9 +299,6 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
                 "Event parameters XML file for offline processing of contained origins (imply test option). Each contained origin will be processed accordingly with the matching profile region unless --profile option is used", true);
     NEW_OPT_CLI(_config.testMode, "Mode", "test", "Test mode, no messages are sent", false, true);
     NEW_OPT_CLI(_config.forceProfile, "Mode", "profile", "Force a specific profile to be used", true);    
-    NEW_OPT_CLI(_config.forceProcessing, "Mode", "force",
-                "Force event processing: in single event mode the processing is performed even on origins that would normally be skipped (already processed, not preferred, manual, etc.); In catalog mode the processing overwrites any previous processing files, which could be still on disk if 'keepWorkingFiles' option is used",
-                false, true);
     NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
                 "Time span in hours after which objects expire", true);
 }
@@ -801,7 +798,7 @@ bool RTDD::run() {
                 profile->load(query(), &_cache, _eventParameters.get(),
                               _config.workingDirectory, !_config.keepWorkingFiles,
                               _config.cacheWaveforms, false);
-                HDD::CatalogPtr relocatedCat = profile->relocateCatalog(_config.forceProcessing);
+                HDD::CatalogPtr relocatedCat = profile->relocateCatalog(true);
                 profile->unload();
                 relocatedCat->writeToFile("reloc-event.csv","reloc-phase.csv","reloc-station.csv");
                 SEISCOMP_INFO("Wrote files reloc-event.csv, reloc-phase.csv, reloc-station.csv");
@@ -815,8 +812,7 @@ bool RTDD::run() {
     if ( !_config.originIDs.empty() )
     {
         // force process of any origin
-        _config.onlyPreferredOrigin = false;
-        _config.allowManualOrigin = true;
+        _config.forceProcessing = true;
 
         // split multiple origins
         std::vector<std::string> ids;
@@ -841,8 +837,7 @@ bool RTDD::run() {
     if ( !_config.eventXML.empty() )
     {
         // force process of any origin
-        _config.onlyPreferredOrigin = false;
-        _config.allowManualOrigin = true;
+        _config.forceProcessing = true;
 
          vector<OriginPtr> origins;
         for(unsigned i = 0; i < _eventParameters->originCount(); i++)
