@@ -743,8 +743,8 @@ bool RTDD::run() {
             HDD::CatalogPtr cat = new HDD::Catalog(tokens[i+0],tokens[i+1],tokens[i+2]);
             outCat = outCat->merge(cat);
         }
-        outCat->writeToFile("event.csv","phase.csv","station.csv");
-        SEISCOMP_INFO("Wrote files event.csv, phase.csv, station.csv");
+        outCat->writeToFile("merged-event.csv","merged-phase.csv","merged-station.csv");
+        SEISCOMP_INFO("Wrote files merged-event.csv, merged-phase.csv, merged-station.csv");
         return true;
     }
 
@@ -803,8 +803,8 @@ bool RTDD::run() {
                               _config.cacheWaveforms, false);
                 HDD::CatalogPtr relocatedCat = profile->relocateCatalog(_config.forceProcessing);
                 profile->unload();
-                relocatedCat->writeToFile("event.csv","phase.csv","station.csv");
-                SEISCOMP_INFO("Wrote files event.csv, phase.csv, station.csv");
+                relocatedCat->writeToFile("reloc-event.csv","reloc-phase.csv","reloc-station.csv");
+                SEISCOMP_INFO("Wrote files reloc-event.csv, reloc-phase.csv, reloc-station.csv");
                 break;
             }
         }
