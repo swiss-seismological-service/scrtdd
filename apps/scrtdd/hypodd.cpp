@@ -1465,9 +1465,9 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
 
         if ( xcorrTw.length() > _cfg.artificialPhases.maxCCtw )
         {
-            SEISCOMP_DEBUG("Event %s: cannot create phase %s for station %s. Detected xcorr time window is too big (secs %.2f)",
-                           string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), xcorrTw.length());
-            continue;
+            startTime = refEv.time - Core::TimeSpan(_cfg.artificialPhases.maxCCtw/2.);
+            endTime   = refEv.time + Core::TimeSpan(_cfg.artificialPhases.maxCCtw/2.);
+            xcorrTw = Core::TimeWindow(startTime, endTime);
         }
 
         // create new phase

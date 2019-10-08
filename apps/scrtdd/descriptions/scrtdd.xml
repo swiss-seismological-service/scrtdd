@@ -465,9 +465,9 @@
                                         Number of good cross correlations required to define a new phase.
                                     </description>
                                 </parameter>
-                                <parameter name="maxCCtw" type="double" default="5">
+                                <parameter name="maxCCtw" type="double" default="10">
                                     <description>
-                                        Maximum time window to be used when looking for the pick with cross correlation
+                                        Maximum time window to be used when looking for the pick with cross correlation. This is an upper bound to restrict the search window, which depends on minEStoIEratio only
                                    </description>
                                 </parameter>
                             </group>
