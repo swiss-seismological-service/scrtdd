@@ -610,7 +610,10 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
         ev.depth       = org->depth(); // km
         ev.horiz_err   = 0;
         ev.vert_err    = 0;
-        ev.rms         = org->quality().standardError();
+        try {
+            ev.rms = org->quality().standardError();
+        } catch ( ... ) {  ev.rms = 0; }
+
         DataModel::MagnitudePtr mag;
         // try to fetch preferred magnitude stored in the event
         DataModel::EventPtr parentEvent = dataSrc.getParentEvent(org->publicID());
