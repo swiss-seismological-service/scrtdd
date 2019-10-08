@@ -193,6 +193,8 @@ class Catalog : public Core::BaseObject {
         Catalog();
         virtual ~Catalog() { }
 
+        Catalog(const Catalog& other);
+
         // custom data format constructors
         Catalog(const std::map<std::string,Station>& stations,
                 const std::map<unsigned,Event>& events,
@@ -236,6 +238,7 @@ class Catalog : public Core::BaseObject {
                          std::string stationFile) const;
 
     private:
+        Catalog& operator=(const Catalog& other);
 
         std::map<std::string,Station> _stations; // indexed by station id
         std::map<unsigned,Event> _events; //indexed by event id

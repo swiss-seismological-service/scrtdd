@@ -502,6 +502,12 @@ Catalog::Catalog() : Catalog(map<string,Station>(),
 }
 
 
+Catalog::Catalog(const Catalog& other) : Catalog(other.getStations(),
+                                                 other.getEvents(),
+                                                 other.getPhases())
+{
+}
+
 
 Catalog::Catalog(const map<string,Station>& stations,
                  const map<unsigned,Event>& events,
@@ -762,7 +768,7 @@ void Catalog::add(const std::string& idFile,  DataSource& dataSrc)
 
 CatalogPtr Catalog::merge(const CatalogCPtr& other) const
 {
-    CatalogPtr mergedCatalog = new Catalog(getStations(), getEvents(), getPhases());
+    CatalogPtr mergedCatalog = new Catalog(*this);
 
     for (const auto& kv :  other->getEvents() )
     {
@@ -1293,7 +1299,7 @@ void HypoDD::cleanUnusedResources()
 CatalogPtr
 HypoDD::createMissingPhases(const CatalogCPtr& catalog)
 {
-    CatalogPtr newCatalog = new Catalog(catalog->getStations(), catalog->getEvents(), catalog->getPhases());
+    CatalogPtr newCatalog = new Catalog(*catalog);
     for (const auto& kv : catalog->getEvents() )
     {
         const Catalog::Event& event = kv.second;
@@ -2494,6 +2500,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
             }
             else
             {
+                // event discarded because it doesn't satisfies requirements
                 removedEvents.push_back( event.id );
             }
         }
