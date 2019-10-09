@@ -2518,7 +2518,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
         todoEvents.clear();
 
         // check if the removed events were used as neighbor of any event
-        // if so rebuild neighbours
+        // if so rebuild neighbours for those events
         bool redo = false;
         do {
             map<unsigned,CatalogPtr> validNeighbourCats;
@@ -2549,6 +2549,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                 }
             }
 
+            neighbourCats.clear();
             for (auto kv : validNeighbourCats )
                 neighbourCats[kv.first] = kv.second;
 
