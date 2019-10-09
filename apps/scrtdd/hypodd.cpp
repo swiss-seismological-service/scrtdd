@@ -2475,10 +2475,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
     CatalogPtr validCatalog = new Catalog(*catalog);
     list<unsigned> todoEvents;
     for (const auto& kv : catalog->getEvents() )
-    {
-        const Catalog::Event& event = kv.second;
-        todoEvents.push_back(event.id);
-    }
+        todoEvents.push_back( kv.first );
 
     while ( ! todoEvents.empty() )
     {
@@ -2506,6 +2503,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                 removedEvents.push_back( event.id );
                 // next loop we don't want other events to pick this as neighbour
                 validCatalog->removeEvent( event.id );
+                todoEvents.remove( event.id ); // invalidate loop !
                 // stop here because we dont' want to keep building potentially wrong neighbours
                 break;
             }
@@ -2514,8 +2512,6 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
             neighbourCat->copyEvent(event, catalog, true);
             neighbourCats[event.id] = neighbourCat;
         }
-
-        todoEvents.clear();
 
         // check if the removed events were used as neighbor of any event
         // if so rebuild neighbours for those events
@@ -2541,14 +2537,11 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
 
                 if ( currCatInvalid )
                 {
-                    todoEvents.push_back( currCatEvId );
                     removedEvents.push_back( currCatEvId );
                     redo = true;
+                    continue;
                 }
-                else
-                {
-                    validNeighbourCats[currCatEvId] = currCat;
-                }
+                validNeighbourCats[currCatEvId] = currCat;
             }
 
             neighbourCats.clear();
@@ -2558,7 +2551,10 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
 
         // save valid neighbours catalogs
         for (auto kv : neighbourCats )
-            neighboursByEvent[kv.first] = kv.second;
+        {
+            todoEvents.remove( kv.first );
+            neighboursByEvent[ kv.first ] = kv.second;
+        }
     }
 
     // We don't want to report the same pairs multiple times
