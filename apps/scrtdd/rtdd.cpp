@@ -549,9 +549,6 @@ bool RTDD::validateParameters()
             prof->ddcfg.artificialPhases.fixAutoPhase = configGetBool(prefix + "fixAutomaticPhase");
         } catch ( ... ) { prof->ddcfg.artificialPhases.fixAutoPhase = false; }
         try {
-            prof->ddcfg.artificialPhases.weight = configGetDouble(prefix + "weight");
-        } catch ( ... ) {  prof->ddcfg.artificialPhases.weight = 0.5; }
-        try {
             prof->ddcfg.artificialPhases.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
         } catch ( ... ) {  prof->ddcfg.artificialPhases.minEStoIEratio = 10; }
         try {

@@ -448,11 +448,6 @@
                                         automatic phases
                                    </description>
                                 </parameter>
-                                <parameter name="weight" type="double" default="0.5">
-                                    <description>
-                                        Weight of newely detected phases
-                                   </description>
-                                </parameter>
                                 <parameter name="minEStoIEratio" type="double" default="10">
                                     <description>
                                         Min ratio between event-station distance and inter-event-pair distance.

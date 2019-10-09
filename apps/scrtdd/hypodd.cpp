@@ -315,6 +315,65 @@ double computeDistance(double lat1, double lon1, double depth1,
 
 
 /*
+ * Fixed weighting scheme based on pick time uncertainties
+ * Class 0: 0     - 0.025  sec
+ *       1: 0.025 - 0.050  sec
+ *       2: 0.050 - 0.100  sec
+ *       3: 0.100 - 0.200  sec
+ *       4: 0.200 - 0.400  sec
+ *       5: 0.400 -        sec
+ *  weight = 1 / 2^class
+ */
+double computePickWeight(double uncertainty /* secs */ )
+{
+    int cls = -1;
+
+    if ( uncertainty >= 0.000 && uncertainty < 0.025 )      cls = 0;
+    else if ( uncertainty >= 0.025 && uncertainty < 0.050 ) cls = 1;
+    else if ( uncertainty >= 0.050 && uncertainty < 0.100 ) cls = 2;
+    else if ( uncertainty >= 0.100 && uncertainty < 0.200 ) cls = 3;
+    else if ( uncertainty >= 0.200 && uncertainty < 0.400 ) cls = 4;
+    else                                                    cls = 5;
+
+    double weight = 1. / pow(2., cls);
+
+    return weight;
+}
+
+
+double computePickWeight(DataModel::Pick *pick)
+{
+    double uncertainty = -1; // secs
+
+    try
+    {
+        // Symmetric uncertainty
+        uncertainty = pick->time().uncertainty();
+    }
+    catch ( Core::ValueException& )
+    {
+        // Unsymmetric uncertainty
+        try
+        {
+          uncertainty = (pick->time().lowerUncertainty() + pick->time().upperUncertainty() ) / 2;
+        } catch ( Core::ValueException& ) {}
+    }
+
+    if ( uncertainty < 0 )
+    {
+        try {
+           uncertainty = (pick->evaluationMode() == Seiscomp::DataModel::MANUAL) ? 0.025 : 0.200;
+        } catch ( Core::ValueException& )  {
+           uncertainty = 0.200;
+        }
+    }
+
+    return computePickWeight(uncertainty);
+}
+
+
+
+/*
  * Ellipsoid standard equation:
  *
  *      (x-xo)^2/axix_a + (y-yo)^2/axis_b +(z-zo)^2/axis_c = 1
@@ -692,17 +751,10 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
             sta = this->searchStation(sta)->second;
 
             Phase ph;
-            ph.eventId    = newEvent.id;
-            ph.stationId  = sta.id;
-            ph.time       = pick->time().value();
-            try {
-                ph.weight = orgArr->weight();
-            } catch ( Core::ValueException& ) {
-                ph.weight = 1.;
-                SEISCOMP_DEBUG("Pick '%s' (origin %s) has no weight set, use default weight of 1.",
-                              orgArr->pickID().c_str(), org->publicID().c_str());
-            }
-
+            ph.eventId      = newEvent.id;
+            ph.stationId    = sta.id;
+            ph.time         = pick->time().value();
+            ph.weight       = computePickWeight(pick.get());
             ph.type         = orgPh.code();
             ph.networkCode  = pick->waveformID().networkCode();
             ph.stationCode  = pick->waveformID().stationCode();
@@ -1484,7 +1536,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         refEvNewPhase.eventId      = refEv.id;
         refEvNewPhase.stationId    = station.id;
         refEvNewPhase.time         = startTime + Core::TimeSpan((endTime - startTime).length() / 2);
-        refEvNewPhase.weight       = _cfg.artificialPhases.weight;
+        refEvNewPhase.weight       = 0;
         refEvNewPhase.type         = phaseType;
         refEvNewPhase.networkCode  = station.networkCode;
         refEvNewPhase.stationCode  = station.stationCode;
@@ -1548,6 +1600,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         xcorr_coeff_tot /= ccCount;
         xcorr_dt_tot /= ccCount;
 
+        // check if we are happy with the cross coefficient
         if ( xcorr_coeff_tot < xcorrCfg.minCoef )
         {
             SEISCOMP_DEBUG("Event %s: rejected artificial phase %s for station %s. Crosscorrelation coefficient too low (%.2f)",
@@ -1555,7 +1608,22 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
             continue;
         }
 
-        refEvNewPhase.time += Core::TimeSpan(xcorr_dt_tot);
+        // compute mean absolute deviation (used for phase weight)
+        double absMeanDev = 0;
+        ccCount = 0;
+        for (auto i = xcorr_out.rbegin(); i != xcorr_out.rend(); ++i)
+        {
+            double xcorr_dt = i->second;
+            absMeanDev += std::abs(xcorr_dt - xcorr_dt_tot);
+            if (++ccCount >= _cfg.artificialPhases.numCC) break;
+        }
+        absMeanDev /= ccCount;
+
+        //
+        // New phase found
+        //
+        refEvNewPhase.time  += Core::TimeSpan(xcorr_dt_tot);
+        refEvNewPhase.weight = computePickWeight(absMeanDev);
         newPhases.push_back(refEvNewPhase);
 
         SEISCOMP_INFO("Event %s: new phase %s for station %s created with weight %.2f (average crosscorrelation coefficient %.2f over %d close-by events)",
