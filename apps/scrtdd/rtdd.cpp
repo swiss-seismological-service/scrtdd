@@ -1609,7 +1609,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
         newArr->setPickID(newPick->publicID());
         newArr->setPhase(phase.type);
         newArr->setWeight(phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : phase.weight);
-        newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );        
+        newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
         newArr->setTimeUsed(phase.relocInfo.isRelocated);
 
         double distance, az, baz;
