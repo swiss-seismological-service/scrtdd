@@ -550,10 +550,10 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.artificialPhases.fixAutoPhase = false; }
         try {
             prof->ddcfg.artificialPhases.weight = configGetDouble(prefix + "weight");
-        } catch ( ... ) {  prof->ddcfg.artificialPhases.weight = 1; }
+        } catch ( ... ) {  prof->ddcfg.artificialPhases.weight = 0.5; }
         try {
             prof->ddcfg.artificialPhases.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
-        } catch ( ... ) {  prof->ddcfg.artificialPhases.minEStoIEratio = 5; }
+        } catch ( ... ) {  prof->ddcfg.artificialPhases.minEStoIEratio = 10; }
         try {
             prof->ddcfg.artificialPhases.numCC = configGetInt(prefix + "numCC");
         } catch ( ... ) {  prof->ddcfg.artificialPhases.numCC = 2; }
