@@ -2482,8 +2482,8 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
 
     while ( ! todoEvents.empty() )
     {
-        vector<unsigned> removedEvents;
         map<unsigned,CatalogPtr> neighbourCats;
+        vector<unsigned> removedEvents;
 
         // for each event find the neighbours
         for (unsigned evIdTodo : todoEvents )
@@ -2500,19 +2500,19 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                 );
             } catch ( ... ) { }
 
-            if ( neighbourCat )
-            {
-                // add event to neighbour catalog list and update the list
-                neighbourCat->copyEvent(event, catalog, true);
-                neighbourCats[event.id] = neighbourCat;
-            }
-            else
+            if ( ! neighbourCat )
             {
                 // event discarded because it doesn't satisfies requirements
                 removedEvents.push_back( event.id );
-                // remove event because in next iterations we don't want this
+                // next loop we don't want other events to pick this as neighbour
                 validCatalog->removeEvent( event.id );
+                // stop here because we dont' want to keep building potentially wrong neighbours
+                break;
             }
+
+            // add event to neighbour catalog list and update the list
+            neighbourCat->copyEvent(event, catalog, true);
+            neighbourCats[event.id] = neighbourCat;
         }
 
         todoEvents.clear();
@@ -2530,9 +2530,9 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                 CatalogPtr& currCat  = kv.second;
 
                 bool currCatInvalid = false;
-                for (unsigned eventIdtoRemove : removedEvents)
+                for (unsigned removedEventId : removedEvents)
                 {
-                    if( currCat->getEvents().find(eventIdtoRemove) != currCat->getEvents().end())
+                    if( currCat->getEvents().find(removedEventId) != currCat->getEvents().end())
                     {
                         currCatInvalid = true;
                         break;
