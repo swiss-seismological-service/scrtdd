@@ -2391,13 +2391,20 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                                          -(station.elevation/1000.));
 
                 // check this station distance is ok
-                if ( ( maxESdist > 0 && stationDistance > maxESdist ) ||                  // too far away ?
-                     ( stationDistance < minESdist )                 ||                  // too close ?
-                     ( (stationDistance/distanceByEvent[event.id]) < minEStoIEratio ) ) // ratio too small ?
+                if ( ( maxESdist > 0 && stationDistance > maxESdist ) ||  // too far away ?
+                     ( stationDistance < minESdist ) )                    // too close ?
                 {
                     excludedStations.insert(station.id);
                     continue;
                 }
+
+                if ( (stationDistance/distanceByEvent[event.id]) < minEStoIEratio ) // ratio too small ?
+                {
+                    // since this is dependents on the current event we cannot save it into excludedStations 
+                    continue;
+                }
+                
+                // this station is ok for refEv
                 includedStations.insert(station.id);
             }
 
