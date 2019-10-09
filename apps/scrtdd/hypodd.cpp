@@ -2542,12 +2542,12 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
 
     CatalogPtr validCatalog = new Catalog(*catalog);
     list<unsigned> todoEvents;
-    for (const auto& kv : catalog->getEvents() )
+    for (const auto& kv : validCatalog->getEvents() )
         todoEvents.push_back( kv.first );
 
     while ( ! todoEvents.empty() )
     {
-        map<unsigned,CatalogPtr> neighbourCats;
+        map<unsigned,CatalogPtr> newNeighbourCats;
         vector<unsigned> removedEvents;
 
         // for each event find the neighbours
@@ -2578,7 +2578,15 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
 
             // add event to neighbour catalog list and update the list
             neighbourCat->copyEvent(event, catalog, true);
-            neighbourCats[event.id] = neighbourCat;
+            newNeighbourCats[event.id] = neighbourCat;
+        }
+
+        // add newly computed neighbors catalogs to previous ones
+        for (auto kv : newNeighbourCats )
+        {
+            neighboursByEvent[ kv.first ] = kv.second;
+            // make sure we won't recompute what has been already done
+            todoEvents.remove( kv.first );
         }
 
         // check if the removed events were used as neighbor of any event
@@ -2588,7 +2596,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
             redo = false;
             map<unsigned,CatalogPtr> validNeighbourCats;
 
-            for (auto kv : neighbourCats )
+            for (auto kv : neighboursByEvent )
             {
                 unsigned currCatEvId = kv.first;
                 CatalogPtr& currCat  = kv.second;
@@ -2606,23 +2614,17 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                 if ( currCatInvalid )
                 {
                     removedEvents.push_back( currCatEvId );
+                    todoEvents.push_back( currCatEvId );
                     redo = true;
                     continue;
                 }
                 validNeighbourCats[currCatEvId] = currCat;
             }
 
-            neighbourCats.clear();
-            neighbourCats = validNeighbourCats;
+            neighboursByEvent.clear();
+            neighboursByEvent = validNeighbourCats;
 
         } while( redo );
-
-        // save valid neighbours catalogs
-        for (auto kv : neighbourCats )
-        {
-            todoEvents.remove( kv.first );
-            neighboursByEvent[ kv.first ] = kv.second;
-        }
     }
 
     // We don't want to report the same pairs multiple times
