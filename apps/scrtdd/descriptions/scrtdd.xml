@@ -246,8 +246,7 @@
                             <parameter name="numEllipsoids" type="int" default="5">
                                 <description>
                                     Number of concentric ellipsoidal layers to use in neighboring events 
-                                    selection. N ellipsoidal layers will actually generate N+1 ellipsoidal
-                                    volumes in which the neighboring events will be searched into
+                                    selection.
                                 </description>
                             </parameter>
                             <parameter name="maxEllipsoidSize" type="double" default="10">
