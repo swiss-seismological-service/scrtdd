@@ -251,8 +251,12 @@
                             </parameter>
                             <parameter name="maxEllipsoidSize" type="double" default="10">
                                 <description>
-                                    Vertical axis length (km) of the outermost ellipsoidal layer. Each inner
-                                    concentric layer axis will be of size/2 of the previous one.
+                                    Vertical axis length (km) of the outermost boundary, the one between last
+                                    ellipsoidal layer (which is undounded) and the previous layer. Each inner
+                                    concentric layer axis will be of size/2 of the previous one. Please note
+                                    that the horizontal axis size is half of the vertical one. Also the last
+                                    layer is undounded, but it is possible to use maxIEDist parameter to limit
+                                    the maxium distance between events.
                                     If numEllipsoids is 1 this parameter is meaningless.
                                 </description>
                             </parameter> 
@@ -260,7 +264,7 @@
                                 <description>
                                     Max distance (km) between events in a pair allowed. Event pairs not satisfying 
                                     this condition will not be used. No limit by default.
-                                    This parameter should be at least maxEllipsoidSize.
+                                    This parameter should be consistent with maxEllipsoidSize.
                                 </description>
                             </parameter>
                             <parameter name="minDTperEvt" type="int">

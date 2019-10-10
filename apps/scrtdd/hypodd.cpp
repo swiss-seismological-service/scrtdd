@@ -1564,7 +1564,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                     // since this is dependents on the current event we cannot save it into excludedStations 
                     continue;
                 }
-                
+
                 // this station is ok for refEv
                 includedStations.insert(station.id);
             }
