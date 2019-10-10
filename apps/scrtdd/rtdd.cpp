@@ -336,6 +336,7 @@ bool RTDD::validateParameters()
          (!_config.originIDs.empty() && _config.testMode)
        )
     {
+        SEISCOMP_INFO("Disable messaging");
         setMessagingEnabled(false);
         _config.testMode = true; // we won't send any message
     }
@@ -603,6 +604,7 @@ bool RTDD::validateParameters()
     if (  !isInventoryDatabaseEnabled() ||
          ( !_config.eventXML.empty() && ! profileRequireDB ) )
     {
+        SEISCOMP_INFO("Disable database connection");
         setDatabaseEnabled(false, false);
     }
 
