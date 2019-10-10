@@ -5,7 +5,8 @@ SET(RTDD_SOURCES
 		app.cpp
 		rtdd.cpp
 		hypodd.cpp
-		csvreader.cpp
+		catalog.cpp		
+		csvreader.cpp		
 )
 
 INCLUDE_DIRECTORIES(${RTDDMSG_DIR}) 
