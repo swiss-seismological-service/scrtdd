@@ -1708,91 +1708,27 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
     // neighbours for each event
     map<unsigned,CatalogPtr> neighboursByEvent;
 
-    CatalogPtr validCatalog = new Catalog(*catalog);
-    list<unsigned> todoEvents;
-    for (const auto& kv : validCatalog->getEvents() )
-        todoEvents.push_back( kv.first );
-
-    while ( ! todoEvents.empty() )
+    // for each event find the neighbours
+    for (const auto& kv : catalog->getEvents() )
     {
-        map<unsigned,CatalogPtr> newNeighbourCats;
-        vector<unsigned> removedEvents;
+        const Catalog::Event& event = kv.second;
 
-        // for each event find the neighbours
-        for (unsigned evIdTodo : todoEvents )
+        CatalogPtr neighbourCat; 
+        try {
+            neighbourCat = selectNeighbouringEvents(
+                catalog, event, minPhaseWeight, minESdist,
+                maxESdist, minEStoIEratio, maxIEdist,
+                minDTperEvt, minNumNeigh, maxNumNeigh,
+                numEllipsoids, maxEllipsoidSize
+            );
+        } catch ( ... ) { }
+
+        if ( neighbourCat )
         {
-            const Catalog::Event& event = validCatalog->getEvents().find(evIdTodo)->second;
-
-            CatalogPtr neighbourCat; 
-            try {
-                neighbourCat = selectNeighbouringEvents(
-                    validCatalog, event, minPhaseWeight, minESdist,
-                    maxESdist, minEStoIEratio, maxIEdist,
-                    minDTperEvt, minNumNeigh, maxNumNeigh,
-                    numEllipsoids, maxEllipsoidSize
-                );
-            } catch ( ... ) { }
-
-            if ( ! neighbourCat )
-            {
-                // event discarded because it doesn't satisfies requirements
-                removedEvents.push_back( event.id );
-                // next loop we don't want other events to pick this as neighbour
-                validCatalog->removeEvent( event.id );
-                todoEvents.remove( event.id ); // invalidate loop !
-                // stop here because we dont' want to keep building potentially wrong neighbours
-                break;
-            }
-
             // add event to neighbour catalog list and update the list
             neighbourCat->copyEvent(event, catalog, true);
-            newNeighbourCats[event.id] = neighbourCat;
+            neighboursByEvent[event.id] = neighbourCat;
         }
-
-        // add newly computed neighbors catalogs to previous ones
-        for (auto kv : newNeighbourCats )
-        {
-            neighboursByEvent[ kv.first ] = kv.second;
-            // make sure we won't recompute what has been already done
-            todoEvents.remove( kv.first );
-        }
-
-        // check if the removed events were used as neighbor of any event
-        // if so rebuild neighbours for those events
-        bool redo;
-        do {
-            redo = false;
-            map<unsigned,CatalogPtr> validNeighbourCats;
-
-            for (auto kv : neighboursByEvent )
-            {
-                unsigned currCatEvId = kv.first;
-                CatalogPtr& currCat  = kv.second;
-
-                bool currCatInvalid = false;
-                for (unsigned removedEventId : removedEvents)
-                {
-                    if( currCat->getEvents().find(removedEventId) != currCat->getEvents().end())
-                    {
-                        currCatInvalid = true;
-                        break;
-                    }
-                }
-
-                if ( currCatInvalid )
-                {
-                    removedEvents.push_back( currCatEvId );
-                    todoEvents.push_back( currCatEvId );
-                    redo = true;
-                    continue;
-                }
-                validNeighbourCats[currCatEvId] = currCat;
-            }
-
-            neighboursByEvent.clear();
-            neighboursByEvent = validNeighbourCats;
-
-        } while( redo );
     }
 
     // We don't want to report the same pairs multiple times
