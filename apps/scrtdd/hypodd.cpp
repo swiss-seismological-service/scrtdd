@@ -528,7 +528,7 @@ HypoDD::addMissingEventPhases(CatalogPtr& catalog, const Catalog::Event& refEv)
     std::vector<Catalog::Phase> newPhases = findMissingEventPhases(catalog, refEv);
     for (Catalog::Phase& ph : newPhases)
     {
-        catalog->removePhase(ph.eventId, ph.stationId);
+        catalog->removePhase(ph.eventId, ph.stationId, ph.type);
         catalog->addPhase(ph, true, true);
     }
 }
@@ -1521,7 +1521,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         const Catalog::Event& event = srcCat->getEvents().at(kv.first);
 
         // keep track of station distance
-        multimap<double,string> stationByDistance; // distance, stationid
+        multimap<double, pair<string,string> > stationByDistance; // distance, <stationid,phaseType>
 
         // Check enough phases (> minDTperEvt) ?
         int dtCount = 0;
@@ -1599,7 +1599,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                     if (refPhase.weight >= minPhaseWeight)
                     {
                         dtCount++;
-                        stationByDistance.emplace(stationDistance, station.id);
+                        stationByDistance.emplace(stationDistance, pair<string,string>(phase.stationId,phase.type));
                     }
                     break;
                 }
@@ -1615,10 +1615,10 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         // if maxDTperEvt is set, then remove phases belonging to further stations
         if ( maxDTperEvt > 0 && dtCount > maxDTperEvt )
         {
-            auto first = stationByDistance.rbegin(); // start from end (further stations)
-            auto last = std::next(first, dtCount - maxDTperEvt);
-            std::for_each(first, last,
-                [srcCat, event](const pair<double,string>& kv) { srcCat->removePhase(event.id, kv.second); }
+            auto first = std::next(stationByDistance.begin(), maxDTperEvt);
+            std::for_each(first, stationByDistance.end(),
+                    [srcCat, event](const pair<double,pair<string,string>>& kv) {
+                        srcCat->removePhase(event.id, kv.second.first, kv.second.second); }
             );
         }
 

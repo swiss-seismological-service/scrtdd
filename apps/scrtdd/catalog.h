@@ -209,7 +209,7 @@ class Catalog : public Core::BaseObject {
         void removeEvent(const Event& event);
         void removeEvent(unsigned eventId);
         void removePhase(const Phase& phase);
-        void removePhase(unsigned eventId, const std::string& stationId);
+        void removePhase(unsigned eventId, const std::string& stationId, const std::string& type);
 
         bool addStation(const Station&, bool checkDuplicateValue, bool checkDuplicateId);
         bool addEvent(const Event&, bool checkDuplicateValue, bool checkDuplicateId);

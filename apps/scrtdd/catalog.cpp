@@ -678,14 +678,14 @@ void Catalog::removePhase(const Phase& phase)
 }
 
 
-void Catalog::removePhase(unsigned eventId, const std::string& stationId)
+void Catalog::removePhase(unsigned eventId, const std::string& stationId, const string& type)
 {
     auto eqlrng = _phases.equal_range(eventId);
     auto it = eqlrng.first;
     while ( it != eqlrng.second )
     {
         const Catalog::Phase& ph = it->second;
-        if ( ph.stationId == stationId )
+        if ( ph.stationId == stationId && ph.type == type )
             _phases.erase(it++);
         else
             ++it;
