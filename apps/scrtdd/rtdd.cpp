@@ -441,6 +441,12 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.dtct.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
         } catch ( ... ) { prof->ddcfg.dtct.maxNumNeigh = -1; }
+        try {
+            prof->ddcfg.dtct.minDTperEvt = configGetInt(prefix + "minObservationPerEvtPair");
+        } catch ( ... ) { prof->ddcfg.dtct.minDTperEvt = 1; }
+        try {
+            prof->ddcfg.dtct.maxDTperEvt = configGetInt(prefix + "maxObservationPerEvtPair");
+        } catch ( ... ) { prof->ddcfg.dtct.maxDTperEvt = -1; }
 
         prefix = string("profile.") + *it + ".dtct.neighboringEventSelection.";
         try {
@@ -456,24 +462,26 @@ bool RTDD::validateParameters()
             prof->ddcfg.dtct.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
         } catch ( ... ) { prof->ddcfg.dtct.maxEllipsoidSize = 10; }
         try {
-            prof->ddcfg.dtct.maxIEdist = configGetDouble(prefix + "maxIEdist");
+            prof->ddcfg.dtct.maxIEdist = configGetDouble(prefix + "maxEventPairDistance");
         } catch ( ... ) { prof->ddcfg.dtct.maxIEdist = -1; }
-        try {
-            prof->ddcfg.dtct.minDTperEvt = configGetInt(prefix + "minDTperEvt");
-        } catch ( ... ) { prof->ddcfg.dtct.minDTperEvt = 1; }
+        if ( prof->ddcfg.dtct.maxIEdist < prof->ddcfg.dtct.maxEllipsoidSize )
+        {
+            SEISCOMP_WARNING("profile.%s: maxEventPairDistance (%.2f) is smaller then maxEllipsoidSize (%.2f) ",
+                             it->c_str(), prof->ddcfg.dtct.maxIEdist, prof->ddcfg.dtct.maxEllipsoidSize);
+        }
 
         prefix = string("profile.") + *it + ".dtct.phaseSelection.";
         try {
             prof->ddcfg.dtct.minWeight = configGetDouble(prefix + "minWeight");
         } catch ( ... ) { prof->ddcfg.dtct.minWeight = 0; }
         try {
-            prof->ddcfg.dtct.minESdist = configGetDouble(prefix + "minESdist");
+            prof->ddcfg.dtct.minESdist = configGetDouble(prefix + "minStationDistance");
         } catch ( ... ) { prof->ddcfg.dtct.minESdist = 0; }
         try {
-            prof->ddcfg.dtct.maxESdist = configGetDouble(prefix + "maxESdist");
+            prof->ddcfg.dtct.maxESdist = configGetDouble(prefix + "maxStationDistance");
         } catch ( ... ) { prof->ddcfg.dtct.maxESdist = -1; }
         try {
-            prof->ddcfg.dtct.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
+            prof->ddcfg.dtct.minEStoIEratio = configGetDouble(prefix + "minStaionToEventPairDistRatio");
         } catch ( ... ) { prof->ddcfg.dtct.minEStoIEratio = 0; } 
 
         prefix = string("profile.") + *it + ".dtcc.";
@@ -484,6 +492,12 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.dtcc.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
         } catch ( ... ) { prof->ddcfg.dtcc.maxNumNeigh = -1; }
+        try {
+            prof->ddcfg.dtcc.minDTperEvt = configGetInt(prefix + "minObservationPerEvtPair");
+        } catch ( ... ) { prof->ddcfg.dtcc.minDTperEvt = 1; }
+        try {
+            prof->ddcfg.dtcc.maxDTperEvt = configGetInt(prefix + "maxObservationPerEvtPair");
+        } catch ( ... ) { prof->ddcfg.dtcc.maxDTperEvt = -1; }
 
         prefix = string("profile.") + *it + ".dtcc.neighboringEventSelection.";
         try {
@@ -499,24 +513,26 @@ bool RTDD::validateParameters()
             prof->ddcfg.dtcc.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
         } catch ( ... ) { prof->ddcfg.dtcc.maxEllipsoidSize = 10; }
         try {
-            prof->ddcfg.dtcc.maxIEdist = configGetDouble(prefix + "maxIEdist");
+            prof->ddcfg.dtcc.maxIEdist = configGetDouble(prefix + "maxEventPairDistance");
         } catch ( ... ) { prof->ddcfg.dtcc.maxIEdist = -1; }
-        try {
-            prof->ddcfg.dtcc.minDTperEvt = configGetInt(prefix + "minDTperEvt");
-        } catch ( ... ) { prof->ddcfg.dtcc.minDTperEvt = 1; }
+        if ( prof->ddcfg.dtcc.maxIEdist < prof->ddcfg.dtcc.maxEllipsoidSize )
+        {
+            SEISCOMP_WARNING("profile.%s: maxEventPairDistance (%.2f) is smaller then maxEllipsoidSize (%.2f) ",
+                             it->c_str(), prof->ddcfg.dtcc.maxIEdist, prof->ddcfg.dtcc.maxEllipsoidSize);
+        }
 
         prefix = string("profile.") + *it + ".dtcc.phaseSelection.";
         try {
             prof->ddcfg.dtcc.minWeight = configGetDouble(prefix + "minWeight");
         } catch ( ... ) { prof->ddcfg.dtcc.minWeight = 0; }
         try {
-            prof->ddcfg.dtcc.minESdist = configGetDouble(prefix + "minESdist");
+            prof->ddcfg.dtcc.minESdist = configGetDouble(prefix + "minStationDistance");
         } catch ( ... ) { prof->ddcfg.dtcc.minESdist = 0; }
         try {
-            prof->ddcfg.dtcc.maxESdist = configGetDouble(prefix + "maxESdist");
+            prof->ddcfg.dtcc.maxESdist = configGetDouble(prefix + "maxStationDistance");
         } catch ( ... ) { prof->ddcfg.dtcc.maxESdist = -1; }
-         try {
-            prof->ddcfg.dtcc.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
+        try {
+            prof->ddcfg.dtcc.minEStoIEratio = configGetDouble(prefix + "minStaionToEventPairDistRatio");
         } catch ( ... ) { prof->ddcfg.dtcc.minEStoIEratio = 0; } 
 
         prefix = string("profile.") + *it + ".dtcc.crosscorrelation.p-phase.";

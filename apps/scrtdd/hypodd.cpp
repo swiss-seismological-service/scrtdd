@@ -1078,8 +1078,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
         // Select neighbouring events
         CatalogPtr neighbourCat = selectNeighbouringEvents(
-            evToRelocateCat, evToRelocate, _cfg.dtct.minWeight, _cfg.dtct.minESdist,
-            _cfg.dtct.maxESdist, _cfg.dtct.minEStoIEratio, _cfg.dtct.maxIEdist, _cfg.dtct.minDTperEvt,
+            evToRelocateCat, evToRelocate, _cfg.dtct.minWeight, _cfg.dtct.minESdist, _cfg.dtct.maxESdist,
+            _cfg.dtct.minEStoIEratio, _cfg.dtct.maxIEdist, _cfg.dtct.minDTperEvt, _cfg.dtct.maxDTperEvt,
             _cfg.dtct.minNumNeigh, _cfg.dtct.maxNumNeigh, _cfg.dtct.numEllipsoids, _cfg.dtct.maxEllipsoidSize
         );
 
@@ -1167,8 +1167,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
         // Select neighbouring events from the relocated origin
         CatalogPtr neighbourCat = selectNeighbouringEvents(
-            evToRelocateCat, evToRelocate, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist,
-            _cfg.dtcc.maxESdist, _cfg.dtcc.minEStoIEratio, _cfg.dtcc.maxIEdist, _cfg.dtcc.minDTperEvt,
+            evToRelocateCat, evToRelocate, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist, _cfg.dtcc.maxESdist,
+            _cfg.dtcc.minEStoIEratio, _cfg.dtcc.maxIEdist, _cfg.dtcc.minDTperEvt,  _cfg.dtcc.maxDTperEvt,
             _cfg.dtcc.minNumNeigh, _cfg.dtcc.maxNumNeigh, _cfg.dtcc.numEllipsoids, _cfg.dtcc.maxEllipsoidSize
         );
 
@@ -1476,6 +1476,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             double minEStoIEratio,
                                             double maxIEdist,
                                             int minDTperEvt,
+                                            int maxDTperEvt,
                                             int minNumNeigh,
                                             int maxNumNeigh,
                                             int numEllipsoids,
@@ -1582,7 +1583,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                 continue;
             }
 
-            // this phase is ok, now find corresponding phase in reference event phases
+            // now find corresponding phase in reference event phases
             auto eqlrng2 = catalog->getPhases().equal_range(refEv.id);
             for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
             {
@@ -1698,6 +1699,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                                         double minEStoIEratio,
                                         double maxIEdist,
                                         int minDTperEvt,
+                                        int maxDTperEvt,
                                         int minNumNeigh,
                                         int maxNumNeigh,
                                         int numEllipsoids,
@@ -1716,10 +1718,9 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
         CatalogPtr neighbourCat; 
         try {
             neighbourCat = selectNeighbouringEvents(
-                catalog, event, minPhaseWeight, minESdist,
-                maxESdist, minEStoIEratio, maxIEdist,
-                minDTperEvt, minNumNeigh, maxNumNeigh,
-                numEllipsoids, maxEllipsoidSize
+                catalog, event, minPhaseWeight, minESdist, maxESdist,
+                minEStoIEratio, maxIEdist, minDTperEvt, maxDTperEvt,
+                minNumNeigh, maxNumNeigh, numEllipsoids, maxEllipsoidSize
             );
         } catch ( ... ) { }
 
@@ -1943,9 +1944,10 @@ void HypoDD::createDtCtCatalog(const CatalogCPtr& catalog,
     SEISCOMP_INFO("Creating differential travel time file %s", dtctFile.c_str());
 
     map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
-        catalog, _cfg.dtct.minWeight, _cfg.dtct.minESdist,
-        _cfg.dtct.maxESdist, _cfg.dtct.minEStoIEratio, _cfg.dtct.maxIEdist,
-        _cfg.dtct.minDTperEvt, _cfg.dtct.minNumNeigh, _cfg.dtct.maxNumNeigh,
+        catalog, _cfg.dtct.minWeight, _cfg.dtct.minESdist, _cfg.dtct.maxESdist,
+        _cfg.dtct.minEStoIEratio, _cfg.dtct.maxIEdist,
+        _cfg.dtct.minDTperEvt,  _cfg.dtct.maxDTperEvt,
+        _cfg.dtct.minNumNeigh, _cfg.dtct.maxNumNeigh,
         _cfg.dtct.numEllipsoids , _cfg.dtct.maxEllipsoidSize
     );
 
@@ -2071,9 +2073,10 @@ void HypoDD::createDtCcCatalog(const CatalogCPtr& catalog,
     SEISCOMP_INFO("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
 
     map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
-        catalog, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist,
-        _cfg.dtcc.maxESdist, _cfg.dtcc.minEStoIEratio, _cfg.dtcc.maxIEdist,
-        _cfg.dtcc.minDTperEvt, _cfg.dtcc.minNumNeigh, _cfg.dtcc.maxNumNeigh,
+        catalog, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist, _cfg.dtcc.maxESdist,
+        _cfg.dtcc.minEStoIEratio, _cfg.dtcc.maxIEdist,
+        _cfg.dtcc.minDTperEvt, _cfg.dtcc.maxDTperEvt,
+        _cfg.dtcc.minNumNeigh, _cfg.dtcc.maxNumNeigh,
         _cfg.dtcc.numEllipsoids , _cfg.dtcc.maxEllipsoidSize
     );
 
