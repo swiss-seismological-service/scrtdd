@@ -334,7 +334,7 @@ Catalog::Catalog(const string& stationFile, const string& eventFile, const strin
         sta.networkCode = row.at("networkCode");
         sta.stationCode = row.at("stationCode");
         _stations[sta.id] = sta;
-}
+    }
 
     vector<map<string,string> >events = CSV::readWithHeader(eventFile);
 
@@ -374,13 +374,13 @@ Catalog::Catalog(const string& stationFile, const string& eventFile, const strin
 
 
 
-void Catalog::add(const std::vector<DataModel::Origin*>& origins,
+void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
                   DataSource& dataSrc)
 {
-    for(DataModel::Origin* org : origins)
+    for(DataModel::OriginPtr org : origins)
     {
         if ( org->arrivalCount() == 0)
-            dataSrc.loadArrivals(org); // try to load arrivals
+            dataSrc.loadArrivals(org.get()); // try to load arrivals
 
         if ( org->arrivalCount() == 0)
         {
@@ -493,7 +493,7 @@ void Catalog::add(const std::vector<DataModel::Origin*>& origins,
 
 void Catalog::add(const std::vector<std::string>& ids, DataSource& dataSrc)
 {
-    vector<DataModel::Origin*> origins;
+    vector<DataModel::OriginPtr> origins;
 
     for(const string& id : ids)
     {
@@ -511,7 +511,7 @@ void Catalog::add(const std::vector<std::string>& ids, DataSource& dataSrc)
             SEISCOMP_ERROR("Cannot find origin/event with id %s", id.c_str());
             continue;
         }
-        origins.push_back(org.get());
+        origins.push_back(org);
     }
 
     add(origins, dataSrc);

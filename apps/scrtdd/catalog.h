@@ -198,7 +198,7 @@ class Catalog : public Core::BaseObject {
                 const std::string& phaFile);
 
         // populate from seiscomp data format
-        void add(const std::vector<DataModel::Origin*>& origins, DataSource& dataSrc);
+        void add(const std::vector<DataModel::OriginPtr>& origins, DataSource& dataSrc);
         void add(const std::vector<std::string>& ids, DataSource& dataSrc);
         void add(const std::string& idFile, DataSource& dataSrc);
 
