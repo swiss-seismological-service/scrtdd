@@ -1484,11 +1484,13 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 {
     SEISCOMP_DEBUG("Selecting Neighbouring Events for event %s", string(refEv).c_str());
 
+    CatalogPtr srcCat = new Catalog(*catalog);
+
     map<unsigned,double> distanceByEvent; // eventid, distance
     map<unsigned,double> azimuthByEvent;  // eventid, azimuth
 
     // loop through every event in the catalog and select the ones within maxIEdist distance
-    for (const auto& kv : catalog->getEvents() )
+    for (const auto& kv : srcCat->getEvents() )
     {
         const Catalog::Event& event = kv.second;
 
@@ -1516,11 +1518,14 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 
     for (const auto& kv : distanceByEvent)
     {
-        const Catalog::Event& event = catalog->getEvents().at(kv.first);
+        const Catalog::Event& event = srcCat->getEvents().at(kv.first);
 
-        //  enought phases (> minDTperEvt) ?
+        // keep track of station distance
+        multimap<double,string> stationByDistance; // distance, stationid
+
+        // Check enough phases (> minDTperEvt) ?
         int dtCount = 0;
-        auto eqlrng = catalog->getPhases().equal_range(event.id);
+        auto eqlrng = srcCat->getPhases().equal_range(event.id);
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
             const Catalog::Phase& phase = it->second;
@@ -1530,8 +1535,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                 continue;
 
             // check events/station distance
-            auto search = catalog->getStations().find(phase.stationId);
-            if (search == catalog->getStations().end())
+            auto search = srcCat->getStations().find(phase.stationId);
+            if (search == srcCat->getStations().end())
             {
                 string msg = stringify("Malformed catalog: cannot find station '%s' "
                                        "referenced by phase '%s' for event %s",
@@ -1584,7 +1589,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
             }
 
             // now find corresponding phase in reference event phases
-            auto eqlrng2 = catalog->getPhases().equal_range(refEv.id);
+            auto eqlrng2 = srcCat->getPhases().equal_range(refEv.id);
             for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
             {
                 const Catalog::Phase& refPhase = it2->second;
@@ -1592,7 +1597,10 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                     phase.type == refPhase.type)
                 {
                     if (refPhase.weight >= minPhaseWeight)
+                    {
                         dtCount++;
+                        stationByDistance.emplace(stationDistance, station.id);
+                    }
                     break;
                 }
             }
@@ -1602,7 +1610,17 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         if ( dtCount < minDTperEvt )
         {
             continue;
-        } 
+        }
+
+        // if maxDTperEvt is set, then remove phases belonging to further stations
+        if ( maxDTperEvt > 0 && dtCount > maxDTperEvt )
+        {
+            auto first = stationByDistance.rbegin(); // start from end (further stations)
+            auto last = std::next(first, dtCount - maxDTperEvt);
+            std::for_each(first, last,
+                [srcCat, event](const pair<double,string>& kv) { srcCat->removePhase(event.id, kv.second); }
+            );
+        }
 
         // add this event to the selected ones
         selectedEvents.emplace(dtCount, event.id);
@@ -1648,7 +1666,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                 //
                 for (auto it = selectedEvents.rbegin(); it != selectedEvents.rend(); it++)
                 {
-                    const Catalog::Event& ev = catalog->getEvents().at( it->second );
+                    const Catalog::Event& ev = srcCat->getEvents().at( it->second );
 
                     bool found = false;
 
@@ -1665,7 +1683,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                     if ( found )
                     {
                         // add this event to the catalog
-                        neighboringEventCat->copyEvent(ev, catalog, true);
+                        neighboringEventCat->copyEvent(ev, srcCat, true);
                         numNeighbors++;
                         selectedEvents.erase( std::next(it).base() );
                         SEISCOMP_DEBUG("Chose neighbour event %s ellipsoid %d quadrant %d distance %.1f azimuth %.1f depth %.3f",
