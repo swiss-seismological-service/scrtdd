@@ -51,24 +51,23 @@
 
                 <parameter name="profileTimeAlive" type="int" default="-1">
                     <description>
-                        Defines how long the profile data should be kept in memery (in seconds). This is useful
-                        to release memory (catalog waveform data) after a period of inactivity, but it means the
-                        waveforms will have to be reloaded whenever a new event occurs (i.e. it will take more
-                        time to relocate an origin).
-                        Set a negative value to keep the profile data always in memory.
+                        Defines how long the profile data should be kept in memory (in seconds). This is useful
+                        to release memory (catalog waveform data) after a period of inactivity at the cost of
+                        re-loading and re-process the waveforms whenever a new event occurs.
+                        A negative value force the profile to never expires (always in memory).
                     </description>
                 </parameter>
 
                 <parameter name="cacheWaveforms" type="boolean" default="true">
                     <description>
-                        Save catalog waveforms to local disk to avoid reading them from the configured
-                        recordStream when a profile is (re)loaded (see profileTimeAlive).
-                        The waveforms are saved in the working directory and they can also be moved to other
-                        machines that don't have access to those waveforms. Also it is safe to delete the
+                        Save catalog waveforms to local disk to avoid re-reading them from the configured
+                        recordStream when a profile is loaded (see profileTimeAlive).
+                        The waveforms are saved in the configured working directory and they can also be
+                        moved to other machines. Also it is safe to delete the
                         cache, in which case the waveforms will be loaded and saved again on disk
                         the next time the profile is loaded (they will be read again from the configured
                         recordStream).
-                        Please note that exists a command line options '--load-catalog' useful to load
+                        Please note that exists a command line options '--load-profile-wf' useful to load
                         the catalog waveforms from the record stream and save them on disk. This is useful
                         to make sure all the data is ready when the module is started and avoid lenghty
                         loading in case of big catalogs or slow network connection.
