@@ -263,6 +263,15 @@ class HypoDD : public Core::BaseObject {
         bool _useCatalogDiskCache = false;
         std::map<std::string, GenericRecordPtr> _wfCache;
         std::set<std::string> _excludedWfs;
+
+        struct {
+            unsigned xcorr_tot;
+            unsigned xcorr_performed;
+            unsigned xcorr_cc_good;
+            unsigned xcorr_cc_low;
+            unsigned snr_low;
+            unsigned wf_no_avail;
+        } _counters;
 };
 
 }

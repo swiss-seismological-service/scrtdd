@@ -1032,6 +1032,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
     relocatedCatalog->writeToFile((boost::filesystem::path(catalogWorkingDir)/"event-reloc.csv").string(),
                                   (boost::filesystem::path(catalogWorkingDir)/"phase-reloc.csv").string(),
                                   (boost::filesystem::path(catalogWorkingDir)/"station-reloc.csv").string());
+
     return relocatedCatalog;
 }
 
@@ -1458,11 +1459,11 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
         {lineOffset + 8, "hypoDD.res"},
         {lineOffset + 9, "hypoDD.src"}
     };
-    copyFileAndReplaceLines(ctrlFile, (boost::filesystem::path(workingDir)/"hypodd.inp").string(),
+    copyFileAndReplaceLines(ctrlFile, (boost::filesystem::path(workingDir)/"hypoDD.inp").string(),
                             linesToReplace);
 
     // run Hypodd (use /bin/sh to get stdout/strerr redirection)
-    string cmd = stringify("%s %s >hypodd.out 2>&1", _cfg.hypodd.exec.c_str(), "hypodd.inp");
+    string cmd = stringify("%s %s >hypoDD.out 2>&1", _cfg.hypodd.exec.c_str(), "hypoDD.inp");
     ::startExternalProcess({"/bin/sh", "-c", cmd}, true, workingDir);
 }
 
@@ -2102,10 +2103,18 @@ void HypoDD::createDtCcCatalog(const CatalogCPtr& catalog,
     if ( !outStream.is_open() )
         throw runtime_error("Cannot create file " + dtccFile);
 
+    _counters = {0};
+
     for (const auto& kv : neighbourCats)
     {
         buildXcorrDiffTTimePairs(kv.second, kv.first, outStream);
     }
+
+    SEISCOMP_INFO("Cross correlation statistics: attempted %u performed %u with good cc coefficient %u "
+                  "with too low cc coefficient %u waveforms with Signal to Noise ratio too low %u "
+                  "waveforms not available %u",
+                  _counters.xcorr_tot, _counters.xcorr_performed, _counters.xcorr_cc_good,
+                  _counters.xcorr_cc_low, _counters.snr_low, _counters.wf_no_avail);
 }
 
 
@@ -2124,7 +2133,15 @@ void HypoDD::createDtCcSingleEvent(const CatalogCPtr& catalog,
     if ( !outStream.is_open() )
         throw runtime_error("Cannot create file " + dtccFile);
 
+    _counters = {0};
+
     buildXcorrDiffTTimePairs(catalog, evToRelocateId, outStream);
+
+    SEISCOMP_INFO("Cross correlation statistics: attempted %u performed %u with good cc coefficient %u "
+                  "with too low cc coefficient %u waveforms with Signal to Noise ratio too low %u "
+                  "waveforms not available %u",
+                  _counters.xcorr_tot, _counters.xcorr_performed, _counters.xcorr_cc_good,
+                  _counters.xcorr_cc_low, _counters.snr_low, _counters.wf_no_avail);
 }
 
 
@@ -2389,6 +2406,8 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     weightOut = 0;
     auto xcorrCfg = _cfg.xcorr[phase1.type];
 
+    _counters.xcorr_tot++;
+
     SEISCOMP_DEBUG("Calculating cross correlation for phase pair phase1='%s', phase2='%s'",
                    string(phase1).c_str(), string(phase2).c_str());
 
@@ -2455,8 +2474,11 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
         }
     }
 
+    _counters.xcorr_performed++;
+
     if ( ! std::isfinite(xcorr_coeff) && ! std::isfinite(xcorr_coeff2) )
     {
+        _counters.xcorr_cc_low++;
         return false;
     }
 
@@ -2469,6 +2491,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
     if ( xcorr_coeff < xcorrCfg.minCoef )
     {
+        _counters.xcorr_cc_low++;
         return false;
     }
 
@@ -2478,6 +2501,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
     dtccOut = travel_time1 - travel_time2 - xcorr_dt;
     weightOut = xcorr_coeff * xcorr_coeff;
 
+    _counters.xcorr_cc_good++;
     return true;
 }
 
@@ -2741,6 +2765,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
             {
                 SEISCOMP_WARNING("Unable to fetch orientation information (%s)", wfDesc.c_str());
                 _excludedWfs.insert(wfId);
+                _counters.wf_no_avail++;
                 return nullptr;
             }
             trace = loadProjectWaveform(twToLoad, ev, ph, tc, loc, useDiskCache);
@@ -2749,6 +2774,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     } catch ( exception &e ) {
         SEISCOMP_WARNING("%s", e.what());
         _excludedWfs.insert(wfId);
+        _counters.wf_no_avail++;
         return nullptr;
     }
 
@@ -2773,6 +2799,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
                 writeTrace(trace, waveformFilename(ph, twToLoad) + "-S2Nratio-rejected.mseed");
             }
             _excludedWfs.insert(wfId);
+            _counters.snr_low++;
             return nullptr;
         }
     }
