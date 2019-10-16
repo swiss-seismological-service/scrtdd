@@ -485,11 +485,10 @@
                                         automatic phases
                                    </description>
                                 </parameter>
-                                <parameter name="minEStoIEratio" type="double" default="10">
+                                <parameter name="maxEventPairDistance" type="double" default="5">
                                     <description>
-                                        Min ratio between event-station distance and inter-event-pair distance.
-                                        This parameters restrincts the phases to be used in cross correlation, allowing 
-                                        to use only events that satisfy the condition.
+                                        This parameters restrincts the events to be used in cross correlation.
+                                        Only phases for events clsoer than maxEventPairDistance will be used.
                                    </description>
                                 </parameter>  
                                 <parameter name="numCC" type="int" default="2">

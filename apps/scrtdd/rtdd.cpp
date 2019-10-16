@@ -570,8 +570,8 @@ bool RTDD::validateParameters()
             prof->ddcfg.artificialPhases.fixAutoPhase = configGetBool(prefix + "fixAutomaticPhase");
         } catch ( ... ) { prof->ddcfg.artificialPhases.fixAutoPhase = false; }
         try {
-            prof->ddcfg.artificialPhases.minEStoIEratio = configGetDouble(prefix + "minEStoIEratio");
-        } catch ( ... ) {  prof->ddcfg.artificialPhases.minEStoIEratio = 10; }
+            prof->ddcfg.artificialPhases.maxIEdist = configGetDouble(prefix + "maxEventPairDistance");
+        } catch ( ... ) {  prof->ddcfg.artificialPhases.maxIEdist = 5; }
         try {
             prof->ddcfg.artificialPhases.numCC = configGetInt(prefix + "numCC");
         } catch ( ... ) {  prof->ddcfg.artificialPhases.numCC = 2; }

@@ -106,7 +106,7 @@ struct Config {
     struct {
         bool enable           = false;
         bool fixAutoPhase     = false;
-        double minEStoIEratio = 5;
+        double maxIEdist      = 5;
         unsigned numCC        = 2;
         double maxCCtw        = 10;
     } artificialPhases;

@@ -627,8 +627,8 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
             const double eventToRefEvDistance = kv.first;
             const Catalog::Event& event = catalog->getEvents().at(kv.second);
 
-            // skip station whose event-station to inter-events ratio is too small
-            if ( (refEvDistToStation / eventToRefEvDistance) < _cfg.artificialPhases.minEStoIEratio )
+            // skip further events
+            if ( eventToRefEvDistance > _cfg.artificialPhases.maxIEdist )
                 continue;
 
             const auto& phases = catalog->getPhases().equal_range(event.id);
