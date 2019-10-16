@@ -1223,7 +1223,7 @@ bool RTDD::startProcess(Process *proc)
     bool recompute = (proc->runCount > 0);
 
     // attempt to increment the catalog only if it is a manual origin and it is preferred
-    bool updateIncrementalCatalog = isPreferred && (org->evaluationMode() == Seiscomp::DataModel::AUTOMATIC);
+    bool updateIncrementalCatalog = isPreferred && (org->evaluationMode() == Seiscomp::DataModel::MANUAL);
 
     // Relocate origin
     OriginPtr relocatedOrg;
