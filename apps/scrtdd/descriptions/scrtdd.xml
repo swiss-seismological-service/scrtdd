@@ -673,6 +673,17 @@
                 <option long-flag="dump-config">
                     <description>Dump the configuration and exit</description>
                 </option>
+
+                <option long-flag="ph2dt-path">
+                    <description>Specify path to ph2dt executable</description>
+                </option> 
+                <option long-flag="use-ph2dt">
+                    <description>"When relocating a catalog use ph2dt. This option requires a ph2dt control file</description>
+                </option> 
+                <option long-flag="no-overwrite">
+                    <description>When relocating a profile don't overwrite existing files in the working directory (avoid re-computation and allow manual editing)</description>
+                </option> 
+
             </group>
         </command-line>
     </module>

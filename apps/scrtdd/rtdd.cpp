@@ -282,25 +282,28 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT(_config.profileTimeAlive, "performance.profileTimeAlive");
     NEW_OPT(_config.cacheWaveforms, "performance.cacheWaveforms");
 
-    NEW_OPT_CLI(_config.dumpCatalog, "Mode", "dump-catalog",
-                "Dump the seiscomp event/origin id file passed as argument into a catalog file triplet (station.csv,event.csv,phase.csv)", true);
-    NEW_OPT_CLI(_config.dumpCatalogXML, "Mode", "dump-catalog-xml",
-                "Convert the input catalog into XML format. The input can be a single file (containing seiscomp event/origin ids) or a catalog file triplet (station.csv,event.csv,phase.csv)", true);
-    NEW_OPT_CLI(_config.mergeCatalogs, "Mode", "merge-catalogs",
-                "Merge in a single catalog all the catalog file triplets (station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,phase2.csv,...) passed as arguments", true);
-    NEW_OPT_CLI(_config.relocateProfile, "Mode", "reloc-profile",
-                "Relocate the catalog of profile passed as argument", true);
-    NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
-                "Load catalog waveforms from the configured recordstream and save them into the profile working directory ('cacheWaveforms' folder)", true);
-    NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf", "Enable the dumping of waveforms (filtered and resampled phases, artificial phases, SNR rejected phases) into the profile working directory ('cacheWaveforms' folder). Useful when run in combination with --load-profile-wf", false, true);
-    NEW_OPT_CLI(_config.originIDs, "Mode", "origin-id,O",
-                "Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed accordingly with the matching profile region unless --profile option is used", true);
-    NEW_OPT_CLI(_config.eventXML, "Mode", "ep",
-                "Event parameters XML file for offline processing of contained origins (imply test option). Each contained origin will be processed accordingly with the matching profile region unless --profile option is used", true);
     NEW_OPT_CLI(_config.testMode, "Mode", "test", "Test mode, no messages are sent", false, true);
-    NEW_OPT_CLI(_config.forceProfile, "Mode", "profile", "Force a specific profile to be used", true);    
+    NEW_OPT_CLI(_config.forceProfile, "Mode", "profile", "Force a specific profile to be used", true);
+    NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
+                "Load catalog waveforms from the configured recordstream and save them into the profile working directory", true);
+    NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf", "Enable the saving of waveforms (filtered and resampled phases, artificial phases, SNR rejected phases) into the profile working directory. Useful when run in combination with --load-profile-wf", false, true);
     NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
                 "Time span in hours after which objects expire", true);
+
+    NEW_OPT_CLI(_config.dumpCatalog, "Catalog", "dump-catalog",
+                "Dump the seiscomp event/origin id file passed as argument into a catalog file triplet (station.csv,event.csv,phase.csv)", true);
+    NEW_OPT_CLI(_config.dumpCatalogXML, "Catalog", "dump-catalog-xml",
+                "Convert the input catalog into XML format. The input can be a single file (containing seiscomp event/origin ids) or a catalog file triplet (station.csv,event.csv,phase.csv)", true);
+    NEW_OPT_CLI(_config.mergeCatalogs, "Catalog", "merge-catalogs",
+                "Merge in a single catalog all the catalog file triplets (station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,phase2.csv,...) passed as arguments", true);
+
+    NEW_OPT_CLI(_config.originIDs, "SingleEvent", "origin-id,O",
+                "Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed accordingly with the matching profile region unless --profile option is used", true);
+    NEW_OPT_CLI(_config.eventXML, "SingleEvent", "ep",
+                "Event parameters XML file for offline processing of contained origins (imply test option). Each contained origin will be processed accordingly with the matching profile region unless --profile option is used", true);
+
+    NEW_OPT_CLI(_config.relocateProfile, "MultiEvents", "reloc-profile",
+                "Relocate the catalog of profile passed as argument", true);
 }
 
 
@@ -312,9 +315,10 @@ RTDD::~RTDD() {
 void RTDD::createCommandLineDescription() {
     Application::createCommandLineDescription();
     commandline().addOption("Mode", "dump-config", "Dump the configuration and exit");  
-    commandline().addOption<string>("Mode", "ph2dt-path", "Specify path to ph2dt executable", nullptr, false);
-    commandline().addOption<string>("Mode", "use-ph2dt",
+    commandline().addOption<string>("MultiEvents", "ph2dt-path", "Specify path to ph2dt executable", nullptr, false);
+    commandline().addOption<string>("MultiEvents", "use-ph2dt",
                             "When relocating a catalog use ph2dt. This option requires a ph2dt control file", nullptr, false);
+    commandline().addOption("MultiEvents", "no-overwrite", "When relocating a profile don't overwrite existing files in the working directory (avoid re-computation and allow manual editing)");
 }
 
 
@@ -805,6 +809,8 @@ bool RTDD::run() {
     // relocate full catalog and exit
     if ( !_config.relocateProfile.empty() )
     {
+        bool overwrite_files = ! commandline().hasOption("no-overwrite");
+
         for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
         {
             ProfilePtr profile = *it;
@@ -813,7 +819,7 @@ bool RTDD::run() {
                 profile->load(query(), &_cache, _eventParameters.get(),
                               _config.workingDirectory, !_config.keepWorkingFiles,
                               _config.cacheWaveforms, false);
-                HDD::CatalogPtr relocatedCat = profile->relocateCatalog(true);
+                HDD::CatalogPtr relocatedCat = profile->relocateCatalog(overwrite_files);
                 profile->unload();
                 relocatedCat->writeToFile("reloc-event.csv","reloc-phase.csv","reloc-station.csv");
                 SEISCOMP_INFO("Wrote files reloc-event.csv, reloc-phase.csv, reloc-station.csv");
