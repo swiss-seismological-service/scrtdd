@@ -1180,6 +1180,7 @@ bool RTDD::startProcess(Process *proc)
 {
     SEISCOMP_DEBUG("Starting process [%s]", proc->obj->publicID().c_str());
 
+    bool isPreferred = false;
     OriginPtr org;
 
     // assume process contain an origin (events are relevant only with _config.onlyPreferredOrigin)
@@ -1192,16 +1193,22 @@ bool RTDD::startProcess(Process *proc)
         if ( evt )
         {
             org = _cache.get<Origin>(evt->preferredOriginID());
+            isPreferred = true;
         }
     }
-    // If 'onlyPreferredOrigin' is set then make sure we are processing a preferred origin only
-    else if ( _config.onlyPreferredOrigin && !_config.forceProcessing )
+    else
     {
-        // 'org'  must be a preferred origin
+        // is 'org'  a preferred origin ?
         DataModel::Event* parentEv = query()->getEvent(org->publicID());
-        if ( ! parentEv || ( parentEv->preferredOriginID() != org->publicID() ) )
+        isPreferred = parentEv && ( parentEv->preferredOriginID() == org->publicID() );
+    }
+
+    // If 'onlyPreferredOrigin' is set then make sure we are processing a preferred origin only
+    if ( _config.onlyPreferredOrigin && !_config.forceProcessing )
+    {
+        if ( ! isPreferred )
         {
-            SEISCOMP_INFO("Skipping non-preferred origin %s", org->publicID().c_str());
+            SEISCOMP_INFO("Skipping non-preferred origin [%s]", org->publicID().c_str());
             return false;
         }
     }
@@ -1215,11 +1222,14 @@ bool RTDD::startProcess(Process *proc)
     // force to recompute the relocation after the first time
     bool recompute = (proc->runCount > 0);
 
+    // attempt to increment the catalog only if it is a manual origin and it is preferred
+    bool updateIncrementalCatalog = isPreferred && (org->evaluationMode() == Seiscomp::DataModel::AUTOMATIC);
+
     // Relocate origin
     OriginPtr relocatedOrg;
     return processOrigin(org.get(), relocatedOrg, _config.forceProfile, recompute,
                         _config.forceProcessing, _config.allowManualOrigin,
-                        !_config.testMode, true);
+                        !_config.testMode, updateIncrementalCatalog);
 }
 
 
