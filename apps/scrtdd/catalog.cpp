@@ -650,9 +650,9 @@ void Catalog::removeEvent(const Event& event)
     if ( it != _events.end() )
     {
         _events.erase(it);
+        auto eqlrng = _phases.equal_range(it->second.id);
+        _phases.erase(eqlrng.first, eqlrng.second);
     }
-    auto eqlrng = _phases.equal_range(event.id);
-    _phases.erase(eqlrng.first, eqlrng.second);
 }
 
 
