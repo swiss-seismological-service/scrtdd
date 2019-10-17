@@ -1759,6 +1759,7 @@ void RTDD::Profile::load(DatabaseQuery* query,
     {
         hypodd->preloadData();
     }
+    SEISCOMP_INFO("Profile %s loaded into memory", name.c_str());
 }
 
 
