@@ -971,16 +971,24 @@ void RTDD::updateObject(const string &parentID, Object* object)
     Origin *origin = Origin::Cast(object);
     if ( origin )
     {
-        _todos.insert(origin);
-        logObject(_inputOrgs, Core::Time::GMT());
+        _cache.feed(origin);
+        if ( ! _config.onlyPreferredOrigin )
+        {
+            _todos.insert(origin);
+            logObject(_inputOrgs, Core::Time::GMT());
+        }
         return;
     }
 
     Event *event = Event::Cast(object);
     if ( event )
     {
-        _todos.insert(event);
-        logObject(_inputEvts, now);
+        _cache.feed(event);
+        if ( _config.onlyPreferredOrigin )
+        {
+            _todos.insert(event);
+            logObject(_inputEvts, now);
+        }
         return;
     }
 }
@@ -1137,8 +1145,6 @@ void RTDD::runNewJobs()
 bool RTDD::addProcess(DataModel::PublicObject* obj)
 {
     if (obj == nullptr) return false;
-
-    _cache.feed(obj);
 
     now = Core::Time::GMT();
 
