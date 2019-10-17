@@ -414,6 +414,7 @@ string HypoDD::generateWorkingSubDir(const Catalog::Event& ev) const
 
 void HypoDD::preloadData()
 {
+    _counters = {0};
     //
     // Preload waveforms on disk and cache them in memory (pre-processed)
     //
@@ -428,6 +429,8 @@ void HypoDD::preloadData()
             getWaveform(tw, event, phase, _wfCache, _useCatalogDiskCache, true);
         }
     }
+    SEISCOMP_INFO("Finished preloading catalog waveform data: waveforms with Signal to Noise ratio too low %u, "
+                  "waveforms not available %u", _counters.snr_low, _counters.wf_no_avail);
 }
 
 
