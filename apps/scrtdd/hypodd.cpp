@@ -1321,7 +1321,7 @@ void HypoDD::createPhaseDatFile(const CatalogCPtr& catalog, const string& phaseF
             double travel_time = phase.time - event.time;
             if (travel_time < 0)
             {
-                SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
+                SEISCOMP_DEBUG("Ignoring phase '%s' with negative travel time (event '%s')",
                                string(phase).c_str(), string(event).c_str());
                 continue; 
             }
@@ -2053,14 +2053,14 @@ void HypoDD::buildAbsTTimePairs(const CatalogCPtr& catalog,
                     double ref_travel_time = refPhase.time - refEv.time;
                     if (ref_travel_time < 0)
                     {
-                        SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
+                        SEISCOMP_DEBUG("Ignoring phase '%s' with negative travel time (event '%s')",
                                        string(refPhase).c_str(), string(refEv).c_str());
                         break;
                     }
                     double travel_time = phase.time - event.time;
                     if (travel_time < 0)
                     {
-                        SEISCOMP_WARNING("Ignoring phase '%s' with negative travel time (event '%s')",
+                        SEISCOMP_DEBUG("Ignoring phase '%s' with negative travel time (event '%s')",
                                        string(phase).c_str(), string(event).c_str());
                         break;
                     }
@@ -2442,7 +2442,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
         Core::TimeWindow tw2Short = xcorrTimeWindowShort(phase2);
         if ( !trim(*tr2Short, tw2Short) )
         {
-            SEISCOMP_WARNING("Cannot trim phase2 waveform, skipping cross correlation "
+            SEISCOMP_DEBUG("Cannot trim phase2 waveform, skipping cross correlation "
                              "for phase pair phase1='%s', phase2='%s'",
                              string(phase1).c_str(), string(phase2).c_str());
             return false;
@@ -2465,7 +2465,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
         Core::TimeWindow tw1Short = xcorrTimeWindowShort(phase1);
         if ( !trim(*tr1Short, tw1Short) )
         {
-            SEISCOMP_WARNING("Cannot trim phase1 waveform, skipping cross correlation "
+            SEISCOMP_DEBUG("Cannot trim phase1 waveform, skipping cross correlation "
                              "for phase pair phase1='%s', phase2='%s'",
                              string(phase1).c_str(), string(phase2).c_str());
             return false;
@@ -2743,7 +2743,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     }
     else
     {
-        SEISCOMP_WARNING("Unable to fetch SensorLocation info (%s)", wfDesc.c_str());
+        SEISCOMP_DEBUG("Unable to fetch SensorLocation info (%s)", wfDesc.c_str());
         projectionRequired = false; // let's try to load the waveform anyway
     }
 
@@ -2766,7 +2766,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         {
             if ( ! allComponents )
             {
-                SEISCOMP_WARNING("Unable to fetch orientation information (%s)", wfDesc.c_str());
+                SEISCOMP_DEBUG("Unable to fetch orientation information (%s)", wfDesc.c_str());
                 _excludedWfs.insert(wfId);
                 _counters.wf_no_avail++;
                 return nullptr;
@@ -2775,7 +2775,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         }
 
     } catch ( exception &e ) {
-        SEISCOMP_WARNING("%s", e.what());
+        SEISCOMP_DEBUG("%s", e.what());
         _excludedWfs.insert(wfId);
         _counters.wf_no_avail++;
         return nullptr;
