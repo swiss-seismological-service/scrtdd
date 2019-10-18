@@ -69,7 +69,9 @@ pid_t startExternalProcess(const vector<string> &cmdparams,
     }
     params.push_back(nullptr);
 
-    SEISCOMP_INFO("Executing command: %s", cmdline.c_str());
+    if ( ! workingDir.empty() )
+        SEISCOMP_INFO("Working directory %s", workingDir.c_str());
+    SEISCOMP_INFO("Executing command: %s ", cmdline.c_str());
 
     pid = fork();
 
@@ -1399,7 +1401,10 @@ void HypoDD::runPh2dt(const string& workingDir, const string& stationFile, const
         throw runtime_error("Unable to run ph2dt, control file doesn't exist: " + _cfg.ph2dt.ctrlFile);
 
     // copy control file while replacing input/output file names
-    map<int,string> linesToReplace = { {1,stationFile}, {2,phaseFile} };
+    map<int,string> linesToReplace = {
+        {1, boost::filesystem::path(stationFile).lexically_relative(workingDir).string()},
+        {2, boost::filesystem::path(phaseFile).lexically_relative(workingDir).string()},
+    };
     copyFileAndReplaceLines(_cfg.ph2dt.ctrlFile,
                             (boost::filesystem::path(workingDir)/"ph2dt.inp").string(),
                             linesToReplace);
@@ -1452,10 +1457,10 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
 
     // copy control file while replacing input/output file names
     map<int,string> linesToReplace = {
-        {lineOffset + 1, dtccFile},
-        {lineOffset + 2, dtctFile},
-        {lineOffset + 3, eventFile},
-        {lineOffset + 4, stationFile},
+        {lineOffset + 1, boost::filesystem::path(dtccFile  ).lexically_relative(workingDir).string() },
+        {lineOffset + 2, boost::filesystem::path(dtctFile   ).lexically_relative(workingDir).string() },
+        {lineOffset + 3, boost::filesystem::path(eventFile  ).lexically_relative(workingDir).string() },
+        {lineOffset + 4, boost::filesystem::path(stationFile).lexically_relative(workingDir).string() },
         {lineOffset + 5, "hypoDD.loc"},
         {lineOffset + 6, "hypoDD.reloc"},
         {lineOffset + 7, "hypoDD.sta"},
