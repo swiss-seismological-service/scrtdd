@@ -541,14 +541,20 @@ void Catalog::add(const std::string& idFile,  DataSource& dataSrc)
 
 
 
-CatalogPtr Catalog::merge(const CatalogCPtr& other) const
+CatalogPtr Catalog::merge(const CatalogCPtr& other, bool skipExistingId) const
 {
     CatalogPtr mergedCatalog = new Catalog(*this);
 
     for (const auto& kv :  other->getEvents() )
     {
         const Catalog::Event& event = kv.second;
-        mergedCatalog->copyEvent(event, other, false);
+        if ( skipExistingId && _events.find(event.id) != _events.end() )
+        {
+            SEISCOMP_DEBUG("Skipping existing event id %u", event.id);
+            continue;
+        }
+        bool keepEvId = skipExistingId;
+        mergedCatalog->copyEvent(event, other, keepEvId);
     }
 
     return mergedCatalog;

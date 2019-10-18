@@ -202,7 +202,7 @@ class Catalog : public Core::BaseObject {
         void add(const std::vector<std::string>& ids, DataSource& dataSrc);
         void add(const std::string& idFile, DataSource& dataSrc);
 
-        CatalogPtr merge(const CatalogCPtr& other) const;
+        CatalogPtr merge(const CatalogCPtr& other, bool skipExistingId) const;
         CatalogPtr extractEvent(unsigned eventId) const;
         bool copyEvent(const Catalog::Event& event, const CatalogCPtr& eventCatalog, bool keepEvId);
 

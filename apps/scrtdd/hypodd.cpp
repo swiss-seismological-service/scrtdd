@@ -1076,7 +1076,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
         // build a catalog with the event to be relocated
         CatalogPtr evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
-        evToRelocateCat = _ddbgc->merge(evToRelocateCat);
+        evToRelocateCat = _ddbgc->merge(evToRelocateCat, false);
         evToRelocate = evToRelocateCat->searchEvent(evToRelocate)->second; // it has now a new eventID
 
 
@@ -1158,7 +1158,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
         // build a catalog with the event to be relocated
         Catalog::Event evToRelocate = evToRelocateCat->getEvents().begin()->second;
-        evToRelocateCat = _ddbgc->merge(evToRelocateCat);
+        evToRelocateCat = _ddbgc->merge(evToRelocateCat, false);
         evToRelocate = evToRelocateCat->searchEvent(evToRelocate)->second; // it has now a new eventID
 
         // optionally find missing phases
