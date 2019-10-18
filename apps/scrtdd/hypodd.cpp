@@ -1521,13 +1521,14 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
     }
 
     // From the events within distance select the ones who respect the constraints
-    multimap<int,unsigned> selectedEvents; // number of dt, event id
+    multimap<double,unsigned> selectedEvents; // distance, event id
     set<string> includedStations;
     set<string> excludedStations;
 
     for (const auto& kv : distanceByEvent)
     {
         const Catalog::Event& event = srcCat->getEvents().at(kv.first);
+        const double eventDistance = kv.second;
 
         // keep track of station distance
         multimap<double, pair<string,string> > stationByDistance; // distance, <stationid,phaseType>
@@ -1574,7 +1575,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                     continue;
                 }
 
-                if ( (stationDistance/distanceByEvent[event.id]) < minEStoIEratio ) // ratio too small ?
+                if ( (stationDistance/eventDistance) < minEStoIEratio ) // ratio too small ?
                 {
                     // since this is dependents on the current event we cannot save it into excludedStations 
                     continue;
@@ -1592,7 +1593,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
             // check this station distance is ok
             if ( ( maxESdist > 0 && stationDistance > maxESdist ) ||                  // too far away ?
                  ( stationDistance < minESdist )                 ||                  // too close ?
-                 ( (stationDistance / distanceByEvent[event.id]) < minEStoIEratio ) ) // ratio too small ?
+                 ( (stationDistance / eventDistance) < minEStoIEratio ) ) // ratio too small ?
             {
                 continue;
             }
@@ -1632,7 +1633,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         }
 
         // add this event to the selected ones
-        selectedEvents.emplace(dtCount, event.id);
+        selectedEvents.emplace(eventDistance, event.id);
         SEISCOMP_DEBUG("Selecting possible event %s distance %.1f azimuth %.1f",
                        string(event).c_str(), kv.second, azimuthByEvent[event.id]);
     }
@@ -1670,10 +1671,9 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                 }
 
                 //
-                // since selectedEvents is sorted by number of differential times we always choose
-                // firstly the neighbour with maximum differential times
+                // since selectedEvents is sorted by distance we get closer events first
                 //
-                for (auto it = selectedEvents.rbegin(); it != selectedEvents.rend(); it++)
+                for (auto it = selectedEvents.begin(); it != selectedEvents.end(); it++)
                 {
                     const Catalog::Event& ev = srcCat->getEvents().at( it->second );
 
@@ -1694,7 +1694,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                         // add this event to the catalog
                         neighboringEventCat->copyEvent(ev, srcCat, true);
                         numNeighbors++;
-                        selectedEvents.erase( std::next(it).base() );
+                        selectedEvents.erase(it);
                         SEISCOMP_DEBUG("Chose neighbour event %s ellipsoid %d quadrant %d distance %.1f azimuth %.1f depth %.3f",
                                        string(ev).c_str(), elpsNum, quadrant, distanceByEvent[ev.id], azimuthByEvent[ev.id], ev.depth);
                         break;
