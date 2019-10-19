@@ -949,9 +949,9 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
     }
 
     // write catalog for debugging purpose
-    catToReloc->writeToFile((boost::filesystem::path(catalogWorkingDir)/"event.csv").string(),
-                        (boost::filesystem::path(catalogWorkingDir)/"phase.csv").string(),
-                        (boost::filesystem::path(catalogWorkingDir)/"station.csv").string() );
+    catToReloc->writeToFile((boost::filesystem::path(catalogWorkingDir)/"starting-event.csv").string(),
+                        (boost::filesystem::path(catalogWorkingDir)/"starting-phase.csv").string(),
+                        (boost::filesystem::path(catalogWorkingDir)/"starting-station.csv").string() );
 
     // Create station.dat for hypodd (if not already generated)
     string stationFile = (boost::filesystem::path(catalogWorkingDir)/"station.dat").string();
@@ -1034,9 +1034,9 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
     CatalogPtr relocatedCatalog = loadRelocatedCatalog(catToReloc, ddrelocFile, ddresidualFile);
 
     // write catalog for debugging purpose
-    relocatedCatalog->writeToFile((boost::filesystem::path(catalogWorkingDir)/"event-reloc.csv").string(),
-                                  (boost::filesystem::path(catalogWorkingDir)/"phase-reloc.csv").string(),
-                                  (boost::filesystem::path(catalogWorkingDir)/"station-reloc.csv").string());
+    relocatedCatalog->writeToFile((boost::filesystem::path(catalogWorkingDir)/"relocated-event.csv").string(),
+                                  (boost::filesystem::path(catalogWorkingDir)/"relocated-phase.csv").string(),
+                                  (boost::filesystem::path(catalogWorkingDir)/"relocated-station.csv").string());
 
     return relocatedCatalog;
 }
@@ -1064,6 +1064,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     CatalogPtr relocatedEvCat;
     try
     {
+        SEISCOMP_INFO("Performing step 1: initial location refinement (no cross correlation)");
+
         string eventWorkingDir = (boost::filesystem::path(subFolder)/"step1").string();
         if ( !Util::createPath(eventWorkingDir) )
         {
@@ -1071,16 +1073,10 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
             throw runtime_error(msg);
         }
 
-        // write catalog for debugging purpose
-        _ddbgc->writeToFile((boost::filesystem::path(subFolder)/"event.csv").string(),
-                            (boost::filesystem::path(subFolder)/"phase.csv").string(),
-                            (boost::filesystem::path(subFolder)/"station.csv").string() );
-
         // build a catalog with the event to be relocated
         CatalogPtr evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
         evToRelocateCat = _ddbgc->merge(evToRelocateCat, false);
         evToRelocate = evToRelocateCat->searchEvent(evToRelocate)->second; // it has now a new eventID
-
 
         // Select neighbouring events
         CatalogPtr neighbourCat = selectNeighbouringEvents(
@@ -1093,6 +1089,11 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         neighbourCat->copyEvent(evToRelocate, evToRelocateCat, false);
         // extract the new id of the event
         unsigned evToRelocateNewId = neighbourCat->searchEvent(evToRelocate)->first;
+
+        // write catalog for debugging purpose
+        neighbourCat->writeToFile((boost::filesystem::path(eventWorkingDir)/"starting-event.csv").string(),
+                                  (boost::filesystem::path(eventWorkingDir)/"starting-phase.csv").string(),
+                                  (boost::filesystem::path(eventWorkingDir)/"starting-station.csv").string());
 
         // Create station.dat for hypodd
         string stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
@@ -1127,9 +1128,9 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
             relocatedEvCat.reset();
 
         // write catalog for debugging purpose
-        relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"event-reloc.csv").string(),
-                                      (boost::filesystem::path(eventWorkingDir)/"phase-reloc.csv").string(),
-                                      (boost::filesystem::path(eventWorkingDir)/"station-reloc.csv").string());
+        relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"relocated-event.csv").string(),
+                                      (boost::filesystem::path(eventWorkingDir)/"relocated-phase.csv").string(),
+                                      (boost::filesystem::path(eventWorkingDir)/"relocated-station.csv").string());
 
     } catch ( exception &e ) {
         SEISCOMP_ERROR("%s", e.what());
@@ -1137,7 +1138,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
     if ( ! relocatedEvCat )
     {
-        SEISCOMP_ERROR("It was not possible to perform first step origin relocation (no xcorr)");
+        SEISCOMP_ERROR("Failed to perform step 1 origin relocation");
     }
 
     //
@@ -1147,6 +1148,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     CatalogPtr relocatedEvWithXcorr;
     try
     {
+        SEISCOMP_INFO("Performing step 2: relocation with cross correlation");
+
         string eventWorkingDir = (boost::filesystem::path(subFolder)/"step2").string();
         if ( !Util::createPath(eventWorkingDir) )
         {
@@ -1183,6 +1186,11 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         // extract the new id of the event
         unsigned refinedLocNewId = neighbourCat->searchEvent(evToRelocate)->first;
 
+        // write catalog for debugging purpose
+        neighbourCat->writeToFile((boost::filesystem::path(eventWorkingDir)/"starting-event.csv").string(),
+                                  (boost::filesystem::path(eventWorkingDir)/"starting-phase.csv").string(),
+                                  (boost::filesystem::path(eventWorkingDir)/"starting-station.csv").string());
+
         // Create station.dat for hypodd
         string stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
         createStationDatFile(neighbourCat, stationFile);
@@ -1216,16 +1224,16 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
             relocatedEvWithXcorr.reset();
 
         // write catalog for debugging purpose
-        relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"event-reloc.csv").string(),
-                                      (boost::filesystem::path(eventWorkingDir)/"phase-reloc.csv").string(),
-                                      (boost::filesystem::path(eventWorkingDir)/"station-reloc.csv").string());
+        relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"relocated-event.csv").string(),
+                                      (boost::filesystem::path(eventWorkingDir)/"relocated-phase.csv").string(),
+                                      (boost::filesystem::path(eventWorkingDir)/"relocated-station.csv").string());
     } catch ( exception &e ) {
         SEISCOMP_ERROR("%s", e.what());
     }
 
     if ( ! relocatedEvWithXcorr )
     {
-        SEISCOMP_ERROR("It was not possible to perform second step origin relocation (with xcorr)");
+        SEISCOMP_ERROR("Failed to perform step 2 origin relocation");
     }
 
     if ( ! relocatedEvWithXcorr && ! relocatedEvCat )
