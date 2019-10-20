@@ -3059,6 +3059,7 @@ HypoDD::readWaveformFromRecordStream(const Core::TimeWindow& tw,
 
     rs->setTimeWindow(tw);
     rs->addStream(networkCode, stationCode, locationCode, channelCode);
+    rs->setTimeout(5);
 
     // Store each record in a RecordSequence
     IO::RecordInput inp(rs.get(), Array::DOUBLE, Record::DATA_ONLY);
@@ -3068,6 +3069,7 @@ HypoDD::readWaveformFromRecordStream(const Core::TimeWindow& tw,
     {
         seq->feed(rec.get());
     }
+    rs->close();
 
     if ( seq->empty() )
     {
