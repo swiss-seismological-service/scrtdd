@@ -136,29 +136,15 @@ DataModel::Station* Catalog::findStation(const string& netCode,
         return nullptr;
     }
 
-    for (size_t n = 0; n < inv->networkCount(); ++n )
+    DataModel::InventoryError error;
+    DataModel::Station* station = DataModel::getStation(inv, netCode, stationCode, atTime, &error);
+    if ( ! station ) 
     {
-        DataModel::Network *net = inv->network(n);
-        if ( net->start() > atTime ) continue;
-        try { if ( net->end() < atTime ) continue; }
-        catch ( ... ) {}
-
-        if ( !Core::wildcmp(netCode, net->code()) ) continue;
-
-        for ( size_t s = 0; s < net->stationCount(); ++s )
-        {
-            DataModel::Station *sta = net->station(s);
-            if ( sta->start() > atTime ) continue;
-            try { if ( sta->end() < atTime ) continue; }
-            catch ( ... ) {}
-
-            if ( !Core::wildcmp(stationCode, sta->code()) ) continue;
-
-            return sta;
-        }
+        SEISCOMP_ERROR("Cannot find station %s.%s: %s",
+             netCode.c_str(), stationCode.c_str(), error.toString() );
+        return nullptr;
     }
-
-    return nullptr;
+    return station;
 }
 
 /*

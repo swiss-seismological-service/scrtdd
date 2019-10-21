@@ -190,28 +190,20 @@ void copyFileAndReplaceLines(const string& srcFilename,
 
 
 
-DataModel::SensorLocation *findSensorLocation(DataModel::Station *station,
-                                              const std::string &code,
-                                              const Core::Time &atTime)
+DataModel::SensorLocation *findSensorLocation(const std::string &networkCode,
+                                              const std::string &stationCode,
+                                              const std::string &locationCode,
+                                              const Core::Time &atTime,
+                                              DataModel::InventoryError *error)
 {
-    if ( station )
+    DataModel::Inventory *inv = Client::Inventory::Instance()->inventory();
+    if ( ! inv )
     {
-        for ( size_t i = 0; i < station->sensorLocationCount(); ++i )
-        {
-            DataModel::SensorLocation *loc = station->sensorLocation(i);
-
-            try {
-                if ( loc->end() <= atTime ) continue;
-            }
-            catch ( Seiscomp::Core::ValueException& ) {}
-
-            if ( loc->start() > atTime ) continue;
-
-            if ( loc->code() == code )
-                return loc;
-        }
+        SEISCOMP_ERROR("Inventory not available");
+        return nullptr;
     }
-    return nullptr;
+
+    return DataModel::getSensorLocation(inv, networkCode, stationCode, locationCode, atTime, error);
 }
 
 
@@ -2729,18 +2721,29 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
      * filter it and finally save the result in the memory cache  for later re-use
      */
     bool projectionRequired = true;
+    bool allComponents = false;
+    DataModel::ThreeComponents tc;
 
-    string channelCodeRoot = ph.channelCode.substr(0, ph.channelCode.size()-1);
     Core::Time refTime = tw.startTime();
 
-    DataModel::ThreeComponents tc;
-    DataModel::Station* station = Catalog::findStation(ph.networkCode, ph.stationCode, refTime);
-    DataModel::SensorLocation *loc = findSensorLocation(station, ph.locationCode, refTime);
+    DataModel::InventoryError error;
+    DataModel::SensorLocation *loc = findSensorLocation(ph.networkCode, ph.stationCode, ph.locationCode, refTime, &error);
 
-    bool allComponents = false;
-
-    if ( loc )
+    if ( ! loc )
     {
+        if( error == DataModel::NETWORK_CODE_NOT_FOUND || error == DataModel::STATION_CODE_NOT_FOUND )
+        {
+            SEISCOMP_DEBUG("Unable to fetch station information (%s): %s", wfDesc.c_str(), error.toString());
+            _excludedWfs.insert(wfId);
+            _counters.wf_no_avail++;
+            return nullptr;
+        }
+        SEISCOMP_DEBUG("Unable to fetch SensorLocation info (%s)", wfDesc.c_str());
+        projectionRequired = false; // let's try to load the waveform anyway
+    }
+    else
+    {
+        string channelCodeRoot = ph.channelCode.substr(0, ph.channelCode.size()-1);
         allComponents = getThreeComponents(tc, loc, channelCodeRoot.c_str(), refTime);
 
         if ( ( tc.comps[ThreeComponents::Vertical] &&
@@ -2753,11 +2756,6 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         {
             projectionRequired = false;
         }
-    }
-    else
-    {
-        SEISCOMP_DEBUG("Unable to fetch SensorLocation info (%s)", wfDesc.c_str());
-        projectionRequired = false; // let's try to load the waveform anyway
     }
 
     // if the SNR window is bigger than the xcorr window, than extend
