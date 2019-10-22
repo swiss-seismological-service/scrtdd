@@ -2731,15 +2731,10 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     if ( ! loc )
     {
-        if( error == DataModel::NETWORK_CODE_NOT_FOUND || error == DataModel::STATION_CODE_NOT_FOUND )
-        {
-            SEISCOMP_DEBUG("Unable to fetch station information (%s): %s", wfDesc.c_str(), error.toString());
-            _excludedWfs.insert(wfId);
-            _counters.wf_no_avail++;
-            return nullptr;
-        }
-        SEISCOMP_DEBUG("Unable to fetch SensorLocation info (%s)", wfDesc.c_str());
-        projectionRequired = false; // let's try to load the waveform anyway
+        SEISCOMP_DEBUG("Unable to fetch SensorLocation information (%s): %s", wfDesc.c_str(), error.toString());
+        _excludedWfs.insert(wfId);
+        _counters.wf_no_avail++;
+        return nullptr;
     }
     else
     {
