@@ -76,6 +76,8 @@ Once the candidate events have been selected, we write their seiscomp ids in a f
 scrtdd --dump-catalog myCatalog.csv
 ```
 
+It is usually convenient to see the logs on the console, for this you can simply add the options ```--verbosity=3 --console=1``` to the command.
+
 Depending on your configuration, the database could be provided via scmaster instead of global.cfg, in this case you have to pass the database connection via command line option. This is also useful if the events resides on a different database machine. Let's use the -d option to specify the database connection:
 
 ```
@@ -141,6 +143,41 @@ scrtdd --reloc-catalog profileName --use-ph2dt /some/path/ph2dt.inp [--ph2dt-pat
 ```
 
 
+There are also some other interesting catalong related options:
+
+
+```
+scrtdd --help
+
+Catalog:
+  --dump-catalog arg                    Dump the seiscomp event/origin id file 
+                                        passed as argument into a catalog file 
+                                        triplet (station.csv,event.csv,phase.cs
+                                        v)
+  --dump-catalog-xml arg                Convert the input catalog into XML 
+                                        format. The input can be a single file 
+                                        (containing seiscomp event/origin ids) 
+                                        or a catalog file triplet 
+                                        (station.csv,event.csv,phase.csv)
+  --merge-catalogs arg                  Merge in a single catalog all the 
+                                        catalog file triplets 
+                                        (station1.csv,event1.csv,phase1.csv,sta
+                                        tion2.csv,event2.csv,phase2.csv,...) 
+                                        passed as arguments
+
+MultiEvents:
+  --reloc-profile arg                   Relocate the catalog of profile passed 
+                                        as argument
+  --ph2dt-path arg                      Specify path to ph2dt executable
+  --use-ph2dt arg                       When relocating a catalog use ph2dt. 
+                                        This option requires a ph2dt control 
+                                        file
+  --no-overwrite                        When relocating a profile don't 
+                                        overwrite existing files in the working
+                                        directory (avoid re-computation and 
+                                        allow manual editing)
+```
+
 ## 3. Real time single origin relocation
 
 Real time relocation uses the same configuration we have seen in full catalog relocation, but real time relocation is done in two steps. Each one controlled by a specific hypoDD configuration:
@@ -157,17 +194,28 @@ If both step1 and step2 fail, then a relocation is reattepted at a later time, a
 
 Note: when performing the catalog relocation ("scrtdd --reloc-catalog") it is done in a single step
 
-To test the real time relocation we can either run playbacks or use two command line options which relocate existing origins:
+To test the real time relocation we can use two command line options which relocate existing origins:
 
 ```
+scrtdd --help
+
+SingleEvent:
   -O [ --origin-id ] arg                Relocate the origin (or multiple 
                                         comma-separated origins) and send a 
                                         message. Each origin will be processed 
                                         accordingly with the matching profile 
                                         region unless --profile option is used
+  --ep arg                              Event parameters XML file for offline 
+                                        processing of contained origins (imply 
+                                        test option). Each contained origin 
+                                        will be processed accordingly with the 
+                                        matching profile region unless 
+                                        --profile option is used
+
 ```
 
 E.g. if we want to process an origin or event, we can run the following command and then check on scolv the relocated origin (the messaging system must be active):
+
 
 ```
 scrtdd -O event2019dubnfr
@@ -175,37 +223,42 @@ scrtdd -O event2019dubnfr
 
 Alternatively we can reprocess an XML file:
 
-
-```
-  --ep arg                              Event parameters XML file for offline 
-                                        processing of contained origins (imply 
-                                        test option). Each contained origin 
-                                        will be processed accordingly with the 
-                                        matching profile region unless 
-                                        --profile option is used
-```
-
-E.g.
-
 ```
 scrtdd --ep event.xml
 ```
 
+## 4. RecordStream configuration
 
-## 4. Locator plugin
+SeisComP3 applications access waveform data through the RecordStream interface and it is usually configured in global.cfg, for example:
+
+```
+recordstream = combined://slink/localhost:18000;sdsarchive//mnt/miniseed
+```
+
+This configuration is a combination of seedlink and sds archive, which is very useful because scrtdd catalog waveforms can be retieved via sds while reat time event data can be fetched via seedlink (much faster since recent data is probably already in memory).
+
+The seedlink service can sometime delay the relocation of incoming origin due to timeouts. For this reason we suggest to pass to configuration option: timeout and retries
+
+e.g. Here we force a timeout of 2 seconds(default is 5 minutes) and do not try to reconnect. 
+
+```
+recordstream = combined://slink/localhost:18000?timeout=2&retries=0;sdsarchive//rz_nas/miniseed
+```
+
+## 5. Locator plugin
 
 A (re)locator plugin is also avaiable in the code, which makes scrtdd available via scolv. To enable this plugin just add `rtddloc` to the list of plugins in the global configuration.
 
 ![Locator plugin](/img/locator-plugin.png?raw=true "Locator plugin")
 
-## 5. Troubleshooting
+## 6. Troubleshooting
 
 Check log file: ~/.seiscomp/log/scrtdd.log 
 
 Alternatively, when running scrtdd from the command line use the following options:
 
 ```
-# set log level to info (3, or debug 4) and log to the console (standard output) insted of log file
+# set log level to info (3), or debug (4) and log to the console (standard output) insted of log file
 --verbosity=3 --console=1
 ```
 
