@@ -44,6 +44,8 @@ For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#
 
 Go to https://www.ldeo.columbia.edu/~felixw/hypoDD.html and dowload hypoDD. Untar the sources, go to src folder, run make. Done! 
 
+Please remember to set the Hypodd array limits (compilation time options available via include/*inc files) accordingly with the size of your problem.
+
 
 ## 2. Define a background catalog for real time relocations
 
@@ -74,7 +76,7 @@ Once the candidate events have been selected, we write their seiscomp ids in a f
 scrtdd --dump-catalog myCatalog.csv
 ```
 
-Or, if the events resides on a different machine we can use the -d option:
+Depending on your configuration, the database could be provided via scmaster instead of global.cfg, in this case you have to pass the database connection via command line option. This is also useful if the events resides on a different database machine. Let's use the -d option to specify the database connection:
 
 ```
 scrtdd --dump-catalog myCatalog.csv  -d  mysql://user:password@host/seiscompDbName
@@ -203,8 +205,8 @@ Check log file: ~/.seiscomp/log/scrtdd.log
 Alternatively, when running scrtdd from the command line use the following options:
 
 ```
-# set log level to debug and log to the console (standard output) insted of log file
---verbosity=4 --console=1
+# set log level to info (3, or debug 4) and log to the console (standard output) insted of log file
+--verbosity=3 --console=1
 ```
 
 A useful option we can find in scrtdd configuration is `keepWorkingFiles`, which prevent the deletion of scrtdd processing files from the working directory. In this way we can access the working folder and check input, output files used for running hypodd. Make sure to check the `*.out` files, which contain the console output of hypodd (sometimes we can find errors only in there, as they do not appear in hypodd.log file).

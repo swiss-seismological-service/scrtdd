@@ -2732,9 +2732,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     if ( ! loc )
     {
         SEISCOMP_DEBUG("Unable to fetch SensorLocation information (%s): %s", wfDesc.c_str(), error.toString());
-        _excludedWfs.insert(wfId);
-        _counters.wf_no_avail++;
-        return nullptr;
+        projectionRequired = false; // try to load waveform anyway, but no projection because we don't have the info that
     }
     else
     {
@@ -3052,7 +3050,6 @@ HypoDD::readWaveformFromRecordStream(const Core::TimeWindow& tw,
 
     rs->setTimeWindow(tw);
     rs->addStream(networkCode, stationCode, locationCode, channelCode);
-    rs->setTimeout(5);
 
     // Store each record in a RecordSequence
     IO::RecordInput inp(rs.get(), Array::DOUBLE, Record::DATA_ONLY);

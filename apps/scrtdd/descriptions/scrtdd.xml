@@ -487,8 +487,9 @@
                                 </parameter>
                                 <parameter name="maxEventPairDistance" type="double" default="5">
                                     <description>
+                                        Maximum distance (km) to look for event pair phases to use in cross correlation.
                                         This parameters restrincts the events to be used in cross correlation.
-                                        Only phases for events clsoer than maxEventPairDistance will be used.
+                                        Only phases for events closer than maxEventPairDistance will be used (Km).
                                    </description>
                                 </parameter>  
                                 <parameter name="numCC" type="int" default="2">
