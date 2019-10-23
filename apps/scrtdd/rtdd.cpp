@@ -1547,7 +1547,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
             newArr->setPhase(org->arrival(i)->phase());
             try { newArr->setTimeCorrection(org->arrival(i)->timeCorrection()); }
             catch ( ... ) {}
-            newArr->setWeight(0);
+            newArr->setWeight(0.);
             newArr->setTimeUsed(false);
 
             for (auto it = evPhases.first; it != evPhases.second; ++it)
