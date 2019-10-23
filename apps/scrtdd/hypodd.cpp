@@ -1402,8 +1402,8 @@ void HypoDD::runPh2dt(const string& workingDir, const string& stationFile, const
 
     // copy control file while replacing input/output file names
     map<int,string> linesToReplace = {
-        {1, boost::filesystem::path(stationFile).lexically_relative(workingDir).string()},
-        {2, boost::filesystem::path(phaseFile).lexically_relative(workingDir).string()},
+        {1, boost::filesystem::path(stationFile).filename().string()},// requires boost 1.60 boost::filesystem::path(stationFile).lexically_relative(workingDir).string()},
+        {2, boost::filesystem::path(phaseFile).filename().string()},  // requires boost 1.60 boost::filesystem::path(phaseFile).lexically_relative(workingDir).string()},
     };
     copyFileAndReplaceLines(_cfg.ph2dt.ctrlFile,
                             (boost::filesystem::path(workingDir)/"ph2dt.inp").string(),
@@ -1457,10 +1457,10 @@ void HypoDD::runHypodd(const string& workingDir, const string& dtccFile, const s
 
     // copy control file while replacing input/output file names
     map<int,string> linesToReplace = {
-        {lineOffset + 1, boost::filesystem::path(dtccFile  ).lexically_relative(workingDir).string() },
-        {lineOffset + 2, boost::filesystem::path(dtctFile   ).lexically_relative(workingDir).string() },
-        {lineOffset + 3, boost::filesystem::path(eventFile  ).lexically_relative(workingDir).string() },
-        {lineOffset + 4, boost::filesystem::path(stationFile).lexically_relative(workingDir).string() },
+        {lineOffset + 1, boost::filesystem::path(dtccFile   ).filename().string()}, // requires boost 1.60 boost::filesystem::path(dtccFile  ).lexically_relative(workingDir).string() },
+        {lineOffset + 2, boost::filesystem::path(dtctFile   ).filename().string()}, // requires boost 1.60 boost::filesystem::path(dtctFile   ).lexically_relative(workingDir).string() },
+        {lineOffset + 3, boost::filesystem::path(eventFile  ).filename().string()}, // requires boost 1.60 boost::filesystem::path(eventFile  ).lexically_relative(workingDir).string() },
+        {lineOffset + 4, boost::filesystem::path(stationFile).filename().string()}, // requires boost 1.60 boost::filesystem::path(stationFile).lexically_relative(workingDir).string() },
         {lineOffset + 5, "hypoDD.loc"},
         {lineOffset + 6, "hypoDD.reloc"},
         {lineOffset + 7, "hypoDD.sta"},
