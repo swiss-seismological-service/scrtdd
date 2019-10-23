@@ -789,7 +789,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
 
         if ( _cfg.wfFilter.dump )
         {
-            string ext = stringify(".artificial-%s-phase-cc-%.2f", phaseType.c_str(), xcorr_coeff_tot);
+            string ext = stringify(".rtdd-detected-%s-phase-cc-%.2f.debug", phaseType.c_str(), xcorr_coeff_tot);
             writeTrace(refTr, waveformFilename(refEvNewPhase, xcorrTw) + ext);
         }
     }
@@ -2791,7 +2791,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     if ( _cfg.wfFilter.dump )
     {
-        writeTrace(trace, waveformFilename(ph, twToLoad) + ".processed");
+        writeTrace(trace, waveformFilename(ph, twToLoad) + ".processed.debug");
     }
 
     // check SNR threshold
@@ -2804,7 +2804,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
             SEISCOMP_DEBUG("Trace has too low SNR (%.2f), discard it (%s)", snr, wfDesc.c_str());
             if ( _cfg.wfFilter.dump )
             {
-                writeTrace(trace, waveformFilename(ph, twToLoad) + "-S2Nratio-rejected.mseed");
+                writeTrace(trace, waveformFilename(ph, twToLoad) + ".S2Nratio-rejected.debug");
             }
             _excludedWfs.insert(wfId);
             _counters.snr_low++;
@@ -2979,11 +2979,10 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
         throw runtime_error(msg);
     }
 
-    // debug
-    //writeTrace(trace, waveformId(ph, tw)  + "-projected.mseed");
-    //writeTrace(tr1, waveformId(ph, tw) + "-component-" + tc.comps[ThreeComponents::Vertical]->code() + ".mseed");
-    //writeTrace(tr2, waveformId(ph, tw) + "-component-" + tc.comps[ThreeComponents::FirstHorizontal]->code() + ".mseed");
-    //writeTrace(tr3, waveformId(ph, tw) + "-component-" + tc.comps[ThreeComponents::SecondHorizontal]->code()+ ".mseed");
+    if ( _cfg.wfFilter.dump )
+    {
+        writeTrace(trace, waveformFilename(ph, tw) + ".projected.debug");
+    }
 
     return trace;
 }
