@@ -1791,7 +1791,7 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
 {
     if ( !loaded )
     {
-        string msg = Core::stringify("Cannot relocate origin, profile %s not initialized", name);
+        string msg = Core::stringify("Cannot relocate origin, profile %s not initialized", name.c_str());
         throw runtime_error(msg.c_str());
     }
     lastUsage = Core::Time::GMT();
@@ -1816,7 +1816,7 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog(bool force)
 {
     if ( !loaded )
     {
-        string msg = Core::stringify("Cannot relocate catalog, profile %s not initialized", name);
+        string msg = Core::stringify("Cannot relocate catalog, profile %s not initialized", name.c_str());
         throw runtime_error(msg.c_str());
     }
     lastUsage = Core::Time::GMT();
