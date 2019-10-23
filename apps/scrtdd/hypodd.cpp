@@ -2284,7 +2284,8 @@ void HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile,
             // write the pairs has been built up to now
             if (dtCount > 0 )
                 outStream << evStream.str();
-            evStream = stringstream();
+            evStream.str("");
+            evStream.clear();
             dtCount = 0;
 
             evStream << stringify("# %10u %10u       0.0", ev1->id, ev2->id) << endl;
