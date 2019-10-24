@@ -999,18 +999,18 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     //
     // Step 1: refine location without cross correlation
     //
+    SEISCOMP_INFO("Performing step 1: initial location refinement (no cross correlation)");
+
+    string eventWorkingDir = (boost::filesystem::path(subFolder)/"step1").string();
+    if ( !Util::createPath(eventWorkingDir) )
+    {
+        string msg = "Unable to create working directory: " + eventWorkingDir;
+        throw runtime_error(msg);
+    }
+
     CatalogPtr relocatedEvCat;
     try
     {
-        SEISCOMP_INFO("Performing step 1: initial location refinement (no cross correlation)");
-
-        string eventWorkingDir = (boost::filesystem::path(subFolder)/"step1").string();
-        if ( !Util::createPath(eventWorkingDir) )
-        {
-            string msg = "Unable to create working directory: " + eventWorkingDir;
-            throw runtime_error(msg);
-        }
-
         // build a catalog with the event to be relocated
         CatalogPtr evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
         evToRelocateCat = _ddbgc->merge(evToRelocateCat, false);
@@ -1076,7 +1076,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
                 (boost::filesystem::path(eventWorkingDir)/"relocated-event.csv").string(),
                 (boost::filesystem::path(eventWorkingDir)/"relocated-phase.csv").string(),
                 (boost::filesystem::path(eventWorkingDir)/"relocated-station.csv").string());
-        }                                      
+        }
 
     } catch ( exception &e ) {
         SEISCOMP_ERROR("%s", e.what());
@@ -1091,18 +1091,18 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     // Step 2: relocate the refined location this time with cross correlation
     //                                                            23:35:58 [info] Event time before 2017-01-03T16:13:42.150505Z
 
+    SEISCOMP_INFO("Performing step 2: relocation with cross correlation");
+
+    eventWorkingDir = (boost::filesystem::path(subFolder)/"step2").string();
+    if ( !Util::createPath(eventWorkingDir) )
+    {
+        string msg = "Unable to create working directory: " + eventWorkingDir;
+        throw runtime_error(msg);
+    }
+
     CatalogPtr relocatedEvWithXcorr;
     try
     {
-        SEISCOMP_INFO("Performing step 2: relocation with cross correlation");
-
-        string eventWorkingDir = (boost::filesystem::path(subFolder)/"step2").string();
-        if ( !Util::createPath(eventWorkingDir) )
-        {
-            string msg = "Unable to create working directory: " + eventWorkingDir;
-            throw runtime_error(msg);
-        }
-
         CatalogPtr evToRelocateCat = relocatedEvCat;
         if ( ! evToRelocateCat )
             evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
@@ -1181,7 +1181,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
                 (boost::filesystem::path(eventWorkingDir)/"relocated-phase.csv").string(),
                 (boost::filesystem::path(eventWorkingDir)/"relocated-station.csv").string());
         }
-        
+
     } catch ( exception &e ) {
         SEISCOMP_ERROR("%s", e.what());
     }
@@ -1195,7 +1195,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         throw runtime_error("Failed origin relocation with and without crosscorrelation");
 
     if ( _workingDirCleanup ) boost::filesystem::remove_all(subFolder);
-        
+
     return relocatedEvWithXcorr ? relocatedEvWithXcorr : relocatedEvCat;
 }
 
