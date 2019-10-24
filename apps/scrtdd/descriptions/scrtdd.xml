@@ -200,17 +200,6 @@
                             </description>
                         </parameter>
 
-                        <parameter name="incrementalCatalogFile" type="path">
-                            <description>
-                                Path to incremental catalog file. If this file is specified then if a preferred manual
-                                origin is relocated it will be automatically added to the incrementalCatalogFile and
-                                used as additional entry to the configured  catalog.
-                                When scrtdd module starts it reads entries from the incrementalCatalogFile and
-                                add them to its configured background catalog. Thus it is safe to edit this file
-                                when scrtdd is not running.
-                            </description>
-                        </parameter>
-
                     </group>
 
                     <group name="dtct">

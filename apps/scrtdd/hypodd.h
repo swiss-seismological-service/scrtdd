@@ -137,7 +137,6 @@ class HypoDD : public Core::BaseObject {
         virtual ~HypoDD();
 
         void preloadData();
-        void cleanUnusedResources();
 
         CatalogCPtr getCatalog() { return _srcCat; }
         void setCatalog(const CatalogCPtr& catalog);
@@ -179,7 +178,11 @@ class HypoDD : public Core::BaseObject {
                                    const std::string& dtccFile);
         void buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
                                       unsigned evToRelocateId,
-                                      std::ofstream& outStream);
+                                      std::ofstream& outStream,
+                                      std::map<std::string,GenericRecordPtr>& catalogCache,
+                                      bool useDiskCacheCatalog,
+                                      std::map<std::string,GenericRecordPtr>& refEvCache,
+                                      bool useDiskCacheRefEv);
         bool xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
                    const Catalog::Event& event2, const Catalog::Phase& phase2,
                    double& dtccOut, double& weightOut,

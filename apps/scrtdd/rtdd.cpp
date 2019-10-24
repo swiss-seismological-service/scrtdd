@@ -421,11 +421,6 @@ bool RTDD::validateParameters()
             prof->stationFile = env->absolutePath(configGetPath(prefix + "stationFile"));
             prof->phaFile = env->absolutePath(configGetPath(prefix + "phaFile"));
         }
-        try {
-            prof->incrementalCatalogFile = env->absolutePath(configGetPath(prefix + "incrementalCatalogFile"));
-        } catch ( ... ) { }
-
-        if ( ! prof->incrementalCatalogFile.empty() ) profileRequireDB = true;
 
         try {
             prof->ddcfg.validPphases = configGetStrings(prefix + "P-Phases");
@@ -927,8 +922,8 @@ void RTDD::handleMessage(Core::Message *msg)
         else
         {
             OriginPtr relocatedOrg;
-            processOrigin(originToReloc.get(), relocatedOrg, reloc_req->getProfile(),
-                          true, true, true, false, false);
+            processOrigin(originToReloc.get(), relocatedOrg, reloc_req->getProfile(), true, true, true, false);
+
             if ( relocatedOrg )
             {
                 reloc_resp.setOrigin(relocatedOrg);
@@ -1007,7 +1002,6 @@ void RTDD::handleTimeout()
  * might use lots of memory (waveform data)
  * OR, if the profiles are configured to neer expire, make sure
  * they are loaded
- * Also clean up unused resources by the profiles
  */
 void RTDD::checkProfileStatus() 
 {
@@ -1032,15 +1026,6 @@ void RTDD::checkProfileStatus()
                                currProfile->name.c_str(), expired.length());
                 currProfile->unload();
             }
-        }
-
-        // either way clean unused resources (memory and files) after 10 minutes of inactivity
-        Core::TimeSpan cleanupTimeout = Core::TimeSpan(60*10);
-        if ( currProfile->needResourcesCleaning() && currProfile->inactiveTime() > cleanupTimeout )
-        {
-            SEISCOMP_INFO("Profile %s inactive for more than %f seconds: clean unused resources",
-                          currProfile->name.c_str(), cleanupTimeout.length());
-            currProfile->cleanUnusedResources();
         }
     }
 }
@@ -1228,14 +1213,10 @@ bool RTDD::startProcess(Process *proc)
     // force to recompute the relocation after the first time
     bool recompute = (proc->runCount > 0);
 
-    // attempt to increment the catalog only if it is a manual origin and it is preferred
-    bool updateIncrementalCatalog = isPreferred && (org->evaluationMode() == Seiscomp::DataModel::MANUAL);
-
     // Relocate origin
     OriginPtr relocatedOrg;
     return processOrigin(org.get(), relocatedOrg, _config.forceProfile, recompute,
-                        _config.forceProcessing, _config.allowManualOrigin,
-                        !_config.testMode, updateIncrementalCatalog);
+                        _config.forceProcessing, _config.allowManualOrigin, !_config.testMode);
 }
 
 
@@ -1255,7 +1236,7 @@ void RTDD::removeProcess(Process *proc)
 
 bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg, const string& forceProfile,
                          bool recompute, bool forceProcessing, bool allowManualOrigin,
-                         bool doSend, bool updateIncrementalCatalog)
+                         bool doSend)
 {
     relocatedOrg = nullptr;
 
@@ -1434,10 +1415,6 @@ bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg, const string& 
         NotifierMessagePtr msg = Notifier::GetMessage();
         if ( msg && connection() ) connection()->send("EVENT", msg.get());
     }
-
-    // add this entry to the catalog
-    if ( updateIncrementalCatalog )
-         currProfile->addIncrementalCatalogEntry(relocatedOrg.get());
 
     return true;
 }
@@ -1713,7 +1690,6 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
 RTDD::Profile::Profile()
 {
     loaded = false;
-    needCleaning = false;
 }
 
 
@@ -1748,13 +1724,6 @@ void RTDD::Profile::load(DatabaseQuery* query,
         ddbgc = new HDD::Catalog(stationFile, eventFile, phaFile);
     }
 
-    // if we have a incremental catalog, then load incremental entries
-    if ( ! incrementalCatalogFile.empty() && Util::fileExists(incrementalCatalogFile) )
-    {
-        HDD::DataSource dataSrc(query, cache, eventParameters);
-        ddbgc->add(incrementalCatalogFile, dataSrc);
-    }
-
     hypodd = new HDD::HypoDD(ddbgc, ddcfg, pWorkingDir);
     hypodd->setWorkingDirCleanup(cleanupWorkingDir);
     hypodd->setUseCatalogDiskCache(cacheWaveforms);
@@ -1774,17 +1743,9 @@ void RTDD::Profile::unload()
     SEISCOMP_INFO("Unloading profile %s", name.c_str());
     hypodd.reset();
     loaded = false;
-    needCleaning = false;
     lastUsage = Core::Time::GMT();
 }
 
-
-void RTDD::Profile::cleanUnusedResources()
-{
-    if ( ! needResourcesCleaning() ) return;
-    hypodd->cleanUnusedResources();
-    needCleaning = false;
-}
 
 
 HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
@@ -1795,7 +1756,6 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
         throw runtime_error(msg.c_str());
     }
     lastUsage = Core::Time::GMT();
-    needCleaning = true;
 
     HDD::DataSource dataSrc(query, cache, eventParameters);
 
@@ -1820,42 +1780,8 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog(bool force)
         throw runtime_error(msg.c_str());
     }
     lastUsage = Core::Time::GMT();
-    needCleaning = true;
     return hypodd->relocateCatalog(force, ! ddcfg.ph2dt.ctrlFile.empty());
 }
-
-
-
-bool RTDD::Profile::addIncrementalCatalogEntry(DataModel::Origin *org)
-{
-    if ( incrementalCatalogFile.empty() || ! org )
-        return false;
-
-    SEISCOMP_INFO("Adding origin %s to incremental catalog (profile %s file %s)",
-                  org->publicID().c_str(), name.c_str(), incrementalCatalogFile.c_str());
-
-    if ( ! Util::fileExists(incrementalCatalogFile) )
-    {
-        ofstream incStream(incrementalCatalogFile);
-        incStream << "seiscompId" << endl;
-        incStream << org->publicID() << endl;
-    }
-    else
-    {
-        ofstream incStream(incrementalCatalogFile, ofstream::app | ofstream::out);
-        incStream << org->publicID() << endl;
-    }
-    // we could simply unload the profile and let the code upload it again with the
-    // new event, but we don't want to lose all the cached waveforms that hypodd
-    // has in memory
-    HDD::DataSource dataSrc(query, cache, eventParameters);
-    HDD::CatalogPtr newCatalog = new HDD::Catalog(*hypodd->getCatalog());
-    newCatalog->add(incrementalCatalogFile, dataSrc);
-    hypodd->setCatalog(newCatalog);
-
-    return true;
-}
-
 
 
 // End Profile class

@@ -92,7 +92,7 @@ class RTDD : public Application {
         bool processOrigin(DataModel::Origin *origin, DataModel::OriginPtr& relocatedOrg,
                            const std::string& forceProfile="", bool recompute=false,
                            bool forceProcessing=false, bool allowManualOrigin=false,
-                           bool doSend=true, bool updateIncrementalCatalog=false);
+                           bool doSend=true);
 
         void relocateOrigin(DataModel::Origin *org, ProfilePtr profile,
                             DataModel::OriginPtr& newOrg,
@@ -151,12 +151,9 @@ class RTDD : public Application {
                       bool preloadData);
             void unload();
             bool isLoaded() { return loaded; }
-            void cleanUnusedResources();
-            bool needResourcesCleaning() { return isLoaded() && needCleaning; }
             Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
             HDD::CatalogPtr relocateSingleEvent(DataModel::Origin *org);
             HDD::CatalogPtr relocateCatalog(bool force = true);
-            bool addIncrementalCatalogEntry(DataModel::Origin *org);
 
             std::string name;
             std::string earthModelID;
@@ -165,13 +162,11 @@ class RTDD : public Application {
             std::string stationFile;
             std::string eventFile;
             std::string phaFile;
-            std::string incrementalCatalogFile;
             RegionPtr   region;
             HDD::Config ddcfg;
 
             private:
             bool loaded;
-            bool needCleaning;
             Core::Time lastUsage;
             HDD::HypoDDPtr hypodd;
             DataModel::DatabaseQuery* query;

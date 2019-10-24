@@ -360,7 +360,20 @@ HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& work
 
 HypoDD::~HypoDD()
 {
-    cleanUnusedResources();
+    //
+    // delete all in working directory expect the cache directory
+    //
+    if ( _workingDirCleanup )
+    {
+        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(_workingDir), {}))
+        {
+            if ( ! boost::filesystem::equivalent(entry, _cacheDir) )
+            {
+                SEISCOMP_INFO("Deleting %s", entry.path().string().c_str());
+                try { boost::filesystem::remove_all(entry); } catch ( ... ) { }
+            }
+        }
+    } 
 }
 
 
@@ -425,83 +438,6 @@ void HypoDD::preloadData()
     }
     SEISCOMP_INFO("Finished preloading catalog waveform data: waveforms with Signal to Noise ratio too low %u, "
                   "waveforms not available %u", _counters.snr_low, _counters.wf_no_avail);
-}
-
-
-
-void HypoDD::cleanUnusedResources()
-{
-    SEISCOMP_INFO("Cleaning unused resources");
-    //
-    // delete all in working directory expect the cache directory
-    //
-    if ( _workingDirCleanup )
-    {
-        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(_workingDir), {}))
-        {
-            if ( ! boost::filesystem::equivalent(entry, _cacheDir) )
-            {
-                SEISCOMP_INFO("Deleting %s", entry.path().string().c_str());
-                try { boost::filesystem::remove_all(entry); } catch ( ... ) { }
-            }
-        }
-    } 
-
-    //
-    // Keep track of the waveforms that we want to keep (catalog waveforms)
-    //
-    std::set<string> wfToKeep;
-    std::set<string> wfFileToKeep;
-    for (const auto& kv : _ddbgc->getEvents() )
-    {
-        const Catalog::Event& event = kv.second;
-        auto eqlrng = _ddbgc->getPhases().equal_range(event.id);
-        for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-        {
-            const Catalog::Phase& phase = it->second;
-            Core::TimeWindow tw = xcorrTimeWindowLong(phase);
-            wfToKeep.insert(waveformId(phase, tw));
-
-            string filePrefix = stringify("%s.%s.%s.", phase.networkCode.c_str(), phase.stationCode.c_str(), phase.locationCode.c_str());
-            filePrefix = (boost::filesystem::path(_cacheDir)/filePrefix).string();
-            wfFileToKeep.insert(filePrefix);
-         }
-    }
-
-    //
-    // Remove from the memory cache unused traces
-    //
-    std::map<string, GenericRecordPtr> cleanCache;
-    for (const string& wfId: wfToKeep)
-    {
-        cleanCache[wfId] = _wfCache[wfId];
-    }
-    _wfCache = cleanCache;  // use the new cleaned cache 
-
-    //
-    // Remove from disk cache unused traces (not belonging to the catalog)
-    //
-    if ( _useCatalogDiskCache )
-    {
-        for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(_cacheDir), {}))
-        {
-            string filename = entry.path().string();
-            bool found = false;
-            for (const string& filePrefix : wfFileToKeep)
-            {
-                if ( filename.compare(0, filePrefix.length(), filePrefix) == 0 )
-                {
-                    found = true;
-                    break;
-                }
-            }
-            if ( ! found )
-            {
-                SEISCOMP_INFO("Deleting %s", entry.path().string().c_str());
-                try { boost::filesystem::remove_all(entry); } catch ( ... ) { }
-            }
-        }
-    }
 }
 
 
@@ -941,9 +877,13 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
     }
 
     // write catalog for debugging purpose
-    catToReloc->writeToFile((boost::filesystem::path(catalogWorkingDir)/"starting-event.csv").string(),
-                        (boost::filesystem::path(catalogWorkingDir)/"starting-phase.csv").string(),
-                        (boost::filesystem::path(catalogWorkingDir)/"starting-station.csv").string() );
+    if ( ! _workingDirCleanup )
+    {
+        catToReloc->writeToFile(
+            (boost::filesystem::path(catalogWorkingDir)/"starting-event.csv").string(),
+            (boost::filesystem::path(catalogWorkingDir)/"starting-phase.csv").string(),
+            (boost::filesystem::path(catalogWorkingDir)/"starting-station.csv").string() );
+    }
 
     // Create station.dat for hypodd (if not already generated)
     string stationFile = (boost::filesystem::path(catalogWorkingDir)/"station.dat").string();
@@ -1026,9 +966,15 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
     CatalogPtr relocatedCatalog = loadRelocatedCatalog(catToReloc, ddrelocFile, ddresidualFile);
 
     // write catalog for debugging purpose
-    relocatedCatalog->writeToFile((boost::filesystem::path(catalogWorkingDir)/"relocated-event.csv").string(),
-                                  (boost::filesystem::path(catalogWorkingDir)/"relocated-phase.csv").string(),
-                                  (boost::filesystem::path(catalogWorkingDir)/"relocated-station.csv").string());
+    if ( ! _workingDirCleanup )
+    {
+        relocatedCatalog->writeToFile(
+            (boost::filesystem::path(catalogWorkingDir)/"relocated-event.csv").string(),
+            (boost::filesystem::path(catalogWorkingDir)/"relocated-phase.csv").string(),
+            (boost::filesystem::path(catalogWorkingDir)/"relocated-station.csv").string());
+    }
+    
+    if ( _workingDirCleanup ) boost::filesystem::remove_all(catalogWorkingDir);
 
     return relocatedCatalog;
 }
@@ -1083,9 +1029,13 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         unsigned evToRelocateNewId = neighbourCat->searchEvent(evToRelocate)->first;
 
         // write catalog for debugging purpose
-        neighbourCat->writeToFile((boost::filesystem::path(eventWorkingDir)/"starting-event.csv").string(),
-                                  (boost::filesystem::path(eventWorkingDir)/"starting-phase.csv").string(),
-                                  (boost::filesystem::path(eventWorkingDir)/"starting-station.csv").string());
+        if ( ! _workingDirCleanup )
+        {
+            neighbourCat->writeToFile(
+                (boost::filesystem::path(eventWorkingDir)/"starting-event.csv").string(),
+                (boost::filesystem::path(eventWorkingDir)/"starting-phase.csv").string(),
+                (boost::filesystem::path(eventWorkingDir)/"starting-station.csv").string());
+        }
 
         // Create station.dat for hypodd
         string stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
@@ -1120,9 +1070,13 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
             relocatedEvCat.reset();
 
         // write catalog for debugging purpose
-        relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"relocated-event.csv").string(),
-                                      (boost::filesystem::path(eventWorkingDir)/"relocated-phase.csv").string(),
-                                      (boost::filesystem::path(eventWorkingDir)/"relocated-station.csv").string());
+        if ( ! _workingDirCleanup )
+        {
+            relocatedCatalog->writeToFile(
+                (boost::filesystem::path(eventWorkingDir)/"relocated-event.csv").string(),
+                (boost::filesystem::path(eventWorkingDir)/"relocated-phase.csv").string(),
+                (boost::filesystem::path(eventWorkingDir)/"relocated-station.csv").string());
+        }                                      
 
     } catch ( exception &e ) {
         SEISCOMP_ERROR("%s", e.what());
@@ -1179,9 +1133,13 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         unsigned refinedLocNewId = neighbourCat->searchEvent(evToRelocate)->first;
 
         // write catalog for debugging purpose
-        neighbourCat->writeToFile((boost::filesystem::path(eventWorkingDir)/"starting-event.csv").string(),
-                                  (boost::filesystem::path(eventWorkingDir)/"starting-phase.csv").string(),
-                                  (boost::filesystem::path(eventWorkingDir)/"starting-station.csv").string());
+        if ( ! _workingDirCleanup )
+        {
+            neighbourCat->writeToFile(
+                (boost::filesystem::path(eventWorkingDir)/"starting-event.csv").string(),
+                (boost::filesystem::path(eventWorkingDir)/"starting-phase.csv").string(),
+                (boost::filesystem::path(eventWorkingDir)/"starting-station.csv").string());
+        }
 
         // Create station.dat for hypodd
         string stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
@@ -1216,9 +1174,14 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
             relocatedEvWithXcorr.reset();
 
         // write catalog for debugging purpose
-        relocatedCatalog->writeToFile((boost::filesystem::path(eventWorkingDir)/"relocated-event.csv").string(),
-                                      (boost::filesystem::path(eventWorkingDir)/"relocated-phase.csv").string(),
-                                      (boost::filesystem::path(eventWorkingDir)/"relocated-station.csv").string());
+        if ( ! _workingDirCleanup )
+        {
+            relocatedCatalog->writeToFile(
+                (boost::filesystem::path(eventWorkingDir)/"relocated-event.csv").string(),
+                (boost::filesystem::path(eventWorkingDir)/"relocated-phase.csv").string(),
+                (boost::filesystem::path(eventWorkingDir)/"relocated-station.csv").string());
+        }
+        
     } catch ( exception &e ) {
         SEISCOMP_ERROR("%s", e.what());
     }
@@ -1231,6 +1194,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     if ( ! relocatedEvWithXcorr && ! relocatedEvCat )
         throw runtime_error("Failed origin relocation with and without crosscorrelation");
 
+    if ( _workingDirCleanup ) boost::filesystem::remove_all(subFolder);
+        
     return relocatedEvWithXcorr ? relocatedEvWithXcorr : relocatedEvCat;
 }
 
@@ -2115,7 +2080,9 @@ void HypoDD::createDtCcCatalog(const CatalogCPtr& catalog,
 
     for (const auto& kv : neighbourCats)
     {
-        buildXcorrDiffTTimePairs(kv.second, kv.first, outStream);
+        buildXcorrDiffTTimePairs(kv.second, kv.first, outStream,
+                                 _wfCache, _useCatalogDiskCache,
+                                 _wfCache, _useCatalogDiskCache);
     }
 
     SEISCOMP_INFO("Cross correlation statistics: attempted %u performed %u with good cc coefficient %u "
@@ -2143,7 +2110,10 @@ void HypoDD::createDtCcSingleEvent(const CatalogCPtr& catalog,
 
     _counters = {0};
 
-    buildXcorrDiffTTimePairs(catalog, evToRelocateId, outStream);
+    map<string, GenericRecordPtr> tmpCahe;
+    buildXcorrDiffTTimePairs(catalog, evToRelocateId, outStream,
+                             _wfCache, _useCatalogDiskCache,
+                             tmpCahe, false);
 
     SEISCOMP_INFO("Cross correlation statistics: attempted %u performed %u with good cc coefficient %u "
                   "with too low cc coefficient %u waveforms with Signal to Noise ratio too low %u "
@@ -2166,7 +2136,11 @@ void HypoDD::createDtCcSingleEvent(const CatalogCPtr& catalog,
  */
 void HypoDD::buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
                                       unsigned evToRelocateId,
-                                      ofstream& outStream)
+                                      ofstream& outStream,
+                                      std::map<std::string,GenericRecordPtr>& catalogCache,
+                                      bool useDiskCacheCatalog,
+                                      std::map<std::string,GenericRecordPtr>& refEvCache,
+                                      bool useDiskCacheRefEv)
 {
     auto search = catalog->getEvents().find(evToRelocateId);
     if (search == catalog->getEvents().end())
@@ -2205,8 +2179,8 @@ void HypoDD::buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
                 {
                     double dtcc, weight;
                     if ( xcorr(refEv, refPhase, event, phase, dtcc, weight,
-                               _wfCache, _useCatalogDiskCache,
-                               _wfCache, _useCatalogDiskCache) )
+                               refEvCache, useDiskCacheRefEv,
+                               catalogCache, useDiskCacheCatalog) )
                     {
                         evStream << stringify("%-12s %.6f %.4f %s", refPhase.stationId.c_str(),
                                               dtcc, weight,  refPhase.type.c_str());
