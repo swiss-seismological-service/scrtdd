@@ -89,8 +89,10 @@ class RTDD : public Application {
         bool startProcess(Process *proc);
         void removeProcess(Process *proc);
 
-        bool processOrigin(DataModel::Origin *origin, DataModel::OriginPtr& relocatedOrg,
-                           const std::string& forceProfile="", bool recompute=false,
+        bool processOrigin(DataModel::Origin *origin,
+                           DataModel::OriginPtr& relocatedOrg,
+                           std::vector<DataModel::PickPtr>& relocatedOrgPicks,
+                           const ProfilePtr& profile, bool recompute=false,
                            bool forceProcessing=false, bool allowManualOrigin=false,
                            bool doSend=true);
 
@@ -105,6 +107,9 @@ class RTDD : public Application {
                            std::vector<DataModel::PickPtr>& newOrgPicks);
 
         void removedFromCache(DataModel::PublicObject *);
+
+        ProfilePtr getProfile(const DataModel::Origin *origin, const std::string& forceProfile="");
+        ProfilePtr getProfile(double latitude, double longitude, const std::string& forceProfile="");
 
         struct Config {
             Config();

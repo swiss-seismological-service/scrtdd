@@ -22,7 +22,7 @@
                 </description>
             </parameter>
 
-            <parameter name="workingDirectory" type="path" default="/tmp/rtdd">
+            <parameter name="workingDirectory" type="path" default="@ROOTDIR@/var/lib/rtdd">
                 <description>
                     Defines the directory used for storing temporary processing files.
                 </description>

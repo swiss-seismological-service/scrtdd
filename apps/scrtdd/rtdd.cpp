@@ -269,7 +269,6 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     _processingInfoOutput = nullptr;
 
     NEW_OPT(_config.publicIDPattern, "publicIDpattern");
-    NEW_OPT(_config.workingDirectory, "workingDirectory");
     NEW_OPT(_config.keepWorkingFiles, "keepWorkingFiles");
     NEW_OPT(_config.onlyPreferredOrigin, "onlyPreferredOrigins");
     NEW_OPT(_config.allowManualOrigin, "manualOrigins");
@@ -286,7 +285,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT_CLI(_config.forceProfile, "Mode", "profile", "Force a specific profile to be used", true);
     NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
                 "Load catalog waveforms from the configured recordstream and save them into the profile working directory", true);
-    NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf", "Enable the saving of waveforms (filtered and resampled phases, artificial phases, SNR rejected phases) into the profile working directory. Useful when run in combination with --load-profile-wf", false, true);
+    NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf", "Enable the saving of waveforms (filtered/resampled, SNR rejected, ZRT projected and scrtdd detected phase) into the profile working directory. Useful when run in combination with --load-profile-wf", false, true);
     NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
                 "Time span in hours after which objects expire", true);
 
@@ -344,6 +343,8 @@ bool RTDD::validateParameters()
         setMessagingEnabled(false);
         _config.testMode = true; // we won't send any message
     }
+
+    _config.workingDirectory = env->absolutePath(configGetPath("workingDirectory"));
 
     std::string hypoddExec = "hypodd";
     try {
@@ -921,17 +922,29 @@ void RTDD::handleMessage(Core::Message *msg)
         }
         else
         {
-            OriginPtr relocatedOrg;
-            processOrigin(originToReloc.get(), relocatedOrg, reloc_req->getProfile(), true, true, true, false);
+            ProfilePtr currProfile = getProfile(originToReloc.get(), reloc_req->getProfile());
 
-            if ( relocatedOrg )
+            if ( ! currProfile )
             {
-                reloc_resp.setOrigin(relocatedOrg);
+                reloc_resp.setError(stringify("No profile available, ignoring origin %s",
+                                    originToReloc->publicID().c_str()));
             }
             else
             {
-                reloc_resp.setError(stringify("OriginId %s has not been relocated",
-                                    originToReloc->publicID().c_str()));
+                OriginPtr relocatedOrg;
+                std::vector<DataModel::PickPtr> relocatedOrgPicks; // we cannot return these to scolv
+                processOrigin(originToReloc.get(), relocatedOrg, relocatedOrgPicks, currProfile, 
+                              true, true, true, false);
+
+                if ( relocatedOrg )
+                {
+                    reloc_resp.setOrigin(relocatedOrg);
+                }
+                else
+                {
+                    reloc_resp.setError(stringify("OriginId %s has not been relocated",
+                                        originToReloc->publicID().c_str()));
+                }
             }
         }
 
@@ -1210,12 +1223,22 @@ bool RTDD::startProcess(Process *proc)
         return false;
     }
 
+    // Find best earth model based on region information and the initial origin
+    ProfilePtr currProfile = getProfile(org.get(), _config.forceProfile);
+
+    if ( !currProfile )
+    {
+        SEISCOMP_DEBUG("No profile available, ignoring origin %s", org->publicID().c_str());
+        return false;
+    }
+
     // force to recompute the relocation after the first time
     bool recompute = (proc->runCount > 0);
 
     // Relocate origin
     OriginPtr relocatedOrg;
-    return processOrigin(org.get(), relocatedOrg, _config.forceProfile, recompute,
+    std::vector<DataModel::PickPtr> relocatedOrgPicks;
+    return processOrigin(org.get(), relocatedOrg, relocatedOrgPicks, currProfile, recompute,
                         _config.forceProcessing, _config.allowManualOrigin, !_config.testMode);
 }
 
@@ -1234,7 +1257,9 @@ void RTDD::removeProcess(Process *proc)
 
 
 
-bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg, const string& forceProfile,
+bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg,
+                         std::vector<DataModel::PickPtr>& relocatedOrgPicks,
+                         const ProfilePtr& profile,
                          bool recompute, bool forceProcessing, bool allowManualOrigin,
                          bool doSend)
 {
@@ -1301,53 +1326,11 @@ bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg, const string& 
     else
         SEISCOMP_DEBUG("Force processing, journal ignored");
 
-    double latitude;
-    double longitude;
-
-    try {
-        latitude  = origin->latitude().value();
-        longitude = origin->longitude().value();
-    }
-    catch ( ... ) {
-        SEISCOMP_WARNING("Ignoring origin %s with unset lat/lon",
-                         origin->publicID().c_str());
-        return false;
-    }
-
-    // Find best earth model based on region information and the initial origin
-    ProfilePtr currProfile;
-
-    for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
-    {
-        if ( ! forceProfile.empty() )
-        {
-            // if user forced a profile, use that
-            if ( (*it)->name == forceProfile)
-                currProfile = *it;
-        }
-        else
-        {
-            // if epicenter is inside the configured region, use it
-            if ( (*it)->region->isInside(latitude, longitude) )
-                currProfile = *it;
-        }
-        if (currProfile) break;
-    } 
-
-    if ( !currProfile )
-    {
-        SEISCOMP_DEBUG("No profile found for location (lat:%s lon:%s), ignoring origin %s",
-                       Core::toString(latitude).c_str(), Core::toString(longitude).c_str(),
-                       origin->publicID().c_str());
-        return false;
-    }
-
     SEISCOMP_INFO("Relocating origin %s using profile %s",
-                   origin->publicID().c_str(), currProfile->name.c_str());
+                   origin->publicID().c_str(), profile->name.c_str());
 
-    std::vector<DataModel::PickPtr> relocatedOrgPicks;
     try {
-        relocateOrigin(origin, currProfile, relocatedOrg, relocatedOrgPicks);
+        relocateOrigin(origin, profile, relocatedOrg, relocatedOrgPicks);
     }
     catch ( exception &e ) {
         SEISCOMP_ERROR("Cannot relocate origin %s (%s)", origin->publicID().c_str(), e.what());
@@ -1683,6 +1666,50 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     newOrg->setQuality(oq);
 }
 
+
+
+RTDD::ProfilePtr
+RTDD::getProfile(const DataModel::Origin *origin, const std::string& forceProfile)
+{
+    double latitude;
+    double longitude;
+
+    try {
+        latitude  = origin->latitude().value();
+        longitude = origin->longitude().value();
+    }
+    catch ( ... ) {
+        SEISCOMP_WARNING("Origin %s doesn't have values for lat/lon", origin->publicID().c_str());
+        return nullptr;
+    }
+    return getProfile(latitude, longitude, forceProfile);
+}
+
+
+RTDD::ProfilePtr
+RTDD::getProfile(double latitude, double longitude, const std::string& forceProfile)
+{
+    ProfilePtr currProfile;
+
+    for ( ProfilePtr p : _profiles )
+    {
+        if ( ! forceProfile.empty() )
+        {
+            // if user forced a profile, use that
+            if ( p->name == forceProfile)
+                currProfile = p;
+        }
+        else
+        {
+            // if epicenter is inside the configured region, use it
+            if ( p->region->isInside(latitude, longitude) )
+                currProfile = p;
+        }
+        if (currProfile) break;
+    }
+
+    return currProfile;
+}
 
 
 // Profile class
