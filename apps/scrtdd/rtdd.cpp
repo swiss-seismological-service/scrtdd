@@ -711,9 +711,8 @@ bool RTDD::run() {
     // load catalog and exit
     if ( !_config.loadProfile.empty() )
     {
-        for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
+        for ( ProfilePtr profile : _profiles )
         {
-            ProfilePtr profile = *it;
             if ( profile->name == _config.loadProfile)
             {
                 profile->load(query(), &_cache, _eventParameters.get(),
@@ -807,9 +806,8 @@ bool RTDD::run() {
     {
         bool overwrite_files = ! commandline().hasOption("no-overwrite");
 
-        for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
+        for ( ProfilePtr profile : _profiles )
         {
-            ProfilePtr profile = *it;
             if ( profile->name == _config.relocateProfile)
             {
                 profile->load(query(), &_cache, _eventParameters.get(),
@@ -1018,9 +1016,8 @@ void RTDD::handleTimeout()
  */
 void RTDD::checkProfileStatus() 
 {
-    for (list<ProfilePtr>::iterator it = _profiles.begin(); it != _profiles.end(); ++it )
+    for ( ProfilePtr currProfile : _profiles )
     {
-        ProfilePtr currProfile = *it;
         if (_config.profileTimeAlive < 0) // never clean up profiles, force loading
         {
             if ( ! currProfile->isLoaded() )
