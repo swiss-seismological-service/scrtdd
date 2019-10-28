@@ -836,7 +836,7 @@ bool RTDD::run() {
         {
             OriginPtr org = _cache.get<Origin>(originID);
             if ( !org ) {
-                SEISCOMP_ERROR("Event %s  not found.", originID.c_str());
+                SEISCOMP_ERROR("Origin %s  not found.", originID.c_str());
                 continue;
             }
 
