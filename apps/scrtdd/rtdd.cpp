@@ -1594,6 +1594,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
         newPick->setMethodID(profile ? profile->methodID : "RTDD");
         newPick->setEvaluationMode(phase.isManual ? EvaluationMode(MANUAL) : EvaluationMode(AUTOMATIC));
         newPick->setTime(phase.time);
+        newPick->setPhaseHint(DataModel::Phase(phase.type));
         newPick->setWaveformID(WaveformStreamID(phase.networkCode, phase.stationCode, phase.locationCode, phase.channelCode, ""));
         newOrgPicks.push_back(newPick);
 
