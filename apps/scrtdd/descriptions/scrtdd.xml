@@ -12,13 +12,15 @@
 
             <parameter name="onlyPreferredOrigins" type="boolean" default="true">
                 <description>
-                   Skip relocation of any non-preferred origins.
+                    Relocate only preferred origins. Without this option scrtdd listens to LOCATION and
+                    try to relocate any origin. If this option is set scrtdd listens to EVENT and
+                    try to relcoate the preferred origin of an event.
                 </description>
             </parameter>
 
             <parameter name="manualOrigins" type="boolean" default="false">
                 <description>
-                    When disabled manual origins are not relocated.
+                    If disable manual origins are not relocated.
                 </description>
             </parameter>
 
