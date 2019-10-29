@@ -463,7 +463,7 @@
                             <group name="findMissingPhase">
                                 <description>
                                    Use cross correlation to find undetected event phases on stations
-                                   for which other close by events have phases
+                                   for which other close by events have phases.
                                 </description>
                                 <parameter name="enable" type="boolean" default="false">
                                     <description>
@@ -473,24 +473,28 @@
                                 <parameter name="fixAutomaticPhase" type="boolean" default="false">
                                     <description>
                                         Use cross correlation to improve the picks of existing
-                                        automatic phases
+                                        automatic phases (manual phases will be left unchanged)
                                    </description>
                                 </parameter>
                                 <parameter name="maxEventPairDistance" type="double" default="5">
                                     <description>
-                                        Maximum distance (km) to look for event pair phases to use in cross correlation.
-                                        This parameters restrincts the events to be used in cross correlation.
-                                        Only phases for events closer than maxEventPairDistance will be used (Km).
+                                        Maximum distance (km) to look for events to be used.
+                                        Phases belonging to the events falling in the selected area will be
+                                        used for detecting missing phases via cross correlation.
                                    </description>
                                 </parameter>  
                                 <parameter name="numCC" type="int" default="2">
                                     <description>
-                                        Number of good cross correlations required to define a new phase.
+                                        Number of cross correlations above threshold required to define a new phase.
                                     </description>
                                 </parameter>
                                 <parameter name="maxCCtw" type="double" default="10">
                                     <description>
-                                        Maximum time window to be used when looking for the pick with cross correlation. This is an upper bound to restrict the search window, which depends on minEStoIEratio only
+                                        Maximum time window to be used in the cross correlation. This parameter is
+                                        used to restrict the search window, although the actual windows is derived
+                                        from the difference between maximum and minimun travel time of the phases
+                                        belonging to the near by events, which are selected depending on the
+                                        maxEventPairDistance parameter
                                    </description>
                                 </parameter>
                             </group>
