@@ -51,7 +51,7 @@ Please remember to set the Hypodd array limits (compilation time options availab
 
 New origins will be relocated in real time against a background catalog of high quality locations. Those high quality events that form the background catalog can be already present in seiscompo database or not. In the latter case the background catalog has to be generated. Either way, the catalog has to be specified in scrtdd when configuring it.
 
-![Catalog selection option](/img/catalog-selection.png?raw=true "Catalog selection")
+![Catalog selection option](/img/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
 
 If we already have a high quality catalog, then we can easily specify it in scrtdd configuration as a path to a file containing a list of origin id or event id (in which case the preferred origin will be used). The file format must be a csv file in which there must be at least one column called seiscompId, from which the ids will be fetched by scrtdd.
 
@@ -120,10 +120,13 @@ eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,chann
 1,IVMRGE,2014-01-10T04:46:58.219541Z,0.95,P,IV,MRGE,,HHR,manual
 ```
 
-Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might perform some editing of those files, if required, then we relocate them. To do so we need to create a new profile inside scrtdd configuration. In this profile we set the generated files (event.csv, phase.csv, stations.csv) as the catalog of the profile. Then we can configure the other profile options that control the relocation process.
+Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might perform some editing of those files, if required, then we relocate them. To do so we need to create a new profile inside scrtdd configuration and then we have to set the generated files (event.csv, phase.csv, stations.csv) as the catalog of the profile.
 
-![Relocation options](/img/difftraveltime-dtct.png?raw=true "Relocation options")
-![Relocation options](/img/difftraveltime-dtcc.png?raw=true "Relocation options")
+![Catalog selection option](/img/catalog-selection2.png?raw=true "Catalog selection from raw file format")
+
+At this point we have to configure the other profile options that control the relocation process. Since we are performing a multi event relocation, we have to only configure the `step2options` (see the next paragraph on real time single event relocation to understand step1 and step2 options).
+
+![Relocation options](/img/step2options.png?raw=true "Relocation options")
 ![Relocation options](/img/xcorr.png?raw=true "Relocation options")  
 
 Once we are happy witht he options, we can relocate the catalog with the command:
@@ -132,11 +135,35 @@ Once we are happy witht he options, we can relocate the catalog with the command
 scrtdd --reloc-catalog profileName
 ```
 
-scrtdd will relocated the catalog and will generate another set of files event.csv phase.csv and stations.csv (save the previous files somewhere before relocating the catalog). At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations, at which point we can finally set the resulting relocated catalog as background catalog in a scrtdd profile (a new one or the previous one) that we will use for real time relocation.
+scrtdd will relocated the catalog and will generate another set of files reloc-event.csv reloc-phase.csv and reloc-stations.csv, which together define a new catalog with relocated origins. At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations, at which point we can finally set the resulting relocated catalog as background catalog in our scrtdd profile (overwriting the previous file triples event.csv, phase.csv, stations.csv that is no longer needed for real time relocation).
 
 We are now ready to perform real time relocation!
 
-Note: it is possible to use ph2dt utility to perform the catalog relocation. It this case the scrtdd configuraion for generating dt.ct and dt.cc files will not be used. Instead, ph2dt will be run to generate dt.ct file, and for each entry in the generated dt.ct file the cross correlation will be performed and the relative dt.cc file created. 
+
+Note 1: To help figuring out the right values for cross correlation, waveform filtering and signal to noise ratio options, two command lines options come in handy:
+
+
+```
+scrtdd --help
+  --load-profile-wf arg                 Load catalog waveforms from the 
+                                        configured recordstream and save them 
+                                        into the profile working directory
+  --debug-wf                            Enable the saving of waveforms 
+                                        (filtered/resampled, SNR rejected, ZRT 
+                                        projected and scrtdd detected phase) 
+                                        into the profile working directory. 
+                                        Useful when run in combination with 
+                                        --load-profile-wf
+```
+
+Run the following command to write to disk the miniseed files of the processed waveforms that can be inspected.
+
+```
+scrtdd --debug-wf --load-profile-wf profileName
+```
+
+
+Note 2: it is possible to use ph2dt utility to perform the clustering. It this case the scrtdd configuration `step2options.clusteing.*` will not be used. Instead, ph2dt will be run to generate dt.ct file, and for each entry in the generated dt.ct file the cross correlation will be performed and the relative dt.cc file created.
 
 ```
 scrtdd --reloc-catalog profileName --use-ph2dt /some/path/ph2dt.inp [--ph2dt-path /some/path/ph2dt]
@@ -180,19 +207,22 @@ MultiEvents:
 
 ## 3. Real time single origin relocation
 
-Real time relocation uses the same configuration we have seen in full catalog relocation, but real time relocation is done in two steps. Each one controlled by a specific hypoDD configuration:
+Real time relocation uses the same configuration we have seen in full catalog relocation, but real time relocation is done in two steps, each one controlled by a specific configuration.
 
-![HypoDD options](/img/hypoDDcfg.png?raw=true "HypoDD options") 
+Step 1: location refinement. In this step scrtdd performs a preliminary relocation of the origin using only catalog absolute travel time entries (dt.ct only).
 
-Step 1: location refinement. In this step hypoDD is used to compute a preliminary relocation of the origin using only catalog absolute travel time entries (dt.ct only).
+Step 2: the refined location is used as starting location to perform a more precise relocation using both catalog absolute travel times (dt.ct) and differential travel times from cross correlation (dt.cc). 
 
-Step 2: the refined location is used to perform a more precise relocation using both catalog absolute travel times (dt.ct) and differential travel times from cross correlation (dt.cc). 
+After step2 the relocated origin is sent to the messaging system. If step2 fails, then the relocated origin from step1 is sent to the messaging system. If step1 fails, step2 is attempted anyway.
 
-After step2 the relocated origin is sent to the messaging system. If step2 fails, then the relocated origin from step1 is sent to the messaging system.
+Note: when performing the multi event (catalog) relocation ("scrtdd --reloc-profile") only step2options are considered.
 
-If both step1 and step2 fail, then a relocation is reattepted at a later time, accordingly to `delayTimes` option.
 
-Note: when performing the catalog relocation ("scrtdd --reloc-catalog") it is done in a single step
+![Relocation options](/img/step1options.png?raw=true "Relocation options")
+![Relocation options](/img/step2options.png?raw=true "Relocation options")
+![Relocation options](/img/xcorr.png?raw=true "Relocation options")  
+
+
 
 To test the real time relocation we can use two command line options which relocate existing origins:
 
@@ -214,17 +244,17 @@ SingleEvent:
 
 ```
 
-E.g. if we want to process an origin or event, we can run the following command and then check on scolv the relocated origin (the messaging system must be active):
+E.g. if we want to process an origin we can run the following command and then check on scolv the relocated origin (the messaging system must be active):
 
 
 ```
-scrtdd -O event2019dubnfr
+scrtdd -O someOriginId
 ```
 
 Alternatively we can reprocess an XML file:
 
 ```
-scrtdd --ep event.xml
+scrtdd --ep eventparameter.xml
 ```
 
 ## 4. RecordStream configuration

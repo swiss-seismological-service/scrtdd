@@ -1018,9 +1018,10 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
         // Select neighbouring events
         CatalogPtr neighbourCat = selectNeighbouringEvents(
-            evToRelocateCat, evToRelocate, _cfg.dtct.minWeight, _cfg.dtct.minESdist, _cfg.dtct.maxESdist,
-            _cfg.dtct.minEStoIEratio, _cfg.dtct.maxIEdist, _cfg.dtct.minDTperEvt, _cfg.dtct.maxDTperEvt,
-            _cfg.dtct.minNumNeigh, _cfg.dtct.maxNumNeigh, _cfg.dtct.numEllipsoids, _cfg.dtct.maxEllipsoidSize
+            evToRelocateCat, evToRelocate, _cfg.step1Clustering.minWeight, _cfg.step1Clustering.minESdist,
+            _cfg.step1Clustering.maxESdist, _cfg.step1Clustering.minEStoIEratio, _cfg.step1Clustering.maxIEdist,
+            _cfg.step1Clustering.minDTperEvt, _cfg.step1Clustering.maxDTperEvt, _cfg.step1Clustering.minNumNeigh,
+            _cfg.step1Clustering.maxNumNeigh, _cfg.step1Clustering.numEllipsoids, _cfg.step1Clustering.maxEllipsoidSize
         );
 
         // add event to be relocated to the neighbours
@@ -1122,9 +1123,10 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
         // Select neighbouring events from the relocated origin
         CatalogPtr neighbourCat = selectNeighbouringEvents(
-            evToRelocateCat, evToRelocate, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist, _cfg.dtcc.maxESdist,
-            _cfg.dtcc.minEStoIEratio, _cfg.dtcc.maxIEdist, _cfg.dtcc.minDTperEvt,  _cfg.dtcc.maxDTperEvt,
-            _cfg.dtcc.minNumNeigh, _cfg.dtcc.maxNumNeigh, _cfg.dtcc.numEllipsoids, _cfg.dtcc.maxEllipsoidSize
+            evToRelocateCat, evToRelocate, _cfg.step2Clustering.minWeight, _cfg.step2Clustering.minESdist,
+            _cfg.step2Clustering.maxESdist, _cfg.step2Clustering.minEStoIEratio, _cfg.step2Clustering.maxIEdist,
+            _cfg.step2Clustering.minDTperEvt,  _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh,
+            _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids, _cfg.step2Clustering.maxEllipsoidSize
         );
 
         // add event to the neighbours
@@ -1936,11 +1938,12 @@ void HypoDD::createDtCtCatalog(const CatalogCPtr& catalog,
     SEISCOMP_INFO("Creating differential travel time file %s", dtctFile.c_str());
 
     map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
-        catalog, _cfg.dtct.minWeight, _cfg.dtct.minESdist, _cfg.dtct.maxESdist,
-        _cfg.dtct.minEStoIEratio, _cfg.dtct.maxIEdist,
-        _cfg.dtct.minDTperEvt,  _cfg.dtct.maxDTperEvt,
-        _cfg.dtct.minNumNeigh, _cfg.dtct.maxNumNeigh,
-        _cfg.dtct.numEllipsoids , _cfg.dtct.maxEllipsoidSize
+        catalog, _cfg.step2Clustering.minWeight,
+        _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist,
+        _cfg.step2Clustering.minEStoIEratio, _cfg.step2Clustering.maxIEdist,
+        _cfg.step2Clustering.minDTperEvt,  _cfg.step2Clustering.maxDTperEvt,
+        _cfg.step2Clustering.minNumNeigh, _cfg.step2Clustering.maxNumNeigh,
+        _cfg.step2Clustering.numEllipsoids , _cfg.step2Clustering.maxEllipsoidSize
     );
 
     ofstream outStream(dtctFile);
@@ -2065,11 +2068,12 @@ void HypoDD::createDtCcCatalog(const CatalogCPtr& catalog,
     SEISCOMP_INFO("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
 
     map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
-        catalog, _cfg.dtcc.minWeight, _cfg.dtcc.minESdist, _cfg.dtcc.maxESdist,
-        _cfg.dtcc.minEStoIEratio, _cfg.dtcc.maxIEdist,
-        _cfg.dtcc.minDTperEvt, _cfg.dtcc.maxDTperEvt,
-        _cfg.dtcc.minNumNeigh, _cfg.dtcc.maxNumNeigh,
-        _cfg.dtcc.numEllipsoids , _cfg.dtcc.maxEllipsoidSize
+        catalog, _cfg.step2Clustering.minWeight,
+        _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist,
+        _cfg.step2Clustering.minEStoIEratio, _cfg.step2Clustering.maxIEdist,
+        _cfg.step2Clustering.minDTperEvt, _cfg.step2Clustering.maxDTperEvt,
+        _cfg.step2Clustering.minNumNeigh, _cfg.step2Clustering.maxNumNeigh,
+        _cfg.step2Clustering.numEllipsoids , _cfg.step2Clustering.maxEllipsoidSize
     );
 
     ofstream outStream(dtccFile);
@@ -3015,10 +3019,10 @@ HypoDD::readWaveformFromRecordStream(const Core::TimeWindow& tw,
                                      const string& locationCode,
                                      const string& channelCode) const
 {
-    IO::RecordStreamPtr rs = IO::RecordStream::Open( _cfg.dtcc.recordStreamURL.c_str() );
+    IO::RecordStreamPtr rs = IO::RecordStream::Open( _cfg.step2Clustering.recordStreamURL.c_str() );
     if ( rs == nullptr )
     {
-        string msg = "Cannot open RecordStream: " + _cfg.dtcc.recordStreamURL;
+        string msg = "Cannot open RecordStream: " + _cfg.step2Clustering.recordStreamURL;
         throw runtime_error(msg);
     }
 

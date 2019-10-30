@@ -69,7 +69,7 @@ struct Config {
         // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
         int numEllipsoids       = 5;
         double maxEllipsoidSize = 10; // km
-    } dtct;
+    } step1Clustering;
 
     // cross correlation specific
     struct {
@@ -89,7 +89,7 @@ struct Config {
         // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
         int numEllipsoids       = 5;
         double maxEllipsoidSize = 10; // km
-    } dtcc;
+    } step2Clustering;
 
     struct XCorr {
         double minCoef;     // Min xcorr coefficient required (0-1)
