@@ -132,7 +132,7 @@ At this point we have to configure the other profile options that control the re
 Once we are happy witht he options, we can relocate the catalog with the command:
 
 ```
-scrtdd --reloc-catalog profileName
+scrtdd --reloc-profile profileName
 ```
 
 scrtdd will relocated the catalog and will generate another set of files reloc-event.csv reloc-phase.csv and reloc-stations.csv, which together define a new catalog with relocated origins. At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations, at which point we can finally set the resulting relocated catalog as background catalog in our scrtdd profile (overwriting the previous file triples event.csv, phase.csv, stations.csv that is no longer needed for real time relocation).
@@ -156,7 +156,13 @@ scrtdd --help
                                         --load-profile-wf
 ```
 
-Run the following command to write to disk the miniseed files of the processed waveforms that can be inspected.
+One way to take adavantage of the options is to add --debug-wf when relocating the catalog and all the used waveforms will be written to disk as miniseed file for inspection:
+
+```
+scrtdd --reloc-profile profileName --debug-wf
+```
+
+If you want to inspect all the waveforms contained in the catalog, that is not only the ones used during multi event relocation, it is possible to use the --load-profile-wf option too. This option is also useful to force scrtdd to load all the waveforms and store them on disk so that they will be already available in real time relocation:
 
 ```
 scrtdd --debug-wf --load-profile-wf profileName
@@ -166,7 +172,7 @@ scrtdd --debug-wf --load-profile-wf profileName
 Note 2: it is possible to use ph2dt utility to perform the clustering. It this case the scrtdd configuration `step2options.clusteing.*` will not be used. Instead, ph2dt will be run to generate dt.ct file, and for each entry in the generated dt.ct file the cross correlation will be performed and the relative dt.cc file created.
 
 ```
-scrtdd --reloc-catalog profileName --use-ph2dt /some/path/ph2dt.inp [--ph2dt-path /some/path/ph2dt]
+scrtdd --reloc-profile profileName --use-ph2dt /some/path/ph2dt.inp [--ph2dt-path /some/path/ph2dt]
 ```
 
 
