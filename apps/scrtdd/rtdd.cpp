@@ -1309,14 +1309,16 @@ bool RTDD::processOrigin(Origin *origin, OriginPtr& relocatedOrg,
             it = query()->getJournalAction(origin->publicID(), JOURNAL_ACTION);
             while ( (entry = static_cast<JournalEntry*>(*it)) != nullptr )
             {
-                if ( entry->parameters() == JOURNAL_ACTION_COMPLETED &&
-                     entry->created() >= origin->creationInfo().modificationTime() )
-                {
-                    SEISCOMP_DEBUG("%s: found journal entry \"completely processed\", ignoring origin",
-                                  origin->publicID().c_str());
-                    it.close();
-                    return false;
-                }
+                try {
+                    if ( entry->parameters() == JOURNAL_ACTION_COMPLETED &&
+                         entry->created() >= origin->creationInfo().modificationTime() )
+                    {
+                        SEISCOMP_DEBUG("%s: found journal entry \"completely processed\", ignoring origin",
+                                      origin->publicID().c_str());
+                        it.close();
+                        return false;
+                    }
+                } catch ( ... ) {} // creationInfo().modificationTime() could be not set
                 ++it;
             }
             it.close();
