@@ -82,34 +82,35 @@ searchByValue(const Map & SearchMap, const Val & SearchVal)
 }
 
 
-double computePickWeight(DataModel::Pick *pick)
-{
-    double uncertainty = -1; // secs
 
+std::pair<double,double> getPickUncertainty(DataModel::Pick *pick)
+{
+    pair<double,double> uncertainty(-1, -1); // secs
     try
     {
         // Symmetric uncertainty
-        uncertainty = pick->time().uncertainty();
+        uncertainty.first = uncertainty.second = pick->time().uncertainty();
     }
     catch ( Core::ValueException& )
     {
         // Unsymmetric uncertainty
         try
         {
-          uncertainty = (pick->time().lowerUncertainty() + pick->time().upperUncertainty() ) / 2;
+          uncertainty.first = pick->time().lowerUncertainty();
+          uncertainty.second = pick->time().upperUncertainty();
         } catch ( Core::ValueException& ) {}
     }
 
-    if ( uncertainty < 0 )
+    if ( uncertainty.first < 0 && uncertainty.second < 0 )
     {
         try {
-           uncertainty = (pick->evaluationMode() == Seiscomp::DataModel::MANUAL) ? 0.025 : 0.200;
+           uncertainty.first = uncertainty.second = (pick->evaluationMode() == Seiscomp::DataModel::MANUAL) ? 0.025 : 0.200;
         } catch ( Core::ValueException& )  {
-           uncertainty = 0.200;
+           uncertainty.first = uncertainty.second = 0.200;
         }
     }
 
-    return HDD::Catalog::computePickWeight(uncertainty);
+    return uncertainty;
 }
 
 
@@ -146,33 +147,6 @@ DataModel::Station* Catalog::findStation(const string& netCode,
     }
     return station;
 }
-
-/*
- * Fixed weighting scheme based on pick time uncertainties
- * Class 0: 0     - 0.025  sec
- *       1: 0.025 - 0.050  sec
- *       2: 0.050 - 0.100  sec
- *       3: 0.100 - 0.200  sec
- *       4: 0.200 - 0.400  sec
- *       5: 0.400 -        sec
- *  weight = 1 / 2^class
- */
-double Catalog::computePickWeight(double uncertainty /* secs */ )
-{
-    int cls = -1;
-
-    if ( uncertainty >= 0.000 && uncertainty < 0.025 )      cls = 0;
-    else if ( uncertainty >= 0.025 && uncertainty < 0.050 ) cls = 1;
-    else if ( uncertainty >= 0.050 && uncertainty < 0.100 ) cls = 2;
-    else if ( uncertainty >= 0.100 && uncertainty < 0.200 ) cls = 3;
-    else if ( uncertainty >= 0.200 && uncertainty < 0.400 ) cls = 4;
-    else                                                    cls = 5;
-
-    double weight = 1. / pow(2., cls);
-
-    return weight;
-}
-
 
 
 /*
@@ -344,16 +318,17 @@ Catalog::Catalog(const string& stationFile, const string& eventFile, const strin
     for (const auto& row : phases )
     {
         Phase ph;
-        ph.eventId    = std::stoul(row.at("eventId"));
-        ph.stationId  = row.at("stationId");
-        ph.time        = Core::Time::FromString(row.at("isotime").c_str(), "%FT%T.%fZ"); //iso format
-        ph.weight      = std::stod(row.at("weight"));
-        ph.type        = row.at("type");
-        ph.networkCode  = row.at("networkCode");
-        ph.stationCode  = row.at("stationCode");
-        ph.locationCode = row.at("locationCode");
-        ph.channelCode  = row.at("channelCode");
-        ph.isManual     = row.at("evalMode") == "manual";
+        ph.eventId          = std::stoul(row.at("eventId"));
+        ph.stationId        = row.at("stationId");
+        ph.time             = Core::Time::FromString(row.at("isotime").c_str(), "%FT%T.%fZ"); //iso format
+        ph.lowerUncertainty = std::stod(row.at("lowerUncertainty"));
+        ph.upperUncertainty = std::stod(row.at("upperUncertainty"));
+        ph.type             = row.at("type");
+        ph.networkCode      = row.at("networkCode");
+        ph.stationCode      = row.at("stationCode");
+        ph.locationCode     = row.at("locationCode");
+        ph.channelCode      = row.at("channelCode");
+        ph.isManual         = row.at("evalMode") == "manual";
         _phases.emplace(ph.eventId, ph);
     }
 }
@@ -459,17 +434,21 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
             // the station has to be there at this point
             sta = this->searchStation(sta)->second;
 
+            // get uncertainty
+            pair<double,double> uncertainty = getPickUncertainty(pick.get());
+
             Phase ph;
-            ph.eventId      = newEvent.id;
-            ph.stationId    = sta.id;
-            ph.time         = pick->time().value();
-            ph.weight       = ::computePickWeight(pick.get());
-            ph.type         = orgPh.code();
-            ph.networkCode  = pick->waveformID().networkCode();
-            ph.stationCode  = pick->waveformID().stationCode();
-            ph.locationCode = pick->waveformID().locationCode();
-            ph.channelCode  = pick->waveformID().channelCode();
-            ph.isManual     = (pick->evaluationMode() == Seiscomp::DataModel::MANUAL);
+            ph.eventId          = newEvent.id;
+            ph.stationId        = sta.id;
+            ph.time             = pick->time().value();
+            ph.lowerUncertainty = uncertainty.first;
+            ph.upperUncertainty = uncertainty.second;
+            ph.type             = orgPh.code();
+            ph.networkCode      = pick->waveformID().networkCode();
+            ph.stationCode      = pick->waveformID().stationCode();
+            ph.locationCode     = pick->waveformID().locationCode();
+            ph.channelCode      = pick->waveformID().channelCode();
+            ph.isManual         = (pick->evaluationMode() == Seiscomp::DataModel::MANUAL);
             this->addPhase(ph, true, false);
         }
     }
@@ -811,6 +790,9 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
     stringstream evStreamNoReloc;
     stringstream evStreamReloc;
 
+    /*
+     * Write Events
+     * */
     evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude,horizontal_err,vertical_err,rms"; 
     evStreamReloc << evStreamNoReloc.str() << ",relocated,lonUncertainty,latUncertainty,depthUncertainty,numCCp,numCCs,numCTp,numCTs,residualCC,residualCT" << endl;
     evStreamNoReloc << endl;
@@ -848,35 +830,43 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
     ofstream evStream(eventFile);
     evStream << ( relocInfo ? evStreamReloc.str() : evStreamNoReloc.str() );
 
+    /*
+     * Write Phases
+     * */
     ofstream phStream(phaseFile);
-    phStream << "eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,channelCode,evalMode";
+    phStream << "eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode,evalMode";
     if (relocInfo)
-        phStream << ",usedInReloc,residual,finalWeight";
+    {
+        phStream << ",usedInReloc,residual,initialWeight,finalWeight";
+    }
     phStream << endl;
     for (const auto& kv : _phases )
     {
         const Catalog::Phase& ph = kv.second;
-        phStream << stringify("%u,%s,%s,%.2f,%s,%s,%s,%s,%s,%s",
+        phStream << stringify("%u,%s,%s,%.3f,%.3f,%s,%s,%s,%s,%s,%s",
                               ph.eventId, ph.stationId.c_str(), ph.time.iso().c_str(),
-                              ph.weight, ph.type.c_str(), ph.networkCode.c_str(),
-                              ph.stationCode.c_str(), ph.locationCode.c_str(), ph.channelCode.c_str(),
+                              ph.lowerUncertainty, ph.upperUncertainty, ph.type.c_str(),
+                              ph.networkCode.c_str(), ph.stationCode.c_str(),
+                              ph.locationCode.c_str(), ph.channelCode.c_str(),
                               (ph.isManual ? "manual" : "automatic"));
 
         if (relocInfo)
         {
             if ( ! ph.relocInfo.isRelocated )
             {
-                phStream << ",false,,";
+                phStream << ",false,,,";
             }
             else
             {
-                phStream << stringify(",true,%.4f,%.2f",
-                                      ph.relocInfo.residual, ph.relocInfo.finalWeight);
+                phStream << stringify(",true,%.4f,%.3f,%.3f", ph.relocInfo.residual, ph.relocInfo.weight, ph.relocInfo.finalWeight);
             }
         }
         phStream << endl;
     }
 
+    /*
+     * Write Stations
+     * */
     ofstream staStream(stationFile);
     staStream << "id,latitude,longitude,elevation,networkCode,stationCode" << endl;
     for (const auto& kv : _stations )

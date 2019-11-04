@@ -111,13 +111,15 @@ id,latitude,longitude,elevation,networkCode,stationCode
 E.g. *file phase.csv*
 
 ```
-eventId,stationId,isotime,weight,type,networkCode,stationCode,locationCode,channelCode,evalMode
-1,CHNALPS,2014-01-10T04:47:06.78218Z,0.95,P,CH,NALPS,,HHR,manual
-1,CHBNALP,2014-01-10T04:47:05.918759Z,0.67,P,CH,BNALP,,HHZ,manual
-1,CHFUSIO,2014-01-10T04:47:04.812236Z,0.95,P,CH,FUSIO,,HHR,manual
-1,FRRSL,2014-01-10T04:47:02.689842Z,1.06,P,FR,RSL,00,HHZ,automatic
-1,CHGRIMS,2014-01-10T04:47:01.597023Z,0.95,P,CH,GRIMS,,HHR,automatic
-1,IVMRGE,2014-01-10T04:46:58.219541Z,0.95,P,IV,MRGE,,HHR,manual
+eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode,evalMode
+1,CHSIMPL,2014-01-10T04:47:02.000765Z,0.100,0.100,Sg,CH,SIMPL,,HHT,manual
+1,CHNALPS,2014-01-10T04:47:06.78218Z,0.100,0.100,P1,CH,NALPS,,HHR,manual
+1,CHBNALP,2014-01-10T04:47:05.918759Z,0.200,0.200,P1,CH,BNALP,,HHZ,automatic
+1,CHFUSIO,2014-01-10T04:47:04.812236Z,0.100,0.100,Pg,CH,FUSIO,,HHR,manual
+1,FRRSL,2014-01-10T04:47:13.089093Z,0.200,0.200,Sg,FR,RSL,00,HHT,manual
+1,FRRSL,2014-01-10T04:47:02.689842Z,0.050,0.050,Pg,FR,RSL,00,HHZ,automatic
+1,CHGRIMS,2014-01-10T04:47:01.597023Z,0.100,0.100,Pg,CH,GRIMS,,HHR,manual
+1,IVMRGE,2014-01-10T04:46:58.219541Z,0.100,0.100,Pg,IV,MRGE,,HHR,manual
 ```
 
 Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might perform some editing of those files, if required, then we relocate them. To do so we need to create a new profile inside scrtdd configuration and then we have to set the generated files (event.csv, phase.csv, stations.csv) as the catalog of the profile.

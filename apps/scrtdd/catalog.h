@@ -145,8 +145,9 @@ class Catalog : public Core::BaseObject {
             unsigned eventId;
             std::string stationId;
             Core::Time time;
+            double lowerUncertainty;
+            double upperUncertainty;
             std::string type;
-            double weight;       // 0-1 interval
             std::string networkCode;
             std::string stationCode;
             std::string locationCode;
@@ -154,8 +155,9 @@ class Catalog : public Core::BaseObject {
             bool isManual;
             struct {
                 bool isRelocated = false;
-                double residual;
+                double weight;       // 0-1 interval
                 double finalWeight;
+                double residual;
             } relocInfo;
 
             // this equality works between multiple catalogs (same id is not required) 
@@ -238,7 +240,6 @@ class Catalog : public Core::BaseObject {
         static DataModel::Station* findStation(const std::string& netCode,
                                                const std::string& stationCode,
                                                const Core::Time& atTime);
-        static double computePickWeight(double uncertainty /* secs */ );
 
     private:
         Catalog& operator=(const Catalog& other);

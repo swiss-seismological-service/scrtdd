@@ -35,6 +35,7 @@
 #include <fstream>
 #include <iomanip>
 #include <cmath>
+#include <random>
 #include <set>
 #include <regex>
 #include <boost/filesystem.hpp>
@@ -237,10 +238,6 @@ double computeDistance(double lat1, double lon1, double depth1,
  */
 struct Ellipsoid
 {
-    double axis_a=0, axis_b=0, axis_c=0; // axis in km
-    double lat=0, lon=0, depth=0;        // origin
-    double orientation = 0;              // degress: when 0 -> axis_a is East-West and axis_b is North-South
-
     bool isInside(double lat, double lon, double depth) const
     {
         double distance, az, baz;
@@ -258,6 +255,10 @@ struct Ellipsoid
                      std::pow(dist_z, 2) / axis_c;
         return one <= 1;
     }
+
+    double axis_a=0, axis_b=0, axis_c=0; // axis in km
+    double lat=0, lon=0, depth=0;        // origin
+    double orientation = 0;              // degress: when 0 -> axis_a is East-West and axis_b is North-South
 };
 
 
@@ -323,6 +324,34 @@ private:
 
 DEFINE_SMARTPOINTER(HddEllipsoid);
 
+
+
+class Randomer {
+
+public:
+
+    Randomer(size_t min, size_t max, unsigned int seed = std::random_device{}())
+        : gen_{seed}, dist_{min, max}
+    { }
+
+    // if you want predictable numbers
+    void setSeed(unsigned int seed)
+    {
+        gen_.seed(seed);
+    }
+
+    size_t next()
+    {
+        return dist_(gen_);
+    }
+
+private:
+
+    // random seed by default
+    std::mt19937 gen_;
+    std::uniform_int_distribution<size_t> dist_;
+};
+
 }
 
 
@@ -381,39 +410,24 @@ HypoDD::~HypoDD()
 void HypoDD::setCatalog(const CatalogCPtr& catalog)
 {
     _srcCat = catalog;
-    _ddbgc = filterOutPhases(_srcCat, _cfg.validPphases, _cfg.validSphases);
+    _ddbgc = filterPhasesAndSetWeights(_srcCat, _cfg.validPphases, _cfg.validSphases);
 }
 
 
 
 // Creates dir name from event. This id has the following format:
-// OriginTime_Lat_Lon_CreationDate
-// eg 20111210115715_46343_007519_20111210115740
+// OriginTime_Lat_Lon_CreationDate_Random
+// eg 20111210115715_46343_007519_20111210115740_6666
 string HypoDD::generateWorkingSubDir(const Catalog::Event& ev) const
 {
-    char buf[20];
-
-    string id;
-    id = ev.time.toString("%Y%m%d%H%M%S");
-
-    id += "_";
-
-    // Latitude
-    sprintf(buf, "%05d", int(ev.latitude*1000));
-    id += buf;
-
-    id += "_";
-
-    // Longitude
-    sprintf(buf, "%06d", int(ev.longitude*1000));
-    id += buf;
-
-    id += "_";
-
-    Core::Time t = Core::Time::GMT();
-
-    id += t.toString("%Y%m%d%H%M%S");
-
+    static Randomer ran(0, 1000);
+    string id = stringify("%s_%05d_%06d_%s_%04zu",
+                          ev.time.toString("%Y%m%d%H%M%S").c_str(), // origin time
+                          int(ev.latitude*1000), // Latitude
+                          int(ev.longitude*1000), // Longitude 
+                          Core::Time::GMT().toString("%Y%m%d%H%M%S").c_str(), // creation time
+                          ran.next() // random number
+                          );
     return id;
 }
 
@@ -630,7 +644,6 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         refEvNewPhase.eventId      = refEv.id;
         refEvNewPhase.stationId    = station.id;
         refEvNewPhase.time         = startTime + Core::TimeSpan((endTime - startTime).length() / 2);
-        refEvNewPhase.weight       = 0;
         refEvNewPhase.type         = phaseType;
         refEvNewPhase.networkCode  = station.networkCode;
         refEvNewPhase.stationCode  = station.stationCode;
@@ -683,12 +696,14 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         }
 
         // compute average xcorr coefficient and timedelta
-        double xcorr_coeff_tot = 0, xcorr_dt_tot = 0;
+        double xcorr_coeff_tot = 0, xcorr_dt_tot = 0, xcorr_dt_min = 0, xcorr_dt_max = 0;
         unsigned ccCount = 0;
         for (auto i = xcorr_out.rbegin(); i != xcorr_out.rend(); ++i) // reverse because we want highest CC
         {
             xcorr_coeff_tot += i->first;
             xcorr_dt_tot    += i->second;
+            if ( xcorr_dt_min > i->second) xcorr_dt_min = i->second;
+            if ( xcorr_dt_max < i->second) xcorr_dt_max = i->second;
             if (++ccCount >= _cfg.artificialPhases.numCC) break;
         }
         xcorr_coeff_tot /= ccCount;
@@ -702,26 +717,17 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
             continue;
         }
 
-        // compute mean absolute deviation (used for phase weight)
-        double absMeanDev = 0;
-        ccCount = 0;
-        for (auto i = xcorr_out.rbegin(); i != xcorr_out.rend(); ++i)
-        {
-            double xcorr_dt = i->second;
-            absMeanDev += std::abs(xcorr_dt - xcorr_dt_tot);
-            if (++ccCount >= _cfg.artificialPhases.numCC) break;
-        }
-        absMeanDev /= ccCount;
-
         //
         // New phase found
         //
         refEvNewPhase.time  += Core::TimeSpan(xcorr_dt_tot);
-        refEvNewPhase.weight = Catalog::computePickWeight(absMeanDev);
+        refEvNewPhase.lowerUncertainty = xcorr_dt_min;
+        refEvNewPhase.upperUncertainty = xcorr_dt_max;
+        refEvNewPhase.relocInfo.weight = computePickWeight(refEvNewPhase);
         newPhases.push_back(refEvNewPhase);
 
         SEISCOMP_INFO("Event %s: new phase %s for station %s created with weight %.2f (average crosscorrelation coefficient %.2f over %d close-by events)",
-                      string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), refEvNewPhase.weight, xcorr_coeff_tot,  _cfg.artificialPhases.numCC);
+                      string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), refEvNewPhase.relocInfo.weight, xcorr_coeff_tot,  _cfg.artificialPhases.numCC);
 
         if ( _cfg.wfFilter.dump )
         {
@@ -736,14 +742,49 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
 
 
 
+ /*
+ * Fixed weighting scheme based on pick time uncertainties
+ * Class 0: 0     - 0.025  sec
+ *       1: 0.025 - 0.050  sec
+ *       2: 0.050 - 0.100  sec
+ *       3: 0.100 - 0.200  sec
+ *       4: 0.200 - 0.400  sec
+ *       5: 0.400 -        sec
+ *  weight = 1 / 2^class
+ */
+double HypoDD::computePickWeight(double uncertainty /* secs */ ) const
+{
+    int cls = -1;
+
+    if ( uncertainty >= 0.000 && uncertainty < 0.025 )      cls = 0;
+    else if ( uncertainty >= 0.025 && uncertainty < 0.050 ) cls = 1;
+    else if ( uncertainty >= 0.050 && uncertainty < 0.100 ) cls = 2;
+    else if ( uncertainty >= 0.100 && uncertainty < 0.200 ) cls = 3;
+    else if ( uncertainty >= 0.200 && uncertainty < 0.400 ) cls = 4;
+    else                                                    cls = 5;
+
+    double weight = 1. / pow(2., cls);
+
+    return weight;
+}
+
+
+
+double HypoDD::computePickWeight(const Catalog::Phase& phase) const
+{
+    return computePickWeight( (phase.lowerUncertainty + phase.upperUncertainty) / 2. );
+}
+
+
+ 
 /*
  * Build a catalog with requested phases only and for the same event/station pair
  * make sure to have only one phase. If multiple phases are found, keep the first
  * one arrived
  */
-CatalogPtr HypoDD::filterOutPhases(const CatalogCPtr& catalog,
-                                   const std::vector<std::string>& PphaseToKeep,
-                                   const std::vector<std::string>& SphaseToKeep) const
+CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
+                                             const std::vector<std::string>& PphaseToKeep,
+                                             const std::vector<std::string>& SphaseToKeep) const
 {
     SEISCOMP_INFO("Selecting preferred phases from catalog");
 
@@ -840,12 +881,14 @@ CatalogPtr HypoDD::filterOutPhases(const CatalogCPtr& catalog,
     for (auto& it : filteredP)
     {
         Catalog::Phase& phase = it.second;
+        phase.relocInfo.weight = computePickWeight(phase);
         phase.type = "P";
         filteredPhases.emplace(phase.eventId, phase);
     }
     for (auto& it : filteredS)
     {
         Catalog::Phase& phase = it.second;
+        phase.relocInfo.weight = computePickWeight(phase);
         phase.type = "S";
         filteredPhases.emplace(phase.eventId, phase);
     }
@@ -1012,7 +1055,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     try
     {
         // build a catalog with the event to be relocated
-        CatalogPtr evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
+        CatalogPtr evToRelocateCat = filterPhasesAndSetWeights(singleEvent, _cfg.validPphases, _cfg.validSphases);
         evToRelocateCat = _ddbgc->merge(evToRelocateCat, false);
         evToRelocate = evToRelocateCat->searchEvent(evToRelocate)->second; // it has now a new eventID
 
@@ -1090,7 +1133,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
     //
     // Step 2: relocate the refined location this time with cross correlation
-    //                                                            23:35:58 [info] Event time before 2017-01-03T16:13:42.150505Z
+    //
 
     SEISCOMP_INFO("Performing step 2: relocation with cross correlation");
 
@@ -1106,7 +1149,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     {
         CatalogPtr evToRelocateCat = relocatedEvCat;
         if ( ! evToRelocateCat )
-            evToRelocateCat = filterOutPhases(singleEvent, _cfg.validPphases, _cfg.validSphases);
+            evToRelocateCat = filterPhasesAndSetWeights(singleEvent, _cfg.validPphases, _cfg.validSphases);
 
         // build a catalog with the event to be relocated
         Catalog::Event evToRelocate = evToRelocateCat->getEvents().begin()->second;
@@ -1297,7 +1340,7 @@ void HypoDD::createPhaseDatFile(const CatalogCPtr& catalog, const string& phaseF
 
             outStream << stringify("%-12s %12.6f %5.2f %4s",
                                   phase.stationId.c_str(), travel_time,
-                                  phase.weight, phase.type.c_str());
+                                  phase.relocInfo.weight, phase.type.c_str());
             outStream << endl;
         }
     }
@@ -1508,7 +1551,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
             const Catalog::Phase& phase = it->second;
 
             // check pick weight
-            if (phase.weight < minPhaseWeight)
+            if (phase.relocInfo.weight < minPhaseWeight)
                 continue;
 
             // check events/station distance
@@ -1573,7 +1616,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                 if (phase.stationId == refPhase.stationId && 
                     phase.type == refPhase.type)
                 {
-                    if (refPhase.weight >= minPhaseWeight)
+                    if (refPhase.relocInfo.weight >= minPhaseWeight)
                     {
                         dtCount++;
                         stationByDistance.emplace(stationDistance, pair<string,string>(phase.stationId,phase.type));
@@ -2039,7 +2082,7 @@ void HypoDD::buildAbsTTimePairs(const CatalogCPtr& catalog,
                     }
 
                     // get common observation weight for pair (FIXME: take the lower one? average?)
-                    double weight = (refPhase.weight + phase.weight) / 2.0;
+                    double weight = (refPhase.relocInfo.weight + phase.relocInfo.weight) / 2.0;
 
                     evStream << stringify("%-12s %.6f %.6f %.2f %s",
                                           refPhase.stationId.c_str(), ref_travel_time,

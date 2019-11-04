@@ -166,7 +166,7 @@
                         <parameter name="eventFile" type="path">
                             <description>
                                 Path to event file to be used for this profile.
-                                Required columns: seiscompId (this must be a valide seiscomp3 origin id or event id)
+                                Seiscomp format required columns: seiscompId (this must be a valide seiscomp3 origin id or event id)
                                 Extended format columns: id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,tt_residual
                                 If the extended format is used, then the phase and station files must be provided.
                                 Conversely, if the format used is the one with seiscompId, no other files have to be
@@ -176,15 +176,15 @@
 
                         <parameter name="phaFile" type="path">
                             <description>
-                                Path to catalog picks file to be used for this profile
-                                Required columns: eventId,stationId,isotime,weight,type,networkcode,stationcode,locationCode,channelCode
+                                Path to catalog picks file to be used for this profile 
+                                Columns: eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode,evalMode
                             </description>
                         </parameter>
 
                         <parameter name="stationFile" type="path">
                             <description>
                                 Path to the stations file to be used for this profile
-                                Required columns: id,latitude,longitude,elevation,networkcode,stationcode
+                                Columns: id,latitude,longitude,elevation,networkCode,stationCode
                             </description>
                         </parameter>
 
@@ -296,6 +296,9 @@
                                     <description>
                                         Min phase weight required. Phases not satisfying this condition will not be used.
                                         Check disabled by default.
+                                        The weighting scheme is based on pick class: weight = (1 / 2^class). The class is derived from pick time uncertainties:
+                                        Class 0: 0-0.025 sec, class 1: 0.025-0.050 sec, class 2: 0.050-0.100 sec, class 3: 0.100-0.200 sec, class 4: 0.200-0.400 sec, class 5: over  0.400 sec.
+                                        Picks without uncertainties have a fixed class of 1 if manual and class 4 if automatic.
                                     </description>
                                 </parameter>
                                 <parameter name="minStationDistance" type="double">
@@ -423,6 +426,9 @@
                                     <description>
                                         Min phase weight required. Phases not satisfying this condition will not be used.
                                         Check disabled by default.
+                                        The weighting scheme is based on pick class: weight = (1 / 2^class). The class is derived from pick time uncertainties:
+                                        Class 0: 0-0.025 sec, class 1: 0.025-0.050 sec, class 2: 0.050-0.100 sec, class 3: 0.100-0.200 sec, class 4: 0.200-0.400 sec, class 5: over  0.400 sec.
+                                        Picks without uncertainties have a fixed class of 1 if manual and class 4 if automatic.
                                     </description>
                                 </parameter>
                                 <parameter name="minStationDistance" type="double">

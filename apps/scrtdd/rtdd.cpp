@@ -1538,7 +1538,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
                     newArr->setAzimuth(normalizeAz(az));
                     newArr->setDistance(distance);
                     newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
-                    newArr->setWeight( phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : phase.weight);
+                    newArr->setWeight( phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : 0.);
                     newArr->setTimeUsed(phase.relocInfo.isRelocated);
 
                     // update stats
@@ -1598,7 +1598,10 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
         newPick->setCreationInfo(ci);
         newPick->setMethodID(profile ? profile->methodID : "RTDD");
         newPick->setEvaluationMode(phase.isManual ? EvaluationMode(MANUAL) : EvaluationMode(AUTOMATIC));
-        newPick->setTime(phase.time);
+        DataModel::TimeQuantity pickTime(phase.time);
+        pickTime.setLowerUncertainty(phase.lowerUncertainty);
+        pickTime.setUpperUncertainty(phase.upperUncertainty);
+        newPick->setTime(pickTime);
         newPick->setPhaseHint(DataModel::Phase(phase.type));
         newPick->setWaveformID(WaveformStreamID(phase.networkCode, phase.stationCode, phase.locationCode, phase.channelCode, ""));
         newOrgPicks.push_back(newPick);
@@ -1608,7 +1611,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
         newArr->setCreationInfo(ci);
         newArr->setPickID(newPick->publicID());
         newArr->setPhase(phase.type);
-        newArr->setWeight(phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : phase.weight);
+        newArr->setWeight(phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : 0.);
         newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
         newArr->setTimeUsed(phase.relocInfo.isRelocated);
 

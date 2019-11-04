@@ -151,7 +151,9 @@ class HypoDD : public Core::BaseObject {
         bool useCatalogDiskCache() { return _useCatalogDiskCache; }
 
     private:
-        CatalogPtr filterOutPhases(const CatalogCPtr& catalog,
+        double computePickWeight(double uncertainty) const;
+        double computePickWeight(const Catalog::Phase& phase) const;
+        CatalogPtr filterPhasesAndSetWeights(const CatalogCPtr& catalog,
                                    const std::vector<std::string>& PphaseToKeep,
                                    const std::vector<std::string>& SphaseToKeep) const;
         CatalogPtr createMissingPhases(const CatalogCPtr& catalog);
