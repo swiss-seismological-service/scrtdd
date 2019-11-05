@@ -787,12 +787,12 @@ bool Catalog::addPhase(const Phase& phase, bool checkDuplicateValue, bool checkD
 
 void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile) const
 {
-    stringstream evStreamNoReloc;
-    stringstream evStreamReloc;
-
     /*
      * Write Events
      * */
+    stringstream evStreamNoReloc;
+    stringstream evStreamReloc;
+
     evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude,horizontal_err,vertical_err,rms"; 
     evStreamReloc << evStreamNoReloc.str() << ",relocated,lonUncertainty,latUncertainty,depthUncertainty,numCCp,numCCs,numCTp,numCTs,residualCC,residualCT" << endl;
     evStreamNoReloc << endl;
@@ -834,12 +834,14 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
      * Write Phases
      * */
     ofstream phStream(phaseFile);
+
     phStream << "eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode,evalMode";
     if (relocInfo)
     {
-        phStream << ",usedInReloc,residual,initialWeight,finalWeight";
+        phStream << ",usedInReloc,extendedType,initialWeight,finalWeight,residual";
     }
     phStream << endl;
+
     for (const auto& kv : _phases )
     {
         const Catalog::Phase& ph = kv.second;
@@ -854,11 +856,13 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
         {
             if ( ! ph.relocInfo.isRelocated )
             {
-                phStream << ",false,,,";
+                phStream << ",false,,,,";
             }
             else
             {
-                phStream << stringify(",true,%.4f,%.3f,%.3f", ph.relocInfo.residual, ph.relocInfo.weight, ph.relocInfo.finalWeight);
+                phStream << stringify(",true,%s,%.4f,%.3f,%.3f",
+                        ph.relocInfo.extendedType.c_str(), ph.relocInfo.weight, 
+                        ph.relocInfo.finalWeight, ph.relocInfo.residual);
             }
         }
         phStream << endl;

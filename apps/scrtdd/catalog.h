@@ -155,6 +155,7 @@ class Catalog : public Core::BaseObject {
             bool isManual;
             struct {
                 bool isRelocated = false;
+                std::string extendedType;
                 double weight;       // 0-1 interval
                 double finalWeight;
                 double residual;

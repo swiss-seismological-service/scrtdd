@@ -725,6 +725,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         refEvNewPhase.lowerUncertainty = xcorr_dt_mean - xcorr_dt_min;
         refEvNewPhase.upperUncertainty = xcorr_dt_max - xcorr_dt_mean;
         refEvNewPhase.relocInfo.weight = computePickWeight(refEvNewPhase);
+        refEvNewPhase.relocInfo.extendedType = refEvNewPhase.type + "cc";
         newPhases.push_back(refEvNewPhase);
 
         SEISCOMP_INFO("Event %s: new phase %s for station %s created with weight %.2f (average crosscorrelation coefficient %.2f over %d close-by events)",
@@ -883,6 +884,7 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
     {
         Catalog::Phase& phase = it.second;
         phase.relocInfo.weight = computePickWeight(phase);
+        phase.relocInfo.extendedType = phase.type;
         phase.type = "P";
         filteredPhases.emplace(phase.eventId, phase);
     }
@@ -890,6 +892,7 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
     {
         Catalog::Phase& phase = it.second;
         phase.relocInfo.weight = computePickWeight(phase);
+        phase.relocInfo.extendedType = phase.type;
         phase.type = "S";
         filteredPhases.emplace(phase.eventId, phase);
     }
@@ -1238,7 +1241,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     }
 
     if ( ! relocatedEvWithXcorr && ! relocatedEvCat )
-        throw runtime_error("Failed origin relocation with and without crosscorrelation");
+        throw runtime_error("Failed both step1 and step2 origin relocation");
 
     if ( _workingDirCleanup ) boost::filesystem::remove_all(subFolder);
 

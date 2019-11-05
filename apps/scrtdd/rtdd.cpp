@@ -1468,6 +1468,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     newOrg->setDepth(depth);
 
     DataModel::Comment *comment = new DataModel::Comment();
+    comment->setId("");
     comment->setText(
         stringify("Cross-correlated P phases %d, S phases %d. Rms residual %.3f [sec]\n"
                   "Catalog P phases %d, S phases %d. Rms residual %.2f [sec]\n"
@@ -1506,9 +1507,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
             DataModel::Arrival *newArr = new Arrival();
             newArr->setCreationInfo(ci);
             newArr->setPickID(org->arrival(i)->pickID());
-            newArr->setPhase(org->arrival(i)->phase());
-            try { newArr->setTimeCorrection(org->arrival(i)->timeCorrection()); }
-            catch ( ... ) {}
+            newArr->setPhase( org->arrival(i)->phase() );
             newArr->setWeight(0.);
             newArr->setTimeUsed(false);
 
@@ -1539,7 +1538,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
                     newArr->setDistance(distance);
                     newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
                     newArr->setWeight( phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : 0.);
-                    newArr->setTimeUsed(phase.relocInfo.isRelocated);
+                    newArr->setTimeUsed( phase.relocInfo.isRelocated );
 
                     // update stats
                     usedPhaseCount++;
@@ -1602,7 +1601,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
         pickTime.setLowerUncertainty(phase.lowerUncertainty);
         pickTime.setUpperUncertainty(phase.upperUncertainty);
         newPick->setTime(pickTime);
-        newPick->setPhaseHint(DataModel::Phase(phase.type));
+        newPick->setPhaseHint( DataModel::Phase( phase.relocInfo.isRelocated ? phase.relocInfo.extendedType : phase.type ) );
         newPick->setWaveformID(WaveformStreamID(phase.networkCode, phase.stationCode, phase.locationCode, phase.channelCode, ""));
         newOrgPicks.push_back(newPick);
 
@@ -1610,10 +1609,10 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
         DataModel::Arrival *newArr = new Arrival();
         newArr->setCreationInfo(ci);
         newArr->setPickID(newPick->publicID());
-        newArr->setPhase(phase.type);
-        newArr->setWeight(phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : 0.);
+        newArr->setPhase( phase.relocInfo.isRelocated ? phase.relocInfo.extendedType : phase.type );
+        newArr->setWeight( phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : 0. );
         newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
-        newArr->setTimeUsed(phase.relocInfo.isRelocated);
+        newArr->setTimeUsed( phase.relocInfo.isRelocated );
 
         double distance, az, baz;
         Math::Geo::delazi(event.latitude, event.longitude,
