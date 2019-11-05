@@ -696,42 +696,43 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         }
 
         // compute average xcorr coefficient and timedelta
-        double xcorr_coeff_tot = 0, xcorr_dt_tot = 0, xcorr_dt_min = 0, xcorr_dt_max = 0;
+        double xcorr_coeff_mean = 0, xcorr_dt_mean = 0;
+        double xcorr_dt_min = _cfg.artificialPhases.maxCCtw, xcorr_dt_max = -_cfg.artificialPhases.maxCCtw;
         unsigned ccCount = 0;
         for (auto i = xcorr_out.rbegin(); i != xcorr_out.rend(); ++i) // reverse because we want highest CC
         {
-            xcorr_coeff_tot += i->first;
-            xcorr_dt_tot    += i->second;
-            if ( xcorr_dt_min > i->second) xcorr_dt_min = i->second;
-            if ( xcorr_dt_max < i->second) xcorr_dt_max = i->second;
+            xcorr_coeff_mean += i->first;
+            xcorr_dt_mean    += i->second;
+            if ( i->second < xcorr_dt_min) xcorr_dt_min = i->second;
+            if ( i->second > xcorr_dt_max ) xcorr_dt_max = i->second;
             if (++ccCount >= _cfg.artificialPhases.numCC) break;
         }
-        xcorr_coeff_tot /= ccCount;
-        xcorr_dt_tot /= ccCount;
+        xcorr_coeff_mean /= ccCount;
+        xcorr_dt_mean /= ccCount;
 
         // check if we are happy with the cross coefficient
-        if ( xcorr_coeff_tot < xcorrCfg.minCoef )
+        if ( xcorr_coeff_mean < xcorrCfg.minCoef )
         {
             SEISCOMP_DEBUG("Event %s: rejected artificial phase %s for station %s. Crosscorrelation coefficient too low (%.2f)",
-                           string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), xcorr_coeff_tot);
+                           string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), xcorr_coeff_mean);
             continue;
         }
 
         //
         // New phase found
         //
-        refEvNewPhase.time  += Core::TimeSpan(xcorr_dt_tot);
-        refEvNewPhase.lowerUncertainty = xcorr_dt_min;
-        refEvNewPhase.upperUncertainty = xcorr_dt_max;
+        refEvNewPhase.time  += Core::TimeSpan(xcorr_dt_mean);
+        refEvNewPhase.lowerUncertainty = xcorr_dt_mean - xcorr_dt_min;
+        refEvNewPhase.upperUncertainty = xcorr_dt_max - xcorr_dt_mean;
         refEvNewPhase.relocInfo.weight = computePickWeight(refEvNewPhase);
         newPhases.push_back(refEvNewPhase);
 
         SEISCOMP_INFO("Event %s: new phase %s for station %s created with weight %.2f (average crosscorrelation coefficient %.2f over %d close-by events)",
-                      string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), refEvNewPhase.relocInfo.weight, xcorr_coeff_tot,  _cfg.artificialPhases.numCC);
+                      string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), refEvNewPhase.relocInfo.weight, xcorr_coeff_mean,  _cfg.artificialPhases.numCC);
 
         if ( _cfg.wfFilter.dump )
         {
-            string ext = stringify(".rtdd-detected-%s-phase-cc-%.2f.debug", phaseType.c_str(), xcorr_coeff_tot);
+            string ext = stringify(".rtdd-detected-%s-phase-cc-%.2f.debug", phaseType.c_str(), xcorr_coeff_mean);
             writeTrace(refTr, waveformFilename(refEvNewPhase, xcorrTw) + ext);
         }
     }
