@@ -1544,12 +1544,15 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
                     newArr->setTimeUsed( phase.relocInfo.isRelocated );
 
                     // update stats
-                    usedPhaseCount++;
-                    meanDist += distance;
-                    minDist = distance < minDist ? distance : minDist;
-                    maxDist = distance > maxDist ? distance : maxDist;
-                    azi.push_back(az);
-                    if ( newArr->timeUsed() ) usedStations.insert(phase.stationId);
+                    if ( newArr->timeUsed() )
+                    {
+                        usedPhaseCount++;
+                        meanDist += distance;
+                        minDist = distance < minDist ? distance : minDist;
+                        maxDist = distance > maxDist ? distance : maxDist;
+                        azi.push_back(az);
+                        usedStations.insert(phase.stationId);
+                    }
                     break;
                 }
             }
@@ -1625,12 +1628,15 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
         newArr->setDistance(distance);
 
         // update stats
-        usedPhaseCount++;
-        meanDist += distance;
-        minDist = distance < minDist ? distance : minDist;
-        maxDist = distance > maxDist ? distance : maxDist;
-        azi.push_back(az);
-        if ( newArr->timeUsed() ) usedStations.insert(phase.stationId);
+        if ( newArr->timeUsed() )
+        {
+            usedPhaseCount++;
+            meanDist += distance;
+            minDist = distance < minDist ? distance : minDist;
+            maxDist = distance > maxDist ? distance : maxDist;
+            azi.push_back(az);
+            usedStations.insert(phase.stationId);
+        }
 
         newOrg->add(newArr);
     }
@@ -1662,8 +1668,6 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     oq.setAssociatedPhaseCount(newOrg->arrivalCount());
     oq.setUsedPhaseCount(usedPhaseCount);
     oq.setAssociatedStationCount(associatedStations.size());
-    try { if ( org ) oq.setAssociatedStationCount(org->quality().associatedStationCount()); }
-    catch ( ... ) { }
     oq.setUsedStationCount(usedStations.size());
     oq.setStandardError(event.rms);
     oq.setMedianDistance(meanDist);
