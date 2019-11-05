@@ -886,6 +886,7 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
         phase.relocInfo.weight = computePickWeight(phase);
         phase.relocInfo.extendedType = phase.type;
         phase.type = "P";
+        SEISCOMP_DEBUG("Selected phase %s as %s", phase.relocInfo.extendedType.c_str(), phase.type.c_str());
         filteredPhases.emplace(phase.eventId, phase);
     }
     for (auto& it : filteredS)
@@ -894,6 +895,7 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
         phase.relocInfo.weight = computePickWeight(phase);
         phase.relocInfo.extendedType = phase.type;
         phase.type = "S";
+        SEISCOMP_DEBUG("Selected phase %s as %s", phase.relocInfo.extendedType.c_str(), phase.type.c_str());
         filteredPhases.emplace(phase.eventId, phase);
     }
 
