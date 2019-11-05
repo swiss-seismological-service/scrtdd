@@ -725,7 +725,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         refEvNewPhase.lowerUncertainty = xcorr_dt_mean - xcorr_dt_min;
         refEvNewPhase.upperUncertainty = xcorr_dt_max - xcorr_dt_mean;
         refEvNewPhase.relocInfo.weight = computePickWeight(refEvNewPhase);
-        refEvNewPhase.relocInfo.extendedType = refEvNewPhase.type + "cc";
+        refEvNewPhase.relocInfo.extendedType = refEvNewPhase.type + "x";
         newPhases.push_back(refEvNewPhase);
 
         SEISCOMP_INFO("Event %s: new phase %s for station %s created with weight %.2f (average crosscorrelation coefficient %.2f over %d close-by events)",

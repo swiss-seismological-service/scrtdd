@@ -197,8 +197,9 @@ class Catalog : public Core::BaseObject {
                 const std::map<unsigned,Event>& events,
                 const std::multimap<unsigned,Phase>& phases);
         Catalog(const std::string& stationFile,
-                const std::string& catalogFile,
-                const std::string& phaFile);
+                const std::string& eventFile,
+                const std::string& phaseFile,
+                bool loadRelocationInfo=false);
 
         // populate from seiscomp data format
         void add(const std::vector<DataModel::OriginPtr>& origins, DataSource& dataSrc);

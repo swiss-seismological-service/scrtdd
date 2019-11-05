@@ -754,7 +754,7 @@ bool RTDD::run() {
         HDD::CatalogPtr outCat = new HDD::Catalog();
         for ( size_t i = 0; i < tokens.size(); i+=3 )
         {
-            HDD::CatalogPtr cat = new HDD::Catalog(tokens[i+0],tokens[i+1],tokens[i+2]);
+            HDD::CatalogPtr cat = new HDD::Catalog(tokens[i+0],tokens[i+1],tokens[i+2],true);
             outCat = outCat->merge(cat, false);
         }
         outCat->writeToFile("merged-event.csv","merged-phase.csv","merged-station.csv");
@@ -777,7 +777,7 @@ bool RTDD::run() {
         }
         else if ( tokens.size() == 3 )
         {
-            cat = new HDD::Catalog(tokens[0],tokens[1],tokens[2]);
+            cat = new HDD::Catalog(tokens[0],tokens[1],tokens[2],true);
         }
         else
         {
@@ -1456,29 +1456,32 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     newOrg->setTime(DataModel::TimeQuantity(event.time));
 
     RealQuantity latitude = DataModel::RealQuantity(event.latitude);
-    latitude.setUncertainty(event.relocInfo.latUncertainty);
+    if ( event.relocInfo.isRelocated ) latitude.setUncertainty(event.relocInfo.latUncertainty);
     newOrg->setLatitude(latitude);
 
     RealQuantity longitude = DataModel::RealQuantity(normalizeLon(event.longitude));
-    longitude.setUncertainty(event.relocInfo.lonUncertainty);
+    if ( event.relocInfo.isRelocated ) longitude.setUncertainty(event.relocInfo.lonUncertainty);
     newOrg->setLongitude(longitude);
 
     RealQuantity depth = DataModel::RealQuantity(event.depth);
-    depth.setUncertainty(event.relocInfo.depthUncertainty);
+    if ( event.relocInfo.isRelocated ) depth.setUncertainty(event.relocInfo.depthUncertainty);
     newOrg->setDepth(depth);
 
-    DataModel::Comment *comment = new DataModel::Comment();
-    comment->setId("scrtdd");
-    comment->setText(
-        stringify("Cross-correlated P phases %d, S phases %d. Rms residual %.3f [sec]\n"
-                  "Catalog P phases %d, S phases %d. Rms residual %.2f [sec]\n"
-                  "Error [km]: East-west %.3f, north-south %.3f, depth %.3f",
-                  event.relocInfo.numCCp, event.relocInfo.numCCs, event.relocInfo.rmsResidualCC,
-                  event.relocInfo.numCTp, event.relocInfo.numCTs, event.relocInfo.rmsResidualCT,
-                  event.relocInfo.lonUncertainty, event.relocInfo.latUncertainty,
-                  event.relocInfo.depthUncertainty)
-    );
-    newOrg->add(comment);
+    if ( event.relocInfo.isRelocated )
+    {
+        DataModel::Comment *comment = new DataModel::Comment();
+        comment->setId("scrtdd");
+        comment->setText(
+            stringify("Cross-correlated P phases %d, S phases %d. Rms residual %.3f [sec]\n"
+                      "Catalog P phases %d, S phases %d. Rms residual %.2f [sec]\n"
+                      "Error [km]: East-west %.3f, north-south %.3f, depth %.3f",
+                      event.relocInfo.numCCp, event.relocInfo.numCCs, event.relocInfo.rmsResidualCC,
+                      event.relocInfo.numCTp, event.relocInfo.numCTs, event.relocInfo.rmsResidualCT,
+                      event.relocInfo.lonUncertainty, event.relocInfo.latUncertainty,
+                      event.relocInfo.depthUncertainty)
+        );
+        newOrg->add(comment);
+    }
 
     auto evPhases = relocatedOrg->getPhases().equal_range(event.id); // phases of relocated event 
     int usedPhaseCount = 0;

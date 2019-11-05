@@ -114,6 +114,12 @@ std::pair<double,double> getPickUncertainty(DataModel::Pick *pick)
 }
 
 
+
+bool strToBool(const std::string& s) {
+  return s == "1" || s == "true" || s == "True" || s == "TRUE";
+}
+
+
 }
 
 
@@ -262,7 +268,10 @@ Catalog::Catalog(const map<string,Station>& stations,
 
 
 
-Catalog::Catalog(const string& stationFile, const string& eventFile, const string& phaFile)
+Catalog::Catalog(const string& stationFile,
+                 const string& eventFile,
+                 const string& phaFile,
+                 bool loadRelocationInfo)
 {
     if ( !Util::fileExists(stationFile) )
     {
@@ -310,6 +319,20 @@ Catalog::Catalog(const string& stationFile, const string& eventFile, const strin
         ev.horiz_err   = std::stod(row.at("horizontal_err"));
         ev.vert_err    = std::stod(row.at("vertical_err"));
         ev.rms         = std::stod(row.at("rms"));
+        ev.relocInfo.isRelocated = false;
+        if ( loadRelocationInfo && (row.count("relocated") != 0) && strToBool(row.at("relocated")) )
+        {
+            ev.relocInfo.isRelocated = true;
+            ev.relocInfo.lonUncertainty   = std::stod(row.at("lonUncertainty"));
+            ev.relocInfo.latUncertainty   = std::stod(row.at("latUncertainty"));
+            ev.relocInfo.depthUncertainty = std::stod(row.at("depthUncertainty"));
+            ev.relocInfo.numCCp           = std::stoi(row.at("numCCp"));
+            ev.relocInfo.numCCs           = std::stoi(row.at("numCCs"));
+            ev.relocInfo.numCTp           = std::stoi(row.at("numCTp"));
+            ev.relocInfo.numCTs           = std::stoi(row.at("numCTs"));
+            ev.relocInfo.rmsResidualCC    = std::stod(row.at("residualCC"));
+            ev.relocInfo.rmsResidualCT    = std::stod(row.at("residualCT"));
+        }
         _events[ev.id] = ev;
     }
 
@@ -329,6 +352,15 @@ Catalog::Catalog(const string& stationFile, const string& eventFile, const strin
         ph.locationCode     = row.at("locationCode");
         ph.channelCode      = row.at("channelCode");
         ph.isManual         = row.at("evalMode") == "manual";
+        ph.relocInfo.isRelocated = false;
+        if ( loadRelocationInfo && (row.count("usedInReloc") != 0) && strToBool(row.at("usedInReloc")) )
+        {
+            ph.relocInfo.isRelocated  = true;
+            ph.relocInfo.extendedType = row.at("extendedType");
+            ph.relocInfo.weight       = std::stod(row.at("initialWeight"));
+            ph.relocInfo.finalWeight  = std::stod(row.at("finalWeight"));
+            ph.relocInfo.residual     = std::stod(row.at("residual"));
+        }
         _phases.emplace(ph.eventId, ph);
     }
 }
