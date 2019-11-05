@@ -1468,7 +1468,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     newOrg->setDepth(depth);
 
     DataModel::Comment *comment = new DataModel::Comment();
-    comment->setId("");
+    comment->setId("scrtdd");
     comment->setText(
         stringify("Cross-correlated P phases %d, S phases %d. Rms residual %.3f [sec]\n"
                   "Catalog P phases %d, S phases %d. Rms residual %.2f [sec]\n"
