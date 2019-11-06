@@ -1492,7 +1492,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     set<string> associatedStations;
     set<string> usedStations;
 
-    // add arrivals with information coming from the original Origin
+    // add all arrivals that were in the original Origin (before relocation)
     if ( org )
     {
         for (size_t i = 0; i < org->arrivalCount(); i++)
@@ -1506,14 +1506,16 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
                 continue;
             }
 
-            // prepare the new arrival
+            // prepare the new arrival and set existing pick
             DataModel::Arrival *newArr = new Arrival();
             newArr->setCreationInfo(ci);
-            newArr->setPickID(org->arrival(i)->pickID());
-            newArr->setPhase( org->arrival(i)->phase() );
+            newArr->setPickID(orgArr->pickID());
+            newArr->setPhase( orgArr->phase() );
             newArr->setWeight(0.);
             newArr->setTimeUsed(false);
 
+            // find this arrival in the phases of the relocated origin and fill the missing properties
+            bool skipArrival = false;
             for (auto it = evPhases.first; it != evPhases.second; ++it)
             {
                 const HDD::Catalog::Phase& phase = it->second;
@@ -1533,6 +1535,13 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
                     phase.locationCode == pick->waveformID().locationCode() &&
                     phase.channelCode  == pick->waveformID().channelCode() )
                 {
+                    if ( phase.relocInfo.isRelocated && 
+                        (phase.relocInfo.extendedType == "Px" || phase.relocInfo.extendedType == "Sx" ) )
+                    {
+                        skipArrival = true; // we want to create a new pick for this arrival
+                        break;
+                    }
+
                     double distance, az, baz;
                     Math::Geo::delazi(event.latitude, event.longitude,
                                       station.latitude, station.longitude,
@@ -1556,16 +1565,19 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
                     break;
                 }
             }
-            newOrg->add(newArr);
+            if ( skipArrival ) delete newArr;
+            else newOrg->add(newArr);
         }
     }
 
-    // add remaning arrivals
+    // add remaning arrivals for which there are no existing picks
     for (auto it = evPhases.first; it != evPhases.second; ++it)
     {
         const HDD::Catalog::Phase& phase = it->second;
         associatedStations.insert(phase.stationId);
 
+
+        // check if this phase has been already added
         bool alreadyAdded = false;
 
         for (size_t i = 0; i < newOrg->arrivalCount(); i++)
