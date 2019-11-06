@@ -233,7 +233,7 @@ double computeDistance(double lat1, double lon1, double depth1,
 /*
  * Ellipsoid standard equation:
  *
- *      (x-xo)^2/axix_a + (y-yo)^2/axis_b +(z-zo)^2/axis_c = 1
+ *      (x-xo)^2 / axix_a^2 + (y-yo)^2 / axis_b^2 + (z-zo)^2 / axis_c^2 = 1
  *
  */
 struct Ellipsoid
@@ -244,15 +244,15 @@ struct Ellipsoid
         Math::Geo::delazi(lat, lon, this->lat, this->lon, &distance, &az, &baz);
 
         distance = Math::Geo::deg2km(distance); // distance to km
-        az += orientation; // correct azimuth by the orientation of a and axes
+        az += orientation; // correct azimuth by the orientation of a and b axes
 
         double dist_x = distance * std::cos(az);
         double dist_y = distance * std::sin(az);
-        double dist_z = std::abs(depth - this->depth);
+        double dist_z = depth - this->depth;
 
-        double one = std::pow(dist_x, 2) / axis_a +
-                     std::pow(dist_y, 2) / axis_b +
-                     std::pow(dist_z, 2) / axis_c;
+        double one = std::pow( dist_x / axis_a, 2) +
+                     std::pow( dist_y / axis_b, 2) +
+                     std::pow( dist_z / axis_c, 2);
         return one <= 1;
     }
 
@@ -1719,6 +1719,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                 //
                 for (auto it = selectedEvents.rbegin(); it != selectedEvents.rend(); it++)
                 {
+                    const int dtCount = it->first;
                     const Catalog::Event& ev = srcCat->getEvents().at( it->second );
 
                     bool found = ellipsoids[elpsNum]->isInside(ev.latitude, ev.longitude, ev.depth, quadrant);
@@ -1729,8 +1730,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                         neighboringEventCat->copyEvent(ev, srcCat, true);
                         numNeighbors++;
                         selectedEvents.erase( std::next(it).base() );
-                        SEISCOMP_DEBUG("Chose neighbour ellipsoid %2d quadrant %d distance %5.2f depth %5.3f azimuth %3.f event %s ",
-                                       elpsNum, quadrant, distanceByEvent[ev.id], ev.depth, azimuthByEvent[ev.id], string(ev).c_str() );
+                        SEISCOMP_DEBUG("Chose neighbour ellipsoid %2d quadrant %d dtCount %2d distance %5.2f depth %5.3f azimuth %3.f event %s ",
+                                       elpsNum, quadrant, dtCount, distanceByEvent[ev.id], ev.depth, azimuthByEvent[ev.id], string(ev).c_str() );
                         break;
                     }
                 }
