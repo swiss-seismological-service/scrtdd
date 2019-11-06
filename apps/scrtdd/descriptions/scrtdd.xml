@@ -37,7 +37,7 @@
                 </description>
             </parameter>
 
-            <parameter name="hypoddPath" type="path" default="hypodd">
+            <parameter name="hypoddPath" type="path" default="hypoDD">
                 <description>
                     Path to hypodd executable.
                 </description>
