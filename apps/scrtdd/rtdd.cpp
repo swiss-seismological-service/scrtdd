@@ -460,15 +460,8 @@ bool RTDD::validateParameters()
         }
         try {
             prof->ddcfg.step1Clustering.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.maxEllipsoidSize = 10; }
-        try {
-            prof->ddcfg.step1Clustering.maxIEdist = configGetDouble(prefix + "maxEventPairDistance");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.maxIEdist = -1; }
-        if ( prof->ddcfg.step1Clustering.maxIEdist < prof->ddcfg.step1Clustering.maxEllipsoidSize )
-        {
-            SEISCOMP_WARNING("profile.%s: maxEventPairDistance (%.2f) is smaller then maxEllipsoidSize (%.2f) ",
-                             it->c_str(), prof->ddcfg.step1Clustering.maxIEdist, prof->ddcfg.step1Clustering.maxEllipsoidSize);
-        }
+        } catch ( ... ) { prof->ddcfg.step1Clustering.maxEllipsoidSize = 5; }
+        prof->ddcfg.step1Clustering.maxEllipsoidSize *= 2; // horizontal to vertical axis length
 
         prefix = string("profile.") + *it + ".step1options.clustering.phaseSelection.";
         try {
@@ -514,15 +507,8 @@ bool RTDD::validateParameters()
         }
         try {
             prof->ddcfg.step2Clustering.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.maxEllipsoidSize = 10; }
-        try {
-            prof->ddcfg.step2Clustering.maxIEdist = configGetDouble(prefix + "maxEventPairDistance");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.maxIEdist = -1; }
-        if ( prof->ddcfg.step2Clustering.maxIEdist < prof->ddcfg.step2Clustering.maxEllipsoidSize )
-        {
-            SEISCOMP_WARNING("profile.%s: maxEventPairDistance (%.2f) is smaller then maxEllipsoidSize (%.2f) ",
-                             it->c_str(), prof->ddcfg.step2Clustering.maxIEdist, prof->ddcfg.step2Clustering.maxEllipsoidSize);
-        }
+        } catch ( ... ) { prof->ddcfg.step2Clustering.maxEllipsoidSize = 5; }
+        prof->ddcfg.step2Clustering.maxEllipsoidSize *= 2; // horizontal to vertical axis length
 
         prefix = string("profile.") + *it + ".step2options.clustering.phaseSelection.";
         try {

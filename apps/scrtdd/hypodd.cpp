@@ -280,46 +280,62 @@ struct Ellipsoid
  */
 class HddEllipsoid : public Core::BaseObject
 {
+
 public:
-    HddEllipsoid(double axis_len, double lat, double lon, double depth)
+
+    HddEllipsoid(double vertical_axis_len, double lat, double lon, double depth)
+        : HddEllipsoid(vertical_axis_len/2., vertical_axis_len, lat, lon, depth)
+    { }
+
+    HddEllipsoid(double inner_vertical_axis_len, double outer_vertical_axis_len,
+                 double lat, double lon, double depth)
     {
-        _ellipsoid.axis_a = axis_len / 2;
-        _ellipsoid.axis_b = _ellipsoid.axis_a;
-        _ellipsoid.axis_c = axis_len;
-        _ellipsoid.lat = lat;
-        _ellipsoid.lon = lon;
-        _ellipsoid.depth = depth;
+        _outerEllipsoid.axis_a = outer_vertical_axis_len / 2.;
+        _outerEllipsoid.axis_b = _outerEllipsoid.axis_a;
+        _outerEllipsoid.axis_c = outer_vertical_axis_len;
+
+        _innerEllipsoid.axis_a = inner_vertical_axis_len / 2.;
+        _innerEllipsoid.axis_b = _innerEllipsoid.axis_a;
+        _innerEllipsoid.axis_c = inner_vertical_axis_len;
+
+        _outerEllipsoid.lat   = _innerEllipsoid.lat   = lat;
+        _outerEllipsoid.lon   = _innerEllipsoid.lon   = lon;
+        _outerEllipsoid.depth = _innerEllipsoid.depth = depth;
     }
 
-    bool isInQuadrant(double lat, double lon, double depth, int quadrant /* 1-8 */) const
+    bool isInside(double lat, double lon, double depth, int quadrant/* 1-8 */) const
+    {
+        // be in the right quadrant and inside the outer layer and outside of the inner one
+        return isInQuadrant(_innerEllipsoid, lat, lon, depth, quadrant) &&
+               _outerEllipsoid.isInside(lat, lon, depth)                &&
+               ! _innerEllipsoid.isInside(lat, lon, depth);
+    }
+
+    const Ellipsoid& getInnerEllipsoid() const { return _innerEllipsoid; }
+    const Ellipsoid& getOuterEllipsoid() const { return _outerEllipsoid; }
+
+    static bool
+    isInQuadrant(const Ellipsoid& ellip, double lat, double lon, double depth, int quadrant /* 1-8 */)
     {
         if (quadrant < 1 || quadrant > 8)
             throw std::invalid_argument( "quadrant should be between 1 and 8");
 
-        if (depth < _ellipsoid.depth && set<int>{1,2,3,4}.count(quadrant) != 0) return false;
-        if (depth > _ellipsoid.depth && set<int>{5,6,7,8}.count(quadrant) != 0) return false;
+        if (depth < ellip.depth && set<int>{1,2,3,4}.count(quadrant) != 0) return false;
+        if (depth > ellip.depth && set<int>{5,6,7,8}.count(quadrant) != 0) return false;
 
-        if (lon < _ellipsoid.lon && set<int>{1,4,5,8}.count(quadrant) != 0) return false;
-        if (lon > _ellipsoid.lon && set<int>{2,3,6,7}.count(quadrant) != 0) return false;
+        if (lon < ellip.lon && set<int>{1,4,5,8}.count(quadrant) != 0) return false;
+        if (lon > ellip.lon && set<int>{2,3,6,7}.count(quadrant) != 0) return false;
 
-        if (lat < _ellipsoid.lat && set<int>{1,2,5,6}.count(quadrant) != 0) return false;
-        if (lat > _ellipsoid.lat && set<int>{3,4,7,8}.count(quadrant) != 0) return false;
+        if (lat < ellip.lat && set<int>{1,2,5,6}.count(quadrant) != 0) return false;
+        if (lat > ellip.lat && set<int>{3,4,7,8}.count(quadrant) != 0) return false;
 
         return true;
     }
 
-    bool isInside(double lat, double lon, double depth, int quadrant) const
-    {
-        return isInQuadrant(lat, lon, depth, quadrant) && _ellipsoid.isInside(lat, lon, depth);
-    }
-
-    bool isOutside(double lat, double lon, double depth, int quadrant) const
-    {
-        return isInQuadrant(lat, lon, depth, quadrant) && ! _ellipsoid.isInside(lat, lon, depth);
-    }
-
 private:
-    Ellipsoid _ellipsoid;
+
+    Ellipsoid _outerEllipsoid;
+    Ellipsoid _innerEllipsoid;
 };
 
 DEFINE_SMARTPOINTER(HddEllipsoid);
@@ -1068,7 +1084,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         // Select neighbouring events
         CatalogPtr neighbourCat = selectNeighbouringEvents(
             evToRelocateCat, evToRelocate, _cfg.step1Clustering.minWeight, _cfg.step1Clustering.minESdist,
-            _cfg.step1Clustering.maxESdist, _cfg.step1Clustering.minEStoIEratio, _cfg.step1Clustering.maxIEdist,
+            _cfg.step1Clustering.maxESdist, _cfg.step1Clustering.minEStoIEratio,
             _cfg.step1Clustering.minDTperEvt, _cfg.step1Clustering.maxDTperEvt, _cfg.step1Clustering.minNumNeigh,
             _cfg.step1Clustering.maxNumNeigh, _cfg.step1Clustering.numEllipsoids, _cfg.step1Clustering.maxEllipsoidSize
         );
@@ -1173,7 +1189,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         // Select neighbouring events from the relocated origin
         CatalogPtr neighbourCat = selectNeighbouringEvents(
             evToRelocateCat, evToRelocate, _cfg.step2Clustering.minWeight, _cfg.step2Clustering.minESdist,
-            _cfg.step2Clustering.maxESdist, _cfg.step2Clustering.minEStoIEratio, _cfg.step2Clustering.maxIEdist,
+            _cfg.step2Clustering.maxESdist, _cfg.step2Clustering.minEStoIEratio,
             _cfg.step2Clustering.minDTperEvt,  _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh,
             _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids, _cfg.step2Clustering.maxEllipsoidSize
         );
@@ -1499,7 +1515,6 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             double minESdist,
                                             double maxESdist,
                                             double minEStoIEratio,
-                                            double maxIEdist,
                                             int minDTperEvt,
                                             int maxDTperEvt,
                                             int minNumNeigh,
@@ -1509,12 +1524,29 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 {
     SEISCOMP_DEBUG("Selecting Neighbouring Events for event %s", string(refEv).c_str());
 
+    // copy catalog since we'll modify it
     CatalogPtr srcCat = new Catalog(*catalog);
 
+    /*
+     * Build ellipsoids
+     *
+     * From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
+     * events are selected within each of five concentric, vertically elongated
+     * ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
+     */
+    vector<HddEllipsoidPtr> ellipsoids;
+    double verticalSize = maxEllipsoidSize;
+    for (int i = 0; i < (numEllipsoids-1); i++)
+    {
+        ellipsoids.push_back( new HddEllipsoid(verticalSize, refEv.latitude, refEv.longitude, refEv.depth) );
+        verticalSize /= 2;
+    }
+    ellipsoids.push_back( new HddEllipsoid(0, verticalSize, refEv.latitude, refEv.longitude, refEv.depth) );
+
+    // sort catalog events by distance and drop the ones further than the outmost ellipsoid
     map<unsigned,double> distanceByEvent; // eventid, distance
     map<unsigned,double> azimuthByEvent;  // eventid, azimuth
 
-    // loop through every event in the catalog and select the ones within maxIEdist distance
     for (const auto& kv : srcCat->getEvents() )
     {
         const Catalog::Event& event = kv.second;
@@ -1522,15 +1554,16 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         if (event == refEv)
             continue;
 
+        // drop event if too far away
+        HddEllipsoidPtr outmostEllip = ellipsoids[0];
+        if ( ! outmostEllip->getOuterEllipsoid().isInside(event.latitude, event.longitude, event.depth) )
+            continue;
+
         // compute distance between current event and reference origin
         double azimuth;
         double distance = computeDistance(refEv.latitude, refEv.longitude, refEv.depth,
                                           event.latitude, event.longitude, event.depth,
                                           &azimuth);
-        // too far away ?
-        if ( maxIEdist > 0 && distance > maxIEdist )
-            continue;
-
         // keep a list of added events
         distanceByEvent[event.id] = distance;
         azimuthByEvent[event.id]  = azimuth;
@@ -1656,23 +1689,13 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 
     /*
      * Finally build the catalog of neighboring events
-     * From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
-     * events are selected within each of five concentric, vertically elongated
-     * ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
      */
-    vector<int> quadrants = {1,2,3,4,5,6,7,8};
-    vector<HddEllipsoidPtr> ellipsoids;
-    double currSize = maxEllipsoidSize;
-    for (int i = 0; i < (numEllipsoids-1); i++)
-    {
-        ellipsoids.push_back( new HddEllipsoid(currSize, refEv.latitude, refEv.longitude, refEv.depth) );
-        currSize /= 2;
-    }
-    ellipsoids.push_back( new HddEllipsoid(0, refEv.latitude, refEv.longitude, refEv.depth) );
-
     CatalogPtr neighboringEventCat = new Catalog();
+
+    vector<int> quadrants = {1,2,3,4,5,6,7,8};
     int numNeighbors = 0;
     bool workToDo = true;
+
     while ( workToDo )
     {
         for(int elpsNum = ellipsoids.size() -1; elpsNum >= 0;  elpsNum--)
@@ -1693,17 +1716,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                 {
                     const Catalog::Event& ev = srcCat->getEvents().at( it->second );
 
-                    bool found = false;
-
-                    if ( elpsNum == 0 )
-                    {
-                        found = ellipsoids[elpsNum]->isOutside(ev.latitude, ev.longitude, ev.depth, quadrant);
-                    }
-                    else
-                    {
-                        found = ellipsoids[elpsNum]->isOutside(ev.latitude, ev.longitude, ev.depth, quadrant) &&
-                                ellipsoids[elpsNum-1]->isInside(ev.latitude, ev.longitude, ev.depth, quadrant);
-                    }
+                    bool found = ellipsoids[elpsNum]->isInside(ev.latitude, ev.longitude, ev.depth, quadrant);
 
                     if ( found )
                     {
@@ -1740,7 +1753,6 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                                         double minESdist,
                                         double maxESdist,
                                         double minEStoIEratio,
-                                        double maxIEdist,
                                         int minDTperEvt,
                                         int maxDTperEvt,
                                         int minNumNeigh,
@@ -1762,7 +1774,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
         try {
             neighbourCat = selectNeighbouringEvents(
                 catalog, event, minPhaseWeight, minESdist, maxESdist,
-                minEStoIEratio, maxIEdist, minDTperEvt, maxDTperEvt,
+                minEStoIEratio, minDTperEvt, maxDTperEvt,
                 minNumNeigh, maxNumNeigh, numEllipsoids, maxEllipsoidSize
             );
         } catch ( ... ) { }
@@ -1989,7 +2001,7 @@ void HypoDD::createDtCtCatalog(const CatalogCPtr& catalog,
     map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
         catalog, _cfg.step2Clustering.minWeight,
         _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist,
-        _cfg.step2Clustering.minEStoIEratio, _cfg.step2Clustering.maxIEdist,
+        _cfg.step2Clustering.minEStoIEratio, 
         _cfg.step2Clustering.minDTperEvt,  _cfg.step2Clustering.maxDTperEvt,
         _cfg.step2Clustering.minNumNeigh, _cfg.step2Clustering.maxNumNeigh,
         _cfg.step2Clustering.numEllipsoids , _cfg.step2Clustering.maxEllipsoidSize
@@ -2119,7 +2131,7 @@ void HypoDD::createDtCcCatalog(const CatalogCPtr& catalog,
     map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
         catalog, _cfg.step2Clustering.minWeight,
         _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist,
-        _cfg.step2Clustering.minEStoIEratio, _cfg.step2Clustering.maxIEdist,
+        _cfg.step2Clustering.minEStoIEratio, 
         _cfg.step2Clustering.minDTperEvt, _cfg.step2Clustering.maxDTperEvt,
         _cfg.step2Clustering.minNumNeigh, _cfg.step2Clustering.maxNumNeigh,
         _cfg.step2Clustering.numEllipsoids , _cfg.step2Clustering.maxEllipsoidSize
