@@ -1570,7 +1570,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
     }
 
     // From the events within distance select the ones who respect the constraints
-    multimap<int,unsigned> selectedEvents; // number of dt, event id
+    multimap<double,unsigned> selectedEvents; // distance, event id
     set<string> includedStations;
     set<string> excludedStations;
 
@@ -1681,10 +1681,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
             );
         }
 
-        // add this event to the selected ones (since c++11 the order of the key-value multimap
-        // pairs whose keys compare equivalent is the order of insertion and does not change.
-        // Here we are inserting closer events first)
-        selectedEvents.emplace(dtCount, event.id);
+        // add this event to the selected ones
+        selectedEvents.emplace(eventDistance, event.id);
         SEISCOMP_DEBUG("Selecting possible event %s distance %.1f azimuth %.1f",
                        string(event).c_str(), kv.second, azimuthByEvent[event.id]);
     }
@@ -1712,12 +1710,9 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                 }
 
                 //
-                // since selectedEvents is sorted by number of differential times we always choose
-                // firstly the neighbour with maximum differential times
-                // Also, since c++11 multimap keeps insertion order for items with same key,
-                // we fetch first elements who are closer to refEv
+                // since selectedEvents is sorted by distance we get closer events first
                 //
-                for (auto it = selectedEvents.rbegin(); it != selectedEvents.rend(); it++)
+                for (auto it = selectedEvents.begin(); it != selectedEvents.end(); it++)
                 {
                     const int dtCount = it->first;
                     const Catalog::Event& ev = srcCat->getEvents().at( it->second );
@@ -1729,7 +1724,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                         // add this event to the catalog
                         neighboringEventCat->copyEvent(ev, srcCat, true);
                         numNeighbors++;
-                        selectedEvents.erase( std::next(it).base() );
+                        selectedEvents.erase(it);
                         SEISCOMP_DEBUG("Chose neighbour ellipsoid %2d quadrant %d dtCount %2d distance %5.2f depth %5.3f azimuth %3.f event %s ",
                                        elpsNum, quadrant, dtCount, distanceByEvent[ev.id], ev.depth, azimuthByEvent[ev.id], string(ev).c_str() );
                         break;
