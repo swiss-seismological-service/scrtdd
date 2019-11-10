@@ -681,7 +681,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         // Eventually compute the average cross correlation coefficient and if the results
         // is satisfying then keep the phase
         //
-        multimap<double,double> xcorr_out; // xcorr_coeff, xcorr_dt
+        multimap<double, pair<double,Catalog::Phase> > xcorr_out; // xcorr_coeff, xcorr_dt
         for (const auto& kv : xcorrPeers)
         {
             const XCorrPeer& peer = kv.second;
@@ -701,7 +701,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
 
             if ( ! std::isfinite(xcorr_coeff) ) continue;
 
-            xcorr_out.emplace(xcorr_coeff, xcorr_dt);
+            xcorr_out.emplace(xcorr_coeff, pair<double,Catalog::Phase>(xcorr_dt,phase) );
         }
 
         if ( xcorr_out.size() < _cfg.artificialPhases.numCC )
@@ -717,10 +717,17 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         unsigned ccCount = 0;
         for (auto i = xcorr_out.rbegin(); i != xcorr_out.rend(); ++i) // reverse because we want highest CC
         {
-            xcorr_coeff_mean += i->first;
-            xcorr_dt_mean    += i->second;
-            if ( i->second < xcorr_dt_min) xcorr_dt_min = i->second;
-            if ( i->second > xcorr_dt_max ) xcorr_dt_max = i->second;
+            const pair<double,Catalog::Phase>& pair = i->second;
+            double xcorr_coeff = i->first;
+            double xcorr_dt    = pair.first;
+            const Catalog::Phase& phase = pair.second;
+
+            xcorr_coeff_mean += xcorr_coeff;
+            xcorr_dt_mean    += xcorr_dt;
+
+            if ( (xcorr_dt - phase.lowerUncertainty) < xcorr_dt_min)  xcorr_dt_min = xcorr_dt - phase.lowerUncertainty;
+            if ( (xcorr_dt + phase.upperUncertainty) > xcorr_dt_max ) xcorr_dt_max = xcorr_dt + phase.upperUncertainty;
+
             if (++ccCount >= _cfg.artificialPhases.numCC) break;
         }
         xcorr_coeff_mean /= ccCount;
