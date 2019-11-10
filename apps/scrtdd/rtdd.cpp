@@ -1484,92 +1484,39 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
         for (size_t i = 0; i < org->arrivalCount(); i++)
         {
             DataModel::Arrival *orgArr = org->arrival(i);
-            DataModel::PickPtr pick = _cache.get<DataModel::Pick>(orgArr->pickID());
-            if ( !pick )
-            {
-                SEISCOMP_WARNING("Cannot find pick id %s. Cannot add Arrival to relocated origin",
-                                 orgArr->pickID().c_str());
-                continue;
-            }
 
-            // prepare the new arrival and set existing pick
             DataModel::Arrival *newArr = new Arrival();
             newArr->setCreationInfo(ci);
-            newArr->setPickID(orgArr->pickID());
-            newArr->setPhase( orgArr->phase() );
+            newArr->setPickID( orgArr->pickID() );
+            newArr->setPhase(  orgArr->phase()  );
             newArr->setWeight(0.);
             newArr->setTimeUsed(false);
 
-            // find this arrival in the phases of the relocated origin and fill the missing properties
-            bool skipArrival = false;
-            for (auto it = evPhases.first; it != evPhases.second; ++it)
+            newOrg->add(newArr);
+
+            DataModel::PickPtr pick = _cache.get<DataModel::Pick>(orgArr->pickID());
+            if ( pick )
             {
-                const HDD::Catalog::Phase& phase = it->second;
-                auto search = relocatedOrg->getStations().find(phase.stationId);
-                if (search == relocatedOrg->getStations().end())
-                {
-                    SEISCOMP_WARNING("Cannot find station id '%s' referenced by phase '%s'."
-                                     "Cannot add Arrival to relocated origin",
-                                     phase.stationId.c_str(), string(phase).c_str());
-                    continue;
-                }
-                const HDD::Catalog::Station& station = search->second;
-
-                if (phase.time         == pick->time().value()              &&
-                    phase.networkCode  == pick->waveformID().networkCode()  &&
-                    phase.stationCode  == pick->waveformID().stationCode()  &&
-                    phase.locationCode == pick->waveformID().locationCode() &&
-                    phase.channelCode  == pick->waveformID().channelCode() )
-                {
-                    if ( phase.relocInfo.isRelocated && 
-                        (phase.relocInfo.extendedType == "Px" || phase.relocInfo.extendedType == "Sx" ) )
-                    {
-                        skipArrival = true; // we want to create a new pick for this arrival
-                        break;
-                    }
-
-                    double distance, az, baz;
-                    Math::Geo::delazi(event.latitude, event.longitude,
-                                      station.latitude, station.longitude,
-                                      &distance, &az, &baz);
-                    newArr->setAzimuth(normalizeAz(az));
-                    newArr->setDistance(distance);
-                    newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
-                    newArr->setWeight( phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : 0.);
-                    newArr->setTimeUsed( phase.relocInfo.isRelocated );
-
-                    // update stats
-                    if ( newArr->timeUsed() )
-                    {
-                        usedPhaseCount++;
-                        meanDist += distance;
-                        minDist = distance < minDist ? distance : minDist;
-                        maxDist = distance > maxDist ? distance : maxDist;
-                        azi.push_back(az);
-                        usedStations.insert(phase.stationId);
-                    }
-                    break;
-                }
+                associatedStations.insert(pick->waveformID().networkCode() + "." + pick->waveformID().stationCode());
             }
-            if ( skipArrival ) delete newArr;
-            else newOrg->add(newArr);
         }
     }
 
-    // add remaning arrivals for which there are no existing picks
+    // add missing arrivals and fill in all the properties
     for (auto it = evPhases.first; it != evPhases.second; ++it)
     {
         const HDD::Catalog::Phase& phase = it->second;
-        associatedStations.insert(phase.stationId);
 
+        associatedStations.insert(phase.networkCode + "." + phase.stationCode);
 
         // check if this phase has been already added
         bool alreadyAdded = false;
+        DataModel::Arrival *newArr;
 
         for (size_t i = 0; i < newOrg->arrivalCount(); i++)
         {
-            DataModel::Arrival *orgArr = newOrg->arrival(i);
-            DataModel::PickPtr pick = _cache.get<DataModel::Pick>(orgArr->pickID());
+            newArr = newOrg->arrival(i);
+            DataModel::PickPtr pick = _cache.get<DataModel::Pick>(newArr->pickID());
 
             if ( pick                                                    &&
                  phase.time         == pick->time().value()              &&
@@ -1583,8 +1530,31 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
             }
         }
 
-        if ( alreadyAdded )
-            continue;
+        if ( ! alreadyAdded )
+        {
+            // prepare the new pick
+            DataModel::PickPtr newPick = Pick::Create();
+            newPick->setCreationInfo(ci);
+            newPick->setMethodID(profile ? profile->methodID : "RTDD");
+            newPick->setEvaluationMode(phase.isManual ? EvaluationMode(MANUAL) : EvaluationMode(AUTOMATIC));
+            DataModel::TimeQuantity pickTime(phase.time);
+            pickTime.setLowerUncertainty(phase.lowerUncertainty);
+            pickTime.setUpperUncertainty(phase.upperUncertainty);
+            newPick->setTime(pickTime);
+            newPick->setPhaseHint( DataModel::Phase( phase.relocInfo.isRelocated ? phase.relocInfo.extendedType : phase.type ) );
+            newPick->setWaveformID(WaveformStreamID(phase.networkCode, phase.stationCode, phase.locationCode, phase.channelCode, ""));
+            newOrgPicks.push_back(newPick);
+
+            // prepare the new arrival
+            newArr = new Arrival();
+            newArr->setCreationInfo(ci);
+            newArr->setPickID(newPick->publicID());
+            newArr->setPhase( phase.relocInfo.isRelocated ? phase.relocInfo.extendedType : phase.type );
+        }
+
+        newArr->setWeight( phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : 0. );
+        newArr->setTimeUsed( phase.relocInfo.isRelocated );
+        newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
 
         auto search = relocatedOrg->getStations().find(phase.stationId);
         if (search == relocatedOrg->getStations().end())
@@ -1595,28 +1565,6 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
             continue;
         }
         const HDD::Catalog::Station& station = search->second;
-
-        // prepare the new pick
-        DataModel::PickPtr newPick = Pick::Create();
-        newPick->setCreationInfo(ci);
-        newPick->setMethodID(profile ? profile->methodID : "RTDD");
-        newPick->setEvaluationMode(phase.isManual ? EvaluationMode(MANUAL) : EvaluationMode(AUTOMATIC));
-        DataModel::TimeQuantity pickTime(phase.time);
-        pickTime.setLowerUncertainty(phase.lowerUncertainty);
-        pickTime.setUpperUncertainty(phase.upperUncertainty);
-        newPick->setTime(pickTime);
-        newPick->setPhaseHint( DataModel::Phase( phase.relocInfo.isRelocated ? phase.relocInfo.extendedType : phase.type ) );
-        newPick->setWaveformID(WaveformStreamID(phase.networkCode, phase.stationCode, phase.locationCode, phase.channelCode, ""));
-        newOrgPicks.push_back(newPick);
-
-        // prepare the new arrival
-        DataModel::Arrival *newArr = new Arrival();
-        newArr->setCreationInfo(ci);
-        newArr->setPickID(newPick->publicID());
-        newArr->setPhase( phase.relocInfo.isRelocated ? phase.relocInfo.extendedType : phase.type );
-        newArr->setWeight( phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : 0. );
-        newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
-        newArr->setTimeUsed( phase.relocInfo.isRelocated );
 
         double distance, az, baz;
         Math::Geo::delazi(event.latitude, event.longitude,
