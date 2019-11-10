@@ -452,12 +452,6 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.step1Clustering.numEllipsoids = configGetInt(prefix + "numEllipsoids");
         } catch ( ... ) { prof->ddcfg.step1Clustering.numEllipsoids = 5; }
-        if ( prof->ddcfg.step1Clustering.numEllipsoids < 1 )
-        {
-            SEISCOMP_ERROR("profile.%s: numEllipsoids cannot be less than 1", it->c_str());
-            profilesOK = false;
-            continue;
-        }
         try {
             prof->ddcfg.step1Clustering.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
         } catch ( ... ) { prof->ddcfg.step1Clustering.maxEllipsoidSize = 5; }
@@ -499,12 +493,6 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.step2Clustering.numEllipsoids = configGetInt(prefix + "numEllipsoids");
         } catch ( ... ) { prof->ddcfg.step2Clustering.numEllipsoids = 5; }
-        if ( prof->ddcfg.step2Clustering.numEllipsoids < 1 )
-        {
-            SEISCOMP_ERROR("profile.%s: numEllipsoids cannot be less than 1", it->c_str());
-            profilesOK = false;
-            continue;
-        }
         try {
             prof->ddcfg.step2Clustering.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
         } catch ( ... ) { prof->ddcfg.step2Clustering.maxEllipsoidSize = 5; }

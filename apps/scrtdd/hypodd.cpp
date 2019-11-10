@@ -1571,7 +1571,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         if (event == refEv)
             continue;
 
-        // drop event if too far away
+        // drop event if outside the outmost ellipsod boundaries
         HddEllipsoidPtr outmostEllip = ellipsoids[0];
         if ( ! outmostEllip->getOuterEllipsoid().isInside(event.latitude, event.longitude, event.depth) )
             continue;
@@ -1708,43 +1708,63 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
      * Finally build the catalog of neighboring events
      */
     CatalogPtr neighboringEventCat = new Catalog();
-
-    vector<int> quadrants = {1,2,3,4,5,6,7,8};
     int numNeighbors = 0;
-    bool workToDo = true;
 
-    while ( workToDo )
+    if ( numEllipsoids <= 0 )
     {
-        for(int elpsNum = ellipsoids.size() -1; elpsNum >= 0;  elpsNum--)
+        //
+        // if numEllipsoids is 0 then disable the ellipsoid algorithm and simply select events
+        // on the nearest neighbor basi.
+        // Since selectedEvents is sorted by distance we get closer events first
+        //
+        for (auto it = selectedEvents.begin(); it != selectedEvents.end(); it++)
         {
-            for (int quadrant : quadrants)
+            const Catalog::Event& ev = srcCat->getEvents().at( it->second );
+            // add this event to the catalog
+            neighboringEventCat->copyEvent(ev, srcCat, true);
+            numNeighbors++;
+            if ( maxNumNeigh > 0 && numNeighbors >= maxNumNeigh) break;
+        }
+    }
+    else
+    {
+        //
+        // Apply Waldauser's concentric ellipsoids algorithm
+        //
+        vector<int> quadrants = {1,2,3,4,5,6,7,8};
+        bool workToDo = true;
+
+        while ( workToDo )
+        {
+            for(int elpsNum = ellipsoids.size() -1; elpsNum >= 0;  elpsNum--)
             {
-                // if we don't have events or we have already selected maxNumNeigh neighbors exit
-                if ( selectedEvents.empty() || (maxNumNeigh > 0 && numNeighbors >= maxNumNeigh) )
+                for (int quadrant : quadrants)
                 {
-                    workToDo = false;
-                    break;
-                }
-
-                //
-                // since selectedEvents is sorted by distance we get closer events first
-                //
-                for (auto it = selectedEvents.begin(); it != selectedEvents.end(); it++)
-                {
-                    const int dtCount = it->first;
-                    const Catalog::Event& ev = srcCat->getEvents().at( it->second );
-
-                    bool found = ellipsoids[elpsNum]->isInside(ev.latitude, ev.longitude, ev.depth, quadrant);
-
-                    if ( found )
+                    // if we don't have events or we have already selected maxNumNeigh neighbors exit
+                    if ( selectedEvents.empty() || (maxNumNeigh > 0 && numNeighbors >= maxNumNeigh) )
                     {
-                        // add this event to the catalog
-                        neighboringEventCat->copyEvent(ev, srcCat, true);
-                        numNeighbors++;
-                        selectedEvents.erase(it);
-                        SEISCOMP_DEBUG("Chose neighbour ellipsoid %2d quadrant %d dtCount %2d distance %5.2f depth %5.3f azimuth %3.f event %s ",
-                                       elpsNum, quadrant, dtCount, distanceByEvent[ev.id], ev.depth, azimuthByEvent[ev.id], string(ev).c_str() );
+                        workToDo = false;
                         break;
+                    }
+
+                    // since selectedEvents is sorted by distance we get closer events first
+                    for (auto it = selectedEvents.begin(); it != selectedEvents.end(); it++)
+                    {
+                        const int dtCount = it->first;
+                        const Catalog::Event& ev = srcCat->getEvents().at( it->second );
+
+                        bool found = ellipsoids[elpsNum]->isInside(ev.latitude, ev.longitude, ev.depth, quadrant);
+
+                        if ( found )
+                        {
+                            // add this event to the catalog
+                            neighboringEventCat->copyEvent(ev, srcCat, true);
+                            numNeighbors++;
+                            selectedEvents.erase(it);
+                            SEISCOMP_DEBUG("Chose neighbour ellipsoid %2d quadrant %d dtCount %2d distance %5.2f depth %5.3f azimuth %3.f event %s ",
+                                           elpsNum, quadrant, dtCount, distanceByEvent[ev.id], ev.depth, azimuthByEvent[ev.id], string(ev).c_str() );
+                            break;
+                        }
                     }
                 }
             }
