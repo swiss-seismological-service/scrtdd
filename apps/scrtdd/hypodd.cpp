@@ -969,18 +969,28 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
             createEventDatFile(catToReloc, eventFile);
         }
 
+        // Find Neighbouring Events in the catalog
+        map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
+            catToReloc, _cfg.step2Clustering.minWeight,
+            _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist,
+            _cfg.step2Clustering.minEStoIEratio, 
+            _cfg.step2Clustering.minDTperEvt,  _cfg.step2Clustering.maxDTperEvt,
+            _cfg.step2Clustering.minNumNeigh, _cfg.step2Clustering.maxNumNeigh,
+            _cfg.step2Clustering.numEllipsoids , _cfg.step2Clustering.maxEllipsoidSize
+        );
+
         // calculate absolute travel times from catalog phases
         // Create dt.ct (if not already generated)
         if ( force || ! Util::fileExists(dtctFile) )
         {
-            createDtCtCatalog(catToReloc, dtctFile);
+            createDtCtCatalog(neighbourCats, dtctFile);
         }
 
         // calculate cross correlated differential travel times
         // Create dt.cc (if not already generated)
         if ( force || ! Util::fileExists(dtccFile) )
         {
-            createDtCcCatalog(catToReloc, dtccFile);
+            createDtCcCatalog(neighbourCats, dtccFile);
         }
     }
     else
@@ -1994,19 +2004,10 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
  * Create absolute travel times file (dt.ct) for hypodd
  * This is for full catalog mode
  */
-void HypoDD::createDtCtCatalog(const CatalogCPtr& catalog,
+void HypoDD::createDtCtCatalog(const map<unsigned,CatalogPtr>& neighbourCats,
                                const string& dtctFile) const
 {
     SEISCOMP_INFO("Creating differential travel time file %s", dtctFile.c_str());
-
-    map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
-        catalog, _cfg.step2Clustering.minWeight,
-        _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist,
-        _cfg.step2Clustering.minEStoIEratio, 
-        _cfg.step2Clustering.minDTperEvt,  _cfg.step2Clustering.maxDTperEvt,
-        _cfg.step2Clustering.minNumNeigh, _cfg.step2Clustering.maxNumNeigh,
-        _cfg.step2Clustering.numEllipsoids , _cfg.step2Clustering.maxEllipsoidSize
-    );
 
     ofstream outStream(dtctFile);
     if ( !outStream.is_open() )
@@ -2124,19 +2125,10 @@ void HypoDD::buildAbsTTimePairs(const CatalogCPtr& catalog,
  * correlation for pairs of earthquakes.
  * This is for full catalog mode
  */
-void HypoDD::createDtCcCatalog(const CatalogCPtr& catalog,
+void HypoDD::createDtCcCatalog(const map<unsigned,CatalogPtr>& neighbourCats,
                                const string& dtccFile)
 {
     SEISCOMP_INFO("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
-
-    map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
-        catalog, _cfg.step2Clustering.minWeight,
-        _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist,
-        _cfg.step2Clustering.minEStoIEratio, 
-        _cfg.step2Clustering.minDTperEvt, _cfg.step2Clustering.maxDTperEvt,
-        _cfg.step2Clustering.minNumNeigh, _cfg.step2Clustering.maxNumNeigh,
-        _cfg.step2Clustering.numEllipsoids , _cfg.step2Clustering.maxEllipsoidSize
-    );
 
     ofstream outStream(dtccFile);
     if ( !outStream.is_open() )
