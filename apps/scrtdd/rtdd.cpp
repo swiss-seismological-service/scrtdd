@@ -890,46 +890,48 @@ void RTDD::handleMessage(Core::Message *msg)
         RTDDRelocateResponseMessage reloc_resp;
 
         OriginPtr originToReloc = reloc_req->getOrigin();
-
         if ( !originToReloc )
         {
             reloc_resp.setError("No origin to relocate has been received");
+            if ( !connection()->send("SERVICE_REQUEST", &reloc_resp) )
+                SEISCOMP_ERROR("Failed sending relocation response");
+        }
+
+        ProfilePtr currProfile = getProfile(originToReloc.get(), reloc_req->getProfile());
+        if ( ! currProfile )
+        {
+            reloc_resp.setError(stringify("No profile available, ignoring origin %s",
+                                originToReloc->publicID().c_str()));
+            if ( !connection()->send("SERVICE_REQUEST", &reloc_resp) )
+                SEISCOMP_ERROR("Failed sending relocation response");
+        }
+
+        // disable this feature since we cannot return additional phases to scolv
+        bool wasEnaled = currProfile->ddcfg.artificialPhases.enable;
+        currProfile->ddcfg.artificialPhases.enable = false;
+
+        OriginPtr relocatedOrg;
+        std::vector<DataModel::PickPtr> relocatedOrgPicks; // we cannot return these to scolv
+        processOrigin(originToReloc.get(), relocatedOrg, relocatedOrgPicks, currProfile, 
+                      true, true, true, false);
+
+        currProfile->ddcfg.artificialPhases.enable = wasEnaled;
+
+        if ( relocatedOrg )
+        {
+            reloc_resp.setOrigin(relocatedOrg);
         }
         else
         {
-            ProfilePtr currProfile = getProfile(originToReloc.get(), reloc_req->getProfile());
-
-            if ( ! currProfile )
-            {
-                reloc_resp.setError(stringify("No profile available, ignoring origin %s",
-                                    originToReloc->publicID().c_str()));
-            }
-            else
-            {
-                OriginPtr relocatedOrg;
-                std::vector<DataModel::PickPtr> relocatedOrgPicks; // we cannot return these to scolv
-                processOrigin(originToReloc.get(), relocatedOrg, relocatedOrgPicks, currProfile, 
-                              true, true, true, false);
-
-                if ( relocatedOrg )
-                {
-                    reloc_resp.setOrigin(relocatedOrg);
-                }
-                else
-                {
-                    reloc_resp.setError(stringify("OriginId %s has not been relocated",
-                                        originToReloc->publicID().c_str()));
-                }
-            }
+            reloc_resp.setError(stringify("OriginId %s has not been relocated",
+                                originToReloc->publicID().c_str()));
         }
 
         SEISCOMP_DEBUG("Sending relocation response (%s)", 
                        (reloc_resp.hasError() ? reloc_resp.getError() : "no relocation errors").c_str() );
 
         if ( !connection()->send("SERVICE_REQUEST", &reloc_resp) )
-        {
             SEISCOMP_ERROR("Failed sending relocation response");
-        }
     }
 }
 
