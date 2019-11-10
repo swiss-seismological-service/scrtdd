@@ -2273,6 +2273,8 @@ void HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile,
     if ( !outStream.is_open() )
         throw runtime_error("Cannot create file " + dtccFile);
 
+    _counters = {0};
+
     const std::map<unsigned,Catalog::Event>& events = catalog->getEvents();
     const Catalog::Event *ev1 = nullptr, *ev2 = nullptr;
     int dtCount = 0;
@@ -2371,6 +2373,13 @@ void HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile,
 
     if (dtCount > 0 )
         outStream << evStream.str();
+
+    SEISCOMP_INFO("Cross correlation statistics: attempted %u performed %u with good cc coefficient %u "
+                  "with too low cc coefficient %u waveforms with Signal to Noise ratio too low %u "
+                  "waveforms not available %u",
+                  _counters.xcorr_tot, _counters.xcorr_performed, _counters.xcorr_cc_good,
+                  _counters.xcorr_cc_low, _counters.snr_low, _counters.wf_no_avail);
+
 }
 
 
