@@ -1759,7 +1759,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                             neighboringEventCat->copyEvent(ev, srcCat, true);
                             numNeighbors++;
                             selectedEvents.erase(it);
-                            SEISCOMP_INFO("Chose neighbour ellipsoid %2d quadrant %d dtCount %2d distance %5.2f azimuth %3.f depth-diff %6.3f depth %5.3f event %s ",
+                            SEISCOMP_DEBUG("Chose neighbour ellipsoid %2d quadrant %d dtCount %2d distance %5.2f azimuth %3.f depth-diff %6.3f depth %5.3f event %s ",
                                            elpsNum, quadrant, dtCountByEvent[ev.id], distanceByEvent[ev.id], azimuthByEvent[ev.id], refEv.depth-ev.depth,
                                            ev.depth, string(ev).c_str() ); 
                             break;
