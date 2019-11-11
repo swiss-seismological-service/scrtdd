@@ -1537,7 +1537,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             int minNumNeigh,
                                             int maxNumNeigh,
                                             int numEllipsoids,
-                                            int maxEllipsoidSize ) const
+                                            double maxEllipsoidSize ) const
 {
     SEISCOMP_DEBUG("Selecting Neighbouring Events for event %s", string(refEv).c_str());
 
@@ -1796,7 +1796,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                                         int minNumNeigh,
                                         int maxNumNeigh,
                                         int numEllipsoids,
-                                        int maxEllipsoidSize ) const 
+                                        double maxEllipsoidSize ) const 
 {
     SEISCOMP_INFO("Selecting Catalog Neighbouring Events ");
 

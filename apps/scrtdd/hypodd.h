@@ -205,13 +205,13 @@ class HypoDD : public Core::BaseObject {
                                             double maxESdis=-1, double minEStoIEratio=0,
                                             int minDTperEvt=1, int maxDTperEvt=-1,
                                             int minNumNeigh=1, int maxNumNeigh=-1,
-                                            int numEllipsoids=5, int maxEllipsoidSize=0) const;
+                                            int numEllipsoids=5, double maxEllipsoidSize=10) const;
         std::map<unsigned,CatalogPtr> 
         selectNeighbouringEventsCatalog(const CatalogCPtr& catalog, double minPhaseWeight,
                                         double minESdis, double maxESdis, double minEStoIEratio,
                                         int minDTperEvt, int maxDTperEvt,
                                         int minNumNeigh, int maxNumNeigh,
-                                        int numEllipsoids, int maxEllipsoidSize) const;
+                                        int numEllipsoids, double maxEllipsoidSize) const;
         bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
                    bool qualityCheck, double& delayOut, double& coeffOut) const;
         double S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
