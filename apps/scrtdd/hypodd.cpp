@@ -850,8 +850,6 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
                          existingPhase.stationId == phase.stationId &&
                          existingPriority < priority )
                     {
-                        SEISCOMP_DEBUG("Preferring phase '%s' over '%s'",
-                                       string(phase).c_str(), string(existingPhase).c_str());
                         existingPhase = phase;
                         inserted = true;
                         break;
@@ -883,8 +881,6 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
                          existingPhase.stationId == phase.stationId &&
                          existingPriority < priority )
                     {
-                        SEISCOMP_DEBUG("Preferring phase '%s' over '%s'",
-                                       string(phase).c_str(), string(existingPhase).c_str());
                         existingPhase = phase;
                         inserted = true;
                         break;
@@ -909,7 +905,6 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
         phase.relocInfo.weight = computePickWeight(phase);
         phase.relocInfo.extendedType = phase.type;
         phase.type = "P";
-        SEISCOMP_DEBUG("Selected phase %s as %s", phase.relocInfo.extendedType.c_str(), phase.type.c_str());
         filteredPhases.emplace(phase.eventId, phase);
     }
     for (auto& it : filteredS)
@@ -918,7 +913,6 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
         phase.relocInfo.weight = computePickWeight(phase);
         phase.relocInfo.extendedType = phase.type;
         phase.type = "S";
-        SEISCOMP_DEBUG("Selected phase %s as %s", phase.relocInfo.extendedType.c_str(), phase.type.c_str());
         filteredPhases.emplace(phase.eventId, phase);
     }
 
@@ -1539,7 +1533,9 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             int numEllipsoids,
                                             double maxEllipsoidSize ) const
 {
-    SEISCOMP_DEBUG("Selecting Neighbouring Events for event %s", string(refEv).c_str());
+    SEISCOMP_DEBUG("Selecting Neighbouring Events for event %s lat %.6f lon %.6f depth %.4f mag %.2f time %s",
+                   string(refEv).c_str(), refEv.latitude, refEv.longitude, refEv.depth,
+                   refEv.magnitude, refEv.time.iso().c_str());
 
     // copy catalog since we'll modify it
     CatalogPtr srcCat = new Catalog(*catalog);
@@ -1588,6 +1584,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 
     // From the events within distance select the ones who respect the constraints
     multimap<double,unsigned> selectedEvents; // distance, event id
+    map<unsigned,int> dtCountByEvent;           // eventid, dtCount
     set<string> includedStations;
     set<string> excludedStations;
 
@@ -1693,15 +1690,15 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         {
             auto first = std::next(stationByDistance.begin(), maxDTperEvt);
             std::for_each(first, stationByDistance.end(),
-                    [srcCat, event](const pair<double,pair<string,string>>& kv) {
+                    [srcCat, event](const pair<double,pair<string,string>>& kv) { // kv == <distance, <stationid,phaseType> >
                         srcCat->removePhase(event.id, kv.second.first, kv.second.second); }
             );
+            dtCount = maxDTperEvt;
         }
 
         // add this event to the selected ones
         selectedEvents.emplace(eventDistance, event.id);
-        SEISCOMP_DEBUG("Selecting possible event %s distance %.1f azimuth %.1f",
-                       string(event).c_str(), kv.second, azimuthByEvent[event.id]);
+        dtCountByEvent.emplace(event.id, dtCount);
     }
 
     /*
@@ -1723,6 +1720,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
             // add this event to the catalog
             neighboringEventCat->copyEvent(ev, srcCat, true);
             numNeighbors++;
+            SEISCOMP_DEBUG("Chose neighbour dtCount %2d distance %5.2f azimuth %3.f depth-diff %6.3f depth %5.3f event %s ",
+                            dtCountByEvent[ev.id], distanceByEvent[ev.id], azimuthByEvent[ev.id], refEv.depth-ev.depth, ev.depth, string(ev).c_str() );
             if ( maxNumNeigh > 0 && numNeighbors >= maxNumNeigh) break;
         }
     }
@@ -1750,7 +1749,6 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                     // since selectedEvents is sorted by distance we get closer events first
                     for (auto it = selectedEvents.begin(); it != selectedEvents.end(); it++)
                     {
-                        const int dtCount = it->first;
                         const Catalog::Event& ev = srcCat->getEvents().at( it->second );
 
                         bool found = ellipsoids[elpsNum]->isInside(ev.latitude, ev.longitude, ev.depth, quadrant);
@@ -1761,8 +1759,9 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                             neighboringEventCat->copyEvent(ev, srcCat, true);
                             numNeighbors++;
                             selectedEvents.erase(it);
-                            SEISCOMP_DEBUG("Chose neighbour ellipsoid %2d quadrant %d dtCount %2d distance %5.2f depth %5.3f azimuth %3.f event %s ",
-                                           elpsNum, quadrant, dtCount, distanceByEvent[ev.id], ev.depth, azimuthByEvent[ev.id], string(ev).c_str() );
+                            SEISCOMP_INFO("Chose neighbour ellipsoid %2d quadrant %d dtCount %2d distance %5.2f azimuth %3.f depth-diff %6.3f depth %5.3f event %s ",
+                                           elpsNum, quadrant, dtCountByEvent[ev.id], distanceByEvent[ev.id], azimuthByEvent[ev.id], refEv.depth-ev.depth,
+                                           ev.depth, string(ev).c_str() ); 
                             break;
                         }
                     }
@@ -2485,9 +2484,6 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
     _counters.xcorr_tot++;
 
-    SEISCOMP_DEBUG("Calculating cross correlation for phase pair phase1='%s', phase2='%s'",
-                   string(phase1).c_str(), string(phase2).c_str());
-
     Core::TimeWindow tw1 = xcorrTimeWindowLong(phase1);
     Core::TimeWindow tw2 = xcorrTimeWindowLong(phase2);
 
@@ -2673,7 +2669,6 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
             if (numMax > 1)
             {
                 coeffOut = std::nan("");
-                SEISCOMP_DEBUG("Cycle skipping detected when cross correlating traces");
                 break;
             }
         }
@@ -2869,9 +2864,9 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
                               _cfg.snr.signalStart, _cfg.snr.signalEnd);
         if ( snr < _cfg.snr.minSnr ) 
         {
-            SEISCOMP_DEBUG("Trace has too low SNR (%.2f), discard it (%s)", snr, wfDesc.c_str());
             if ( _cfg.wfFilter.dump )
             {
+                SEISCOMP_DEBUG("Trace has too low SNR (%.2f), discard it (%s)", snr, wfDesc.c_str());
                 writeTrace(trace, waveformFilename(ph, twToLoad) + ".S2Nratio-rejected.debug");
             }
             _excludedWfs.insert(wfId);
