@@ -128,7 +128,7 @@ Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might
 
 At this point we have to configure the other profile options that control the relocation process. Since we are performing a multi event relocation, we have to only configure the `step2options` (see the next paragraph on real time single event relocation to understand step1 and step2 options).
 
-![Relocation options](/img/step2options.png?raw=true "Relocation options")
+![Relocation options](/img/multiEventStep2options.png?raw=true "Relocation options")
 ![Relocation options](/img/xcorr.png?raw=true "Relocation options")  
 
 Once we are happy witht he options, we can relocate the catalog with the command:
