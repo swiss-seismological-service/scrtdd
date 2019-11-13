@@ -255,6 +255,7 @@ class HypoDD : public Core::BaseObject {
         std::string waveformId(const std::string& networkCode, const std::string& stationCode,
                                const std::string& locationCode, const std::string& channelCode,
                                const Core::TimeWindow& tw) const;
+        void printCounters();
 
     private:
         std::string _workingDir;

@@ -452,6 +452,7 @@ string HypoDD::generateWorkingSubDir(const Catalog::Event& ev) const
 void HypoDD::preloadData()
 {
     _counters = {0};
+    unsigned numPhases = 0;
     //
     // Preload waveforms on disk and cache them in memory (pre-processed)
     //
@@ -462,12 +463,16 @@ void HypoDD::preloadData()
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
             const Catalog::Phase& phase = it->second;
+            numPhases++;
             Core::TimeWindow tw = xcorrTimeWindowLong(phase);
             getWaveform(tw, event, phase, _wfCache, _useCatalogDiskCache, true);
         }
     }
-    SEISCOMP_INFO("Finished preloading catalog waveform data: waveforms with Signal to Noise ratio too low %u, "
-                  "waveforms not available %u", _counters.snr_low, _counters.wf_no_avail);
+    SEISCOMP_INFO("Finished preloading catalog waveform data: total phases %u "
+                  "waveforms with Signal to Noise ratio too low %u (%.f%%), "
+                  "waveforms not available %u (%.f%%)", numPhases,
+                  _counters.snr_low, (_counters.snr_low * 100. / numPhases),
+                  _counters.wf_no_avail, (_counters.wf_no_avail * 100. / numPhases) );
 }
 
 
@@ -2148,6 +2153,20 @@ void HypoDD::buildAbsTTimePairs(const CatalogCPtr& catalog,
 
 
 
+void HypoDD::printCounters()
+{
+    SEISCOMP_INFO("Cross correlation statistics: attempted %u performed %u (%.f%%) "
+                  "with good cc coefficient %u (%.f%%) with too low cc coefficient %u (%.f%%) "
+                  "waveforms with Signal to Noise ratio too low %u "
+                  "waveforms not available %u", _counters.xcorr_tot,
+                  _counters.xcorr_performed, _counters.xcorr_performed * 100. / _counters.xcorr_tot,
+                  _counters.xcorr_cc_good,   _counters.xcorr_cc_good * 100. / _counters.xcorr_performed,
+                  _counters.xcorr_cc_low,    _counters.xcorr_cc_low * 100. / _counters.xcorr_performed,
+                  _counters.snr_low, _counters.wf_no_avail);
+}
+
+
+
 /*
  * Compute and store to file differential travel times from cross
  * correlation for pairs of earthquakes.
@@ -2171,11 +2190,7 @@ void HypoDD::createDtCcCatalog(const map<unsigned,CatalogPtr>& neighbourCats,
                                  _wfCache, _useCatalogDiskCache);
     }
 
-    SEISCOMP_INFO("Cross correlation statistics: attempted %u performed %u with good cc coefficient %u "
-                  "with too low cc coefficient %u waveforms with Signal to Noise ratio too low %u "
-                  "waveforms not available %u",
-                  _counters.xcorr_tot, _counters.xcorr_performed, _counters.xcorr_cc_good,
-                  _counters.xcorr_cc_low, _counters.snr_low, _counters.wf_no_avail);
+    printCounters();
 }
 
 
@@ -2200,12 +2215,7 @@ void HypoDD::createDtCcSingleEvent(const CatalogCPtr& catalog,
     buildXcorrDiffTTimePairs(catalog, evToRelocateId, outStream,
                              _wfCache, _useCatalogDiskCache,
                              tmpCahe, false);
-
-    SEISCOMP_INFO("Cross correlation statistics: attempted %u performed %u with good cc coefficient %u "
-                  "with too low cc coefficient %u waveforms with Signal to Noise ratio too low %u "
-                  "waveforms not available %u",
-                  _counters.xcorr_tot, _counters.xcorr_performed, _counters.xcorr_cc_good,
-                  _counters.xcorr_cc_low, _counters.snr_low, _counters.wf_no_avail);
+    printCounters();
 }
 
 
@@ -2402,12 +2412,7 @@ void HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile,
     if (dtCount > 0 )
         outStream << evStream.str();
 
-    SEISCOMP_INFO("Cross correlation statistics: attempted %u performed %u with good cc coefficient %u "
-                  "with too low cc coefficient %u waveforms with Signal to Noise ratio too low %u "
-                  "waveforms not available %u",
-                  _counters.xcorr_tot, _counters.xcorr_performed, _counters.xcorr_cc_good,
-                  _counters.xcorr_cc_low, _counters.snr_low, _counters.wf_no_avail);
-
+    printCounters();
 }
 
 
