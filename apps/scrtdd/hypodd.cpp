@@ -1034,6 +1034,8 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
     string ddresidualFile = (boost::filesystem::path(catalogWorkingDir)/"hypoDD.res").string();
     if ( force || ! Util::fileExists(ddrelocFile) || ! Util::fileExists(ddresidualFile) )
     {
+        boost::filesystem::remove(ddrelocFile);
+        boost::filesystem::remove(ddresidualFile);
         runHypodd(catalogWorkingDir, dtccFile, dtctFile, eventFile, stationFile, _cfg.hypodd.step2CtrlFile);
     }
 
@@ -1049,7 +1051,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
             (boost::filesystem::path(catalogWorkingDir)/"relocated-phase.csv").string(),
             (boost::filesystem::path(catalogWorkingDir)/"relocated-station.csv").string());
     }
-    
+
     if ( _workingDirCleanup ) boost::filesystem::remove_all(catalogWorkingDir);
 
     return relocatedCatalog;
