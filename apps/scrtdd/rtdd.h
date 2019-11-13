@@ -92,9 +92,8 @@ class RTDD : public Application {
         bool processOrigin(DataModel::Origin *origin,
                            DataModel::OriginPtr& relocatedOrg,
                            std::vector<DataModel::PickPtr>& relocatedOrgPicks,
-                           const ProfilePtr& profile, bool recompute=false,
-                           bool forceProcessing=false, bool allowManualOrigin=false,
-                           bool doSend=true);
+                           const ProfilePtr& profile, bool forceProcessing=false,
+                           bool allowManualOrigin=false, bool doSend=true);
 
         void relocateOrigin(DataModel::Origin *org, ProfilePtr profile,
                             DataModel::OriginPtr& newOrg,
