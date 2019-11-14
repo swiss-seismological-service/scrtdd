@@ -508,15 +508,14 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
     // find phases of refEv, let's do it once and keep the results
     const auto& refEvPhases = catalog->getPhases().equal_range(refEv.id);
 
-    SEISCOMP_INFO("Creating missing phases for event %s (current num phases %ld)",
+    SEISCOMP_INFO("Detecting missing phases for event %s (current num phases %ld)",
                   string(refEv).c_str(), std::distance(refEvPhases.first, refEvPhases.second));
 
     //
     // loop through stations and find those for which the refEv doesn't have phases
-    // also compute distance refEv and station 
     //
     typedef std::pair<string,string> MissingStationPhase;
-    map<MissingStationPhase,double> missingPhases;
+    map<MissingStationPhase,const Catalog::Phase*> missingPhases;
     for (const auto& kv : catalog->getStations() )
     {
         const Catalog::Station& station = kv.second;
@@ -528,23 +527,21 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
             if ( station.networkCode == phase.networkCode &&
                  station.stationCode == phase.stationCode)
             {
-                if ( _cfg.artificialPhases.fixAutoPhase && ! phase.isManual )
-                    continue;
-
                 if ( phase.type == "P" ) foundP = true;
                 if ( phase.type == "S" ) foundS = true;
+                if ( _cfg.artificialPhases.fixAutoPhase && ! phase.isManual )
+                {
+                    missingPhases[ MissingStationPhase(station.id,phase.type) ] = &phase;
+                }
             }
             if ( foundP and foundS ) break;
         }
         if ( ! foundP || ! foundS )
         {
-            double stationDistance = computeDistance(refEv.latitude, refEv.longitude, refEv.depth,
-                                                     station.latitude, station.longitude,
-                                                     -(station.elevation/1000.));
             if ( ! foundP )
-                missingPhases[ MissingStationPhase(station.id,"P") ] = stationDistance;
+                missingPhases[ MissingStationPhase(station.id,"P") ] = nullptr;
             if ( ! foundS )
-                missingPhases[ MissingStationPhase(station.id,"S") ] = stationDistance;
+                missingPhases[ MissingStationPhase(station.id,"S") ] = nullptr;
         }
     }
 
@@ -571,15 +568,15 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
     {
         const Catalog::Station& station = catalog->getStations().at(kv.first.first);
         const string phaseType = kv.first.second;
-        const double refEvDistToStation = kv.second;
+        const Catalog::Phase* existingPhase = kv.second;
 
-        SEISCOMP_DEBUG("Event %s: try to detect missing %s phase for station %s (distance %.2f km)",
-                        string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), refEvDistToStation);
+        SEISCOMP_DEBUG("Event %s: try to detect missing %s phase for station %s",
+                        string(refEv).c_str(), phaseType.c_str(), string(station).c_str());
 
         //
         // loop through each other event and select the ones who:
         // - have a manaully picked phase for the missing station
-        // - whose station-distance to inter-events distance ratio is high enough
+        // - whose distance to the reference events is close enough
         //
         typedef std::pair<Catalog::Event, Catalog::Phase> XCorrPeer;
         multimap<double,XCorrPeer> xcorrPeers;
@@ -595,7 +592,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
             const double eventToRefEvDistance = kv.first;
             const Catalog::Event& event = catalog->getEvents().at(kv.second);
 
-            // skip further events
+            // skip distant events
             if ( eventToRefEvDistance > _cfg.artificialPhases.maxIEdist )
                 continue;
 
@@ -632,31 +629,48 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         }
 
         //
-        // from those close by events select the further from the station and the closer
-        // we'll use those two events to compute the interval over which crosscorrelate
-        // to find out the missing phase
+        // Define the cross correlation window in which we look for the new phase
         //
-        Core::TimeSpan closer_travel_time  = xcorrPeers.begin()->first;
-        Core::TimeSpan further_travel_time = xcorrPeers.rbegin()->first;
-
-        if ( closer_travel_time > further_travel_time )
-        {
-            SEISCOMP_WARNING("Event %s: cannot create phase %s for station %s. "
-                             "Internal logic error (closer travel time %.2f further travel time %.2f)",
-                             string(refEv).c_str(), phaseType.c_str(), string(station).c_str(),
-                             closer_travel_time.length(), further_travel_time.length());
-            continue;
-        }
-
         const auto xcorrCfg = _cfg.xcorr.at(phaseType);
-        Core::Time startTime = refEv.time + closer_travel_time  + Core::TimeSpan(xcorrCfg.startOffset);
-        Core::Time endTime   = refEv.time + further_travel_time + Core::TimeSpan(xcorrCfg.endOffset);
-        Core::TimeWindow xcorrTw = Core::TimeWindow(startTime, endTime);
+        Core::TimeWindow xcorrTw;
+        Core::Time phaseTime;
+
+        if ( existingPhase )
+        {
+            Core::Time startTime = existingPhase->time + Core::TimeSpan(xcorrCfg.startOffset);
+            Core::Time endTime   = existingPhase->time + Core::TimeSpan(xcorrCfg.endOffset);
+            xcorrTw   = Core::TimeWindow(startTime, endTime);
+            phaseTime = existingPhase->time;
+        }
+        else
+        {
+            //
+            // from those close by events select the further from the station and the closer
+            // we'll use those two events to compute the interval over which crosscorrelate
+            // to find out the missing phase
+            //
+            Core::TimeSpan closer_travel_time  = xcorrPeers.begin()->first;
+            Core::TimeSpan further_travel_time = xcorrPeers.rbegin()->first;
+
+            if ( closer_travel_time > further_travel_time )
+            {
+                SEISCOMP_WARNING("Event %s: cannot create phase %s for station %s. "
+                                 "Internal logic error (closer travel time %.2f further travel time %.2f)",
+                                 string(refEv).c_str(), phaseType.c_str(), string(station).c_str(),
+                                 closer_travel_time.length(), further_travel_time.length());
+                continue;
+            }
+
+            Core::Time startTime = refEv.time + closer_travel_time  + Core::TimeSpan(xcorrCfg.startOffset);
+            Core::Time endTime   = refEv.time + further_travel_time + Core::TimeSpan(xcorrCfg.endOffset);
+            xcorrTw   = Core::TimeWindow(startTime, endTime);
+            phaseTime = startTime + Core::TimeSpan((endTime - startTime).length() / 2);
+        }
 
         if ( xcorrTw.length() > _cfg.artificialPhases.maxCCtw )
         {
-            startTime = refEv.time - Core::TimeSpan(_cfg.artificialPhases.maxCCtw/2.);
-            endTime   = refEv.time + Core::TimeSpan(_cfg.artificialPhases.maxCCtw/2.);
+            Core::Time startTime = phaseTime - Core::TimeSpan(_cfg.artificialPhases.maxCCtw/2.);
+            Core::Time endTime   = phaseTime + Core::TimeSpan(_cfg.artificialPhases.maxCCtw/2.);
             xcorrTw = Core::TimeWindow(startTime, endTime);
         }
 
@@ -664,7 +678,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
         Catalog::Phase refEvNewPhase;
         refEvNewPhase.eventId      = refEv.id;
         refEvNewPhase.stationId    = station.id;
-        refEvNewPhase.time         = startTime + Core::TimeSpan((endTime - startTime).length() / 2);
+        refEvNewPhase.time         = phaseTime;
         refEvNewPhase.type         = phaseType;
         refEvNewPhase.networkCode  = station.networkCode;
         refEvNewPhase.stationCode  = station.stationCode;
@@ -716,7 +730,9 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
             continue;
         }
 
+        //
         // compute average xcorr coefficient and timedelta
+        //
         double xcorr_coeff_mean = 0, xcorr_dt_mean = 0;
         double xcorr_dt_min = _cfg.artificialPhases.maxCCtw, xcorr_dt_max = -_cfg.artificialPhases.maxCCtw;
         unsigned ccCount = 0;
@@ -730,13 +746,19 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& catalog, const Catalog::Event&
             xcorr_coeff_mean += xcorr_coeff;
             xcorr_dt_mean    += xcorr_dt;
 
-            if ( (xcorr_dt - phase.lowerUncertainty) < xcorr_dt_min)  xcorr_dt_min = xcorr_dt - phase.lowerUncertainty;
-            if ( (xcorr_dt + phase.upperUncertainty) > xcorr_dt_max ) xcorr_dt_max = xcorr_dt + phase.upperUncertainty;
+            xcorr_dt_min = (xcorr_dt - phase.lowerUncertainty) < xcorr_dt_min ?
+                           xcorr_dt - phase.lowerUncertainty : xcorr_dt_min;
+            xcorr_dt_max = (xcorr_dt + phase.upperUncertainty) > xcorr_dt_max ?
+                           xcorr_dt + phase.upperUncertainty : xcorr_dt_max;
 
             if (++ccCount >= _cfg.artificialPhases.numCC) break;
         }
+
         xcorr_coeff_mean /= ccCount;
-        xcorr_dt_mean /= ccCount;
+        if ( ! existingPhase )
+            xcorr_dt_mean /= ccCount;
+        else
+            xcorr_dt_mean /= (ccCount + 1); // closer to automatic pick
 
         // check if we are happy with the cross coefficient
         if ( xcorr_coeff_mean < xcorrCfg.minCoef )
