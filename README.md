@@ -126,8 +126,9 @@ Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might
 
 ![Catalog selection option](/img/catalog-selection2.png?raw=true "Catalog selection from raw file format")
 
-At this point we have to configure the other profile options that control the relocation process. Since we are performing a multi event relocation, we have to only configure the `step2options` (see the next paragraph on real time single event relocation to understand step1 and step2 options).
+At this point we have to configure the other profile options that control the relocation process: `step1options`, which control the creation of catalog absolute travel time entries for pairs of events (dt.ct file in HypoDD terminology), and `step2options`, which control the creation cross correlation differential travel times for pairs of events (dt.cc file in HypoDD terminology).
 
+![Relocation options](/img/multiEventStep1options.png?raw=true "Relocation options")
 ![Relocation options](/img/multiEventStep2options.png?raw=true "Relocation options")
 ![Relocation options](/img/xcorr.png?raw=true "Relocation options")  
 
@@ -138,6 +139,8 @@ scrtdd --reloc-profile profileName
 ```
 
 scrtdd will relocated the catalog and will generate another set of files reloc-event.csv reloc-phase.csv and reloc-stations.csv, which together define a new catalog with relocated origins. At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations, at which point we can finally set the resulting relocated catalog as background catalog in our scrtdd profile (overwriting the previous file triples event.csv, phase.csv, stations.csv that is no longer needed for real time relocation).
+
+![Catalog selection option](/img/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
 We are now ready to perform real time relocation!
 
@@ -222,8 +225,6 @@ Step 1: location refinement. In this step scrtdd performs a preliminary relocati
 Step 2: the refined location is used as starting location to perform a more precise relocation using both catalog absolute travel times (dt.ct) and differential travel times from cross correlation (dt.cc). 
 
 After step2 the relocated origin is sent to the messaging system. If step2 fails, then the relocated origin from step1 is sent to the messaging system. If step1 fails, step2 is attempted anyway.
-
-Note: when performing the multi event (catalog) relocation ("scrtdd --reloc-profile") only step2options are considered.
 
 
 ![Relocation options](/img/step1options.png?raw=true "Relocation options")

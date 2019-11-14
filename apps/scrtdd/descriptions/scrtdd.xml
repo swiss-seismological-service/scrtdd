@@ -206,21 +206,29 @@
 
                     <group name="step1options">
                         <description>
-                            Here are the options that control the step 1 of real-time single event relocation.
-                            Those options are NOT used in multi-event (full catalog) relocation (--relocate-profile
-                            command line option).
-                            The real-time relocation works in two steps: location refinement, in which hypoDD compute
-                            a preliminary relocation of the origin using only catalog absolute travel time entries
-                            for pairs of event (dt.ct in hypoDD terminology) and a final relocation, where scrtdd
-                            performs a more precise relocation using both catalog absolute travel times (dt.ct) and
-                            cross correlation differential travel times (dt.cc) for pairs of earthquakes.
+                            Here are the options that control the creation of catalog absolute travel time entries
+                            for pairs of events (dt.ct file in HypoDD terminology), which are used in step 1 of
+                            real-time single-event relocation and and also in multi-event (full catalog)
+                            relocation (--relocate-profile  command line option).
+                            The real-time relocation works in two steps: location refinement, the first step in
+                            which hypoDD compute a preliminary relocation of the origin using only catalog
+                            absolute travel times (dt.ct), which is controlled by those options, and a second step 
+                            relocation, where scrtdd  performs a more precise relocation using both catalog absolute 
+                            travel times (dt.ct) and cross correlation differential travel times (dt.cc) for pairs 
+                            of earthquakes, which is controlled by step2options.
+                            The multi-event (full catalog) relocation works in one step only, where the relocation
+                            is performed with both catalog absolute travel times (dt.ct) and cross correlation
+                            differential travel times (dt.cc), each one controlled by its respective options 
+                            (step1options and step2options)
                         </description>
                         <group name="clustering">
                             <description>
-                                To build the event pairs used to compute dt.ct and dt.cc, a clustering algorithm is
-                                performed to pair together events that have phases on common stations.
-                                Here it is possible to configure how the clustering is performed, selecting how/what
-                                events and phases will be used.
+                                Those options control the creation of catalog absolute travel time entries
+                                (dt.ct file in HypoDD terminology) and cross correlation differential travel times
+                                (dt.cc file in HypoDD terminology) for pairs of earthquakes. To build the event
+                                pairs a clustering algorithm is performed, joining together events that have phases
+                                on same stations. Here it is possible to configure how the clustering is performed,
+                                selecting how/what events and phases will be used.
                             </description>
                             <parameter name="minNumNeigh" type="int">
                                 <description>
@@ -262,7 +270,11 @@
                                     the  neighboring events are selected from each of the 40 cells.
                                     Note: if numEllipsoids is 0 then the concentric ellipsoid algorithm will not
                                     be used and the events will be selected on nearest neighbor basis within a
-                                    search distance of maxEllipsoidSize
+                                    search distance of maxEllipsoidSize. This is useful when performing multi-event
+                                    relocation to build a background catalog where we seek a network of links between
+                                    events so that there exists a chain of pairwise connected events from any one
+                                    event to any other event, with the distance being as small as possible between
+                                    connected events
                                 </description>
                                 <parameter name="numEllipsoids" type="int" default="5">
                                     <description>
@@ -327,20 +339,29 @@
 
                     <group name="step2options">
                         <description>
-                            Here are the options that control the step 2 of real-time single event relocation and
-                            also the multi-event (full catalog) relocation available via command line --relocate-profile option.
-                            The real-time relocation works in two steps: location refinement, in which hypoDD compute
-                            a preliminary relocation of the origin using only catalog absolute travel time entries
-                            for pairs of event (dt.ct in hypoDD terminology) and a final relocation, where scrtdd
-                            performs a more precise relocation using both catalog absolute travel times (dt.ct) and
-                            cross correlation differential travel times (dt.cc) for pairs of earthquakes.
+                            Here are the options that control the creation cross correlation differential travel
+                            times for pairs of events (dt.cc file in HypoDD terminology), which are used in step 2
+                            of real-time single-event relocation and and also in multi-event (full catalog)
+                            relocation (--relocate-profile  command line option).
+                            The real-time relocation works in two steps: location refinement, the first step in
+                            which hypoDD compute a preliminary relocation of the origin using only catalog
+                            absolute travel times (dt.ct), which is controlled by step1options options, and a
+                            second step relocation, where scrtdd performs a more precise relocation using both
+                            catalog absolute travel times (dt.ct) and cross correlation differential travel times
+                            (dt.cc) for pairs of earthquakes, which is controlled by those options.
+                            The multi-event (full catalog) relocation works in one step only, where the relocation
+                            is performed with both catalog absolute travel times (dt.ct) and cross correlation
+                            differential travel times (dt.cc), each one controlled by its respective options 
+                            (step1options and step2options)
                         </description>
                         <group name="clustering">
                             <description>
-                                To build the event pairs used to compute dt.ct and dt.cc, a clustering algorithm is
-                                performed to pair together events that have phases on common stations.
-                                Here it is possible to configure how the clustering is performed, selecting how/what
-                                events and phases will be used.
+                                Those options control the creation of catalog absolute travel time entries
+                                (dt.ct file in HypoDD terminology) and cross correlation differential travel times
+                                (dt.cc file in HypoDD terminology) for pairs of earthquakes. To build the event
+                                pairs a clustering algorithm is performed, joining together events that have phases
+                                on same stations. Here it is possible to configure how the clustering is performed,
+                                selecting how/what events and phases will be used.
                             </description>
                             <parameter name="minNumNeigh" type="int">
                                 <description>
@@ -382,7 +403,11 @@
                                     the  neighboring events are selected from each of the 40 cells.
                                     Note: if numEllipsoids is 0 then the concentric ellipsoid algorithm will not
                                     be used and the events will be selected on nearest neighbor basis within a
-                                    search distance of maxEllipsoidSize
+                                    search distance of maxEllipsoidSize. This is useful when performing multi-event
+                                    relocation to build a background catalog where we seek a network of links between
+                                    events so that there exists a chain of pairwise connected events from any one
+                                    event to any other event, with the distance being as small as possible between
+                                    connected events
                                 </description>
                                 <parameter name="numEllipsoids" type="int" default="5">
                                     <description>

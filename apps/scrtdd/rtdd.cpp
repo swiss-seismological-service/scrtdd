@@ -469,7 +469,9 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.step1Clustering.minEStoIEratio = 0; } 
 
         prefix = string("profile.") + *it + ".step1options.hypoDD.";
-        prof->ddcfg.hypodd.step1CtrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
+        try {
+            prof->ddcfg.hypodd.step1CtrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
+        } catch ( ... ) { }
 
         prefix = string("profile.") + *it + ".step2options.clustering.";
         prof->ddcfg.step2Clustering.recordStreamURL = recordStreamURL();
