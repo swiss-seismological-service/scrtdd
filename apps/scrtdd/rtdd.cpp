@@ -789,10 +789,14 @@ bool RTDD::run() {
                 profile->load(query(), &_cache, _eventParameters.get(),
                               _config.workingDirectory, !_config.keepWorkingFiles,
                               _config.cacheWaveforms, false);
-                HDD::CatalogPtr relocatedCat = profile->relocateCatalog(overwrite_files);
+                try {
+                    HDD::CatalogPtr relocatedCat = profile->relocateCatalog(overwrite_files);
+                    relocatedCat->writeToFile("reloc-event.csv","reloc-phase.csv","reloc-station.csv");
+                    SEISCOMP_INFO("Wrote files reloc-event.csv, reloc-phase.csv, reloc-station.csv");
+                } catch ( exception &e ) {
+                    SEISCOMP_ERROR("Cannot relocate profile catalog: %s", e.what());
+                }
                 profile->unload();
-                relocatedCat->writeToFile("reloc-event.csv","reloc-phase.csv","reloc-station.csv");
-                SEISCOMP_INFO("Wrote files reloc-event.csv, reloc-phase.csv, reloc-station.csv");
                 break;
             }
         }
