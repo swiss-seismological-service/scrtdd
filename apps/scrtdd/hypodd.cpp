@@ -1556,6 +1556,14 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                    string(refEv).c_str(), refEv.latitude, refEv.longitude, refEv.depth,
                    refEv.magnitude, refEv.time.iso().c_str());
 
+    // Optimization: make code faster but the result will be the same
+    if ( maxNumNeigh <= 0 )
+    {
+        SEISCOMP_DEBUG("Disabling ellipsoid algorithm since maxNumNeigh is not set");
+        numEllipsoids = 0;
+    }
+
+
     // copy catalog since we'll modify it
     CatalogPtr srcCat = new Catalog(*catalog);
 
