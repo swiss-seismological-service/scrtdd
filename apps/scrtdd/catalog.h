@@ -206,16 +206,16 @@ class Catalog : public Core::BaseObject {
         void add(const std::vector<std::string>& ids, DataSource& dataSrc);
         void add(const std::string& idFile, DataSource& dataSrc);
 
-        CatalogPtr merge(const CatalogCPtr& other, bool skipExistingId) const;
-        CatalogPtr extractEvent(unsigned eventId) const;
-        bool copyEvent(const Catalog::Event& event, const CatalogCPtr& eventCatalog, bool keepEvId);
+        CatalogPtr merge(const CatalogCPtr& other, bool keepEvId) const;
+        CatalogPtr extractEvent(unsigned eventId, bool keepEvId) const;
+        unsigned copyEvent(const Catalog::Event& event, const CatalogCPtr& eventCatalog, bool keepEvId);
 
         void removeEvent(const Event& event);
         void removeEvent(unsigned eventId);
         void removePhase(const Phase& phase);
         void removePhase(unsigned eventId, const std::string& stationId, const std::string& type);
 
-        bool addStation(const Station&, bool checkDuplicateValue, bool checkDuplicateId);
+        bool addStation(const Station&, bool checkDuplicate);
         bool addEvent(const Event&, bool checkDuplicateValue, bool checkDuplicateId);
         bool addPhase(const Phase&, bool checkDuplicateValue, bool checkDuplicateId);
 

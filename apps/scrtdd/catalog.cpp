@@ -461,7 +461,7 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
                 sta.latitude = orgArrStation->latitude();
                 sta.longitude = orgArrStation->longitude();
                 sta.elevation = orgArrStation->elevation(); // meter
-                this->addStation(sta, false, false);
+                this->addStation(sta, false);
             }
             // the station has to be there at this point
             sta = this->searchStation(sta)->second;
@@ -538,19 +538,18 @@ void Catalog::add(const std::string& idFile,  DataSource& dataSrc)
 
 
 
-CatalogPtr Catalog::merge(const CatalogCPtr& other, bool skipExistingId) const
+CatalogPtr Catalog::merge(const CatalogCPtr& other, bool keepEvId) const
 {
     CatalogPtr mergedCatalog = new Catalog(*this);
 
     for (const auto& kv :  other->getEvents() )
     {
         const Catalog::Event& event = kv.second;
-        if ( skipExistingId && _events.find(event.id) != _events.end() )
+        if ( keepEvId && _events.find(event.id) != _events.end() )
         {
-            SEISCOMP_DEBUG("Skipping existing event id %u", event.id);
+            SEISCOMP_DEBUG("Skipping duplicated event id %u", event.id);
             continue;
         }
-        bool keepEvId = skipExistingId;
         mergedCatalog->copyEvent(event, other, keepEvId);
     }
 
@@ -559,7 +558,7 @@ CatalogPtr Catalog::merge(const CatalogCPtr& other, bool skipExistingId) const
 
 
 
-CatalogPtr Catalog::extractEvent(unsigned eventId) const
+CatalogPtr Catalog::extractEvent(unsigned eventId, bool keepEvId) const
 {
     CatalogPtr eventToExtract = new Catalog();
 
@@ -571,9 +570,18 @@ CatalogPtr Catalog::extractEvent(unsigned eventId) const
     }
 
     const Catalog::Event& event = search->second;
-    eventToExtract->addEvent(event, false, false);
+    unsigned newEventId;
 
-    unsigned newEventId = eventToExtract->searchEvent(event)->first;
+    if ( keepEvId )
+    {
+        eventToExtract->_events[event.id] = event;
+        newEventId = event.id;
+    }
+    else
+    {
+        eventToExtract->addEvent(event, false, false);
+        newEventId = eventToExtract->searchEvent(event)->first;
+    }
 
     auto eqlrng = this->getPhases().equal_range(event.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
@@ -589,13 +597,10 @@ CatalogPtr Catalog::extractEvent(unsigned eventId) const
             throw runtime_error(msg);
         }
         const Catalog::Station& station = search->second;
-        eventToExtract->addStation(station, true, false);
-        string newStationId = eventToExtract->searchStation(station)->first;
+        eventToExtract->addStation(station, true);
 
         phase.eventId = newEventId;
-        phase.stationId = newStationId;
-
-        eventToExtract->addPhase(phase, true, false);
+        eventToExtract->addPhase(phase, false, false);
     } 
 
     return eventToExtract;
@@ -603,21 +608,23 @@ CatalogPtr Catalog::extractEvent(unsigned eventId) const
 
 
 
-bool Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& evCat, bool keepEvId)
+unsigned Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& evCat, bool keepEvId)
 {
+    unsigned newEventId;
+
     if ( keepEvId )
     {
         if  (_events.find(event.id) != _events.end() )
             throw runtime_error("Cannot add event, internal logic error");
         _events[event.id] = event;
+        newEventId = event.id;
     }
     else
     {
         // don't add an event with same values, but keep merging phases
-        addEvent(event, true, false);
+        addEvent(event, false, false);
+        newEventId = searchEvent(event)->first;
     }
-
-    unsigned newEventId = searchEvent(event)->first;
 
     auto eqlrng = evCat->getPhases().equal_range(event.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
@@ -633,16 +640,13 @@ bool Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& evCat, b
             throw runtime_error(msg);
         }
         const Catalog::Station& station = search->second;
-        addStation(station, true, false);
-        string newStationId = searchStation(station)->first;
+        addStation(station, true);
 
         phase.eventId = newEventId;
-        phase.stationId = newStationId;
-
-        addPhase(phase, true, false);
+        addPhase(phase, false, false);
     }
 
-    return true;
+    return newEventId;
 }
 
 
@@ -756,14 +760,9 @@ map<unsigned,Catalog::Phase>::const_iterator Catalog::searchPhase(const Phase& p
 }
 
 
-bool Catalog::addStation(const Station& station, bool checkDuplicateValue, bool checkDuplicateId)
+bool Catalog::addStation(const Station& station, bool checkDuplicate)
 {
-    if ( checkDuplicateValue && searchStation(station) != _stations.end() )
-    {
-        return false;
-    }
-
-    if ( checkDuplicateId && _stations.find(station.id) != _stations.end() )
+    if ( checkDuplicate && _stations.find(station.id) != _stations.end() )
     {
         return false;
     }

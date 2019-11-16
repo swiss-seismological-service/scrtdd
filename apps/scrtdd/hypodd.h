@@ -154,10 +154,13 @@ class HypoDD : public Core::BaseObject {
         CatalogPtr filterPhasesAndSetWeights(const CatalogCPtr& catalog,
                                    const std::vector<std::string>& PphaseToKeep,
                                    const std::vector<std::string>& SphaseToKeep) const;
-        CatalogPtr createMissingPhases(const CatalogCPtr& catalog);
-        void addMissingEventPhases(CatalogPtr& catalog, const Catalog::Event& refEv);
-        std::vector<Catalog::Phase> findMissingEventPhases(const CatalogCPtr& catalog,
-                                                           const Catalog::Event& refEv);
+        void addMissingPhases(CatalogPtr& catalog);
+        void addMissingEventPhases(const CatalogCPtr& searchCatalog,
+                                   const Catalog::Event& refEv,
+                                   CatalogPtr& refEvCatalog);
+        std::vector<Catalog::Phase> findMissingEventPhases(const CatalogCPtr& searchCatalog,
+                                                           const Catalog::Event& refEv,
+                                                           CatalogPtr& refEvCatalog);
         void createStationDatFile(const CatalogCPtr& catalog, const std::string& staFileName) const;
         void createPhaseDatFile(const CatalogCPtr& catalog, const std::string& phaseFileName) const;
         void createEventDatFile(const CatalogCPtr& catalog, const std::string& eventFileName) const;
@@ -201,6 +204,7 @@ class HypoDD : public Core::BaseObject {
                                         const std::string& ddrelocFile,
                                         const std::string& ddresidualFile="") const;
         CatalogPtr selectNeighbouringEvents(const CatalogCPtr& catalog, const Catalog::Event& refEv,
+                                            const CatalogCPtr& refEvCatalog,
                                             double minPhaseWeight = 0, double minESdis=0,
                                             double maxESdis=-1, double minEStoIEratio=0,
                                             int minDTperEvt=1, int maxDTperEvt=-1,
