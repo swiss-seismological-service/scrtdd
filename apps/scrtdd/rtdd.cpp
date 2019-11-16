@@ -1492,6 +1492,8 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
             newArr->setCreationInfo(ci);
             newArr->setPickID(newPick->publicID());
             newArr->setPhase( phase.relocInfo.isRelocated ? phase.relocInfo.extendedType : phase.type );
+            
+            newOrg->add(newArr);
         }
 
         newArr->setWeight( phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : 0. );
@@ -1525,8 +1527,6 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
             azi.push_back(az);
             usedStations.insert(phase.stationId);
         }
-
-        newOrg->add(newArr);
     }
 
     // finish computing stats
