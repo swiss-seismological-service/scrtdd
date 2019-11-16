@@ -292,6 +292,8 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
                 "Convert the input catalog into XML format. The input can be a single file (containing seiscomp event/origin ids) or a catalog file triplet (station.csv,event.csv,phase.csv)", true);
     NEW_OPT_CLI(_config.mergeCatalogs, "Catalog", "merge-catalogs",
                 "Merge in a single catalog all the catalog file triplets (station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,phase2.csv,...) passed as arguments", true);
+    NEW_OPT_CLI(_config.mergeCatalogs, "Catalog", "merge-catalogs-keepid",
+                "Similar to --merge-catalogs option but events keeps their ids. If multiple events share the same id, subsequent events will be discarded.", true);
 
     NEW_OPT_CLI(_config.originIDs, "SingleEvent", "origin-id,O",
                 "Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed accordingly with the matching profile region unless --profile option is used", true);
@@ -724,11 +726,13 @@ bool RTDD::run() {
             return false;
         }
 
+        bool keepEvId = commandline().hasOption("merge-catalogs-keepid");
+
         HDD::CatalogPtr outCat = new HDD::Catalog();
         for ( size_t i = 0; i < tokens.size(); i+=3 )
         {
             HDD::CatalogPtr cat = new HDD::Catalog(tokens[i+0],tokens[i+1],tokens[i+2],true);
-            outCat = outCat->merge(cat, false);
+            outCat = outCat->merge(cat, keepEvId);
         }
         outCat->writeToFile("merged-event.csv","merged-phase.csv","merged-station.csv");
         SEISCOMP_INFO("Wrote files merged-event.csv, merged-phase.csv, merged-station.csv");
@@ -761,7 +765,7 @@ bool RTDD::run() {
         DataModel::EventParametersPtr evParam = new DataModel::EventParameters();
         for (const auto& kv : cat->getEvents() )
         {
-            HDD::CatalogPtr ev = cat->extractEvent(kv.second.id);
+            HDD::CatalogPtr ev = cat->extractEvent(kv.second.id, true);
             DataModel::OriginPtr newOrg;
             std::vector<DataModel::PickPtr> newOrgPicks;
             convertOrigin(ev, nullptr, nullptr, newOrg, newOrgPicks);
