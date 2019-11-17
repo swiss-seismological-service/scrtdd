@@ -535,7 +535,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& searchCatalog,
                 if ( phase.type == "S" ) foundS = true;
                 if ( _cfg.artificialPhases.fixAutoPhase && ! phase.isManual )
                 {
-                    missingPhases[ MissingStationPhase(station.id,phase.type) ] = &phase;
+                    missingPhases[ MissingStationPhase(station.id,phase.type) ] = nullptr; //&phase; disable this
                 }
             }
             if ( foundP and foundS ) break;
