@@ -51,7 +51,7 @@ Please remember to set the Hypodd array limits (compilation time options availab
 
 New origins will be relocated in real time against a background catalog of high quality locations. Those high quality events that form the background catalog can be already present in seiscompo database or not. In the latter case the background catalog has to be generated. Either way, the catalog has to be specified in scrtdd when configuring it.
 
-![Catalog selection option](/img/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
+![Catalog selection option](/data/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
 
 If we already have a high quality catalog, then we can easily specify it in scrtdd configuration as a path to a file containing a list of origin id or event id (in which case the preferred origin will be used). The file format must be a csv file in which there must be at least one column called seiscompId, from which the ids will be fetched by scrtdd.
 
@@ -124,13 +124,15 @@ eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,sta
 
 Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might perform some editing of those files, if required, then we relocate them. To do so we need to create a new profile inside scrtdd configuration and then we have to set the generated files (event.csv, phase.csv, stations.csv) as the catalog of the profile.
 
-![Catalog selection option](/img/catalog-selection2.png?raw=true "Catalog selection from raw file format")
+![Catalog selection option](/data/catalog-selection2.png?raw=true "Catalog selection from raw file format")
 
 At this point we have to configure the other profile options that control the relocation process: `step1options`, which control the creation of catalog absolute travel time entries for pairs of events (dt.ct file in HypoDD terminology), and `step2options`, which control the creation cross correlation differential travel times for pairs of events (dt.cc file in HypoDD terminology).
 
-![Relocation options](/img/multiEventStep1options.png?raw=true "Relocation options")
-![Relocation options](/img/multiEventStep2options.png?raw=true "Relocation options")
-![Relocation options](/img/xcorr.png?raw=true "Relocation options")  
+![Relocation options](/data/multiEventStep1options.png?raw=true "Relocation options")
+![Relocation options](/data/multiEventStep2options.png?raw=true "Relocation options")
+![Relocation options](/data/xcorr.png?raw=true "Relocation options")  
+
+Inside [this folder](<https://gitlab.seismo.ethz.ch/lucasca/rtdd-addons/tree/master/data>) you can find some example hypoDD configuration files.
 
 Once we are happy witht he options, we can relocate the catalog with the command:
 
@@ -140,7 +142,7 @@ scrtdd --reloc-profile profileName
 
 scrtdd will relocated the catalog and will generate another set of files reloc-event.csv reloc-phase.csv and reloc-stations.csv, which together define a new catalog with relocated origins. At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations, at which point we can finally set the resulting relocated catalog as background catalog in our scrtdd profile (overwriting the previous file triples event.csv, phase.csv, stations.csv that is no longer needed for real time relocation).
 
-![Catalog selection option](/img/catalog-selection3.png?raw=true "Catalog selection from raw file format")
+![Catalog selection option](/data/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
 We are now ready to perform real time relocation!
 
@@ -227,9 +229,9 @@ Step 2: the refined location is used as starting location to perform a more prec
 After step2 the relocated origin is sent to the messaging system. If step2 fails, then the relocated origin from step1 is sent to the messaging system. If step1 fails, step2 is attempted anyway.
 
 
-![Relocation options](/img/step1options.png?raw=true "Relocation options")
-![Relocation options](/img/step2options.png?raw=true "Relocation options")
-![Relocation options](/img/xcorr.png?raw=true "Relocation options")  
+![Relocation options](/data/step1options.png?raw=true "Relocation options")
+![Relocation options](/data/step2options.png?raw=true "Relocation options")
+![Relocation options](/data/xcorr.png?raw=true "Relocation options")  
 
 
 
@@ -288,7 +290,7 @@ recordstream = combined://slink/localhost:18000?timeout=2&retries=0;sdsarchive//
 
 A (re)locator plugin is also avaiable in the code, which makes scrtdd available via scolv. To enable this plugin just add `rtddloc` to the list of plugins in the global configuration.
 
-![Locator plugin](/img/locator-plugin.png?raw=true "Locator plugin")
+![Locator plugin](/data/locator-plugin.png?raw=true "Locator plugin")
 
 ## 6. Troubleshooting
 
