@@ -656,9 +656,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& searchCatalog,
 
         if ( existingPhase )
         {
-            Core::Time startTime = existingPhase->time + Core::TimeSpan(xcorrCfg.startOffset);
-            Core::Time endTime   = existingPhase->time + Core::TimeSpan(xcorrCfg.endOffset);
-            xcorrTw   = Core::TimeWindow(startTime, endTime);
+            xcorrTw = xcorrTimeWindowLong(*existingPhase);
             phaseTime = existingPhase->time;
             streamInfo = { existingPhase->locationCode, existingPhase->channelCode, phaseTime};
         }
