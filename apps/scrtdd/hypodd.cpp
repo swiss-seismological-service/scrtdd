@@ -131,14 +131,21 @@ T nextPowerOf2(T a, T min=1, T max=1<<31)
 
 void writeTrace(GenericRecordPtr trace, string file)
 {
-    std::ofstream ofs(file);
-    IO::MSeedRecord msRec(*trace);
-    int reclen = msRec.data()->size()*msRec.data()->bytes() + 64;
-    reclen = nextPowerOf2<int>(reclen, 128, 1048576); // MINRECLEN 128, MAXRECLEN 1048576
-    if (reclen > 0)
-    {
-        msRec.setOutputRecordLength(reclen);
-        msRec.write(ofs);
+    if ( ! trace )
+        return;
+
+    try {
+        std::ofstream ofs(file);
+        IO::MSeedRecord msRec(*trace);
+        int reclen = msRec.data()->size()*msRec.data()->bytes() + 64;
+        reclen = nextPowerOf2<int>(reclen, 128, 1048576); // MINRECLEN 128, MAXRECLEN 1048576
+        if (reclen > 0)
+        {
+            msRec.setOutputRecordLength(reclen);
+            msRec.write(ofs);
+        }
+    } catch ( exception &e ) {
+        SEISCOMP_WARNING("Couldn't write waveform to disk %s: %s", file.c_str(), e.what());
     }
 }
 
@@ -146,12 +153,20 @@ void writeTrace(GenericRecordPtr trace, string file)
 
 GenericRecordPtr readTrace(string file)
 {
-    std::ifstream ifs(file);
-    IO::MSeedRecord msRec(Array::DOUBLE, Record::Hint::DATA_ONLY);
-    msRec.read(ifs);
-    GenericRecordPtr trace = new GenericRecord(msRec);
-    trace->setData(msRec.data()->clone()); // copy data too
-    return trace;
+    if ( ! Util::fileExists(file) )
+        return nullptr;
+
+    try {
+        std::ifstream ifs(file);
+        IO::MSeedRecord msRec(Array::DOUBLE, Record::Hint::DATA_ONLY);
+        msRec.read(ifs);
+        GenericRecordPtr trace = new GenericRecord(msRec);
+        trace->setData(msRec.data()->clone()); // copy data too
+        return trace;
+    } catch ( exception &e ) {
+        SEISCOMP_WARNING("Couldn't load waveform %s: %s", file.c_str(), e.what());
+        return nullptr;
+    }
 }
 
 
@@ -3122,14 +3137,9 @@ HypoDD::loadWaveform(const Core::TimeWindow& tw,
 
     GenericRecordPtr trace;
     // First try to read trace from disk cache
-    if ( useDiskCache && Util::fileExists(cacheFile) )
+    if ( useDiskCache )
     {
-        try {
-            trace = readTrace(cacheFile);
-        } catch ( ... ) {
-            SEISCOMP_WARNING("Couldn't load cached waveform %s, read it from record stream",
-                             cacheFile.c_str());
-        }
+        trace = readTrace(cacheFile);
     }
 
     // if the trace is not cached then read it from the configured recordStream
@@ -3139,11 +3149,7 @@ HypoDD::loadWaveform(const Core::TimeWindow& tw,
         // then save the trace to disk for later usage
         if ( useDiskCache )
         {
-            try {
-                writeTrace(trace, cacheFile);
-            } catch ( ... ) {
-                SEISCOMP_WARNING("Couldn't write waveform cache to disk %s", cacheFile.c_str());
-            }
+            writeTrace(trace, cacheFile);
         }
     }
 
