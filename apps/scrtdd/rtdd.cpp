@@ -732,7 +732,7 @@ bool RTDD::run() {
         for ( size_t i = 0; i < tokens.size(); i+=3 )
         {
             HDD::CatalogPtr cat = new HDD::Catalog(tokens[i+0],tokens[i+1],tokens[i+2],true);
-            outCat = outCat->merge(cat, keepEvId);
+            outCat->add(*cat, keepEvId);
         }
         outCat->writeToFile("merged-event.csv","merged-phase.csv","merged-station.csv");
         SEISCOMP_INFO("Wrote files merged-event.csv, merged-phase.csv, merged-station.csv");

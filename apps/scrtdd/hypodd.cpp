@@ -1139,7 +1139,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         );
 
         // add event to be relocated to the neighbours
-        unsigned evToRelocateNewId = neighbourCat->copyEvent(evToRelocate, evToRelocateCat, false);
+        unsigned evToRelocateNewId = neighbourCat->add(evToRelocate.id, *evToRelocateCat, false);
 
         // write catalog for debugging purpose
         if ( ! _workingDirCleanup )
@@ -1238,7 +1238,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         );
 
         // add event to the neighbours
-        unsigned refinedLocNewId = neighbourCat->copyEvent(evToRelocate, evToRelocateCat, false);
+        unsigned refinedLocNewId = neighbourCat->add(evToRelocate.id, *evToRelocateCat, false);
 
         // write catalog for debugging purpose
         if ( ! _workingDirCleanup )
@@ -1766,7 +1766,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
             const Catalog::Event& ev = evCat->getEvents().begin()->second;
 
             // add this event to the catalog
-            neighboringEventCat->copyEvent(ev, evCat, true);
+            neighboringEventCat->add(ev.id, *evCat, true);
             numNeighbors++;
             SEISCOMP_DEBUG("Chose neighbour dtCount %2d distance %5.2f azimuth %3.f depth-diff %6.3f depth %5.3f event %s ",
                             dtCountByEvent[ev.id], distanceByEvent[ev.id], azimuthByEvent[ev.id], refEv.depth-ev.depth, ev.depth, string(ev).c_str() );
@@ -1805,7 +1805,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                         if ( found )
                         {
                             // add this event to the catalog
-                            neighboringEventCat->copyEvent(ev, evCat, true);
+                            neighboringEventCat->add(ev.id, *evCat, true);
                             numNeighbors++;
                             selectedEvents.erase(it);
                             SEISCOMP_DEBUG("Chose neighbour ellipsoid %2d quadrant %d dtCount %2d distance %5.2f azimuth %3.f depth-diff %6.3f depth %5.3f event %s ",
@@ -1868,7 +1868,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
         if ( neighbourCat )
         {
             // add event to neighbour catalog list and update the list
-            neighbourCat->copyEvent(event, catalog, true);
+            neighbourCat->add(event.id,*catalog, true);
             neighboursByEvent[event.id] = neighbourCat;
         }
     }

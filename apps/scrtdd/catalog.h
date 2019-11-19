@@ -190,9 +190,18 @@ class Catalog : public Core::BaseObject {
         Catalog();
         virtual ~Catalog() { }
 
+        // copy constructor / assignment operator
         Catalog(const Catalog& other);
+        Catalog& operator=(const Catalog& other);
+
+        // move constructor / assignment operator
+        Catalog(Catalog&& other);
+        Catalog& operator=(Catalog&& other);
 
         // custom data format constructors
+        Catalog(std::map<std::string,Station>&& stations,
+                std::map<unsigned,Event>&& events,
+                std::multimap<unsigned,Phase>&& phases);
         Catalog(const std::map<std::string,Station>& stations,
                 const std::map<unsigned,Event>& events,
                 const std::multimap<unsigned,Phase>& phases);
@@ -206,9 +215,9 @@ class Catalog : public Core::BaseObject {
         void add(const std::vector<std::string>& ids, DataSource& dataSrc);
         void add(const std::string& idFile, DataSource& dataSrc);
 
-        CatalogPtr merge(const CatalogCPtr& other, bool keepEvId) const;
+        void add(const Catalog& other, bool keepEvId);
+        unsigned add(unsigned evId, const Catalog& eventCatalog, bool keepEvId);
         CatalogPtr extractEvent(unsigned eventId, bool keepEvId) const;
-        unsigned copyEvent(const Catalog::Event& event, const CatalogCPtr& eventCatalog, bool keepEvId);
 
         void removeEvent(const Event& event);
         void removeEvent(unsigned eventId);
@@ -244,7 +253,6 @@ class Catalog : public Core::BaseObject {
                                                const Core::Time& atTime);
 
     private:
-        Catalog& operator=(const Catalog& other);
 
         std::map<std::string,Station> _stations; // indexed by station id
         std::map<unsigned,Event> _events; //indexed by event id

@@ -250,20 +250,59 @@ Catalog::Catalog() : Catalog(map<string,Station>(),
 }
 
 
-Catalog::Catalog(const Catalog& other) : Catalog(other.getStations(),
-                                                 other.getEvents(),
-                                                 other.getPhases())
-{
-}
-
 
 Catalog::Catalog(const map<string,Station>& stations,
                  const map<unsigned,Event>& events,
                  const multimap<unsigned,Phase>& phases)
+        : _stations(stations),
+          _events(events),
+          _phases(phases) 
 {
-    _stations = stations;
-    _events = events;
-    _phases = phases;
+}
+
+
+Catalog::Catalog(map<string,Station>&& stations,
+                 map<unsigned,Event>&& events,
+                 multimap<unsigned,Phase>&& phases)
+        : _stations(stations),
+          _events(events),
+          _phases(phases) 
+{
+}
+
+
+
+Catalog::Catalog(const Catalog& other) : Catalog(other._stations,
+                                                 other._events,
+                                                 other._phases)
+{ }
+
+
+
+Catalog::Catalog(Catalog&& other) : Catalog(std::move(other._stations),
+                                            std::move(other._events),
+                                            std::move(other._phases) )
+{ }
+
+
+Catalog& Catalog::operator=(const Catalog& other)
+{
+    if (this == &other) return *this;
+    _stations = other._stations;
+    _events   = other._events;
+    _phases   = other._phases;
+    return *this;
+}
+
+
+
+Catalog& Catalog::operator=(Catalog&& other)
+{
+    if (this == &other) return *this;
+    _stations = std::move(other._stations);
+    _events   = std::move(other._events);
+    _phases   = std::move(other._phases);
+    return *this;
 }
 
 
@@ -538,11 +577,9 @@ void Catalog::add(const std::string& idFile,  DataSource& dataSrc)
 
 
 
-CatalogPtr Catalog::merge(const CatalogCPtr& other, bool keepEvId) const
+void Catalog::add(const Catalog& other, bool keepEvId)
 {
-    CatalogPtr mergedCatalog = new Catalog(*this);
-
-    for (const auto& kv :  other->getEvents() )
+    for (const auto& kv :  other.getEvents() )
     {
         const Catalog::Event& event = kv.second;
         if ( keepEvId && _events.find(event.id) != _events.end() )
@@ -550,10 +587,8 @@ CatalogPtr Catalog::merge(const CatalogCPtr& other, bool keepEvId) const
             SEISCOMP_DEBUG("Skipping duplicated event id %u", event.id);
             continue;
         }
-        mergedCatalog->copyEvent(event, other, keepEvId);
+        this->add(event.id, other, keepEvId);
     }
-
-    return mergedCatalog;
 }
 
 
@@ -608,9 +643,11 @@ CatalogPtr Catalog::extractEvent(unsigned eventId, bool keepEvId) const
 
 
 
-unsigned Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& evCat, bool keepEvId)
+unsigned Catalog::add(unsigned evId, const Catalog& evCat, bool keepEvId)
 {
     unsigned newEventId;
+
+    const Catalog::Event& event = evCat._events.find(evId)->second;
 
     if ( keepEvId )
     {
@@ -626,20 +663,12 @@ unsigned Catalog::copyEvent(const Catalog::Event& event, const CatalogCPtr& evCa
         newEventId = searchEvent(event)->first;
     }
 
-    auto eqlrng = evCat->getPhases().equal_range(event.id);
+    auto eqlrng = evCat._phases.equal_range(event.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
         Catalog::Phase phase = it->second;
 
-        auto search = evCat->getStations().find(phase.stationId);
-        if (search == evCat->getStations().end())
-        {
-            string msg = stringify("Malformed catalog: cannot find station '%s' "
-                                    " referenced by phase '%s'",
-                                   phase.stationId.c_str(), string(phase).c_str());
-            throw runtime_error(msg);
-        }
-        const Catalog::Station& station = search->second;
+        const Catalog::Station& station = evCat._stations.at(phase.stationId); 
         addStation(station, true);
 
         phase.eventId = newEventId;
