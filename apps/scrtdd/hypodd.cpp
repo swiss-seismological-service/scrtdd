@@ -550,7 +550,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& searchCatalog,
                 if ( phase.type == "S" ) foundS = true;
                 if ( _cfg.artificialPhases.fixAutoPhase && ! phase.isManual )
                 {
-                    missingPhases[ MissingStationPhase(station.id,phase.type) ] = nullptr; //&phase; disable this
+                    missingPhases[ MissingStationPhase(station.id,phase.type) ] = &phase;
                 }
             }
             if ( foundP and foundS ) break;
@@ -606,6 +606,9 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& searchCatalog,
             Core::Time time;
         } streamInfo = {"", "", Core::Time()};
 
+        if (existingPhase)
+            streamInfo = { existingPhase->locationCode, existingPhase->channelCode, existingPhase->time};
+
         for (const auto& kv : eventByRefEvDistance)
         {
             const double eventToRefEvDistance = kv.first;
@@ -630,17 +633,18 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& searchCatalog,
                         xcorrPeers.emplace(travel_time, XCorrPeer(event, phase));
                     }
 
-                    if ( (refEv.time - phase.time).abs() < (refEv.time - streamInfo.time).abs() )
+                    if ( ! existingPhase )
                     {
                         // get the closest in time to refEv stream information
-                        streamInfo = {phase.locationCode, phase.channelCode, phase.time};
+                        if ( (refEv.time - phase.time).abs() < (refEv.time - streamInfo.time).abs() )
+                            streamInfo = {phase.locationCode, phase.channelCode, phase.time};
                     }
                     break;
                 }
             }
         }
 
-        if ( xcorrPeers.size() < _cfg.artificialPhases.numCC || xcorrPeers.size() < 2 )
+        if ( (xcorrPeers.size() < _cfg.artificialPhases.numCC) || (xcorrPeers.size() == 1 && ! existingPhase) )
         {
             SEISCOMP_DEBUG("Event %s: cannot create phase %s for station %s. Not enough close-by events",
                            string(refEv).c_str(), phaseType.c_str(), string(station).c_str());
@@ -654,11 +658,11 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& searchCatalog,
         Core::TimeWindow xcorrTw;
         Core::Time phaseTime;
 
-        if ( existingPhase )
+        if ( xcorrPeers.size() == 1 && existingPhase )
         {
+            // if a single xcorrPeers was found, use the existing phase to determine the xcorr time window
             xcorrTw = xcorrTimeWindowLong(*existingPhase);
             phaseTime = existingPhase->time;
-            streamInfo = { existingPhase->locationCode, existingPhase->channelCode, phaseTime};
         }
         else
         {
@@ -773,10 +777,7 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& searchCatalog,
         }
 
         xcorr_coeff_mean /= ccCount;
-        if ( ! existingPhase )
-            xcorr_dt_mean /= ccCount;
-        else
-            xcorr_dt_mean /= (ccCount + 1); // closer to automatic pick
+        xcorr_dt_mean /= ccCount;
 
         // check if we are happy with the cross coefficient
         if ( xcorr_coeff_mean < xcorrCfg.minCoef )
