@@ -292,9 +292,6 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
                 "Convert the input catalog into XML format. The input can be a single file (containing seiscomp event/origin ids) or a catalog file triplet (station.csv,event.csv,phase.csv)", true);
     NEW_OPT_CLI(_config.mergeCatalogs, "Catalog", "merge-catalogs",
                 "Merge in a single catalog all the catalog file triplets (station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,phase2.csv,...) passed as arguments", true);
-    NEW_OPT_CLI(_config.mergeCatalogs, "Catalog", "merge-catalogs-keepid",
-                "Similar to --merge-catalogs option but events keeps their ids. If multiple events share the same id, subsequent events will be discarded.", true);
-
     NEW_OPT_CLI(_config.originIDs, "SingleEvent", "origin-id,O",
                 "Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed accordingly with the matching profile region unless --profile option is used", true);
     NEW_OPT_CLI(_config.eventXML, "SingleEvent", "ep",
@@ -314,9 +311,10 @@ void RTDD::createCommandLineDescription() {
     Application::createCommandLineDescription();
     commandline().addOption("Mode", "dump-config", "Dump the configuration and exit");  
     commandline().addOption<string>("MultiEvents", "ph2dt-path", "Specify path to ph2dt executable", nullptr, false);
-    commandline().addOption<string>("MultiEvents", "use-ph2dt",
-                            "When relocating a catalog use ph2dt. This option requires a ph2dt control file", nullptr, false);
+    commandline().addOption<string>("MultiEvents", "use-ph2dt", "When relocating a catalog use ph2dt. This option requires a ph2dt control file", nullptr, false);
     commandline().addOption("MultiEvents", "no-overwrite", "When relocating a profile don't overwrite existing files in the working directory (avoid re-computation and allow manual editing)");
+    commandline().addOption<string>("Catalog", "merge-catalogs-keepid",
+                "Similar to --merge-catalogs option but events keeps their ids. If multiple events share the same id, subsequent events will be discarded.", nullptr, false);
 }
 
 
@@ -327,6 +325,9 @@ bool RTDD::validateParameters()
 
     if ( !Application::validateParameters() )
         return false;
+
+    if ( commandline().hasOption("merge-catalogs-keepid") )
+         _config.mergeCatalogs = env->absolutePath(commandline().option<string>("merge-catalogs-keepid"));
 
     // Disable messaging (offline mode) with certain command line options:
     if ( !_config.eventXML.empty()        ||
@@ -731,6 +732,7 @@ bool RTDD::run() {
         HDD::CatalogPtr outCat = new HDD::Catalog();
         for ( size_t i = 0; i < tokens.size(); i+=3 )
         {
+            SEISCOMP_INFO("Reading and merging %s, %s, %s", tokens[i+0].c_str(), tokens[i+1].c_str(), tokens[i+2].c_str());
             HDD::CatalogPtr cat = new HDD::Catalog(tokens[i+0],tokens[i+1],tokens[i+2],true);
             outCat->add(*cat, keepEvId);
         }
