@@ -47,11 +47,11 @@ Go to https://www.ldeo.columbia.edu/~felixw/hypoDD.html and dowload hypoDD. Unta
 Please remember to set the Hypodd array limits (compilation time options available via include/*inc files) accordingly with the size of your problem.
 
 
-## 2. Define a background catalog for real time relocations
+## 2. Defining a background catalog for real time relocations
 
 New origins will be relocated in real time against a background catalog of high quality locations. Those high quality events that form the background catalog can be already present in seiscompo database or not. In the latter case the background catalog has to be generated. Either way, the catalog has to be specified in scrtdd when configuring it.
 
-![Catalog selection option](/data/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
+### 2.1. Selecting a background catalog from existing origins or events
 
 If we already have a high quality catalog, then we can easily specify it in scrtdd configuration as a path to a file containing a list of origin id or event id (in which case the preferred origin will be used). The file format must be a csv file in which there must be at least one column called seiscompId, from which the ids will be fetched by scrtdd.
 
@@ -59,16 +59,29 @@ E.g. *file myCatalog.csv*
 
 ```
 seiscompId
-event2019ducmfd
 Origin/20181214107387.056851.253104
-event2019sfamfd
 Origin/20180053105627.031726.697885
 Origin/20190121103332.075405.6234534
-event2019dubnfr
 Origin/20190223103327.031726.346363
+[...]
+```
+or
+
+```
+seiscompId
+event2019ducmfd
+event2019sfamfd
+event2019dubnfr
+[...]
 ```
 
-In the more general case in which we don't already have a background catalog, we have to build one using scrtdd. Generating a background catalog involves two steps: first we select the candidate events that might have low quality locations and then we use scrtdd to relocated those to achieve the quality needed for a background catalog. 
+![Catalog selection option](/data/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
+
+### 2.2. Generating a background catalog
+
+In the more general case in which we don't already have a background catalog, we have to build one using scrtdd. Generating a background catalog involves two steps: first we select the candidate events that might have low quality locations (we still want them to be as accurate as possible and with many phases, e.g. origins from manual picks) and then we use scrtdd to relocated those to achieve the quality needed for a background catalog.
+
+#### 2.2.1 Dumping the candidate events to files
 
 Once the candidate events have been selected, we write their seiscomp ids in a file using the same format as the example above (myCatalog.csv). Once that's done, we run the command:
 
@@ -122,7 +135,11 @@ eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,sta
 1,IVMRGE,2014-01-10T04:46:58.219541Z,0.100,0.100,Pg,IV,MRGE,,HHR,manual
 ```
 
-Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might perform some editing of those files, if required, then we relocate them. To do so we need to create a new profile inside scrtdd configuration and then we have to set the generated files (event.csv, phase.csv, stations.csv) as the catalog of the profile.
+Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might perform some editing of those files, if required, then we relocate them. 
+
+#### 2.2.2 Relocating the candidate events (multi-event mode) to generate a high quality background catalog
+
+To relocate a catalog (multi-event relocation) we need to create a new profile in scrtdd configuration and then we have to set the generated files (event.csv, phase.csv, stations.csv) as the catalog of the profile.
 
 ![Catalog selection option](/data/catalog-selection2.png?raw=true "Catalog selection from raw file format")
 
@@ -140,14 +157,14 @@ Once we are happy witht he options, we can relocate the catalog with the command
 scrtdd --reloc-profile profileName
 ```
 
-scrtdd will relocated the catalog and will generate another set of files reloc-event.csv reloc-phase.csv and reloc-stations.csv, which together define a new catalog with relocated origins. At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations, at which point we can finally set the resulting relocated catalog as background catalog in our scrtdd profile (overwriting the previous file triples event.csv, phase.csv, stations.csv that is no longer needed for real time relocation).
+scrtdd will relocated the catalog and will generate another set of files reloc-event.csv reloc-phase.csv and reloc-stations.csv, which together define a new catalog with relocated origins. At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations. The final files will become the background catalog used in real-time relocation. At this point the profile configuration is not needed anymore, so the profile can be removed from the list of active profiles ('activeProfiles') or it can be updated with real-time configuration.
 
 ![Catalog selection option](/data/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
 We are now ready to perform real time relocation!
+#### 2.2.3 Cross correlation, waveform filtering and signal to noise ratio options
 
-
-Note 1: To help figuring out the right values for cross correlation, waveform filtering and signal to noise ratio options, two command lines options come in handy:
+To help figuring out the right values for cross correlation, waveform filtering and signal to noise ratio options, two command lines options come in handy:
 
 
 ```
@@ -175,13 +192,15 @@ If you want to inspect all the waveforms contained in the catalog, that is not o
 scrtdd --debug-wf --load-profile-wf profileName
 ```
 
+#### 2.2.4 Using ph2dt
 
-Note 2: it is possible to use ph2dt utility to perform the clustering. It this case the scrtdd configuration `step2options.clusteing.*` will not be used. Instead, ph2dt will be run to generate dt.ct file, and for each entry in the generated dt.ct file the cross correlation will be performed and the relative dt.cc file created.
+It is possible to use ph2dt utility to perform the clustering. It this case the scrtdd configuration `step2options.clusteing.*` will not be used. Instead, ph2dt will be run to generate dt.ct file, and for each entry in the generated dt.ct file the cross correlation will be performed and the relative dt.cc file created.
 
 ```
 scrtdd --reloc-profile profileName --use-ph2dt /some/path/ph2dt.inp [--ph2dt-path /some/path/ph2dt]
 ```
 
+#### 2.2.5 Useful options
 
 There are also some other interesting catalong related options:
 
@@ -204,6 +223,10 @@ Catalog:
                                         (station1.csv,event1.csv,phase1.csv,sta
                                         tion2.csv,event2.csv,phase2.csv,...) 
                                         passed as arguments
+  --merge-catalogs-keepid arg           Similar to --merge-catalogs option but 
+                                        events keeps their ids. If multiple 
+                                        events share the same id, subsequent 
+                                        events will be discarded.
 
 MultiEvents:
   --reloc-profile arg                   Relocate the catalog of profile passed 
@@ -216,6 +239,7 @@ MultiEvents:
                                         overwrite existing files in the working
                                         directory (avoid re-computation and 
                                         allow manual editing)
+
 ```
 
 ## 3. Real time single origin relocation
