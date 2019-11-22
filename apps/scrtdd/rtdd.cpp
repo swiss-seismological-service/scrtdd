@@ -1666,6 +1666,16 @@ RTDD::fetchOrigins(const std::string& idFile, std::string options)
         }
     }
 
+    SEISCOMP_INFO("Selecting origins with the following characteristics:");
+    if ( type == "preferred" ) SEISCOMP_INFO("* PREFERRED only"); 
+    if ( type == "first" )  SEISCOMP_INFO("* arrived FIRST");
+    if ( type == "last" ) SEISCOMP_INFO("* arrived LAST"); 
+    if ( automaticOnly ) SEISCOMP_INFO("* AUTOMATIC only");
+    if ( manualOnly ) SEISCOMP_INFO("* MANUAL only");
+    if ( includeCreator != "any" ) SEISCOMP_INFO("* whose author or methodID starts with %s", includeCreator.c_str());
+    if ( excludeCreator != "none" ) SEISCOMP_INFO("* EXCLUDING origins whose author or methodID starts with %s", excludeCreator.c_str()); 
+    if ( profile ) SEISCOMP_INFO("* only origins within %s profile region", profile->name.c_str());
+
     // fetch origins
     vector<DataModel::OriginPtr> origins;
 
