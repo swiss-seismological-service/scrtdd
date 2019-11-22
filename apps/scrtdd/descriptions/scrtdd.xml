@@ -155,7 +155,7 @@
                             catalog, which must contains high quality locations. In full catalog relocation mode
                             (see --relocate-profile command line option) this is the catalog that will be relocated.
                             There are two ways to define a catalog: one is providing an event file containing the ids
-                            of existing events or origins; the second way consists in providing extended information 
+                            of existing origins; the second way consists in providing extended information 
                             (useful when the events are not in the database) and three files are required event, phase
                             and stations.
                             The files must be in csv format with the first line containing the column names. Each file
@@ -166,7 +166,7 @@
                         <parameter name="eventFile" type="path">
                             <description>
                                 Path to event file to be used for this profile.
-                                Seiscomp format required columns: seiscompId (this must be a valide seiscomp3 origin id or event id)
+                                Seiscomp format required columns: seiscompId (this must be a valide seiscomp3 origin id)
                                 Extended format columns: id,isotime,latitude,longitude,depth,magnitude,horiz_err,depth_err,tt_residual
                                 If the extended format is used, then the phase and station files must be provided.
                                 Conversely, if the format used is the one with seiscompId, no other files have to be

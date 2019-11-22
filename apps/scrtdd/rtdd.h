@@ -110,6 +110,8 @@ class RTDD : public Application {
         ProfilePtr getProfile(const DataModel::Origin *origin, const std::string& forceProfile="");
         ProfilePtr getProfile(double latitude, double longitude, const std::string& forceProfile="");
 
+        std::vector<DataModel::OriginPtr> fetchOrigins(const std::string& idFile, std::string options);
+
         struct Config {
             Config();
 

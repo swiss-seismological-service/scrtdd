@@ -244,10 +244,9 @@ class Catalog : public Core::BaseObject {
                          std::string phaseFile,
                          std::string stationFile) const;
 
-    /*
-     *  static
-     */
-
+        //
+        //  static
+        //
         static DataModel::Station* findStation(const std::string& netCode,
                                                const std::string& stationCode,
                                                const Core::Time& atTime);

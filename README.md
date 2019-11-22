@@ -53,7 +53,7 @@ New origins will be relocated in real time against a background catalog of high 
 
 ### 2.1. Selecting a background catalog from existing origins or events
 
-If we already have a high quality catalog, then we can easily specify it in scrtdd configuration as a path to a file containing a list of origin id or event id (in which case the preferred origin will be used). The file format must be a csv file in which there must be at least one column called seiscompId, from which the ids will be fetched by scrtdd.
+If we already have a high quality catalog, then we can easily specify it in scrtdd configuration as a path to a file containing a list of origin id. The file format must be a csv file in which there must be at least one column called seiscompId, from which the ids will be fetched by scrtdd.
 
 E.g. *file myCatalog.csv*
 
@@ -65,15 +65,6 @@ Origin/20190121103332.075405.6234534
 Origin/20190223103327.031726.346363
 [...]
 ```
-or
-
-```
-seiscompId
-event2019ducmfd
-event2019sfamfd
-event2019dubnfr
-[...]
-```
 
 ![Catalog selection option](/data/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
 
@@ -83,15 +74,15 @@ In the more general case in which we don't already have a background catalog, we
 
 #### 2.2.1 Dumping the candidate events to files
 
-Once the candidate events have been selected, we write their seiscomp ids in a file using the same format as the example above (myCatalog.csv). Once that's done, we run the command:
+Once the candidate origins have been selected, we write their seiscomp id in a file using the same format as the example above (myCatalog.csv). Once that's done, we run the command:
 
 ```
 scrtdd --dump-catalog myCatalog.csv
 ```
 
-It is usually convenient to see the logs on the console, for this you can simply add the options ```--verbosity=3 --console=1``` to the command.
+It is usually convenient to see the logs on the console to detect possible errors. To achieve this we can add the options ```--verbosity=3 --console=1``` to the command.
 
-Depending on your configuration, the database could be provided via scmaster instead of global.cfg, in this case you have to pass the database connection via command line option. This is also useful if the events resides on a different database machine. Let's use the -d option to specify the database connection:
+Depending on your configuration, the seiscomp database could be configured inside ```global.cfg``` or provided to the modules via scmaster. In the latter case we have to pass the database connection via command line option since ```--dump-catalog``` detach scrtdd from the messaging. Specifying the database connection via command line is also useful when the events resides on a different seiscomp database. Let's use the -d option to specify the database connection:
 
 ```
 scrtdd --dump-catalog myCatalog.csv  -d  mysql://user:password@host/seiscompDbName

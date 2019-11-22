@@ -313,6 +313,7 @@ void RTDD::createCommandLineDescription() {
     commandline().addOption<string>("MultiEvents", "ph2dt-path", "Specify path to ph2dt executable", nullptr, false);
     commandline().addOption<string>("MultiEvents", "use-ph2dt", "When relocating a catalog use ph2dt. This option requires a ph2dt control file", nullptr, false);
     commandline().addOption("MultiEvents", "no-overwrite", "When relocating a profile don't overwrite existing files in the working directory (avoid re-computation and allow manual editing)");
+    commandline().addOption<string>("Catalog", "dump-catalog-options", "Allows --dump-catalog to accept files with event ids instead of origin ids. For each event id an origin will be selected following the provided options. Format: type,evalmode,includeCreator,excludeCreator,profile. type:'preferred','last','first' evalmode:'any','onlyManual','onlyAutomatic' includeCreator:'any' or author/methodID  excludeCreator:'none' or author/methodID profile:'any' or profileName", nullptr, false);
     commandline().addOption<string>("Catalog", "merge-catalogs-keepid",
                 "Similar to --merge-catalogs option but events keeps their ids. If multiple events share the same id, subsequent events will be discarded.", nullptr, false);
 }
@@ -707,9 +708,19 @@ bool RTDD::run() {
     // dump catalog and exit
     if ( !_config.dumpCatalog.empty() )
     {
+        HDD::CatalogPtr cat(new HDD::Catalog());
         HDD::DataSource dataSrc(query(), &_cache, _eventParameters.get());
-        HDD::CatalogPtr cat = new HDD::Catalog();
-        cat->add(_config.dumpCatalog, dataSrc);
+
+        if ( commandline().hasOption("dump-catalog-options") )
+        {
+            string options = commandline().option<string>("dump-catalog-options");
+            vector<DataModel::OriginPtr> origins = fetchOrigins(_config.dumpCatalog, options);
+            cat->add(origins, dataSrc);
+        }
+        else
+        {
+            cat->add(_config.dumpCatalog, dataSrc);
+        }
         cat->writeToFile("event.csv","phase.csv","station.csv");
         SEISCOMP_INFO("Wrote files event.csv, phase.csv, station.csv");
         return true;
@@ -741,7 +752,7 @@ bool RTDD::run() {
         return true;
     }
 
-    // dump catalog and exit
+    // dump catalog to xml and exit
     if ( !_config.dumpCatalogXML.empty() )
     {
         std::vector<std::string> tokens;
@@ -1615,6 +1626,133 @@ RTDD::getProfile(double latitude, double longitude, const std::string& forceProf
     }
 
     return currProfile;
+}
+
+
+
+std::vector<DataModel::OriginPtr>
+RTDD::fetchOrigins(const std::string& idFile, std::string options)
+{
+    if ( !Util::fileExists(idFile) )
+    {
+        throw runtime_error("File " + idFile + " does not exist");
+    }
+
+    std::vector<std::string> tokens;
+    boost::split(tokens, options, boost::is_any_of(","), boost::token_compress_on);
+    if ( (tokens.size() % 5) != 0)
+    {
+        throw runtime_error("--dump-catalog-options format is: type,evalmode,includeCreator,excludeCreator,profile");
+    }
+    string type           = tokens[0]; // preferred, last, first
+    string evalmode       = tokens[1]; // any, onlyManual, onlyAutomatic
+    string includeCreator = tokens[2]; // any or a author/methodID
+    string excludeCreator = tokens[3]; // none  or a author/methodID
+    string profileName    = tokens[4]; // any or profile name
+
+    bool automaticOnly = (evalmode == "onlyAutomatic");
+    bool manualOnly    = (evalmode == "onlyManual");
+
+    ProfilePtr profile;
+    if ( profileName != "any" )
+    {
+        for ( ProfilePtr p : _profiles )
+        {
+            if ( p->name == profileName )
+            {
+                profile = p;
+                break;
+            }
+        }
+    }
+
+    // fetch origins
+    vector<DataModel::OriginPtr> origins;
+
+    for(const auto& row : CSV::readWithHeader(idFile) )
+    {
+        const string& id = row.at("seiscompId");
+
+        DataModel::OriginPtr org = _cache.get<DataModel::Origin>(id);
+
+        if ( !org )
+        {
+            DataModel::EventPtr ev = _cache.get<DataModel::Event>(id);
+            if ( ev )
+            {
+                vector<DataModel::OriginPtr> eventOrigins;
+
+                if ( type == "preferred" )
+                {
+                    eventOrigins.push_back( _cache.get<DataModel::Origin>(ev->preferredOriginID()) );
+                }
+                else
+                {
+                    query()->loadOriginReferences(ev.get());
+                    for (size_t i = 0; i < ev->originReferenceCount(); i++)
+                    {
+                        DataModel::OriginReference* orgRef = ev->originReference(i);
+                        eventOrigins.push_back( _cache.get<DataModel::Origin>(orgRef->originID()) );
+                    }
+                }
+
+                Core::Time creationTime;
+                for ( DataModel::OriginPtr tmpOrg : eventOrigins )
+                {
+                    if ( ! tmpOrg ) continue;
+
+                    if ( automaticOnly && tmpOrg->evaluationMode() != DataModel::AUTOMATIC )
+                        continue;
+
+                    if ( manualOnly && tmpOrg->evaluationMode() != DataModel::MANUAL )
+                        continue;
+
+                    if ( includeCreator != "any" &&
+                         ! startsWith(tmpOrg->methodID(), includeCreator, true) &&
+                         ! startsWith(tmpOrg->creationInfo().author(), includeCreator, true) )
+                        continue;
+
+                    if ( excludeCreator != "none" &&
+                         (startsWith(tmpOrg->methodID(), excludeCreator, true) ||
+                          startsWith(tmpOrg->creationInfo().author(), excludeCreator, true) ) )
+                        continue;
+
+                    if ( type == "last" && org && (tmpOrg->creationInfo().creationTime() < creationTime) )
+                        continue;
+
+                    if ( type == "first" && org && (tmpOrg->creationInfo().creationTime() > creationTime) )
+                        continue;
+
+                    if ( profile )
+                    {
+                        double latitude, longitude;
+                        try {
+                            latitude  = tmpOrg->latitude().value();
+                            longitude = tmpOrg->longitude().value();
+                        }
+                        catch ( ... ) { continue; }
+
+                        if ( ! profile->region->isInside(latitude, longitude) )
+                            continue;
+                    }
+
+                    org = tmpOrg;
+                    creationTime = org->creationInfo().creationTime();
+                }
+            }
+        }
+
+        if ( !org )
+        {
+            SEISCOMP_INFO("Cannot find an origin for event %s", id.c_str());
+            continue;
+        }
+
+        SEISCOMP_INFO("Found origin %s for event %s", org->publicID().c_str(), id.c_str());
+        origins.push_back(org);
+    }
+
+    return origins;
 }
 
 

@@ -536,15 +536,7 @@ void Catalog::add(const std::vector<std::string>& ids, DataSource& dataSrc)
         DataModel::OriginPtr org = dataSrc.get<DataModel::Origin>(id);
         if ( !org )
         {
-            DataModel::EventPtr ev = dataSrc.get<DataModel::Event>(id);
-            if ( ev )
-            {
-                org = dataSrc.get<DataModel::Origin>(ev->preferredOriginID());
-            }
-        }
-        if ( !org )
-        {
-            SEISCOMP_ERROR("Cannot find origin/event with id %s", id.c_str());
+            SEISCOMP_ERROR("Cannot find origin with id %s", id.c_str());
             continue;
         }
         origins.push_back(org);
@@ -555,7 +547,7 @@ void Catalog::add(const std::vector<std::string>& ids, DataSource& dataSrc)
 
 
 
-void Catalog::add(const std::string& idFile,  DataSource& dataSrc)
+void Catalog::add(const std::string& idFile, DataSource& dataSrc)
 {
     if ( !Util::fileExists(idFile) )
     {
