@@ -970,11 +970,10 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
 {
     SEISCOMP_INFO("Starting HypoDD relocator in multiple events mode");
 
-    CatalogPtr catToReloc = _ddbgc;
+    CatalogPtr catToReloc = new Catalog(*_ddbgc);
 
     if ( _cfg.artificialPhases.enable )
     {
-        catToReloc = new Catalog(*_ddbgc);
         addMissingPhases(catToReloc);
     }
 
@@ -1009,6 +1008,8 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
     string dtctFile = (boost::filesystem::path(catalogWorkingDir)/"dt.ct").string();
     string dtccFile = (boost::filesystem::path(catalogWorkingDir)/"dt.cc").string(); 
 
+    set<unsigned> selectedEvents;
+
     if ( ! usePh2dt )
     {
         // Create event.dat for hypodd (if not already generated)
@@ -1021,14 +1022,16 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
         // Create dt.ct (if not already generated)
         if ( force || ! Util::fileExists(dtctFile) )
         {
-            createDtCtCatalog(catToReloc, dtctFile);
+            map<unsigned,CatalogPtr> neighboursByEvid = createDtCtCatalog(catToReloc, dtctFile);
+            for ( const auto& kv : neighboursByEvid ) selectedEvents.insert(kv.first);
         }
 
         // calculate cross correlated differential travel times
         // Create dt.cc (if not already generated)
         if ( force || ! Util::fileExists(dtccFile) )
         {
-            createDtCcCatalog(catToReloc, dtccFile);
+            map<unsigned,CatalogPtr> neighboursByEvid = createDtCcCatalog(catToReloc, dtccFile);
+            for ( const auto& kv : neighboursByEvid ) selectedEvents.insert(kv.first);
         }
     }
     else
@@ -1060,7 +1063,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
         // output dt.cc
         if ( force || ! Util::fileExists(dtccFile) )
         {
-            createDtCcPh2dt(catToReloc, dtctFile, dtccFile);
+            selectedEvents = createDtCcPh2dt(catToReloc, dtctFile, dtccFile);
         }
     }
 
@@ -1090,6 +1093,17 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
     }
 
     if ( _workingDirCleanup ) boost::filesystem::remove_all(catalogWorkingDir);
+
+
+    // Remove not relocated events or events that were selected only as neighbour
+    vector<unsigned> evIdsToRemove;
+    for (const auto& kv : relocatedCatalog->getEvents() )
+    {
+        const Catalog::Event& ev = kv.second;
+        if ( selectedEvents.count(ev.id) == 0 || ! ev.relocInfo.isRelocated )
+            evIdsToRemove.push_back(ev.id);
+    }
+    for (unsigned evId : evIdsToRemove ) relocatedCatalog->removeEvent(evId);
 
     return relocatedCatalog;
 }
@@ -1956,9 +1970,8 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
         auto search = events.find(eventId);
         if (search == events.end())
         {
-            string msg = stringify("Malformed catalog: cannot find relocated event %u"
-                                   " in the original catalog", eventId);
-            throw runtime_error(msg);
+            // skip events that are not part of the passed catalog
+            continue;
         }
         Catalog::Event& event = search->second;
         event.latitude  = std::stod(fields[1]);
@@ -2076,10 +2089,10 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
 
 /* 
  * Create absolute travel times file (dt.ct) for hypodd
- * This is for full catalog mode
+ * This is for multi-event mode
  */
-void HypoDD::createDtCtCatalog(const CatalogCPtr& catalog,
-                               const string& dtctFile) const
+map<unsigned,CatalogPtr> 
+HypoDD::createDtCtCatalog(const CatalogCPtr& catalog, const string& dtctFile) const
 {
     SEISCOMP_INFO("Creating differential travel time file %s", dtctFile.c_str());
 
@@ -2095,9 +2108,11 @@ void HypoDD::createDtCtCatalog(const CatalogCPtr& catalog,
         _cfg.step1Clustering.minNumNeigh, _cfg.step1Clustering.maxNumNeigh,
         _cfg.step1Clustering.numEllipsoids , _cfg.step1Clustering.maxEllipsoidSize
     );
- 
+
     for (const auto& kv : neighbourCats)
         buildAbsTTimePairs(kv.second, kv.first, outStream);
+
+    return neighbourCats;
 }
 
 
@@ -2222,8 +2237,8 @@ void HypoDD::printCounters()
  * correlation for pairs of earthquakes.
  * This is for full catalog mode
  */
-void HypoDD::createDtCcCatalog(const CatalogCPtr& catalog,
-                               const string& dtccFile)
+map<unsigned,CatalogPtr> 
+HypoDD::createDtCcCatalog(const CatalogCPtr& catalog, const string& dtccFile)
 {
     SEISCOMP_INFO("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
 
@@ -2252,6 +2267,8 @@ void HypoDD::createDtCcCatalog(const CatalogCPtr& catalog,
     }
 
     printCounters();
+
+    return neighbourCats;
 }
 
 
@@ -2361,9 +2378,11 @@ void HypoDD::buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
  * input dt.ct 
  * output dt.cc
  */
-void HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, const string& dtccFile)
+set<unsigned>
+HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, const string& dtccFile)
 {
-    SEISCOMP_INFO("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
+    SEISCOMP_INFO("Creating Cross correlation differential travel time file %s from input file %s",
+                   dtccFile.c_str(), dtctFile.c_str());
 
     if ( !Util::fileExists(dtctFile) )
         throw runtime_error("Unable to perform cross correlation, cannot find file: " + dtctFile);
@@ -2372,7 +2391,9 @@ void HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile,
     if ( !outStream.is_open() )
         throw runtime_error("Cannot create file " + dtccFile);
 
+
     _counters = {0};
+    set<unsigned> selectedEvents;
 
     const std::map<unsigned,Catalog::Event>& events = catalog->getEvents();
     const Catalog::Event *ev1 = nullptr, *ev2 = nullptr;
@@ -2406,13 +2427,16 @@ void HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile,
             auto search2 = events.find(evId2);
             if (search1 == events.end() || search2 == events.end())
             {
-                string msg = stringify("Relocated catalog contains events ids (%s or %s) "
-                                       "that are not present in the original catalog.",
-                                       string(*ev1).c_str(), string(*ev2).c_str());
+                string msg = stringify("Internal logic error: file %s contains events ids (%s or %s) "
+                                       "that are not present in the input catalog.",
+                                       dtctFile.c_str(), string(*ev1).c_str(), string(*ev2).c_str());
                 throw runtime_error(msg.c_str());
             }
             ev1 = &search1->second;
             ev2 = &search2->second;
+
+            selectedEvents.insert(evId1);
+            selectedEvents.insert(evId2);
 
             // write the pairs has been built up to now
             if (dtCount > 0 )
@@ -2474,6 +2498,8 @@ void HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile,
         outStream << evStream.str();
 
     printCounters();
+
+    return selectedEvents;
 }
 
 

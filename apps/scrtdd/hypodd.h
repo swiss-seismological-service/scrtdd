@@ -164,19 +164,19 @@ class HypoDD : public Core::BaseObject {
         void createStationDatFile(const CatalogCPtr& catalog, const std::string& staFileName) const;
         void createPhaseDatFile(const CatalogCPtr& catalog, const std::string& phaseFileName) const;
         void createEventDatFile(const CatalogCPtr& catalog, const std::string& eventFileName) const;
-        void createDtCtCatalog(const CatalogCPtr& catalog,
-                               const std::string& dtctFile) const;
+        std::map<unsigned,CatalogPtr> createDtCtCatalog(const CatalogCPtr& catalog,
+                                                        const std::string& dtctFile) const;
         void createDtCtSingleEvent(const CatalogCPtr& catalog,
                                    unsigned evToRelocateId,
                                    const std::string& dtctFile) const;
         void buildAbsTTimePairs(const CatalogCPtr& catalog,
                                  unsigned evToRelocateId,
                                  std::ofstream& outStream) const;
-        void createDtCcPh2dt(const CatalogCPtr& catalog,
-                             const std::string& dtctFile,
-                             const std::string& dtccFile);
-        void createDtCcCatalog(const CatalogCPtr& catalog,
-                               const std::string& dtccFile);
+        std::set<unsigned> createDtCcPh2dt(const CatalogCPtr& catalog,
+                                           const std::string& dtctFile,
+                                           const std::string& dtccFile);
+        std::map<unsigned,CatalogPtr> createDtCcCatalog(const CatalogCPtr& catalog,
+                                                        const std::string& dtccFile);
         void createDtCcSingleEvent(const CatalogCPtr& catalog,
                                    unsigned evToRelocateId,
                                    const std::string& dtccFile);
