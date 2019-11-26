@@ -1095,14 +1095,16 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
 
     if ( _workingDirCleanup ) boost::filesystem::remove_all(catalogWorkingDir);
 
-
     // Remove not relocated events or events that were selected only as neighbour
     vector<unsigned> evIdsToRemove;
     for (const auto& kv : relocatedCatalog->getEvents() )
     {
         const Catalog::Event& ev = kv.second;
-        if ( selectedEvents.count(ev.id) == 0 || ! ev.relocInfo.isRelocated )
+        if ( ! ev.relocInfo.isRelocated || 
+             ( selectedEvents.count(ev.id) == 0 && selectedEvents.size() > 0 ) )
+        {
             evIdsToRemove.push_back(ev.id);
+        }
     }
     for (unsigned evId : evIdsToRemove ) relocatedCatalog->removeEvent(evId);
 
