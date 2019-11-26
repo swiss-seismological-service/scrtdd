@@ -318,16 +318,20 @@ public:
         _outerEllipsoid.depth = _innerEllipsoid.depth = depth;
     }
 
+    const Ellipsoid& getInnerEllipsoid() const { return _innerEllipsoid; }
+    const Ellipsoid& getOuterEllipsoid() const { return _outerEllipsoid; }
+
     bool isInside(double lat, double lon, double depth, int quadrant/* 1-8 */) const
     {
         // be in the right quadrant and inside the outer layer and outside of the inner one
-        return isInQuadrant(_innerEllipsoid, lat, lon, depth, quadrant) &&
-               _outerEllipsoid.isInside(lat, lon, depth)                &&
-               ! _innerEllipsoid.isInside(lat, lon, depth);
+        return isInQuadrant(_innerEllipsoid, lat, lon, depth, quadrant) &&  isInside(lat, lon, depth);
     }
 
-    const Ellipsoid& getInnerEllipsoid() const { return _innerEllipsoid; }
-    const Ellipsoid& getOuterEllipsoid() const { return _outerEllipsoid; }
+    bool isInside(double lat, double lon, double depth) const
+    {
+        // be inside the outer layer and outside of the inner one
+        return _outerEllipsoid.isInside(lat, lon, depth) && ! _innerEllipsoid.isInside(lat, lon, depth);
+    }
 
     static bool
     isInQuadrant(const Ellipsoid& ellip, double lat, double lon, double depth, int quadrant /* 1-8 */)
@@ -565,17 +569,19 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& searchCatalog,
     }
 
     //
-    // Compute distance between refEv and other events, we will use this in the next step
+    // Select events in maxIEdist range
     //
-    multimap<double,unsigned> eventByRefEvDistance; // distance to refEv, eventid
+    vector<unsigned> eventsInRange;
+    // We'll use a vertically elongated ellipsoid volume to keep into consideration the higher depth uncertainty
+    HddEllipsoid ellipsoid(0, _cfg.artificialPhases.maxIEdist*2, refEv.latitude, refEv.longitude, refEv.depth);
     for (const auto& kv : searchCatalog->getEvents() )
     {
         const Catalog::Event& event = kv.second;
         if (event == refEv)
             continue;
-        double distance = computeDistance(refEv.latitude, refEv.longitude, refEv.depth,
-                                          event.latitude, event.longitude, event.depth);
-        eventByRefEvDistance.emplace(distance, event.id);
+        // keep only events in range.
+        if ( ellipsoid.isInside(event.latitude, event.longitude, event.depth) )
+            eventsInRange.push_back(event.id);
     }
 
     //
@@ -609,14 +615,9 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& searchCatalog,
         if (existingPhase)
             streamInfo = { existingPhase->locationCode, existingPhase->channelCode, existingPhase->time};
 
-        for (const auto& kv : eventByRefEvDistance)
+        for (unsigned evId : eventsInRange)
         {
-            const double eventToRefEvDistance = kv.first;
-            const Catalog::Event& event = searchCatalog->getEvents().at(kv.second);
-
-            // skip distant events
-            if ( eventToRefEvDistance > _cfg.artificialPhases.maxIEdist )
-                continue;
+            const Catalog::Event& event = searchCatalog->getEvents().at(evId);
 
             const auto& phases = searchCatalog->getPhases().equal_range(event.id);
             for (auto it = phases.first; it != phases.second; ++it)
@@ -1600,7 +1601,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
      * ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
      */
     vector<HddEllipsoidPtr> ellipsoids;
-    double verticalSize = maxEllipsoidSize;
+    double verticalSize = maxEllipsoidSize * 2; // horizontal to vertical axis length 
     for (int i = 0; i < (numEllipsoids-1); i++)
     {
         ellipsoids.push_back( new HddEllipsoid(verticalSize, refEv.latitude, refEv.longitude, refEv.depth) );

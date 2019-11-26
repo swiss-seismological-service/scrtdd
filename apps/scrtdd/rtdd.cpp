@@ -456,7 +456,6 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.step1Clustering.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
         } catch ( ... ) { prof->ddcfg.step1Clustering.maxEllipsoidSize = 5; }
-        prof->ddcfg.step1Clustering.maxEllipsoidSize *= 2; // horizontal to vertical axis length
 
         prefix = string("profile.") + *it + ".step1options.clustering.phaseSelection.";
         try {
@@ -499,7 +498,6 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.step2Clustering.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
         } catch ( ... ) { prof->ddcfg.step2Clustering.maxEllipsoidSize = 5; }
-        prof->ddcfg.step2Clustering.maxEllipsoidSize *= 2; // horizontal to vertical axis length
 
         prefix = string("profile.") + *it + ".step2options.clustering.phaseSelection.";
         try {
