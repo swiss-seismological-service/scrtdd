@@ -19,7 +19,7 @@
 </pre>
 # Description
 
-The SCRTDD module is a Seiscomp3 extention module that implements both Real-Time Double-Difference Event relocation and classic offline multi-event (catalog) Double-Difference relocation.
+The SCRTDD is a [Seiscomp3](<https://github.com/SeisComP3/seiscomp3>) extension module that implements both Real-Time Double-Difference Event relocation and classic offline multi-event (catalog) Double-Difference relocation.
 
 The actual methods are described in the paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser and "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Felix Waldhauser et al.
 
