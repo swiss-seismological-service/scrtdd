@@ -19,11 +19,13 @@
 </pre>
 # Description
 
-The SCRTDD module implements a Real Time Double-Difference Event Location method as described in the paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser.
+The SCRTDD module is a Seiscomp3 extention module that implements both Real-Time Double-Difference Event relocation and classic offline multi-event (catalog) Double-Difference relocation.
 
-This module can also be used to perform (non-real-time) full event catalog Double-Difference relocation, which is covered by another paper: "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Felix Waldhauser et al.
+The actual methods are described in the paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser and "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Felix Waldhauser et al.
 
-The actual Double-Difference inversion method is currently performed by the hypoDD software, which has to be installed in the system (currently tested on version 1.3 and 2.1b). We might move away from hypoDD eventually and implement the inversion inside SCRTDD itself. Nevertheless we want to make the transition from hypoDD to SCRTDD software easier and the fact that SCRTDD uses hypoDD internally allows the users to make use of their existing hypoDD experience (configuration, expected behaviour and so on).
+The actual Double-Difference inversion method is currently performed by the hypoDD software, which has to be installed in the system (currently tested on version 1.3 and 2.1b), while scrtdd code deals with the seiscomp3 internal detials allowing the user to quickly and easily perform Double-Difference relocations on existing events or in real-time.
+
+We might move away from hypoDD code eventually and implement the inversion inside SCRTDD itself because of the non-free license of hypoDD. If you believe you have a double difference C++/C/Fortran code implementation that you want to integrate in this module, please let us know. Nevertheless we want to make the transition from hypoDD to SCRTDD software easier and the fact that SCRTDD uses hypoDD internally allows the users to make use of their existing hypoDD experience (configuration, expected behaviour and so on) while learning this new tool.
 
 ## Compile
 
