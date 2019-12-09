@@ -188,14 +188,14 @@
                             </description>
                         </parameter>
 
-                        <parameter name="P-Phases" type="list:string" default="Pg,P">
+                        <parameter name="P-Phases" type="list:string" default="Pg,P,Px">
                             <description>
                                 Defines a priority list of accepted P phases. Phases not in the list will be discarded.
                                 if multiple phases exist for the same event/station pair, the first one in the list will be used.
                             </description>
                         </parameter>
 
-                        <parameter name="S-Phases" type="list:string" default="Sg,S">
+                        <parameter name="S-Phases" type="list:string" default="Sg,S,Sx">
                             <description>
                                 Defines a priority list of accepted S phases. Phases not in this list will be discarded.
                                 if multiple phases exist for the same event/station pair, the first one in the list will be used.
@@ -238,7 +238,9 @@
                             </parameter>
                             <parameter name="maxNumNeigh" type="int">
                                 <description>
-                                    Max number of neighbors used. Further events are discarded. No limit by default.
+                                    Max number of neighbors per event. No limit by default. When setting this
+                                    value make it consistent with numEllipsoids parameter (that is 
+                                    numEllipsoids * 8) if numEllipsoids is not 0
                                 </description>
                             </parameter>
                             <parameter name="minObservationPerEvtPair" type="int" >
@@ -282,7 +284,9 @@
                                 <parameter name="numEllipsoids" type="int" default="5">
                                     <description>
                                         Number of concentric ellipsoidal layers to use in neighboring events 
-                                        selection.
+                                        selection. if maxNumNeigh is not set this parameter does not have effects.
+                                        If maxNumNeigh is used, make it consistent with numEllipsoids 
+                                        (numEllipsoids * 8) if numEllipsoids is not 0
                                     </description>
                                 </parameter>
                                 <parameter name="maxEllipsoidSize" type="double" default="5">
@@ -374,7 +378,9 @@
                             </parameter>
                             <parameter name="maxNumNeigh" type="int">
                                 <description>
-                                    Max number of neighbors used. Further events are discarded. No limit by default.
+                                    Max number of neighbors per event. No limit by default. When setting this
+                                    value make it consistent with numEllipsoids parameter (that is 
+                                    numEllipsoids * 8) if numEllipsoids is not 0
                                 </description>
                             </parameter>
                             <parameter name="minObservationPerEvtPair" type="int" >
@@ -418,7 +424,8 @@
                                 <parameter name="numEllipsoids" type="int" default="5">
                                     <description>
                                         Number of concentric ellipsoidal layers to use in neighboring events 
-                                        selection.
+                                        selection. if maxNumNeigh is not set this parameter does not have effects.
+                                        If maxNumNeigh is used, make it consistent with numEllipsoids (numEllipsoids * 8) if numEllipsoids is not 0
                                     </description>
                                 </parameter>
                                 <parameter name="maxEllipsoidSize" type="double" default="5">

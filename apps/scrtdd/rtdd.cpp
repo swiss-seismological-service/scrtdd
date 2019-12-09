@@ -427,12 +427,12 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.validPphases = configGetStrings(prefix + "P-Phases");
         } catch ( ... ) {
-            prof->ddcfg.validPphases = {"Pg","P"};
+            prof->ddcfg.validPphases = {"Pg","P","Px"};
         }
         try {
             prof->ddcfg.validSphases = configGetStrings(prefix + "S-Phases");
         } catch ( ... ) {
-            prof->ddcfg.validSphases = {"Sg","S"};
+            prof->ddcfg.validSphases = {"Sg","S","Sx"};
         }
 
         prefix = string("profile.") + *it + ".step1options.clustering.";
