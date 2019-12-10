@@ -37,8 +37,8 @@ namespace HDD {
 
 struct Config {
 
-    std::vector<std::string> validPphases = {"Pg,P"};
-    std::vector<std::string> validSphases = {"Sg,S"};
+    std::vector<std::string> validPphases = {"Pg","P","Px"};
+    std::vector<std::string> validSphases = {"Sg","S","Sx"};
 
     // hypodd executable specific
     struct {

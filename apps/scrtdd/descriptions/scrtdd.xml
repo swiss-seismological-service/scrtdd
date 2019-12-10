@@ -232,8 +232,9 @@
                             </description>
                             <parameter name="minNumNeigh" type="int">
                                 <description>
-                                    Min number of neighboring events required to relocate an event.
-                                    Check disabled by default.
+                                    Min number of neighboring events required to relocate an event. Disabled by
+                                    default.
+                                    This is useful to avoid including solutions that are poorly constrained.
                                 </description>
                             </parameter>
                             <parameter name="maxNumNeigh" type="int">
@@ -372,8 +373,9 @@
                             </description>
                             <parameter name="minNumNeigh" type="int">
                                 <description>
-                                    Min number of neighboring events required to relocate an event.
-                                    Check disabled by default.
+                                    Min number of neighboring events required to relocate an event. Disabled by
+                                    default.
+                                    This is useful to avoid including solutions that are poorly constrained.
                                 </description>
                             </parameter>
                             <parameter name="maxNumNeigh" type="int">
@@ -546,20 +548,11 @@
                                         Phases belonging to the events falling in the selected area will be
                                         used for detecting missing phases via cross correlation.
                                    </description>
-                                </parameter>  
+                                </parameter>
                                 <parameter name="numCC" type="int" default="2">
                                     <description>
                                         Number of cross correlations above threshold required to define a new phase.
                                     </description>
-                                </parameter>
-                                <parameter name="maxCCtw" type="double" default="10">
-                                    <description>
-                                        Maximum time window to be used in the cross correlation. This parameter is
-                                        used to restrict the search window, although the actual windows is derived
-                                        from the difference between maximum and minimun travel time of the phases
-                                        belonging to the near by events, which are selected depending on the
-                                        maxEventPairDistance parameter
-                                   </description>
                                 </parameter>
                             </group>
                         </group>
@@ -659,6 +652,25 @@
 
             <group name="Mode">
 
+                <option long-flag="load-profile-wf" argument="arg">
+                    <description>Load catalog waveforms from the configured recordstream and save them in the working directory configured for the profile</description>
+                </option>
+
+                <option long-flag="debug-wf">
+                    <description>Enable the dumping of waveforms (filtered and resampled phases, artificial phases, SNR rejected phases) into the profile working directory ('cacheWaveforms' folder). Useful when run in combination with --load-profile-wf</description>
+                </option>
+ 
+                <option long-flag="expiry" flag="x" argument="hours">
+                    <description>Time span in hours after which objects expire</description>
+                </option>
+
+                <option long-flag="dump-config">
+                    <description>Dump the configuration and exit</description>
+                </option>
+
+            </group>
+            <group name="Catalog">
+
                 <option long-flag="dump-catalog" argument="arg">
                     <description>Dump the seiscomp event/origin id file passed as argument into a catalog file triplet (station.csv,event.csv,phase.csv)</description>
                 </option>
@@ -679,17 +691,8 @@
                     <description>Similar to --merge-catalogs option but events keeps their ids. If multiple events share the same id, subsequent events will be discarded.</description>
                 </option>
 
-                <option long-flag="reloc-profile" argument="arg">
-                    <description>Relocate the catalog of profile passed as argument</description>
-                </option>
-
-                <option long-flag="load-profile-wf" argument="arg">
-                    <description>Load catalog waveforms from the configured recordstream and save them in the working directory configured for the profile</description>
-                </option>
-
-                <option long-flag="debug-wf">
-                    <description>Enable the dumping of waveforms (filtered and resampled phases, artificial phases, SNR rejected phases) into the profile working directory ('cacheWaveforms' folder). Useful when run in combination with --load-profile-wf</description>
-                </option>
+            </group>
+            <group name="SingleEvent">
 
                 <option long-flag="origin-id" flag="O" argument="arg">
                     <description>Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed accordingly with the matching profile region unless --profile option is used</description>
@@ -704,17 +707,20 @@
                 </option>
 
                 <option long-flag="profile" argument="arg">
-                    <description>Force a specific profile to be used</description>
+                    <description>
+                        Force a specific profile to be used when relocating an origin. This overrides the selection 
+                        of profiles based on region information and the initial origin location
+                    </description>
                 </option>
 
-                <option long-flag="expiry" flag="x" argument="hours">
-                    <description>Time span in hours after which objects expire</description>
-                </option>
+            </group>
 
-                <option long-flag="dump-config">
-                    <description>Dump the configuration and exit</description>
-                </option>
+            <group name="MultiEvents">
 
+                <option long-flag="reloc-profile" argument="arg">
+                    <description>Relocate the catalog of profile passed as argument</description>
+                </option>
+ 
                 <option long-flag="ph2dt-path">
                     <description>Specify path to ph2dt executable</description>
                 </option> 
@@ -726,6 +732,7 @@
                 </option> 
 
             </group>
+
         </command-line>
     </module>
 

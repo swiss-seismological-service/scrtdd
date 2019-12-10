@@ -136,15 +136,16 @@ To relocate a catalog (multi-event relocation) we need to create a new profile i
 
 ![Catalog selection option](/data/catalog-selection2.png?raw=true "Catalog selection from raw file format")
 
-At this point we have to configure the other profile options that control the relocation process: `step1options`, which control the creation of catalog absolute travel time entries for pairs of events (dt.ct file in HypoDD terminology), and `step2options`, which control the creation cross correlation differential travel times for pairs of events (dt.cc file in HypoDD terminology).
+At this point we have to configure the other profile options that control the relocation process: `step1options`, which control the creation of catalog absolute travel time entries for pairs of events (dt.ct file in HypoDD terminology), and `step2options`, which control the creation of cross correlated differential travel times for pairs of events (dt.cc file in HypoDD terminology). Even when the clustering options are used with the default values the relocation should work just fine, but some adjustments are worth it. For example:
 
 ![Relocation options](/data/multiEventStep1options.png?raw=true "Relocation options")
 ![Relocation options](/data/multiEventStep2options.png?raw=true "Relocation options")
-![Relocation options](/data/xcorr.png?raw=true "Relocation options")  
 
-Inside [this folder](<https://gitlab.seismo.ethz.ch/lucasca/rtdd-addons/tree/master/data>) you can find some example hypoDD configuration files.
+A more careful selection is required for the cross correlation parameters, which are covered in the next paragraph.
 
-Once we are happy witht he options, we can relocate the catalog with the command:
+In [this folder](<https://gitlab.seismo.ethz.ch/lucasca/rtdd-addons/tree/master/data>) there are some example hypoDD configuration files.
+
+Finally, when the configuration is done, we can relocate the catalog with the command:
 
 ```
 scrtdd --reloc-profile profileName
@@ -155,7 +156,12 @@ scrtdd will relocated the catalog and will generate another set of files reloc-e
 ![Catalog selection option](/data/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
 We are now ready to perform real time relocation!
+
 #### 2.2.3 Cross correlation, waveform filtering and signal to noise ratio options
+
+Those parameters require some time to be correctly set but once they are fixed they can be used for real-time relocation without any major change.
+
+![Relocation options](/data/xcorr.png?raw=true "Relocation options")
 
 To help figuring out the right values for cross correlation, waveform filtering and signal to noise ratio options, two command lines options come in handy:
 
@@ -173,17 +179,29 @@ scrtdd --help
                                         --load-profile-wf
 ```
 
-One way to take adavantage of the options is to add --debug-wf when relocating the catalog and all the used waveforms will be written to disk as miniseed file for inspection:
+One way to take adavantage of the options is to add --debug-wf when relocating the catalog and all the used waveforms will be written to disk as miniseed file for inspection (e.g. scrttv waveformfile.mseed):
 
 ```
 scrtdd --reloc-profile profileName --debug-wf
 ```
 
-If you want to inspect all the waveforms contained in the catalog, that is not only the ones used during multi event relocation, it is possible to use the --load-profile-wf option too. This option is also useful to force scrtdd to load all the waveforms and store them on disk so that they will be already available in real time relocation:
+The waveforms generated with `--debug-wf` will be stored in `workingDirectory/profileName/wfcache/` folder and follow the patters:
+
+* `NET.ST.LOC.CH.startime-endtime.mseed` (raw trace fetched from the configured recordstream)
+* `NET.ST.LOC.CH.startime-endtime.mseed.projected.debug` (raw trace projected accodingly to the pick channel: 123->ZNE->ZRT)
+* `NET.ST.LOC.CH.startime-endtime.mseed.processed.debug` (processed trace with the configured filter and resampling frequency)
+* `NET.ST.LOC.CH.startime-endtime.mseed.S2Nratio-rejected.debug` (procesed trace rejected because of the configured signal to noise ration threshold)
+* `NET.ST.LOC.CH.startime-endtime.mseed.rtdd-detected-P/S-phase-cc-xx.debug` (traces of phases automatically detected by scrtdd when the option `findMissingPhase` is enabled)
+
+
+It is also possible to inspect the waveforms of all phases contained in the catalog, not only the ones used during multi event relocation. Combine the --load-profile-wf option with --debug-wf to achieve this:
 
 ```
 scrtdd --debug-wf --load-profile-wf profileName
 ```
+
+`--load-profile-wf` option is also useful to force the loading of all catalog waveforms from the configured recordstream and store them on disk. This means they will be available in real time relocation wothout the need to access the recordstream.
+
 
 #### 2.2.4 Using ph2dt
 
@@ -248,7 +266,6 @@ After step2 the relocated origin is sent to the messaging system. If step2 fails
 
 ![Relocation options](/data/step1options.png?raw=true "Relocation options")
 ![Relocation options](/data/step2options.png?raw=true "Relocation options")
-![Relocation options](/data/xcorr.png?raw=true "Relocation options")  
 
 
 
@@ -269,6 +286,12 @@ SingleEvent:
                                         will be processed accordingly with the 
                                         matching profile region unless 
                                         --profile option is used
+  --test                                Test mode, no messages are sent
+  --profile arg                         Force a specific profile to be used 
+                                        when relocating an origin. This 
+                                        override the selection of profile based
+                                        on region information and the initial 
+                                        origin location
 
 ```
 

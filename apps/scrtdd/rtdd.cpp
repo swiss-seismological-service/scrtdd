@@ -278,8 +278,6 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT(_config.profileTimeAlive, "performance.profileTimeAlive");
     NEW_OPT(_config.cacheWaveforms, "performance.cacheWaveforms");
 
-    NEW_OPT_CLI(_config.testMode, "Mode", "test", "Test mode, no messages are sent", false, true);
-    NEW_OPT_CLI(_config.forceProfile, "Mode", "profile", "Force a specific profile to be used", true);
     NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
                 "Load catalog waveforms from the configured recordstream and save them into the profile working directory", true);
     NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf", "Enable the saving of waveforms (filtered/resampled, SNR rejected, ZRT projected and scrtdd detected phase) into the profile working directory. Useful when run in combination with --load-profile-wf", false, true);
@@ -296,7 +294,8 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
                 "Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed accordingly with the matching profile region unless --profile option is used", true);
     NEW_OPT_CLI(_config.eventXML, "SingleEvent", "ep",
                 "Event parameters XML file for offline processing of contained origins (imply test option). Each contained origin will be processed accordingly with the matching profile region unless --profile option is used", true);
-
+    NEW_OPT_CLI(_config.testMode, "SingleEvent", "test", "Test mode, no messages are sent", false, true);
+    NEW_OPT_CLI(_config.forceProfile, "SingleEvent", "profile", "Force a specific profile to be used when relocating an origin. This overrides the selection of profiles based on region information and the initial origin location", true); 
     NEW_OPT_CLI(_config.relocateProfile, "MultiEvents", "reloc-profile",
                 "Relocate the catalog of profile passed as argument", true);
 }
@@ -552,9 +551,6 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.artificialPhases.numCC = configGetInt(prefix + "numCC");
         } catch ( ... ) {  prof->ddcfg.artificialPhases.numCC = 2; }
-        try {
-            prof->ddcfg.artificialPhases.maxCCtw = configGetDouble(prefix + "maxCCtw");
-        } catch ( ... ) {  prof->ddcfg.artificialPhases.maxCCtw = 10; }
 
         prefix = string("profile.") + *it + ".step2options.waveformFiltering.";
         try {
