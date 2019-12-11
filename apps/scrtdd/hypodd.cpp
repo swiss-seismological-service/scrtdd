@@ -625,9 +625,10 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& searchCatalog,
                 const Catalog::Phase& phase = it->second;
 
                 if ( station.networkCode == phase.networkCode &&
-                     station.stationCode == phase.stationCode)
+                     station.stationCode == phase.stationCode &&
+                     phaseType           == phase.type  )
                 {
-                    if ( phaseType == phase.type && phase.isManual )
+                    if ( phase.isManual )
                     {
                         // keep track of close events with a phase for the missing station
                         double travel_time = (phase.time - event.time).length();
