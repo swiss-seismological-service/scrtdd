@@ -251,6 +251,9 @@ class Catalog : public Core::BaseObject {
                                                const std::string& stationCode,
                                                const Core::Time& atTime);
 
+        static const int DEFAULT_MANUAL_PICK_UNCERTAINTY    = 0.025;
+        static const int DEFAULT_AUTOMATIC_PICK_UNCERTAINTY = 0.200;
+
     private:
 
         std::map<std::string,Station> _stations; // indexed by station id

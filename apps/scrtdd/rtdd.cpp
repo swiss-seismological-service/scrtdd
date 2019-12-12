@@ -541,10 +541,13 @@ bool RTDD::validateParameters()
         prefix = string("profile.") + *it + ".step2options.crosscorrelation.findMissingPhase.";
         try {
             prof->ddcfg.artificialPhases.enable = configGetBool(prefix + "enable");
-        } catch ( ... ) { prof->ddcfg.artificialPhases.enable = false; }
+        } catch ( ... ) { prof->ddcfg.artificialPhases.enable = true; }
+        try {
+            prof->ddcfg.artificialPhases.useXCorr = configGetBool(prefix + "useXCorr");
+        } catch ( ... ) { prof->ddcfg.artificialPhases.useXCorr = false; }
         try {
             prof->ddcfg.artificialPhases.fixAutoPhase = configGetBool(prefix + "fixAutomaticPhase");
-        } catch ( ... ) { prof->ddcfg.artificialPhases.fixAutoPhase = false; }
+        } catch ( ... ) { prof->ddcfg.artificialPhases.fixAutoPhase = true; }
         try {
             prof->ddcfg.artificialPhases.maxIEdist = configGetDouble(prefix + "maxEventPairDistance");
         } catch ( ... ) {  prof->ddcfg.artificialPhases.maxIEdist = 5; }

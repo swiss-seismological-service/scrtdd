@@ -104,9 +104,11 @@ std::pair<double,double> getPickUncertainty(DataModel::Pick *pick)
     if ( uncertainty.first < 0 && uncertainty.second < 0 )
     {
         try {
-           uncertainty.first = uncertainty.second = (pick->evaluationMode() == Seiscomp::DataModel::MANUAL) ? 0.025 : 0.200;
+           uncertainty.first = uncertainty.second = (pick->evaluationMode() == Seiscomp::DataModel::MANUAL)
+                                                  ? HDD::Catalog::DEFAULT_MANUAL_PICK_UNCERTAINTY
+                                                  : HDD::Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
         } catch ( Core::ValueException& )  {
-           uncertainty.first = uncertainty.second = 0.200;
+           uncertainty.first = uncertainty.second = HDD::Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
         }
     }
 

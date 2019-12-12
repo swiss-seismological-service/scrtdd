@@ -528,30 +528,38 @@
                             </group>
                             <group name="findMissingPhase">
                                 <description>
-                                   Use cross correlation to find undetected event phases on stations
-                                   for which other close by events have phases.
+                                    When cross-correlating, use theoretical phases if the picker phase is missing
                                 </description>
-                                <parameter name="enable" type="boolean" default="false">
+                                <parameter name="enable" type="boolean" default="true">
                                     <description>
-                                        Enable the detected and creation of new phases
+                                        Enable theoretical phase feature
                                    </description>
                                 </parameter>
-                                <parameter name="fixAutomaticPhase" type="boolean" default="false">
+                                <parameter name="useXCorr" type="boolean" default="false">
                                     <description>
-                                        Use cross correlation to improve the picks of existing
-                                        automatic phases (manual phases will be left unchanged)
+                                        The time window around the theoretical pick time is cross correlated with
+                                        phases coming from close by catalog events to detect actual picks.
+                                   </description>
+                                </parameter>
+                                <parameter name="fixAutomaticPhase" type="boolean" default="true">
+                                    <description>
+                                        When useXCorr is enabled, this option try to improve existing automatic
+                                        picks. Phases coming from close by catalog events are firstly cross-correlated
+                                        against the automatic pick and if the correlation coefficients don't
+                                        exceed the threshold than the cross correlation is run against the theoretical
+                                        pick. This option should help removing false picks for an event
                                    </description>
                                 </parameter>
                                 <parameter name="maxEventPairDistance" type="double" default="5">
                                     <description>
-                                        Maximum distance (km) to look for events to be used.
+                                        Maximum distance (km) to look for close by events.
                                         Phases belonging to the events falling in the selected area will be
                                         used for detecting missing phases via cross correlation.
                                    </description>
                                 </parameter>
                                 <parameter name="numCC" type="int" default="2">
                                     <description>
-                                        Number of cross correlations above threshold required to define a new phase.
+                                        Number of cross correlations above threshold required to accept a new phase.
                                     </description>
                                 </parameter>
                             </group>
