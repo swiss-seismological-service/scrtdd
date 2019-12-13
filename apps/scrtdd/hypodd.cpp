@@ -503,6 +503,14 @@ void HypoDD::preloadData()
             numPhases++;
             Core::TimeWindow tw = xcorrTimeWindowLong(phase);
             getWaveform(tw, event, phase, _wfCache, _useCatalogDiskCache, true);
+
+            // for S phases load N component too
+            if ( phase.procInfo.type == "S" && *phase.procInfo.xcorrChannel.rbegin() == 'T')
+            {
+                Catalog::Phase tmpPh = phase;
+                *tmpPh.procInfo.xcorrChannel.rbegin() = 'N';
+                getWaveform(tw, event, tmpPh, _wfCache, _useCatalogDiskCache, true);
+            }
         }
     }
     SEISCOMP_INFO("Finished preloading catalog waveform data: total phases %u "
@@ -595,9 +603,9 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& searchCatalog,
                 const Catalog::Event& event = peer.first;
                 const Catalog::Phase& phase = peer.second;
                 double coeff, lag, weight;
-                if ( xcorr(refEv, *existingPhase, true, _wfCacheTmp, false,
-                           event, phase, true, _wfCache, _useCatalogDiskCache,
-                           coeff, lag, weight) )
+                if ( xcorrPhases(refEv, *existingPhase, true, _wfCacheTmp, false,
+                                 event, phase, true, _wfCache, _useCatalogDiskCache,
+                                 coeff, lag, weight) )
                 {
                     if ( ++goodCC >= _cfg.artificialPhases.numCC )
                         break; // enough good CC
@@ -812,9 +820,9 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
         //double maxDelay = (xcorrTw.length() - twShort.length()) / 2; FIXME
 
         double xcorr_coeff, xcorr_dt, xcorr_weight;
-        if ( ! xcorr(refEv, refEvNewPhase, false, _wfCacheTmp, false,
-                      event, phase, true, _wfCache, _useCatalogDiskCache,
-                      xcorr_coeff, xcorr_dt, xcorr_weight) )
+        if ( ! xcorrPhases(refEv, refEvNewPhase, false, _wfCacheTmp, false,
+                           event, phase, true, _wfCache, _useCatalogDiskCache,
+                           xcorr_coeff, xcorr_dt, xcorr_weight) )
         {
             xcorr_out.emplace(xcorr_coeff, pair<double,Catalog::Phase>(xcorr_dt,phase) );
         }
@@ -2463,9 +2471,9 @@ void HypoDD::buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
                     phase.procInfo.type == refPhase.procInfo.type)
                 {
                     double coeff, dtcc, weight;
-                    if ( xcorr(refEv, refPhase, true, refEvCache, useDiskCacheRefEv,
-                               event, phase, true, catalogCache, useDiskCacheCatalog,
-                               coeff, dtcc, weight) )
+                    if ( xcorrPhases(refEv, refPhase, true, refEvCache, useDiskCacheRefEv,
+                                     event, phase, true, catalogCache, useDiskCacheCatalog,
+                                     coeff, dtcc, weight) )
                     {
                         evStream << stringify("%-12s %.6f %.4f %s", refPhase.stationId.c_str(),
                                               dtcc, weight,  refPhase.procInfo.type.c_str());
@@ -2581,9 +2589,9 @@ HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, cons
                             phase2.procInfo.type == phaseType )
                         {
                             double coeff, dtcc, weight;
-                            if ( xcorr( *ev1, phase1, true, _wfCache, _useCatalogDiskCache,
-                                        *ev2, phase2, true, _wfCache, _useCatalogDiskCache,
-                                        coeff, dtcc, weight) )
+                            if ( xcorrPhases(*ev1, phase1, true, _wfCache, _useCatalogDiskCache,
+                                             *ev2, phase2, true, _wfCache, _useCatalogDiskCache,
+                                             coeff, dtcc, weight) )
                             {
                                 evStream << stringify("%-12s %.6f %.4f %s", stationId.c_str(),
                                                       dtcc, weight, phaseType.c_str());
@@ -2676,13 +2684,44 @@ HypoDD::xcorrTimeWindowShort(const Catalog::Phase& phase) const
 }
 
 
+bool
+HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool checkSnr1,
+                    std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
+                    const Catalog::Event& event2, const Catalog::Phase& phase2, bool checkSnr2,
+                    std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
+                    double& coeffOut, double& lagOut, double& weightOut)
+{
+    bool goodCC = _xcorrPhases(event1, phase1, checkSnr1, cache1, useDiskCache1,
+                               event2, phase2, checkSnr2, cache2, useDiskCache2,
+                               coeffOut, lagOut, weightOut);
+    //
+    // If the cross correlation of S phases failed and we were 
+    // using the T component then we try again on the N component
+    // This helps the scenario of a poor origin location that
+    // results in a bad ZNE->ZRT projection
+    //
+    if ( ! goodCC && phase1.procInfo.type == "S" &&
+         *phase1.procInfo.xcorrChannel.rbegin() == 'T')
+    {
+        Catalog::Phase tmpPh1 = phase1;
+        Catalog::Phase tmpPh2 = phase2;
+        *tmpPh1.procInfo.xcorrChannel.rbegin() = 'N';
+        *tmpPh2.procInfo.xcorrChannel.rbegin() = 'N';
+
+        goodCC = _xcorrPhases(event1, tmpPh1, checkSnr1, cache1, useDiskCache1,
+                              event2, tmpPh2, checkSnr2, cache2, useDiskCache2,
+                              coeffOut, lagOut, weightOut); 
+    }
+    return goodCC;
+}
+
 
 bool
-HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1, bool checkSnr1,
-              std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
-              const Catalog::Event& event2, const Catalog::Phase& phase2, bool checkSnr2,
-              std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
-              double& coeffOut, double& lagOut, double& weightOut)
+HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool checkSnr1,
+                     std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
+                     const Catalog::Event& event2, const Catalog::Phase& phase2, bool checkSnr2,
+                     std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
+                     double& coeffOut, double& lagOut, double& weightOut)
 {
     coeffOut = 0;
     lagOut = 0;

@@ -131,7 +131,7 @@ DEFINE_SMARTPOINTER(HypoDD);
 class HypoDD : public Core::BaseObject {
 
     public:
-    
+
         HypoDD(const CatalogCPtr& catalog, const Config& cfg, const std::string& workingDir);
         virtual ~HypoDD();
 
@@ -152,7 +152,7 @@ class HypoDD : public Core::BaseObject {
         static std::string relocationReport(const CatalogCPtr& relocatedEv);
 
     private:
-    
+
         double computePickWeight(double uncertainty) const;
         double computePickWeight(const Catalog::Phase& phase) const;
         CatalogPtr filterPhasesAndSetWeights(const CatalogCPtr& catalog,
@@ -206,11 +206,16 @@ class HypoDD : public Core::BaseObject {
                                       bool useDiskCacheCatalog,
                                       std::map<std::string,GenericRecordPtr>& refEvCache,
                                       bool useDiskCacheRefEv);
-        bool xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1, bool checkSnr1,
-                   std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
-                   const Catalog::Event& event2, const Catalog::Phase& phase2, bool checkSnr2,
-                   std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
-                   double& coeffOut, double& lagOut, double& weightOut);
+        bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool checkSnr1,
+                         std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
+                         const Catalog::Event& event2, const Catalog::Phase& phase2, bool checkSnr2,
+                         std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
+                         double& coeffOut, double& lagOut, double& weightOut);
+        bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool checkSnr1,
+                         std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
+                         const Catalog::Event& event2, const Catalog::Phase& phase2, bool checkSnr2,
+                         std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
+                         double& coeffOut, double& lagOut, double& weightOut);
         Core::TimeWindow xcorrTimeWindowLong(const Catalog::Phase& phase) const;
         Core::TimeWindow xcorrTimeWindowShort(const Catalog::Phase& phase) const;
         void runHypodd(const std::string& workingDir, const std::string& dtccFile,
