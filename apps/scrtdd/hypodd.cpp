@@ -1272,7 +1272,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
             _ddbgc, evToRelocate, evToRelocateCat, _cfg.step1Clustering.minWeight, _cfg.step1Clustering.minESdist,
             _cfg.step1Clustering.maxESdist, _cfg.step1Clustering.minEStoIEratio,
             _cfg.step1Clustering.minDTperEvt, _cfg.step1Clustering.maxDTperEvt, _cfg.step1Clustering.minNumNeigh,
-            _cfg.step1Clustering.maxNumNeigh, _cfg.step1Clustering.numEllipsoids, _cfg.step1Clustering.maxEllipsoidSize
+            _cfg.step1Clustering.maxNumNeigh, _cfg.step1Clustering.numEllipsoids, _cfg.step1Clustering.maxEllipsoidSize, false
         );
 
         // add event to be relocated to the neighbours
@@ -1378,7 +1378,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
             _ddbgc, evToRelocate, evToRelocateCat, _cfg.step2Clustering.minWeight, _cfg.step2Clustering.minESdist,
             _cfg.step2Clustering.maxESdist, _cfg.step2Clustering.minEStoIEratio,
             _cfg.step2Clustering.minDTperEvt,  _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh,
-            _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids, _cfg.step2Clustering.maxEllipsoidSize
+            _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids, _cfg.step2Clustering.maxEllipsoidSize, true
         );
 
         // add event to the neighbours
@@ -1732,7 +1732,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             int minNumNeigh,
                                             int maxNumNeigh,
                                             int numEllipsoids,
-                                            double maxEllipsoidSize ) const
+                                            double maxEllipsoidSize,
+                                            bool keepUnmatched) const
 {
     SEISCOMP_DEBUG("Selecting Neighbouring Events for event %s lat %.6f lon %.6f depth %.4f mag %.2f time %s",
                    string(refEv).c_str(), refEv.latitude, refEv.longitude, refEv.depth,
@@ -1810,9 +1811,9 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 
         // keep track of station distance
         multimap<double, pair<string,string> > stationByDistance; // distance, <stationid,phaseType>
+        multimap<double, pair<string,string> > unmatchedPhases; // distance, <stationid,phaseType>
 
         // Check enough phases (> minDTperEvt) ?
-        int dtCount = 0;
         auto eqlrng = phases.equal_range(event.id);
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
@@ -1888,29 +1889,53 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 
             if ( ! peer_found )
             {
-                evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
+                // don't delete this phase, because it respects the constraints and if we add
+                // theoretical picks to refEv those phases might become useful for xcorr
+                if ( keepUnmatched )
+                {
+                    unmatchedPhases.emplace(stationDistance, pair<string,string>(phase.stationId, phase.procInfo.type));
+                }
+                else
+                {
+                    evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
+                }
                 continue;
             }
 
-            dtCount++;
             stationByDistance.emplace(stationDistance, pair<string,string>(phase.stationId, phase.procInfo.type));
         }
 
+        int dtCount = stationByDistance.size();
         // if not enought phases skip event
         if ( dtCount < minDTperEvt )
         {
             continue;
         }
 
-        // if maxDTperEvt is set, then remove phases belonging to further stations
-        if ( maxDTperEvt > 0 && dtCount > maxDTperEvt )
+        // if maxDTperEvt is set then make sure to stay within limits
+        if ( maxDTperEvt > 0 )
         {
-            auto first = std::next(stationByDistance.begin(), maxDTperEvt);
-            std::for_each(first, stationByDistance.end(),
-                    [evCat, event](const pair<double,pair<string,string>>& kv) { // kv == <distance, <stationid,phaseType> >
-                        evCat->removePhase(event.id, kv.second.first, kv.second.second); }
-            );
-            dtCount = maxDTperEvt;
+            if ( dtCount > maxDTperEvt )
+            {
+                // remove phases belonging to further stations from matched phases
+                auto first = std::next(stationByDistance.begin(), maxDTperEvt);
+                std::for_each(first, stationByDistance.end(),
+                        [evCat, event](const pair<double,pair<string,string>>& kv) { // kv == <distance, <stationid,phaseType> >
+                            evCat->removePhase(event.id, kv.second.first, kv.second.second); }
+                );
+                dtCount = maxDTperEvt;
+            }
+
+            if ( (dtCount + unmatchedPhases.size()) > maxDTperEvt )
+            {
+                // remove phases belonging to further stations from unmatched phases
+                auto first = std::next(unmatchedPhases.begin(), maxDTperEvt - stationByDistance.size());
+                std::for_each(first, unmatchedPhases.end(),
+                        [evCat, event](const pair<double,pair<string,string>>& kv) { // kv == <distance, <stationid,phaseType> >
+                            evCat->removePhase(event.id, kv.second.first, kv.second.second); }
+                );
+                dtCount = maxDTperEvt;
+            }
         }
 
         // add this event to the selected ones
@@ -2016,7 +2041,8 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                                         int minNumNeigh,
                                         int maxNumNeigh,
                                         int numEllipsoids,
-                                        double maxEllipsoidSize ) const 
+                                        double maxEllipsoidSize,
+                                        bool keepUnmatched) const
 {
     SEISCOMP_INFO("Selecting Catalog Neighbouring Events ");
 
@@ -2033,7 +2059,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
             neighbourCat = selectNeighbouringEvents(
                 catalog, event, catalog, minPhaseWeight, minESdist, maxESdist,
                 minEStoIEratio, minDTperEvt, maxDTperEvt,
-                minNumNeigh, maxNumNeigh, numEllipsoids, maxEllipsoidSize
+                minNumNeigh, maxNumNeigh, numEllipsoids, maxEllipsoidSize, keepUnmatched
             );
         } catch ( ... ) { }
 
@@ -2265,7 +2291,7 @@ HypoDD::createDtCtCatalog(const CatalogCPtr& catalog, const string& dtctFile) co
         _cfg.step1Clustering.minEStoIEratio, 
         _cfg.step1Clustering.minDTperEvt,  _cfg.step1Clustering.maxDTperEvt,
         _cfg.step1Clustering.minNumNeigh, _cfg.step1Clustering.maxNumNeigh,
-        _cfg.step1Clustering.numEllipsoids , _cfg.step1Clustering.maxEllipsoidSize
+        _cfg.step1Clustering.numEllipsoids , _cfg.step1Clustering.maxEllipsoidSize, false
     );
 
     for (const auto& kv : neighbourCats)
@@ -2411,7 +2437,7 @@ HypoDD::createDtCcCatalog(const CatalogCPtr& catalog, const string& dtccFile)
         _cfg.step2Clustering.minEStoIEratio, 
         _cfg.step2Clustering.minDTperEvt,  _cfg.step2Clustering.maxDTperEvt,
         _cfg.step2Clustering.minNumNeigh, _cfg.step2Clustering.maxNumNeigh,
-        _cfg.step2Clustering.numEllipsoids , _cfg.step2Clustering.maxEllipsoidSize
+        _cfg.step2Clustering.numEllipsoids , _cfg.step2Clustering.maxEllipsoidSize, true
     );
 
     SEISCOMP_INFO("Starting Cross correlation...");
