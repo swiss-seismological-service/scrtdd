@@ -1727,6 +1727,9 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         const Catalog::Event& event = events.at(kv.first);
         const double eventDistance = kv.second;
 
+        // if the constraints are met evCat will be added to selectedEvents
+        CatalogPtr evCat = catalog->extractEvent(event.id, true);
+
         // keep track of station distance
         multimap<double, pair<string,string> > stationByDistance; // distance, <stationid,phaseType>
 
@@ -1738,24 +1741,20 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
             const Catalog::Phase& phase = it->second;
 
             // check pick weight
-            if (phase.relocInfo.weight < minPhaseWeight)
-                continue;
-
-            // check events/station distance
-            auto search = stations.find(phase.stationId);
-            if (search == stations.end())
+            if (phase.procInfo.weight < minPhaseWeight)
             {
-                string msg = stringify("Malformed catalog: cannot find station '%s' "
-                                       "referenced by phase '%s' for event %s",
-                                       phase.stationId.c_str(), string(phase).c_str(),
-                                       string(event).c_str());
-                throw runtime_error(msg);
+                evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
+                continue;
             }
 
-            const Catalog::Station& station = search->second;
+            // check events/station distance
+            const Catalog::Station& station = stations.at(phase.stationId);
 
             if ( excludedStations.find(station.id) != excludedStations.end() )
+            {
+                evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
                 continue;
+            }
 
             if ( includedStations.find(station.id) == includedStations.end() )
             {
@@ -1767,12 +1766,14 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                      ( stationDistance < minESdist ) )                    // too close ?
                 {
                     excludedStations.insert(station.id);
+                    evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
                     continue;
                 }
 
                 if ( (stationDistance/eventDistance) < minEStoIEratio ) // ratio too small ?
                 {
                     // since this is dependents on the current event we cannot save it into excludedStations 
+                    evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
                     continue;
                 }
 
@@ -1788,25 +1789,33 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                  ( stationDistance < minESdist )                 ||                  // too close ?
                  ( (stationDistance / eventDistance) < minEStoIEratio ) ) // ratio too small ?
             {
+                evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
                 continue;
             }
 
             // now find corresponding phase in reference event phases
+            bool peer_found = false;
             auto eqlrng2 = refEvCatalog->getPhases().equal_range(refEv.id);
             for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
             {
                 const Catalog::Phase& refPhase = it2->second;
                 if (phase.stationId == refPhase.stationId && 
-                    phase.type == refPhase.type)
+                    phase.procInfo.type == refPhase.procInfo.type)
                 {
-                    if (refPhase.relocInfo.weight >= minPhaseWeight)
-                    {
-                        dtCount++;
-                        stationByDistance.emplace(stationDistance, pair<string,string>(phase.stationId,phase.type));
-                    }
+                    if (refPhase.procInfo.weight >= minPhaseWeight)
+                        peer_found = true;
                     break;
                 }
             }
+
+            if ( ! peer_found )
+            {
+                evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
+                continue;
+            }
+
+            dtCount++;
+            stationByDistance.emplace(stationDistance, pair<string,string>(phase.stationId, phase.procInfo.type));
         }
 
         // if not enought phases skip event
@@ -1814,8 +1823,6 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         {
             continue;
         }
-
-        CatalogPtr evCat = catalog->extractEvent(event.id, true);
 
         // if maxDTperEvt is set, then remove phases belonging to further stations
         if ( maxDTperEvt > 0 && dtCount > maxDTperEvt )
