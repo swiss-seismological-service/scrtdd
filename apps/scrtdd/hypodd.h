@@ -149,6 +149,7 @@ class HypoDD : public Core::BaseObject {
         void setUseCatalogDiskCache(bool cache) { _useCatalogDiskCache = cache; }
         bool useCatalogDiskCache() { return _useCatalogDiskCache; }
 
+        static std::string relocationReport(const CatalogCPtr& relocatedEv);
 
     private:
     

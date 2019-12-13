@@ -1412,16 +1412,8 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     if ( event.relocInfo.isRelocated )
     {
         DataModel::Comment *comment = new DataModel::Comment();
-        comment->setId("scrtdd");
-        comment->setText(
-            stringify("Cross-correlated P phases %d, S phases %d. Rms residual %.3f [sec]\n"
-                      "Catalog P phases %d, S phases %d. Rms residual %.2f [sec]\n"
-                      "Error [km]: East-west %.3f, north-south %.3f, depth %.3f",
-                      event.relocInfo.numCCp, event.relocInfo.numCCs, event.relocInfo.rmsResidualCC,
-                      event.relocInfo.numCTp, event.relocInfo.numCTs, event.relocInfo.rmsResidualCT,
-                      event.relocInfo.lonUncertainty, event.relocInfo.latUncertainty,
-                      event.relocInfo.depthUncertainty)
-        );
+        comment->setId("scrtddRelocationReport");
+        comment->setText(HDD::HypoDD::relocationReport(relocatedOrg));
         newOrg->add(comment);
     }
 
@@ -1497,7 +1489,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
             pickTime.setLowerUncertainty(phase.lowerUncertainty);
             pickTime.setUpperUncertainty(phase.upperUncertainty);
             newPick->setTime(pickTime);
-            newPick->setPhaseHint( DataModel::Phase( phase.relocInfo.isRelocated ? phase.relocInfo.extendedType : phase.type ) );
+            newPick->setPhaseHint( DataModel::Phase(phase.type) );
             newPick->setWaveformID(WaveformStreamID(phase.networkCode, phase.stationCode, phase.locationCode, phase.channelCode, ""));
             newOrgPicks.push_back(newPick);
 
@@ -1505,8 +1497,8 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
             newArr = new Arrival();
             newArr->setCreationInfo(ci);
             newArr->setPickID(newPick->publicID());
-            newArr->setPhase( phase.relocInfo.isRelocated ? phase.relocInfo.extendedType : phase.type );
-            
+            newArr->setPhase(phase.type);
+
             newOrg->add(newArr);
         }
 

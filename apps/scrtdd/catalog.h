@@ -120,6 +120,7 @@ class Catalog : public Core::BaseObject {
                 int numCTs;
                 double rmsResidualCC;
                 double rmsResidualCT;
+                int numNeighbours;
             } relocInfo;
 
             // this equality works between multiple catalogs (same id is not required)
@@ -154,9 +155,11 @@ class Catalog : public Core::BaseObject {
             std::string channelCode;
             bool isManual;
             struct {
-                bool isRelocated = false;
-                std::string extendedType;
+                std::string type;
                 double weight;       // 0-1 interval
+            } procInfo;
+            struct {
+                bool isRelocated = false;
                 double finalWeight;
                 double residual;
             } relocInfo;

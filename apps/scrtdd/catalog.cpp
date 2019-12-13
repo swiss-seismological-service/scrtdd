@@ -373,6 +373,7 @@ Catalog::Catalog(const string& stationFile,
             ev.relocInfo.numCTs           = std::stoi(row.at("numCTs"));
             ev.relocInfo.rmsResidualCC    = std::stod(row.at("residualCC"));
             ev.relocInfo.rmsResidualCT    = std::stod(row.at("residualCT"));
+            ev.relocInfo.numNeighbours    = std::stod(row.at("numNeighbours"));
         }
         _events[ev.id] = ev;
     }
@@ -397,8 +398,7 @@ Catalog::Catalog(const string& stationFile,
         if ( loadRelocationInfo && (row.count("usedInReloc") != 0) && strToBool(row.at("usedInReloc")) )
         {
             ph.relocInfo.isRelocated  = true;
-            ph.relocInfo.extendedType = row.at("extendedType");
-            ph.relocInfo.weight       = std::stod(row.at("initialWeight"));
+            ph.procInfo.weight        = std::stod(row.at("initialWeight"));
             ph.relocInfo.finalWeight  = std::stod(row.at("finalWeight"));
             ph.relocInfo.residual     = std::stod(row.at("residual"));
         }
@@ -496,7 +496,7 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
                     SEISCOMP_ERROR("Cannot load station %s.%s information for arrival '%s' (origin '%s')."
                                    "All picks associated with this station will not be used.",
                                     sta.networkCode.c_str(), sta.stationCode.c_str(),
-                                   orgArr->pickID().c_str(), org->publicID().c_str());
+                                    orgArr->pickID().c_str(), org->publicID().c_str());
                     continue;
                 }
                 sta.latitude = orgArrStation->latitude();
@@ -848,7 +848,7 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
     stringstream evStreamReloc;
 
     evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude,horizontal_err,vertical_err,rms"; 
-    evStreamReloc << evStreamNoReloc.str() << ",relocated,lonUncertainty,latUncertainty,depthUncertainty,numCCp,numCCs,numCTp,numCTs,residualCC,residualCT" << endl;
+    evStreamReloc << evStreamNoReloc.str() << ",relocated,numNeighbours,numCCp,numCCs,numCTp,numCTs,residualCC,residualCT,lonUncertainty,latUncertainty,depthUncertainty" << endl;
     evStreamNoReloc << endl;
 
     bool relocInfo = false;
@@ -867,16 +867,17 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 
         if ( ! ev.relocInfo.isRelocated )
         {
-            evStreamReloc << ",false,,,,,,,,,";
+            evStreamReloc << ",false,,,,,,,,,,";
         }
         else
         {
             relocInfo = true;
-            evStreamReloc <<  stringify(",true,%.6f,%.6f,%.6f,%d,%d,%d,%d,%.4f,%.4f",
-                          ev.relocInfo.lonUncertainty, ev.relocInfo.latUncertainty,
-                          ev.relocInfo.depthUncertainty, ev.relocInfo.numCCp,
-                          ev.relocInfo.numCCs, ev.relocInfo.numCTp, ev.relocInfo.numCTs,
-                          ev.relocInfo.rmsResidualCC, ev.relocInfo.rmsResidualCT);
+            evStreamReloc <<  stringify(",true,%d,%d,%d,%d,%d,%.4f,%.4f,%.6f,%.6f,%.6f",
+                                  ev.relocInfo.numNeighbours, ev.relocInfo.numCCp, ev.relocInfo.numCCs,
+                                  ev.relocInfo.numCTp, ev.relocInfo.numCTs,
+                                  ev.relocInfo.rmsResidualCC, ev.relocInfo.rmsResidualCT, 
+                                  ev.relocInfo.lonUncertainty, ev.relocInfo.latUncertainty,
+                                  ev.relocInfo.depthUncertainty );
         }
         evStreamReloc << endl;
     }
@@ -892,7 +893,7 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
     phStream << "eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode,evalMode";
     if (relocInfo)
     {
-        phStream << ",usedInReloc,extendedType,initialWeight,finalWeight,residual";
+        phStream << ",usedInReloc,initialWeight,finalWeight,residual";
     }
     phStream << endl;
 
@@ -910,13 +911,12 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
         {
             if ( ! ph.relocInfo.isRelocated )
             {
-                phStream << ",false,,,,";
+                phStream << ",false,,,";
             }
             else
             {
-                phStream << stringify(",true,%s,%.4f,%.3f,%.3f",
-                        ph.relocInfo.extendedType.c_str(), ph.relocInfo.weight, 
-                        ph.relocInfo.finalWeight, ph.relocInfo.residual);
+                phStream << stringify(",true,%.4f,%.3f,%.3f", ph.procInfo.weight,
+                                      ph.relocInfo.finalWeight, ph.relocInfo.residual);
             }
         }
         phStream << endl;

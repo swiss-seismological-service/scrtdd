@@ -533,7 +533,7 @@ HypoDD::addMissingEventPhases(const CatalogCPtr& searchCatalog,
     std::vector<Catalog::Phase> newPhases = findMissingEventPhases(searchCatalog, refEv, refEvCatalog);
     for (Catalog::Phase& ph : newPhases)
     {
-        refEvCatalog->removePhase(ph.eventId, ph.stationId, ph.type);
+        refEvCatalog->removePhase(ph.eventId, ph.stationId, ph.procInfo.type);
         refEvCatalog->addPhase(ph, false, false);
         const Catalog::Station& station = searchCatalog->getStations().at(ph.stationId);
         refEvCatalog->addStation(station, true);
@@ -663,11 +663,11 @@ HypoDD::getMissingPhases(const CatalogCPtr& searchCatalog,
             if ( station.networkCode == phase.networkCode &&
                  station.stationCode == phase.stationCode)
             {
-                if ( phase.type == "P" ) foundP = true;
-                if ( phase.type == "S" ) foundS = true;
+                if ( phase.procInfo.type == "P" ) foundP = true;
+                if ( phase.procInfo.type == "S" ) foundS = true;
                 if ( getAutoPhase && ! phase.isManual )
                 {
-                    missingPhases[ MissingStationPhase(station.id,phase.type) ] = &phase;
+                    missingPhases[ MissingStationPhase(station.id,phase.procInfo.type) ] = &phase;
                 }
             }
             if ( foundP and foundS ) break;
@@ -734,7 +734,7 @@ HypoDD::findPhasePeers(const Catalog::Station& station, const std::string& phase
 
             if ( station.networkCode == phase.networkCode &&
                  station.stationCode == phase.stationCode &&
-                 phaseType           == phase.type )
+                 phaseType           == phase.procInfo.type )
             {
                 if ( phase.isManual )
                 {
@@ -772,12 +772,12 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
     // initialize the new phase
     refEvNewPhase.eventId      = refEv.id;
     refEvNewPhase.stationId    = station.id;
-    refEvNewPhase.type         = phaseType;
     refEvNewPhase.networkCode  = station.networkCode;
     refEvNewPhase.stationCode  = station.stationCode;
     //refEvNewPhase.locationCode = streamInfo.locationCode;   FIXME
     //refEvNewPhase.channelCode  = streamInfo.channelCode;    FIXME
     refEvNewPhase.isManual     = false;
+    refEvNewPhase.procInfo.type = phaseType;
 
     // use phase velocity to compute phase time
     double stationDistance = computeDistance(refEv, station);
@@ -787,8 +787,8 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
     {
         refEvNewPhase.lowerUncertainty = Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
         refEvNewPhase.upperUncertainty = Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
-        refEvNewPhase.relocInfo.weight = computePickWeight(refEvNewPhase);
-        refEvNewPhase.relocInfo.extendedType = refEvNewPhase.type + "t";
+        refEvNewPhase.procInfo.weight = computePickWeight(refEvNewPhase);
+        refEvNewPhase.type = phaseType + "t";
         return true;
     }
 
@@ -868,11 +868,11 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
     refEvNewPhase.time  += Core::TimeSpan(xcorr_dt_mean);
     refEvNewPhase.lowerUncertainty = xcorr_dt_mean - xcorr_dt_min;
     refEvNewPhase.upperUncertainty = xcorr_dt_max - xcorr_dt_mean;
-    refEvNewPhase.relocInfo.weight = computePickWeight(refEvNewPhase);
-    refEvNewPhase.relocInfo.extendedType = refEvNewPhase.type + "x";
+    refEvNewPhase.procInfo.weight = computePickWeight(refEvNewPhase);
+    refEvNewPhase.type = phaseType + "x";
 
     SEISCOMP_INFO("Event %s: new phase %s for station %s created with weight %.2f (average crosscorrelation coefficient %.2f over %d close-by events)",
-                  string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), refEvNewPhase.relocInfo.weight, xcorr_coeff_mean, numCC);
+                  string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), refEvNewPhase.procInfo.weight, xcorr_coeff_mean, numCC);
 
     if ( _cfg.wfFilter.dump )
     {
@@ -1021,17 +1021,15 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
     for (auto& it : filteredP)
     {
         Catalog::Phase& phase = it.second;
-        phase.relocInfo.weight = computePickWeight(phase);
-        phase.relocInfo.extendedType = phase.type;
-        phase.type = "P";
+        phase.procInfo.weight = computePickWeight(phase);
+        phase.procInfo.type = "P";
         filteredPhases.emplace(phase.eventId, phase);
     }
     for (auto& it : filteredS)
     {
         Catalog::Phase& phase = it.second;
-        phase.relocInfo.weight = computePickWeight(phase);
-        phase.relocInfo.extendedType = phase.type;
-        phase.type = "S";
+        phase.procInfo.weight = computePickWeight(phase);
+        phase.procInfo.type = "S";
         filteredPhases.emplace(phase.eventId, phase);
     }
 
@@ -1285,7 +1283,12 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         SEISCOMP_ERROR("%s", e.what());
     }
 
-    if ( ! relocatedEvCat )
+    if ( relocatedEvCat )
+    {
+        SEISCOMP_INFO("Step 1 relocation successful");
+        SEISCOMP_INFO("%s", relocationReport(relocatedEvCat).c_str() );
+    }
+    else
     {
         SEISCOMP_ERROR("Failed to perform step 1 origin relocation");
     }
@@ -1384,21 +1387,43 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         SEISCOMP_ERROR("%s", e.what());
     }
 
-    if ( ! relocatedEvWithXcorr )
+    if ( relocatedEvWithXcorr )
+    {
+        SEISCOMP_INFO("Step 2 relocation successful");
+        SEISCOMP_INFO("%s", relocationReport(relocatedEvWithXcorr).c_str() );
+    }
+    else
     {
         SEISCOMP_ERROR("Failed to perform step 2 origin relocation");
     }
 
+    _wfCacheTmp.clear(); // cleared at the end of each relocation
+ 
     if ( ! relocatedEvWithXcorr && ! relocatedEvCat )
         throw runtime_error("Failed both step1 and step2 origin relocation");
 
     if ( _workingDirCleanup ) boost::filesystem::remove_all(subFolder);
 
-    _wfCacheTmp.clear(); // cleared at the end of each relocation
-
     return relocatedEvWithXcorr ? relocatedEvWithXcorr : relocatedEvCat;
 }
 
+string HypoDD::relocationReport(const CatalogCPtr& relocatedEv)
+{
+    Catalog::Event event = relocatedEv->getEvents().begin()->second;
+    if ( ! event.relocInfo.isRelocated )
+        return "Event not relocated";
+
+    return stringify("Neighboring events %d, "
+                     "Cross-correlated P phases %d, S phases %d. Rms residual %.3f [sec], "
+                     "Catalog P phases %d, S phases %d. Rms residual %.2f [sec], "
+                     "Error [km]: East-west %.3f, north-south %.3f, depth %.3f",
+                      event.relocInfo.numNeighbours,
+                      event.relocInfo.numCCp, event.relocInfo.numCCs, event.relocInfo.rmsResidualCC,
+                      event.relocInfo.numCTp, event.relocInfo.numCTs, event.relocInfo.rmsResidualCT,
+                      event.relocInfo.lonUncertainty, event.relocInfo.latUncertainty,
+                      event.relocInfo.depthUncertainty);
+ 
+}
 
 /*
  *  Write the station.dat input file for ph2dt and hypodd
@@ -1495,7 +1520,7 @@ void HypoDD::createPhaseDatFile(const CatalogCPtr& catalog, const string& phaseF
 
             outStream << stringify("%-12s %12.6f %5.2f %4s",
                                   phase.stationId.c_str(), travel_time,
-                                  phase.relocInfo.weight, phase.type.c_str());
+                                  phase.procInfo.weight, phase.procInfo.type.c_str());
             outStream << endl;
         }
     }
@@ -2152,7 +2177,7 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
         for (auto& pair : phases)
         {
             Catalog::Phase &phase = pair.second;
-            string key = to_string(phase.eventId) + "+" + phase.stationId + "+" + phase.type;
+            string key = to_string(phase.eventId) + "+" + phase.stationId + "+" + phase.procInfo.type;
             if ( resInfos.find(key) != resInfos.end() )
             {
                 struct residual& info = resInfos[key];
@@ -2263,7 +2288,7 @@ void HypoDD::buildAbsTTimePairs(const CatalogCPtr& catalog,
                 const Catalog::Phase& refPhase = it2->second;
 
                 if (phase.stationId == refPhase.stationId && 
-                    phase.type == refPhase.type)
+                    phase.procInfo.type == refPhase.procInfo.type)
                 {
                     double ref_travel_time = refPhase.time - refEv.time;
                     if (ref_travel_time < 0)
@@ -2281,11 +2306,11 @@ void HypoDD::buildAbsTTimePairs(const CatalogCPtr& catalog,
                     }
 
                     // get common observation weight for pair (FIXME: take the lower one? average?)
-                    double weight = (refPhase.relocInfo.weight + phase.relocInfo.weight) / 2.0;
+                    double weight = (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0;
 
                     evStream << stringify("%-12s %.6f %.6f %.2f %s",
                                           refPhase.stationId.c_str(), ref_travel_time,
-                                          travel_time, weight, refPhase.type.c_str());
+                                          travel_time, weight, refPhase.procInfo.type.c_str());
                     evStream << endl;
                     dtCount++;
                     break;
@@ -2429,7 +2454,7 @@ void HypoDD::buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
                 const Catalog::Phase& refPhase = it2->second;
 
                 if (phase.stationId == refPhase.stationId && 
-                    phase.type == refPhase.type)
+                    phase.procInfo.type == refPhase.procInfo.type)
                 {
                     double coeff, dtcc, weight;
                     if ( xcorr(refEv, refPhase, true, refEvCache, useDiskCacheRefEv,
@@ -2437,7 +2462,7 @@ void HypoDD::buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
                                coeff, dtcc, weight) )
                     {
                         evStream << stringify("%-12s %.6f %.4f %s", refPhase.stationId.c_str(),
-                                              dtcc, weight,  refPhase.type.c_str());
+                                              dtcc, weight,  refPhase.procInfo.type.c_str());
                         evStream << endl;
                         dtCount++;
                     }
@@ -2539,7 +2564,7 @@ HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, cons
             {
                 const Catalog::Phase& phase1 = it->second;
                 if (phase1.stationId == stationId &&
-                    phase1.type == phaseType )
+                    phase1.procInfo.type == phaseType )
                 {
                     // loop through event 2 phases
                     eqlrng = catalog->getPhases().equal_range(ev2->id);
@@ -2547,7 +2572,7 @@ HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, cons
                     {
                         const Catalog::Phase& phase2 = it->second;
                         if (phase2.stationId == stationId &&
-                            phase2.type == phaseType )
+                            phase2.procInfo.type == phaseType )
                         {
                             double coeff, dtcc, weight;
                             if ( xcorr( *ev1, phase1, true, _wfCache, _useCatalogDiskCache,
@@ -2626,7 +2651,7 @@ HypoDD::waveformId(const string& networkCode, const string& stationCode,
 Core::TimeWindow
 HypoDD::xcorrTimeWindowLong(const Catalog::Phase& phase) const
 {
-    const auto xcorrCfg = _cfg.xcorr.at(phase.type);
+    const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
     double shortDuration = xcorrCfg.endOffset - xcorrCfg.startOffset;
     Core::TimeSpan shortTimeCorrection = Core::TimeSpan(xcorrCfg.startOffset);
     double longDuration = shortDuration + xcorrCfg.maxDelay * 2;
@@ -2638,7 +2663,7 @@ HypoDD::xcorrTimeWindowLong(const Catalog::Phase& phase) const
 Core::TimeWindow
 HypoDD::xcorrTimeWindowShort(const Catalog::Phase& phase) const
 {
-    const auto xcorrCfg = _cfg.xcorr.at(phase.type);
+    const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
     double shortDuration = xcorrCfg.endOffset - xcorrCfg.startOffset;
     Core::TimeSpan shortTimeCorrection = Core::TimeSpan(xcorrCfg.startOffset);
     return Core::TimeWindow(phase.time + shortTimeCorrection, shortDuration);
@@ -2656,7 +2681,7 @@ HypoDD::xcorr(const Catalog::Event& event1, const Catalog::Phase& phase1, bool c
     coeffOut = 0;
     lagOut = 0;
     weightOut = 0;
-    auto xcorrCfg = _cfg.xcorr[phase1.type];
+    auto xcorrCfg = _cfg.xcorr[phase1.procInfo.type];
 
     _counters.xcorr_tot++;
 
