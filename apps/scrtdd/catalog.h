@@ -109,6 +109,7 @@ class Catalog : public Core::BaseObject {
             double horiz_err;
             double vert_err;
             double rms;
+
             struct {
                 bool isRelocated = false;
                 double lonUncertainty;
@@ -154,16 +155,22 @@ class Catalog : public Core::BaseObject {
             std::string locationCode;
             std::string channelCode;
             bool isManual;
+
+            enum class Source { CATALOG, THEORETICAL, XCORR };
+
             struct {
                 std::string type;
                 double weight;       // 0-1 interval
                 std::string xcorrChannel;
+                Source source;
             } procInfo;
+
             struct {
                 bool isRelocated = false;
                 double finalWeight;
                 double residual;
             } relocInfo;
+
 
             // this equality works between multiple catalogs (same id is not required) 
             bool operator==(const Phase& other) const

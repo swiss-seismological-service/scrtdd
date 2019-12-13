@@ -158,21 +158,24 @@ class HypoDD : public Core::BaseObject {
         CatalogPtr filterPhasesAndSetWeights(const CatalogCPtr& catalog,
                                    const std::vector<std::string>& PphaseToKeep,
                                    const std::vector<std::string>& SphaseToKeep) const;
-        void addMissingPhases(CatalogPtr& catalog);
-        void addMissingEventPhases(const CatalogCPtr& searchCatalog,
+        void addMissingPhases(bool useXCorr, bool fixAutoPhase, double maxIEdist, unsigned numCC,
+                             const CatalogCPtr& searchCatalog, CatalogPtr& catalog);
+        void addMissingEventPhases(bool useXCorr, bool fixAutoPhase, double maxIEdist, unsigned numCC,
+                                   const CatalogCPtr& searchCatalog,
                                    const Catalog::Event& refEv,
                                    CatalogPtr& refEvCatalog);
-        std::vector<Catalog::Phase> findMissingEventPhases(const CatalogCPtr& searchCatalog,
+        std::vector<Catalog::Phase> findMissingEventPhases(bool useXCorr, bool fixAutoPhase, double maxIEdist, unsigned numCC,
+                                                           const CatalogCPtr& searchCatalog,
                                                            const Catalog::Event& refEv,
-                                                           CatalogPtr& refEvCatalog);
+                                                           const CatalogPtr& refEvCatalog);
         typedef std::pair<std::string,std::string> MissingStationPhase;
         std::map<MissingStationPhase,const Catalog::Phase*> getMissingPhases(const CatalogCPtr& searchCatalog,
                                                                         const Catalog::Event& refEv,
-                                                                        CatalogPtr& refEvCatalog,
+                                                                        const CatalogPtr& refEvCatalog,
                                                                         bool fixAutoPhase) const;
         std::vector<unsigned> getEventsInRange(const Catalog::Event& refEv, const CatalogCPtr& searchCatalog,
                                                double maxHorizDist) const;
-        typedef std::pair<Catalog::Event, Catalog::Phase> PhasePeer;       
+        typedef std::pair<Catalog::Event, Catalog::Phase> PhasePeer;
         std::vector<PhasePeer> findPhasePeers(const Catalog::Station& station, const std::string& phaseType,
                                               const CatalogCPtr& searchCatalog, 
                                               const std::vector<unsigned>& eventsInRange) const;
