@@ -485,6 +485,15 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
             Station sta;
             sta.networkCode = pick->waveformID().networkCode();
             sta.stationCode = pick->waveformID().stationCode();
+ 
+            // skip not selected picks/phases for manaul origins only
+            if ( org->evaluationMode() == Seiscomp::DataModel::MANUAL &&
+                 ! orgArr->timeUsed() )
+            {
+                SEISCOMP_DEBUG("Skip not used %s phase %s.%s in manual origin",
+                               orgPh.code().c_str(), sta.networkCode.c_str(), sta.stationCode.c_str()  );
+                continue;
+            }
 
             // add station if not already there
             if (searchStation(sta) == _stations.end())
