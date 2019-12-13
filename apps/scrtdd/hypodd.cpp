@@ -778,6 +778,8 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
     //refEvNewPhase.channelCode  = streamInfo.channelCode;    FIXME
     refEvNewPhase.isManual     = false;
     refEvNewPhase.procInfo.type = phaseType;
+    string chCodeRoot = refEvNewPhase.channelCode.substr(0, refEvNewPhase.channelCode.size()-1);
+    refEvNewPhase.procInfo.xcorrChannel = chCodeRoot + (phaseType == "S" ? "T" : "N");
 
     // use phase velocity to compute phase time
     double stationDistance = computeDistance(refEv, station);
@@ -1023,6 +1025,8 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
         Catalog::Phase& phase = it.second;
         phase.procInfo.weight = computePickWeight(phase);
         phase.procInfo.type = "P";
+        string chCode = phase.channelCode;
+        phase.procInfo.xcorrChannel = chCode.substr(0, chCode.size()-1) + "N";
         filteredPhases.emplace(phase.eventId, phase);
     }
     for (auto& it : filteredS)
@@ -1030,6 +1034,8 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
         Catalog::Phase& phase = it.second;
         phase.procInfo.weight = computePickWeight(phase);
         phase.procInfo.type = "S";
+        string chCode = phase.channelCode;
+        phase.procInfo.xcorrChannel = chCode.substr(0, chCode.size()-1) + "T";
         filteredPhases.emplace(phase.eventId, phase);
     }
 
@@ -3008,15 +3014,16 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     }
     else
     {
-        string channelCodeRoot = ph.channelCode.substr(0, ph.channelCode.size()-1);
+        string channelCode = ph.procInfo.xcorrChannel;
+        string channelCodeRoot = channelCode.substr(0, channelCode.size()-1);
         allComponents = getThreeComponents(tc, loc, channelCodeRoot.c_str(), refTime);
 
         if ( ( tc.comps[ThreeComponents::Vertical] &&
-               tc.comps[ThreeComponents::Vertical]->code() == ph.channelCode)        ||
+               tc.comps[ThreeComponents::Vertical]->code() == channelCode )        ||
              ( tc.comps[ThreeComponents::FirstHorizontal] &&
-               tc.comps[ThreeComponents::FirstHorizontal]->code() == ph.channelCode) ||
+               tc.comps[ThreeComponents::FirstHorizontal]->code() == channelCode ) ||
              ( tc.comps[ThreeComponents::SecondHorizontal] &&
-               tc.comps[ThreeComponents::SecondHorizontal]->code() == ph.channelCode)
+               tc.comps[ThreeComponents::SecondHorizontal]->code() == channelCode )
            )
         {
             projectionRequired = false;
@@ -3036,7 +3043,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         if ( ! projectionRequired )
         {
             trace = loadWaveform(twToLoad, ph.networkCode, ph.stationCode,
-                                 ph.locationCode, ph.channelCode, useDiskCache);
+                                 ph.locationCode, ph.procInfo.xcorrChannel, useDiskCache);
         }
         else 
         {
@@ -3142,8 +3149,9 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
     Math::Matrix3d transformation;
     map<string,string> chCodeMap;
 
-    string channelCodeRoot = ph.channelCode.substr(0, ph.channelCode.size()-1);
-    char component = *ph.channelCode.rbegin();
+    string channelCode = ph.procInfo.xcorrChannel;
+    string channelCodeRoot = channelCode.substr(0, channelCode.size()-1);
+    char component = *channelCode.rbegin();
 
     if ( component == 'Z' || component == 'N'  || component == 'E' )
     {
@@ -3153,7 +3161,7 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
         chCodeMap[channelCodeRoot + "E"] = tc.comps[ThreeComponents::SecondHorizontal]->code();
 
         SEISCOMP_DEBUG("Performing ZNE projection (channelCode %s -> %s) for %s",
-            chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(), wfDesc.c_str());
+            chCodeMap[channelCode].c_str(), channelCode.c_str(), wfDesc.c_str());
     }
     else if ( component == 'R'  || component == 'T' )
     {
@@ -3163,7 +3171,7 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
         chCodeMap[channelCodeRoot + "T"] = tc.comps[ThreeComponents::SecondHorizontal]->code();
 
         SEISCOMP_DEBUG("Performing ZRT projection (channelCode %s -> %s) for %s",
-            chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(), wfDesc.c_str()); 
+            chCodeMap[channelCode].c_str(), channelCode.c_str(), wfDesc.c_str()); 
     }
     else
     {
@@ -3216,7 +3224,7 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
         std::shared_ptr<RecordSequence> _seq;
     };
 
-    DataStorer projectedData(ph.channelCode, tw, chCodeMap);
+    DataStorer projectedData(channelCode, tw, chCodeMap);
 
     // The function that will be called after a transformed record was created
     //op.setStoreFunc(boost::bind(&RecordSequence::feed, seq, _1));
@@ -3242,7 +3250,7 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
         throw runtime_error(msg);
     }
 
-    trace->setChannelCode(ph.channelCode);
+    trace->setChannelCode(channelCode);
 
     if ( ! trim(*trace, tw) )
     {
