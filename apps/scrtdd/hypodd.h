@@ -155,7 +155,7 @@ class HypoDD : public Core::BaseObject {
 
         double computePickWeight(double uncertainty) const;
         double computePickWeight(const Catalog::Phase& phase) const;
-        CatalogPtr filterPhasesAndSetWeights(const CatalogCPtr& catalog,
+        CatalogPtr filterPhasesAndSetWeights(const CatalogCPtr& catalog, const Catalog::Phase::Source& source,
                                    const std::vector<std::string>& PphaseToKeep,
                                    const std::vector<std::string>& SphaseToKeep) const;
         void addMissingPhases(bool useXCorr, bool fixAutoPhase, double maxIEdist, unsigned numCC,

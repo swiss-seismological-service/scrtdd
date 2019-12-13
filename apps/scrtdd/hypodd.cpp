@@ -463,7 +463,8 @@ HypoDD::~HypoDD()
 void HypoDD::setCatalog(const CatalogCPtr& catalog)
 {
     _srcCat = catalog;
-    _ddbgc = filterPhasesAndSetWeights(_srcCat, _cfg.validPphases, _cfg.validSphases);
+    _ddbgc = filterPhasesAndSetWeights(_srcCat, Catalog::Phase::Source::CATALOG,
+                                       _cfg.validPphases, _cfg.validSphases);
 }
 
 
@@ -782,13 +783,29 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
         return false;
     }
 
+    // detect locationCode/channelCode   
+    struct {
+        string locationCode;
+        string channelCode;
+        Core::Time time;
+    } streamInfo = {"", "", Core::Time()};
+
+    for (const PhasePeer& peer : xcorrPeers)
+    {
+        //const Catalog::Event& event = peer.first;
+        const Catalog::Phase& phase = peer.second;
+        // get the closest in time to refEv stream information
+        if ( (refEv.time - phase.time).abs() < (refEv.time - streamInfo.time).abs() )
+            streamInfo = {phase.locationCode, phase.channelCode, phase.time};
+    }
+
     // initialize the new phase
     refEvNewPhase.eventId      = refEv.id;
     refEvNewPhase.stationId    = station.id;
     refEvNewPhase.networkCode  = station.networkCode;
     refEvNewPhase.stationCode  = station.stationCode;
-    //refEvNewPhase.locationCode = streamInfo.locationCode;   FIXME
-    //refEvNewPhase.channelCode  = streamInfo.channelCode;    FIXME
+    refEvNewPhase.locationCode = streamInfo.locationCode;
+    refEvNewPhase.channelCode  = streamInfo.channelCode;
     refEvNewPhase.isManual     = false;
     refEvNewPhase.procInfo.type = phaseType;
     string chCodeRoot = refEvNewPhase.channelCode.substr(0, refEvNewPhase.channelCode.size()-1);
@@ -796,7 +813,7 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
 
     // use phase velocity to compute phase time
     double stationDistance = computeDistance(refEv, station);
-    refEvNewPhase.time = stationDistance / phaseVelocity;
+    refEvNewPhase.time = refEv.time + Core::TimeSpan(stationDistance / phaseVelocity);
 
     if ( ! useXCorr )
     {
@@ -943,7 +960,7 @@ double HypoDD::computePickWeight(const Catalog::Phase& phase) const
  * make sure to have only one phase. If multiple phases are found, keep the first
  * one arrived
  */
-CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
+CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog, const Catalog::Phase::Source& source,
                                              const std::vector<std::string>& PphaseToKeep,
                                              const std::vector<std::string>& SphaseToKeep) const
 {
@@ -1042,7 +1059,7 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
         phase.procInfo.type = "P";
         string chCode = phase.channelCode;
         phase.procInfo.xcorrChannel = chCode.substr(0, chCode.size()-1) + "N";
-        phase.procInfo.source = Catalog::Phase::Source::CATALOG;
+        phase.procInfo.source = source;
 
         filteredPhases.emplace(phase.eventId, phase);
     }
@@ -1053,7 +1070,7 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
         phase.procInfo.type = "S";
         string chCode = phase.channelCode;
         phase.procInfo.xcorrChannel = chCode.substr(0, chCode.size()-1) + "T";
-        phase.procInfo.source = Catalog::Phase::Source::CATALOG;
+        phase.procInfo.source = source;
 
         filteredPhases.emplace(phase.eventId, phase);
     }
@@ -1247,7 +1264,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     try
     {
         // build a catalog with the event to be relocated
-        CatalogPtr evToRelocateCat = filterPhasesAndSetWeights(singleEvent, _cfg.validPphases, _cfg.validSphases);
+        CatalogPtr evToRelocateCat = filterPhasesAndSetWeights(singleEvent, Catalog::Phase::Source::RT_EVENT,
+                                                               _cfg.validPphases, _cfg.validSphases);
 
         // Select neighbouring events
         CatalogPtr neighbourCat = selectNeighbouringEvents(
@@ -1342,7 +1360,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     {
         CatalogPtr evToRelocateCat = relocatedEvCat;
         if ( ! evToRelocateCat )
-            evToRelocateCat = filterPhasesAndSetWeights(singleEvent, _cfg.validPphases, _cfg.validSphases);
+            evToRelocateCat = filterPhasesAndSetWeights(singleEvent, Catalog::Phase::Source::RT_EVENT,
+                                                        _cfg.validPphases, _cfg.validSphases);
 
         // extract event to relocate
         const Catalog::Event& evToRelocate = evToRelocateCat->getEvents().begin()->second;

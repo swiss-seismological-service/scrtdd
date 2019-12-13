@@ -156,7 +156,7 @@ class Catalog : public Core::BaseObject {
             std::string channelCode;
             bool isManual;
 
-            enum class Source { CATALOG, THEORETICAL, XCORR };
+            enum class Source { CATALOG, RT_EVENT, THEORETICAL, XCORR };
 
             struct {
                 std::string type;
