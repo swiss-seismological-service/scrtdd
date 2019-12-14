@@ -500,17 +500,22 @@ void HypoDD::preloadData()
         auto eqlrng = _ddbgc->getPhases().equal_range(event.id);
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
-            const Catalog::Phase& phase = it->second;
             numPhases++;
-            Core::TimeWindow tw = xcorrTimeWindowLong(phase);
-            getWaveform(tw, event, phase, _wfCache, _useCatalogDiskCache, true);
 
-            // for S phases load N component too
-            if ( phase.procInfo.type == "S" && *phase.procInfo.xcorrChannel.rbegin() == 'T')
+            const Catalog::Phase& phase = it->second;
+            Core::TimeWindow tw = xcorrTimeWindowLong(phase);
+            auto xcorrCfg = _cfg.xcorr[phase.procInfo.type];
+
+            if ( xcorrCfg.components.size() == 0 )
+            {
+                getWaveform(tw, event, phase, _wfCache, _useCatalogDiskCache, true);
+            }
+
+            for (string component : xcorrCfg.components )
             {
                 Catalog::Phase tmpPh = phase;
-                *tmpPh.procInfo.xcorrChannel.rbegin() = 'N';
-                getWaveform(tw, event, tmpPh, _wfCache, _useCatalogDiskCache, true);
+                *tmpPh.channelCode.rbegin() = *component.begin(); 
+                getWaveform(tw, event, tmpPh, _wfCache, _useCatalogDiskCache, true); 
             }
         }
     }
@@ -563,8 +568,9 @@ HypoDD::findMissingEventPhases(bool useXCorr, bool fixAutoPhase, double maxIEdis
 {
     const auto& refEvPhases = refEvCatalog->getPhases().equal_range(refEv.id);
 
-    SEISCOMP_INFO("Detecting missing phases for event %s (current num phases %ld)",
-                  string(refEv).c_str(), std::distance(refEvPhases.first, refEvPhases.second));
+    SEISCOMP_INFO("Detecting missing phases (%s) for event %s (current num phases %ld)",
+                  string(refEv).c_str(), (useXCorr ? "with cross-correlation" : "theoretical"),
+                  std::distance(refEvPhases.first, refEvPhases.second));
 
     // without xcorr we cannot fix the auto phases
     fixAutoPhase = fixAutoPhase && useXCorr;
@@ -808,8 +814,6 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
     refEvNewPhase.channelCode  = streamInfo.channelCode;
     refEvNewPhase.isManual     = false;
     refEvNewPhase.procInfo.type = phaseType;
-    string chCodeRoot = refEvNewPhase.channelCode.substr(0, refEvNewPhase.channelCode.size()-1);
-    refEvNewPhase.procInfo.xcorrChannel = chCodeRoot + (phaseType == "S" ? "T" : "N");
 
     // use phase velocity to compute phase time
     double stationDistance = computeDistance(refEv, station);
@@ -1057,8 +1061,6 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog, const C
         Catalog::Phase& phase = it.second;
         phase.procInfo.weight = computePickWeight(phase);
         phase.procInfo.type = "P";
-        string chCode = phase.channelCode;
-        phase.procInfo.xcorrChannel = chCode.substr(0, chCode.size()-1) + "N";
         phase.procInfo.source = source;
 
         filteredPhases.emplace(phase.eventId, phase);
@@ -1068,8 +1070,6 @@ CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog, const C
         Catalog::Phase& phase = it.second;
         phase.procInfo.weight = computePickWeight(phase);
         phase.procInfo.type = "S";
-        string chCode = phase.channelCode;
-        phase.procInfo.xcorrChannel = chCode.substr(0, chCode.size()-1) + "T";
         phase.procInfo.source = source;
 
         filteredPhases.emplace(phase.eventId, phase);
@@ -1906,6 +1906,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         }
 
         int dtCount = stationByDistance.size();
+
         // if not enought phases skip event
         if ( dtCount < minDTperEvt )
         {
@@ -2765,28 +2766,38 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
                     std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
                     double& coeffOut, double& lagOut, double& weightOut)
 {
-    bool goodCC = _xcorrPhases(event1, phase1, checkSnr1, cache1, useDiskCache1,
-                               event2, phase2, checkSnr2, cache2, useDiskCache2,
-                               coeffOut, lagOut, weightOut);
-    //
-    // If the cross correlation of S phases failed and we were 
-    // using the T component then we try again on the N component
-    // This helps the scenario of a poor origin location that
-    // results in a bad ZNE->ZRT projection
-    //
-    if ( ! goodCC && phase1.procInfo.type == "S" &&
-         *phase1.procInfo.xcorrChannel.rbegin() == 'T')
+    if ( phase1.procInfo.type != phase2.procInfo.type )
+    {
+        SEISCOMP_ERROR("Internal logic error: trying to xcorr different phases (%s and %s)",
+                       string(phase1).c_str(), string(phase2).c_str());
+        return false;
+    }
+
+    auto xcorrCfg = _cfg.xcorr[phase1.procInfo.type];
+
+    if ( xcorrCfg.components.size() == 0 )
+    {
+        return _xcorrPhases(event1, phase1, checkSnr1, cache1, useDiskCache1,
+                            event2, phase2, checkSnr2, cache2, useDiskCache2,
+                            coeffOut, lagOut, weightOut);
+    }
+
+    for (string component : xcorrCfg.components )
     {
         Catalog::Phase tmpPh1 = phase1;
         Catalog::Phase tmpPh2 = phase2;
-        *tmpPh1.procInfo.xcorrChannel.rbegin() = 'N';
-        *tmpPh2.procInfo.xcorrChannel.rbegin() = 'N';
+        *tmpPh1.channelCode.rbegin() = *component.begin();
+        *tmpPh2.channelCode.rbegin() = *component.begin();
 
-        goodCC = _xcorrPhases(event1, tmpPh1, checkSnr1, cache1, useDiskCache1,
-                              event2, tmpPh2, checkSnr2, cache2, useDiskCache2,
-                              coeffOut, lagOut, weightOut); 
+        if ( _xcorrPhases(event1, tmpPh1, checkSnr1, cache1, useDiskCache1,
+                          event2, tmpPh2, checkSnr2, cache2, useDiskCache2,
+                          coeffOut, lagOut, weightOut) )
+        {
+            return true;
+        }
     }
-    return goodCC;
+
+    return false;
 }
 
 
@@ -3127,16 +3138,15 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     }
     else
     {
-        string channelCode = ph.procInfo.xcorrChannel;
-        string channelCodeRoot = channelCode.substr(0, channelCode.size()-1);
+        string channelCodeRoot = ph.channelCode.substr(0, ph.channelCode.size()-1);
         allComponents = getThreeComponents(tc, loc, channelCodeRoot.c_str(), refTime);
 
         if ( ( tc.comps[ThreeComponents::Vertical] &&
-               tc.comps[ThreeComponents::Vertical]->code() == channelCode )        ||
+               tc.comps[ThreeComponents::Vertical]->code() == ph.channelCode )        ||
              ( tc.comps[ThreeComponents::FirstHorizontal] &&
-               tc.comps[ThreeComponents::FirstHorizontal]->code() == channelCode ) ||
+               tc.comps[ThreeComponents::FirstHorizontal]->code() == ph.channelCode ) ||
              ( tc.comps[ThreeComponents::SecondHorizontal] &&
-               tc.comps[ThreeComponents::SecondHorizontal]->code() == channelCode )
+               tc.comps[ThreeComponents::SecondHorizontal]->code() == ph.channelCode )
            )
         {
             projectionRequired = false;
@@ -3156,7 +3166,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         if ( ! projectionRequired )
         {
             trace = loadWaveform(twToLoad, ph.networkCode, ph.stationCode,
-                                 ph.locationCode, ph.procInfo.xcorrChannel, useDiskCache);
+                                 ph.locationCode, ph.channelCode, useDiskCache);
         }
         else 
         {
@@ -3262,9 +3272,8 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
     Math::Matrix3d transformation;
     map<string,string> chCodeMap;
 
-    string channelCode = ph.procInfo.xcorrChannel;
-    string channelCodeRoot = channelCode.substr(0, channelCode.size()-1);
-    char component = *channelCode.rbegin();
+    string channelCodeRoot = ph.channelCode.substr(0, ph.channelCode.size()-1);
+    char component = *ph.channelCode.rbegin();
 
     if ( component == 'Z' || component == 'N'  || component == 'E' )
     {
@@ -3274,7 +3283,7 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
         chCodeMap[channelCodeRoot + "E"] = tc.comps[ThreeComponents::SecondHorizontal]->code();
 
         SEISCOMP_DEBUG("Performing ZNE projection (channelCode %s -> %s) for %s",
-            chCodeMap[channelCode].c_str(), channelCode.c_str(), wfDesc.c_str());
+            chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(), wfDesc.c_str());
     }
     else if ( component == 'R'  || component == 'T' )
     {
@@ -3284,7 +3293,7 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
         chCodeMap[channelCodeRoot + "T"] = tc.comps[ThreeComponents::SecondHorizontal]->code();
 
         SEISCOMP_DEBUG("Performing ZRT projection (channelCode %s -> %s) for %s",
-            chCodeMap[channelCode].c_str(), channelCode.c_str(), wfDesc.c_str()); 
+            chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(), wfDesc.c_str()); 
     }
     else
     {
@@ -3337,7 +3346,7 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
         std::shared_ptr<RecordSequence> _seq;
     };
 
-    DataStorer projectedData(channelCode, tw, chCodeMap);
+    DataStorer projectedData(ph.channelCode, tw, chCodeMap);
 
     // The function that will be called after a transformed record was created
     //op.setStoreFunc(boost::bind(&RecordSequence::feed, seq, _1));
@@ -3363,7 +3372,7 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
         throw runtime_error(msg);
     }
 
-    trace->setChannelCode(channelCode);
+    trace->setChannelCode(ph.channelCode);
 
     if ( ! trim(*trace, tw) )
     {

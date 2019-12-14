@@ -505,6 +505,13 @@
                                 <parameter name="maxDelay" type="double">
                                     <description>Maximum data windows lag accepted (secs)</description>
                                 </parameter>
+                                <parameter name="components" type="list:string" default="N">
+                                    <description>
+                                        Priority list of components to be used in cross-correlation.
+                                        If cross-correlation is below threshold on a component, the next
+                                        component is tried.
+                                    </description>
+                                </parameter>
                             </group>
                             <group name="s-phase">
                                 <parameter name="minCCCoef" type="double">
@@ -524,6 +531,13 @@
                                 </parameter>
                                 <parameter name="maxDelay" type="double">
                                     <description>Maximum data windows lag accepted (secs)</description>
+                                </parameter>
+                                <parameter name="components" type="list:string" default="T,N">
+                                    <description>
+                                        Priority list of components to be used in cross-correlation.
+                                        If cross-correlation is below threshold on a component, the next
+                                        component is tried.
+                                    </description>
                                 </parameter>
                             </group>
                             <group name="findMissingPhase">

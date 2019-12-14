@@ -161,7 +161,6 @@ class Catalog : public Core::BaseObject {
             struct {
                 std::string type;
                 double weight;       // 0-1 interval
-                std::string xcorrChannel;
                 Source source;
             } procInfo;
 

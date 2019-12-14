@@ -526,6 +526,12 @@ bool RTDD::validateParameters()
             profilesOK = false;
             continue;
         }
+        try {
+            prof->ddcfg.xcorr["P"].components = configGetStrings(prefix + "components");
+        } catch ( ... ) {
+            prof->ddcfg.xcorr["P"].components = {"N"};
+        }
+
         prefix = string("profile.") + *it + ".step2options.crosscorrelation.s-phase.";
         try {
             prof->ddcfg.xcorr["S"].startOffset = configGetDouble(prefix + "start");
@@ -536,6 +542,11 @@ bool RTDD::validateParameters()
             SEISCOMP_ERROR("profile.%s: invalid or missing cross correlation parameters", it->c_str());
             profilesOK = false;
             continue;
+        }
+        try {
+            prof->ddcfg.xcorr["S"].components = configGetStrings(prefix + "components");
+        } catch ( ... ) {
+            prof->ddcfg.xcorr["S"].components = {"T","N"};
         }
 
         prefix = string("profile.") + *it + ".step2options.crosscorrelation.findMissingPhase.";

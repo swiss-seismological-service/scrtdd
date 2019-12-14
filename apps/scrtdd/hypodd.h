@@ -94,6 +94,7 @@ struct Config {
         double startOffset; // secs
         double endOffset;   // secs
         double maxDelay;    //secs
+        std::vector<std::string> components; // priority list of components to use
     };
     std::map<std::string,struct XCorr> xcorr = {
         {"P", {}},
