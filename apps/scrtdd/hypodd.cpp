@@ -1487,6 +1487,7 @@ string HypoDD::relocationReport(const CatalogCPtr& relocatedEv)
  
 }
 
+
 /*
  *  Write the station.dat input file for ph2dt and hypodd
  *  One station per line:
@@ -2499,7 +2500,7 @@ HypoDD::createDtCcCatalog(const CatalogCPtr& catalog, const string& dtccFile)
             CatalogPtr currCat = kv.second;
 
             // add theoretical picks before xcorr
-            if ( _cfg.artificialPhases.enable )
+            if ( _cfg.artificialPhases.enable && ! _cfg.artificialPhases.useXCorr )
             {
                 const Catalog::Event& ev = currCat->getEvents().at(evToRelocateId);
                 addMissingEventPhases(false, false, _cfg.artificialPhases.maxIEdist,
@@ -2532,7 +2533,7 @@ void HypoDD::createDtCcSingleEvent(const CatalogCPtr& catalog,
     CatalogPtr currCat = new Catalog(*catalog);
 
     // add theoretical picks before xcorr
-    if ( _cfg.artificialPhases.enable )
+    if ( _cfg.artificialPhases.enable && ! _cfg.artificialPhases.useXCorr )
     {
         const Catalog::Event& ev = currCat->getEvents().at(evToRelocateId);
         addMissingEventPhases(false, false, _cfg.artificialPhases.maxIEdist,
