@@ -256,7 +256,7 @@ class HypoDD : public Core::BaseObject {
                                      const Catalog::Phase& ph,
                                      std::map<std::string,GenericRecordPtr>& memCache,
                                      bool useDiskCache,
-                                     bool checkSnr);
+                                     bool allowSnrCheck);
         GenericRecordPtr loadProjectWaveform(const Core::TimeWindow& tw,
                                              const Catalog::Event& ev,
                                              const Catalog::Phase& ph,

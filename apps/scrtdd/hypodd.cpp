@@ -528,6 +528,164 @@ void HypoDD::preloadData()
 
 
 
+
+ /*
+ * Fixed weighting scheme based on pick time uncertainties
+ * Class 0: 0     - 0.025  sec
+ *       1: 0.025 - 0.050  sec
+ *       2: 0.050 - 0.100  sec
+ *       3: 0.100 - 0.200  sec
+ *       4: 0.200 - 0.400  sec
+ *       5: 0.400 -        sec
+ *  weight = 1 / 2^class
+ */
+double HypoDD::computePickWeight(double uncertainty /* secs */ ) const
+{
+    int cls = -1;
+
+    if ( uncertainty >= 0.000 && uncertainty < 0.025 )      cls = 0;
+    else if ( uncertainty >= 0.025 && uncertainty < 0.050 ) cls = 1;
+    else if ( uncertainty >= 0.050 && uncertainty < 0.100 ) cls = 2;
+    else if ( uncertainty >= 0.100 && uncertainty < 0.200 ) cls = 3;
+    else if ( uncertainty >= 0.200 && uncertainty < 0.400 ) cls = 4;
+    else                                                    cls = 5;
+
+    double weight = 1. / pow(2., cls);
+
+    return weight;
+}
+
+
+
+double HypoDD::computePickWeight(const Catalog::Phase& phase) const
+{
+    return computePickWeight( (phase.lowerUncertainty + phase.upperUncertainty) / 2. );
+}
+
+
+ 
+/*
+ * Build a catalog with requested phases only and for the same event/station pair
+ * make sure to have only one phase. If multiple phases are found, keep the first
+ * one arrived
+ */
+CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog, const Catalog::Phase::Source& source,
+                                             const std::vector<std::string>& PphaseToKeep,
+                                             const std::vector<std::string>& SphaseToKeep) const
+{
+    SEISCOMP_INFO("Selecting preferred phases from catalog");
+
+    multimap<unsigned,Catalog::Phase> filteredS;
+    multimap<unsigned,Catalog::Phase> filteredP;
+
+    // loop through each event
+    for (const auto& kv :  catalog->getEvents() )
+    {
+        const Catalog::Event& event = kv.second;
+
+        // loop through all phases of current event
+        const auto& eqlrng = catalog->getPhases().equal_range(event.id);
+        for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+        {
+            // keep the phase only if it has a higher priority of an existing one
+            // or if this is the only one for a given station
+            const Catalog::Phase& phase = it->second;
+
+            // P phase
+            auto itpp = find(PphaseToKeep.begin(), PphaseToKeep.end(), phase.type);
+            if ( itpp != PphaseToKeep.end() )
+            {
+                auto priority = std::distance(PphaseToKeep.begin(), itpp);
+
+                // fetch already selected P phases for current event, and
+                // check if there is already a P phase for the same station
+                bool inserted = false;
+                auto eqlrng2 = filteredP.equal_range(event.id);
+                for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
+                {
+                    Catalog::Phase& existingPhase = it2->second;
+                    auto existingPriority = std::distance(
+                        PphaseToKeep.begin(),
+                        find(PphaseToKeep.begin(), PphaseToKeep.end(), existingPhase.type)
+                    );
+                    if ( existingPhase.type == phase.type           &&
+                         existingPhase.stationId == phase.stationId &&
+                         existingPriority < priority )
+                    {
+                        existingPhase = phase;
+                        inserted = true;
+                        break;
+                    }
+                }
+                if ( ! inserted )
+                    filteredP.emplace(phase.eventId, phase);
+                continue;
+            }
+
+            // S phase
+            auto itsp = find(SphaseToKeep.begin(), SphaseToKeep.end(), phase.type);
+            if ( itsp != SphaseToKeep.end() )
+            {
+                auto priority = std::distance(SphaseToKeep.begin(), itsp);
+
+                // fetch already selected S phases for current event, and
+                // check if there is already a S phase for the same station
+                bool inserted = false;
+                auto eqlrng2 = filteredS.equal_range(event.id);
+                for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
+                {
+                    Catalog::Phase& existingPhase = it2->second;
+                    auto existingPriority = std::distance(
+                        SphaseToKeep.begin(),
+                        find(SphaseToKeep.begin(), SphaseToKeep.end(), existingPhase.type)
+                    );
+                    if ( existingPhase.type == phase.type           &&
+                         existingPhase.stationId == phase.stationId &&
+                         existingPriority < priority )
+                    {
+                        existingPhase = phase;
+                        inserted = true;
+                        break;
+                    }
+                }
+                if ( ! inserted )
+                    filteredS.emplace(phase.eventId, phase);
+                continue;
+            }
+
+            SEISCOMP_DEBUG("Discard phase (%s), the type is not among the selected ones",
+                           string(phase).c_str());
+        }
+    }
+
+    // loop through selected phases and replace actual phase name
+    //  with a generic P or S
+    multimap<unsigned,Catalog::Phase> filteredPhases;
+    for (auto& it : filteredP)
+    {
+        Catalog::Phase& phase = it.second;
+        phase.procInfo.weight = computePickWeight(phase);
+        phase.procInfo.type = "P";
+        phase.procInfo.source = source;
+
+        filteredPhases.emplace(phase.eventId, phase);
+    }
+    for (auto& it : filteredS)
+    {
+        Catalog::Phase& phase = it.second;
+        phase.procInfo.weight = computePickWeight(phase);
+        phase.procInfo.type = "S";
+        phase.procInfo.source = source;
+
+        filteredPhases.emplace(phase.eventId, phase);
+    }
+
+    return new Catalog(catalog->getStations(), catalog->getEvents(), filteredPhases);
+}
+
+
+
+
 void
 HypoDD::addMissingPhases(bool useXCorr, bool fixAutoPhase, double maxIEdist, unsigned numCC,
                          const CatalogCPtr& searchCatalog, CatalogPtr& catalog)
@@ -920,162 +1078,6 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
     }
 
     return true;
-}
-
-
-
- /*
- * Fixed weighting scheme based on pick time uncertainties
- * Class 0: 0     - 0.025  sec
- *       1: 0.025 - 0.050  sec
- *       2: 0.050 - 0.100  sec
- *       3: 0.100 - 0.200  sec
- *       4: 0.200 - 0.400  sec
- *       5: 0.400 -        sec
- *  weight = 1 / 2^class
- */
-double HypoDD::computePickWeight(double uncertainty /* secs */ ) const
-{
-    int cls = -1;
-
-    if ( uncertainty >= 0.000 && uncertainty < 0.025 )      cls = 0;
-    else if ( uncertainty >= 0.025 && uncertainty < 0.050 ) cls = 1;
-    else if ( uncertainty >= 0.050 && uncertainty < 0.100 ) cls = 2;
-    else if ( uncertainty >= 0.100 && uncertainty < 0.200 ) cls = 3;
-    else if ( uncertainty >= 0.200 && uncertainty < 0.400 ) cls = 4;
-    else                                                    cls = 5;
-
-    double weight = 1. / pow(2., cls);
-
-    return weight;
-}
-
-
-
-double HypoDD::computePickWeight(const Catalog::Phase& phase) const
-{
-    return computePickWeight( (phase.lowerUncertainty + phase.upperUncertainty) / 2. );
-}
-
-
- 
-/*
- * Build a catalog with requested phases only and for the same event/station pair
- * make sure to have only one phase. If multiple phases are found, keep the first
- * one arrived
- */
-CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog, const Catalog::Phase::Source& source,
-                                             const std::vector<std::string>& PphaseToKeep,
-                                             const std::vector<std::string>& SphaseToKeep) const
-{
-    SEISCOMP_INFO("Selecting preferred phases from catalog");
-
-    multimap<unsigned,Catalog::Phase> filteredS;
-    multimap<unsigned,Catalog::Phase> filteredP;
-
-    // loop through each event
-    for (const auto& kv :  catalog->getEvents() )
-    {
-        const Catalog::Event& event = kv.second;
-
-        // loop through all phases of current event
-        const auto& eqlrng = catalog->getPhases().equal_range(event.id);
-        for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-        {
-            // keep the phase only if it has a higher priority of an existing one
-            // or if this is the only one for a given station
-            const Catalog::Phase& phase = it->second;
-
-            // P phase
-            auto itpp = find(PphaseToKeep.begin(), PphaseToKeep.end(), phase.type);
-            if ( itpp != PphaseToKeep.end() )
-            {
-                auto priority = std::distance(PphaseToKeep.begin(), itpp);
-
-                // fetch already selected P phases for current event, and
-                // check if there is already a P phase for the same station
-                bool inserted = false;
-                auto eqlrng2 = filteredP.equal_range(event.id);
-                for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
-                {
-                    Catalog::Phase& existingPhase = it2->second;
-                    auto existingPriority = std::distance(
-                        PphaseToKeep.begin(),
-                        find(PphaseToKeep.begin(), PphaseToKeep.end(), existingPhase.type)
-                    );
-                    if ( existingPhase.type == phase.type           &&
-                         existingPhase.stationId == phase.stationId &&
-                         existingPriority < priority )
-                    {
-                        existingPhase = phase;
-                        inserted = true;
-                        break;
-                    }
-                }
-                if ( ! inserted )
-                    filteredP.emplace(phase.eventId, phase);
-                continue;
-            }
-
-            // S phase
-            auto itsp = find(SphaseToKeep.begin(), SphaseToKeep.end(), phase.type);
-            if ( itsp != SphaseToKeep.end() )
-            {
-                auto priority = std::distance(SphaseToKeep.begin(), itsp);
-
-                // fetch already selected S phases for current event, and
-                // check if there is already a S phase for the same station
-                bool inserted = false;
-                auto eqlrng2 = filteredS.equal_range(event.id);
-                for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
-                {
-                    Catalog::Phase& existingPhase = it2->second;
-                    auto existingPriority = std::distance(
-                        SphaseToKeep.begin(),
-                        find(SphaseToKeep.begin(), SphaseToKeep.end(), existingPhase.type)
-                    );
-                    if ( existingPhase.type == phase.type           &&
-                         existingPhase.stationId == phase.stationId &&
-                         existingPriority < priority )
-                    {
-                        existingPhase = phase;
-                        inserted = true;
-                        break;
-                    }
-                }
-                if ( ! inserted )
-                    filteredS.emplace(phase.eventId, phase);
-                continue;
-            }
-
-            SEISCOMP_DEBUG("Discard phase (%s), the type is not among the selected ones",
-                           string(phase).c_str());
-        }
-    }
-
-    // loop through selected phases and replace actual phase name
-    //  with a generic P or S
-    multimap<unsigned,Catalog::Phase> filteredPhases;
-    for (auto& it : filteredP)
-    {
-        Catalog::Phase& phase = it.second;
-        phase.procInfo.weight = computePickWeight(phase);
-        phase.procInfo.type = "P";
-        phase.procInfo.source = source;
-
-        filteredPhases.emplace(phase.eventId, phase);
-    }
-    for (auto& it : filteredS)
-    {
-        Catalog::Phase& phase = it.second;
-        phase.procInfo.weight = computePickWeight(phase);
-        phase.procInfo.type = "S";
-        phase.procInfo.source = source;
-
-        filteredPhases.emplace(phase.eventId, phase);
-    }
-
-    return new Catalog(catalog->getStations(), catalog->getEvents(), filteredPhases);
 }
 
 
