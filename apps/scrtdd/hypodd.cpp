@@ -948,8 +948,8 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
 
     if ( xcorrPeers.size() < numCC )
     {
-        SEISCOMP_DEBUG("Event %s: cannot create phase %s for station %s. Not enough close-by events",
-                       string(refEv).c_str(), phaseType.c_str(), string(station).c_str());
+        SEISCOMP_DEBUG("Event %s: cannot create %s phase for station %s. Not enough close-by events (%ld)",
+                       string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), xcorrPeers.size());
         return false;
     }
 
@@ -1011,9 +1011,9 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
         //double maxDelay = (xcorrTw.length() - twShort.length()) / 2; FIXME
 
         double xcorr_coeff, xcorr_dt, xcorr_weight;
-        if ( ! xcorrPhases(refEv, refEvNewPhase, false, _wfCacheTmp, false,
-                           event, phase, true, _wfCache, _useCatalogDiskCache,
-                           xcorr_coeff, xcorr_dt, xcorr_weight) )
+        if ( xcorrPhases(refEv, refEvNewPhase, false, _wfCacheTmp, false,
+                         event, phase, true, _wfCache, _useCatalogDiskCache,
+                         xcorr_coeff, xcorr_dt, xcorr_weight) )
         {
             xcorr_out.emplace(xcorr_coeff, pair<double,Catalog::Phase>(xcorr_dt,phase) );
         }
@@ -1022,7 +1022,7 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
 
     if ( xcorr_out.size() < numCC )
     {
-        SEISCOMP_DEBUG("Event %s: rejected artificial phase %s for station %s. Not enough close-by events to crosscorelate (%ld)",
+        SEISCOMP_DEBUG("Event %s: rejected artificial phase %s for station %s. Not enough good cross-correlation results (%ld)",
                        string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), xcorr_out.size());
         return false;
     }
@@ -1055,16 +1055,8 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
     xcorr_coeff_mean /= ccCount;
     xcorr_dt_mean /= ccCount;
 
-    // check if we are happy with the cross coefficient
-    if ( xcorr_coeff_mean < xcorrCfg.minCoef )
-    {
-        SEISCOMP_DEBUG("Event %s: rejected artificial phase %s for station %s. Crosscorrelation coefficient too low (%.2f)",
-                       string(refEv).c_str(), phaseType.c_str(), string(station).c_str(), xcorr_coeff_mean);
-        return false;
-    }
-
     //
-    // New phase found
+    // Set new phase time and uncertainty
     //
     refEvNewPhase.time  += Core::TimeSpan(xcorr_dt_mean);
     refEvNewPhase.lowerUncertainty = xcorr_dt_mean - xcorr_dt_min;
