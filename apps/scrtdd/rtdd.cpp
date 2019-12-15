@@ -281,6 +281,8 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
                 "Load catalog waveforms from the configured recordstream and save them into the profile working directory", true);
     NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf", "Enable the saving of waveforms (filtered/resampled, SNR rejected, ZRT projected and scrtdd detected phase) into the profile working directory. Useful when run in combination with --load-profile-wf", false, true);
+    NEW_OPT_CLI(_config.evalXCorr, "Mode", "eval-xcorr",
+                "Evaluate cross-correlation settings for the given profile", true);
     NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
                 "Time span in hours after which objects expire", true);
 
@@ -335,6 +337,7 @@ bool RTDD::validateParameters()
          !_config.mergeCatalogs.empty()   ||
          !_config.dumpCatalogXML.empty()  ||
          !_config.loadProfile.empty()     ||
+         !_config.evalXCorr.empty()       ||
          !_config.relocateProfile.empty() ||
          (!_config.originIDs.empty() && _config.testMode)
        )
@@ -696,6 +699,24 @@ bool RTDD::run() {
         }
     }
 
+    // evaluate cross-correlation settings and exit
+    if ( !_config.evalXCorr.empty() )
+    {
+        for ( ProfilePtr profile : _profiles )
+        {
+            if ( profile->name == _config.evalXCorr)
+            {
+                profile->load(query(), &_cache, _eventParameters.get(),
+                              _config.workingDirectory, !_config.keepWorkingFiles,
+                              _config.cacheWaveforms, false);
+                profile->evalXCorr();
+                profile->unload();
+                break;
+            }
+        } 
+        return true;
+    }
+ 
     // load catalog and exit
     if ( !_config.loadProfile.empty() )
     {
@@ -1864,6 +1885,18 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog(bool force)
     return hypodd->relocateCatalog(force, ! ddcfg.ph2dt.ctrlFile.empty());
 }
 
+
+
+void RTDD::Profile::evalXCorr()
+{
+    if ( !loaded )
+    {
+        string msg = Core::stringify("Cannot relocate catalog, profile %s not initialized", name.c_str());
+        throw runtime_error(msg.c_str());
+    }
+    lastUsage = Core::Time::GMT();
+    hypodd->evalXCorr();
+}
 
 // End Profile class
 
