@@ -210,14 +210,14 @@ class HypoDD : public Core::BaseObject {
                                       bool useDiskCacheCatalog,
                                       std::map<std::string,GenericRecordPtr>& refEvCache,
                                       bool useDiskCacheRefEv);
-        bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool checkSnr1,
+        bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool allowSnrCheck1,
                          std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
-                         const Catalog::Event& event2, const Catalog::Phase& phase2, bool checkSnr2,
+                         const Catalog::Event& event2, const Catalog::Phase& phase2, bool allowSnrCheck2,
                          std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
                          double& coeffOut, double& lagOut, double& weightOut);
-        bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool checkSnr1,
+        bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool allowSnrCheck1,
                          std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
-                         const Catalog::Event& event2, const Catalog::Phase& phase2, bool checkSnr2,
+                         const Catalog::Event& event2, const Catalog::Phase& phase2, bool allowSnrCheck2,
                          std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
                          double& coeffOut, double& lagOut, double& weightOut);
         Core::TimeWindow xcorrTimeWindowLong(const Catalog::Phase& phase) const;
@@ -307,8 +307,18 @@ class HypoDD : public Core::BaseObject {
         struct {
             unsigned xcorr_tot;
             unsigned xcorr_performed;
-            unsigned xcorr_cc_good;
-            unsigned xcorr_cc_low;
+            unsigned xcorr_performed_theo;
+            unsigned xcorr_performed_detect;
+            unsigned xcorr_performed_s;
+            unsigned xcorr_performed_s_theo;
+            unsigned xcorr_performed_s_detect;
+            unsigned xcorr_good_cc;
+            unsigned xcorr_good_cc_theo;
+            unsigned xcorr_good_cc_detect;
+            unsigned xcorr_good_cc_s;
+            unsigned xcorr_good_cc_s_theo;
+            unsigned xcorr_good_cc_s_detect;
+
             unsigned snr_low;
             unsigned wf_no_avail;
         } _counters;

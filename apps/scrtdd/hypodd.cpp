@@ -490,7 +490,7 @@ string HypoDD::generateWorkingSubDir(const Catalog::Event& ev) const
 void HypoDD::preloadData()
 {
     _counters = {0};
-    unsigned numPhases = 0;
+    unsigned numPhases = 0, numSPhases = 0;
     //
     // Preload waveforms on disk and cache them in memory (pre-processed)
     //
@@ -500,8 +500,6 @@ void HypoDD::preloadData()
         auto eqlrng = _ddbgc->getPhases().equal_range(event.id);
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
-            numPhases++;
-
             const Catalog::Phase& phase = it->second;
             Core::TimeWindow tw = xcorrTimeWindowLong(phase);
             auto xcorrCfg = _cfg.xcorr[phase.procInfo.type];
@@ -517,19 +515,23 @@ void HypoDD::preloadData()
                 *tmpPh.channelCode.rbegin() = *component.begin(); 
                 getWaveform(tw, event, tmpPh, _wfCache, _useCatalogDiskCache, true); 
             }
+
+            numPhases++;
+            if (  phase.procInfo.type == "S" ) numSPhases++;
         }
     }
-    SEISCOMP_INFO("Finished preloading catalog waveform data: total phases %u "
+    SEISCOMP_INFO("Finished preloading catalog waveform data: total phases %u (P %.f%%, S %.f%%)"
                   "waveforms with Signal to Noise ratio too low %u (%.f%%), "
-                  "waveforms not available %u (%.f%%)", numPhases,
+                  "waveforms not available %u (%.f%%)",
+                  numPhases, ((numPhases-numSPhases)* 100. / numPhases), 
+                  (numSPhases* 100. / numPhases),
                   _counters.snr_low, (_counters.snr_low * 100. / numPhases),
                   _counters.wf_no_avail, (_counters.wf_no_avail * 100. / numPhases) );
 }
 
 
 
-
- /*
+/*
  * Fixed weighting scheme based on pick time uncertainties
  * Class 0: 0     - 0.025  sec
  *       1: 0.025 - 0.050  sec
@@ -727,7 +729,7 @@ HypoDD::findMissingEventPhases(bool useXCorr, bool fixAutoPhase, double maxIEdis
     const auto& refEvPhases = refEvCatalog->getPhases().equal_range(refEv.id);
 
     SEISCOMP_INFO("Detecting missing phases (%s) for event %s (current num phases %ld)",
-                  string(refEv).c_str(), (useXCorr ? "with cross-correlation" : "theoretical"),
+                  (useXCorr ? "with cross-correlation" : "theoretical"), string(refEv).c_str(),
                   std::distance(refEvPhases.first, refEvPhases.second));
 
     // without xcorr we cannot fix the auto phases
@@ -747,6 +749,7 @@ HypoDD::findMissingEventPhases(bool useXCorr, bool fixAutoPhase, double maxIEdis
     // for each missed phase try to detect it
     //
     std::vector<Catalog::Phase> newPhases;
+    int fixedPicks = 0;
     for ( const auto& kv : missingPhases )
     {
         const Catalog::Station& station = searchCatalog->getStations().at(kv.first.first);
@@ -809,10 +812,13 @@ HypoDD::findMissingEventPhases(bool useXCorr, bool fixAutoPhase, double maxIEdis
                          xcorrPeers, phaseVelocity, refEvNewPhase) )
         {
             newPhases.push_back(refEvNewPhase);
+            if ( existingPhase ) fixedPicks++;
         }
     }
 
-    SEISCOMP_INFO("Event %s: created %ld new phases", string(refEv).c_str(), newPhases.size());
+    SEISCOMP_INFO("Event %s: created %ld new phases (%d fixed picks)",
+                   string(refEv).c_str(), newPhases.size(), fixedPicks);
+
     return newPhases;
 }
 
@@ -1461,6 +1467,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
     return relocatedEvWithXcorr ? relocatedEvWithXcorr : relocatedEvCat;
 }
+
 
 string HypoDD::relocationReport(const CatalogCPtr& relocatedEv)
 {
@@ -2408,14 +2415,55 @@ void HypoDD::buildAbsTTimePairs(const CatalogCPtr& catalog,
 
 void HypoDD::printCounters()
 {
+    unsigned attempted        = _counters.xcorr_tot,
+             performed        = _counters.xcorr_performed,
+             performed_s      = _counters.xcorr_performed_s,
+             performed_p      = performed - performed_s,
+             perf_theo        = _counters.xcorr_performed_theo,
+             perf_theo_s      = _counters.xcorr_performed_s_theo,
+             perf_theo_p      = perf_theo - perf_theo_s,
+             perf_detect      = _counters.xcorr_performed_detect,
+             perf_detect_s    = _counters.xcorr_performed_s_detect,
+             perf_detect_p    = perf_detect - perf_detect_s,
+             good_cc          = _counters.xcorr_good_cc,
+             good_cc_s        = _counters.xcorr_good_cc_s,
+             good_cc_p        = good_cc - good_cc_s,
+             good_cc_theo     = _counters.xcorr_good_cc_theo,
+             good_cc_s_theo   = _counters.xcorr_good_cc_s_theo,
+             good_cc_p_theo   = good_cc_theo - good_cc_s_theo,
+             good_cc_detect   = _counters.xcorr_good_cc_detect,
+             good_cc_s_detect = _counters.xcorr_good_cc_s_detect,
+             good_cc_p_detect = good_cc_detect - good_cc_s_detect;
+
     SEISCOMP_INFO("Cross correlation statistics: attempted %u performed %u (%.f%%) "
-                  "with good cc coefficient %u (%.f%%) with too low cc coefficient %u (%.f%%) "
                   "waveforms with Signal to Noise ratio too low %u "
-                  "waveforms not available %u", _counters.xcorr_tot,
-                  _counters.xcorr_performed, _counters.xcorr_performed * 100. / _counters.xcorr_tot,
-                  _counters.xcorr_cc_good,   _counters.xcorr_cc_good * 100. / _counters.xcorr_performed,
-                  _counters.xcorr_cc_low,    _counters.xcorr_cc_low * 100. / _counters.xcorr_performed,
+                  "waveforms not available %u",
+                  attempted, performed, performed * 100. / attempted,
                   _counters.snr_low, _counters.wf_no_avail);
+
+    SEISCOMP_INFO("Total xcorr %u (P %.f%%, S %.f%%). Successful xcorr %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
+                  performed, (performed_p*100./performed), (performed_s*100./performed),
+                  (good_cc*100./performed), good_cc, performed,
+                  (good_cc_p*100./performed_p), good_cc_p, performed_p,
+                  (good_cc_s*100./performed_s), good_cc_s, performed_s);
+
+    if ( _cfg.artificialPhases.enable )
+    {
+    SEISCOMP_INFO("Theoretical phase xcorr %u/%u (P %.f%%, S %.f%%). Successful xcorr %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)", 
+                  perf_theo, performed, (perf_theo_p*100./perf_theo), (perf_theo_s*100./perf_theo),
+                  (good_cc_theo*100./perf_theo), good_cc_theo, perf_theo,
+                  (good_cc_p_theo*100./perf_theo_p), good_cc_p_theo, perf_theo_p,
+                  (good_cc_s_theo*100./perf_theo_s), good_cc_s_theo, perf_theo_s);
+    }
+
+    if ( _cfg.artificialPhases.enable &&  _cfg.artificialPhases.useXCorr )
+    {
+    SEISCOMP_INFO("Detected phases xcorr %u/%u (P %.f%%, S %.f%%). Successful xcorr %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)", 
+                  perf_detect, performed, (perf_detect_p*100./perf_detect), (perf_detect_s*100./perf_detect),
+                  (good_cc_detect*100./perf_detect), good_cc_detect, perf_detect,
+                  (good_cc_p_detect*100./perf_detect_p), good_cc_p_detect, perf_detect_p,
+                  (good_cc_s_detect*100./perf_detect_s), good_cc_s_detect, perf_detect_s);
+    }
 }
 
 
@@ -2762,12 +2810,14 @@ HypoDD::xcorrTimeWindowShort(const Catalog::Phase& phase) const
 
 
 bool
-HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool checkSnr1,
+HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool allowSnrCheck1,
                     std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
-                    const Catalog::Event& event2, const Catalog::Phase& phase2, bool checkSnr2,
+                    const Catalog::Event& event2, const Catalog::Phase& phase2, bool allowSnrCheck2,
                     std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
                     double& coeffOut, double& lagOut, double& weightOut)
 {
+    _counters.xcorr_tot++;
+
     if ( phase1.procInfo.type != phase2.procInfo.type )
     {
         SEISCOMP_ERROR("Internal logic error: trying to xcorr different phases (%s and %s)",
@@ -2776,25 +2826,67 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
     }
 
     auto xcorrCfg = _cfg.xcorr[phase1.procInfo.type];
+    bool performed = false;
 
     if ( xcorrCfg.components.size() == 0 )
     {
-        return _xcorrPhases(event1, phase1, checkSnr1, cache1, useDiskCache1,
-                            event2, phase2, checkSnr2, cache2, useDiskCache2,
-                            coeffOut, lagOut, weightOut);
+        performed = _xcorrPhases(event1, phase1, allowSnrCheck1, cache1, useDiskCache1,
+                                 event2, phase2, allowSnrCheck2, cache2, useDiskCache2,
+                                 coeffOut, lagOut, weightOut);
+    }
+    else
+    {
+        for (string component : xcorrCfg.components )
+        {
+            Catalog::Phase tmpPh1 = phase1;
+            Catalog::Phase tmpPh2 = phase2;
+            *tmpPh1.channelCode.rbegin() = *component.begin();
+            *tmpPh2.channelCode.rbegin() = *component.begin();
+
+            performed = _xcorrPhases(event1, tmpPh1, allowSnrCheck1, cache1, useDiskCache1,
+                                     event2, tmpPh2, allowSnrCheck2, cache2, useDiskCache2,
+                                     coeffOut, lagOut, weightOut);
+
+            if ( std::isfinite(coeffOut) && coeffOut >= xcorrCfg.minCoef )
+            {
+                break;
+            }
+        }
     }
 
-    for (string component : xcorrCfg.components )
-    {
-        Catalog::Phase tmpPh1 = phase1;
-        Catalog::Phase tmpPh2 = phase2;
-        *tmpPh1.channelCode.rbegin() = *component.begin();
-        *tmpPh2.channelCode.rbegin() = *component.begin();
+    /*
+     * Deal with counters
+     */
+    bool isS = ( phase1.procInfo.type == "S" );
+    bool isTheoretical = ( phase1.procInfo.source == Catalog::Phase::Source::THEORETICAL );
+    bool isDetected = ( phase1.procInfo.source == Catalog::Phase::Source::XCORR );
 
-        if ( _xcorrPhases(event1, tmpPh1, checkSnr1, cache1, useDiskCache1,
-                          event2, tmpPh2, checkSnr2, cache2, useDiskCache2,
-                          coeffOut, lagOut, weightOut) )
+    // was the xcorr performed ?
+    if ( performed ) 
+    {
+        _counters.xcorr_performed++;
+        if ( isTheoretical ) _counters.xcorr_performed_theo++;
+        if ( isDetected )    _counters.xcorr_performed_detect++;
+        if ( isS )
         {
+            _counters.xcorr_performed_s++;
+            if ( isTheoretical ) _counters.xcorr_performed_s_theo++;
+            if ( isDetected )    _counters.xcorr_performed_s_detect++;
+        }
+
+        // is the coefficient good?
+        if ( std::isfinite(coeffOut) && coeffOut >= xcorrCfg.minCoef )
+        {
+            _counters.xcorr_good_cc++;
+            if ( isTheoretical ) _counters.xcorr_good_cc_theo++;
+            if ( isDetected )    _counters.xcorr_good_cc_detect++;
+            if ( isS )
+            {
+                _counters.xcorr_good_cc_s++;
+                if ( isTheoretical ) _counters.xcorr_good_cc_s_theo++;
+                if ( isDetected )    _counters.xcorr_good_cc_s_detect++;
+            }
+
             return true;
         }
     }
@@ -2804,9 +2896,9 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
 
 
 bool
-HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool checkSnr1,
+HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool allowSnrCheck1,
                      std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
-                     const Catalog::Event& event2, const Catalog::Phase& phase2, bool checkSnr2,
+                     const Catalog::Event& event2, const Catalog::Phase& phase2, bool allowSnrCheck2,
                      std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
                      double& coeffOut, double& lagOut, double& weightOut)
 {
@@ -2815,20 +2907,18 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
     weightOut = 0;
     auto xcorrCfg = _cfg.xcorr[phase1.procInfo.type];
 
-    _counters.xcorr_tot++;
-
     Core::TimeWindow tw1 = xcorrTimeWindowLong(phase1);
     Core::TimeWindow tw2 = xcorrTimeWindowLong(phase2);
 
     // load the long trace 1, because we want to cache the long version. Then we'll trim it.
-    GenericRecordPtr tr1 = getWaveform(tw1, event1, phase1, cache1, useDiskCache1, checkSnr1);
+    GenericRecordPtr tr1 = getWaveform(tw1, event1, phase1, cache1, useDiskCache1, allowSnrCheck1);
     if ( !tr1 )
     {
         return false;
     }
 
     // load the long trace 2, because we want to cache the long version. Then we'll trim it
-    GenericRecordPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2, checkSnr2);
+    GenericRecordPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2, allowSnrCheck2);
     if ( !tr2 )
     {
         return false;
@@ -2880,25 +2970,18 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
         }
     }
 
-    _counters.xcorr_performed++;
 
     if ( ! std::isfinite(xcorr_coeff) && ! std::isfinite(xcorr_coeff2) )
     {
-        _counters.xcorr_cc_low++;
-        return false;
+        return true;
     }
 
     if ( ! std::isfinite(xcorr_coeff) ||
          (std::isfinite(xcorr_coeff2) && xcorr_coeff2 > xcorr_coeff) )
     {
+        // swap
         xcorr_coeff = xcorr_coeff2;
         xcorr_dt = xcorr_dt2;
-    }
-
-    if ( xcorr_coeff < xcorrCfg.minCoef )
-    {
-        _counters.xcorr_cc_low++;
-        return false;
     }
 
     // compute differential travel time and weight of measurement
@@ -2908,7 +2991,6 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
     lagOut    = travel_time1 - travel_time2 - xcorr_dt;
     weightOut = xcorr_coeff * xcorr_coeff;
 
-    _counters.xcorr_cc_good++;
     return true;
 }
 
@@ -3092,7 +3174,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
                     const Catalog::Phase& ph,
                     map<string,GenericRecordPtr>& memCache,
                     bool useDiskCache,
-                    bool checkSnr)
+                    bool allowSnrCheck)
 {
     string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
                               string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
@@ -3115,7 +3197,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     }
 
     // Check if we have already excluded the trace because the snr istoo high
-    if ( checkSnr && _snrExcludedWfs.count(wfId) != 0 )
+    if ( allowSnrCheck && _snrExcludedWfs.count(wfId) != 0 )
     {
         return nullptr;
     }
@@ -3157,7 +3239,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     // if the SNR window is bigger than the xcorr window, than extend
     // the waveform time window
-    const Core::TimeWindow twToLoad = checkSnr ? traceTimeWindowToLoad(ph, tw) : tw;
+    const Core::TimeWindow twToLoad = allowSnrCheck ? traceTimeWindowToLoad(ph, tw) : tw;
 
     // Load waveform:
     // - if no projection required, just load the requested component
@@ -3198,7 +3280,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     }
 
     // check SNR threshold
-    if ( checkSnr && _cfg.snr.minSnr > 0 )
+    if ( allowSnrCheck && _cfg.snr.minSnr > 0 )
     {
         double snr = S2Nratio(trace, ph.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
                               _cfg.snr.signalStart, _cfg.snr.signalEnd);
