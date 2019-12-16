@@ -233,14 +233,15 @@ class HypoDD : public Core::BaseObject {
         CatalogPtr loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
                                         const std::string& ddrelocFile,
                                         const std::string& ddresidualFile="") const;
-        CatalogPtr selectNeighbouringEvents(const CatalogCPtr& catalog, const Catalog::Event& refEv,
+        CatalogPtr selectNeighbouringEvents(const CatalogCPtr& catalog,
+                                            const Catalog::Event& refEv,
                                             const CatalogCPtr& refEvCatalog,
                                             double minPhaseWeight = 0, double minESdis=0,
                                             double maxESdis=-1, double minEStoIEratio=0,
                                             int minDTperEvt=1, int maxDTperEvt=-1,
                                             int minNumNeigh=1, int maxNumNeigh=-1,
                                             int numEllipsoids=5, double maxEllipsoidSize=10,
-                                            bool keepUnmatched=false) const;
+                                            bool keepUnmatched=false, int *numNeigh=nullptr) const;
         std::map<unsigned,CatalogPtr> 
         selectNeighbouringEventsCatalog(const CatalogCPtr& catalog, double minPhaseWeight,
                                         double minESdis, double maxESdis, double minEStoIEratio,

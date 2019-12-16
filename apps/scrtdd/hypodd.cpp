@@ -749,7 +749,8 @@ HypoDD::findMissingEventPhases(bool useXCorr, bool fixAutoPhase, double maxIEdis
     // for each missed phase try to detect it
     //
     std::vector<Catalog::Phase> newPhases;
-    int fixedPicks = 0;
+    long fixedPicks = 0;
+    long newS = 0;
     for ( const auto& kv : missingPhases )
     {
         const Catalog::Station& station = searchCatalog->getStations().at(kv.first.first);
@@ -813,11 +814,12 @@ HypoDD::findMissingEventPhases(bool useXCorr, bool fixAutoPhase, double maxIEdis
         {
             newPhases.push_back(refEvNewPhase);
             if ( existingPhase ) fixedPicks++;
+            if ( refEvNewPhase.procInfo.type == "S") newS++;
         }
     }
 
-    SEISCOMP_INFO("Event %s: created %ld new phases (%d fixed picks)",
-                   string(refEv).c_str(), newPhases.size(), fixedPicks);
+    SEISCOMP_INFO("Event %s: created %ld new phases (%ld fixed picks) %ld P and %ld S",
+                   string(refEv).c_str(), newPhases.size(), fixedPicks,  newPhases.size()-newS, newS);
 
     return newPhases;
 }
@@ -1214,6 +1216,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
         if ( force || ! Util::fileExists(dtctFile) )
         {
             map<unsigned,CatalogPtr> neighboursByEvid = createDtCtCatalog(catToReloc, dtctFile);
+            // update selected event list
             for ( const auto& kv : neighboursByEvid ) selectedEvents.insert(kv.first);
         }
 
@@ -1221,8 +1224,17 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
         // Create dt.cc (if not already generated)
         if ( force || ! Util::fileExists(dtccFile) )
         {
+            // this updates catToReloc with number of neighborus information
             map<unsigned,CatalogPtr> neighboursByEvid = createDtCcCatalog(catToReloc, dtccFile);
-            for ( const auto& kv : neighboursByEvid ) selectedEvents.insert(kv.first);
+            for ( const auto& kv : neighboursByEvid )
+            {
+                unsigned evId = kv.first;
+                CatalogPtr neighbourCat = kv.second; 
+                // update selected event list
+                selectedEvents.insert(evId);
+                // update number of neighbours information
+                catToReloc->getEvents[evId].relocInfo.numNeighbours = neighbourCat->getEvents[evId].relocInfo.numNeighbours;
+            }
         }
     }
     else
@@ -1343,15 +1355,17 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
                                                                _cfg.validPphases, _cfg.validSphases);
 
         // Select neighbouring events
+        int numNeighbours;
         CatalogPtr neighbourCat = selectNeighbouringEvents(
             _ddbgc, evToRelocate, evToRelocateCat, _cfg.step1Clustering.minWeight, _cfg.step1Clustering.minESdist,
-            _cfg.step1Clustering.maxESdist, _cfg.step1Clustering.minEStoIEratio,
-            _cfg.step1Clustering.minDTperEvt, _cfg.step1Clustering.maxDTperEvt, _cfg.step1Clustering.minNumNeigh,
-            _cfg.step1Clustering.maxNumNeigh, _cfg.step1Clustering.numEllipsoids, _cfg.step1Clustering.maxEllipsoidSize, false
+            _cfg.step1Clustering.maxESdist, _cfg.step1Clustering.minEStoIEratio, _cfg.step1Clustering.minDTperEvt,
+            _cfg.step1Clustering.maxDTperEvt, _cfg.step1Clustering.minNumNeigh, _cfg.step1Clustering.maxNumNeigh,
+            _cfg.step1Clustering.numEllipsoids, _cfg.step1Clustering.maxEllipsoidSize, false, &numNeighbours
         );
 
         // add event to be relocated to the neighbours
         unsigned evToRelocateNewId = neighbourCat->add(evToRelocate.id, *evToRelocateCat, false);
+        neighbourCat->getEvents()[evToRelocateNewId].relocInfo.numNeighbours = numNeighbours;
 
         // write catalog for debugging purpose
         if ( ! _workingDirCleanup )
@@ -1449,15 +1463,17 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         }
 
         // Select neighbouring events from the relocated origin
+        int numNeighbours;
         CatalogPtr neighbourCat = selectNeighbouringEvents(
             _ddbgc, evToRelocate, evToRelocateCat, _cfg.step2Clustering.minWeight, _cfg.step2Clustering.minESdist,
-            _cfg.step2Clustering.maxESdist, _cfg.step2Clustering.minEStoIEratio,
-            _cfg.step2Clustering.minDTperEvt,  _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh,
-            _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids, _cfg.step2Clustering.maxEllipsoidSize, true
+            _cfg.step2Clustering.maxESdist, _cfg.step2Clustering.minEStoIEratio, _cfg.step2Clustering.minDTperEvt,
+            _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh, _cfg.step2Clustering.maxNumNeigh,
+            _cfg.step2Clustering.numEllipsoids, _cfg.step2Clustering.maxEllipsoidSize, true, &numNeighbours
         );
 
         // add event to the neighbours
         unsigned refinedLocNewId = neighbourCat->add(evToRelocate.id, *evToRelocateCat, false);
+        neighbourCat->getEvents[refinedLocNewId].relocInfo.numNeighbours = numNeighbours;
 
         // write catalog for debugging purpose
         if ( ! _workingDirCleanup )
@@ -1542,9 +1558,9 @@ string HypoDD::relocationReport(const CatalogCPtr& relocatedEv)
     if ( ! event.relocInfo.isRelocated )
         return "Event not relocated";
 
-    return stringify("Neighboring events %d, "
-                     "Cross-correlated P phases %d, S phases %d. Rms residual %.3f [sec], "
-                     "Catalog P phases %d, S phases %d. Rms residual %.2f [sec], "
+    return stringify("Neighboring events %d. "
+                     "Cross-correlated P phases %d, S phases %d. Rms residual %.3f [sec]. "
+                     "Catalog P phases %d, S phases %d. Rms residual %.2f [sec]. "
                      "Error [km]: East-west %.3f, north-south %.3f, depth %.3f",
                       event.relocInfo.numNeighbours,
                       event.relocInfo.numCCp, event.relocInfo.numCCs, event.relocInfo.rmsResidualCC,
@@ -1810,7 +1826,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             int maxNumNeigh,
                                             int numEllipsoids,
                                             double maxEllipsoidSize,
-                                            bool keepUnmatched) const
+                                            bool keepUnmatched,
+                                            int* numNeigh=nullptr) const
 {
     SEISCOMP_DEBUG("Selecting Neighbouring Events for event %s lat %.6f lon %.6f depth %.4f mag %.2f time %s",
                    string(refEv).c_str(), refEv.latitude, refEv.longitude, refEv.depth,
@@ -2094,6 +2111,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         }
     }
 
+    if ( numNeigh ) *numNeigh = numNeighbors;
+
     // Check if enough neighbors were found
     if ( numNeighbors < minNumNeigh )
     {
@@ -2131,13 +2150,14 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
     for (const auto& kv : catalog->getEvents() )
     {
         const Catalog::Event& event = kv.second;
+        int numNeighbours;
 
         CatalogPtr neighbourCat; 
         try {
             neighbourCat = selectNeighbouringEvents(
                 catalog, event, catalog, minPhaseWeight, minESdist, maxESdist,
-                minEStoIEratio, minDTperEvt, maxDTperEvt,
-                minNumNeigh, maxNumNeigh, numEllipsoids, maxEllipsoidSize, keepUnmatched
+                minEStoIEratio, minDTperEvt, maxDTperEvt,  minNumNeigh, maxNumNeigh,
+                numEllipsoids, maxEllipsoidSize, keepUnmatched, &numNeighbours
             );
         } catch ( ... ) { }
 
@@ -2145,6 +2165,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
         {
             // add event to neighbour catalog list and update the list
             neighbourCat->add(event.id,*catalog, true);
+            neighbourCat->getEvents()[event.id].relocInfo.numNeighbours = numNeighbours;
             neighboursByEvent[event.id] = neighbourCat;
         }
     }
@@ -2159,17 +2180,17 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
     for (auto kv : neighboursByEvent )
     {
         unsigned currEventId = kv.first;
-        CatalogPtr& currCat  = kv.second;
+        CatalogPtr& neighbourCat  = kv.second;
 
         // remove from currrent catalogl the existing pairs
         auto eqlrng = existingPairs.equal_range(currEventId);
         for (auto existingPair = eqlrng.first; existingPair != eqlrng.second; existingPair++)
         {
-            currCat->removeEvent(existingPair->second);
+            neighbourCat->removeEvent(existingPair->second);
         }
 
         // remove current pairs from following catalogs
-        for ( auto const& kv : currCat->getEvents() )
+        for ( auto const& kv : neighbourCat->getEvents() )
         {
             if ( kv.first != currEventId )
                 existingPairs.emplace(kv.first, currEventId);
@@ -2515,22 +2536,22 @@ void HypoDD::printCounters()
                   (good_cc_p*100./performed_p), good_cc_p, performed_p,
                   (good_cc_s*100./performed_s), good_cc_s, performed_s);
 
-    if ( _cfg.artificialPhases.enable )
+    if ( perf_theo > 0 )
     {
-    SEISCOMP_INFO("Theoretical phase xcorr %u/%u (P %.f%%, S %.f%%). Successful xcorr %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)", 
-                  perf_theo, performed, (perf_theo_p*100./perf_theo), (perf_theo_s*100./perf_theo),
-                  (good_cc_theo*100./perf_theo), good_cc_theo, perf_theo,
-                  (good_cc_p_theo*100./perf_theo_p), good_cc_p_theo, perf_theo_p,
-                  (good_cc_s_theo*100./perf_theo_s), good_cc_s_theo, perf_theo_s);
+        SEISCOMP_INFO("Theoretical phase xcorr %u/%u (P %.f%%, S %.f%%). Successful xcorr %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)", 
+                      perf_theo, performed, (perf_theo_p*100./perf_theo), (perf_theo_s*100./perf_theo),
+                      (good_cc_theo*100./perf_theo), good_cc_theo, perf_theo,
+                      (good_cc_p_theo*100./perf_theo_p), good_cc_p_theo, perf_theo_p,
+                      (good_cc_s_theo*100./perf_theo_s), good_cc_s_theo, perf_theo_s);
     }
 
-    if ( _cfg.artificialPhases.enable &&  _cfg.artificialPhases.useXCorr )
+    if ( perf_detect > 0 )
     {
-    SEISCOMP_INFO("Detected phases xcorr %u/%u (P %.f%%, S %.f%%). Successful xcorr %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)", 
-                  perf_detect, performed, (perf_detect_p*100./perf_detect), (perf_detect_s*100./perf_detect),
-                  (good_cc_detect*100./perf_detect), good_cc_detect, perf_detect,
-                  (good_cc_p_detect*100./perf_detect_p), good_cc_p_detect, perf_detect_p,
-                  (good_cc_s_detect*100./perf_detect_s), good_cc_s_detect, perf_detect_s);
+        SEISCOMP_INFO("Detected phases xcorr %u/%u (P %.f%%, S %.f%%). Successful xcorr %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)", 
+                      perf_detect, performed, (perf_detect_p*100./perf_detect), (perf_detect_s*100./perf_detect),
+                      (good_cc_detect*100./perf_detect), good_cc_detect, perf_detect,
+                      (good_cc_p_detect*100./perf_detect_p), good_cc_p_detect, perf_detect_p,
+                      (good_cc_s_detect*100./perf_detect_s), good_cc_s_detect, perf_detect_s);
     }
 }
 
@@ -2564,16 +2585,16 @@ HypoDD::createDtCcCatalog(const CatalogCPtr& catalog, const string& dtccFile)
     for (const auto& kv : neighbourCats)
     {
             unsigned evToRelocateId = kv.first;
-            CatalogPtr currCat = kv.second;
+            CatalogPtr neighbourCat = kv.second;
 
             // add theoretical picks before xcorr
             if ( _cfg.artificialPhases.enable && ! _cfg.artificialPhases.useXCorr )
             {
-                const Catalog::Event& ev = currCat->getEvents().at(evToRelocateId);
+                const Catalog::Event& ev = neighbourCat->getEvents().at(evToRelocateId);
                 addMissingEventPhases(false, false, _cfg.artificialPhases.maxIEdist,
                                   _cfg.artificialPhases.numCC, catalog, ev, currCat);
             }
-            buildXcorrDiffTTimePairs(currCat, evToRelocateId, outStream,
+            buildXcorrDiffTTimePairs(neighbourCat, evToRelocateId, outStream,
                                      _wfCache, _useCatalogDiskCache,
                                      _wfCache, _useCatalogDiskCache);
     }
