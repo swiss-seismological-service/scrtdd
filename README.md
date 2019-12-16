@@ -136,9 +136,8 @@ To relocate a catalog (multi-event relocation) we need to create a new profile i
 
 ![Catalog selection option](/data/catalog-selection2.png?raw=true "Catalog selection from raw file format")
 
-At this point we have to configure the other profile options that control the relocation process: `step1options`, which control the creation of catalog absolute travel time entries for pairs of events (dt.ct file in HypoDD terminology), and `step2options`, which control the creation of cross correlated differential travel times for pairs of events (dt.cc file in HypoDD terminology). Even when the clustering options are used with the default values the relocation should work just fine, but some adjustments are worth it. For example:
+At this point we have to configure the other profile options that control the relocation process: `step2options` (`step1options` is used only in real-time), which control the creation of catalog absolute travel time entries (dt.ct file in HypoDD terminology) and cross correlated differential travel times for pairs of events (dt.cc file in HypoDD terminology). The clustering options should work just fine with the default values, however some adjustments are worth it. For example:
 
-![Relocation options](/data/multiEventStep1options.png?raw=true "Relocation options")
 ![Relocation options](/data/multiEventStep2options.png?raw=true "Relocation options")
 
 A more careful selection is required for the cross correlation parameters, which are covered in the next paragraph.
