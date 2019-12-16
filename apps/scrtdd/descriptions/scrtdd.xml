@@ -206,20 +206,18 @@
 
                     <group name="step1options">
                         <description>
-                            Here are the options that control the creation of catalog absolute travel time entries
-                            for pairs of events (dt.ct file in HypoDD terminology), which are used in step 1 of
-                            real-time single-event relocation and and also in multi-event (full catalog)
-                            relocation (--relocate-profile  command line option).
-                            The real-time relocation works in two steps: location refinement, the first step in
-                            which hypoDD compute a preliminary relocation of the origin using only catalog
-                            absolute travel times (dt.ct), which is controlled by those options, and a second step 
-                            relocation, where scrtdd  performs a more precise relocation using both catalog absolute 
-                            travel times (dt.ct) and cross correlation differential travel times (dt.cc) for pairs 
-                            of earthquakes, which is controlled by step2options.
+                            These options control the step 1 of real-time single event relocation. These options
+                            are NOT used in multi-event (full catalog) relocation (--relocate-profile command
+                            line option).
+                            The real-time relocation works in two steps: the first one is the location refinement,
+                            in which scrtdd compute a preliminary relocation of the origin using only catalog
+                            absolute travel times (dt.ct) and it is controlled by those options. A second step 
+                            relocation is then performed, where scrtdd use both catalog absolute travel times (dt.ct)
+                            and cross correlation differential travel times (dt.cc) for pairs of earthquakes, which
+                            is controlled by step2options.
                             The multi-event (full catalog) relocation works in one step only, where the relocation
                             is performed with both catalog absolute travel times (dt.ct) and cross correlation
-                            differential travel times (dt.cc), each one controlled by its respective options 
-                            (step1options and step2options)
+                            differential travel times (dt.cc),  both controlled by step2options.
                         </description>
                         <group name="clustering">
                             <description>
@@ -347,20 +345,17 @@
 
                     <group name="step2options">
                         <description>
-                            Here are the options that control the creation cross correlation differential travel
-                            times for pairs of events (dt.cc file in HypoDD terminology), which are used in step 2
-                            of real-time single-event relocation and and also in multi-event (full catalog)
-                            relocation (--relocate-profile  command line option).
-                            The real-time relocation works in two steps: location refinement, the first step in
-                            which hypoDD compute a preliminary relocation of the origin using only catalog
-                            absolute travel times (dt.ct), which is controlled by step1options options, and a
-                            second step relocation, where scrtdd performs a more precise relocation using both
-                            catalog absolute travel times (dt.ct) and cross correlation differential travel times
-                            (dt.cc) for pairs of earthquakes, which is controlled by those options.
+                            These options control the step 2 of real-time single event relocation and the
+                            multi-event (full catalog) relocation (--relocate-profile command line option).
+                            The real-time relocation works in two steps: the first one is the location refinement,
+                            in which scrtdd compute a preliminary relocation of the origin using only catalog
+                            absolute travel times (dt.ct), and a second step relocation (controlled by these options),
+                            where scrtdd  performs a more precise relocation using both catalog absolute 
+                            travel times (dt.ct) and cross correlation differential travel times (dt.cc) for pairs 
+                            of earthquakes.
                             The multi-event (full catalog) relocation works in one step only, where the relocation
                             is performed with both catalog absolute travel times (dt.ct) and cross correlation
-                            differential travel times (dt.cc), each one controlled by its respective options 
-                            (step1options and step2options)
+                            differential travel times (dt.cc),  both controlled by step2options. 
                         </description>
                         <group name="clustering">
                             <description>

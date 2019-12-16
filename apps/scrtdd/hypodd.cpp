@@ -1211,30 +1211,54 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
             createEventDatFile(catToReloc, eventFile);
         }
 
+        // Find Neighbouring Events in the catalog
+        map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
+            catToReloc, _cfg.step2Clustering.minWeight,
+            _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist,
+            _cfg.step2Clustering.minEStoIEratio, _cfg.step2Clustering.minDTperEvt,
+            _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh,
+            _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids,
+            _cfg.step2Clustering.maxEllipsoidSize, true
+        );
+
         // calculate absolute travel times from catalog phases
         // Create dt.ct (if not already generated)
         if ( force || ! Util::fileExists(dtctFile) )
         {
-            map<unsigned,CatalogPtr> neighboursByEvid = createDtCtCatalog(catToReloc, dtctFile);
-            // update selected event list
-            for ( const auto& kv : neighboursByEvid ) selectedEvents.insert(kv.first);
+            createDtCtCatalog(neighbourCats, dtctFile);
         }
 
         // calculate cross correlated differential travel times
         // Create dt.cc (if not already generated)
         if ( force || ! Util::fileExists(dtccFile) )
         {
-            // this updates catToReloc with number of neighborus information
-            map<unsigned,CatalogPtr> neighboursByEvid = createDtCcCatalog(catToReloc, dtccFile);
-            for ( const auto& kv : neighboursByEvid )
+            // add theoretical picks before xcorr
+            if ( _cfg.artificialPhases.enable && ! _cfg.artificialPhases.useXCorr )
             {
-                unsigned evId = kv.first;
-                CatalogPtr neighbourCat = kv.second; 
-                // update selected event list
-                selectedEvents.insert(evId);
-                // update number of neighbours information
-                catToReloc->getEvents[evId].relocInfo.numNeighbours = neighbourCat->getEvents[evId].relocInfo.numNeighbours;
+                for (auto& kv : neighbourCats)
+                {
+                    CatalogPtr& neighbourCat = kv.second;
+                    const Catalog::Event& ev = neighbourCat->getEvents().at( kv.first);
+                    addMissingEventPhases(false, false, _cfg.artificialPhases.maxIEdist,
+                                         _cfg.artificialPhases.numCC, catToReloc, ev, neighbourCat);
+                }
             }
+            createDtCcCatalog(neighbourCats, dtccFile);
+
+        }
+
+        // update selected event list and numNeighbours information
+        for (const auto& kv : neighbourCats)
+        {
+            unsigned evId = kv.first;
+            const CatalogPtr& neighbourCat = kv.second;
+
+            selectedEvents.insert(evId);
+
+            const Catalog::Event& ev1 = neighbourCat->getEvents().at(evId);
+            Catalog::Event ev2 = catToReloc->getEvents().at(evId);
+            ev2.relocInfo.numNeighbours = ev1.relocInfo.numNeighbours;
+            catToReloc->updateEvent(ev2);
         }
     }
     else
@@ -1325,7 +1349,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     _counters = {0};
 
     // there must be only one event in the catalog, the origin to relocate
-    const Catalog::Event& evToRelocate = singleEvent->getEvents().begin()->second;
+    Catalog::Event evToRelocate = singleEvent->getEvents().begin()->second;
 
     // Create working directory
     string subFolder = generateWorkingSubDir(evToRelocate);
@@ -1365,7 +1389,10 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
         // add event to be relocated to the neighbours
         unsigned evToRelocateNewId = neighbourCat->add(evToRelocate.id, *evToRelocateCat, false);
-        neighbourCat->getEvents()[evToRelocateNewId].relocInfo.numNeighbours = numNeighbours;
+        // add numNeighbours information
+        evToRelocate = neighbourCat->getEvents().at(evToRelocateNewId);
+        evToRelocate.relocInfo.numNeighbours = numNeighbours;
+        neighbourCat->updateEvent(evToRelocate);
 
         // write catalog for debugging purpose
         if ( ! _workingDirCleanup )
@@ -1453,7 +1480,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
                                                         _cfg.validPphases, _cfg.validSphases);
 
         // extract event to relocate
-        const Catalog::Event& evToRelocate = evToRelocateCat->getEvents().begin()->second;
+        Catalog::Event evToRelocate = evToRelocateCat->getEvents().begin()->second;
 
         // if enabled, detect new phases with xcorr
         if ( _cfg.artificialPhases.enable &&  _cfg.artificialPhases.useXCorr )
@@ -1473,7 +1500,10 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
         // add event to the neighbours
         unsigned refinedLocNewId = neighbourCat->add(evToRelocate.id, *evToRelocateCat, false);
-        neighbourCat->getEvents[refinedLocNewId].relocInfo.numNeighbours = numNeighbours;
+        // add numNeighbours information
+        evToRelocate = neighbourCat->getEvents().at(refinedLocNewId);
+        evToRelocate.relocInfo.numNeighbours = numNeighbours;
+        neighbourCat->updateEvent(evToRelocate);
 
         // write catalog for debugging purpose
         if ( ! _workingDirCleanup )
@@ -1496,6 +1526,13 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         string dtctFile = (boost::filesystem::path(eventWorkingDir)/"dt.ct").string();
         createDtCtSingleEvent(neighbourCat, refinedLocNewId, dtctFile);
 
+        // add theoretical picks before xcorr
+        if ( _cfg.artificialPhases.enable && ! _cfg.artificialPhases.useXCorr )
+        {
+            addMissingEventPhases(false, false, _cfg.artificialPhases.maxIEdist,
+                                  _cfg.artificialPhases.numCC, _ddbgc, evToRelocate, neighbourCat);
+        }
+ 
         // Create cross correlated differential travel times file (dt.cc) for hypodd
         string dtccFile = (boost::filesystem::path(eventWorkingDir)/"dt.cc").string();
         createDtCcSingleEvent(neighbourCat, refinedLocNewId, dtccFile);
@@ -1827,7 +1864,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             int numEllipsoids,
                                             double maxEllipsoidSize,
                                             bool keepUnmatched,
-                                            int* numNeigh=nullptr) const
+                                            int* numNeigh) const
 {
     SEISCOMP_DEBUG("Selecting Neighbouring Events for event %s lat %.6f lon %.6f depth %.4f mag %.2f time %s",
                    string(refEv).c_str(), refEv.latitude, refEv.longitude, refEv.depth,
@@ -2149,7 +2186,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
     // for each event find the neighbours
     for (const auto& kv : catalog->getEvents() )
     {
-        const Catalog::Event& event = kv.second;
+        Catalog::Event event = kv.second;
         int numNeighbours;
 
         CatalogPtr neighbourCat; 
@@ -2163,9 +2200,12 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
 
         if ( neighbourCat )
         {
-            // add event to neighbour catalog list and update the list
+            // add event to neighbour catalog list
             neighbourCat->add(event.id,*catalog, true);
-            neighbourCat->getEvents()[event.id].relocInfo.numNeighbours = numNeighbours;
+            // add numNeighbours information
+            event.relocInfo.numNeighbours = numNeighbours;
+            neighbourCat->updateEvent(event);
+            // update the list of events with their respective neighbours
             neighboursByEvent[event.id] = neighbourCat;
         }
     }
@@ -2375,8 +2415,8 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
  * Create absolute travel times file (dt.ct) for hypodd
  * This is for multi-event mode
  */
-map<unsigned,CatalogPtr> 
-HypoDD::createDtCtCatalog(const CatalogCPtr& catalog, const string& dtctFile) const
+void
+HypoDD::createDtCtCatalog(const map<unsigned,CatalogPtr>& neighbourCats, const string& dtctFile) const
 {
     SEISCOMP_INFO("Creating differential travel time file %s", dtctFile.c_str());
 
@@ -2384,19 +2424,8 @@ HypoDD::createDtCtCatalog(const CatalogCPtr& catalog, const string& dtctFile) co
     if ( !outStream.is_open() )
         throw runtime_error("Cannot create file " + dtctFile);
 
-    map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
-        catalog, _cfg.step1Clustering.minWeight,
-        _cfg.step1Clustering.minESdist, _cfg.step1Clustering.maxESdist,
-        _cfg.step1Clustering.minEStoIEratio, 
-        _cfg.step1Clustering.minDTperEvt,  _cfg.step1Clustering.maxDTperEvt,
-        _cfg.step1Clustering.minNumNeigh, _cfg.step1Clustering.maxNumNeigh,
-        _cfg.step1Clustering.numEllipsoids , _cfg.step1Clustering.maxEllipsoidSize, false
-    );
-
     for (const auto& kv : neighbourCats)
         buildAbsTTimePairs(kv.second, kv.first, outStream);
-
-    return neighbourCats;
 }
 
 
@@ -2562,8 +2591,8 @@ void HypoDD::printCounters()
  * correlation for pairs of earthquakes.
  * This is for full catalog mode
  */
-map<unsigned,CatalogPtr> 
-HypoDD::createDtCcCatalog(const CatalogCPtr& catalog, const string& dtccFile)
+void
+HypoDD::createDtCcCatalog(const map<unsigned,CatalogPtr>& neighbourCats, const string& dtccFile)
 {
     SEISCOMP_INFO("Creating Cross correlation differential travel time file %s", dtccFile.c_str());
 
@@ -2571,35 +2600,16 @@ HypoDD::createDtCcCatalog(const CatalogCPtr& catalog, const string& dtccFile)
     if ( !outStream.is_open() )
         throw runtime_error("Cannot create file " + dtccFile);
 
-    map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
-        catalog, _cfg.step2Clustering.minWeight,
-        _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist,
-        _cfg.step2Clustering.minEStoIEratio, 
-        _cfg.step2Clustering.minDTperEvt,  _cfg.step2Clustering.maxDTperEvt,
-        _cfg.step2Clustering.minNumNeigh, _cfg.step2Clustering.maxNumNeigh,
-        _cfg.step2Clustering.numEllipsoids , _cfg.step2Clustering.maxEllipsoidSize, true
-    );
-
     SEISCOMP_INFO("Starting Cross correlation...");
 
     for (const auto& kv : neighbourCats)
     {
-            unsigned evToRelocateId = kv.first;
-            CatalogPtr neighbourCat = kv.second;
-
-            // add theoretical picks before xcorr
-            if ( _cfg.artificialPhases.enable && ! _cfg.artificialPhases.useXCorr )
-            {
-                const Catalog::Event& ev = neighbourCat->getEvents().at(evToRelocateId);
-                addMissingEventPhases(false, false, _cfg.artificialPhases.maxIEdist,
-                                  _cfg.artificialPhases.numCC, catalog, ev, currCat);
-            }
-            buildXcorrDiffTTimePairs(neighbourCat, evToRelocateId, outStream,
-                                     _wfCache, _useCatalogDiskCache,
-                                     _wfCache, _useCatalogDiskCache);
+        unsigned evToRelocateId = kv.first;
+        const CatalogPtr& neighbourCat = kv.second;
+        buildXcorrDiffTTimePairs(neighbourCat, evToRelocateId, outStream,
+                                 _wfCache, _useCatalogDiskCache,
+                                 _wfCache, _useCatalogDiskCache);
     }
-
-    return neighbourCats;
 }
 
 
@@ -2618,17 +2628,7 @@ void HypoDD::createDtCcSingleEvent(const CatalogCPtr& catalog,
     if ( !outStream.is_open() )
         throw runtime_error("Cannot create file " + dtccFile);
 
-    CatalogPtr currCat = new Catalog(*catalog);
-
-    // add theoretical picks before xcorr
-    if ( _cfg.artificialPhases.enable && ! _cfg.artificialPhases.useXCorr )
-    {
-        const Catalog::Event& ev = currCat->getEvents().at(evToRelocateId);
-        addMissingEventPhases(false, false, _cfg.artificialPhases.maxIEdist,
-                              _cfg.artificialPhases.numCC, _ddbgc, ev, currCat);
-    }
-
-    buildXcorrDiffTTimePairs(currCat, evToRelocateId, outStream,
+    buildXcorrDiffTTimePairs(catalog, evToRelocateId, outStream,
                              _wfCache, _useCatalogDiskCache,
                              _wfCacheTmp, false);
 }
