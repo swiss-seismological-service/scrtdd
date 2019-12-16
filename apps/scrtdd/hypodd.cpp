@@ -1159,7 +1159,6 @@ void HypoDD::evalXCorr()
 CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
 {
     SEISCOMP_INFO("Starting HypoDD relocator in multiple events mode");
-    _counters = {0};
 
     CatalogPtr catToReloc = new Catalog(*_ddbgc);
 
@@ -1294,8 +1293,6 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
         }
     }
 
-    printCounters();
-
     // run hypodd
     // input : dt.cc dt.ct event.sel station.sel hypoDD.inp
     // output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
@@ -1346,7 +1343,6 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
 CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 {
     SEISCOMP_INFO("Starting HypoDD relocator in single event mode");
-    _counters = {0};
 
     // there must be only one event in the catalog, the origin to relocate
     Catalog::Event evToRelocate = singleEvent->getEvents().begin()->second;
@@ -1536,8 +1532,6 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         // Create cross correlated differential travel times file (dt.cc) for hypodd
         string dtccFile = (boost::filesystem::path(eventWorkingDir)/"dt.cc").string();
         createDtCcSingleEvent(neighbourCat, refinedLocNewId, dtccFile);
-
-        printCounters();
 
         // run hypodd
         // input : dt.cc dt.ct event.sel station.sel hypoDD.inp
@@ -2602,6 +2596,8 @@ HypoDD::createDtCcCatalog(const map<unsigned,CatalogPtr>& neighbourCats, const s
 
     SEISCOMP_INFO("Starting Cross correlation...");
 
+    _counters = {0};
+
     for (const auto& kv : neighbourCats)
     {
         unsigned evToRelocateId = kv.first;
@@ -2610,6 +2606,8 @@ HypoDD::createDtCcCatalog(const map<unsigned,CatalogPtr>& neighbourCats, const s
                                  _wfCache, _useCatalogDiskCache,
                                  _wfCache, _useCatalogDiskCache);
     }
+
+    printCounters();
 }
 
 
@@ -2628,9 +2626,13 @@ void HypoDD::createDtCcSingleEvent(const CatalogCPtr& catalog,
     if ( !outStream.is_open() )
         throw runtime_error("Cannot create file " + dtccFile);
 
+    _counters = {0};
+
     buildXcorrDiffTTimePairs(catalog, evToRelocateId, outStream,
                              _wfCache, _useCatalogDiskCache,
                              _wfCacheTmp, false);
+
+    printCounters();
 }
 
 
@@ -2727,6 +2729,8 @@ HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, cons
     ofstream outStream(dtccFile);
     if ( !outStream.is_open() )
         throw runtime_error("Cannot create file " + dtccFile);
+
+    _counters = {0};
 
     set<unsigned> selectedEvents;
 
@@ -2831,6 +2835,8 @@ HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, cons
 
     if (dtCount > 0 )
         outStream << evStream.str();
+
+    printCounters();
 
     return selectedEvents;
 }
