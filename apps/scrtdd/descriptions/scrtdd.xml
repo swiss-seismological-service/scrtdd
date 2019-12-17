@@ -537,7 +537,9 @@
                             </group>
                             <group name="findMissingPhase">
                                 <description>
-                                    When cross-correlating, use theoretical phases if the picker phase is missing
+                                    When cross-correlating an event phases against its neighbours event phases,
+                                    use theoretical picks whenever a phase is missing for a particular station.
+                                    This improves the chances of having more cross correlation differential travel time entries.
                                 </description>
                                 <parameter name="enable" type="boolean" default="true">
                                     <description>
@@ -546,8 +548,14 @@
                                 </parameter>
                                 <parameter name="useXCorr" type="boolean" default="false">
                                     <description>
-                                        The time window around the theoretical pick time is cross correlated with
-                                        phases coming from close by catalog events to detect actual picks.
+                                        Refine theoretical picks using cross-correlation with the background
+                                        serving catalog as the master template library (high quality manual picks).
+                                        The time window around the theoretical pick time is cross correlated
+                                        against the phases of all catalog events within maxEventPairDistance.
+                                        The best numCC results are then selected and the theoretical pick time is
+                                        corrected using the average lag of those numCC best detections.
+                                        Also the pick time uncertainty is derived from those results and
+                                        defined as the union of the uncertainties of the numCC best detections.
                                    </description>
                                 </parameter>
                                 <parameter name="fixAutomaticPhase" type="boolean" default="true">
