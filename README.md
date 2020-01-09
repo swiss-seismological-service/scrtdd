@@ -23,9 +23,8 @@ The SCRTDD is a [Seiscomp3](<https://github.com/SeisComP3/seiscomp3>) extension 
 
 The actual methods are described in the paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser and "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Felix Waldhauser et al.
 
-The actual Double-Difference inversion method is currently performed by the hypoDD software, which has to be installed in the system (currently tested on version 1.3 and 2.1b), while scrtdd code deals with the seiscomp3 internal detials allowing the user to quickly and easily perform Double-Difference relocations on existing events or in real-time.
+The actual Double-Difference inversion method is currently performed by the hypoDD software, which has to be installed in the system (currently tested on version 1.3 and 2.1b), while scrtdd code deals with the seiscomp3 internal details, allowing the user to quickly and easily perform Double-Difference relocations on existing events or in real-time.
 
-We might move away from hypoDD code eventually and implement the inversion inside SCRTDD itself because of the non-free license of hypoDD. If you believe you have a double difference C++/C/Fortran code implementation that you want to integrate in this module, please let us know. Nevertheless we want to make the transition from hypoDD to SCRTDD software easier and the fact that SCRTDD uses hypoDD internally allows the users to make use of their existing hypoDD experience (configuration, expected behaviour and so on) while learning this new tool.
 
 ## Compile
 
@@ -200,6 +199,13 @@ scrtdd --debug-wf --load-profile-wf profileName
 ```
 
 `--load-profile-wf` option is also useful to force the loading of all catalog waveforms from the configured recordstream and store them on disk. This means they will be available in real time relocation wothout the need to access the recordstream.
+
+Finally, the log file (or console output if ` --console=1` is used) is another source of useful information. E.g.
+
+```
+11:48:41 [info] Cross correlation statistics: attempted 12768 performed 9524 (75%) waveforms with Signal to Noise ratio too low 739 waveforms not available 13
+11:48:41 [info] Total xcorr 9524 (P 63%, S 37%). Successful xcorr 68% (6509/9524). Successful P 58% (3452/5996). Successful S 87% (3057/3528)
+```
 
 
 #### 2.2.4 Using ph2dt
