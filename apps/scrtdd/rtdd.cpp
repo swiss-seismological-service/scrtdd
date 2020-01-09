@@ -532,7 +532,7 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.xcorr["P"].components = configGetStrings(prefix + "components");
         } catch ( ... ) {
-            prof->ddcfg.xcorr["P"].components = {"N"};
+            prof->ddcfg.xcorr["P"].components = {"Z"};
         }
 
         prefix = string("profile.") + *it + ".step2options.crosscorrelation.s-phase.";
@@ -549,7 +549,7 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.xcorr["S"].components = configGetStrings(prefix + "components");
         } catch ( ... ) {
-            prof->ddcfg.xcorr["S"].components = {"T","N"};
+            prof->ddcfg.xcorr["S"].components = {"T","Z"};
         }
 
         prefix = string("profile.") + *it + ".step2options.crosscorrelation.findMissingPhase.";

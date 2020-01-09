@@ -500,7 +500,7 @@
                                 <parameter name="maxDelay" type="double">
                                     <description>Maximum data windows lag accepted (secs)</description>
                                 </parameter>
-                                <parameter name="components" type="list:string" default="N">
+                                <parameter name="components" type="list:string" default="Z">
                                     <description>
                                         Priority list of components to be used in cross-correlation.
                                         If cross-correlation is below threshold on a component, the next
@@ -527,7 +527,7 @@
                                 <parameter name="maxDelay" type="double">
                                     <description>Maximum data windows lag accepted (secs)</description>
                                 </parameter>
-                                <parameter name="components" type="list:string" default="T,N">
+                                <parameter name="components" type="list:string" default="T,Z">
                                     <description>
                                         Priority list of components to be used in cross-correlation.
                                         If cross-correlation is below threshold on a component, the next
