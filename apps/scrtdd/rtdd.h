@@ -137,7 +137,6 @@ class RTDD : public Application {
             std::string mergeCatalogs;
             std::string dumpCatalogXML;
             std::string loadProfile;
-            std::string evalXCorr;
 
             // cron
             int         wakeupInterval;
@@ -161,7 +160,6 @@ class RTDD : public Application {
             Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
             HDD::CatalogPtr relocateSingleEvent(DataModel::Origin *org);
             HDD::CatalogPtr relocateCatalog(bool force = true);
-            void evalXCorr();
 
             std::string name;
             std::string earthModelID;
