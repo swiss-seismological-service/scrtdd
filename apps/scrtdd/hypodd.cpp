@@ -1009,9 +1009,6 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
         const Catalog::Event& event = peer.first;
         const Catalog::Phase& phase = peer.second;
 
-        //Core::TimeWindow xcorrTw = xcorrTimeWindowLong(refEvNewPhase);
-        //double maxDelay = (xcorrTw.length() - twShort.length()) / 2; FIXME
-
         double xcorr_coeff, xcorr_dt, xcorr_weight;
         if ( xcorrPhases(refEv, refEvNewPhase, false, _wfCacheTmp, false,
                          event, phase, true, _wfCache, _useCatalogDiskCache,
