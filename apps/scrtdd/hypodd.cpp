@@ -1157,7 +1157,7 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
         if ( force || ! Util::fileExists(dtccFile) )
         {
             // add theoretical picks before xcorr
-            if ( _cfg.artificialPhases.enable && ! _cfg.artificialPhases.useXCorr )
+            if ( _cfg.artificialPhases.enable )
             {
                 for (auto& kv : neighbourCats)
                 {
@@ -1448,7 +1448,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
         createDtCtSingleEvent(neighbourCat, refinedLocNewId, dtctFile);
 
         // add theoretical picks before xcorr
-        if ( _cfg.artificialPhases.enable && ! _cfg.artificialPhases.useXCorr )
+        if ( _cfg.artificialPhases.enable )
         {
             addMissingEventPhases(false, false, _cfg.artificialPhases.maxIEdist,
                                   _cfg.artificialPhases.numCC, _ddbgc, evToRelocate, neighbourCat);
