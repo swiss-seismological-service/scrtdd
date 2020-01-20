@@ -2325,6 +2325,18 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
         }
     }
 
+    // Remove theoretical phases that have not been used
+    for (auto it = phases.begin(); it != phases.end(); )
+    {
+        const Catalog::Phase &phase = it->second;
+        if ( phase.procInfo.source == Catalog::Phase::Source::THEORETICAL &&
+             ! phase.relocInfo.isRelocated )
+        {
+            it = phases.erase(it);
+        }
+        else { it++; }
+    }
+ 
     return new Catalog(stations, events, phases);
 }
 
