@@ -2848,29 +2848,20 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
     auto xcorrCfg = _cfg.xcorr[phase1.procInfo.type];
     bool performed = false;
 
-    if ( xcorrCfg.components.size() == 0 )
+    for (string component : xcorrCfg.components )
     {
-        performed = _xcorrPhases(event1, phase1, allowSnrCheck1, cache1, useDiskCache1,
-                                 event2, phase2, allowSnrCheck2, cache2, useDiskCache2,
+        Catalog::Phase tmpPh1 = phase1;
+        Catalog::Phase tmpPh2 = phase2;
+        *tmpPh1.channelCode.rbegin() = *component.begin();
+        *tmpPh2.channelCode.rbegin() = *component.begin();
+
+        performed = _xcorrPhases(event1, tmpPh1, allowSnrCheck1, cache1, useDiskCache1,
+                                 event2, tmpPh2, allowSnrCheck2, cache2, useDiskCache2,
                                  coeffOut, lagOut, weightOut);
-    }
-    else
-    {
-        for (string component : xcorrCfg.components )
+
+        if ( performed && std::abs(coeffOut) >= xcorrCfg.minCoef )
         {
-            Catalog::Phase tmpPh1 = phase1;
-            Catalog::Phase tmpPh2 = phase2;
-            *tmpPh1.channelCode.rbegin() = *component.begin();
-            *tmpPh2.channelCode.rbegin() = *component.begin();
-
-            performed = _xcorrPhases(event1, tmpPh1, allowSnrCheck1, cache1, useDiskCache1,
-                                     event2, tmpPh2, allowSnrCheck2, cache2, useDiskCache2,
-                                     coeffOut, lagOut, weightOut);
-
-            if ( std::isfinite(coeffOut) && coeffOut >= xcorrCfg.minCoef )
-            {
-                break;
-            }
+            break;
         }
     }
 
@@ -2895,7 +2886,7 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
         }
 
         // is the coefficient good?
-        if ( std::isfinite(coeffOut) && coeffOut >= xcorrCfg.minCoef )
+        if ( std::abs(coeffOut) >= xcorrCfg.minCoef )
         {
             _counters.xcorr_good_cc++;
             if ( isTheoretical ) _counters.xcorr_good_cc_theo++;
@@ -2990,14 +2981,7 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
         }
     }
 
-
-    if ( ! std::isfinite(xcorr_coeff) && ! std::isfinite(xcorr_coeff2) )
-    {
-        return true;
-    }
-
-    if ( ! std::isfinite(xcorr_coeff) ||
-         (std::isfinite(xcorr_coeff2) && xcorr_coeff2 > xcorr_coeff) )
+    if ( std::abs(xcorr_coeff2) > std::abs(xcorr_coeff) )
     {
         // swap
         xcorr_coeff = xcorr_coeff2;
@@ -3021,7 +3005,6 @@ bool
 HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
               bool qualityCheck, double& delayOut, double& coeffOut) const
 {
-    delayOut = 0.;
     coeffOut = std::nan("");
 
     if (tr1->samplingFrequency() != tr2->samplingFrequency())
@@ -3108,6 +3091,12 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
                 break;
             }
         }
+    }
+
+    if ( ! std::isfinite(coeffOut) )
+    {
+        coeffOut = 0;
+        delayOut = 0.;
     }
 
     return true;
