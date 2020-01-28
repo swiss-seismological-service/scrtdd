@@ -209,8 +209,7 @@ void copyFileAndReplaceLines(const string& srcFilename,
 DataModel::SensorLocation *findSensorLocation(const std::string &networkCode,
                                               const std::string &stationCode,
                                               const std::string &locationCode,
-                                              const Core::Time &atTime,
-                                              DataModel::InventoryError *error)
+                                              const Core::Time &atTime)
 {
     DataModel::Inventory *inv = Client::Inventory::Instance()->inventory();
     if ( ! inv )
@@ -219,9 +218,35 @@ DataModel::SensorLocation *findSensorLocation(const std::string &networkCode,
         return nullptr;
     }
 
-    return DataModel::getSensorLocation(inv, networkCode, stationCode, locationCode, atTime, error);
+    DataModel::InventoryError error;
+    DataModel::SensorLocation *loc = DataModel::getSensorLocation(inv, networkCode, stationCode, locationCode, atTime, &error);
+
+    if ( ! loc )
+    {
+        SEISCOMP_DEBUG("Unable to fetch SensorLocation information (%s.%s.%s at %s): %s",
+                       networkCode.c_str(), stationCode.c_str(), locationCode.c_str(),
+                       atTime.iso().c_str(), error.toString());
+    }
+    return loc;
 }
 
+
+
+string getBandAndInstrumentCodes(string channelCode)
+{
+    if ( channelCode.size() >= 2)
+        return channelCode.substr(0, 2);
+    return "";
+}
+
+
+
+string getOrientationCode(string channelCode)
+{
+    if ( channelCode.size() == 3)
+        return channelCode.substr(2, 3);
+    return "";
+}
 
 
 /*
@@ -443,7 +468,7 @@ HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& work
 HypoDD::~HypoDD()
 {
     //
-    // delete all in working directory expect the cache directory
+    // delete all in working directory except the cache directory
     //
     if ( _workingDirCleanup )
     {
@@ -504,15 +529,10 @@ void HypoDD::preloadData()
             Core::TimeWindow tw = xcorrTimeWindowLong(phase);
             auto xcorrCfg = _cfg.xcorr[phase.procInfo.type];
 
-            if ( xcorrCfg.components.size() == 0 )
-            {
-                getWaveform(tw, event, phase, _wfCache, _useCatalogDiskCache, true);
-            }
-
             for (string component : xcorrCfg.components )
             {
                 Catalog::Phase tmpPh = phase;
-                *tmpPh.channelCode.rbegin() = *component.begin(); 
+                tmpPh.channelCode = getBandAndInstrumentCodes(tmpPh.channelCode) + component;
                 getWaveform(tw, event, tmpPh, _wfCache, _useCatalogDiskCache, true); 
             }
 
@@ -2856,34 +2876,84 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
 
     auto xcorrCfg = _cfg.xcorr[phase1.procInfo.type];
     bool performed = false;
+    bool goodCoeff = false;
 
-    for (string component : xcorrCfg.components )
+    //
+    // Make sure we are using the same channels in cross correlation
+    //
+    string channelCodeRoot1 = getBandAndInstrumentCodes(phase1.channelCode);
+    string channelCodeRoot2 = getBandAndInstrumentCodes(phase2.channelCode);
+
+    string commonChRoot;
+
+    if ( channelCodeRoot1 == channelCodeRoot2 )
+    {
+        commonChRoot = channelCodeRoot1;
+    }
+    else 
+    {
+        //
+        // if the channel codes don't match then look for a possible match
+        //
+        DataModel::ThreeComponents dummy;
+        DataModel::SensorLocation *loc = findSensorLocation(phase1.networkCode, phase1.stationCode, phase1.locationCode, phase1.time);
+        if ( loc && getThreeComponents(dummy, loc, channelCodeRoot2.c_str(), phase1.time) )
+        {
+            // phase 1 has the same channels of phase 2
+            commonChRoot = channelCodeRoot2;
+        }
+        else
+        {
+            loc = findSensorLocation(phase2.networkCode, phase2.stationCode, phase2.locationCode, phase2.time);
+            if ( loc && getThreeComponents(dummy, loc, channelCodeRoot1.c_str(), phase2.time) )
+            {
+                // phase 2 has the same channels of phase 1
+                commonChRoot = channelCodeRoot1;
+            }
+        }
+    }
+
+    if ( commonChRoot.empty() )
+    {
+         SEISCOMP_DEBUG("Cannot find common channels to cross correlate (%s and %s)",
+                        string(phase1).c_str(), string(phase2).c_str());
+         return false;
+    }
+
+    //
+    // perform xcorr on all registered component until we get a good correlation coefficient
+    //
+    for (const string& component : xcorrCfg.components )
     {
         Catalog::Phase tmpPh1 = phase1;
         Catalog::Phase tmpPh2 = phase2;
-        *tmpPh1.channelCode.rbegin() = *component.begin();
-        *tmpPh2.channelCode.rbegin() = *component.begin();
+
+        // overwrite phases' component for the xcorr
+        tmpPh1.channelCode = commonChRoot + component;
+        tmpPh2.channelCode = commonChRoot + component;
 
         performed = _xcorrPhases(event1, tmpPh1, allowSnrCheck1, cache1, useDiskCache1,
                                  event2, tmpPh2, allowSnrCheck2, cache2, useDiskCache2,
                                  coeffOut, lagOut, weightOut);
 
-        if ( performed && std::abs(coeffOut) >= xcorrCfg.minCoef )
+        goodCoeff = ( performed && std::abs(coeffOut) >= xcorrCfg.minCoef );
+
+        // if the xcorr was successfull and the coeffiecnt is good then stopi here
+        if ( goodCoeff )
         {
             break;
         }
     }
 
-    /*
-     * Deal with counters
-     */
+    //
+    // Deal with counters
+    //
     bool isS = ( phase1.procInfo.type == "S" );
     bool isTheoretical = ( phase1.procInfo.source == Catalog::Phase::Source::THEORETICAL ||
                            phase2.procInfo.source == Catalog::Phase::Source::THEORETICAL  );
     bool isDetected = ( phase1.procInfo.source == Catalog::Phase::Source::XCORR ||
                         phase2.procInfo.source == Catalog::Phase::Source::XCORR  );
 
-    // was the xcorr performed ?
     if ( performed ) 
     {
         _counters.xcorr_performed++;
@@ -2896,8 +2966,7 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
             if ( isDetected )    _counters.xcorr_performed_s_detect++;
         }
 
-        // is the coefficient good?
-        if ( std::abs(coeffOut) >= xcorrCfg.minCoef )
+        if ( goodCoeff )
         {
             _counters.xcorr_good_cc++;
             if ( isTheoretical ) _counters.xcorr_good_cc_theo++;
@@ -2908,12 +2977,10 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
                 if ( isTheoretical ) _counters.xcorr_good_cc_s_theo++;
                 if ( isDetected )    _counters.xcorr_good_cc_s_detect++;
             }
-
-            return true;
         }
     }
 
-    return false;
+    return goodCoeff;
 }
 
 
@@ -3231,18 +3298,16 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     DataModel::ThreeComponents tc;
 
     Core::Time refTime = tw.startTime();
-
-    DataModel::InventoryError error;
-    DataModel::SensorLocation *loc = findSensorLocation(ph.networkCode, ph.stationCode, ph.locationCode, refTime, &error);
+    DataModel::SensorLocation *loc = findSensorLocation(ph.networkCode, ph.stationCode, ph.locationCode, refTime);
 
     if ( ! loc )
     {
-        SEISCOMP_DEBUG("Unable to fetch SensorLocation information (%s): %s", wfDesc.c_str(), error.toString());
-        projectionRequired = false; // try to load waveform anyway, but no projection because we don't have the info
+        // try to load waveform anyway, but no projection because we don't have the info
+        projectionRequired = false;
     }
     else
     {
-        string channelCodeRoot = ph.channelCode.substr(0, ph.channelCode.size()-1);
+        string channelCodeRoot = getBandAndInstrumentCodes(ph.channelCode);
         allComponents = getThreeComponents(tc, loc, channelCodeRoot.c_str(), refTime);
 
         if ( ( tc.comps[ThreeComponents::Vertical] &&
@@ -3376,10 +3441,10 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
     Math::Matrix3d transformation;
     map<string,string> chCodeMap;
 
-    string channelCodeRoot = ph.channelCode.substr(0, ph.channelCode.size()-1);
-    char component = *ph.channelCode.rbegin();
+    string channelCodeRoot = getBandAndInstrumentCodes(ph.channelCode);
+    string component = getOrientationCode(ph.channelCode);
 
-    if ( component == 'Z' || component == 'N'  || component == 'E' )
+    if ( component == "Z" || component == "N"  || component == "E" )
     {
         transformation = orientationZNE;
         chCodeMap[channelCodeRoot + "Z"] = tc.comps[ThreeComponents::Vertical]->code();
@@ -3389,7 +3454,7 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
         SEISCOMP_DEBUG("Performing ZNE projection (channelCode %s -> %s) for %s",
             chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(), wfDesc.c_str());
     }
-    else if ( component == 'R'  || component == 'T' )
+    else if ( component == "R"  || component == "T" )
     {
         transformation.mult(orientationZRT, orientationZNE);
         //chCodeMap[channelCodeRoot + "Z"] = tc.comps[ThreeComponents::Vertical]->code();
@@ -3401,7 +3466,7 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
     }
     else
     {
-        string msg = stringify("Unknown channel '%c', cannot load %s", component, wfDesc.c_str());
+        string msg = stringify("Unknown channel '%s', cannot load %s", component.c_str(), wfDesc.c_str());
         throw runtime_error(msg); 
     }
 
