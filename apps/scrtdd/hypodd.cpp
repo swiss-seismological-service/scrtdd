@@ -2878,8 +2878,10 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
      * Deal with counters
      */
     bool isS = ( phase1.procInfo.type == "S" );
-    bool isTheoretical = ( phase1.procInfo.source == Catalog::Phase::Source::THEORETICAL );
-    bool isDetected = ( phase1.procInfo.source == Catalog::Phase::Source::XCORR );
+    bool isTheoretical = ( phase1.procInfo.source == Catalog::Phase::Source::THEORETICAL ||
+                           phase2.procInfo.source == Catalog::Phase::Source::THEORETICAL  );
+    bool isDetected = ( phase1.procInfo.source == Catalog::Phase::Source::XCORR ||
+                        phase2.procInfo.source == Catalog::Phase::Source::XCORR  );
 
     // was the xcorr performed ?
     if ( performed ) 
