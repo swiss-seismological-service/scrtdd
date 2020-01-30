@@ -190,10 +190,9 @@ class Catalog : public Core::BaseObject {
             }
             operator std::string() const
             {
-                return networkCode + "." +  stationCode + "." +
-                       locationCode + "." + channelCode + " type " +
-                       type + (isManual ? " (manual) " : " (auto) " ) + time.iso() +
-                       " evId " + std::to_string(eventId)  + " staId " + stationId;
+                return "\"Phase " + type + (isManual ? " (manual) " : " (auto) " ) +
+                        networkCode + "." +  stationCode + "." + locationCode + "." + channelCode +
+                        " " + time.iso() + " evId " + std::to_string(eventId)  + " staId " + stationId + "\"";
             }
         };
 

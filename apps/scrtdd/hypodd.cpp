@@ -2881,8 +2881,8 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
     //
     // Make sure we are using the same channels in cross correlation
     //
-    string channelCodeRoot1 = getBandAndInstrumentCodes(phase1.channelCode);
-    string channelCodeRoot2 = getBandAndInstrumentCodes(phase2.channelCode);
+    const string channelCodeRoot1 = getBandAndInstrumentCodes(phase1.channelCode);
+    const string channelCodeRoot2 = getBandAndInstrumentCodes(phase2.channelCode);
 
     string commonChRoot;
 
@@ -2915,9 +2915,9 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
 
     if ( commonChRoot.empty() )
     {
-         SEISCOMP_DEBUG("Cannot find common channels to cross correlate (%s and %s)",
+         SEISCOMP_DEBUG("Cannot find common channels to cross correlate %s and %s (%s and %s)",
+                        channelCodeRoot1.c_str(), channelCodeRoot2.c_str(), 
                         string(phase1).c_str(), string(phase2).c_str());
-         return false;
     }
 
     //
@@ -2929,8 +2929,16 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
         Catalog::Phase tmpPh2 = phase2;
 
         // overwrite phases' component for the xcorr
-        tmpPh1.channelCode = commonChRoot + component;
-        tmpPh2.channelCode = commonChRoot + component;
+        if ( commonChRoot.empty() )
+        {
+            tmpPh1.channelCode = channelCodeRoot1 + component;
+            tmpPh2.channelCode = channelCodeRoot2 + component;
+        }
+        else
+        {
+            tmpPh1.channelCode = commonChRoot + component;
+            tmpPh2.channelCode = commonChRoot + component;
+        }
 
         performed = _xcorrPhases(event1, tmpPh1, allowSnrCheck1, cache1, useDiskCache1,
                                  event2, tmpPh2, allowSnrCheck2, cache2, useDiskCache2,
