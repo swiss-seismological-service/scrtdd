@@ -154,6 +154,11 @@ class HypoDD : public Core::BaseObject {
 
     private:
 
+        CatalogPtr relocateEventSingleStep(CatalogPtr& evToRelocateCat, const std::string& workingDir,
+                                bool doXcorr, std::string hypoddCtrlFile, double minPhaseWeight,
+                                double minESdist, double maxESdist, double minEStoIEratio,
+                                int minDTperEvt, int maxDTperEvt, int minNumNeigh, int maxNumNeigh,
+                                int numEllipsoids, double maxEllipsoidSize);
         double computePickWeight(double uncertainty) const;
         double computePickWeight(const Catalog::Phase& phase) const;
         CatalogPtr filterPhasesAndSetWeights(const CatalogCPtr& catalog, const Catalog::Phase::Source& source,

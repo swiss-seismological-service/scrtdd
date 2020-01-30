@@ -1303,206 +1303,43 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     SEISCOMP_INFO("Performing step 1: initial location refinement (no cross correlation)");
 
     string eventWorkingDir = (boost::filesystem::path(subFolder)/"step1").string();
-    if ( !Util::createPath(eventWorkingDir) )
-    {
-        string msg = "Unable to create working directory: " + eventWorkingDir;
-        throw runtime_error(msg);
-    }
 
-    CatalogPtr relocatedEvCat;
-    try
-    {
-        // build a catalog with the event to be relocated
-        CatalogPtr evToRelocateCat = filterPhasesAndSetWeights(singleEvent, Catalog::Phase::Source::RT_EVENT,
-                                                               _cfg.validPphases, _cfg.validSphases);
+    CatalogPtr evToRelocateCat = filterPhasesAndSetWeights(singleEvent, Catalog::Phase::Source::RT_EVENT,
+                                                            _cfg.validPphases, _cfg.validSphases);
 
-        // Select neighbouring events
-        int numNeighbours;
-        CatalogPtr neighbourCat = selectNeighbouringEvents(
-            _ddbgc, evToRelocate, evToRelocateCat, _cfg.step1Clustering.minWeight, _cfg.step1Clustering.minESdist,
-            _cfg.step1Clustering.maxESdist, _cfg.step1Clustering.minEStoIEratio, _cfg.step1Clustering.minDTperEvt,
-            _cfg.step1Clustering.maxDTperEvt, _cfg.step1Clustering.minNumNeigh, _cfg.step1Clustering.maxNumNeigh,
-            _cfg.step1Clustering.numEllipsoids, _cfg.step1Clustering.maxEllipsoidSize, false, &numNeighbours
-        );
-
-        // add event to be relocated to the neighbours
-        unsigned evToRelocateNewId = neighbourCat->add(evToRelocate.id, *evToRelocateCat, false);
-        // add numNeighbours information
-        evToRelocate = neighbourCat->getEvents().at(evToRelocateNewId);
-        evToRelocate.relocInfo.numNeighbours = numNeighbours;
-        neighbourCat->updateEvent(evToRelocate);
-
-        // write catalog for debugging purpose
-        if ( ! _workingDirCleanup )
-        {
-            neighbourCat->writeToFile(
-                (boost::filesystem::path(eventWorkingDir)/"starting-event.csv").string(),
-                (boost::filesystem::path(eventWorkingDir)/"starting-phase.csv").string(),
-                (boost::filesystem::path(eventWorkingDir)/"starting-station.csv").string());
-        }
-
-        // Create station.dat for hypodd
-        string stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
-        createStationDatFile(neighbourCat, stationFile);
-
-        // Create event.dat for hypodd
-        string eventFile = (boost::filesystem::path(eventWorkingDir)/"event.dat").string();
-        createEventDatFile(neighbourCat, eventFile);
-
-        // Create differential travel times file (dt.ct) for hypodd
-        string dtctFile = (boost::filesystem::path(eventWorkingDir)/"dt.ct").string();
-        createDtCtSingleEvent(neighbourCat, evToRelocateNewId, dtctFile);
-
-        // Create an empty cross correlated differential travel times file (dt.cc) for hypodd
-        string dtccFile = (boost::filesystem::path(eventWorkingDir)/"dt.cc").string();
-        ofstream(dtccFile).close();
-
-        // run hypodd
-        // input : dt.cc dt.ct event.sel station.sel hypoDD.inp
-        // output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
-        runHypodd(eventWorkingDir, dtccFile, dtctFile, eventFile, stationFile, _cfg.hypodd.step1CtrlFile);
-
-        // Load the relocated origin from Hypodd
-        string ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
-        string ddresidualFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.res").string();
-        CatalogPtr relocatedCatalog = loadRelocatedCatalog(neighbourCat, ddrelocFile, ddresidualFile);
-        relocatedEvCat = relocatedCatalog->extractEvent(evToRelocateNewId, true);
-
-        // sometimes hypoDD.reloc file is there but it doesn't contain the relocated event 
-        Catalog::Event firstAndOnlyEv = relocatedEvCat->getEvents().begin()->second;
-        if ( ! firstAndOnlyEv.relocInfo.isRelocated )
-            relocatedEvCat.reset();
-
-        // write catalog for debugging purpose
-        if ( ! _workingDirCleanup )
-        {
-            relocatedCatalog->writeToFile(
-                (boost::filesystem::path(eventWorkingDir)/"relocated-event.csv").string(),
-                (boost::filesystem::path(eventWorkingDir)/"relocated-phase.csv").string(),
-                (boost::filesystem::path(eventWorkingDir)/"relocated-station.csv").string());
-        }
-
-    } catch ( exception &e ) {
-        SEISCOMP_ERROR("%s", e.what());
-    }
+    CatalogPtr relocatedEvCat = relocateEventSingleStep(
+            evToRelocateCat, eventWorkingDir, false, _cfg.hypodd.step1CtrlFile, _cfg.step1Clustering.minWeight,
+            _cfg.step1Clustering.minESdist, _cfg.step1Clustering.maxESdist, _cfg.step1Clustering.minEStoIEratio,
+            _cfg.step1Clustering.minDTperEvt, _cfg.step1Clustering.maxDTperEvt, _cfg.step1Clustering.minNumNeigh,
+            _cfg.step1Clustering.maxNumNeigh, _cfg.step1Clustering.numEllipsoids, _cfg.step1Clustering.maxEllipsoidSize
+    );
 
     if ( relocatedEvCat )
     {
         SEISCOMP_INFO("Step 1 relocation successful");
         SEISCOMP_INFO("%s", relocationReport(relocatedEvCat).c_str() );
+        evToRelocateCat = relocatedEvCat;
     }
     else
     {
         SEISCOMP_ERROR("Failed to perform step 1 origin relocation");
+        evToRelocateCat = filterPhasesAndSetWeights(singleEvent, Catalog::Phase::Source::RT_EVENT,
+                                                    _cfg.validPphases, _cfg.validSphases);
     }
 
     //
     // Step 2: relocate the refined location this time with cross correlation
     //
-
     SEISCOMP_INFO("Performing step 2: relocation with cross correlation");
 
     eventWorkingDir = (boost::filesystem::path(subFolder)/"step2").string();
-    if ( !Util::createPath(eventWorkingDir) )
-    {
-        string msg = "Unable to create working directory: " + eventWorkingDir;
-        throw runtime_error(msg);
-    }
 
-    CatalogPtr relocatedEvWithXcorr;
-    try
-    {
-        CatalogPtr evToRelocateCat = relocatedEvCat;
-        if ( ! evToRelocateCat )
-            evToRelocateCat = filterPhasesAndSetWeights(singleEvent, Catalog::Phase::Source::RT_EVENT,
-                                                        _cfg.validPphases, _cfg.validSphases);
-
-        // extract event to relocate
-        Catalog::Event evToRelocate = evToRelocateCat->getEvents().begin()->second;
-
-        // if enabled, detect new phases with xcorr
-        if ( _cfg.artificialPhases.enable &&  _cfg.artificialPhases.useXCorr )
-        {
-            addMissingEventPhases(true, _cfg.artificialPhases.fixAutoPhase, _cfg.artificialPhases.maxIEdist,
-                                  _cfg.artificialPhases.numCC, _ddbgc, evToRelocate, evToRelocateCat);
-        }
-
-        // Select neighbouring events from the relocated origin
-        int numNeighbours;
-        CatalogPtr neighbourCat = selectNeighbouringEvents(
-            _ddbgc, evToRelocate, evToRelocateCat, _cfg.step2Clustering.minWeight, _cfg.step2Clustering.minESdist,
-            _cfg.step2Clustering.maxESdist, _cfg.step2Clustering.minEStoIEratio, _cfg.step2Clustering.minDTperEvt,
-            _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh, _cfg.step2Clustering.maxNumNeigh,
-            _cfg.step2Clustering.numEllipsoids, _cfg.step2Clustering.maxEllipsoidSize, true, &numNeighbours
-        );
-
-        // add event to the neighbours
-        unsigned refinedLocNewId = neighbourCat->add(evToRelocate.id, *evToRelocateCat, false);
-        // add numNeighbours information
-        evToRelocate = neighbourCat->getEvents().at(refinedLocNewId);
-        evToRelocate.relocInfo.numNeighbours = numNeighbours;
-        neighbourCat->updateEvent(evToRelocate);
-
-        // write catalog for debugging purpose
-        if ( ! _workingDirCleanup )
-        {
-            neighbourCat->writeToFile(
-                (boost::filesystem::path(eventWorkingDir)/"starting-event.csv").string(),
-                (boost::filesystem::path(eventWorkingDir)/"starting-phase.csv").string(),
-                (boost::filesystem::path(eventWorkingDir)/"starting-station.csv").string());
-        }
-
-        // Create station.dat for hypodd
-        string stationFile = (boost::filesystem::path(eventWorkingDir)/"station.dat").string();
-        createStationDatFile(neighbourCat, stationFile);
-
-        // Create event.dat for hypodd
-        string eventFile = (boost::filesystem::path(eventWorkingDir)/"event.dat").string();
-        createEventDatFile(neighbourCat, eventFile);
-
-        // Create differential travel times file (dt.ct) for hypodd
-        string dtctFile = (boost::filesystem::path(eventWorkingDir)/"dt.ct").string();
-        createDtCtSingleEvent(neighbourCat, refinedLocNewId, dtctFile);
-
-        // add theoretical picks before xcorr
-        if ( _cfg.artificialPhases.enable )
-        {
-            addMissingEventPhases(false, false, _cfg.artificialPhases.maxIEdist,
-                                  _cfg.artificialPhases.numCC, _ddbgc, evToRelocate, neighbourCat);
-        }
- 
-        // Create cross correlated differential travel times file (dt.cc) for hypodd
-        string dtccFile = (boost::filesystem::path(eventWorkingDir)/"dt.cc").string();
-        createDtCcSingleEvent(neighbourCat, refinedLocNewId, dtccFile);
-
-        // run hypodd
-        // input : dt.cc dt.ct event.sel station.sel hypoDD.inp
-        // output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
-        runHypodd(eventWorkingDir, dtccFile, dtctFile, eventFile, stationFile, _cfg.hypodd.step2CtrlFile);
-
-        // Load the relocated origin from Hypodd
-        string ddrelocFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.reloc").string();
-        string ddresidualFile = (boost::filesystem::path(eventWorkingDir)/"hypoDD.res").string();
-        CatalogPtr relocatedCatalog = loadRelocatedCatalog(neighbourCat, ddrelocFile, ddresidualFile);
-        relocatedEvWithXcorr = relocatedCatalog->extractEvent(refinedLocNewId, true);
-
-        // sometimes hypoDD.reloc file is there but it doesn't contain the relocated event 
-        Catalog::Event firstAndOnlyEv = relocatedEvWithXcorr->getEvents().begin()->second;
-        if ( ! firstAndOnlyEv.relocInfo.isRelocated )
-            relocatedEvWithXcorr.reset();
-
-        // write catalog for debugging purpose
-        if ( ! _workingDirCleanup )
-        {
-            relocatedCatalog->writeToFile(
-                (boost::filesystem::path(eventWorkingDir)/"relocated-event.csv").string(),
-                (boost::filesystem::path(eventWorkingDir)/"relocated-phase.csv").string(),
-                (boost::filesystem::path(eventWorkingDir)/"relocated-station.csv").string());
-        }
-
-    } catch ( exception &e ) {
-        SEISCOMP_ERROR("%s", e.what());
-    }
+    CatalogPtr relocatedEvWithXcorr = relocateEventSingleStep(
+            evToRelocateCat, eventWorkingDir, true, _cfg.hypodd.step2CtrlFile, _cfg.step2Clustering.minWeight,
+            _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist, _cfg.step2Clustering.minEStoIEratio,
+            _cfg.step2Clustering.minDTperEvt, _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh,
+            _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids, _cfg.step2Clustering.maxEllipsoidSize
+    );
 
     if ( relocatedEvWithXcorr )
     {
@@ -1515,7 +1352,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     }
 
     _wfCacheTmp.clear(); // cleared at the end of each relocation
- 
+
     if ( ! relocatedEvWithXcorr && ! relocatedEvCat )
         throw runtime_error("Failed both step1 and step2 origin relocation");
 
@@ -1523,6 +1360,139 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
     return relocatedEvWithXcorr ? relocatedEvWithXcorr : relocatedEvCat;
 }
+
+
+
+CatalogPtr 
+HypoDD::relocateEventSingleStep(CatalogPtr& evToRelocateCat,
+                                const string& workingDir,
+                                bool doXcorr,
+                                string hypoddCtrlFile,
+                                double minPhaseWeight,
+                                double minESdist,
+                                double maxESdist,
+                                double minEStoIEratio,
+                                int minDTperEvt,
+                                int maxDTperEvt,
+                                int minNumNeigh,
+                                int maxNumNeigh,
+                                int numEllipsoids,
+                                double maxEllipsoidSize)
+{
+    if ( !Util::createPath(workingDir) )
+    {
+        string msg = "Unable to create working directory: " + workingDir;
+        throw runtime_error(msg);
+    }
+
+    CatalogPtr relocatedEvCat;
+    try
+    {
+        // extract event to relocate
+        Catalog::Event evToRelocate = evToRelocateCat->getEvents().begin()->second;
+
+        if ( doXcorr )
+        {
+            // Detect new phases with xcorr now (if enabled) so that detected phases can be used for dt.ct too
+            if ( _cfg.artificialPhases.enable && _cfg.artificialPhases.useXCorr )
+            {
+                addMissingEventPhases(true, _cfg.artificialPhases.fixAutoPhase, _cfg.artificialPhases.maxIEdist,
+                                      _cfg.artificialPhases.numCC, _ddbgc, evToRelocate, evToRelocateCat);
+            }
+        }
+
+        //
+        // Select neighbouring events from the relocated origin
+        //
+        int numNeighbours;
+        bool keepUnmatchedPhases = (doXcorr && _cfg.artificialPhases.enable);
+
+        CatalogPtr neighbourCat = selectNeighbouringEvents(
+            _ddbgc, evToRelocate, evToRelocateCat, minPhaseWeight, minESdist,  maxESdist,
+            minEStoIEratio, minDTperEvt,  maxDTperEvt, minNumNeigh, maxNumNeigh,
+            numEllipsoids, maxEllipsoidSize, keepUnmatchedPhases, &numNeighbours
+        );
+
+        // add event to the neighbours
+        unsigned evToRelocateNewId = neighbourCat->add(evToRelocate.id, *evToRelocateCat, false);
+
+        // add numNeighbours information
+        evToRelocate = neighbourCat->getEvents().at(evToRelocateNewId);
+        evToRelocate.relocInfo.numNeighbours = numNeighbours;
+        neighbourCat->updateEvent(evToRelocate);
+
+        // write catalog for debugging purpose
+        if ( ! _workingDirCleanup )
+        {
+            neighbourCat->writeToFile(
+                (boost::filesystem::path(workingDir)/"starting-event.csv").string(),
+                (boost::filesystem::path(workingDir)/"starting-phase.csv").string(),
+                (boost::filesystem::path(workingDir)/"starting-station.csv").string());
+        }
+
+        // Create station.dat for hypodd
+        string stationFile = (boost::filesystem::path(workingDir)/"station.dat").string();
+        createStationDatFile(neighbourCat, stationFile);
+
+        // Create event.dat for hypodd
+        string eventFile = (boost::filesystem::path(workingDir)/"event.dat").string();
+        createEventDatFile(neighbourCat, eventFile);
+
+        // Create differential travel times file (dt.ct) for hypodd
+        string dtctFile = (boost::filesystem::path(workingDir)/"dt.ct").string();
+        createDtCtSingleEvent(neighbourCat, evToRelocateNewId, dtctFile);
+
+        // Create cross correlated differential travel times file (dt.cc) for hypodd
+        string dtccFile = (boost::filesystem::path(workingDir)/"dt.cc").string();
+
+        if ( doXcorr )
+        {
+            // add theoretical picks before xcorr
+            if ( _cfg.artificialPhases.enable )
+            {
+                addMissingEventPhases(false, false, _cfg.artificialPhases.maxIEdist,
+                                      _cfg.artificialPhases.numCC, _ddbgc, evToRelocate, neighbourCat);
+            }
+            createDtCcSingleEvent(neighbourCat, evToRelocateNewId, dtccFile);
+        }
+        else
+        {
+            // Create an empty cross correlated differential travel times file (dt.cc) for hypodd
+            ofstream(dtccFile).close();
+        }
+
+        // run hypodd
+        // input : dt.cc dt.ct event.sel station.sel hypoDD.inp
+        // output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
+        runHypodd(workingDir, dtccFile, dtctFile, eventFile, stationFile, hypoddCtrlFile);
+
+        // Load the relocated origin from Hypodd
+        string ddrelocFile = (boost::filesystem::path(workingDir)/"hypoDD.reloc").string();
+        string ddresidualFile = (boost::filesystem::path(workingDir)/"hypoDD.res").string();
+        CatalogPtr relocatedCatalog = loadRelocatedCatalog(neighbourCat, ddrelocFile, ddresidualFile);
+        relocatedEvCat = relocatedCatalog->extractEvent(evToRelocateNewId, true);
+
+        // sometimes hypoDD.reloc file is there but it doesn't contain the relocated event 
+        Catalog::Event firstAndOnlyEv = relocatedEvCat->getEvents().begin()->second;
+        if ( ! firstAndOnlyEv.relocInfo.isRelocated )
+            relocatedEvCat.reset();
+
+        // write catalog for debugging purpose
+        if ( ! _workingDirCleanup )
+        {
+            relocatedCatalog->writeToFile(
+                (boost::filesystem::path(workingDir)/"relocated-event.csv").string(),
+                (boost::filesystem::path(workingDir)/"relocated-phase.csv").string(),
+                (boost::filesystem::path(workingDir)/"relocated-station.csv").string());
+        }
+
+    } catch ( exception &e ) {
+        SEISCOMP_ERROR("%s", e.what());
+    }
+
+    return relocatedEvCat;
+}
+
 
 
 string HypoDD::relocationReport(const CatalogCPtr& relocatedEv)
