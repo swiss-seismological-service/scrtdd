@@ -796,10 +796,10 @@ HypoDD::findMissingEventPhases(bool useXCorr, bool fixAutoPhase, double maxIEdis
             {
                 const Catalog::Event& event = peer.first;
                 const Catalog::Phase& phase = peer.second;
-                double coeff, lag, weight;
+                double coeff, lag, dt, weight;
                 if ( xcorrPhases(refEv, *existingPhase, true, _wfCacheTmp, false,
                                  event, phase, true, _wfCache, _useCatalogDiskCache,
-                                 coeff, lag, weight) )
+                                 coeff, lag, dt, weight) )
                 {
                     if ( ++goodCC >= numCC )
                         break; // enough good CC
@@ -1029,12 +1029,12 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
         const Catalog::Event& event = peer.first;
         const Catalog::Phase& phase = peer.second;
 
-        double xcorr_coeff, xcorr_dt, xcorr_weight;
+        double xcorr_coeff, xcorr_lag, xcorr_dt, xcorr_weight;
         if ( xcorrPhases(refEv, refEvNewPhase, false, _wfCacheTmp, false,
                          event, phase, true, _wfCache, _useCatalogDiskCache,
-                         xcorr_coeff, xcorr_dt, xcorr_weight) )
+                         xcorr_coeff, xcorr_lag, xcorr_dt, xcorr_weight) )
         {
-            xcorr_out.emplace(xcorr_coeff, pair<double,Catalog::Phase>(xcorr_dt,phase) );
+            xcorr_out.emplace(xcorr_coeff, pair<double,Catalog::Phase>(xcorr_lag,phase) );
         }
 
     }
@@ -1049,37 +1049,37 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
     //
     // compute average xcorr coefficient and timedelta
     //
-    double xcorr_coeff_mean = 0, xcorr_dt_mean = 0;
-    double xcorr_dt_min =  xcorrTw.length();
-    double xcorr_dt_max = -xcorrTw.length();
+    double xcorr_coeff_mean = 0, xcorr_lag_mean = 0;
+    double xcorr_lag_min =  xcorrTw.length();
+    double xcorr_lag_max = -xcorrTw.length();
     unsigned ccCount = 0;
     for (auto i = xcorr_out.rbegin(); i != xcorr_out.rend(); ++i) // reverse because we want highest CC
     {
         const pair<double,Catalog::Phase>& pair = i->second;
         double xcorr_coeff = i->first;
-        double xcorr_dt    = pair.first;
+        double xcorr_lag    = pair.first;
         const Catalog::Phase& phase = pair.second;
 
         xcorr_coeff_mean += xcorr_coeff;
-        xcorr_dt_mean    += xcorr_dt;
+        xcorr_lag_mean    += xcorr_lag;
 
-        xcorr_dt_min = (xcorr_dt - phase.lowerUncertainty) < xcorr_dt_min ?
-                       xcorr_dt - phase.lowerUncertainty : xcorr_dt_min;
-        xcorr_dt_max = (xcorr_dt + phase.upperUncertainty) > xcorr_dt_max ?
-                       xcorr_dt + phase.upperUncertainty : xcorr_dt_max;
+        xcorr_lag_min = (xcorr_lag - phase.lowerUncertainty) < xcorr_lag_min ?
+                        xcorr_lag - phase.lowerUncertainty : xcorr_lag_min;
+        xcorr_lag_max = (xcorr_lag + phase.upperUncertainty) > xcorr_lag_max ?
+                        xcorr_lag + phase.upperUncertainty : xcorr_lag_max;
 
         if (++ccCount >= numCC) break;
     }
 
     xcorr_coeff_mean /= ccCount;
-    xcorr_dt_mean /= ccCount;
+    xcorr_lag_mean /= ccCount;
 
     //
     // Set new phase time and uncertainty
     //
-    refEvNewPhase.time  += Core::TimeSpan(xcorr_dt_mean);
-    refEvNewPhase.lowerUncertainty = xcorr_dt_mean - xcorr_dt_min;
-    refEvNewPhase.upperUncertainty = xcorr_dt_max - xcorr_dt_mean;
+    refEvNewPhase.time  += Core::TimeSpan(xcorr_lag_mean);
+    refEvNewPhase.lowerUncertainty = xcorr_lag_mean - xcorr_lag_min;
+    refEvNewPhase.upperUncertainty = xcorr_lag_max - xcorr_lag_mean;
     refEvNewPhase.procInfo.weight = computePickWeight(refEvNewPhase);
     refEvNewPhase.procInfo.source = Catalog::Phase::Source::XCORR;
     refEvNewPhase.type = phaseType + "x";
@@ -2614,10 +2614,10 @@ void HypoDD::buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
                 if (phase.stationId == refPhase.stationId && 
                     phase.procInfo.type == refPhase.procInfo.type)
                 {
-                    double coeff, dtcc, weight;
+                    double coeff, lag, dtcc, weight;
                     if ( xcorrPhases(refEv, refPhase, true, refEvCache, useDiskCacheRefEv,
                                      event, phase, true, catalogCache, useDiskCacheCatalog,
-                                     coeff, dtcc, weight) )
+                                     coeff, lag, dtcc, weight) )
                     {
                         evStream << stringify("%-12s %.6f %.4f %s", refPhase.stationId.c_str(),
                                               dtcc, weight,  refPhase.procInfo.type.c_str());
@@ -2732,10 +2732,10 @@ HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, cons
                         if (phase2.stationId == stationId &&
                             phase2.procInfo.type == phaseType )
                         {
-                            double coeff, dtcc, weight;
+                            double coeff, lag, dtcc, weight;
                             if ( xcorrPhases(*ev1, phase1, true, _wfCache, _useCatalogDiskCache,
                                              *ev2, phase2, true, _wfCache, _useCatalogDiskCache,
-                                             coeff, dtcc, weight) )
+                                             coeff, lag, dtcc, weight) )
                             {
                                 evStream << stringify("%-12s %.6f %.4f %s", stationId.c_str(),
                                                       dtcc, weight, phaseType.c_str());
@@ -2810,11 +2810,10 @@ Core::TimeWindow
 HypoDD::xcorrTimeWindowLong(const Catalog::Phase& phase) const
 {
     const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
-    double shortDuration = xcorrCfg.endOffset - xcorrCfg.startOffset;
-    Core::TimeSpan shortTimeCorrection = Core::TimeSpan(xcorrCfg.startOffset);
-    double longDuration = shortDuration + xcorrCfg.maxDelay * 2;
-    Core::TimeSpan longTimeCorrection = shortTimeCorrection - Core::TimeSpan(xcorrCfg.maxDelay);
-    return Core::TimeWindow(phase.time + longTimeCorrection, longDuration);
+    Core::TimeWindow tw = xcorrTimeWindowShort(phase);
+    tw.setStartTime( tw.startTime() - Core::TimeSpan(xcorrCfg.maxDelay) );
+    tw.setEndTime(   tw.endTime()   + Core::TimeSpan(xcorrCfg.maxDelay) );
+    return tw;
 }
 
 
@@ -2833,7 +2832,7 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
                     std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
                     const Catalog::Event& event2, const Catalog::Phase& phase2, bool allowSnrCheck2,
                     std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
-                    double& coeffOut, double& lagOut, double& weightOut)
+                    double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut)
 {
     _counters.xcorr_tot++;
 
@@ -2912,7 +2911,7 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
 
         performed = _xcorrPhases(event1, tmpPh1, allowSnrCheck1, cache1, useDiskCache1,
                                  event2, tmpPh2, allowSnrCheck2, cache2, useDiskCache2,
-                                 coeffOut, lagOut, weightOut);
+                                 coeffOut, lagOut, diffTimeOut, weightOut);
 
         goodCoeff = ( performed && std::abs(coeffOut) >= xcorrCfg.minCoef );
 
@@ -2967,11 +2966,10 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
                      std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
                      const Catalog::Event& event2, const Catalog::Phase& phase2, bool allowSnrCheck2,
                      std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
-                     double& coeffOut, double& lagOut, double& weightOut)
+                     double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut)
 {
-    coeffOut = 0;
-    lagOut = 0;
-    weightOut = 0;
+    coeffOut = lagOut = diffTimeOut = weightOut = 0;
+
     auto xcorrCfg = _cfg.xcorr[phase1.procInfo.type];
 
     Core::TimeWindow tw1 = xcorrTimeWindowLong(phase1);
@@ -2993,7 +2991,7 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
     // trust the manual pick on phase 2: keet trace2 short and xcorr it with
     // a larger trace1 window
-    double xcorr_coeff = std::nan(""), xcorr_dt = 0;
+    double xcorr_coeff = std::nan(""), xcorr_lag = 0;
  
     if ( phase2.isManual || (! phase1.isManual && ! phase2.isManual) )
     {
@@ -3008,7 +3006,7 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
             return false;
         }
 
-        if ( ! xcorr(tr1, tr2Short, xcorrCfg.maxDelay, true, xcorr_dt, xcorr_coeff) )
+        if ( ! xcorr(tr1, tr2Short, xcorrCfg.maxDelay, true, xcorr_lag, xcorr_coeff) )
         {
             return false;
         }
@@ -3016,7 +3014,7 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
     // trust the manual pick on phase 1: keet trace1 short and xcorr it with
     // a larger trace2 window
-    double xcorr_coeff2 = std::nan(""), xcorr_dt2 = 0;
+    double xcorr_coeff2 = std::nan(""), xcorr_lag2 = 0;
 
     if ( phase1.isManual || (! phase1.isManual && ! phase2.isManual) )
     {
@@ -3031,7 +3029,7 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
             return false;
         }
 
-        if ( ! xcorr(tr1Short, tr2, xcorrCfg.maxDelay, true, xcorr_dt2, xcorr_coeff2) )
+        if ( ! xcorr(tr1Short, tr2, xcorrCfg.maxDelay, true, xcorr_lag2, xcorr_coeff2) )
         {
             return false;
         }
@@ -3041,14 +3039,15 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
     {
         // swap
         xcorr_coeff = xcorr_coeff2;
-        xcorr_dt = xcorr_dt2;
+        xcorr_lag = xcorr_lag2;
     }
 
     // compute differential travel time and weight of measurement
     double travel_time1 = phase1.time - event1.time;
     double travel_time2 = phase2.time - event2.time;
     coeffOut  = xcorr_coeff;
-    lagOut    = travel_time1 - travel_time2 - xcorr_dt;
+    lagOut    = xcorr_lag;
+    diffTimeOut = travel_time1 - travel_time2 - xcorr_lag;
     weightOut = xcorr_coeff * xcorr_coeff;
 
     return true;
@@ -3056,7 +3055,13 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
 
 
-// Calculate the correlation series (tr1 and tr2 are already demeaned)
+/*
+ * Calculate the correlation series (tr1 and tr2 are already demeaned)
+ *
+ * delayOut is the shift in seconds (positive or negative) between tr1 and tr2 middle points
+ * to get the highest correlation coefficient (coeffOut) between the 2 traces
+ * A delayOut of 0 is when tr1 and tr2 middle points are aligned
+ */
 bool
 HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
               bool qualityCheck, double& delayOut, double& coeffOut) const
@@ -3076,7 +3081,7 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
     // check longest/shortest trace
     const bool swap = tr1->data()->size() > tr2->data()->size();
     GenericRecordCPtr trShorter = swap ? tr2 : tr1;
-    GenericRecordCPtr trLonger = swap ? tr1 : tr2; 
+    GenericRecordCPtr trLonger  = swap ? tr1 : tr2; 
 
     const double *smpsS = DoubleArray::ConstCast(trShorter->data())->typedData();
     const double *smpsL = DoubleArray::ConstCast(trLonger->data())->typedData();

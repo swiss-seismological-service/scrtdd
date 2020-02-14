@@ -217,12 +217,12 @@ class HypoDD : public Core::BaseObject {
                          std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
                          const Catalog::Event& event2, const Catalog::Phase& phase2, bool allowSnrCheck2,
                          std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
-                         double& coeffOut, double& lagOut, double& weightOut);
+                         double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
         bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool allowSnrCheck1,
                          std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
                          const Catalog::Event& event2, const Catalog::Phase& phase2, bool allowSnrCheck2,
                          std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
-                         double& coeffOut, double& lagOut, double& weightOut);
+                         double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
         Core::TimeWindow xcorrTimeWindowLong(const Catalog::Phase& phase) const;
         Core::TimeWindow xcorrTimeWindowShort(const Catalog::Phase& phase) const;
         void runHypodd(const std::string& workingDir, const std::string& dtccFile,
