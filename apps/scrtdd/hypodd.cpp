@@ -1030,8 +1030,8 @@ HypoDD::detectPhase(bool useXCorr, unsigned numCC,
         const Catalog::Phase& phase = peer.second;
 
         double xcorr_coeff, xcorr_lag, xcorr_dt, xcorr_weight;
-        if ( xcorrPhases(refEv, refEvNewPhase, false, _wfCacheTmp, false,
-                         event, phase, true, _wfCache, _useCatalogDiskCache,
+        if ( xcorrPhases(event, phase, true, _wfCache, _useCatalogDiskCache,
+                         refEv, refEvNewPhase, false, _wfCacheTmp, false, 
                          xcorr_coeff, xcorr_lag, xcorr_dt, xcorr_weight) )
         {
             xcorr_out.emplace(xcorr_coeff, pair<double,Catalog::Phase>(xcorr_lag,phase) );
