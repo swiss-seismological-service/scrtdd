@@ -352,7 +352,6 @@ bool RTDD::validateParameters()
     } catch ( ... ) { }
 
     bool profilesOK = true;
-    bool profileRequireDB = false;
 
     for ( vector<string>::iterator it = _config.activeProfiles.begin();
           it != _config.activeProfiles.end(); it++ )
@@ -414,7 +413,6 @@ bool RTDD::validateParameters()
         if ( eventIdOnly )
         {
             prof->eventIDFile = eventFile;
-            profileRequireDB = true;
         }
         else
         {
@@ -603,10 +601,9 @@ bool RTDD::validateParameters()
         _profiles.push_back(prof);
     }
 
-    // If the inventory is provided by an XML file or an event XML
-    // is provided, disable the database because we don't need to access it
-    if (  !isInventoryDatabaseEnabled() ||
-         ( !_config.eventXML.empty() && ! profileRequireDB ) )
+    // If the inventory is provided by an XML file disable the database because
+    // we don't need to access it
+    if ( ! isInventoryDatabaseEnabled() )
     {
         SEISCOMP_INFO("Disable database connection");
         setDatabaseEnabled(false, false);
