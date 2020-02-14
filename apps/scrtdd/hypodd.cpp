@@ -2991,7 +2991,7 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
     // trust the manual pick on phase 2: keet trace2 short and xcorr it with
     // a larger trace1 window
-    double xcorr_coeff = std::nan(""), xcorr_lag = 0;
+    double xcorr_coeff = 0, xcorr_lag = 0;
  
     if ( phase2.isManual || (! phase1.isManual && ! phase2.isManual) )
     {
@@ -3014,7 +3014,7 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
     // trust the manual pick on phase 1: keet trace1 short and xcorr it with
     // a larger trace2 window
-    double xcorr_coeff2 = std::nan(""), xcorr_lag2 = 0;
+    double xcorr_coeff2 = 0, xcorr_lag2 = 0;
 
     if ( phase1.isManual || (! phase1.isManual && ! phase2.isManual) )
     {
