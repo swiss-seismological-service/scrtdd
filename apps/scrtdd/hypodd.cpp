@@ -3211,14 +3211,15 @@ HypoDD::S2Nratio(const GenericRecordCPtr& tr, const Core::Time& pickTime,
 
 
 Core::TimeWindow
-HypoDD::traceTimeWindowToLoad(const Catalog::Phase& ph, const Core::TimeWindow& neededTW) const
+HypoDD::traceTimeWindowToLoad(const Catalog::Phase& ph, const Core::TimeWindow& neededTW,
+                              bool useDiskCache, bool allowSnrCheck ) const
 {
-    // Compute the waveform time window to load
     Core::TimeWindow twToLoad = neededTW;
-    if ( _cfg.snr.minSnr > 0 )
+
+    // if the SNR window is bigger than the xcorr window, than extend
+    // the waveform time window 
+    if ( allowSnrCheck && _cfg.snr.minSnr > 0 )
     {
-        // if the SNR window is bigger than the xcorr window, than extend
-        // the waveform time window
         Core::Time winStart = std::min( {
               neededTW.startTime(),
               ph.time + Core::TimeSpan(_cfg.snr.noiseStart),
@@ -3231,6 +3232,18 @@ HypoDD::traceTimeWindowToLoad(const Catalog::Phase& ph, const Core::TimeWindow& 
         });
         twToLoad = Core::TimeWindow(winStart, winEnd);
     }
+
+    // Make sure to load at least 10 seconds of waveform. This avoid
+    // re-loading waveforms for small changes in the settings, which
+    // is frequent when the user is looking for the optimal configuration
+    const double MINIMUN_WIN= 10.;
+    if ( useDiskCache && twToLoad.length() < MINIMUN_WIN )
+    {
+        Core::TimeSpan additionalTime( (MINIMUN_WIN - twToLoad.length()) / 2. );
+        twToLoad = Core::TimeWindow(twToLoad.startTime() - additionalTime,
+                                    twToLoad.endTime()   + additionalTime);
+    }
+
     return twToLoad;
 }
 
@@ -3266,7 +3279,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         return nullptr;
     }
 
-    // Check if we have already excluded the trace because the snr istoo high
+    // Check if we have already excluded the trace because the snr is too high
     if ( allowSnrCheck && _snrExcludedWfs.count(wfId) != 0 )
     {
         return nullptr;
@@ -3307,7 +3320,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     // if the SNR window is bigger than the xcorr window, than extend
     // the waveform time window
-    const Core::TimeWindow twToLoad = allowSnrCheck ? traceTimeWindowToLoad(ph, tw) : tw;
+    const Core::TimeWindow twToLoad = traceTimeWindowToLoad(ph, tw, useDiskCache, allowSnrCheck);
 
     // Load waveform:
     // - if no projection required, just load the requested component

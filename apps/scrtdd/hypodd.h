@@ -268,7 +268,9 @@ class HypoDD : public Core::BaseObject {
                                              const DataModel::SensorLocation *loc,
                                              bool useDiskCache) const;
         Core::TimeWindow traceTimeWindowToLoad(const Catalog::Phase& ph,
-                                               const Core::TimeWindow& neededTW) const;
+                                               const Core::TimeWindow& neededTW,
+                                               bool useDiskCache,
+                                               bool allowSnrCheck) const;
         GenericRecordPtr loadWaveform(const Core::TimeWindow& tw,
                                       const std::string& networkCode,
                                       const std::string& stationCode,
