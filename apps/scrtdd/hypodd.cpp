@@ -2477,7 +2477,7 @@ void HypoDD::printCounters()
                   attempted, performed, performed * 100. / attempted,
                   _counters.snr_low, _counters.wf_no_avail);
 
-    SEISCOMP_INFO("Total xcorr %u (P %.f%%, S %.f%%). Successful xcorr %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
+    SEISCOMP_INFO("Total xcorr %u (P %.f%%, S %.f%%) success %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
                   performed, (performed_p*100./performed), (performed_s*100./performed),
                   (good_cc*100./performed), good_cc, performed,
                   (good_cc_p*100./performed_p), good_cc_p, performed_p,
@@ -2485,7 +2485,7 @@ void HypoDD::printCounters()
 
     if ( perf_theo > 0 )
     {
-        SEISCOMP_INFO("Theoretical phase xcorr %u/%u (P %.f%%, S %.f%%). Successful xcorr %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)", 
+        SEISCOMP_INFO("Theoretical phase xcorr %u/%u (P %.f%%, S %.f%%) success %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)", 
                       perf_theo, performed, (perf_theo_p*100./perf_theo), (perf_theo_s*100./perf_theo),
                       (good_cc_theo*100./perf_theo), good_cc_theo, perf_theo,
                       (good_cc_p_theo*100./perf_theo_p), good_cc_p_theo, perf_theo_p,
@@ -2494,7 +2494,7 @@ void HypoDD::printCounters()
 
     if ( perf_detect > 0 )
     {
-        SEISCOMP_INFO("Detected phases xcorr %u/%u (P %.f%%, S %.f%%). Successful xcorr %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)", 
+        SEISCOMP_INFO("Detected phases xcorr %u/%u (P %.f%%, S %.f%%) success %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)", 
                       perf_detect, performed, (perf_detect_p*100./perf_detect), (perf_detect_s*100./perf_detect),
                       (good_cc_detect*100./perf_detect), good_cc_detect, perf_detect,
                       (good_cc_p_detect*100./perf_detect_p), good_cc_p_detect, perf_detect_p,
@@ -3088,10 +3088,25 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
     const int smpsSsize = trShorter->data()->size();
     const int smpsLsize = trLonger->data()->size();
 
-    // for later quality check: save local maxima
-    vector<double> localMaxs;
-    bool notDecreasing = false;
-    double prevCoeff = -1;
+    //
+    // for later quality check: save local maxima/minima
+    //
+    struct LocalMaxima {
+        bool notDecreasing = false;
+        double prevCoeff = -1;
+        vector<double> values;
+        void update(double coeff)
+        {
+            if ( ! std::isfinite(coeff) )
+                return;
+
+            if (coeff < prevCoeff && notDecreasing )
+                values.push_back(prevCoeff);
+            notDecreasing = coeff >= prevCoeff;
+            prevCoeff = coeff;
+        }
+    };
+    LocalMaxima localMaxs, localMins;
 
     for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
     {
@@ -3107,16 +3122,15 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
         }
         const double denom =  std::sqrt(denomS * denomL);
         const double coeff = numer / denom;
-        if ( coeff > coeffOut || !std::isfinite(coeffOut) )
+        if ( std::abs(coeff) > std::abs(coeffOut) || ! std::isfinite(coeffOut) )
         {
             coeffOut = coeff;
             delayOut = delay / freq; // samples to secs
         }
 
-        // for later quality check: save local maxima
-        if (coeff < prevCoeff && notDecreasing ) localMaxs.push_back(prevCoeff);
-        notDecreasing = coeff >= prevCoeff;
-        prevCoeff = coeff;
+        // for later quality check
+        localMaxs.update(coeff);
+        localMins.update(-coeff);
     }
 
     if ( swap )
@@ -3139,11 +3153,12 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
      * deep geothermal project: Fault reactivation and fluid interactions imaged by
      * microseismicity
      * */
-    if ( qualityCheck && std::isfinite(coeffOut) )
+    if ( qualityCheck && std::isfinite(coeffOut))
     {
-        double threshold = coeffOut - ( (1.0 - coeffOut) / 2.0 );
+        double threshold = std::abs(coeffOut) - ( (1.0 - std::abs(coeffOut)) / 2.0 );
         int numMax = 0;
-        for (double CCslm : localMaxs)
+        vector<double> localMs = coeffOut > 0 ? localMaxs.values : localMins.values;
+        for (double CCslm : localMs)
         {
             if (std::isfinite(CCslm) && CCslm >= threshold) numMax++;
             if (numMax > 1)
