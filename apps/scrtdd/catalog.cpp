@@ -486,13 +486,12 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
             sta.networkCode = pick->waveformID().networkCode();
             sta.stationCode = pick->waveformID().stationCode();
  
-            // skip not selected picks/phases for manaul origins only
+            // skip not selected picks/phases or those who has 0 weight
             try {
-                if ( org->evaluationMode() == Seiscomp::DataModel::MANUAL && 
-                     ( orgArr->weight() == 0 || ! orgArr->timeUsed() ) )
+                if ( orgArr->weight() == 0 || ! orgArr->timeUsed() )
                 {
-                    SEISCOMP_DEBUG("Discarding not used %s phase %s.%s in manual origin",
-                                   orgPh.code().c_str(), sta.networkCode.c_str(), sta.stationCode.c_str()  );
+                    SEISCOMP_DEBUG("Discarding not used %s phase %s.%s", orgPh.code().c_str(),
+                                    sta.networkCode.c_str(), sta.stationCode.c_str()  );
                     continue;
                 }
             } catch ( Core::ValueException& ) { }
