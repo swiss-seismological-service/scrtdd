@@ -261,7 +261,7 @@ class Catalog : public Core::BaseObject {
                                                const Core::Time& atTime);
 
         static constexpr double DEFAULT_MANUAL_PICK_UNCERTAINTY    = 0.025;
-        static constexpr double  DEFAULT_AUTOMATIC_PICK_UNCERTAINTY = 0.200;
+        static constexpr double DEFAULT_AUTOMATIC_PICK_UNCERTAINTY = 0.050;
 
     private:
 

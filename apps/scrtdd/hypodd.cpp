@@ -2432,6 +2432,8 @@ void HypoDD::buildAbsTTimePairs(const CatalogCPtr& catalog,
 
                     // get common observation weight for pair (FIXME: take the lower one? average?)
                     double weight = (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0;
+                    // seems like HypoDD doesn't deal well with very low weights: let's make min weight 0.5
+                    weight = weight * 0.5 + 0.5; 
 
                     evStream << stringify("%-12s %.6f %.6f %.2f %s",
                                           refPhase.stationId.c_str(), ref_travel_time,
