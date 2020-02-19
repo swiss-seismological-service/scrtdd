@@ -563,16 +563,14 @@ void HypoDD::preloadData()
  */
 double HypoDD::computePickWeight(double uncertainty /* secs */ ) const
 {
-    int cls = -1;
+    double weight = 0;
 
-    if ( uncertainty >= 0.000 && uncertainty < 0.025 )      cls = 0;
-    else if ( uncertainty >= 0.025 && uncertainty < 0.050 ) cls = 1;
-    else if ( uncertainty >= 0.050 && uncertainty < 0.100 ) cls = 2;
-    else if ( uncertainty >= 0.100 && uncertainty < 0.200 ) cls = 3;
-    else if ( uncertainty >= 0.200 && uncertainty < 0.400 ) cls = 4;
-    else                                                    cls = 5;
-
-    double weight = 1. / pow(2., cls);
+    if      ( uncertainty >= 0.000 && uncertainty <= 0.025 ) weight = 1.00;
+    else if ( uncertainty >  0.025 && uncertainty <= 0.050 ) weight = 0.80;
+    else if ( uncertainty >  0.050 && uncertainty <= 0.100 ) weight = 0.60;
+    else if ( uncertainty >  0.100 && uncertainty <= 0.200 ) weight = 0.40;
+    else if ( uncertainty >  0.200 && uncertainty <= 0.400 ) weight = 0.20;
+    else                                                    weight = 0.10;
 
     return weight;
 }
@@ -2432,8 +2430,6 @@ void HypoDD::buildAbsTTimePairs(const CatalogCPtr& catalog,
 
                     // get common observation weight for pair (FIXME: take the lower one? average?)
                     double weight = (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0;
-                    // seems like HypoDD doesn't deal well with very low weights: let's make min weight 0.5
-                    weight = weight * 0.5 + 0.5; 
 
                     evStream << stringify("%-12s %.6f %.6f %.2f %s",
                                           refPhase.stationId.c_str(), ref_travel_time,

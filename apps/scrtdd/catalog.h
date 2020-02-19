@@ -260,8 +260,8 @@ class Catalog : public Core::BaseObject {
                                                const std::string& stationCode,
                                                const Core::Time& atTime);
 
-        static constexpr double DEFAULT_MANUAL_PICK_UNCERTAINTY    = 0.025;
-        static constexpr double DEFAULT_AUTOMATIC_PICK_UNCERTAINTY = 0.050;
+        static constexpr double DEFAULT_MANUAL_PICK_UNCERTAINTY    = 0.030;
+        static constexpr double DEFAULT_AUTOMATIC_PICK_UNCERTAINTY = 0.100;
 
     private:
 
