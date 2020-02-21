@@ -1351,12 +1351,12 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
     _wfCacheTmp.clear(); // cleared at the end of each relocation
 
-    if ( ! relocatedEvWithXcorr && ! relocatedEvCat )
-        throw runtime_error("Failed both step1 and step2 origin relocation");
+    if ( ! relocatedEvWithXcorr )
+        throw runtime_error("Failed origin relocation");
 
     if ( _workingDirCleanup ) boost::filesystem::remove_all(subFolder);
 
-    return relocatedEvWithXcorr ? relocatedEvWithXcorr : relocatedEvCat;
+    return relocatedEvWithXcorr;
 }
 
 
