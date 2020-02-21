@@ -103,11 +103,7 @@ struct Config {
 
     // artificial phases
     struct {
-        bool enable           = false;
-        bool useXCorr         = false;
-        bool fixAutoPhase     = false;
-        double maxIEdist      = 5;
-        unsigned numCC        = 2;
+        bool enable           = true;
     } artificialPhases;
 
     struct {
@@ -164,31 +160,24 @@ class HypoDD : public Core::BaseObject {
         CatalogPtr filterPhasesAndSetWeights(const CatalogCPtr& catalog, const Catalog::Phase::Source& source,
                                    const std::vector<std::string>& PphaseToKeep,
                                    const std::vector<std::string>& SphaseToKeep) const;
-        void addMissingPhases(bool useXCorr, bool fixAutoPhase, double maxIEdist, unsigned numCC,
-                             const CatalogCPtr& searchCatalog, CatalogPtr& catalog);
-        void addMissingEventPhases(bool useXCorr, bool fixAutoPhase, double maxIEdist, unsigned numCC,
-                                   const CatalogCPtr& searchCatalog,
+        void addMissingEventPhases(const CatalogCPtr& searchCatalog,
                                    const Catalog::Event& refEv,
                                    CatalogPtr& refEvCatalog);
-        std::vector<Catalog::Phase> findMissingEventPhases(bool useXCorr, bool fixAutoPhase, double maxIEdist, unsigned numCC,
-                                                           const CatalogCPtr& searchCatalog,
+        std::vector<Catalog::Phase> findMissingEventPhases(const CatalogCPtr& searchCatalog,
                                                            const Catalog::Event& refEv,
                                                            const CatalogPtr& refEvCatalog);
         typedef std::pair<std::string,std::string> MissingStationPhase;
-        std::map<MissingStationPhase,const Catalog::Phase*> getMissingPhases(const CatalogCPtr& searchCatalog,
-                                                                        const Catalog::Event& refEv,
-                                                                        const CatalogPtr& refEvCatalog,
-                                                                        bool fixAutoPhase) const;
-        std::vector<unsigned> getEventsInRange(const Catalog::Event& refEv, const CatalogCPtr& searchCatalog,
-                                               double maxHorizDist) const;
+        std::vector<MissingStationPhase> getMissingPhases(const CatalogCPtr& searchCatalog,
+                                                          const Catalog::Event& refEv,
+                                                          const CatalogPtr& refEvCatalog) const;
         typedef std::pair<Catalog::Event, Catalog::Phase> PhasePeer;
         std::vector<PhasePeer> findPhasePeers(const Catalog::Station& station, const std::string& phaseType,
-                                              const CatalogCPtr& searchCatalog, 
-                                              const std::vector<unsigned>& eventsInRange) const;
-        bool detectPhase(bool useXCorr, unsigned numCC, const Catalog::Station& station, const std::string& phaseType,
-                         const Catalog::Event& refEv, const CatalogCPtr& searchCatalog, 
-                         const std::vector<HypoDD::PhasePeer>& xcorrPeers, double phaseVelocity,
-                         Catalog::Phase& refEvNewPhase /*output */ );
+                                              const CatalogCPtr& searchCatalog) const;
+        Catalog::Phase createThoreticalPhase(const Catalog::Station& station,
+                                             const std::string& phaseType,
+                                             const Catalog::Event& refEv,
+                                             const std::vector<HypoDD::PhasePeer>& peers,
+                                             double phaseVelocity);
         void createStationDatFile(const CatalogCPtr& catalog, const std::string& staFileName) const;
         void createPhaseDatFile(const CatalogCPtr& catalog, const std::string& phaseFileName) const;
         void createEventDatFile(const CatalogCPtr& catalog, const std::string& eventFileName) const;
@@ -202,12 +191,13 @@ class HypoDD : public Core::BaseObject {
         std::set<unsigned> createDtCcPh2dt(const CatalogCPtr& catalog,
                                            const std::string& dtctFile,
                                            const std::string& dtccFile);
-        void createDtCcCatalog(const std::map<unsigned,CatalogPtr>& neighbourCats, const std::string& dtccFile);
-        void createDtCcSingleEvent(const CatalogCPtr& catalog,
-                                   unsigned evToRelocateId,
-                                   const std::string& dtccFile);
-        void buildXcorrDiffTTimePairs(const CatalogCPtr& catalog,
+        void createDtCcCatalog(std::map<unsigned,CatalogPtr>& neighbourCats,
+                               const std::string& dtccFile, bool computeTheoreticalPhases);
+        void createDtCcSingleEvent(CatalogPtr& catalog, unsigned evToRelocateId,
+                                   const std::string& dtccFile, bool computeTheoreticalPhases);
+        void buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                                       unsigned evToRelocateId,
+                                      bool computeTheoreticalPhases,
                                       std::ofstream& outStream,
                                       std::map<std::string,GenericRecordPtr>& catalogCache,
                                       bool useDiskCacheCatalog,
@@ -311,19 +301,14 @@ class HypoDD : public Core::BaseObject {
         std::set<std::string> _snrExcludedWfs;
 
         struct {
-            unsigned xcorr_tot;
             unsigned xcorr_performed;
             unsigned xcorr_performed_theo;
-            unsigned xcorr_performed_detect;
             unsigned xcorr_performed_s;
             unsigned xcorr_performed_s_theo;
-            unsigned xcorr_performed_s_detect;
             unsigned xcorr_good_cc;
             unsigned xcorr_good_cc_theo;
-            unsigned xcorr_good_cc_detect;
             unsigned xcorr_good_cc_s;
             unsigned xcorr_good_cc_s_theo;
-            unsigned xcorr_good_cc_s_detect;
 
             unsigned snr_low;
             unsigned wf_no_avail;
