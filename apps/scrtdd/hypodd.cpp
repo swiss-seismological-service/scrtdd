@@ -2487,12 +2487,11 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
 
             if ( _cfg.wfFilter.dump )
             {
+                string ext = stringify(".rtdd-detected-%s-phase-cc-%.2f.debug", phase.type.c_str(), xcorr.mean_coeff);
                 Core::TimeWindow xcorrTw = xcorrTimeWindowLong(phase);
                 GenericRecordPtr trace = getWaveform(xcorrTw, refEv, phase, refEvCache, useDiskCacheRefEv);
                 xcorrTw = xcorrTimeWindowShort(newPhase);
-                trim(*trace, xcorrTw);
-                string ext = stringify(".rtdd-detected-%s-phase-cc-%.2f.debug", phase.type.c_str(), xcorr.mean_coeff);
-                writeTrace(trace, waveformFilename(newPhase, xcorrTw) + ext);
+                if ( trim(*trace, xcorrTw) ) writeTrace(trace, waveformFilename(newPhase, xcorrTw) + ext);
             }
 
             // remove the old phase since the new one will be added
