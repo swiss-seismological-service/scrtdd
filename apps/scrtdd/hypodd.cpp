@@ -533,7 +533,7 @@ void HypoDD::preloadData()
             {
                 Catalog::Phase tmpPh = phase;
                 tmpPh.channelCode = getBandAndInstrumentCodes(tmpPh.channelCode) + component;
-                getWaveform(tw, event, tmpPh, _wfCache, _useCatalogDiskCache, true); 
+                getWaveform(tw, event, tmpPh, _wfCache, _useCatalogDiskCache);
             }
 
             numPhases++;
@@ -2414,8 +2414,8 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                     phase.procInfo.type == refPhase.procInfo.type)
                 {
                     double coeff, lag, dtcc, weight;
-                    if ( xcorrPhases(refEv, refPhase, true, refEvCache, useDiskCacheRefEv,
-                                     event, phase, true, catalogCache, useDiskCacheCatalog,
+                    if ( xcorrPhases(refEv, refPhase, refEvCache, useDiskCacheRefEv,
+                                     event, phase, catalogCache, useDiskCacheCatalog,
                                      coeff, lag, dtcc, weight) )
                     {
                         evStream << stringify("%-12s %.6f %.4f %s", refPhase.stationId.c_str(),
@@ -2607,8 +2607,8 @@ HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, cons
                             phase2.procInfo.type == phaseType )
                         {
                             double coeff, lag, dtcc, weight;
-                            if ( xcorrPhases(*ev1, phase1, true, _wfCache, _useCatalogDiskCache,
-                                             *ev2, phase2, true, _wfCache, _useCatalogDiskCache,
+                            if ( xcorrPhases(*ev1, phase1, _wfCache, _useCatalogDiskCache,
+                                             *ev2, phase2, _wfCache, _useCatalogDiskCache,
                                              coeff, lag, dtcc, weight) )
                             {
                                 evStream << stringify("%-12s %.6f %.4f %s", stationId.c_str(),
@@ -2702,9 +2702,9 @@ HypoDD::xcorrTimeWindowShort(const Catalog::Phase& phase) const
 
 
 bool
-HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool allowSnrCheck1,
+HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
                     std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
-                    const Catalog::Event& event2, const Catalog::Phase& phase2, bool allowSnrCheck2,
+                    const Catalog::Event& event2, const Catalog::Phase& phase2,
                     std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
                     double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut)
 {
@@ -2781,8 +2781,8 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
             tmpPh2.channelCode = commonChRoot + component;
         }
 
-        performed = _xcorrPhases(event1, tmpPh1, allowSnrCheck1, cache1, useDiskCache1,
-                                 event2, tmpPh2, allowSnrCheck2, cache2, useDiskCache2,
+        performed = _xcorrPhases(event1, tmpPh1, cache1, useDiskCache1,
+                                 event2, tmpPh2, cache2, useDiskCache2,
                                  coeffOut, lagOut, diffTimeOut, weightOut);
 
         goodCoeff = ( performed && std::abs(coeffOut) >= xcorrCfg.minCoef );
@@ -2830,9 +2830,9 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
 
 
 bool
-HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool allowSnrCheck1,
+HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
                      std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
-                     const Catalog::Event& event2, const Catalog::Phase& phase2, bool allowSnrCheck2,
+                     const Catalog::Event& event2, const Catalog::Phase& phase2,
                      std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
                      double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut)
 {
@@ -2844,14 +2844,14 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
     Core::TimeWindow tw2 = xcorrTimeWindowLong(phase2);
 
     // load the long trace 1, because we want to cache the long version. Then we'll trim it.
-    GenericRecordPtr tr1 = getWaveform(tw1, event1, phase1, cache1, useDiskCache1, allowSnrCheck1);
+    GenericRecordPtr tr1 = getWaveform(tw1, event1, phase1, cache1, useDiskCache1);
     if ( !tr1 )
     {
         return false;
     }
 
     // load the long trace 2, because we want to cache the long version. Then we'll trim it
-    GenericRecordPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2, allowSnrCheck2);
+    GenericRecordPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2);
     if ( !tr2 )
     {
         return false;
@@ -3095,13 +3095,13 @@ HypoDD::S2Nratio(const GenericRecordCPtr& tr, const Core::Time& pickTime,
 
 Core::TimeWindow
 HypoDD::traceTimeWindowToLoad(const Catalog::Phase& ph, const Core::TimeWindow& neededTW,
-                              bool useDiskCache, bool allowSnrCheck ) const
+                              bool useDiskCache ) const
 {
     Core::TimeWindow twToLoad = neededTW;
 
     // if the SNR window is bigger than the xcorr window, than extend
     // the waveform time window 
-    if ( allowSnrCheck && _cfg.snr.minSnr > 0 )
+    if ( _cfg.snr.minSnr > 0 )
     {
         Core::Time winStart = std::min( {
               neededTW.startTime(),
@@ -3139,8 +3139,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
                     const Catalog::Event& ev,
                     const Catalog::Phase& ph,
                     map<string,GenericRecordPtr>& memCache,
-                    bool useDiskCache,
-                    bool allowSnrCheck)
+                    bool useDiskCache)
 {
     string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
                               string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
@@ -3156,14 +3155,14 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         return it->second; // waveform cached, just return it 
     }
 
-    // Check if we have already excluded the trace because we couldn't load it
+    // Check if we have already excluded the trace because we couldn't load it (save time)
     if ( _unloadableWfs.count(wfId) != 0 )
     {
         return nullptr;
     }
 
-    // Check if we have already excluded the trace because the snr is too high
-    if ( allowSnrCheck && _snrExcludedWfs.count(wfId) != 0 )
+    // Check if we have already excluded the trace because the snr is too high (save time)
+    if ( _snrExcludedWfs.count(wfId) != 0 )
     {
         return nullptr;
     }
@@ -3203,7 +3202,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     // if the SNR window is bigger than the xcorr window, than extend
     // the waveform time window
-    const Core::TimeWindow twToLoad = traceTimeWindowToLoad(ph, tw, useDiskCache, allowSnrCheck);
+    const Core::TimeWindow twToLoad = traceTimeWindowToLoad(ph, tw, useDiskCache);
 
     // Load waveform:
     // - if no projection required, just load the requested component
@@ -3244,7 +3243,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     }
 
     // check SNR threshold
-    if ( allowSnrCheck && _cfg.snr.minSnr > 0 )
+    if ( _cfg.snr.minSnr > 0 )
     {
         double snr = S2Nratio(trace, ph.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
                               _cfg.snr.signalStart, _cfg.snr.signalEnd);

@@ -203,14 +203,14 @@ class HypoDD : public Core::BaseObject {
                                       bool useDiskCacheCatalog,
                                       std::map<std::string,GenericRecordPtr>& refEvCache,
                                       bool useDiskCacheRefEv);
-        bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool allowSnrCheck1,
+        bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
                          std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
-                         const Catalog::Event& event2, const Catalog::Phase& phase2, bool allowSnrCheck2,
+                         const Catalog::Event& event2, const Catalog::Phase& phase2,
                          std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
                          double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
-        bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, bool allowSnrCheck1,
+        bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
                          std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
-                         const Catalog::Event& event2, const Catalog::Phase& phase2, bool allowSnrCheck2,
+                         const Catalog::Event& event2, const Catalog::Phase& phase2,
                          std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
                          double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
         Core::TimeWindow xcorrTimeWindowLong(const Catalog::Phase& phase) const;
@@ -249,8 +249,7 @@ class HypoDD : public Core::BaseObject {
                                      const Catalog::Event& ev,
                                      const Catalog::Phase& ph,
                                      std::map<std::string,GenericRecordPtr>& memCache,
-                                     bool useDiskCache,
-                                     bool allowSnrCheck);
+                                     bool useDiskCache);
         GenericRecordPtr loadProjectWaveform(const Core::TimeWindow& tw,
                                              const Catalog::Event& ev,
                                              const Catalog::Phase& ph,
@@ -259,8 +258,7 @@ class HypoDD : public Core::BaseObject {
                                              bool useDiskCache) const;
         Core::TimeWindow traceTimeWindowToLoad(const Catalog::Phase& ph,
                                                const Core::TimeWindow& neededTW,
-                                               bool useDiskCache,
-                                               bool allowSnrCheck) const;
+                                               bool useDiskCache) const;
         GenericRecordPtr loadWaveform(const Core::TimeWindow& tw,
                                       const std::string& networkCode,
                                       const std::string& stationCode,
