@@ -199,19 +199,19 @@ class HypoDD : public Core::BaseObject {
                                       unsigned evToRelocateId,
                                       bool computeTheoreticalPhases,
                                       std::ofstream& outStream,
-                                      std::map<std::string,GenericRecordPtr>& catalogCache,
+                                      std::map<std::string,GenericRecordCPtr>& catalogCache,
                                       bool useDiskCacheCatalog,
-                                      std::map<std::string,GenericRecordPtr>& refEvCache,
+                                      std::map<std::string,GenericRecordCPtr>& refEvCache,
                                       bool useDiskCacheRefEv);
         bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
-                         std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
+                         std::map<std::string,GenericRecordCPtr>& cache1, bool useDiskCache1,
                          const Catalog::Event& event2, const Catalog::Phase& phase2,
-                         std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
+                         std::map<std::string,GenericRecordCPtr>& cache2,  bool useDiskCache2,
                          double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
         bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
-                         std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
+                         std::map<std::string,GenericRecordCPtr>& cache1, bool useDiskCache1,
                          const Catalog::Event& event2, const Catalog::Phase& phase2,
-                         std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
+                         std::map<std::string,GenericRecordCPtr>& cache2,  bool useDiskCache2,
                          double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
         Core::TimeWindow xcorrTimeWindowLong(const Catalog::Phase& phase) const;
         Core::TimeWindow xcorrTimeWindowShort(const Catalog::Phase& phase) const;
@@ -245,10 +245,10 @@ class HypoDD : public Core::BaseObject {
         double S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
                         double noiseOffsetStart, double noiseOffsetEnd,
                         double signalOffsetStart, double signalOffsetEnd) const;
-        GenericRecordPtr getWaveform(const Core::TimeWindow& tw,
+        GenericRecordCPtr getWaveform(const Core::TimeWindow& tw,
                                      const Catalog::Event& ev,
                                      const Catalog::Phase& ph,
-                                     std::map<std::string,GenericRecordPtr>& memCache,
+                                     std::map<std::string,GenericRecordCPtr>& memCache,
                                      bool useDiskCache);
         GenericRecordPtr loadProjectWaveform(const Core::TimeWindow& tw,
                                              const Catalog::Event& ev,
@@ -293,8 +293,8 @@ class HypoDD : public Core::BaseObject {
         Config _cfg;
         bool _workingDirCleanup = true;
         bool _useCatalogDiskCache = false;
-        std::map<std::string, GenericRecordPtr> _wfCache;
-        std::map<std::string, GenericRecordPtr> _wfCacheTmp; // cleared at the end of each relocation
+        std::map<std::string, GenericRecordCPtr> _wfCache;
+        std::map<std::string, GenericRecordCPtr> _wfCacheTmp; // cleared at the end of each relocation
         std::set<std::string> _unloadableWfs;
         std::set<std::string> _snrExcludedWfs;
 

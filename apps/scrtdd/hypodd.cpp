@@ -2339,9 +2339,9 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                                       unsigned evToRelocateId,
                                       bool computeTheoreticalPhases,
                                       ofstream& outStream,
-                                      std::map<std::string,GenericRecordPtr>& catalogCache,
+                                      std::map<std::string,GenericRecordCPtr>& catalogCache,
                                       bool useDiskCacheCatalog,
-                                      std::map<std::string,GenericRecordPtr>& refEvCache,
+                                      std::map<std::string,GenericRecordCPtr>& refEvCache,
                                       bool useDiskCacheRefEv)
 {
     auto search = catalog->getEvents().find(evToRelocateId);
@@ -2489,9 +2489,10 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             {
                 string ext = stringify(".rtdd-detected-%s-phase-cc-%.2f.debug", phase.type.c_str(), xcorr.mean_coeff);
                 Core::TimeWindow xcorrTw = xcorrTimeWindowLong(phase);
-                GenericRecordPtr trace = getWaveform(xcorrTw, refEv, phase, refEvCache, useDiskCacheRefEv);
+                GenericRecordCPtr trace1 = getWaveform(xcorrTw, refEv, phase, refEvCache, useDiskCacheRefEv);
                 xcorrTw = xcorrTimeWindowShort(newPhase);
-                if ( trim(*trace, xcorrTw) ) writeTrace(trace, waveformFilename(newPhase, xcorrTw) + ext);
+                GenericRecordPtr trace2 = new GenericRecord(*trace1);
+                if ( trim(*trace2, xcorrTw) ) writeTrace(trace2, waveformFilename(newPhase, xcorrTw) + ext);
             }
 
             // remove the old phase since the new one will be added
@@ -2712,9 +2713,9 @@ HypoDD::xcorrTimeWindowShort(const Catalog::Phase& phase) const
 
 bool
 HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
-                    std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
+                    std::map<std::string,GenericRecordCPtr>& cache1, bool useDiskCache1,
                     const Catalog::Event& event2, const Catalog::Phase& phase2,
-                    std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
+                    std::map<std::string,GenericRecordCPtr>& cache2,  bool useDiskCache2,
                     double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut)
 {
     if ( phase1.procInfo.type != phase2.procInfo.type )
@@ -2840,9 +2841,9 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
 bool
 HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
-                     std::map<std::string,GenericRecordPtr>& cache1, bool useDiskCache1,
+                     std::map<std::string,GenericRecordCPtr>& cache1, bool useDiskCache1,
                      const Catalog::Event& event2, const Catalog::Phase& phase2,
-                     std::map<std::string,GenericRecordPtr>& cache2,  bool useDiskCache2,
+                     std::map<std::string,GenericRecordCPtr>& cache2,  bool useDiskCache2,
                      double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut)
 {
     coeffOut = lagOut = diffTimeOut = weightOut = 0;
@@ -2853,14 +2854,14 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
     Core::TimeWindow tw2 = xcorrTimeWindowLong(phase2);
 
     // load the long trace 1, because we want to cache the long version. Then we'll trim it.
-    GenericRecordPtr tr1 = getWaveform(tw1, event1, phase1, cache1, useDiskCache1);
+    GenericRecordCPtr tr1 = getWaveform(tw1, event1, phase1, cache1, useDiskCache1);
     if ( !tr1 )
     {
         return false;
     }
 
     // load the long trace 2, because we want to cache the long version. Then we'll trim it
-    GenericRecordPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2);
+    GenericRecordCPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2);
     if ( !tr2 )
     {
         return false;
@@ -3143,11 +3144,11 @@ HypoDD::traceTimeWindowToLoad(const Catalog::Phase& ph, const Core::TimeWindow& 
 /*
  * Return the waveform from the memory cache if present, otherwise load it
  */
-GenericRecordPtr
+GenericRecordCPtr
 HypoDD::getWaveform(const Core::TimeWindow& tw,
                     const Catalog::Event& ev,
                     const Catalog::Phase& ph,
-                    map<string,GenericRecordPtr>& memCache,
+                    map<string,GenericRecordCPtr>& memCache,
                     bool useDiskCache)
 {
     string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
