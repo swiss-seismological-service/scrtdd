@@ -2485,6 +2485,16 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                               newPhase.procInfo.weight, xcorr.mean_coeff, xcorr.ccCount);
             }
 
+            if ( _cfg.wfFilter.dump )
+            {
+                Core::TimeWindow xcorrTw = xcorrTimeWindowLong(phase);
+                GenericRecordPtr trace = getWaveform(xcorrTw, refEv, phase, refEvCache, useDiskCacheRefEv);
+                xcorrTw = xcorrTimeWindowShort(newPhase);
+                trim(*trace, xcorrTw);
+                string ext = stringify(".rtdd-detected-%s-phase-cc-%.2f.debug", phase.type.c_str(), xcorr.mean_coeff);
+                writeTrace(trace, waveformFilename(newPhase, xcorrTw) + ext);
+            }
+
             // remove the old phase since the new one will be added
             phasesToBeRemoved.push_back(phase);
             newPhases.push_back(newPhase);
