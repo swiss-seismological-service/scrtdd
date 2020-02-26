@@ -527,7 +527,7 @@ void HypoDD::preloadData()
         {
             const Catalog::Phase& phase = it->second;
             Core::TimeWindow tw = xcorrTimeWindowLong(phase);
-            auto xcorrCfg = _cfg.xcorr[phase.procInfo.type];
+            const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
 
             for (string component : xcorrCfg.components )
             {
@@ -886,7 +886,7 @@ HypoDD::createThoreticalPhase(const Catalog::Station& station,
     refEvNewPhase.networkCode  = station.networkCode;
     refEvNewPhase.stationCode  = station.stationCode;
     refEvNewPhase.locationCode = streamInfo.locationCode;
-    refEvNewPhase.channelCode  = streamInfo.channelCode;
+    refEvNewPhase.channelCode  = getBandAndInstrumentCodes(streamInfo.channelCode) + xcorrCfg.components[0];
     refEvNewPhase.isManual     = false;
     refEvNewPhase.procInfo.type = phaseType;
 
@@ -2385,7 +2385,6 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
     map<string, XCorrResult> results;
     auto make_key = [](unsigned evId, const string& stationId, const string& type ) { return to_string(evId) + "." + stationId + "." + type; };
 
-
     // loop through catalog events
     for (const auto& kv : catalog->getEvents() )
     {
@@ -2490,9 +2489,12 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                 string ext = stringify(".rtdd-detected-%s-phase-cc-%.2f.debug", phase.type.c_str(), xcorr.mean_coeff);
                 Core::TimeWindow xcorrTw = xcorrTimeWindowLong(phase);
                 GenericRecordCPtr trace1 = getWaveform(xcorrTw, refEv, phase, refEvCache, useDiskCacheRefEv);
-                xcorrTw = xcorrTimeWindowShort(newPhase);
-                GenericRecordPtr trace2 = new GenericRecord(*trace1);
-                if ( trim(*trace2, xcorrTw) ) writeTrace(trace2, waveformFilename(newPhase, xcorrTw) + ext);
+                if ( trace1 )
+                {
+                    xcorrTw = xcorrTimeWindowShort(newPhase);
+                    GenericRecordPtr trace2 = new GenericRecord(*trace1);
+                    if ( trim(*trace2, xcorrTw) ) writeTrace(trace2, waveformFilename(newPhase, xcorrTw) + ext);
+                }
             }
 
             // remove the old phase since the new one will be added
