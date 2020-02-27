@@ -3131,12 +3131,15 @@ HypoDD::traceTimeWindowToLoad(const Catalog::Phase& ph, const Core::TimeWindow& 
     // Make sure to load at least 10 seconds of waveform. This avoid
     // re-loading waveforms for small changes in the settings, which
     // is frequent when the user is looking for the optimal configuration
-    const double MINIMUN_WIN= 10.;
-    if ( useDiskCache && twToLoad.length() < MINIMUN_WIN )
+    if ( useDiskCache )
     {
-        Core::TimeSpan additionalTime( (MINIMUN_WIN - twToLoad.length()) / 2. );
-        twToLoad = Core::TimeWindow(twToLoad.startTime() - additionalTime,
-                                    twToLoad.endTime()   + additionalTime);
+        const Core::TimeSpan additionalTime(5.);
+
+        if ( twToLoad.startTime() > ph.time - additionalTime )
+            twToLoad.setStartTime( ph.time - additionalTime );
+
+        if ( twToLoad.endTime() < ph.time + additionalTime )
+            twToLoad.setEndTime( ph.time + additionalTime );
     }
 
     return twToLoad;
