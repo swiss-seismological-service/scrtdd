@@ -32,15 +32,17 @@
 #include <seiscomp3/io/archive/xmlarchive.h>
 #include <seiscomp3/io/records/mseedrecord.h>
 
+#include <seiscomp3/datamodel/utils.h>
 #include <seiscomp3/datamodel/event.h>
 #include <seiscomp3/datamodel/pick.h>
 #include <seiscomp3/datamodel/origin.h>
 #include <seiscomp3/datamodel/magnitude.h>
+#include <seiscomp3/datamodel/stationmagnitude.h>
+#include <seiscomp3/datamodel/stationmagnitudecontribution.h>
 #include <seiscomp3/datamodel/utils.h>
 #include <seiscomp3/datamodel/parameter.h>
 #include <seiscomp3/datamodel/parameterset.h>
 #include <seiscomp3/datamodel/journalentry.h>
-#include <seiscomp3/datamodel/utils.h>
 
 #include <seiscomp3/math/geo.h>
 
@@ -1418,9 +1420,32 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     set<string> associatedStations;
     set<string> usedStations;
 
-    // add all arrivals that were in the original Origin (before relocation)
+    // If we know the origin before relocation fetch some information from it
     if ( org )
     {
+        //
+        // Copy magnitude from org if that is Manual
+        //
+        if ( org->evaluationMode() == DataModel::MANUAL )
+        {
+            for (size_t i = 0; i < org->magnitudeCount(); i++)
+            {
+                DataModel::Magnitude *oldMag = org->magnitude(i);
+                DataModel::Magnitude *newMag = DataModel::Magnitude::Create();
+                *newMag = *oldMag;
+                for (size_t j = 0; j < oldMag->stationMagnitudeContributionCount(); j++)
+                {
+                    DataModel::StationMagnitudeContribution *contrib = new DataModel::StationMagnitudeContribution();
+                    *contrib = *oldMag->stationMagnitudeContribution(j);
+                    newMag->add(contrib);
+                }
+                newOrg->add( newMag );
+            } 
+        }
+
+        //
+        // add all arrivals that were in the original Origin (before relocation)
+        //
         for (size_t i = 0; i < org->arrivalCount(); i++)
         {
             DataModel::Arrival *orgArr = org->arrival(i);
