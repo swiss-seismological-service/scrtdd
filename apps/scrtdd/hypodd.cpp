@@ -978,19 +978,32 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
             createDtCtCatalog(neighbourCats, dtctFile);
         }
 
-        // update selected event list and numNeighbours information
+        //
+        // update selected event list, numNeighbours information and artifical phases
+        //
+        multimap<unsigned,Catalog::Phase> newPhases;
+
         for (const auto& kv : neighbourCats)
         {
             unsigned evId = kv.first;
             const CatalogPtr& neighbourCat = kv.second;
 
+            // update selected events
             selectedEvents.insert(evId);
 
+            // update event number of neighbouring information
             const Catalog::Event& ev1 = neighbourCat->getEvents().at(evId);
             Catalog::Event ev2 = catToReloc->getEvents().at(evId);
             ev2.relocInfo.numNeighbours = ev1.relocInfo.numNeighbours;
             catToReloc->updateEvent(ev2);
+
+            // Save new phases (artificial phases too)
+            auto eqlrng = neighbourCat->getPhases().equal_range(evId);
+            newPhases.insert(eqlrng.first, eqlrng.second);
         }
+
+        // Replace phases with new ones
+        catToReloc = new Catalog(catToReloc->getStations(), catToReloc->getEvents(), newPhases);
     }
     else
     {
