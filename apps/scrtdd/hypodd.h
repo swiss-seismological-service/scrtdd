@@ -151,7 +151,8 @@ class HypoDD : public Core::BaseObject {
     private:
 
         CatalogPtr relocateEventSingleStep(CatalogPtr& evToRelocateCat, const std::string& workingDir,
-                                bool doXcorr, std::string hypoddCtrlFile, double minPhaseWeight,
+                                bool doXcorr, bool computeTheoreticalPhases,
+                                std::string hypoddCtrlFile, double minPhaseWeight,
                                 double minESdist, double maxESdist, double minEStoIEratio,
                                 int minDTperEvt, int maxDTperEvt, int minNumNeigh, int maxNumNeigh,
                                 int numEllipsoids, double maxEllipsoidSize);
@@ -198,7 +199,7 @@ class HypoDD : public Core::BaseObject {
         void buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                                       unsigned evToRelocateId,
                                       bool computeTheoreticalPhases,
-                                      std::ofstream& outStream,
+                                      std::ofstream* outStream,
                                       std::map<std::string,GenericRecordCPtr>& catalogCache,
                                       bool useDiskCacheCatalog,
                                       std::map<std::string,GenericRecordCPtr>& refEvCache,

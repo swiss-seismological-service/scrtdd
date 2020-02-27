@@ -1100,7 +1100,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
                                                             _cfg.validPphases, _cfg.validSphases);
 
     CatalogPtr relocatedEvCat = relocateEventSingleStep(
-            evToRelocateCat, eventWorkingDir, false, _cfg.hypodd.step1CtrlFile, _cfg.step1Clustering.minWeight,
+            evToRelocateCat, eventWorkingDir, false, false, _cfg.hypodd.step1CtrlFile, _cfg.step1Clustering.minWeight,
             _cfg.step1Clustering.minESdist, _cfg.step1Clustering.maxESdist, _cfg.step1Clustering.minEStoIEratio,
             _cfg.step1Clustering.minDTperEvt, _cfg.step1Clustering.maxDTperEvt, _cfg.step1Clustering.minNumNeigh,
             _cfg.step1Clustering.maxNumNeigh, _cfg.step1Clustering.numEllipsoids, _cfg.step1Clustering.maxEllipsoidSize
@@ -1127,7 +1127,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     eventWorkingDir = (boost::filesystem::path(subFolder)/"step2").string();
 
     CatalogPtr relocatedEvWithXcorr = relocateEventSingleStep(
-            evToRelocateCat, eventWorkingDir, true, _cfg.hypodd.step2CtrlFile, _cfg.step2Clustering.minWeight,
+            evToRelocateCat, eventWorkingDir, true, _cfg.artificialPhases.enable,
+            _cfg.hypodd.step2CtrlFile, _cfg.step2Clustering.minWeight,
             _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist, _cfg.step2Clustering.minEStoIEratio,
             _cfg.step2Clustering.minDTperEvt, _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh,
             _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids, _cfg.step2Clustering.maxEllipsoidSize
@@ -1159,6 +1160,7 @@ CatalogPtr
 HypoDD::relocateEventSingleStep(CatalogPtr& evToRelocateCat,
                                 const string& workingDir,
                                 bool doXcorr,
+                                bool computeTheoreticalPhases,
                                 string hypoddCtrlFile,
                                 double minPhaseWeight,
                                 double minESdist,
@@ -1209,7 +1211,7 @@ HypoDD::relocateEventSingleStep(CatalogPtr& evToRelocateCat,
         {
             // Perform cross correlation, which also detects picks around theoretical
             // arrival times. The catalog will be updated with those theoretical phases
-            createDtCcSingleEvent(neighbourCat, evToRelocateNewId, dtccFile, _cfg.artificialPhases.enable);
+            createDtCcSingleEvent(neighbourCat, evToRelocateNewId, dtccFile, computeTheoreticalPhases);
         }
         else
         {
@@ -2289,7 +2291,7 @@ HypoDD::createDtCcCatalog(map<unsigned,CatalogPtr>& neighbourCats,
     {
         unsigned evToRelocateId = kv.first;
         CatalogPtr& neighbourCat = kv.second;
-        buildXcorrDiffTTimePairs(neighbourCat, evToRelocateId, computeTheoreticalPhases, outStream,
+        buildXcorrDiffTTimePairs(neighbourCat, evToRelocateId, computeTheoreticalPhases, &outStream,
                                  _wfCache, _useCatalogDiskCache,
                                  _wfCache, _useCatalogDiskCache);
     }
@@ -2316,7 +2318,7 @@ void HypoDD::createDtCcSingleEvent(CatalogPtr& catalog,
 
     _counters = {0};
 
-    buildXcorrDiffTTimePairs(catalog, evToRelocateId, computeTheoreticalPhases, outStream, 
+    buildXcorrDiffTTimePairs(catalog, evToRelocateId, computeTheoreticalPhases, &outStream,
                              _wfCache, _useCatalogDiskCache,
                              _wfCacheTmp, false);
 
@@ -2338,7 +2340,7 @@ void HypoDD::createDtCcSingleEvent(CatalogPtr& catalog,
 void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                                       unsigned evToRelocateId,
                                       bool computeTheoreticalPhases,
-                                      ofstream& outStream,
+                                      ofstream* outStream,
                                       std::map<std::string,GenericRecordCPtr>& catalogCache,
                                       bool useDiskCacheCatalog,
                                       std::map<std::string,GenericRecordCPtr>& refEvCache,
@@ -2429,8 +2431,8 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                 }
             }
         }
-        if (dtCount > 0)
-            outStream << evStream.str();
+        if ( dtCount > 0 && outStream )
+            *outStream << evStream.str();
     }
 
     for ( auto& pair : results )
