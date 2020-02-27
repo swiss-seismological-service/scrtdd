@@ -1110,13 +1110,43 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     {
         SEISCOMP_INFO("Step 1 relocation successful");
         SEISCOMP_INFO("%s", relocationReport(relocatedEvCat).c_str() );
+
         evToRelocateCat = relocatedEvCat;
     }
     else
     {
         SEISCOMP_ERROR("Failed to perform step 1 origin relocation");
-        evToRelocateCat = filterPhasesAndSetWeights(singleEvent, Catalog::Phase::Source::RT_EVENT,
-                                                    _cfg.validPphases, _cfg.validSphases);
+
+        if (  _cfg.artificialPhases.enable )
+        {
+            //
+            // Alternative Step 1: since step 1 failed we don't have a refined location and thus we won't
+            // get good theoretical picks estimate. So let's try to refine location using cross correlation
+            // before trying to create artificial phases
+            //
+            SEISCOMP_INFO("Performing alternative step 1: initial location refinement (with cross correlation)");
+
+            eventWorkingDir = (boost::filesystem::path(subFolder)/"step1-xcorr").string();
+
+            relocatedEvCat  = relocateEventSingleStep(
+                    evToRelocateCat, eventWorkingDir, true, false,  _cfg.hypodd.step2CtrlFile, _cfg.step2Clustering.minWeight,
+                    _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist, _cfg.step2Clustering.minEStoIEratio,
+                    _cfg.step2Clustering.minDTperEvt, _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh,
+                    _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids, _cfg.step2Clustering.maxEllipsoidSize
+            );
+
+            if ( relocatedEvCat )
+            {
+                SEISCOMP_INFO("Alternative step 1 relocation successful");
+                SEISCOMP_INFO("%s", relocationReport(relocatedEvCat).c_str() );
+
+                evToRelocateCat = relocatedEvCat;
+            }
+            else
+            {
+                SEISCOMP_ERROR("Failed to perform alternative step 1 origin relocation");
+            }
+        }
     }
 
     //
@@ -1157,7 +1187,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
 
 CatalogPtr 
-HypoDD::relocateEventSingleStep(CatalogPtr& evToRelocateCat,
+HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
                                 const string& workingDir,
                                 bool doXcorr,
                                 bool computeTheoreticalPhases,
@@ -1205,20 +1235,6 @@ HypoDD::relocateEventSingleStep(CatalogPtr& evToRelocateCat,
         evToRelocate.relocInfo.numNeighbours = numNeighbours;
         neighbourCat->updateEvent(evToRelocate);
 
-        // Create cross correlated differential travel times file (dt.cc) for hypodd
-        string dtccFile = (boost::filesystem::path(workingDir)/"dt.cc").string();
-        if ( doXcorr )
-        {
-            // Perform cross correlation, which also detects picks around theoretical
-            // arrival times. The catalog will be updated with those theoretical phases
-            createDtCcSingleEvent(neighbourCat, evToRelocateNewId, dtccFile, computeTheoreticalPhases);
-        }
-        else
-        {
-            // Create an empty cross correlated differential travel times file (dt.cc) for hypodd
-            ofstream(dtccFile).close();
-        }
-
         // write catalog for debugging purpose
         if ( ! _workingDirCleanup )
         {
@@ -1234,7 +1250,21 @@ HypoDD::relocateEventSingleStep(CatalogPtr& evToRelocateCat,
 
         // Create event.dat for hypodd
         string eventFile = (boost::filesystem::path(workingDir)/"event.dat").string();
-        createEventDatFile(neighbourCat, eventFile);
+        createEventDatFile(neighbourCat, eventFile); 
+
+        // Create cross correlated differential travel times file (dt.cc) for hypodd
+        string dtccFile = (boost::filesystem::path(workingDir)/"dt.cc").string();
+        if ( doXcorr )
+        {
+            // Perform cross correlation, which also detects picks around theoretical
+            // arrival times. The catalog will be updated with those theoretical phases
+            createDtCcSingleEvent(neighbourCat, evToRelocateNewId, dtccFile, computeTheoreticalPhases);
+        }
+        else
+        {
+            // Create an empty cross correlated differential travel times file (dt.cc) for hypodd
+            ofstream(dtccFile).close();
+        }
 
         // Create differential travel times file (dt.ct) for hypodd
         string dtctFile = (boost::filesystem::path(workingDir)/"dt.ct").string();

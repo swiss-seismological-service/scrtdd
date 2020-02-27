@@ -150,7 +150,7 @@ class HypoDD : public Core::BaseObject {
 
     private:
 
-        CatalogPtr relocateEventSingleStep(CatalogPtr& evToRelocateCat, const std::string& workingDir,
+        CatalogPtr relocateEventSingleStep(const CatalogCPtr& evToRelocateCat, const std::string& workingDir,
                                 bool doXcorr, bool computeTheoreticalPhases,
                                 std::string hypoddCtrlFile, double minPhaseWeight,
                                 double minESdist, double maxESdist, double minEStoIEratio,
