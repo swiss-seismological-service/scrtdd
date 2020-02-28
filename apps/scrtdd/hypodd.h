@@ -199,21 +199,18 @@ class HypoDD : public Core::BaseObject {
         void buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                                       unsigned evToRelocateId,
                                       bool computeTheoreticalPhases,
-                                      std::ofstream* outStream,
-                                      std::map<std::string,GenericRecordCPtr>& catalogCache,
-                                      bool useDiskCacheCatalog,
-                                      std::map<std::string,GenericRecordCPtr>& refEvCache,
-                                      bool useDiskCacheRefEv);
-        bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
-                         std::map<std::string,GenericRecordCPtr>& cache1, bool useDiskCache1,
-                         const Catalog::Event& event2, const Catalog::Phase& phase2,
-                         std::map<std::string,GenericRecordCPtr>& cache2,  bool useDiskCache2,
+                                      std::ofstream* outStream);
+        struct XcorrPhasesCfg {
+            bool useDiskCache;
+            std::map<std::string,GenericRecordCPtr>& cache;
+            bool allowSnrCheck;
+        };
+        bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, XcorrPhasesCfg& phCfg1,
+                         const Catalog::Event& event2, const Catalog::Phase& phase2, XcorrPhasesCfg& phCfg2,
                          double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
-        bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
-                         std::map<std::string,GenericRecordCPtr>& cache1, bool useDiskCache1,
-                         const Catalog::Event& event2, const Catalog::Phase& phase2,
-                         std::map<std::string,GenericRecordCPtr>& cache2,  bool useDiskCache2,
-                         double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
+        bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, XcorrPhasesCfg& phCfg1,
+                          const Catalog::Event& event2, const Catalog::Phase& phase2, XcorrPhasesCfg& phCfg2,
+                          double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
         Core::TimeWindow xcorrTimeWindowLong(const Catalog::Phase& phase) const;
         Core::TimeWindow xcorrTimeWindowShort(const Catalog::Phase& phase) const;
         void runHypodd(const std::string& workingDir, const std::string& dtccFile,
@@ -250,7 +247,8 @@ class HypoDD : public Core::BaseObject {
                                      const Catalog::Event& ev,
                                      const Catalog::Phase& ph,
                                      std::map<std::string,GenericRecordCPtr>& memCache,
-                                     bool useDiskCache);
+                                     bool useDiskCache,
+                                     bool allowSnrCheck);
         GenericRecordPtr loadProjectWaveform(const Core::TimeWindow& tw,
                                              const Catalog::Event& ev,
                                              const Catalog::Phase& ph,

@@ -533,7 +533,7 @@ void HypoDD::preloadData()
             {
                 Catalog::Phase tmpPh = phase;
                 tmpPh.channelCode = getBandAndInstrumentCodes(tmpPh.channelCode) + component;
-                getWaveform(tw, event, tmpPh, _wfCache, _useCatalogDiskCache);
+                getWaveform(tw, event, tmpPh, _wfCache, _useCatalogDiskCache, true); 
             }
 
             numPhases++;
@@ -2334,9 +2334,7 @@ HypoDD::createDtCcCatalog(map<unsigned,CatalogPtr>& neighbourCats,
     {
         unsigned evToRelocateId = kv.first;
         CatalogPtr& neighbourCat = kv.second;
-        buildXcorrDiffTTimePairs(neighbourCat, evToRelocateId, computeTheoreticalPhases, &outStream,
-                                 _wfCache, _useCatalogDiskCache,
-                                 _wfCache, _useCatalogDiskCache);
+        buildXcorrDiffTTimePairs(neighbourCat, evToRelocateId, computeTheoreticalPhases, &outStream);
     }
 
     printCounters();
@@ -2361,9 +2359,7 @@ void HypoDD::createDtCcSingleEvent(CatalogPtr& catalog,
 
     _counters = {0};
 
-    buildXcorrDiffTTimePairs(catalog, evToRelocateId, computeTheoreticalPhases, &outStream,
-                             _wfCache, _useCatalogDiskCache,
-                             _wfCacheTmp, false);
+    buildXcorrDiffTTimePairs(catalog, evToRelocateId, computeTheoreticalPhases, &outStream);
 
     printCounters();
 }
@@ -2383,11 +2379,7 @@ void HypoDD::createDtCcSingleEvent(CatalogPtr& catalog,
 void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                                       unsigned refEvId,
                                       bool computeTheoreticalPhases,
-                                      ofstream* outStream,
-                                      std::map<std::string,GenericRecordCPtr>& catalogCache,
-                                      bool useDiskCacheCatalog,
-                                      std::map<std::string,GenericRecordCPtr>& refEvCache,
-                                      bool useDiskCacheRefEv)
+                                      ofstream* outStream)
 {
     auto search = catalog->getEvents().find(refEvId);
     if (search == catalog->getEvents().end())
@@ -2404,6 +2396,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
         addMissingEventPhases(catalog, refEv, catalog);
     }
 
+    // Struct used to save xcorr results
     struct XCorrResult {
         double mean_coeff = 0;
         double mean_lag   = 0;
@@ -2427,13 +2420,23 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
         }
     };
 
+    // cache of computed xcorr
     map<string, XCorrResult> results;
     auto make_key = [](unsigned evId, const string& stationId, const string& type )
     {
         return to_string(evId) + "." + stationId + "." + type; 
     };
 
-    // loop through catalog events
+    // xcorr settings depending on the phase type
+    map<Catalog::Phase::Source, XcorrPhasesCfg> phCfg = {
+        {Catalog::Phase::Source::CATALOG,      {_useCatalogDiskCache, _wfCache,    true }},
+        {Catalog::Phase::Source::RT_EVENT,     {false               , _wfCacheTmp, true }},
+        {Catalog::Phase::Source::THEORETICAL,  {false               , _wfCacheTmp, false}}
+    };
+
+    //
+    // loop through catalog eventsa and cross correlate phase pairs
+    //
     for (const auto& kv : catalog->getEvents() )
     {
         const Catalog::Event& event = kv.second;
@@ -2457,19 +2460,14 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             {
                 const Catalog::Phase& refPhase = it2->second;
 
+                // xcorr phase pair
                 if (phase.stationId == refPhase.stationId && 
                     phase.procInfo.type == refPhase.procInfo.type)
                 {
                     double coeff, lag, dtcc, weight;
 
-                    // do not cache theoretical phases since the pick time will change later
-                    auto& tmpCache = (refPhase.procInfo.source == Catalog::Phase::Source::THEORETICAL)
-                                   ? _wfCacheTmp : refEvCache;
-                    bool tmpUseDiskCache = (refPhase.procInfo.source == Catalog::Phase::Source::THEORETICAL)
-                                         ? false : useDiskCacheRefEv;
-
-                    if ( xcorrPhases(refEv, refPhase, tmpCache, tmpUseDiskCache,
-                                     event, phase, catalogCache, useDiskCacheCatalog,
+                    if ( xcorrPhases(refEv, refPhase, phCfg.at(refPhase.procInfo.source),
+                                     event, phase, phCfg.at(phase.procInfo.source),
                                      coeff, lag, dtcc, weight) )
                     {
                         evStream << stringify("%-12s %.6f %.4f %s", refPhase.stationId.c_str(),
@@ -2543,7 +2541,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             {
                 string ext = stringify(".rtdd-detected-%s-phase-cc-%.2f.debug", newPhase.type.c_str(), xcorr.mean_coeff);
                 Core::TimeWindow xcorrTw = xcorrTimeWindowShort(newPhase);
-                GenericRecordCPtr trace = getWaveform(xcorrTw, refEv, newPhase, _wfCacheTmp, false);
+                GenericRecordCPtr trace = getWaveform(xcorrTw, refEv, newPhase, _wfCacheTmp, false, false);
                 if ( trace ) writeTrace(trace, waveformFilename(newPhase, xcorrTw) + ext);
             }
 
@@ -2668,9 +2666,10 @@ HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, cons
                         if (phase2.stationId == stationId &&
                             phase2.procInfo.type == phaseType )
                         {
+                            XcorrPhasesCfg phCfg {_useCatalogDiskCache, _wfCache, true};
                             double coeff, lag, dtcc, weight;
-                            if ( xcorrPhases(*ev1, phase1, _wfCache, _useCatalogDiskCache,
-                                             *ev2, phase2, _wfCache, _useCatalogDiskCache,
+
+                            if ( xcorrPhases(*ev1, phase1, phCfg, *ev2, phase2, phCfg,
                                              coeff, lag, dtcc, weight) )
                             {
                                 evStream << stringify("%-12s %.6f %.4f %s", stationId.c_str(),
@@ -2764,10 +2763,8 @@ HypoDD::xcorrTimeWindowShort(const Catalog::Phase& phase) const
 
 
 bool
-HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
-                    std::map<std::string,GenericRecordCPtr>& cache1, bool useDiskCache1,
-                    const Catalog::Event& event2, const Catalog::Phase& phase2,
-                    std::map<std::string,GenericRecordCPtr>& cache2,  bool useDiskCache2,
+HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, XcorrPhasesCfg& phCfg1,
+                    const Catalog::Event& event2, const Catalog::Phase& phase2, XcorrPhasesCfg& phCfg2,
                     double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut)
 {
     if ( phase1.procInfo.type != phase2.procInfo.type )
@@ -2777,7 +2774,7 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
         return false;
     }
 
-    auto xcorrCfg = _cfg.xcorr[phase1.procInfo.type];
+    auto xcorrCfg = _cfg.xcorr.at(phase1.procInfo.type);
     bool performed = false;
     bool goodCoeff = false;
 
@@ -2843,8 +2840,7 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
             tmpPh2.channelCode = commonChRoot + component;
         }
 
-        performed = _xcorrPhases(event1, tmpPh1, cache1, useDiskCache1,
-                                 event2, tmpPh2, cache2, useDiskCache2,
+        performed = _xcorrPhases(event1, tmpPh1, phCfg1, event2, tmpPh2, phCfg2,
                                  coeffOut, lagOut, diffTimeOut, weightOut);
 
         goodCoeff = ( performed && std::abs(coeffOut) >= xcorrCfg.minCoef );
@@ -2892,28 +2888,26 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
 
 bool
-HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
-                     std::map<std::string,GenericRecordCPtr>& cache1, bool useDiskCache1,
-                     const Catalog::Event& event2, const Catalog::Phase& phase2,
-                     std::map<std::string,GenericRecordCPtr>& cache2,  bool useDiskCache2,
+HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, XcorrPhasesCfg& phCfg1,
+                     const Catalog::Event& event2, const Catalog::Phase& phase2, XcorrPhasesCfg& phCfg2,
                      double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut)
 {
     coeffOut = lagOut = diffTimeOut = weightOut = 0;
 
-    auto xcorrCfg = _cfg.xcorr[phase1.procInfo.type];
+    auto xcorrCfg = _cfg.xcorr.at(phase1.procInfo.type);
 
     Core::TimeWindow tw1 = xcorrTimeWindowLong(phase1);
     Core::TimeWindow tw2 = xcorrTimeWindowLong(phase2);
 
     // load the long trace 1, because we want to cache the long version. Then we'll trim it.
-    GenericRecordCPtr tr1 = getWaveform(tw1, event1, phase1, cache1, useDiskCache1);
+    GenericRecordCPtr tr1 = getWaveform(tw1, event1, phase1, phCfg1.cache, phCfg1.useDiskCache, phCfg1.allowSnrCheck);
     if ( !tr1 )
     {
         return false;
     }
 
     // load the long trace 2, because we want to cache the long version. Then we'll trim it
-    GenericRecordCPtr tr2 = getWaveform(tw2, event2, phase2, cache2, useDiskCache2);
+    GenericRecordCPtr tr2 = getWaveform(tw2, event2, phase2, phCfg2.cache, phCfg2.useDiskCache, phCfg2.allowSnrCheck);
     if ( !tr2 )
     {
         return false;
@@ -3156,8 +3150,9 @@ HypoDD::S2Nratio(const GenericRecordCPtr& tr, const Core::Time& pickTime,
 
 
 Core::TimeWindow
-HypoDD::traceTimeWindowToLoad(const Catalog::Phase& ph, const Core::TimeWindow& neededTW,
-                              bool useDiskCache ) const
+HypoDD::traceTimeWindowToLoad(const Catalog::Phase& ph,
+                              const Core::TimeWindow& neededTW,
+                              bool useDiskCache) const
 {
     Core::TimeWindow twToLoad = neededTW;
 
@@ -3204,7 +3199,8 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
                     const Catalog::Event& ev,
                     const Catalog::Phase& ph,
                     map<string,GenericRecordCPtr>& memCache,
-                    bool useDiskCache)
+                    bool useDiskCache,
+                    bool allowSnrCheck)
 {
     string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
                               string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
@@ -3215,6 +3211,12 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     const auto it = memCache.find(wfId);
 
+    // Check if we have already excluded the trace because the snr is too high (save time)
+    if ( allowSnrCheck && _snrExcludedWfs.count(wfId) != 0 )
+    {
+        return nullptr;
+    }
+
     if ( it != memCache.end() )
     {
         return it->second; // waveform cached, just return it 
@@ -3222,12 +3224,6 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     // Check if we have already excluded the trace because we couldn't load it (save time)
     if ( _unloadableWfs.count(wfId) != 0 )
-    {
-        return nullptr;
-    }
-
-    // Check if we have already excluded the trace because the snr is too high (save time)
-    if ( _snrExcludedWfs.count(wfId) != 0 )
     {
         return nullptr;
     }
@@ -3312,16 +3308,10 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     {
         double snr = S2Nratio(trace, ph.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
                               _cfg.snr.signalStart, _cfg.snr.signalEnd);
+
         if ( snr < _cfg.snr.minSnr ) 
         {
-            if ( _cfg.wfFilter.dump )
-            {
-                SEISCOMP_DEBUG("Trace has too low SNR (%.2f), discard it (%s)", snr, wfDesc.c_str());
-                writeTrace(trace, waveformFilename(ph, twToLoad) + ".S2Nratio-rejected.debug");
-            }
             _snrExcludedWfs.insert(wfId);
-            _counters.snr_low++;
-            return nullptr;
         }
     }
 
@@ -3338,6 +3328,18 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
 
     // save waveform into the cache
     memCache[wfId] = trace;
+
+    // the trace has a too high SNR, discard it
+    if ( allowSnrCheck && _snrExcludedWfs.count(wfId) != 0 )
+    {
+        if ( _cfg.wfFilter.dump )
+        {
+            SEISCOMP_DEBUG("Trace has too low SNR, discard it (%s)", wfDesc.c_str());
+            writeTrace(trace, waveformFilename(ph, twToLoad) + ".S2Nratio-rejected.debug");
+        }
+        _counters.snr_low++;
+        return nullptr;
+    }
 
     return trace; 
 }
