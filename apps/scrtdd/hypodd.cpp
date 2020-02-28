@@ -129,7 +129,7 @@ T nextPowerOf2(T a, T min=1, T max=1<<31)
 
 
 
-void writeTrace(GenericRecordPtr trace, string file)
+void writeTrace(GenericRecordCPtr trace, string file)
 {
     if ( ! trace )
         return;
@@ -2381,7 +2381,7 @@ void HypoDD::createDtCcSingleEvent(CatalogPtr& catalog,
  *
  */
 void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
-                                      unsigned evToRelocateId,
+                                      unsigned refEvId,
                                       bool computeTheoreticalPhases,
                                       ofstream* outStream,
                                       std::map<std::string,GenericRecordCPtr>& catalogCache,
@@ -2389,10 +2389,10 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                                       std::map<std::string,GenericRecordCPtr>& refEvCache,
                                       bool useDiskCacheRefEv)
 {
-    auto search = catalog->getEvents().find(evToRelocateId);
+    auto search = catalog->getEvents().find(refEvId);
     if (search == catalog->getEvents().end())
     {
-        string msg = stringify("Cannot find event id %u in the catalog.", evToRelocateId);
+        string msg = stringify("Cannot find event id %u in the catalog.", refEvId);
         throw runtime_error(msg);
     }
     const Catalog::Event& refEv = search->second;
@@ -2428,7 +2428,10 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
     };
 
     map<string, XCorrResult> results;
-    auto make_key = [](unsigned evId, const string& stationId, const string& type ) { return to_string(evId) + "." + stationId + "." + type; };
+    auto make_key = [](unsigned evId, const string& stationId, const string& type )
+    {
+        return to_string(evId) + "." + stationId + "." + type; 
+    };
 
     // loop through catalog events
     for (const auto& kv : catalog->getEvents() )
@@ -2458,7 +2461,14 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                     phase.procInfo.type == refPhase.procInfo.type)
                 {
                     double coeff, lag, dtcc, weight;
-                    if ( xcorrPhases(refEv, refPhase, refEvCache, useDiskCacheRefEv,
+
+                    // do not cache theoretical phases since the pick time will change later
+                    auto& tmpCache = (refPhase.procInfo.source == Catalog::Phase::Source::THEORETICAL)
+                                   ? _wfCacheTmp : refEvCache;
+                    bool tmpUseDiskCache = (refPhase.procInfo.source == Catalog::Phase::Source::THEORETICAL)
+                                         ? false : useDiskCacheRefEv;
+
+                    if ( xcorrPhases(refEv, refPhase, tmpCache, tmpUseDiskCache,
                                      event, phase, catalogCache, useDiskCacheCatalog,
                                      coeff, lag, dtcc, weight) )
                     {
@@ -2531,15 +2541,10 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
 
             if ( _cfg.wfFilter.dump )
             {
-                string ext = stringify(".rtdd-detected-%s-phase-cc-%.2f.debug", phase.type.c_str(), xcorr.mean_coeff);
-                Core::TimeWindow xcorrTw = xcorrTimeWindowLong(phase);
-                GenericRecordCPtr trace1 = getWaveform(xcorrTw, refEv, phase, refEvCache, useDiskCacheRefEv);
-                if ( trace1 )
-                {
-                    xcorrTw = xcorrTimeWindowShort(newPhase);
-                    GenericRecordPtr trace2 = new GenericRecord(*trace1);
-                    if ( trim(*trace2, xcorrTw) ) writeTrace(trace2, waveformFilename(newPhase, xcorrTw) + ext);
-                }
+                string ext = stringify(".rtdd-detected-%s-phase-cc-%.2f.debug", newPhase.type.c_str(), xcorr.mean_coeff);
+                Core::TimeWindow xcorrTw = xcorrTimeWindowShort(newPhase);
+                GenericRecordCPtr trace = getWaveform(xcorrTw, refEv, newPhase, _wfCacheTmp, false);
+                if ( trace ) writeTrace(trace, waveformFilename(newPhase, xcorrTw) + ext);
             }
 
             // remove the old phase since the new one will be added
