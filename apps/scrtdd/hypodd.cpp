@@ -533,7 +533,7 @@ void HypoDD::preloadData()
             {
                 Catalog::Phase tmpPh = phase;
                 tmpPh.channelCode = getBandAndInstrumentCodes(tmpPh.channelCode) + component;
-                getWaveform(tw, event, tmpPh, _wfCache, _useCatalogDiskCache, true); 
+                getWaveform(tw, event, tmpPh, &_wfCache, _useCatalogDiskCache, true); 
             }
 
             numPhases++;
@@ -1078,8 +1078,6 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
     }
     for (unsigned evId : evIdsToRemove ) relocatedCatalog->removeEvent(evId);
 
-    _wfCacheTmp.clear(); // cleared at the end of each relocation
-
     return relocatedCatalog;
 }
 
@@ -1186,8 +1184,6 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     {
         SEISCOMP_ERROR("Failed to perform step 2 origin relocation");
     }
-
-    _wfCacheTmp.clear(); // cleared at the end of each relocation
 
     if ( ! relocatedEvWithXcorr )
         throw runtime_error("Failed origin relocation");
@@ -2428,10 +2424,11 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
     };
 
     // xcorr settings depending on the phase type
+    // (NO snr check for theoretical phases because the pick time is likely wrong and it will be fixed later)
     map<Catalog::Phase::Source, XcorrPhasesCfg> phCfg = {
-        {Catalog::Phase::Source::CATALOG,      {_useCatalogDiskCache, _wfCache,    true }},
-        {Catalog::Phase::Source::RT_EVENT,     {false               , _wfCacheTmp, true }},
-        {Catalog::Phase::Source::THEORETICAL,  {false               , _wfCacheTmp, false}}
+        {Catalog::Phase::Source::CATALOG,      {_useCatalogDiskCache, &_wfCache, true }},
+        {Catalog::Phase::Source::RT_EVENT,     {false,                nullptr,   true }},
+        {Catalog::Phase::Source::THEORETICAL,  {false,                nullptr,   false}}
     };
 
     //
@@ -2541,7 +2538,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             {
                 string ext = stringify(".rtdd-detected-%s-phase-cc-%.2f.debug", newPhase.type.c_str(), xcorr.mean_coeff);
                 Core::TimeWindow xcorrTw = xcorrTimeWindowShort(newPhase);
-                GenericRecordCPtr trace = getWaveform(xcorrTw, refEv, newPhase, _wfCacheTmp, false, false);
+                GenericRecordCPtr trace = getWaveform(xcorrTw, refEv, newPhase, nullptr, false, false);
                 if ( trace ) writeTrace(trace, waveformFilename(newPhase, xcorrTw) + ext);
             }
 
@@ -2666,7 +2663,7 @@ HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, cons
                         if (phase2.stationId == stationId &&
                             phase2.procInfo.type == phaseType )
                         {
-                            XcorrPhasesCfg phCfg {_useCatalogDiskCache, _wfCache, true};
+                            XcorrPhasesCfg phCfg {_useCatalogDiskCache, &_wfCache, true};
                             double coeff, lag, dtcc, weight;
 
                             if ( xcorrPhases(*ev1, phase1, phCfg, *ev2, phase2, phCfg,
@@ -3152,13 +3149,14 @@ HypoDD::S2Nratio(const GenericRecordCPtr& tr, const Core::Time& pickTime,
 Core::TimeWindow
 HypoDD::traceTimeWindowToLoad(const Catalog::Phase& ph,
                               const Core::TimeWindow& neededTW,
-                              bool useDiskCache) const
+                              bool useDiskCache,
+                              bool performSnrCheck) const
 {
     Core::TimeWindow twToLoad = neededTW;
 
     // if the SNR window is bigger than the xcorr window, than extend
     // the waveform time window 
-    if ( _cfg.snr.minSnr > 0 )
+    if ( performSnrCheck && _cfg.snr.minSnr > 0 )
     {
         Core::Time winStart = std::min( {
               neededTW.startTime(),
@@ -3198,18 +3196,14 @@ GenericRecordCPtr
 HypoDD::getWaveform(const Core::TimeWindow& tw,
                     const Catalog::Event& ev,
                     const Catalog::Phase& ph,
-                    map<string,GenericRecordCPtr>& memCache,
+                    map<string,GenericRecordCPtr>* memCache,
                     bool useDiskCache,
                     bool allowSnrCheck)
 {
     string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
                               string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
-    /*
-     * first try to load the waveform from the memory cache, if present
-     */
-    const string wfId = waveformId(ph, tw);
 
-    const auto it = memCache.find(wfId);
+    const string wfId = waveformId(ph, tw);
 
     // Check if we have already excluded the trace because the snr is too high (save time)
     if ( allowSnrCheck && _snrExcludedWfs.count(wfId) != 0 )
@@ -3217,9 +3211,15 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         return nullptr;
     }
 
-    if ( it != memCache.end() )
+    // try to load the waveform from the memory cache, if present
+    if ( memCache )
     {
-        return it->second; // waveform cached, just return it 
+        const auto it = memCache->find(wfId);
+
+        if ( it != memCache->end() )
+        {
+            return it->second; // waveform cached, just return it 
+        }
     }
 
     // Check if we have already excluded the trace because we couldn't load it (save time)
@@ -3228,10 +3228,10 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         return nullptr;
     }
 
-    /*
-     * Load the waveform, possibly perform a projection 123->ZNE or ZNE->ZRT,
-     * filter it and finally save the result in the memory cache  for later re-use
-     */
+    //
+    // Load the waveform, possibly perform a projection 123->ZNE or ZNE->ZRT,
+    // filter it and finally save the result in the memory cache  for later re-use
+    //
     bool projectionRequired = true;
     bool allComponents = false;
     DataModel::ThreeComponents tc;
@@ -3261,9 +3261,13 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         }
     }
 
+    // we check the SNR if asked to do so or if the trace has to be cached in memory because
+    // we have to know its SNR for future uses (trace can be requested with or without SNR check)
+    bool performSnrCheck = (allowSnrCheck || memCache) && (_cfg.snr.minSnr > 0);
+
     // if the SNR window is bigger than the xcorr window, than extend
     // the waveform time window
-    const Core::TimeWindow twToLoad = traceTimeWindowToLoad(ph, tw, useDiskCache);
+    const Core::TimeWindow twToLoad = traceTimeWindowToLoad(ph, tw, useDiskCache, performSnrCheck);
 
     // Load waveform:
     // - if no projection required, just load the requested component
@@ -3304,7 +3308,7 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     }
 
     // check SNR threshold
-    if ( _cfg.snr.minSnr > 0 )
+    if ( performSnrCheck  )
     {
         double snr = S2Nratio(trace, ph.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
                               _cfg.snr.signalStart, _cfg.snr.signalEnd);
@@ -3327,9 +3331,12 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     }
 
     // save waveform into the cache
-    memCache[wfId] = trace;
+    if ( memCache )
+    {
+        (*memCache)[wfId] = trace;
+    }
 
-    // the trace has a too high SNR, discard it
+    // the trace has a high SNR, discard it if the SNR check was requested
     if ( allowSnrCheck && _snrExcludedWfs.count(wfId) != 0 )
     {
         if ( _cfg.wfFilter.dump )

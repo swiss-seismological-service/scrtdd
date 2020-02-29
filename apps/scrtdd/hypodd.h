@@ -202,7 +202,7 @@ class HypoDD : public Core::BaseObject {
                                       std::ofstream* outStream);
         struct XcorrPhasesCfg {
             bool useDiskCache;
-            std::map<std::string,GenericRecordCPtr>& cache;
+            std::map<std::string,GenericRecordCPtr>* cache;
             bool allowSnrCheck;
         };
         bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, XcorrPhasesCfg& phCfg1,
@@ -246,7 +246,7 @@ class HypoDD : public Core::BaseObject {
         GenericRecordCPtr getWaveform(const Core::TimeWindow& tw,
                                      const Catalog::Event& ev,
                                      const Catalog::Phase& ph,
-                                     std::map<std::string,GenericRecordCPtr>& memCache,
+                                     std::map<std::string,GenericRecordCPtr>* memCache,
                                      bool useDiskCache,
                                      bool allowSnrCheck);
         GenericRecordPtr loadProjectWaveform(const Core::TimeWindow& tw,
@@ -257,7 +257,8 @@ class HypoDD : public Core::BaseObject {
                                              bool useDiskCache) const;
         Core::TimeWindow traceTimeWindowToLoad(const Catalog::Phase& ph,
                                                const Core::TimeWindow& neededTW,
-                                               bool useDiskCache) const;
+                                               bool useDiskCache,
+                                               bool performSnrCheck) const;
         GenericRecordPtr loadWaveform(const Core::TimeWindow& tw,
                                       const std::string& networkCode,
                                       const std::string& stationCode,
@@ -293,7 +294,6 @@ class HypoDD : public Core::BaseObject {
         bool _workingDirCleanup = true;
         bool _useCatalogDiskCache = false;
         std::map<std::string, GenericRecordCPtr> _wfCache;
-        std::map<std::string, GenericRecordCPtr> _wfCacheTmp; // cleared at the end of each relocation
         std::set<std::string> _unloadableWfs;
         std::set<std::string> _snrExcludedWfs;
 
