@@ -155,7 +155,9 @@ Finally, when the configuration is done, we can relocate the catalog with the co
 scrtdd --reloc-profile profileName --verbosity=3 --console=1
 ```
 
-scrtdd will relocated the catalog and will generate another set of files reloc-event.csv reloc-phase.csv and reloc-stations.csv, which together define a new catalog with relocated origins. At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations. As an example you can see below two catalogs before and after scrtdd relocation:
+scrtdd will relocated the catalog and will generate another set of files reloc-event.csv reloc-phase.csv and reloc-stations.csv, which together define a new catalog with relocated origins. At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations. Be aware that the first time you run the command it will be very slow because the waveforms have to be downloaded from the configured recordstream (but they will be saved to disk for the next runs which will be much faster).
+
+ As an example you can see below two catalogs before and after scrtdd relocation:
 
 
 ![Relocation example picture](/data/multiEventRelocationExample.png?raw=true "Relocation example")
@@ -284,9 +286,9 @@ If step2 completes successfully the relocated origin is sent to the messaging sy
 ![Relocation options](/data/step1options.png?raw=true "Relocation options")
 ![Relocation options](/data/step2options.png?raw=true "Relocation options")
 
+You might consider testing the configuration on some existing events to make sure the parameters are suitable for real time relocation, espcially the cross correlation settings since the automatick picks are not as precise as the manual ones. Instead, if your goal is to only relocate manually reviewed origins, then you are probably good with the cross-correlation settings used in multi event mode.
 
-
-To test the real time relocation we can use two command line options which relocate existing origins:
+However, to test the real time relocation there are two command line options which relocate existing origins:
 
 ```
 scrtdd --help
