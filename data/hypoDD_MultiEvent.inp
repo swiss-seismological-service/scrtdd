@@ -48,7 +48,7 @@ hypoDD.src
 * IAQ:		remove airquakes: 0=NO, 1=YES
 * NSET:      	number of sets of iteration with specifications following
 *  ISTART  ISOLV  IAQ  NSET
-    2        1     1     4
+    2        2     1     4
 *
 *--- data weighting and re-weighting: 
 * NITER: 		last iteration to used the following weights

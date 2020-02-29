@@ -71,7 +71,7 @@ Origin/20190223103327.031726.346363
 
 ### 2.2. Generating a background catalog
 
-In the more general case in which we don't already have a background catalog, we have to build one using scrtdd. Generating a background catalog involves two steps: first we select the candidate events that might have low quality locations (we still want them to be as accurate as possible and with many phases, e.g. origins from manual picks) and then we use scrtdd to relocated those to achieve the quality needed for a background catalog.
+In the more general case in which we don't already have a background catalog, we have to build one using scrtdd. Generating a background catalog involves two steps: first we select the candidate events that might have low quality locations (we still want them to be as accurate as possible though, and with many phases. That is we want origins manully relocated using manual picks) and then we use scrtdd to relocated those events to achieve the quality needed for a background catalog. The higher the quality of the background catalog, the higher will be the quality of the real time origin relocations.
 
 #### 2.2.1 Dumping the candidate events to files
 
@@ -83,10 +83,16 @@ scrtdd --dump-catalog myCatalog.csv
 
 It is usually convenient to see the logs on the console to detect possible errors. To achieve this we can add the options ```--verbosity=3 --console=1``` to the command.
 
-Depending on your configuration, the seiscomp database could be configured inside ```global.cfg``` or provided to the modules via scmaster. In the latter case we have to pass the database connection via command line option since ```--dump-catalog``` detach scrtdd from the messaging. Specifying the database connection via command line is also useful when the events resides on a different seiscomp database. Let's use the -d option to specify the database connection:
+Depending on your configuration, the seiscomp database could be configured inside ```global.cfg```  and thus every module knows what database to use, or this option can be provided to the modules via scmaster (```scmaster.cfg```) once they connect to the messagin system. In the latter case we have to pass the database connection to scrtdd via command line option since ```--dump-catalog``` detach scrtdd from the messaging. Specifying the database connection via command line is also useful when you want to use your local seiscomp installation to access events that reside on a different host (where a seiscomp database is installed). Let's use the -d option to specify the database connection then:
 
 ```
-scrtdd --dump-catalog myCatalog.csv  -d  mysql://user:password@host/seiscompDbName
+scrtdd --dump-catalog myCatalog.csv  -d  mysql://user:password@host/seiscompDbName --verbosity=3 --console=1
+```
+
+or in case you have a Postgresql database:
+
+```
+scrtdd --dump-catalog myCatalog.csv --plugins dbpostgresql -d postgresql://user:password@host/seiscompDbName --verbosity=3 --console=1
 ```
 
 The above command will generate three files (event.csv, phase.csv and stations.csv) which contain the information needed by scrtdd to relocate the selected events. 
@@ -139,25 +145,31 @@ At this point we have to configure the other profile options that control the re
 
 ![Relocation options](/data/multiEventStep2options.png?raw=true "Relocation options")
 
-A more careful selection is required for the cross correlation parameters, which are covered in the next paragraph.
+Then it is time to set the cross correlation parameters, which require a more careful selection and it is covered in the next paragraph.
 
-In [this folder](<https://gitlab.seismo.ethz.ch/lucasca/rtdd-addons/tree/master/data>) there are some example hypoDD configuration files.
+In the ```data``` folder of this project there are some hypoDD 2.1b configuration example files (the velocity model has to be changed to reflect your specific use case).
 
 Finally, when the configuration is done, we can relocate the catalog with the command:
 
 ```
-scrtdd --reloc-profile profileName
+scrtdd --reloc-profile profileName --verbosity=3 --console=1
 ```
 
-scrtdd will relocated the catalog and will generate another set of files reloc-event.csv reloc-phase.csv and reloc-stations.csv, which together define a new catalog with relocated origins. At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations. The final files will become the background catalog used in real-time relocation. At this point the profile configuration is not needed anymore, so the profile can be removed from the list of active profiles ('activeProfiles') or it can be updated with real-time configuration.
+scrtdd will relocated the catalog and will generate another set of files reloc-event.csv reloc-phase.csv and reloc-stations.csv, which together define a new catalog with relocated origins. At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations. As an example you can see below two catalogs before and after scrtdd relocation:
+
+
+![Relocation example picture](/data/multiEventRelocationExample.png?raw=true "Relocation example")
+
+
+The command output files (reloc-event.csv reloc-phase.csv and reloc-stations.csv) will become the background catalog used in real-time relocation. At this point the profile configuration is not needed anymore, so the profile can be removed from the list of active profiles ('activeProfiles') or it can be updated with real-time configuration.
 
 ![Catalog selection option](/data/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
-We are now ready to perform real time relocation!
+We are now ready to perform real time relocation.
 
 #### 2.2.3 Cross correlation, waveform filtering and signal to noise ratio options
 
-Those parameters require some time to be correctly set but once they are fixed they can be used for real-time relocation without any major change.
+Those parameters require some trial and error to be correctly set but once they are fixed they can be used for both multi-event and real-time relocation without any major change, except for the parameter ```maxDelay``` that should be increased in real-time relocation to accomodate the larger uncertainty of automatic picks compared to manual ones.
 
 ![Relocation options](/data/xcorr.png?raw=true "Relocation options")
 
@@ -192,7 +204,7 @@ The waveforms generated with `--debug-wf` will be stored in `workingDirectory/pr
 * `NET.ST.LOC.CH.startime-endtime.mseed.rtdd-detected-P/S-phase-cc-xx.debug` (traces of phases automatically detected by scrtdd when the option `findMissingPhase` is enabled)
 
 
-It is also possible to inspect the waveforms of all phases contained in the catalog, not only the ones used during multi event relocation. Combine the --load-profile-wf option with --debug-wf to achieve this:
+It is also possible to inspect the waveforms of all phases contained in the catalog, not only the ones used during multi event relocation (which ones will be used depend on the clustering settings). Combine the --load-profile-wf option with --debug-wf to achieve this:
 
 ```
 scrtdd --debug-wf --load-profile-wf profileName
@@ -264,9 +276,9 @@ Real time relocation uses the same configuration we have seen in full catalog re
 
 Step 1: location refinement. In this step scrtdd performs a preliminary relocation of the origin using only catalog absolute travel time entries (dt.ct only).
 
-Step 2: the refined location is used as starting location to perform a more precise relocation using both catalog absolute travel times (dt.ct) and differential travel times from cross correlation (dt.cc). 
+Step 2: the refined location computerd in the previous step is used as starting location to perform a more precise relocation using both catalog absolute travel times (dt.ct) and differential travel times from cross correlation (dt.cc). If step1 fails, step2 is attempted anyway.
 
-After step2 the relocated origin is sent to the messaging system. If step2 fails, then the relocated origin from step1 is sent to the messaging system. If step1 fails, step2 is attempted anyway.
+If step2 completes successfully the relocated origin is sent to the messaging system.
 
 
 ![Relocation options](/data/step1options.png?raw=true "Relocation options")
@@ -304,13 +316,13 @@ E.g. if we want to process an origin we can run the following command and then c
 
 
 ```
-scrtdd -O someOriginId
+scrtdd -O someOriginId --verbosity=3 --console=1
 ```
 
 Alternatively we can reprocess an XML file:
 
 ```
-scrtdd --ep eventparameter.xml
+scrtdd --ep eventparameter.xml --verbosity=3 --console=1
 ```
 
 ## 4. RecordStream configuration
