@@ -167,22 +167,30 @@ The command output files (reloc-event.csv reloc-phase.csv and reloc-stations.csv
 
 ![Catalog selection option](/data/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
-We are now ready to perform real time relocation.
+Now that we have a high quality background catalog we are ready to perform real time relocation.
 
 #### 2.2.3 Cross correlation, waveform filtering and signal to noise ratio options
 
-Those parameters require some trial and error to be correctly set but once they are fixed they can be used for both multi-event and real-time relocation without any major change, except for the parameter ```maxDelay``` that should be increased in real-time relocation to accomodate the larger uncertainty of automatic picks compared to manual ones.
+Those parameters require some trial and error to be correctly set but after that they can be kept identical for real-time relocation without any major change, except for the parameter ```maxDelay``` that should be increased in real-time relocation to accomodate the larger uncertainty of automatic picks compared to manual ones (unless scrtdd is used to only relocate manually reviewed origins).
 
 ![Relocation options](/data/xcorr.png?raw=true "Relocation options")
 
-To help figuring out the right values for cross correlation, waveform filtering and signal to noise ratio options, two command lines options come in handy:
+To help figuring out the right values for cross correlation the log file (or console output with ```--console=1 --verbosity=3```) come in handy:
+
+```
+12:32:22 [info] Cross correlation statistics: performed 40361, waveforms with Signal to Noise ratio too low 2435, waveforms not available 98
+12:32:22 [info] Total xcorr 40361 (P 59%, S 41%) success 28% (11499/40361). Successful P 22% (5300/23844). Successful S 38% (6199/16517)
+12:32:22 [info] xcorr on actual picks 24784/40361 (P 60%, S 40%) success 37% (9186/24784). Successful P 31% (4629/14761). Successful S 45% (4557/10023)
+12:32:22 [info] xcorr on theoretical picks 15577/40361 (P 58%, S 42%) success 15% (2313/15577). Successful P 7% (671/9083). Successful S 25% (1642/6494)
+```
+
+scrtdd computes theoretical picks so that they can be used in cross-correlation. If the resulting correlation coefficient is good enough a new pick is also created and added to the relocated origin.
+
+Another source of information for waveform filtering and signal to noise ratio options comes from a command line option:
 
 
 ```
 scrtdd --help
-  --load-profile-wf arg                 Load catalog waveforms from the 
-                                        configured recordstream and save them 
-                                        into the profile working directory
   --debug-wf                            Enable the saving of waveforms 
                                         (filtered/resampled, SNR rejected, ZRT 
                                         projected and scrtdd detected phase) 
@@ -191,35 +199,19 @@ scrtdd --help
                                         --load-profile-wf
 ```
 
-One way to take adavantage of the options is to add --debug-wf when relocating the catalog and all the used waveforms will be written to disk as miniseed file for inspection (e.g. scrttv waveformfile.mseed):
+Simply adding ```--debug-wf``` when relocating a catalog will make scrtdd dump to disk miniseed files for inspection (e.g. scrttv waveformfile.mseed):
 
 ```
 scrtdd --reloc-profile profileName --debug-wf
 ```
 
-The waveforms generated with `--debug-wf` will be stored in `workingDirectory/profileName/wfcache/` folder and follow the patters:
+The generated waveforms will be stored in `workingDirectory/profileName/wfcache/` and they follow the patters:
 
 * `NET.ST.LOC.CH.startime-endtime.mseed` (raw trace fetched from the configured recordstream)
 * `NET.ST.LOC.CH.startime-endtime.mseed.projected.debug` (raw trace projected accodingly to the pick channel: 123->ZNE->ZRT)
 * `NET.ST.LOC.CH.startime-endtime.mseed.processed.debug` (processed trace with the configured filter and resampling frequency)
 * `NET.ST.LOC.CH.startime-endtime.mseed.S2Nratio-rejected.debug` (procesed trace rejected because of the configured signal to noise ration threshold)
 * `NET.ST.LOC.CH.startime-endtime.mseed.rtdd-detected-P/S-phase-cc-xx.debug` (traces of phases automatically detected by scrtdd when the option `findMissingPhase` is enabled)
-
-
-It is also possible to inspect the waveforms of all phases contained in the catalog, not only the ones used during multi event relocation (which ones will be used depend on the clustering settings). Combine the --load-profile-wf option with --debug-wf to achieve this:
-
-```
-scrtdd --debug-wf --load-profile-wf profileName
-```
-
-`--load-profile-wf` option is also useful to force the loading of all catalog waveforms from the configured recordstream and store them on disk. This means they will be available in real time relocation wothout the need to access the recordstream.
-
-Finally, the log file (or console output if ` --console=1` is used) is another source of useful information. E.g.
-
-```
-11:48:41 [info] Cross correlation statistics: attempted 12768 performed 9524 (75%) waveforms with Signal to Noise ratio too low 739 waveforms not available 13
-11:48:41 [info] Total xcorr 9524 (P 63%, S 37%). Successful xcorr 68% (6509/9524). Successful P 58% (3452/5996). Successful S 87% (3057/3528)
-```
 
 
 #### 2.2.4 Using ph2dt
@@ -286,9 +278,7 @@ If step2 completes successfully the relocated origin is sent to the messaging sy
 ![Relocation options](/data/step1options.png?raw=true "Relocation options")
 ![Relocation options](/data/step2options.png?raw=true "Relocation options")
 
-You might consider testing the configuration on some existing events to make sure the parameters are suitable for real time relocation, espcially the cross correlation settings since the automatick picks are not as precise as the manual ones. Instead, if your goal is to only relocate manually reviewed origins, then you are probably good with the cross-correlation settings used in multi event mode.
-
-However, to test the real time relocation there are two command line options which relocate existing origins:
+You might consider testing the configuration on some existing events to make sure the parameters are suitable for real time relocation. To test the real time relocation there are two command line options which relocate existing origins:
 
 ```
 scrtdd --help
@@ -314,17 +304,27 @@ SingleEvent:
 
 ```
 
-E.g. if we want to process an origin we can run the following command and then check on scolv the relocated origin (the messaging system must be active):
-
+If we want to process an origin we can run the following command and then check on scolv the relocated origin (the messaging system must be active):
 
 ```
 scrtdd -O someOriginId --verbosity=3 --console=1
 ```
 
-Alternatively we can reprocess an XML file:
+Alternatively we can process an XML file and later load the relocated-origin.xml on scolv for inspection:
 
 ```
-scrtdd --ep eventparameter.xml --verbosity=3 --console=1
+scxmldump -fPAMF -p -O originId -o origin.xml --verbosity=3  --console=1
+
+scrtdd --ep origin.xml --verbosity=3 --console=1 [db option] > relocated-origin.xml
+```
+
+Once we are happy with the configuration we can simply enable and start scrtdd as any other module. Please note that when scrtdd starts for the first time it will load all the catalog waveforms and store them to disk, to make them available in real time without the need to access the recordstream. However this takes some time. You can also force the loading of all waveforms before starting the module using the following option:
+
+```
+scrtdd --help
+  --load-profile-wf arg                 Load catalog waveforms from the 
+                                        configured recordstream and save them 
+                                        into the profile working directory
 ```
 
 ## 4. RecordStream configuration
