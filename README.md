@@ -318,6 +318,11 @@ scxmldump -fPAMF -p -O originId -o origin.xml --verbosity=3  --console=1
 scrtdd --ep origin.xml --verbosity=3 --console=1 [db option] > relocated-origin.xml
 ```
 
+As an example you can see below the single event relocation of several manually reviewed origins (when relocating automatic origins the quality and number of relocated origins is certainly lower).
+
+![Single event relocation example picture](/data/singleEventRelocationExample.png?raw=true "Single Event Relocation example")
+
+
 Once we are happy with the configuration we can simply enable and start scrtdd as any other module. Please note that when scrtdd starts for the first time it will load all the catalog waveforms and store them to disk, to make them available in real time without the need to access the recordstream. However this takes some time. You can also force the loading of all waveforms before starting the module using the following option:
 
 ```
