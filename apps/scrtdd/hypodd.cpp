@@ -443,9 +443,9 @@ HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& work
     _workingDir = workingDir;
     setCatalog(catalog);
 
-    if ( !Util::pathExists(_workingDir) )
+    if ( ! Util::pathExists(_workingDir) )
     {
-        if ( !Util::createPath(_workingDir) )
+        if ( ! Util::createPath(_workingDir) )
         {
             string msg = "Unable to create working directory: " + _workingDir;
             throw runtime_error(msg);
@@ -453,12 +453,26 @@ HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& work
     }
 
     _cacheDir = (boost::filesystem::path(_workingDir)/"wfcache").string();
-    if ( !Util::pathExists(_cacheDir) )
+    if ( ! Util::pathExists(_cacheDir) )
     {
-        if ( !Util::createPath(_cacheDir) )
+        if ( ! Util::createPath(_cacheDir) )
         {
             string msg = "Unable to create cache directory: " + _cacheDir;
             throw runtime_error(msg);
+        }
+    }
+
+    if ( _cfg.wfFilter.dump )
+    {
+        _wfDebugDir = (boost::filesystem::path(_workingDir)/"wfdebug").string();
+
+        if ( ! Util::pathExists(_wfDebugDir) )
+        {
+            if ( ! Util::createPath(_wfDebugDir) )
+            {
+                string msg = "Unable to create waveform debug directory: " + _wfDebugDir;
+                throw runtime_error(msg);
+            }
         }
     }
 }
@@ -474,7 +488,8 @@ HypoDD::~HypoDD()
     {
         for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(_workingDir), {}))
         {
-            if ( ! boost::filesystem::equivalent(entry, _cacheDir) )
+            if ( ! boost::filesystem::equivalent(entry, _cacheDir) && 
+                 ! boost::filesystem::equivalent(entry, _wfDebugDir )  )
             {
                 SEISCOMP_INFO("Deleting %s", entry.path().string().c_str());
                 try { boost::filesystem::remove_all(entry); } catch ( ... ) { }
@@ -540,11 +555,13 @@ void HypoDD::preloadData()
             if (  phase.procInfo.type == "S" ) numSPhases++;
         }
     }
-    SEISCOMP_INFO("Finished preloading catalog waveform data: total phases %u (P %.f%%, S %.f%%)"
+    SEISCOMP_INFO("Finished preloading catalog waveform data: total phases %u (P %.f%%, S %.f%%) "
+                  "waveforms downloaded %u, waveforms loaded from disk cache %u, "
                   "waveforms with Signal to Noise ratio too low %u (%.f%%), "
                   "waveforms not available %u (%.f%%)",
                   numPhases, ((numPhases-numSPhases)* 100. / numPhases), 
                   (numSPhases* 100. / numPhases),
+                  _counters.wf_downloaded, _counters.wf_cached,
                   _counters.snr_low, (_counters.snr_low * 100. / numPhases),
                   _counters.wf_no_avail, (_counters.wf_no_avail * 100. / numPhases) );
 }
@@ -1163,7 +1180,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     //
     // Step 2: relocate the refined location this time with cross correlation
     //
-    SEISCOMP_INFO("Performing step 2: relocation with cross correlation");
+    SEISCOMP_INFO("Performing step 2: relocation with cross correlation (with theoretical phases)");
 
     eventWorkingDir = (boost::filesystem::path(subFolder)/"step2").string();
 
@@ -1590,14 +1607,14 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             bool keepUnmatched,
                                             int* numNeigh) const
 {
-    SEISCOMP_DEBUG("Selecting Neighbouring Events for event %s lat %.6f lon %.6f depth %.4f mag %.2f time %s",
+    SEISCOMP_INFO("Selecting Neighbouring Events for event %s lat %.6f lon %.6f depth %.4f mag %.2f time %s",
                    string(refEv).c_str(), refEv.latitude, refEv.longitude, refEv.depth,
                    refEv.magnitude, refEv.time.iso().c_str());
 
     // Optimization: make code faster but the result will be the same
     if ( maxNumNeigh <= 0 )
     {
-        SEISCOMP_DEBUG("Disabling ellipsoid algorithm since maxNumNeigh is not set");
+        SEISCOMP_INFO("Disabling ellipsoid algorithm since maxNumNeigh is not set");
         numEllipsoids = 0;
     }
 
@@ -1821,7 +1838,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
             // add this event to the catalog
             neighboringEventCat->add(ev.id, *evCat, true);
             numNeighbors++;
-            SEISCOMP_DEBUG("Chose neighbour dtCount %2d distance %5.2f azimuth %3.f depth-diff %6.3f depth %5.3f event %s ",
+            SEISCOMP_INFO("Chose neighbour dtCount %2d distance %5.2f azimuth %3.f depth-diff %6.3f depth %5.3f event %s ",
                             dtCountByEvent[ev.id], distanceByEvent[ev.id], azimuthByEvent[ev.id], refEv.depth-ev.depth, ev.depth, string(ev).c_str() );
             if ( maxNumNeigh > 0 && numNeighbors >= maxNumNeigh) break;
         }
@@ -1861,7 +1878,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                             neighboringEventCat->add(ev.id, *evCat, true);
                             numNeighbors++;
                             selectedEvents.erase(it);
-                            SEISCOMP_DEBUG("Chose neighbour ellipsoid %2d quadrant %d dtCount %2d distance %5.2f azimuth %3.f depth-diff %6.3f depth %5.3f event %s ",
+                            SEISCOMP_INFO("Chose neighbour ellipsoid %2d quadrant %d dtCount %2d distance %5.2f azimuth %3.f depth-diff %6.3f depth %5.3f event %s ",
                                            elpsNum, quadrant, dtCountByEvent[ev.id], distanceByEvent[ev.id], azimuthByEvent[ev.id], refEv.depth-ev.depth,
                                            ev.depth, string(ev).c_str() ); 
                             break;
@@ -2270,10 +2287,12 @@ void HypoDD::printCounters()
              good_cc_s_theo   = _counters.xcorr_good_cc_s_theo,
              good_cc_p_theo   = good_cc_theo - good_cc_s_theo;
 
-    SEISCOMP_INFO("Cross correlation statistics: performed %u, "
+    SEISCOMP_INFO("Cross correlation statistics performed %u ("
+                  "waveforms downloaded %u, waveforms loaded from disk cache %u, "
                   "waveforms with Signal to Noise ratio too low %u, "
-                  "waveforms not available %u",
-                  performed, _counters.snr_low, _counters.wf_no_avail);
+                  "waveforms not available %u )",
+                  performed, _counters.wf_downloaded, _counters.wf_cached, 
+                  _counters.snr_low, _counters.wf_no_avail);
 
     SEISCOMP_INFO("Total xcorr %u (P %.f%%, S %.f%%) success %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
                   performed, (performed_p*100./performed), (performed_s*100./performed),
@@ -2399,14 +2418,18 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
         double min_lag    = 0;
         double max_lag    = 0;
         unsigned ccCount  = 0;
-        void update(const Catalog::Phase& phase, double coeff, double lag)
+        string peers;
+
+        void update(const Catalog::Event& event, const Catalog::Phase& phase, double coeff, double lag)
         {
             ccCount++;
             mean_coeff += std::abs(coeff);
             mean_lag   += lag;
             min_lag    += lag - phase.lowerUncertainty;
             max_lag    += lag + phase.upperUncertainty;
+            peers += string(event) + " ";
         }
+
         void done()
         {
             mean_coeff /= ccCount;
@@ -2473,7 +2496,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                         dtCount++;
 
                         string key = make_key(refEv.id, phase.stationId, phase.procInfo.type);
-                        results[key].update(phase, coeff, lag);
+                        results[key].update(event, phase, coeff, lag);
                     }
                     break;
                 }
@@ -2487,7 +2510,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
         pair.second.done();
 
     //
-    // Update theoretical phases uncertainties and pick time based on cross correlation results
+    // Update theoretical and automatic phase uncertainties and pick time based on cross correlation
     // Also remove theoretical phases without good cross correlation results
     //
     if ( computeTheoreticalPhases )
@@ -2502,6 +2525,21 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             const Catalog::Phase& phase = it->second;
             string key = make_key(refEv.id, phase.stationId, phase.procInfo.type);
 
+            if ( results.count(key) == 0 )
+            {
+                SEISCOMP_INFO("xcorr: event %5s on %4s %5s phase %s - no good cross correlations pairs",
+                              string(refEv).c_str(), phase.networkCode.c_str(), phase.stationCode.c_str(), 
+                              phase.type.c_str());
+            }
+            else
+            {
+                const XCorrResult& xcorr = results[key];
+                SEISCOMP_INFO("xcorr: event %5s on %4s %5s phase %2s - average correlation coefficient %.2f "
+                              "over %d close-by events (%s)",
+                              string(refEv).c_str(), phase.networkCode.c_str(), phase.stationCode.c_str(), 
+                              phase.type.c_str(), xcorr.mean_coeff, xcorr.ccCount, xcorr.peers.c_str() );
+            }
+
             // nothing to do if we dont't have good xcorr results of if the phase is manual
             if ( results.count(key) == 0 || phase.isManual )
             {
@@ -2511,7 +2549,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                 continue;
             }
 
-            XCorrResult xcorr = results[key];
+            const XCorrResult& xcorr = results[key];
 
             //
             // Set new phase time and uncertainty
@@ -2528,18 +2566,6 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             {
                 newP += newPhase.procInfo.type == "P" ? 1 : 0;
                 newS += newPhase.procInfo.type == "S" ? 1 : 0;
-                SEISCOMP_INFO("Event %s: new phase %s for station %s.%s created with weight %.2f (average crosscorrelation coefficient %.2f over %d close-by events)",
-                              string(refEv).c_str(), newPhase.procInfo.type.c_str(), 
-                              newPhase.networkCode.c_str(), newPhase.stationCode.c_str(),
-                              newPhase.procInfo.weight, xcorr.mean_coeff, xcorr.ccCount);
-            }
-
-            if ( _cfg.wfFilter.dump )
-            {
-                string ext = stringify(".rtdd-detected-%s-phase-cc-%.2f.debug", newPhase.type.c_str(), xcorr.mean_coeff);
-                Core::TimeWindow xcorrTw = xcorrTimeWindowShort(newPhase);
-                GenericRecordCPtr trace = getWaveform(xcorrTw, refEv, newPhase, nullptr, false, false);
-                if ( trace ) writeTrace(trace, waveformFilename(newPhase, xcorrTw) + ext);
             }
 
             // remove the old phase since the new one will be added
@@ -2547,6 +2573,9 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             newPhases.push_back(newPhase);
         }
 
+        //
+        // Replace automatic/theoretical phases with xcorr detected ones
+        //
         for (const Catalog::Phase& ph : phasesToBeRemoved)
         {
             catalog->removePhase(ph);
@@ -2700,21 +2729,30 @@ HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, cons
 
 
 string
-HypoDD::waveformFilename(const Catalog::Phase& ph, const Core::TimeWindow& tw) const
+HypoDD::waveformPath(const Catalog::Phase& ph, const Core::TimeWindow& tw) const
 {
-    return waveformFilename(ph.networkCode, ph.stationCode, ph.locationCode, ph.channelCode, tw);
+    return waveformPath(ph.networkCode, ph.stationCode, ph.locationCode, ph.channelCode, tw);
 }
 
 
 
 string
-HypoDD::waveformFilename(const string& networkCode, const string& stationCode,
-                         const string& locationCode, const string& channelCode,
-                         const Core::TimeWindow& tw) const
+HypoDD::waveformPath(const string& networkCode, const string& stationCode,
+                     const string& locationCode, const string& channelCode,
+                     const Core::TimeWindow& tw) const
 {
     string cacheFile = waveformId(networkCode, stationCode, locationCode, channelCode, tw) + ".mseed";
-    cacheFile = (boost::filesystem::path(_cacheDir)/cacheFile).string();
-    return cacheFile;
+    return (boost::filesystem::path(_cacheDir)/cacheFile).string();
+}
+
+
+
+string
+HypoDD::waveformDebugPath(const Catalog::Event& ev, const Catalog::Phase& ph, const std::string& ext) const
+{
+    string debugFile = stringify("ev%u.%s.%s.%s.%s.mseed", ev.id, ph.networkCode.c_str(),
+                                 ph.stationCode.c_str(), ph.type.c_str(), ext.c_str());
+    return (boost::filesystem::path(_wfDebugDir)/debugFile).string();
 }
 
 
@@ -2724,6 +2762,8 @@ HypoDD::waveformId(const Catalog::Phase& ph, const Core::TimeWindow& tw) const
 {
     return waveformId(ph.networkCode, ph.stationCode, ph.locationCode, ph.channelCode, tw);
 }
+
+
 
 string
 HypoDD::waveformId(const string& networkCode, const string& stationCode,
@@ -3302,11 +3342,6 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
     // fitler waveform
     filter(*trace, true, _cfg.wfFilter.filterStr, _cfg.wfFilter.resampleFreq);
 
-    if ( _cfg.wfFilter.dump )
-    {
-        writeTrace(trace, waveformFilename(ph, twToLoad) + ".processed.debug");
-    }
-
     // check SNR threshold
     if ( performSnrCheck  )
     {
@@ -3342,10 +3377,17 @@ HypoDD::getWaveform(const Core::TimeWindow& tw,
         if ( _cfg.wfFilter.dump )
         {
             SEISCOMP_DEBUG("Trace has too low SNR, discard it (%s)", wfDesc.c_str());
-            writeTrace(trace, waveformFilename(ph, twToLoad) + ".S2Nratio-rejected.debug");
+            writeTrace(trace, waveformDebugPath(ev, ph, "snr-rejected") );
         }
         _counters.snr_low++;
         return nullptr;
+    }
+
+    if ( _cfg.wfFilter.dump )
+    {
+        string ext = ( ph.procInfo.source == Catalog::Phase::Source::THEORETICAL )
+                   ? "theoretical" : (ph.isManual ? "manual" : "automatic" );
+        writeTrace(trace, waveformDebugPath(ev, ph, ext) );
     }
 
     return trace; 
@@ -3501,11 +3543,6 @@ HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
         throw runtime_error(msg);
     }
 
-    if ( _cfg.wfFilter.dump )
-    {
-        writeTrace(trace, waveformFilename(ph, tw) + ".projected.debug");
-    }
-
     return trace;
 }
 
@@ -3523,13 +3560,14 @@ HypoDD::loadWaveform(const Core::TimeWindow& tw,
                      const string& channelCode,
                      bool useDiskCache) const
 {
-    string cacheFile = waveformFilename(networkCode, stationCode, locationCode, channelCode, tw);
+    string cacheFile = waveformPath(networkCode, stationCode, locationCode, channelCode, tw);
 
     GenericRecordPtr trace;
     // First try to read trace from disk cache
     if ( useDiskCache )
     {
         trace = readTrace(cacheFile);
+        _counters.wf_cached++;
     }
 
     // if the trace is not cached then read it from the configured recordStream
@@ -3541,6 +3579,7 @@ HypoDD::loadWaveform(const Core::TimeWindow& tw,
         {
             writeTrace(trace, cacheFile);
         }
+        _counters.wf_downloaded++;
     }
 
     return trace;

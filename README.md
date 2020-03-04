@@ -195,23 +195,36 @@ scrtdd --help
                                         (filtered/resampled, SNR rejected, ZRT 
                                         projected and scrtdd detected phase) 
                                         into the profile working directory. 
-                                        Useful when run in combination with 
-                                        --load-profile-wf
 ```
 
-Simply adding ```--debug-wf``` when relocating a catalog will make scrtdd dump to disk miniseed files for inspection (e.g. scrttv waveformfile.mseed):
+Simply adding ```--debug-wf``` to the command line will make scrtdd dump to disk miniseed files for inspection (e.g. scrttv waveformfile.mseed). Just make sure to delete the folder before using this option to make sure to not look at previous relocation output. The option is mostly useful when relocating a single event mode because in multi-event mode there will be way too many waveforms to be able to check them manually, but we can still do some random check to get an overall feeling of the filtering and snr.
+
+The generated waveforms will be stored in `workingDirectory/profileName/wfdebug/` (e.g. `~/seiscomp3/var/lib/rtdd/myProfile/wfdebug/`) after filtering and resampling, that is the same wavforms used for the cross-correlation. The files follow the patters:
+
+* evNumber.NET.STATION.phaseTime.manual.mseed       (e.g. ev56.CH.SAYF2.S.manual.mseed)       - event 56 manual S phase on CH.SAYF2 station
+* evNumber.NET.STATION.phaseTime.automatic.mseed    (e.g  ev4.CH.SAYF2.P.automatic.mseed)     - event 4 automatic P phase on CH.SAYF2 station
+* evNumber.NET.STATION.phaseTime.theoretical.mseed  (e.g. ev267.CH.SFRU.Pt.theoretical.mseed) - event 267 theoretical P phase on CH.SFRU station
+* evNumber.NET.STATION.phaseTime.snr-rejected.mseed (e.g. ev9.XY.VET02.S.snr-rejected.mseed)  - event 9 S phase not used in cross-correlation due to the configured signal to noise ratio threshold
+
+The logs tell us the details of the cross correlation, so that we can see what waveform was cross-correlated with which others e.g.
 
 ```
-scrtdd --reloc-profile profileName --debug-wf
+15:12:02 [info] xcorr: event   267 on   CH BERNI phase Pt - no good cross correlations pairs
+15:12:02 [info] xcorr: event   267 on   CH BIBA phase Pt - no good cross correlations pairs
+15:12:02 [info] xcorr: event   267 on   CH BIBA phase St - no good cross correlations pairs
+15:12:02 [info] xcorr: event   267 on   CH BNALP phase Pt - average correlation coefficient 0.79 over 1 close-by events (206 )
+15:12:02 [info] xcorr: event   267 on   CH BNALP phase St - no good cross correlations pairs
+15:12:02 [info] xcorr: event   267 on   CH BOURR phase Pt - average correlation coefficient 0.81 over 2 close-by events (206 265 )
+15:12:02 [info] xcorr: event   267 on   CH BRANT phase Pt - no good cross correlations pairs
+15:12:02 [info] xcorr: event   267 on   CH DAGMA phase Pt - no good cross correlations pairs
+15:12:02 [info] xcorr: event   267 on   CH DAVOX phase Pt - no good cross correlations pairs
+15:12:02 [info] xcorr: event   267 on   CH  DIX phase St - average correlation coefficient 0.81 over 10 close-by events (1 25 37 41 43 76 141 205 206 223 )
+15:12:02 [info] xcorr: event   267 on   CH EMBD phase Pt - no good cross correlations pairs
+15:12:02 [info] xcorr: event   267 on   CH EMBD phase St - no good cross correlations pairs
 ```
 
-The generated waveforms will be stored in `workingDirectory/profileName/wfcache/` and they follow the patters:
-
-* `NET.ST.LOC.CH.startime-endtime.mseed` (raw trace fetched from the configured recordstream)
-* `NET.ST.LOC.CH.startime-endtime.mseed.projected.debug` (raw trace projected accodingly to the pick channel: 123->ZNE->ZRT)
-* `NET.ST.LOC.CH.startime-endtime.mseed.processed.debug` (processed trace with the configured filter and resampling frequency)
-* `NET.ST.LOC.CH.startime-endtime.mseed.S2Nratio-rejected.debug` (procesed trace rejected because of the configured signal to noise ration threshold)
-* `NET.ST.LOC.CH.startime-endtime.mseed.rtdd-detected-P/S-phase-cc-xx.debug` (traces of phases automatically detected by scrtdd when the option `findMissingPhase` is enabled)
+For comparison we can always find the raw waveforms (not processed) fetched from the configured recordstream and used as a cache in `workingDirectory/profileName/wfcache/` (e.g. `~/seiscomp3/var/lib/rtdd/myProfile/wfcache/`):
+* `NET.ST.LOC.CH.startime-endtime.mseed`
 
 
 #### 2.2.4 Using ph2dt
@@ -249,6 +262,20 @@ Catalog:
                                         events keeps their ids. If multiple 
                                         events share the same id, subsequent 
                                         events will be discarded.
+  --dump-catalog-options arg            Allows --dump-catalog to accept event 
+                                        ids besides origin ids. For each event 
+                                        id an origin will be selected following
+                                        the provided options whose format is: 
+                                        'type,evalmode,includeCreator,excludeCr
+                                        eator,profile', where 
+                                        type:'preferred','last','first' 
+                                        evalmode:'any','onlyManual','onlyAutoma
+                                        tic' includeCreator:'any' or 
+                                        author/methodID  excludeCreator:'none' 
+                                        or author/methodID profile:'any' or 
+                                        profileName. e.g. to select preferred 
+                                        origins from the provided event ids use
+                                        'preferred,any,any,none,any'
 
 MultiEvents:
   --reloc-profile arg                   Relocate the catalog of profile passed 
@@ -259,8 +286,9 @@ MultiEvents:
                                         file
   --no-overwrite                        When relocating a profile don't 
                                         overwrite existing files in the working
-                                        directory (avoid re-computation and 
-                                        allow manual editing)
+                                        directory (e.g. avoid re-computation of
+                                        cross correlation file dt.cc and allow
+                                        manual editing of hypoDD.inp configuration)
 
 ```
 
@@ -284,23 +312,23 @@ You might consider testing the configuration on some existing events to make sur
 scrtdd --help
 
 SingleEvent:
-  -O [ --origin-id ] arg                Relocate the origin (or multiple 
-                                        comma-separated origins) and send a 
-                                        message. Each origin will be processed 
-                                        accordingly with the matching profile 
+  -O [ --origin-id ] arg                Relocate the origin (or multiple
+                                        comma-separated origins) and send a
+                                        message. Each origin will be processed
+                                        accordingly with the matching profile
                                         region unless --profile option is used
-  --ep arg                              Event parameters XML file for offline 
-                                        processing of contained origins (imply 
-                                        test option). Each contained origin 
-                                        will be processed accordingly with the 
-                                        matching profile region unless 
+  --ep arg                              Event parameters XML file for offline
+                                        processing of contained origins (imply
+                                        test option). Each contained origin
+                                        will be processed accordingly with the
+                                        matching profile region unless
                                         --profile option is used
   --test                                Test mode, no messages are sent
-  --profile arg                         Force a specific profile to be used 
-                                        when relocating an origin. This 
-                                        override the selection of profile based
-                                        on region information and the initial 
-                                        origin location
+  --profile arg                         Force a specific profile to be used
+                                        when relocating an origin. This
+                                        overrides the selection of profiles
+                                        based on region information and the
+                                        initial origin location
 
 ```
 
@@ -317,6 +345,8 @@ scxmldump -fPAMF -p -O originId -o origin.xml --verbosity=3  --console=1
 
 scrtdd --ep origin.xml --verbosity=3 --console=1 [db option] > relocated-origin.xml
 ```
+
+Also, as explained in the , we can use the ```--debug-wf``` option to help debugging.
 
 As an example you can see below the single event relocation of several manually reviewed origins (when relocating automatic origins the quality and number of relocated origins is certainly lower).
 

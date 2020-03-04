@@ -179,6 +179,31 @@ class HypoDD : public Core::BaseObject {
                                              const Catalog::Event& refEv,
                                              const std::vector<HypoDD::PhasePeer>& peers,
                                              double phaseVelocity);
+        void runHypodd(const std::string& workingDir, const std::string& dtccFile,
+                       const std::string& dtctFile, const std::string& eventFile,
+                       const std::string& stationFile, const std::string& ctrlFile) const;
+        void runPh2dt(const std::string& workingDir,
+                      const std::string& stationFile,
+                      const std::string& phaseFile) const;
+        CatalogPtr loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
+                                        const std::string& ddrelocFile,
+                                        const std::string& ddresidualFile="") const;
+        CatalogPtr selectNeighbouringEvents(const CatalogCPtr& catalog,
+                                            const Catalog::Event& refEv,
+                                            const CatalogCPtr& refEvCatalog,
+                                            double minPhaseWeight = 0, double minESdis=0,
+                                            double maxESdis=-1, double minEStoIEratio=0,
+                                            int minDTperEvt=1, int maxDTperEvt=-1,
+                                            int minNumNeigh=1, int maxNumNeigh=-1,
+                                            int numEllipsoids=5, double maxEllipsoidSize=10,
+                                            bool keepUnmatched=false, int *numNeigh=nullptr) const;
+        std::map<unsigned,CatalogPtr> 
+        selectNeighbouringEventsCatalog(const CatalogCPtr& catalog, double minPhaseWeight,
+                                        double minESdis, double maxESdis, double minEStoIEratio,
+                                        int minDTperEvt, int maxDTperEvt,
+                                        int minNumNeigh, int maxNumNeigh,
+                                        int numEllipsoids, double maxEllipsoidSize,
+                                        bool keepUnmatched) const;
         void createStationDatFile(const CatalogCPtr& catalog, const std::string& staFileName) const;
         void createPhaseDatFile(const CatalogCPtr& catalog, const std::string& phaseFileName) const;
         void createEventDatFile(const CatalogCPtr& catalog, const std::string& eventFileName) const;
@@ -213,33 +238,9 @@ class HypoDD : public Core::BaseObject {
                           double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
         Core::TimeWindow xcorrTimeWindowLong(const Catalog::Phase& phase) const;
         Core::TimeWindow xcorrTimeWindowShort(const Catalog::Phase& phase) const;
-        void runHypodd(const std::string& workingDir, const std::string& dtccFile,
-                       const std::string& dtctFile, const std::string& eventFile,
-                       const std::string& stationFile, const std::string& ctrlFile) const;
-        void runPh2dt(const std::string& workingDir,
-                      const std::string& stationFile,
-                      const std::string& phaseFile) const;
-        CatalogPtr loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
-                                        const std::string& ddrelocFile,
-                                        const std::string& ddresidualFile="") const;
-        CatalogPtr selectNeighbouringEvents(const CatalogCPtr& catalog,
-                                            const Catalog::Event& refEv,
-                                            const CatalogCPtr& refEvCatalog,
-                                            double minPhaseWeight = 0, double minESdis=0,
-                                            double maxESdis=-1, double minEStoIEratio=0,
-                                            int minDTperEvt=1, int maxDTperEvt=-1,
-                                            int minNumNeigh=1, int maxNumNeigh=-1,
-                                            int numEllipsoids=5, double maxEllipsoidSize=10,
-                                            bool keepUnmatched=false, int *numNeigh=nullptr) const;
-        std::map<unsigned,CatalogPtr> 
-        selectNeighbouringEventsCatalog(const CatalogCPtr& catalog, double minPhaseWeight,
-                                        double minESdis, double maxESdis, double minEStoIEratio,
-                                        int minDTperEvt, int maxDTperEvt,
-                                        int minNumNeigh, int maxNumNeigh,
-                                        int numEllipsoids, double maxEllipsoidSize,
-                                        bool keepUnmatched) const;
         bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
                    bool qualityCheck, double& delayOut, double& coeffOut) const;
+
         double S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
                         double noiseOffsetStart, double noiseOffsetEnd,
                         double signalOffsetStart, double signalOffsetEnd) const;
@@ -274,20 +275,25 @@ class HypoDD : public Core::BaseObject {
         bool trim(GenericRecord &trace, const Core::TimeWindow& tw) const;
         void filter(GenericRecord &trace, bool demeaning=true, const std::string& filterStr="", double resampleFreq=0) const;
         void resample(GenericRecord& trace, double sf, bool average) const;
+
         std::string generateWorkingSubDir(const Catalog::Event& ev) const;
-        std::string waveformFilename(const Catalog::Phase& ph, const Core::TimeWindow& tw) const;
-        std::string waveformFilename(const std::string& networkCode, const std::string& stationCode,
-                                     const std::string& locationCode, const std::string& channelCode,
-                                     const Core::TimeWindow& tw) const;
+        std::string waveformPath(const Catalog::Phase& ph, const Core::TimeWindow& tw) const;
+        std::string waveformPath(const std::string& networkCode, const std::string& stationCode,
+                                 const std::string& locationCode, const std::string& channelCode,
+                                 const Core::TimeWindow& tw) const;
+        std::string waveformDebugPath(const Catalog::Event& ev, const Catalog::Phase& ph,
+                                      const std::string& ext) const;
         std::string waveformId(const Catalog::Phase& ph, const Core::TimeWindow& tw) const;
         std::string waveformId(const std::string& networkCode, const std::string& stationCode,
                                const std::string& locationCode, const std::string& channelCode,
                                const Core::TimeWindow& tw) const;
+
         void printCounters();
 
     private:
         std::string _workingDir;
         std::string _cacheDir;
+        std::string _wfDebugDir;
         CatalogCPtr _srcCat;
         CatalogPtr _ddbgc;
         Config _cfg;
@@ -309,7 +315,9 @@ class HypoDD : public Core::BaseObject {
 
             unsigned snr_low;
             unsigned wf_no_avail;
-        } _counters;
+            unsigned wf_cached;
+            unsigned wf_downloaded;
+        } mutable _counters;
 };
 
 }
