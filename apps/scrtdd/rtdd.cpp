@@ -282,7 +282,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 
     NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
                 "Load catalog waveforms from the configured recordstream and save them into the profile working directory", true);
-    NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf", "Enable the saving of waveforms (filtered/resampled, SNR rejected, ZRT projected and scrtdd detected phase) into the profile working directory. Useful when run in combination with --load-profile-wf", false, true);
+    NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf", "Enable the saving of processed waveforms (filtered/resampled, SNR rejected, ZRT projected, etc) into the profile working directory", false, true);
     NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
                 "Time span in hours after which objects expire", true);
 
