@@ -556,14 +556,14 @@ void HypoDD::preloadData()
         }
     }
     SEISCOMP_INFO("Finished preloading catalog waveform data: total phases %u (P %.f%%, S %.f%%) "
-                  "waveforms downloaded %u, waveforms loaded from disk cache %u, "
-                  "waveforms with Signal to Noise ratio too low %u (%.f%%), "
-                  "waveforms not available %u (%.f%%)",
+                  "phases with Signal to Noise ratio too low %u (%.f%%), "
+                  "phases data not available %u (%.f%%), "
+                  "(waveforms downloaded %u, waveforms loaded from disk cache %u)",
                   numPhases, ((numPhases-numSPhases)* 100. / numPhases), 
                   (numSPhases* 100. / numPhases),
-                  _counters.wf_downloaded, _counters.wf_cached,
                   _counters.snr_low, (_counters.snr_low * 100. / numPhases),
-                  _counters.wf_no_avail, (_counters.wf_no_avail * 100. / numPhases) );
+                  _counters.wf_no_avail, (_counters.wf_no_avail * 100. / numPhases),
+                  _counters.wf_downloaded, _counters.wf_cached);
 }
 
 
@@ -2287,12 +2287,12 @@ void HypoDD::printCounters()
              good_cc_s_theo   = _counters.xcorr_good_cc_s_theo,
              good_cc_p_theo   = good_cc_theo - good_cc_s_theo;
 
-    SEISCOMP_INFO("Cross correlation statistics performed %u ("
-                  "waveforms downloaded %u, waveforms loaded from disk cache %u, "
-                  "waveforms with Signal to Noise ratio too low %u, "
-                  "waveforms not available %u )",
-                  performed, _counters.wf_downloaded, _counters.wf_cached, 
-                  _counters.snr_low, _counters.wf_no_avail);
+    SEISCOMP_INFO("Cross correlation performed %u, "
+                  "phases with Signal to Noise ratio too low %u, "
+                  "phases not available %u (waveforms downloaded %u, "
+                  "waveforms loaded from disk cache %u)",
+                  performed, _counters.snr_low, _counters.wf_no_avail,
+                  _counters.wf_downloaded, _counters.wf_cached);
 
     SEISCOMP_INFO("Total xcorr %u (P %.f%%, S %.f%%) success %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
                   performed, (performed_p*100./performed), (performed_s*100./performed),
