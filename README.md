@@ -34,7 +34,7 @@ In order to use this module the sources have to be compiled to an executable. Me
 # merge rtdd-addons and Seiscomp3
 git clone https://github.com/SeisComP3/seiscomp3.git sc3-src
 cd sc3-src
-git submodule add -f https://gitlab.seismo.ethz.ch/lucasca/rtdd-addons.git src/rtdd
+git submodule add -f https://github.com/swiss-seismological-service/scrtdd.git src/rtdd-addons
 </pre>
 For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#compiling
 
