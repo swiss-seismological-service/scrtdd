@@ -126,15 +126,15 @@ Communication::ConnectionPtr RTDDLocator::createConnection()
     return connection;
 }
 
-        
+
 Origin* RTDDLocator::relocate(const Origin *origin)
 {
     if ( origin == NULL ) return NULL;
-    
+
     SEISCOMP_DEBUG("Relocating origin (%s) with profile '%s'",
                    origin->publicID().c_str(), _currentProfile.c_str());
 
-    //		
+    //
     // prepare the connection to the messaging
     //
     double msgWaitTimeout = std::stod(_parameters["RELOC_TIMEOUT"]);
@@ -146,15 +146,54 @@ Origin* RTDDLocator::relocate(const Origin *origin)
     RTDDRelocateRequestMessage msg;
     OriginPtr nonConstOrg = DataModel::Origin::Cast(origin->clone());
     for (size_t i = 0; i < origin->arrivalCount(); i++)
-        nonConstOrg->add(DataModel::Arrival::Cast(origin->arrival(i)->clone()));                
+        nonConstOrg->add(DataModel::Arrival::Cast(origin->arrival(i)->clone()));
     msg.setOrigin(nonConstOrg);
     msg.setProfile(_currentProfile);
     connection->send(&msg);
-	
+
     //
-    // want for reply
+    // wait 1 second for a request accepted response
     //
+    string lastError;
+    bool requestAccepted = false;
     Core::Time started = Core::Time::GMT();
+    while ( (Core::Time::GMT() - started).length() < 1 )
+    {
+        int error;
+        Message *msg = connection->readMessage(false, Communication::Connection::READ_ALL, NULL, &error);
+        RTDDRelocateResponseMessage* relocMsg = RTDDRelocateResponseMessage::Cast(msg);
+        if ( relocMsg )
+        {
+            SEISCOMP_DEBUG("Received RTDDRelocateResponseMessage");
+            if ( relocMsg->hasError() )
+            {
+                lastError = relocMsg->getError();
+                // do not exit here, maybe there is more than one scrtdd running
+            }
+            else if ( relocMsg->isRequestAccepted() )
+            {
+                requestAccepted = true;
+                break;
+            }
+        }
+        Core::msleep(0.1);
+    }
+
+    //
+    // If nobody accepted the request maybe there is no scrtdd listening
+    //
+    if ( ! requestAccepted )
+    {
+        if ( lastError.empty() )
+            throw LocatorException("No reply from scrtdd. Has scrtdd module been started?");
+        else
+            throw LocatorException(lastError);
+    }
+
+    //
+    // wait for a relocation reply
+    //
+    started = Core::Time::GMT();
     while ( (Core::Time::GMT() - started).length() < msgWaitTimeout)
     {
         int error;
