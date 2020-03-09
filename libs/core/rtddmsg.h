@@ -64,7 +64,7 @@ class SC_SYSTEM_CLIENT_API RTDDRelocateResponseMessage : public Seiscomp::Core::
 
     public:
         //! Constructor
-        RTDDRelocateResponseMessage() : _relocatedOrigin(0), _error("") {}
+        RTDDRelocateResponseMessage() : _relocatedOrigin(0), _error(""), _requestAccepted(false) {}
 
         void setOrigin(DataModel::OriginPtr org) { _relocatedOrigin = org; }
         DataModel::OriginPtr getOrigin() { return _relocatedOrigin; }
@@ -73,12 +73,16 @@ class SC_SYSTEM_CLIENT_API RTDDRelocateResponseMessage : public Seiscomp::Core::
         std::string getError() const { return _error; }
         bool hasError() const { return !_error.empty(); }
 
+        void setRequestAccepted(bool accepted) { _requestAccepted = accepted; }
+        bool isRequestAccepted() const { return _requestAccepted; }
+
         //! Implemented interface from Message
         virtual bool empty() const  { return false; }
 
     private:
         DataModel::OriginPtr _relocatedOrigin;
         std::string _error;
+        bool _requestAccepted;
 };
 
 } // namespace Seiscomp

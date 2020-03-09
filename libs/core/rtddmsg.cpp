@@ -38,6 +38,7 @@ void RTDDRelocateResponseMessage::serialize(Archive& ar)
     if ( !ar.success() ) return;
     ar & NAMED_OBJECT("relocatedOrigin", _relocatedOrigin);
     ar & NAMED_OBJECT("error", _error);
+    ar & NAMED_OBJECT("requestAccepted", _requestAccepted);
 }
 
 IMPLEMENT_SC_CLASS_DERIVED(
