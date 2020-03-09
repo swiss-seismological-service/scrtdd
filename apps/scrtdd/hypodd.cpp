@@ -2533,10 +2533,11 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             else
             {
                 const XCorrResult& xcorr = results[key];
-                SEISCOMP_INFO("xcorr: event %5s on %4s %5s phase %2s - average correlation coefficient %.2f "
-                              "over %d close-by events (%s)",
+                SEISCOMP_INFO("xcorr: event %5s on %4s %5s phase %2s - average lag %.2f correlation "
+                              "coefficient %.2f over %d close-by events (%s)",
                               string(refEv).c_str(), phase.networkCode.c_str(), phase.stationCode.c_str(), 
-                              phase.type.c_str(), xcorr.mean_coeff, xcorr.ccCount, xcorr.peers.c_str() );
+                              phase.type.c_str(), xcorr.mean_lag, xcorr.mean_coeff, xcorr.ccCount,
+                              xcorr.peers.c_str() );
             }
 
             // nothing to do if we dont't have good xcorr results of if the phase is manual
@@ -2606,7 +2607,7 @@ HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, cons
     SEISCOMP_INFO("Creating Cross correlation differential travel time file %s from input file %s",
                    dtccFile.c_str(), dtctFile.c_str());
 
-    if ( !Util::fileExists(dtctFile) )
+    if ( ! Util::fileExists(dtctFile) )
         throw runtime_error("Unable to perform cross correlation, cannot find file: " + dtctFile);
 
     ofstream outStream(dtccFile);
