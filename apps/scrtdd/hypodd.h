@@ -29,7 +29,7 @@
 #include <vector>
 
 #include "catalog.h"
-
+#include "wfmngr.h"
 
 namespace Seiscomp {
 namespace HDD {
@@ -149,6 +149,7 @@ class HypoDD : public Core::BaseObject {
 
     private:
 
+        std::string generateWorkingSubDir(const Catalog::Event& ev) const;
         CatalogPtr relocateEventSingleStep(const CatalogCPtr& evToRelocateCat, const std::string& workingDir,
                                 bool doXcorr, bool computeTheoreticalPhases,
                                 std::string hypoddCtrlFile, double minPhaseWeight,
@@ -224,83 +225,40 @@ class HypoDD : public Core::BaseObject {
                                       unsigned evToRelocateId,
                                       bool computeTheoreticalPhases,
                                       std::ofstream* outStream);
+                                      
         struct XcorrPhasesCfg {
             bool useDiskCache;
-            std::map<std::string,GenericRecordCPtr>* cache;
+            WfMngr::WfCache* cache;
             bool allowSnrCheck;
-        };
+        };  
+        
         bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, XcorrPhasesCfg& phCfg1,
                          const Catalog::Event& event2, const Catalog::Phase& phase2, XcorrPhasesCfg& phCfg2,
                          double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
         bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, XcorrPhasesCfg& phCfg1,
                           const Catalog::Event& event2, const Catalog::Phase& phase2, XcorrPhasesCfg& phCfg2,
                           double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
+        bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
+                          bool qualityCheck, double& delayOut, double& coeffOut) const;                          
         Core::TimeWindow xcorrTimeWindowLong(const Catalog::Phase& phase) const;
         Core::TimeWindow xcorrTimeWindowShort(const Catalog::Phase& phase) const;
-        bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
-                   bool qualityCheck, double& delayOut, double& coeffOut) const;
-
-        double S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
-                        double noiseOffsetStart, double noiseOffsetEnd,
-                        double signalOffsetStart, double signalOffsetEnd) const;
-        GenericRecordCPtr getWaveform(const Core::TimeWindow& tw,
-                                     const Catalog::Event& ev,
-                                     const Catalog::Phase& ph,
-                                     std::map<std::string,GenericRecordCPtr>* memCache,
-                                     bool useDiskCache,
-                                     bool allowSnrCheck);
-        GenericRecordPtr loadProjectWaveform(const Core::TimeWindow& tw,
-                                             const Catalog::Event& ev,
-                                             const Catalog::Phase& ph,
-                                             const DataModel::ThreeComponents& tc,
-                                             const DataModel::SensorLocation *loc,
-                                             bool useDiskCache) const;
-        Core::TimeWindow traceTimeWindowToLoad(const Catalog::Phase& ph,
-                                               const Core::TimeWindow& neededTW,
-                                               bool useDiskCache,
-                                               bool performSnrCheck) const;
-        GenericRecordPtr loadWaveform(const Core::TimeWindow& tw,
-                                      const std::string& networkCode,
-                                      const std::string& stationCode,
-                                      const std::string& locationCode,
-                                      const std::string& channelCode,
-                                      bool useDiskCache) const;
-        GenericRecordPtr readWaveformFromRecordStream(const Core::TimeWindow& tw,
-                                                      const std::string& networkCode,
-                                                      const std::string& stationCode,
-                                                      const std::string& locationCode,
-                                                      const std::string& channelCode) const;
-        bool merge(GenericRecord &trace, const RecordSequence& seq) const;
-        bool trim(GenericRecord &trace, const Core::TimeWindow& tw) const;
-        void filter(GenericRecord &trace, bool demeaning=true, const std::string& filterStr="", double resampleFreq=0) const;
-        void resample(GenericRecord& trace, double sf, bool average) const;
-
-        std::string generateWorkingSubDir(const Catalog::Event& ev) const;
-        std::string waveformPath(const Catalog::Phase& ph, const Core::TimeWindow& tw) const;
-        std::string waveformPath(const std::string& networkCode, const std::string& stationCode,
-                                 const std::string& locationCode, const std::string& channelCode,
-                                 const Core::TimeWindow& tw) const;
-        std::string waveformDebugPath(const Catalog::Event& ev, const Catalog::Phase& ph,
-                                      const std::string& ext) const;
-        std::string waveformId(const Catalog::Phase& ph, const Core::TimeWindow& tw) const;
-        std::string waveformId(const std::string& networkCode, const std::string& stationCode,
-                               const std::string& locationCode, const std::string& channelCode,
-                               const Core::TimeWindow& tw) const;
-
+                                     
         void printCounters();
 
     private:
+        bool _workingDirCleanup = true;
         std::string _workingDir;
         std::string _cacheDir;
         std::string _wfDebugDir;
+        
         CatalogCPtr _srcCat;
-        CatalogPtr _ddbgc;
-        Config _cfg;
-        bool _workingDirCleanup = true;
+        CatalogCPtr _ddbgc;
+
+        const Config _cfg;
+                
+        WfMngrPtr  _wf;        
         bool _useCatalogDiskCache = false;
-        std::map<std::string, GenericRecordCPtr> _wfCache;
-        std::set<std::string> _unloadableWfs;
-        std::set<std::string> _snrExcludedWfs;
+        WfMngr::WfCache _wfCache;
 
         struct {
             unsigned xcorr_performed;
@@ -311,11 +269,6 @@ class HypoDD : public Core::BaseObject {
             unsigned xcorr_good_cc_theo;
             unsigned xcorr_good_cc_s;
             unsigned xcorr_good_cc_s_theo;
-
-            unsigned snr_low;
-            unsigned wf_no_avail;
-            unsigned wf_cached;
-            unsigned wf_downloaded;
         } mutable _counters;
 };
 
