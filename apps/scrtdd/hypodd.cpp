@@ -113,63 +113,6 @@ pid_t startExternalProcess(const vector<string> &cmdparams,
 
 
 
-template <class T>
-T nextPowerOf2(T a, T min=1, T max=1<<31)
-{
-    int b = min;
-    while (b < a)
-    {
-        b <<= 1;
-        if (b > max)
-            return -1;
-    }
-    return b;
-}
-
-
-
-void writeTrace(GenericRecordCPtr trace, string file)
-{
-    if ( ! trace )
-        return;
-
-    try {
-        std::ofstream ofs(file);
-        IO::MSeedRecord msRec(*trace);
-        int reclen = msRec.data()->size()*msRec.data()->bytes() + 64;
-        reclen = nextPowerOf2<int>(reclen, 128, 1048576); // MINRECLEN 128, MAXRECLEN 1048576
-        if (reclen > 0)
-        {
-            msRec.setOutputRecordLength(reclen);
-            msRec.write(ofs);
-        }
-    } catch ( exception &e ) {
-        SEISCOMP_WARNING("Couldn't write waveform to disk %s: %s", file.c_str(), e.what());
-    }
-}
-
-
-
-GenericRecordPtr readTrace(string file)
-{
-    if ( ! Util::fileExists(file) )
-        return nullptr;
-
-    try {
-        std::ifstream ifs(file);
-        IO::MSeedRecord msRec(Array::DOUBLE, Record::Hint::DATA_ONLY);
-        msRec.read(ifs);
-        GenericRecordPtr trace = new GenericRecord(msRec);
-        trace->setData(msRec.data()->clone()); // copy data too
-        return trace;
-    } catch ( exception &e ) {
-        SEISCOMP_WARNING("Couldn't load waveform %s: %s", file.c_str(), e.what());
-        return nullptr;
-    }
-}
-
-
-
 void copyFileAndReplaceLines(const string& srcFilename,
                              const string& destFilename,
                              map<int,string> linesToReplace,
@@ -201,50 +144,6 @@ void copyFileAndReplaceLines(const string& srcFilename,
         // copy line to output
         destFile << line << std::endl;
     }
-}
-
-
-
-DataModel::SensorLocation *findSensorLocation(const std::string &networkCode,
-                                              const std::string &stationCode,
-                                              const std::string &locationCode,
-                                              const Core::Time &atTime)
-{
-    DataModel::Inventory *inv = Client::Inventory::Instance()->inventory();
-    if ( ! inv )
-    {
-        SEISCOMP_ERROR("Inventory not available");
-        return nullptr;
-    }
-
-    DataModel::InventoryError error;
-    DataModel::SensorLocation *loc = DataModel::getSensorLocation(inv, networkCode, stationCode, locationCode, atTime, &error);
-
-    if ( ! loc )
-    {
-        SEISCOMP_DEBUG("Unable to fetch SensorLocation information (%s.%s.%s at %s): %s",
-                       networkCode.c_str(), stationCode.c_str(), locationCode.c_str(),
-                       atTime.iso().c_str(), error.toString());
-    }
-    return loc;
-}
-
-
-
-string getBandAndInstrumentCodes(string channelCode)
-{
-    if ( channelCode.size() >= 2)
-        return channelCode.substr(0, 2);
-    return "";
-}
-
-
-
-string getOrientationCode(string channelCode)
-{
-    if ( channelCode.size() == 3)
-        return channelCode.substr(2, 3);
-    return "";
 }
 
 
@@ -437,9 +336,8 @@ namespace HDD {
 
 
 HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& workingDir)
+       : _workingDir(workingDir), _cfg(cfg)
 {
-    _cfg = cfg;
-    _workingDir = workingDir;
     setCatalog(catalog);
 
     if ( ! Util::pathExists(_workingDir) )
@@ -461,10 +359,9 @@ HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& work
         }
     }
 
+    _wfDebugDir = (boost::filesystem::path(_workingDir)/"wfdebug").string();
     if ( _cfg.wfFilter.dump )
     {
-        _wfDebugDir = (boost::filesystem::path(_workingDir)/"wfdebug").string();
-
         if ( ! Util::pathExists(_wfDebugDir) )
         {
             if ( ! Util::createPath(_wfDebugDir) )
@@ -474,6 +371,11 @@ HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& work
             }
         }
     }
+    
+    _wf = new WfMngr(_cfg.step2Clustering.recordStreamURL, _cacheDir, _wfDebugDir);
+    _wf->setProcessing(_cfg.wfFilter.filterStr, _cfg.wfFilter.resampleFreq);
+    _wf->setSnr(_cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd);
+    _wf->setWfebug(_cfg.wfFilter.dump);
 }
 
 
@@ -528,7 +430,8 @@ string HypoDD::generateWorkingSubDir(const Catalog::Event& ev) const
 
 void HypoDD::preloadData()
 {
-    _counters = {0};
+    _wf->resetCounters();
+    
     unsigned numPhases = 0, numSPhases = 0;
     //
     // Preload waveforms on disk and cache them in memory (pre-processed)
@@ -546,23 +449,25 @@ void HypoDD::preloadData()
             for (string component : xcorrCfg.components )
             {
                 Catalog::Phase tmpPh = phase;
-                tmpPh.channelCode = getBandAndInstrumentCodes(tmpPh.channelCode) + component;
-                getWaveform(tw, event, tmpPh, &_wfCache, _useCatalogDiskCache, true); 
+                tmpPh.channelCode = WfMngr::getBandAndInstrumentCodes(tmpPh.channelCode) + component;
+                _wf->getWaveform(tw, event, tmpPh, &_wfCache, _useCatalogDiskCache, true); 
             }
 
             numPhases++;
             if (  phase.procInfo.type == "S" ) numSPhases++;
         }
     }
+
+    unsigned snr_low, wf_no_avail, wf_cached, wf_downloaded;
+    _wf->getCounters(snr_low, wf_no_avail, wf_cached, wf_downloaded);
+    
     SEISCOMP_INFO("Finished preloading catalog waveform data: total phases %u (P %.f%%, S %.f%%) "
                   "phases with Signal to Noise ratio too low %u (%.f%%), "
                   "phases data not available %u (%.f%%), "
                   "(waveforms downloaded %u, waveforms loaded from disk cache %u)",
                   numPhases, ((numPhases-numSPhases)* 100. / numPhases), 
-                  (numSPhases* 100. / numPhases),
-                  _counters.snr_low, (_counters.snr_low * 100. / numPhases),
-                  _counters.wf_no_avail, (_counters.wf_no_avail * 100. / numPhases),
-                  _counters.wf_downloaded, _counters.wf_cached);
+                  (numSPhases* 100. / numPhases), snr_low, (snr_low * 100. / numPhases),
+                  wf_no_avail, (wf_no_avail * 100. / numPhases), wf_downloaded, wf_cached);
 }
 
 
@@ -902,7 +807,7 @@ HypoDD::createThoreticalPhase(const Catalog::Station& station,
     refEvNewPhase.networkCode  = station.networkCode;
     refEvNewPhase.stationCode  = station.stationCode;
     refEvNewPhase.locationCode = streamInfo.locationCode;
-    refEvNewPhase.channelCode  = getBandAndInstrumentCodes(streamInfo.channelCode) + xcorrCfg.components[0];
+    refEvNewPhase.channelCode  = WfMngr::getBandAndInstrumentCodes(streamInfo.channelCode) + xcorrCfg.components[0];
     refEvNewPhase.isManual     = false;
     refEvNewPhase.procInfo.type = phaseType;
 
@@ -2285,13 +2190,15 @@ void HypoDD::printCounters()
              good_cc_theo     = _counters.xcorr_good_cc_theo,
              good_cc_s_theo   = _counters.xcorr_good_cc_s_theo,
              good_cc_p_theo   = good_cc_theo - good_cc_s_theo;
-
+             
+    unsigned snr_low, wf_no_avail, wf_cached, wf_downloaded;
+    _wf->getCounters(snr_low, wf_no_avail, wf_cached, wf_downloaded);
+    
     SEISCOMP_INFO("Cross correlation performed %u, "
                   "phases with Signal to Noise ratio too low %u, "
                   "phases not available %u (waveforms downloaded %u, "
                   "waveforms loaded from disk cache %u)",
-                  performed, _counters.snr_low, _counters.wf_no_avail,
-                  _counters.wf_downloaded, _counters.wf_cached);
+                  performed, snr_low, wf_no_avail, wf_downloaded, wf_cached);
 
     SEISCOMP_INFO("Total xcorr %u (P %.f%%, S %.f%%) success %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
                   performed, (performed_p*100./performed), (performed_s*100./performed),
@@ -2343,6 +2250,7 @@ HypoDD::createDtCcCatalog(map<unsigned,CatalogPtr>& neighbourCats,
     SEISCOMP_INFO("Starting Cross correlation...");
 
     _counters = {0};
+    _wf->resetCounters();
 
     for (auto& kv : neighbourCats)
     {
@@ -2372,6 +2280,7 @@ void HypoDD::createDtCcSingleEvent(CatalogPtr& catalog,
         throw runtime_error("Cannot create file " + dtccFile);
 
     _counters = {0};
+    _wf->resetCounters();
 
     buildXcorrDiffTTimePairs(catalog, evToRelocateId, computeTheoreticalPhases, &outStream);
 
@@ -2615,6 +2524,7 @@ HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, cons
         throw runtime_error("Cannot create file " + dtccFile);
 
     _counters = {0};
+    _wf->resetCounters();
 
     set<unsigned> selectedEvents;
 
@@ -2727,59 +2637,6 @@ HypoDD::createDtCcPh2dt(const CatalogCPtr& catalog, const string& dtctFile, cons
 }
 
 
-
-string
-HypoDD::waveformPath(const Catalog::Phase& ph, const Core::TimeWindow& tw) const
-{
-    return waveformPath(ph.networkCode, ph.stationCode, ph.locationCode, ph.channelCode, tw);
-}
-
-
-
-string
-HypoDD::waveformPath(const string& networkCode, const string& stationCode,
-                     const string& locationCode, const string& channelCode,
-                     const Core::TimeWindow& tw) const
-{
-    string cacheFile = waveformId(networkCode, stationCode, locationCode, channelCode, tw) + ".mseed";
-    return (boost::filesystem::path(_cacheDir)/cacheFile).string();
-}
-
-
-
-string
-HypoDD::waveformDebugPath(const Catalog::Event& ev, const Catalog::Phase& ph, const std::string& ext) const
-{
-    string debugFile = stringify("ev%u.%s.%s.%s.%s.%s.%s.mseed", ev.id, 
-                                 ph.networkCode.c_str(), ph.stationCode.c_str(),
-                                 ph.locationCode.c_str(), ph.channelCode.c_str(),
-                                 ph.type.c_str(), ext.c_str());
-    return (boost::filesystem::path(_wfDebugDir)/debugFile).string();
-}
-
-
-
-string 
-HypoDD::waveformId(const Catalog::Phase& ph, const Core::TimeWindow& tw) const
-{
-    return waveformId(ph.networkCode, ph.stationCode, ph.locationCode, ph.channelCode, tw);
-}
-
-
-
-string
-HypoDD::waveformId(const string& networkCode, const string& stationCode,
-                   const string& locationCode, const string& channelCode,
-                   const Core::TimeWindow& tw) const
-{
-    return stringify("%s.%s.%s.%s.%s.%s",
-                     networkCode.c_str(), stationCode.c_str(),
-                     locationCode.c_str(), channelCode.c_str(),
-                     tw.startTime().iso().c_str(),
-                     tw.endTime().iso().c_str());
-}
-
-
 Core::TimeWindow
 HypoDD::xcorrTimeWindowLong(const Catalog::Phase& phase) const
 {
@@ -2820,8 +2677,8 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
     //
     // Make sure we are using the same channels in cross correlation
     //
-    const string channelCodeRoot1 = getBandAndInstrumentCodes(phase1.channelCode);
-    const string channelCodeRoot2 = getBandAndInstrumentCodes(phase2.channelCode);
+    const string channelCodeRoot1 = WfMngr::getBandAndInstrumentCodes(phase1.channelCode);
+    const string channelCodeRoot2 = WfMngr::getBandAndInstrumentCodes(phase2.channelCode);
 
     string commonChRoot;
 
@@ -2835,7 +2692,7 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
         // if the channel codes don't match then look for a possible match
         //
         DataModel::ThreeComponents dummy;
-        DataModel::SensorLocation *loc = findSensorLocation(phase1.networkCode, phase1.stationCode, phase1.locationCode, phase1.time);
+        DataModel::SensorLocation *loc = WfMngr::findSensorLocation(phase1.networkCode, phase1.stationCode, phase1.locationCode, phase1.time);
         if ( loc && getThreeComponents(dummy, loc, channelCodeRoot2.c_str(), phase1.time) )
         {
             // phase 1 has the same channels of phase 2
@@ -2843,7 +2700,7 @@ HypoDD::xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
         }
         else
         {
-            loc = findSensorLocation(phase2.networkCode, phase2.stationCode, phase2.locationCode, phase2.time);
+            loc = WfMngr::findSensorLocation(phase2.networkCode, phase2.stationCode, phase2.locationCode, phase2.time);
             if ( loc && getThreeComponents(dummy, loc, channelCodeRoot1.c_str(), phase2.time) )
             {
                 // phase 2 has the same channels of phase 1
@@ -2939,14 +2796,14 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
     Core::TimeWindow tw2 = xcorrTimeWindowLong(phase2);
 
     // load the long trace 1, because we want to cache the long version. Then we'll trim it.
-    GenericRecordCPtr tr1 = getWaveform(tw1, event1, phase1, phCfg1.cache, phCfg1.useDiskCache, phCfg1.allowSnrCheck);
+    GenericRecordCPtr tr1 = _wf->getWaveform(tw1, event1, phase1, phCfg1.cache, phCfg1.useDiskCache, phCfg1.allowSnrCheck);
     if ( !tr1 )
     {
         return false;
     }
 
     // load the long trace 2, because we want to cache the long version. Then we'll trim it
-    GenericRecordCPtr tr2 = getWaveform(tw2, event2, phase2, phCfg2.cache, phCfg2.useDiskCache, phCfg2.allowSnrCheck);
+    GenericRecordCPtr tr2 = _wf->getWaveform(tw2, event2, phase2, phCfg2.cache, phCfg2.useDiskCache, phCfg2.allowSnrCheck);
     if ( !tr2 )
     {
         return false;
@@ -2961,7 +2818,7 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
         // trim tr2 to shorter length, we want to cross correlate the short with the long one
         GenericRecordPtr tr2Short = new GenericRecord(*tr2);
         Core::TimeWindow tw2Short = xcorrTimeWindowShort(phase2);
-        if ( !trim(*tr2Short, tw2Short) )
+        if ( ! WfMngr::trim(*tr2Short, tw2Short) )
         {
             SEISCOMP_DEBUG("Cannot trim phase2 waveform, skipping cross correlation "
                              "for phase pair phase1='%s', phase2='%s'",
@@ -2984,7 +2841,7 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
         // trim tr1 to shorter length, we want to cross correlate the short with the long one
         GenericRecordPtr tr1Short = new GenericRecord(*tr1);
         Core::TimeWindow tw1Short = xcorrTimeWindowShort(phase1);
-        if ( !trim(*tr1Short, tw1Short) )
+        if ( ! WfMngr::trim(*tr1Short, tw1Short) )
         {
             SEISCOMP_DEBUG("Cannot trim phase1 waveform, skipping cross correlation "
                              "for phase pair phase1='%s', phase2='%s'",
@@ -3015,7 +2872,6 @@ HypoDD::_xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
 
     return true;
 }
-
 
 
 /*
@@ -3139,722 +2995,6 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
     }
 
     return true;
-}
-
-
-
-double
-HypoDD::S2Nratio(const GenericRecordCPtr& tr, const Core::Time& pickTime,
-                 double noiseOffsetStart, double noiseOffsetEnd,
-                 double signalOffsetStart, double signalOffsetEnd) const
-{
-    const double *data = DoubleArray::ConstCast(tr->data())->typedData();
-    const int size = tr->data()->size();
-    const double freq = tr->samplingFrequency();
-    const Core::Time dataStartTime = tr->startTime();
-
-    // convert time w.r.t. guiding pick time to sample number
-    auto secToSample = [&, freq, size](double sec) { 
-        return std::min(std::max(std::round(sec * freq), 0.), size-1.);
-    };
-    const double pickOffset = (pickTime - dataStartTime).length();
-    const int noiseStart  = secToSample(noiseOffsetStart  + pickOffset);
-    const int noiseEnd    = secToSample(noiseOffsetEnd    + pickOffset);
-    const int signalStart = secToSample(signalOffsetStart + pickOffset);
-    const int signalEnd   = secToSample(signalOffsetEnd   + pickOffset);
-
-    if ( (std::min({noiseStart,noiseEnd,signalStart,signalEnd}) < 0)    ||
-         (std::max({noiseStart,noiseEnd,signalStart,signalEnd}) >= size) )
-    {
-        SEISCOMP_ERROR("Cannot compute S2N ratio: noise/signal windows exceed waveform boundaries");
-        return -1;
-    }
-
-    // Get maximum (absolute) amplitude in noise window:
-    double noiseMax = -1.0;
-    for (int i = noiseStart; i < noiseEnd; i++)
-    {
-        noiseMax = std::max(std::abs(data[i]), noiseMax);
-    }
-
-    // Get maximum (absolute) amplitude in signal window:
-    double signalMax = -1.0;
-    for (int i = signalStart; i < signalEnd; i++)
-    {
-        signalMax = std::max(std::abs(data[i]), signalMax);
-    }
-
-    return signalMax/noiseMax;
-}
-
-
-Core::TimeWindow
-HypoDD::traceTimeWindowToLoad(const Catalog::Phase& ph,
-                              const Core::TimeWindow& neededTW,
-                              bool useDiskCache,
-                              bool performSnrCheck) const
-{
-    Core::TimeWindow twToLoad = neededTW;
-
-    // if the SNR window is bigger than the xcorr window, than extend
-    // the waveform time window 
-    if ( performSnrCheck && _cfg.snr.minSnr > 0 )
-    {
-        Core::Time winStart = std::min( {
-              neededTW.startTime(),
-              ph.time + Core::TimeSpan(_cfg.snr.noiseStart),
-              ph.time + Core::TimeSpan(_cfg.snr.signalStart)
-        });
-        Core::Time winEnd = std::max( {
-                neededTW.endTime(),
-                ph.time + Core::TimeSpan(_cfg.snr.noiseEnd),
-                ph.time + Core::TimeSpan(_cfg.snr.signalEnd)
-        });
-        twToLoad = Core::TimeWindow(winStart, winEnd);
-    }
-
-    // Make sure to load at least 10 seconds of waveform. This avoid
-    // re-loading waveforms for small changes in the settings, which
-    // is frequent when the user is looking for the optimal configuration
-    if ( useDiskCache )
-    {
-        const Core::TimeSpan additionalTime(5.);
-
-        if ( twToLoad.startTime() > ph.time - additionalTime )
-            twToLoad.setStartTime( ph.time - additionalTime );
-
-        if ( twToLoad.endTime() < ph.time + additionalTime )
-            twToLoad.setEndTime( ph.time + additionalTime );
-    }
-
-    return twToLoad;
-}
-
-
-/*
- * Return the waveform from the memory cache if present, otherwise load it
- */
-GenericRecordCPtr
-HypoDD::getWaveform(const Core::TimeWindow& tw,
-                    const Catalog::Event& ev,
-                    const Catalog::Phase& ph,
-                    map<string,GenericRecordCPtr>* memCache,
-                    bool useDiskCache,
-                    bool allowSnrCheck)
-{
-    string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
-                              string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
-
-    const string wfId = waveformId(ph, tw);
-
-    // Check if we have already excluded the trace because the snr is too high (save time)
-    if ( allowSnrCheck && _snrExcludedWfs.count(wfId) != 0 )
-    {
-        return nullptr;
-    }
-
-    // try to load the waveform from the memory cache, if present
-    if ( memCache )
-    {
-        const auto it = memCache->find(wfId);
-
-        if ( it != memCache->end() )
-        {
-            return it->second; // waveform cached, just return it 
-        }
-    }
-
-    // Check if we have already excluded the trace because we couldn't load it (save time)
-    if ( _unloadableWfs.count(wfId) != 0 )
-    {
-        return nullptr;
-    }
-
-    //
-    // Load the waveform, possibly perform a projection 123->ZNE or ZNE->ZRT,
-    // filter it and finally save the result in the memory cache  for later re-use
-    //
-    bool projectionRequired = true;
-    bool allComponents = false;
-    DataModel::ThreeComponents tc;
-
-    Core::Time refTime = tw.startTime();
-    DataModel::SensorLocation *loc = findSensorLocation(ph.networkCode, ph.stationCode, ph.locationCode, refTime);
-
-    if ( ! loc )
-    {
-        // try to load waveform anyway, but no projection because we don't have the info
-        projectionRequired = false;
-    }
-    else
-    {
-        string channelCodeRoot = getBandAndInstrumentCodes(ph.channelCode);
-        allComponents = getThreeComponents(tc, loc, channelCodeRoot.c_str(), refTime);
-
-        if ( ( tc.comps[ThreeComponents::Vertical] &&
-               tc.comps[ThreeComponents::Vertical]->code() == ph.channelCode )        ||
-             ( tc.comps[ThreeComponents::FirstHorizontal] &&
-               tc.comps[ThreeComponents::FirstHorizontal]->code() == ph.channelCode ) ||
-             ( tc.comps[ThreeComponents::SecondHorizontal] &&
-               tc.comps[ThreeComponents::SecondHorizontal]->code() == ph.channelCode )
-           )
-        {
-            projectionRequired = false;
-        }
-    }
-
-    // we check the SNR if asked to do so or if the trace has to be cached in memory because
-    // we have to know its SNR for future uses (trace can be requested with or without SNR check)
-    bool performSnrCheck = (allowSnrCheck || memCache) && (_cfg.snr.minSnr > 0);
-
-    // if the SNR window is bigger than the xcorr window, than extend
-    // the waveform time window
-    const Core::TimeWindow twToLoad = traceTimeWindowToLoad(ph, tw, useDiskCache, performSnrCheck);
-
-    // Load waveform:
-    // - if no projection required, just load the requested component
-    // - otherwise perform the projection 123->ZNE or ZNE->ZRT
-    GenericRecordPtr trace;
-    try {
-
-        if ( ! projectionRequired )
-        {
-            trace = loadWaveform(twToLoad, ph.networkCode, ph.stationCode,
-                                 ph.locationCode, ph.channelCode, useDiskCache);
-        }
-        else 
-        {
-            if ( ! allComponents )
-            {
-                SEISCOMP_DEBUG("Unable to fetch orientation information (%s)", wfDesc.c_str());
-                _unloadableWfs.insert(wfId);
-                _counters.wf_no_avail++;
-                return nullptr;
-            }
-            trace = loadProjectWaveform(twToLoad, ev, ph, tc, loc, useDiskCache);
-        }
-
-    } catch ( exception &e ) {
-        SEISCOMP_DEBUG("%s", e.what());
-        _unloadableWfs.insert(wfId);
-        _counters.wf_no_avail++;
-        return nullptr;
-    }
-
-    // fitler waveform
-    filter(*trace, true, _cfg.wfFilter.filterStr, _cfg.wfFilter.resampleFreq);
-
-    // check SNR threshold
-    if ( performSnrCheck  )
-    {
-        double snr = S2Nratio(trace, ph.time, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
-                              _cfg.snr.signalStart, _cfg.snr.signalEnd);
-
-        if ( snr < _cfg.snr.minSnr ) 
-        {
-            _snrExcludedWfs.insert(wfId);
-        }
-    }
-
-    // Trim waveform in case we loaded more data than requested (to compute SNR)
-    if ( twToLoad != tw )
-    {
-        if ( ! trim(*trace, tw) )
-        {
-            SEISCOMP_DEBUG("Incomplete trace, not enough data (%s)", wfDesc.c_str());
-            _unloadableWfs.insert(wfId);
-            return nullptr;
-        }
-    }
-
-    // save waveform into the cache
-    if ( memCache )
-    {
-        (*memCache)[wfId] = trace;
-    }
-
-    // the trace has a high SNR, discard it if the SNR check was requested
-    if ( allowSnrCheck && _snrExcludedWfs.count(wfId) != 0 )
-    {
-        if ( _cfg.wfFilter.dump )
-        {
-            SEISCOMP_DEBUG("Trace has too low SNR, discard it (%s)", wfDesc.c_str());
-            writeTrace(trace, waveformDebugPath(ev, ph, "snr-rejected") );
-        }
-        _counters.snr_low++;
-        return nullptr;
-    }
-
-    if ( _cfg.wfFilter.dump )
-    {
-        string ext = ( ph.procInfo.source == Catalog::Phase::Source::THEORETICAL )
-                   ? "theoretical" : (ph.isManual ? "manual" : "automatic" );
-        writeTrace(trace, waveformDebugPath(ev, ph, ext) );
-    }
-
-    return trace; 
-}
-
-
-
-GenericRecordPtr
-HypoDD::loadProjectWaveform(const Core::TimeWindow& tw,
-                            const Catalog::Event& ev,
-                            const Catalog::Phase& ph,
-                            const DataModel::ThreeComponents& tc,
-                            const DataModel::SensorLocation *loc,
-                            bool useDiskCache) const
-{
-    string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
-                              string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
-
-    SEISCOMP_DEBUG("Loading the 3 components waveforms (%s %s %s) to perform the projection...",
-                   tc.comps[ThreeComponents::Vertical]->code().c_str(),
-                   tc.comps[ThreeComponents::FirstHorizontal]->code().c_str(),
-                   tc.comps[ThreeComponents::SecondHorizontal]->code().c_str());
-
-    // orientation ZNE
-    Math::Matrix3d orientationZNE;
-    Math::Vector3d n;
-    n.fromAngles(+deg2rad(tc.comps[ThreeComponents::Vertical]->azimuth()),
-                 -deg2rad(tc.comps[ThreeComponents::Vertical]->dip())).normalize();
-    orientationZNE.setColumn(2, n);
-    n.fromAngles(+deg2rad(tc.comps[ThreeComponents::FirstHorizontal]->azimuth()),
-                 -deg2rad(tc.comps[ThreeComponents::FirstHorizontal]->dip())).normalize();
-    orientationZNE.setColumn(1, n);
-    n.fromAngles(+deg2rad(tc.comps[ThreeComponents::SecondHorizontal]->azimuth()),
-                 -deg2rad(tc.comps[ThreeComponents::SecondHorizontal]->dip())).normalize();
-    orientationZNE.setColumn(0, n);
-
-    // orientation ZRT
-    Math::Matrix3d orientationZRT;
-    double delta, az, baz;
-    Math::Geo::delazi(ev.latitude, ev.longitude, loc->latitude(), loc->longitude(),
-                      &delta, &az, &baz);
-    orientationZRT.loadRotateZ(deg2rad(baz + 180.0));
-
-    // transformation matrix
-    Math::Matrix3d transformation;
-    map<string,string> chCodeMap;
-
-    string channelCodeRoot = getBandAndInstrumentCodes(ph.channelCode);
-    string component = getOrientationCode(ph.channelCode);
-
-    if ( component == "Z" || component == "N"  || component == "E" )
-    {
-        transformation = orientationZNE;
-        chCodeMap[channelCodeRoot + "Z"] = tc.comps[ThreeComponents::Vertical]->code();
-        chCodeMap[channelCodeRoot + "N"] = tc.comps[ThreeComponents::FirstHorizontal]->code();
-        chCodeMap[channelCodeRoot + "E"] = tc.comps[ThreeComponents::SecondHorizontal]->code();
-
-        SEISCOMP_DEBUG("Performing ZNE projection (channelCode %s -> %s) for %s",
-            chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(), wfDesc.c_str());
-    }
-    else if ( component == "R"  || component == "T" )
-    {
-        transformation.mult(orientationZRT, orientationZNE);
-        //chCodeMap[channelCodeRoot + "Z"] = tc.comps[ThreeComponents::Vertical]->code();
-        chCodeMap[channelCodeRoot + "R"] = tc.comps[ThreeComponents::FirstHorizontal]->code();
-        chCodeMap[channelCodeRoot + "T"] = tc.comps[ThreeComponents::SecondHorizontal]->code();
-
-        SEISCOMP_DEBUG("Performing ZRT projection (channelCode %s -> %s) for %s",
-            chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(), wfDesc.c_str()); 
-    }
-    else
-    {
-        string msg = stringify("Unknown channel '%s', cannot load %s", component.c_str(), wfDesc.c_str());
-        throw runtime_error(msg); 
-    }
-
-    // Load the available components
-    GenericRecordPtr tr1 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                                        tc.comps[ThreeComponents::Vertical]->code(), useDiskCache);
-    GenericRecordPtr tr2 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                                        tc.comps[ThreeComponents::FirstHorizontal]->code(), useDiskCache);
-    GenericRecordPtr tr3 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                                        tc.comps[ThreeComponents::SecondHorizontal]->code(), useDiskCache);
-
-    // The wrapper will direct 3 codes into the right slots using the
-    // Stream configuration class and will finally use the transformation
-    // operator. The advantage is that it will apply the configured gain for
-    typedef Operator::StreamConfigWrapper<double,3,Operator::Transformation> OpWrapper;
-
-    // Define the final operator class:
-    //  1. Send channel codes to right slots
-    //  2. Align 3 channels sample wise
-    //  3. Transform the resulting 3 component trace with a rotation matrix
-    typedef NCompsOperator<double,3,OpWrapper> Rotator;
-
-    Processing::Stream streams[3];
-    streams[2].init(tc.comps[ThreeComponents::Vertical]);
-    streams[1].init(tc.comps[ThreeComponents::FirstHorizontal]);
-    streams[0].init(tc.comps[ThreeComponents::SecondHorizontal]);
-    Rotator op(OpWrapper(streams, Operator::Transformation<double,3>(transformation)));
-
-
-    class DataStorer
-    {
-        public:
-        DataStorer(const string& channelCode, const Core::TimeWindow& tw, map<string,string> chCodeMap)
-        : chMap(chCodeMap[channelCode], channelCode)
-        , _seq( new TimeWindowBuffer(tw) )
-        {  }
-
-        bool store(const Record *rec)
-        {
-            if (rec->channelCode() == chMap.first)
-                _seq->feed(rec);
-            return true;
-        }
-
-        const std::pair<string,string> chMap;
-        std::shared_ptr<RecordSequence> _seq;
-    };
-
-    DataStorer projectedData(ph.channelCode, tw, chCodeMap);
-
-    // The function that will be called after a transformed record was created
-    //op.setStoreFunc(boost::bind(&RecordSequence::feed, seq, _1));
-    op.setStoreFunc(boost::bind(&DataStorer::store, projectedData, _1));
-
-    op.feed(tr1.get());
-    op.feed(tr2.get());
-    op.feed(tr3.get());
-
-    std::shared_ptr<RecordSequence> seq = projectedData._seq;
-
-    if ( seq->empty() )
-    {
-        string msg = stringify("No data after the projection for %s", wfDesc.c_str());
-        throw runtime_error(msg);
-    }
-
-    GenericRecordPtr trace = new GenericRecord();
-
-    if ( ! merge(*trace, *seq) )
-    {
-        string msg = stringify("Data records could not be merged into a single trace (%s)", wfDesc.c_str());
-        throw runtime_error(msg);
-    }
-
-    trace->setChannelCode(ph.channelCode);
-
-    if ( ! trim(*trace, tw) )
-    {
-        string msg = stringify("Incomplete trace, not enough data (%s)", wfDesc.c_str());
-        throw runtime_error(msg);
-    }
-
-    return trace;
-}
-
-
-
-/*
- * Read a waveform from a chached copy on disk if present, otherwise
- * from the configured RecordStream
- */
-GenericRecordPtr
-HypoDD::loadWaveform(const Core::TimeWindow& tw,
-                     const string& networkCode,
-                     const string& stationCode,
-                     const string& locationCode,
-                     const string& channelCode,
-                     bool useDiskCache) const
-{
-    string cacheFile = waveformPath(networkCode, stationCode, locationCode, channelCode, tw);
-
-    GenericRecordPtr trace;
-    // First try to read trace from disk cache
-    if ( useDiskCache )
-    {
-        trace = readTrace(cacheFile);
-        _counters.wf_cached++;
-    }
-
-    // if the trace is not cached then read it from the configured recordStream
-    if ( !trace )
-    {
-        trace = readWaveformFromRecordStream(tw,networkCode, stationCode, locationCode, channelCode);
-        // then save the trace to disk for later usage
-        if ( useDiskCache )
-        {
-            writeTrace(trace, cacheFile);
-        }
-        _counters.wf_downloaded++;
-    }
-
-    return trace;
-}
-
-
-GenericRecordPtr
-HypoDD::readWaveformFromRecordStream(const Core::TimeWindow& tw,
-                                     const string& networkCode,
-                                     const string& stationCode,
-                                     const string& locationCode,
-                                     const string& channelCode) const
-{
-    IO::RecordStreamPtr rs = IO::RecordStream::Open( _cfg.step2Clustering.recordStreamURL.c_str() );
-    if ( rs == nullptr )
-    {
-        string msg = "Cannot open RecordStream: " + _cfg.step2Clustering.recordStreamURL;
-        throw runtime_error(msg);
-    }
-
-    rs->setTimeWindow(tw);
-    rs->addStream(networkCode, stationCode, locationCode, channelCode);
-
-    // Store each record in a RecordSequence
-    IO::RecordInput inp(rs.get(), Array::DOUBLE, Record::DATA_ONLY);
-    std::shared_ptr<RecordSequence> seq( new TimeWindowBuffer(tw) );
-    RecordPtr rec;
-    while ( rec = inp.next() )
-    {
-        seq->feed(rec.get());
-    }
-    rs->close();
-
-    if ( seq->empty() )
-    {
-        string msg = stringify("Data could not be loaded (stream %s.%s.%s.%s from %s length %.2f sec)",
-                               networkCode.c_str(), stationCode.c_str(),
-                               locationCode.c_str(), channelCode.c_str(),
-                               tw.startTime().iso().c_str(), tw.length());
-        throw runtime_error(msg);
-    }
-
-    GenericRecordPtr trace = new GenericRecord();
-
-    if ( ! merge(*trace, *seq) )
-    {
-        string msg = stringify("Data records could not be merged into a single trace "
-                               "(%s.%s.%s.%s from %s length %.2f sec)",
-                               networkCode.c_str(), stationCode.c_str(),
-                               locationCode.c_str(), channelCode.c_str(),
-                               tw.startTime().iso().c_str(), tw.length());
-        throw runtime_error(msg);
-    }
-
-    if ( ! trim(*trace, tw) )
-    {
-        string msg = stringify("Incomplete trace, not enough data for requested"
-                               " time window (%s.%s.%s.%s from %s length %.2f sec)",
-                               networkCode.c_str(), stationCode.c_str(),
-                               locationCode.c_str(), channelCode.c_str(),
-                               tw.startTime().iso().c_str(), tw.length());
-        throw runtime_error(msg);
-    }
-
-    return trace;
-}
-
-
-bool HypoDD::merge(GenericRecord &trace, const RecordSequence& seq) const
-{
-    if ( seq.empty() )
-    {
-        return false;
-    }
-
-    RecordCPtr first = seq.front();
-    RecordCPtr last;
-    double samplingFrequency = first->samplingFrequency();
-    Core::TimeSpan maxAllowedGap, maxAllowedOverlap;
-
-    maxAllowedGap = Core::TimeSpan((double)(0.5 / samplingFrequency));
-    maxAllowedOverlap = Core::TimeSpan((double)(-0.5 / samplingFrequency));
-
-    trace.setNetworkCode(first->networkCode());
-    trace.setStationCode(first->stationCode());
-    trace.setLocationCode(first->locationCode());
-    trace.setChannelCode(first->channelCode());
-
-    trace.setStartTime(first->startTime());
-    trace.setSamplingFrequency(samplingFrequency);
-
-    Array::DataType datatype = first->data()->dataType();
-    ArrayPtr arr = ArrayFactory::Create(datatype, datatype, 0, nullptr);
-
-    for (const RecordCPtr& rec : seq )
-    {
-        if ( rec->samplingFrequency() != samplingFrequency ) {
-            SEISCOMP_DEBUG("%s.%s.%s.%s: record sampling frequencies are not consistent: %f != %f",
-                          trace.networkCode().c_str(),
-                          trace.stationCode().c_str(),
-                          trace.locationCode().c_str(),
-                          trace.channelCode().c_str(),
-                          samplingFrequency, rec->samplingFrequency());
-            return false;
-        }
-
-        // Check for gaps and overlaps
-        if ( last ) {
-            Core::TimeSpan diff = rec->startTime()-last->endTime();
-            if ( diff > maxAllowedGap ) {
-                SEISCOMP_DEBUG("%s.%s.%s.%s: gap detected of %d.%06ds",
-                              trace.networkCode().c_str(),
-                              trace.stationCode().c_str(),
-                              trace.locationCode().c_str(),
-                              trace.channelCode().c_str(),
-                              (int)diff.seconds(), (int)diff.microseconds());
-                return false;
-            }
-
-            if ( diff < maxAllowedOverlap ) {
-                SEISCOMP_DEBUG("%s.%s.%s.%s: overlap detected of %fs",
-                              trace.networkCode().c_str(),
-                              trace.stationCode().c_str(),
-                              trace.locationCode().c_str(),
-                              trace.channelCode().c_str(),
-                              (double)diff);
-                return false;
-            }
-        }
-
-        arr->append( (Array *)(rec->data()));
-
-        last = rec;
-    }
-
-    trace.setData(arr.get());
-
-    return true;
-}
-
-
-bool HypoDD::trim(GenericRecord &trace, const Core::TimeWindow& tw) const
-{
-    int ofs = (int)(double(tw.startTime() - trace.startTime())*trace.samplingFrequency());
-    int samples = (int)(tw.length()*trace.samplingFrequency());
-
-    // Not enough data at start of time window
-    if ( ofs < 0 )
-    {
-        SEISCOMP_DEBUG("%s: need %d more samples in past",
-                       trace.streamID().c_str(), -ofs);
-        return false;
-    }
-
-    // Not enough data at end of time window
-    if ( ofs+samples > trace.data()->size() )
-    {
-        SEISCOMP_DEBUG("%s: need %d more samples past the end",
-                       trace.streamID().c_str(), trace.data()->size()-samples-ofs);
-        return false;
-    }
-
-    ArrayPtr sliced = trace.data()->slice(ofs, ofs+samples);
-
-    trace.setStartTime(tw.startTime());
-    trace.setData(sliced.get());
-
-    return true;
-}
-
-
-
-void HypoDD::filter(GenericRecord &trace, bool demeaning, const std::string& filterStr, double resampleFreq) const
-{
-    DoubleArray *data = DoubleArray::Cast(trace.data());
-
-    if (demeaning)
-    {
-        *data -= data->mean();
-        trace.dataUpdated();
-    }
-
-    if ( resampleFreq > 0)
-    {
-        resample(trace, resampleFreq, true);
-    }
-
-    if ( ! filterStr.empty() )
-    {
-        string filterError;
-        auto filter = Math::Filtering::InPlaceFilter<double>::Create(filterStr, &filterError);
-        if ( !filter )
-        {
-            string msg = stringify("Filter creation failed %s: %s", filterStr.c_str(), filterError.c_str());
-            throw runtime_error(msg);
-        }
-        filter->setSamplingFrequency(trace.samplingFrequency());
-        filter->apply(data->size(), data->typedData());
-        delete filter;
-        trace.dataUpdated();
-    }
-}
-
-
-void HypoDD::resample(GenericRecord &trace, double sf, bool average) const
-{
-    if ( sf <= 0 )
-        return;
-
-    if ( trace.samplingFrequency() == sf )
-        return;
-
-    DoubleArray *data = DoubleArray::Cast(trace.data());
-    double step = trace.samplingFrequency() / sf;
-
-    if ( trace.samplingFrequency() < sf ) // upsampling
-    {
-        double fi = data->size() - 1;
-        data->resize( data->size() / step );
-
-        for( int i = data->size()-1; i >= 0; i-- )
-        {
-            (*data)[i] = (*data)[(int)fi];
-            fi -= step;
-        }
-    }
-    else // downsampling
-    {
-        int w = average?step*0.5 + 0.5:0;
-        int i = 0;
-        double fi = 0.0;
-        int cnt = data->size();
-
-        if ( w <= 0 )
-        {
-            while ( fi < cnt ) {
-                (*data)[i++] = (*data)[(int)fi];
-                fi += step;
-            }
-        }
-        else
-        {
-            while ( fi < cnt )
-            {
-                int ci = (int)fi;
-                double scale = 1.0;
-                double v = (*data)[ci];
-
-                for ( int g = 1; g < w; ++g )
-                {
-                    if ( ci >= g )
-                    {
-                        v += (*data)[ci-g];
-                        scale += 1.0;
-                    }
-
-                    if ( ci+g < cnt )
-                    {
-                        v += (*data)[ci+g];
-                        scale += 1.0;
-                    }
-                }
-
-                v /= scale;
-
-                (*data)[i++] = v;
-                fi += step;
-            }
-        }
-        data->resize(i);
-    }
-    trace.setSamplingFrequency((double)sf);
-    trace.dataUpdated();
 }
 
 
