@@ -313,33 +313,40 @@ You might consider testing the configuration on some existing events to make sur
 scrtdd --help
 
 SingleEvent:
-  -O [ --origin-id ] arg                Relocate the origin (or multiple
-                                        comma-separated origins) and send a
-                                        message. Each origin will be processed
-                                        accordingly with the matching profile
+  -O [ --origin-id ] arg                Relocate the origin (or multiple 
+                                        comma-separated origins) and send a 
+                                        message. Each origin will be processed 
+                                        accordingly with the matching profile 
                                         region unless --profile option is used
-  --ep arg                              Event parameters XML file for offline
-                                        processing of contained origins (imply
-                                        test option). Each contained origin
-                                        will be processed accordingly with the
-                                        matching profile region unless
-                                        --profile option is used
+  --ep arg                              Event parameters XML file for offline 
+                                        processing of contained origins (imply 
+                                        test option). Each contained origin 
+                                        will be processed accordingly with the 
+                                        matching profile region unless 
+                                        --profile option is used. In 
+                                        combination with origin-id option this 
+                                        produces an xml output
   --test                                Test mode, no messages are sent
-  --profile arg                         Force a specific profile to be used
-                                        when relocating an origin. This
-                                        overrides the selection of profiles
-                                        based on region information and the
+  --profile arg                         Force a specific profile to be used 
+                                        when relocating an origin. This 
+                                        overrides the selection of profiles 
+                                        based on region information and the 
                                         initial origin location
-
 ```
 
-If we want to process an origin we can run the following command and then check on scolv the relocated origin (the messaging system must be active):
+If we want to process an origin we can run the following command and then check on scolv the relocated origin (the messaging system must be active). This is mostly useful when we want to relocate an origin on a running system and keep the relocation:
 
 ```
 scrtdd -O someOriginId --verbosity=3 --console=1
 ```
 
-Alternatively we can process an XML file and later load the relocated-origin.xml on scolv for inspection:
+For testing purpose we are more likely interested in not interfere with database and messaging system so we can use the `--ep` option and save the xml to file, finally open the file with scolv for inspection:
+
+```
+scrtdd -O someOriginId --ep - --verbosity=3 --console=1 >  relocated-origin.xml
+```
+
+Alternatively the `--ep` option can process origins contained in an XML file:
 
 ```
 scxmldump -fPAMF -p -O originId -o origin.xml --verbosity=3  --console=1
@@ -387,6 +394,10 @@ A (re)locator plugin is also avaiable in the code, which makes scrtdd available 
 
 ![Locator plugin](/data/locator-plugin.png?raw=true "Locator plugin")
 
+Please note that this plugin is not strictly required since `scrtdd` would relocated any manaul origins anyway (if configured to do so) and the relocated origin will appear on `scolv` as soon as ready.
+
+Also scolv doesn't allow to create new picks when performing a relocation, so `scrtdd` plugin disable the cross correlation on theoretical picks since those picks will not be reported on scolv.
+
 ## 6. Troubleshooting
 
 Check log file: ~/.seiscomp/log/scrtdd.log 
@@ -398,8 +409,19 @@ Alternatively, when running scrtdd from the command line use the following optio
 --verbosity=3 --console=1
 ```
 
-A useful option we can find in scrtdd configuration is `keepWorkingFiles`, which prevent the deletion of scrtdd processing files from the working directory. In this way we can access the working folder and check input, output files used for running hypodd. Make sure to check the `*.out` files, which contain the console output of hypodd (sometimes we can find errors only in there, as they do not appear in hypodd.log file).
+A useful option we can find in scrtdd configuration is `keepWorkingFiles`, which prevent the deletion of scrtdd processing files from the working directory (e.g. `~/seiscomp3/var/lib/rtdd/myProfile/). In this way we can access the working folder and check input, output files used for running hypodd. More importantly we can also run hypodd from the command line using the same files generated by `scrtdd` (and possible edit those) and view the console output since the hypodd log file doesn't always reports all the errors. Look at `scrtdd` logs to understand where the working directory is and how to run hypodd manually:
 
-Another useuful command line option is --dump-wf, which allows to dump the waveforms used for cross correlation after the filtering and resampling have been applied.
+```
+[...]
+20:51:33 [info] Creating station file ~/seiscomp3/var/lib/rtdd/myProfile/20170103161341_46266_007400_20200225195133_0950/step1/station.dat
+20:51:33 [info] Creating event file ~/seiscomp3/var/lib/rtdd/myProfile/20170103161341_46266_007400_20200225195133_0950/step1/event.dat
+20:51:33 [info] Creating differential travel time file ~/seiscomp3/var/lib/rtdd/myProfile/20170103161341_46266_007400_20200225195133_0950/step1/dt.ct
+20:51:33 [info] Running hypodd...
+20:51:33 [info] Working directory ~/seiscomp3/var/lib/rtdd/myProfile/20170103161341_46266_007400_20200225195133_0950/step1
+20:51:33 [info] Executing command: /bin/sh -c ~/dev/HYPODD_2.1b/src/hypoDD/hypoDD hypoDD.inp >hypoDD.out 2>&1 
+20:51:33 [info] Loading catalog relocated by hypodd...
+[...]
+```
+
 
 Finally, remember to set the Hypodd array limits (compilation time options available via *inc files) accordingly with the size of your problem. If the full catalog relocation doesn't seem to relocate at all, you might have probably hit array limits.

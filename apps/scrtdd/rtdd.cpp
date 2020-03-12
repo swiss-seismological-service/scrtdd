@@ -294,7 +294,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT_CLI(_config.originIDs, "SingleEvent", "origin-id,O",
                 "Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed accordingly with the matching profile region unless --profile option is used", true);
     NEW_OPT_CLI(_config.eventXML, "SingleEvent", "ep",
-                "Event parameters XML file for offline processing of contained origins (imply test option). Each contained origin will be processed accordingly with the matching profile region unless --profile option is used", true);
+                "Event parameters XML file for offline processing of contained origins (imply test option). Each contained origin will be processed accordingly with the matching profile region unless --profile option is used. In combination with origin-id option this produces an xml output", true);
     NEW_OPT_CLI(_config.testMode, "SingleEvent", "test", "Test mode, no messages are sent", false, true);
     NEW_OPT_CLI(_config.forceProfile, "SingleEvent", "profile", "Force a specific profile to be used when relocating an origin. This overrides the selection of profiles based on region information and the initial origin location", true); 
     NEW_OPT_CLI(_config.relocateProfile, "MultiEvents", "reloc-profile",
@@ -659,24 +659,19 @@ bool RTDD::init() {
 
 
 
-bool RTDD::run() {
-
-    // load Event parameters XML file into _eventParameters
-    if ( !_config.eventXML.empty() )
+bool RTDD::run()
+{
+    // if xml file provided load it into _eventParameters
+    // if file doesn't exists will be used for output only (-O option)
+    if ( !_config.eventXML.empty() && Util::fileExists(_config.eventXML) )
     {
         IO::XMLArchive ar;
-        if ( !ar.open(_config.eventXML.c_str()) ) {
+        if ( ! ar.open(_config.eventXML.c_str()) ) {
             SEISCOMP_ERROR("Unable to open %s", _config.eventXML.c_str());
             return false;
         }
-
         ar >> _eventParameters;
         ar.close();
-
-        if ( !_eventParameters ) {
-            SEISCOMP_ERROR("No event parameters found in %s", _config.eventXML.c_str());
-            return false;
-        }
     }
 
     // load catalog and exit
@@ -833,12 +828,29 @@ bool RTDD::run() {
             _cronCounter = 0;
             addProcess(org.get());
         }
+
+        // output relocation to xml (both --ep and -O options provided)
+        if ( ! _config.eventXML.empty() )
+        {
+            IO::XMLArchive ar;
+            ar.create("-");
+            ar.setFormattedOutput(true);
+            ar << _eventParameters;
+            ar.close();
+        }
+
         return true;
     }
 
-    // relocate xml event and exit
+    // relocate all origins in xml file and exit
     if ( !_config.eventXML.empty() )
     {
+        if ( !_eventParameters )
+        {
+            SEISCOMP_ERROR("No event parameters found in %s", _config.eventXML.c_str());
+            return false;
+        }
+
         // force process of any origin
         _config.forceProcessing = true;
 
@@ -1655,7 +1667,7 @@ RTDD::getProfile(double latitude, double longitude, const std::string& forceProf
 std::vector<DataModel::OriginPtr>
 RTDD::fetchOrigins(const std::string& idFile, std::string options)
 {
-    if ( !Util::fileExists(idFile) )
+    if ( ! Util::fileExists(idFile) )
     {
         throw runtime_error("File " + idFile + " does not exist");
     }
