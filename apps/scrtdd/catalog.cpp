@@ -720,15 +720,10 @@ void Catalog::removePhase(const Phase& phase)
 
 void Catalog::removePhase(unsigned eventId, const std::string& stationId, const string& type)
 {
-    auto eqlrng = _phases.equal_range(eventId);
-    auto it = eqlrng.first;
-    while ( it != eqlrng.second )
+    std::map<unsigned,Phase>::const_iterator it = searchPhase(eventId, stationId, type);
+    if ( it != _phases.end() )
     {
-        const Catalog::Phase& ph = it->second;
-        if ( ph.stationId == stationId && ph.type == type )
-            _phases.erase(it++);
-        else
-            ++it;
+        _phases.erase(it);
     }
 }
 
@@ -790,6 +785,21 @@ map<unsigned,Catalog::Event>::const_iterator Catalog::searchEvent(const Event& e
 map<unsigned,Catalog::Phase>::const_iterator Catalog::searchPhase(const Phase& phase) const
 {
     return searchByValue(_phases, phase);
+}
+
+
+map<unsigned,Catalog::Phase>::const_iterator Catalog::searchPhase(unsigned eventId,
+                                                                  const std::string& stationId,
+                                                                  const string& type) const
+{
+    auto eqlrng = _phases.equal_range(eventId);
+    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+    {
+        const Catalog::Phase& ph = it->second;
+        if ( ph.stationId == stationId && ph.procInfo.type == type )
+            return it;
+    }
+    return _phases.end();
 }
 
 

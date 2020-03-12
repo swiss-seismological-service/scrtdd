@@ -247,6 +247,9 @@ class Catalog : public Core::BaseObject {
         std::map<std::string,Station>::const_iterator searchStation(const Station&) const;
         std::map<unsigned,Event>::const_iterator searchEvent(const Event&) const;
         std::map<unsigned,Phase>::const_iterator searchPhase(const Phase&) const;
+        std::map<unsigned,Phase>::const_iterator searchPhase(unsigned eventId, 
+                                                             const std::string& stationId,
+                                                             const std::string& type) const;
 
         void writeToFile(std::string eventFile,
                          std::string phaseFile,
