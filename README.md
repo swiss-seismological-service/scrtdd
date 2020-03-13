@@ -134,7 +134,7 @@ At this point we have to configure the other profile options that control the re
 
 ![Relocation options](/data/multiEventStep2options.png?raw=true "Relocation options")
 
-Then it is time to set the cross correlation parameters, which require a more careful selection and it is covered in the next paragraph.
+Then it is time to set the cross-correlation parameters, which require a more careful selection and it is covered in the next paragraph.
 
 In the ```data``` folder of this project there are some hypoDD 2.1b configuration example files (the velocity model has to be changed to reflect your specific use case).
 
@@ -158,16 +158,16 @@ The command output files (reloc-event.csv reloc-phase.csv and reloc-stations.csv
 
 Now that we have a high quality background catalog we are ready to perform real time relocation.
 
-#### 2.2.3 Cross correlation, waveform filtering and signal to noise ratio options
+#### 2.2.3 Cross-correlation, waveform filtering and signal to noise ratio options
 
 Those parameters require some trial and error to be correctly set but after that they can be kept identical for real-time relocation without any major change, except for the parameter ```maxDelay``` that should be increased in real-time relocation to accomodate the larger uncertainty of automatic picks compared to manual ones (unless scrtdd is used to only relocate manually reviewed origins).
 
 ![Relocation options](/data/xcorr.png?raw=true "Relocation options")
 
-To help figuring out the right values for cross correlation the log file (or console output with ```--console=1 --verbosity=3```) come in handy:
+To help figuring out the right values for cross-correlation the log file (or console output with ```--console=1 --verbosity=3```) come in handy:
 
 ```
-12:32:22 [info] Cross correlation statistics: performed 40361, waveforms with Signal to Noise ratio too low 2435, waveforms not available 98
+12:32:22 [info] Cross-correlation statistics: performed 40361, waveforms with Signal to Noise ratio too low 2435, waveforms not available 98
 12:32:22 [info] Total xcorr 40361 (P 59%, S 41%) success 28% (11499/40361). Successful P 22% (5300/23844). Successful S 38% (6199/16517)
 12:32:22 [info] xcorr on actual picks 24784/40361 (P 60%, S 40%) success 37% (9186/24784). Successful P 31% (4629/14761). Successful S 45% (4557/10023)
 12:32:22 [info] xcorr on theoretical picks 15577/40361 (P 58%, S 42%) success 15% (2313/15577). Successful P 7% (671/9083). Successful S 25% (1642/6494)
@@ -195,7 +195,7 @@ The generated waveforms will be stored in `workingDirectory/profileName/wfdebug/
 * evNumber.NET.STATION.phaseTime.theoretical.mseed  (e.g. ev267.CH.SFRU.Pt.theoretical.mseed) - event 267 theoretical P phase on CH.SFRU station
 * evNumber.NET.STATION.phaseTime.snr-rejected.mseed (e.g. ev9.XY.VET02.S.snr-rejected.mseed)  - event 9 S phase not used in cross-correlation due to the configured signal to noise ratio threshold
 
-The logs tell us the details of the cross correlation, so that we can see what waveform was cross-correlated with which others e.g.
+The logs tell us the details of the cross-correlation, so that we can see what waveform was cross-correlated with which others e.g.
 
 ```
 15:12:02 [info] xcorr: event   267 on   CH BERNI phase Pt - no good cross correlations pairs
@@ -218,7 +218,7 @@ For comparison we can always find the raw waveforms (not processed) fetched from
 
 #### 2.2.4 Using ph2dt
 
-It is possible to use ph2dt utility to perform the clustering. It this case the scrtdd configuration `step2options.clusteing.*` will not be used. Instead, ph2dt will be run to generate dt.ct file, and for each entry in the generated dt.ct file the cross correlation will be performed and the relative dt.cc file created.
+It is possible to use ph2dt utility to perform the clustering. It this case the scrtdd configuration `step2options.clusteing.*` will not be used. Instead, ph2dt will be run to generate dt.ct file, and for each entry in the generated dt.ct file the cross-correlation will be performed and the relative dt.cc file created.
 
 ```
 scrtdd --reloc-profile profileName --use-ph2dt /some/path/ph2dt.inp [--ph2dt-path /some/path/ph2dt]
@@ -289,7 +289,7 @@ Real time relocation uses the same configuration we have seen in full catalog re
 
 Step 1: location refinement. In this step scrtdd performs a preliminary relocation of the origin using only catalog absolute travel time entries (dt.ct only).
 
-Step 2: the refined location computerd in the previous step is used as starting location to perform a more precise relocation using both catalog absolute travel times (dt.ct) and differential travel times from cross correlation (dt.cc). If step1 fails, step2 is attempted anyway.
+Step 2: the refined location computerd in the previous step is used as starting location to perform a more precise relocation using both catalog absolute travel times (dt.ct) and differential travel times from cross-correlation (dt.cc). If step1 fails, step2 is attempted anyway.
 
 If step2 completes successfully the relocated origin is sent to the messaging system.
 
@@ -345,7 +345,7 @@ scxmldump -fPAMF -p -O originId -o origin.xml --verbosity=3  --console=1
 scrtdd --ep origin.xml [db and log options] > relocated-origin.xml
 ```
 
-Also, as explained in the , we can use the ```--debug-wf``` option to help debugging.
+Also, as explained in the cross-correlation settings paragraph, we can use the ```--debug-wf``` option to help debugging.
 
 As an example you can see below the single event relocation of several manually reviewed origins (when relocating automatic origins the quality and number of relocated origins is certainly lower).
 
@@ -381,7 +381,7 @@ recordstream = combined://slink/localhost:18000?timeout=2&retries=0;sdsarchive//
 
 ### 3.3 Performance
 
-scrtdd spends most of the relocation time downloading waveforms (real-time events, the catalog waveforms are cached to disk) and the rest is shared betweeen cross-correlation and hypoDD execution. Two configuration options have a huge impact on the performance: `step2options.clustering' and `crosscorrelation.s-phase.components'. `step2options.clustering' is relevant because we can specify how many neighbouring events and how many phases we want to use, which consequently determines the number of cross-correlations to perform and the size of the input for hypodDD. `crosscorrelation.s-phase.components' defines the components we want to use in the cross-correlation of the 'S' phases. Usign the 'T' components means scrtdd has to download the additional two components to perform the projection to ZRT. 
+scrtdd spends most of the relocation time downloading waveforms (real-time events, the catalog waveforms are cached to disk) and the rest is shared betweeen cross-correlation and hypoDD execution. Two configuration options have a huge impact on the performance: `step2options.clustering` and `crosscorrelation.s-phase.components`. `step2options.clustering` is relevant because we can specify how many neighbouring events and how many phases we want to use, which consequently determines the number of cross-correlations to perform and the size of the input for hypodDD. `crosscorrelation.s-phase.components` defines the components we want to use in the cross-correlation of the `S` phases. Usign the `T` components means scrtdd has to download the additional two components to perform the projection to ZRT.
 
 
 ## 4. Locator plugin
@@ -392,7 +392,7 @@ A (re)locator plugin is also avaiable in the code, which makes scrtdd available 
 
 Please note that this plugin is not strictly required since `scrtdd` would relocated any manaul origins anyway (if configured to do so) and the relocated origin will appear on `scolv` as soon as ready.
 
-Also scolv doesn't allow to create new picks when performing a relocation, so `scrtdd` plugin disable the cross correlation on theoretical picks since those picks will not be reported on scolv.
+Also scolv doesn't allow to create new picks when performing a relocation, so `scrtdd` plugin disable the cross-correlation on theoretical picks since those picks will not be reported on scolv.
 
 ## 5. Troubleshooting
 
@@ -422,7 +422,7 @@ scrtdd [some options] --plugins dbpostgresql -d postgresql://user:password@host/
 
 ### 5.3. Working directory and HypoDD input/output files
 
-A useful option we can find in scrtdd configuration is `keepWorkingFiles`, which prevent the deletion of scrtdd processing files from the working directory (e.g. `~/seiscomp3/var/lib/rtdd/myProfile/). In this way we can access the working folder and check input, output files used for running hypodd. More importantly we can also run hypodd from the command line using the same files generated by `scrtdd` (and possible edit those) and view the console output since the hypodd log file doesn't always reports all the errors. Look at `scrtdd` logs to understand where the working directory is and how to run hypodd manually:
+A useful option we can find in scrtdd configuration is `keepWorkingFiles`, which prevent the deletion of scrtdd processing files from the working directory (e.g. `~/seiscomp3/var/lib/rtdd/myProfile/`). In this way we can access the working folder and check input, output files used for running hypodd. More importantly we can also run hypodd from the command line using the same files generated by `scrtdd` (and possible edit those) and view the console output since the hypodd log file doesn't always reports all the errors. Look at `scrtdd` logs to understand where the working directory is and how to run hypodd manually:
 
 ```
 [...]
