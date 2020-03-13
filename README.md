@@ -79,22 +79,10 @@ In the more general case in which we don't already have a background catalog, we
 Once the candidate origins have been selected, we write their seiscomp id in a file using the same format as the example above (myCatalog.csv). Once that's done, we run the command:
 
 ```
-scrtdd --dump-catalog myCatalog.csv
+scrtdd --dump-catalog myCatalog.csv [db and log options]
 ```
 
-It is usually convenient to see the logs on the console to detect possible errors. To achieve this we can add the options ```--verbosity=3 --console=1``` to the command.
-
-Depending on your configuration, the seiscomp database could be configured inside ```global.cfg```  and thus every module knows what database to use, or this option can be provided to the modules via scmaster (```scmaster.cfg```) once they connect to the messagin system. In the latter case we have to pass the database connection to scrtdd via command line option since ```--dump-catalog``` detach scrtdd from the messaging. Specifying the database connection via command line is also useful when you want to use your local seiscomp installation to access events that reside on a different host (where a seiscomp database is installed). Let's use the -d option to specify the database connection then:
-
-```
-scrtdd --dump-catalog myCatalog.csv  -d  mysql://user:password@host/seiscompDbName --verbosity=3 --console=1
-```
-
-or in case you have a Postgresql database:
-
-```
-scrtdd --dump-catalog myCatalog.csv --plugins dbpostgresql -d postgresql://user:password@host/seiscompDbName --verbosity=3 --console=1
-```
+See also the `Troubleshooting` paragraph for details on how to specify a database connection via command line and for printing the logs on the console for easy debugging.
 
 The above command will generate three files (event.csv, phase.csv and stations.csv) which contain the information needed by scrtdd to relocate the selected events. 
 
@@ -153,7 +141,7 @@ In the ```data``` folder of this project there are some hypoDD 2.1b configuratio
 Finally, when the configuration is done, we can relocate the catalog with the command:
 
 ```
-scrtdd --reloc-profile profileName --verbosity=3 --console=1
+scrtdd --reloc-profile profileName [db and log options] 
 ```
 
 scrtdd will relocated the catalog and will generate another set of files reloc-event.csv reloc-phase.csv and reloc-stations.csv, which together define a new catalog with relocated origins. At this point we should check the relocated events and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the locations. Be aware that the first time you run the command it will be very slow because the waveforms have to be downloaded from the configured recordstream (but they will be saved to disk for the next runs which will be much faster).
@@ -295,6 +283,8 @@ MultiEvents:
 
 ## 3. Real time single origin relocation
 
+## 3.1 Testing
+
 Real time relocation uses the same configuration we have seen in full catalog relocation, but real time relocation is done in two steps, each one controlled by a specific configuration.
 
 Step 1: location refinement. In this step scrtdd performs a preliminary relocation of the origin using only catalog absolute travel time entries (dt.ct only).
@@ -337,21 +327,22 @@ SingleEvent:
 If we want to process an origin we can run the following command and then check on scolv the relocated origin (the messaging system must be active). This is mostly useful when we want to relocate an origin on a running system and keep the relocation:
 
 ```
-scrtdd -O someOriginId --verbosity=3 --console=1
+scrtdd -O someOriginId [db and log options] 
 ```
 
-For testing purpose we are more likely interested in not interfere with database and messaging system so we can use the `--ep` option and save the xml to file, finally open the file with scolv for inspection:
+For testing purpose we are more likely interested in not interfere with database and messaging system so we can use the `--ep` option and the relocated origin will be sent to the output as xml file. We can finally open the xml file with scolv for inspection:
 
 ```
-scrtdd -O someOriginId --ep - --verbosity=3 --console=1 >  relocated-origin.xml
+scrtdd -O someOriginId --ep - [db and log options] >  relocated-origin.xml
 ```
 
-Alternatively the `--ep` option can process origins contained in an XML file:
+Alternatively the `--ep` option (without `-O`) can process all origins contained in the input XML file:
 
 ```
+# dump origin
 scxmldump -fPAMF -p -O originId -o origin.xml --verbosity=3  --console=1
-
-scrtdd --ep origin.xml --verbosity=3 --console=1 [db option] > relocated-origin.xml
+# relocate
+scrtdd --ep origin.xml [db and log options] > relocated-origin.xml
 ```
 
 Also, as explained in the , we can use the ```--debug-wf``` option to help debugging.
@@ -370,7 +361,7 @@ scrtdd --help
                                         into the profile working directory
 ```
 
-## 4. RecordStream configuration
+### 3.2 RecordStream configuration
 
 SeisComP3 applications access waveform data through the RecordStream interface and it is usually configured in global.cfg, for example:
 
@@ -378,17 +369,22 @@ SeisComP3 applications access waveform data through the RecordStream interface a
 recordstream = combined://slink/localhost:18000;sdsarchive//mnt/miniseed
 ```
 
-This configuration is a combination of seedlink and sds archive, which is very useful because scrtdd catalog waveforms can be retieved via sds while reat time event data can be fetched via seedlink (much faster since recent data is probably already in memory).
+This configuration is a combination of seedlink and sds archive, which is very useful because scrtdd catalog waveforms can be retrieved via sds while real-time event data can be fetched via seedlink (much faster since recent data is probably already in memory).
 
-The seedlink service can sometime delay the relocation of incoming origin due to timeouts. For this reason we suggest to pass to configuration option: timeout and retries
+Please note that seedlink service might delay the relocation of incoming origins due to timeouts. For this reason we suggest to pass to configuration option: timeout and retries
 
-e.g. Here we force a timeout of 2 seconds(default is 5 minutes) and do not try to reconnect. 
+e.g. Below we force a timeout of 2 seconds(default is 5 minutes) and do not try to reconnect (`scrtdd` will deal with what data is available. We can also configure the `cron.delayTimes` option to re-perform the relocation some minutes later in case we know more waveforms will become available later):
 
 ```
 recordstream = combined://slink/localhost:18000?timeout=2&retries=0;sdsarchive//rz_nas/miniseed
 ```
 
-## 5. Locator plugin
+### 3.3 Performance
+
+scrtdd spends most of the relocation time downloading waveforms (real-time events, the catalog waveforms are cached to disk) and the rest is shared betweeen cross-correlation and hypoDD execution. Two configuration options have a huge impact on the performance: `step2options.clustering' and `crosscorrelation.s-phase.components'. `step2options.clustering' is relevant because we can specify how many neighbouring events and how many phases we want to use, which consequently determines the number of cross-correlations to perform and the size of the input for hypodDD. `crosscorrelation.s-phase.components' defines the components we want to use in the cross-correlation of the 'S' phases. Usign the 'T' components means scrtdd has to download the additional two components to perform the projection to ZRT. 
+
+
+## 4. Locator plugin
 
 A (re)locator plugin is also avaiable in the code, which makes scrtdd available via scolv. To enable this plugin just add `rtddloc` to the list of plugins in the global configuration.
 
@@ -398,16 +394,33 @@ Please note that this plugin is not strictly required since `scrtdd` would reloc
 
 Also scolv doesn't allow to create new picks when performing a relocation, so `scrtdd` plugin disable the cross correlation on theoretical picks since those picks will not be reported on scolv.
 
-## 6. Troubleshooting
+## 5. Troubleshooting
+
+### 5.1. Logs
 
 Check log file: ~/.seiscomp/log/scrtdd.log 
 
-Alternatively, when running scrtdd from the command line use the following options:
+Alternatively, when running scrtdd from the command line use the following options to see the logs on the console:
 
 ```
-# set log level to info (3), or debug (4) and log to the console (standard output) insted of log file
---verbosity=3 --console=1
+scrtdd [some options]--verbosity=3 --console=1
 ```
+### 5.2. Database connection
+
+The seiscomp database connection can be configured either inside `global.cfg`  (and thus every module knows what database to use since they inherit global.cfg), or in `scmaster.cfg`, in which case scmaster module passes the database connection string to every module when they connect to the messagin system. Since several scrtdd command line options don't need the messaging system,  scrtdd doesn't connect to it and in those cases we have to pass the database connection string to scrtdd via command line option (Since the database is still required for the inventory).
+Also, specifying the database connection via command line is useful to use a local seiscomp installation to access events stored in another seiscomp installation. We can use the -d option to specify the database connection, e.g.
+
+```
+scrtdd [some options] -d  mysql://user:password@host/seiscompDbName
+```
+
+or in case of a Postgresql database:
+
+```
+scrtdd [some options] --plugins dbpostgresql -d postgresql://user:password@host/seiscompDbName
+``` 
+
+### 5.3. Working directory and HypoDD input/output files
 
 A useful option we can find in scrtdd configuration is `keepWorkingFiles`, which prevent the deletion of scrtdd processing files from the working directory (e.g. `~/seiscomp3/var/lib/rtdd/myProfile/). In this way we can access the working folder and check input, output files used for running hypodd. More importantly we can also run hypodd from the command line using the same files generated by `scrtdd` (and possible edit those) and view the console output since the hypodd log file doesn't always reports all the errors. Look at `scrtdd` logs to understand where the working directory is and how to run hypodd manually:
 
@@ -423,5 +436,6 @@ A useful option we can find in scrtdd configuration is `keepWorkingFiles`, which
 [...]
 ```
 
+### 5.4. HypoDD limits
 
 Finally, remember to set the Hypodd array limits (compilation time options available via *inc files) accordingly with the size of your problem. If the full catalog relocation doesn't seem to relocate at all, you might have probably hit array limits.
