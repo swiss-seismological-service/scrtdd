@@ -18,6 +18,8 @@
 #ifndef __RTDD_APPLICATIONS_CATALOG_H__
 #define __RTDD_APPLICATIONS_CATALOG_H__
 
+#include "datasrc.h"
+
 #include <seiscomp3/core/baseobject.h>
 #include <seiscomp3/datamodel/eventparameters.h>
 #include <seiscomp3/datamodel/publicobjectcache.h>
@@ -29,43 +31,6 @@
 
 namespace Seiscomp {
 namespace HDD {
-
-
-class DataSource {
-    public:
-
-        DataSource(DataModel::DatabaseQuery* query,
-                   DataModel::PublicObjectTimeSpanBuffer* cache)
-        : _query(query), _cache(cache) {}
-
-        DataSource(DataModel::EventParameters* eventParameters)
-        : _eventParameters(eventParameters) {}
-
-        DataSource(DataModel::DatabaseQuery* query,
-                   DataModel::PublicObjectTimeSpanBuffer* cache,
-                   DataModel::EventParameters* eventParameters)
-        : _query(query), _cache(cache), _eventParameters(eventParameters) {}
-
-        template <typename T>
-        typename Core::SmartPointer<T>::Impl
-        get(const std::string& publicID) {
-            return T::Cast(getObject(T::TypeInfo(), publicID));
-        }
-
-        DataModel::PublicObject* getObject(const Seiscomp::Core::RTTI& classType,
-                                           const std::string& publicID);
-
-        void loadArrivals(DataModel::Origin* org);
-
-        DataModel::Event* getParentEvent(const std::string& originID);
-
-    private:
-        DataModel::DatabaseQuery* _query;
-        DataModel::PublicObjectTimeSpanBuffer* _cache;
-        DataModel::EventParameters* _eventParameters;
-};
-
-
 
 DEFINE_SMARTPOINTER(Catalog);
 
