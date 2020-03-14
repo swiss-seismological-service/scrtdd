@@ -58,7 +58,6 @@ using namespace Seiscomp::DataModel;
 using Seiscomp::Core::stringify;
 
 
-
 namespace Seiscomp {
 
 #define NEW_OPT(var, ...) addOption(&var, __VA_ARGS__)
@@ -516,36 +515,36 @@ bool RTDD::validateParameters()
 
         prefix = string("profile.") + *it + ".step2options.crosscorrelation.p-phase.";
         try {
-            prof->ddcfg.xcorr["P"].startOffset = configGetDouble(prefix + "start");
-            prof->ddcfg.xcorr["P"].endOffset = configGetDouble(prefix + "end");
-            prof->ddcfg.xcorr["P"].maxDelay = configGetDouble(prefix + "maxDelay");
-            prof->ddcfg.xcorr["P"].minCoef = configGetDouble(prefix + "minCCCoef");
+            prof->ddcfg.xcorr[HDD::Catalog::Phase::Type::P].startOffset = configGetDouble(prefix + "start");
+            prof->ddcfg.xcorr[HDD::Catalog::Phase::Type::P].endOffset = configGetDouble(prefix + "end");
+            prof->ddcfg.xcorr[HDD::Catalog::Phase::Type::P].maxDelay = configGetDouble(prefix + "maxDelay");
+            prof->ddcfg.xcorr[HDD::Catalog::Phase::Type::P].minCoef = configGetDouble(prefix + "minCCCoef");
         } catch ( ... ) {
             SEISCOMP_ERROR("profile.%s: invalid or missing cross correlation parameters", it->c_str());
             profilesOK = false;
             continue;
         }
         try {
-            prof->ddcfg.xcorr["P"].components = configGetStrings(prefix + "components");
+            prof->ddcfg.xcorr[HDD::Catalog::Phase::Type::P].components = configGetStrings(prefix + "components");
         } catch ( ... ) {
-            prof->ddcfg.xcorr["P"].components = {"Z"};
+            prof->ddcfg.xcorr[HDD::Catalog::Phase::Type::P].components = {"Z"};
         }
 
         prefix = string("profile.") + *it + ".step2options.crosscorrelation.s-phase.";
         try {
-            prof->ddcfg.xcorr["S"].startOffset = configGetDouble(prefix + "start");
-            prof->ddcfg.xcorr["S"].endOffset = configGetDouble(prefix + "end");
-            prof->ddcfg.xcorr["S"].maxDelay = configGetDouble(prefix + "maxDelay");
-            prof->ddcfg.xcorr["S"].minCoef = configGetDouble(prefix + "minCCCoef");
+            prof->ddcfg.xcorr[HDD::Catalog::Phase::Type::S].startOffset = configGetDouble(prefix + "start");
+            prof->ddcfg.xcorr[HDD::Catalog::Phase::Type::S].endOffset = configGetDouble(prefix + "end");
+            prof->ddcfg.xcorr[HDD::Catalog::Phase::Type::S].maxDelay = configGetDouble(prefix + "maxDelay");
+            prof->ddcfg.xcorr[HDD::Catalog::Phase::Type::S].minCoef = configGetDouble(prefix + "minCCCoef");
         } catch ( ... ) {
             SEISCOMP_ERROR("profile.%s: invalid or missing cross correlation parameters", it->c_str());
             profilesOK = false;
             continue;
         }
         try {
-            prof->ddcfg.xcorr["S"].components = configGetStrings(prefix + "components");
+            prof->ddcfg.xcorr[HDD::Catalog::Phase::Type::S].components = configGetStrings(prefix + "components");
         } catch ( ... ) {
-            prof->ddcfg.xcorr["S"].components = {"T","Z"};
+            prof->ddcfg.xcorr[HDD::Catalog::Phase::Type::S].components = {"T","Z"};
         }
 
         prefix = string("profile.") + *it + ".step2options.waveformFiltering.";

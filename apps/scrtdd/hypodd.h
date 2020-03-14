@@ -19,10 +19,6 @@
 #define __RTDD_APPLICATIONS_HYPODD_H__
 
 #include <seiscomp3/core/baseobject.h>
-#include <seiscomp3/core/genericrecord.h>
-#include <seiscomp3/core/recordsequence.h>
-#include <seiscomp3/datamodel/origin.h>
-#include <seiscomp3/datamodel/utils.h>
 
 #include <set>
 #include <map>
@@ -95,9 +91,9 @@ struct Config {
         double maxDelay;    //secs
         std::vector<std::string> components; // priority list of components to use
     };
-    std::map<std::string,struct XCorr> xcorr = {
-        {"P", {}},
-        {"S", {}}
+    std::map<Catalog::Phase::Type,struct XCorr> xcorr = {
+        {Catalog::Phase::Type::P, {}},
+        {Catalog::Phase::Type::S, {}}
     };
 
     // artificial phases
@@ -188,15 +184,16 @@ class HypoDD : public Core::BaseObject {
         std::vector<Catalog::Phase> findMissingEventPhases(const CatalogCPtr& searchCatalog,
                                                            const Catalog::Event& refEv,
                                                            const CatalogPtr& refEvCatalog);
-        typedef std::pair<std::string,std::string> MissingStationPhase;
+        typedef std::pair<std::string,Catalog::Phase::Type> MissingStationPhase;
         std::vector<MissingStationPhase> getMissingPhases(const CatalogCPtr& searchCatalog,
                                                           const Catalog::Event& refEv,
                                                           const CatalogPtr& refEvCatalog) const;
         typedef std::pair<Catalog::Event, Catalog::Phase> PhasePeer;
-        std::vector<PhasePeer> findPhasePeers(const Catalog::Station& station, const std::string& phaseType,
+        std::vector<PhasePeer> findPhasePeers(const Catalog::Station& station,
+                                              const Catalog::Phase::Type& phaseType,
                                               const CatalogCPtr& searchCatalog) const;
         Catalog::Phase createThoreticalPhase(const Catalog::Station& station,
-                                             const std::string& phaseType,
+                                             const Catalog::Phase::Type& phaseType,
                                              const Catalog::Event& refEv,
                                              const std::vector<HypoDD::PhasePeer>& peers,
                                              double phaseVelocity); 
@@ -251,7 +248,8 @@ class HypoDD : public Core::BaseObject {
                 }
             };
 
-            XCorrCacheEntry& getForUpdate(unsigned evId, const std::string& stationId, const std::string& type)
+            XCorrCacheEntry& getForUpdate(unsigned evId, const std::string& stationId,
+                                          const Catalog::Phase::Type& type)
             {
                 std::string key = make_key(evId, stationId, type);
                 return resultsByPhase[key];
@@ -262,32 +260,37 @@ class HypoDD : public Core::BaseObject {
                 for ( auto& pair : resultsByPhase )  pair.second.computeStats();
             }
 
-            bool has(unsigned evId, const std::string& stationId, const std::string& type ) const
+            bool has(unsigned evId, const std::string& stationId, const Catalog::Phase::Type& type ) const
             {
                 std::string key = make_key(evId, stationId, type);
                 return resultsByPhase.count(key) != 0;
             }
 
-            const XCorrCacheEntry& get(unsigned evId, const std::string& stationId, const std::string& type ) const
+            const XCorrCacheEntry& get(unsigned evId, const std::string& stationId,
+                                       const Catalog::Phase::Type& type ) const
             {
                 std::string key = make_key(evId, stationId, type);
                 return resultsByPhase.at(key);
             }
 
-            bool has(unsigned evId1, unsigned evId2, const std::string& stationId, const std::string& type ) const
+            bool has(unsigned evId1, unsigned evId2, const std::string& stationId,
+                     const Catalog::Phase::Type& type ) const
             {
                 return has(evId1, stationId, type) && (get(evId1, stationId, type).peers.count(evId2) != 0);
             }
 
-            const XCorrCacheEntry::PeerInfo& get(unsigned evId1, unsigned evId2, const std::string& stationId, const std::string& type ) const
+            const XCorrCacheEntry::PeerInfo& get(unsigned evId1, unsigned evId2,
+                                                 const std::string& stationId,
+                                                 const Catalog::Phase::Type& type ) const
             {
                 return get(evId1, stationId, type).peers.at(evId2);
             } 
 
         private:
-            static std::string make_key(unsigned evId, const std::string& stationId, const std::string& type )
+            static std::string make_key(unsigned evId, const std::string& stationId,
+                                        const Catalog::Phase::Type& type )
             {
-                return std::to_string(evId) + "." + stationId + "." + type; 
+                return std::to_string(evId) + "." + stationId + "." + static_cast<char>(type);
             }
 
             // cache of computed xcorr

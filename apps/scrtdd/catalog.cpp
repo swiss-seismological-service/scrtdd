@@ -718,7 +718,7 @@ void Catalog::removePhase(const Phase& phase)
 }
 
 
-void Catalog::removePhase(unsigned eventId, const std::string& stationId, const string& type)
+void Catalog::removePhase(unsigned eventId, const std::string& stationId, const Phase::Type& type)
 {
     std::map<unsigned,Phase>::const_iterator it = searchPhase(eventId, stationId, type);
     if ( it != _phases.end() )
@@ -790,7 +790,7 @@ map<unsigned,Catalog::Phase>::const_iterator Catalog::searchPhase(const Phase& p
 
 map<unsigned,Catalog::Phase>::const_iterator Catalog::searchPhase(unsigned eventId,
                                                                   const std::string& stationId,
-                                                                  const string& type) const
+                                                                  const Phase::Type& type) const
 {
     auto eqlrng = _phases.equal_range(eventId);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)

@@ -155,10 +155,12 @@ class Catalog : public Core::BaseObject {
             std::string channelCode;
             bool isManual;
 
+            enum class Type : char { P='P', S='S' };
+
             enum class Source { CATALOG, RT_EVENT, THEORETICAL, XCORR };
 
             struct {
-                std::string type;
+                Type type;
                 double weight;       // 0-1 interval
                 Source source;
             } procInfo;
@@ -230,7 +232,7 @@ class Catalog : public Core::BaseObject {
         void removeEvent(const Event& event);
         void removeEvent(unsigned eventId);
         void removePhase(const Phase& phase);
-        void removePhase(unsigned eventId, const std::string& stationId, const std::string& type);
+        void removePhase(unsigned eventId, const std::string& stationId, const Phase::Type& type);
 
         bool addStation(const Station&, bool checkDuplicate);
         bool addEvent(const Event&, bool checkDuplicateValue, bool checkDuplicateId);
@@ -249,7 +251,7 @@ class Catalog : public Core::BaseObject {
         std::map<unsigned,Phase>::const_iterator searchPhase(const Phase&) const;
         std::map<unsigned,Phase>::const_iterator searchPhase(unsigned eventId, 
                                                              const std::string& stationId,
-                                                             const std::string& type) const;
+                                                             const Phase::Type& type) const;
 
         void writeToFile(std::string eventFile,
                          std::string phaseFile,
