@@ -47,11 +47,14 @@ class Catalog : public Core::BaseObject {
             std::string networkCode;
             std::string stationCode;
 
-            // this equality works between multiple catalogs (same id is not required)
+            // search by value when the Id is not known (works between multiple catalogs )
             bool operator==(const Station& other) const
             {
-             return (networkCode == other.networkCode) &&
-                    (stationCode == other.stationCode);
+                return (networkCode == other.networkCode) &&
+                        (stationCode == other.stationCode) &&
+                        (latitude == other.latitude) &&
+                        (longitude == other.longitude) &&
+                        (elevation == other.elevation);
             }
             bool operator!=(const Station& other) const
             {
@@ -88,14 +91,17 @@ class Catalog : public Core::BaseObject {
                 int numNeighbours;
             } relocInfo;
 
-            // this equality works between multiple catalogs (same id is not required)
+            // search by value when the Id is not known (works between multiple catalogs )
             bool operator==(const Event& other) const
             {
              return (time == other.time) &&
                     (latitude == other.latitude) &&
                     (longitude == other.longitude) &&
                     (depth == other.depth) &&
-                    (magnitude == other.magnitude);
+                    (magnitude == other.magnitude) &&
+                    (horiz_err == other.horiz_err) &&
+                    (vert_err == other.vert_err) &&
+                    (rms == other.rms);
             }
             bool operator!=(const Event& other) const
             {
@@ -137,12 +143,12 @@ class Catalog : public Core::BaseObject {
             } relocInfo;
 
 
-            // this equality works between multiple catalogs (same id is not required) 
+            // search by value when the Id is not known (works between multiple catalogs )
             bool operator==(const Phase& other) const
             {
-                return (eventId == other.eventId) &&
-                       (stationId == other.stationId) &&
-                       (time == other.time) &&
+                return (time == other.time) &&
+                       (lowerUncertainty == other.lowerUncertainty) &&
+                       (upperUncertainty == other.upperUncertainty) &&
                        (type == other.type) &&
                        (networkCode == other.networkCode) &&
                        (stationCode == other.stationCode) &&
@@ -199,9 +205,9 @@ class Catalog : public Core::BaseObject {
         void removePhase(const Phase& phase);
         void removePhase(unsigned eventId, const std::string& stationId, const Phase::Type& type);
 
-        bool addStation(const Station&, bool checkDuplicate);
-        bool addEvent(const Event&, bool checkDuplicateValue, bool checkDuplicateId);
-        bool addPhase(const Phase&, bool checkDuplicateValue, bool checkDuplicateId);
+        void addStation(const Station&);
+        void addEvent(const Event&);
+        void addPhase(const Phase&);
 
         bool updateStation(const Station& newStation);
         bool updateEvent(const Event& newEv);
@@ -211,12 +217,14 @@ class Catalog : public Core::BaseObject {
         const std::map<unsigned,Event>& getEvents() const { return _events;}
         const std::multimap<unsigned,Phase>& getPhases() const { return _phases;}
 
+        // search by value when the Id is not known
         std::map<std::string,Station>::const_iterator searchStation(const Station&) const;
         std::map<unsigned,Event>::const_iterator searchEvent(const Event&) const;
         std::map<unsigned,Phase>::const_iterator searchPhase(const Phase&) const;
-        std::map<unsigned,Phase>::const_iterator searchPhase(unsigned eventId, 
-                                                             const std::string& stationId,
-                                                             const Phase::Type& type) const;
+        std::map<std::string,Station>::const_iterator
+        searchStation(const std::string& networkCode, const std::string& stationCode) const;
+        std::map<unsigned,Phase>::const_iterator
+        searchPhase(unsigned eventId, const std::string& stationId, const Phase::Type& type) const;
 
         void writeToFile(std::string eventFile,
                          std::string phaseFile,
@@ -231,7 +239,7 @@ class Catalog : public Core::BaseObject {
                                              const Catalog::Phase::Source& source,
                                              const std::vector<std::string>& PphaseToKeep,
                                              const std::vector<std::string>& SphaseToKeep);
- 
+
         static DataModel::Station* findStation(const std::string& netCode,
                                                const std::string& stationCode,
                                                const Core::Time& atTime);
