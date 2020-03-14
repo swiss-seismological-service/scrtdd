@@ -225,6 +225,13 @@ class Catalog : public Core::BaseObject {
         //
         //  static
         //
+        static double computePickWeight(double uncertainty);
+        static double computePickWeight(const Catalog::Phase& phase);
+        static CatalogPtr filterPhasesAndSetWeights(const CatalogCPtr& catalog,
+                                             const Catalog::Phase::Source& source,
+                                             const std::vector<std::string>& PphaseToKeep,
+                                             const std::vector<std::string>& SphaseToKeep);
+ 
         static DataModel::Station* findStation(const std::string& netCode,
                                                const std::string& stationCode,
                                                const Core::Time& atTime);

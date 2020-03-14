@@ -155,12 +155,6 @@ class HypoDD : public Core::BaseObject {
                                 int minDTperEvt, int maxDTperEvt, int minNumNeigh, int maxNumNeigh,
                                 int numEllipsoids, double maxEllipsoidSize);
 
-        double computePickWeight(double uncertainty) const;
-        double computePickWeight(const Catalog::Phase& phase) const;
-        CatalogPtr filterPhasesAndSetWeights(const CatalogCPtr& catalog, const Catalog::Phase::Source& source,
-                                   const std::vector<std::string>& PphaseToKeep,
-                                   const std::vector<std::string>& SphaseToKeep) const;
-
         CatalogPtr selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             const Catalog::Event& refEv,
                                             const CatalogCPtr& refEvCatalog,
