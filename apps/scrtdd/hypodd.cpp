@@ -1643,9 +1643,27 @@ HypoDD::buildXCorrCache(std::map<unsigned,CatalogPtr>& neighbourCats,
 
     for (auto& kv : neighbourCats)
     {
-        unsigned evToRelocateId = kv.first;
+        unsigned refEvId = kv.first;
         CatalogPtr& neighbourCat = kv.second;
-        buildXcorrDiffTTimePairs(neighbourCat, evToRelocateId, computeTheoreticalPhases, xcorr);
+
+        const Catalog::Event& refEv = neighbourCat->getEvents().at(refEvId);
+
+        // Compute theoretical phases for stations that have no picks. The cross correlation will
+        // be used to detect and fix pick time
+        if ( computeTheoreticalPhases )
+        {
+            addMissingEventPhases(neighbourCat, refEv, neighbourCat);
+        }
+
+        buildXcorrDiffTTimePairs(neighbourCat, refEv, xcorr);
+
+        // Update theoretical and automatic phase pick time and uncertainties based on
+        // cross-correlation results
+        // drop theoretical phases without good cross correlation results
+        if ( computeTheoreticalPhases )
+        {
+            fixPhases(neighbourCat, refEv, xcorr);
+        } 
     }
 
     printCounters();
@@ -1668,27 +1686,11 @@ HypoDD::buildXCorrCache(CatalogPtr& catalog, unsigned evToRelocateId,
  * for pairs of earthquake
  */
 void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
-                                      unsigned refEvId,
-                                      bool computeTheoreticalPhases,
+                                      const Catalog::Event& refEv,
                                       XCorrCache& xcorr)
 {
-    auto search = catalog->getEvents().find(refEvId);
-    if (search == catalog->getEvents().end())
-    {
-        string msg = stringify("Cannot find event id %u in the catalog.", refEvId);
-        throw runtime_error(msg);
-    }
-    const Catalog::Event& refEv = search->second;
-
     SEISCOMP_INFO("Computing cross-correlation differential travel times for event %s",
                   string(refEv).c_str() );
-
-    // Compute theoretical phases for stations that have no picks. The cross correlation will
-    // be used to detect and fix pick time
-    if ( computeTheoreticalPhases )
-    {
-        addMissingEventPhases(catalog, refEv, catalog);
-    }
 
     // xcorr settings depending on the phase type
     // (NO snr check for theoretical phases because the pick time is likely wrong and fixed later)
@@ -1698,33 +1700,42 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
         {Catalog::Phase::Source::THEORETICAL,  {false,                nullptr,   false}}
     };
 
+    // keep track of refEv distant to stations
+    multimap<double,string> stationByDistance; // <distance, stationid>
+    set<string> computedStations;
+
     //
     // loop through reference event phases
     //
     auto eqlrngRef = catalog->getPhases().equal_range(refEv.id);
     for (auto itRef = eqlrngRef.first; itRef != eqlrngRef.second; ++itRef)
     {
-        const Catalog::Phase& refPhase = itRef->second;
+        const Phase& refPhase = itRef->second;
+
+        // save events/station distance
+        if ( computedStations.find(refPhase.stationId) == computedStations.end() )
+        {
+            const Station& station = catalog->getStations().at(refPhase.stationId);
+            double stationDistance = computeDistance(refEv, station);
+            stationByDistance.emplace(stationDistance, refPhase.stationId);
+            computedStations.insert(refPhase.stationId);
+        }
 
         //
         // loop through catalog events and cross correlate phase pairs
         //
         for (const auto& kv : catalog->getEvents() )
         {
-            const Catalog::Event& event = kv.second;
+            const Event& event = kv.second;
 
             if (event == refEv)
-                continue;
-
-            // skip xcorr if we already have cached results for this event pair at station/phase
-            if ( xcorr.has(refEv.id, event.id, refPhase.stationId, refPhase.procInfo.type) )
                 continue;
 
             auto it = catalog->searchPhase(event.id, refPhase.stationId, refPhase.procInfo.type);
 
             if ( it != catalog->getPhases().end() )
             {
-                const Catalog::Phase& phase = it->second;
+                const Phase& phase = it->second;
 
                 double coeff, lag, dtcc, weight;
                 if ( xcorrPhases(refEv, refPhase, phCfg.at(refPhase.procInfo.source),
@@ -1744,91 +1755,117 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
     // finalize statistics
     xcorr.computeStats();
 
-    //
-    // Update theoretical and automatic phase uncertainties and pick time based on cross correlation
-    // Also remove theoretical phases without good cross correlation results
-    //
-    if ( computeTheoreticalPhases )
+    // Print some useful information
+    for (const auto& kv : stationByDistance)
     {
-        std::vector<Catalog::Phase> phasesToBeRemoved;
-        std::vector<Catalog::Phase> newPhases;
-        unsigned newP = 0, newS = 0;
+        const double stationDistance = kv.first;
+        const Station& station = catalog->getStations().at(kv.second);
 
-        auto eqlrng = catalog->getPhases().equal_range(refEv.id);
-        for (auto it = eqlrng.first; it != eqlrng.second; it++)
+        bool goodPXcorr = xcorr.has(refEv.id, station.id, Phase::Type::P);
+        bool goodSXcorr = xcorr.has(refEv.id, station.id, Phase::Type::S);
+
+        if ( ! goodPXcorr && ! goodSXcorr )
         {
-            const Catalog::Phase& phase = it->second;
-            bool goodXcorr = xcorr.has(refEv.id, phase.stationId, phase.procInfo.type);
-
-            if ( ! goodXcorr )
-            {
-                SEISCOMP_INFO("xcorr: event %5s on %4s %5s phase %s - no good cross correlations pairs",
-                              string(refEv).c_str(), phase.networkCode.c_str(), phase.stationCode.c_str(), 
-                              phase.type.c_str());
-            }
-            else
-            {
-                const auto& pdata = xcorr.get(refEv.id, phase.stationId, phase.procInfo.type);
-                SEISCOMP_INFO("xcorr: event %5s on %4s %5s phase %2s - average lag %.2f correlation "
-                              "coefficient %.2f over %d close-by events (%s)",
-                              string(refEv).c_str(), phase.networkCode.c_str(), phase.stationCode.c_str(), 
-                              phase.type.c_str(), pdata.mean_lag, pdata.mean_coeff, pdata.ccCount,
-                              pdata.peersStr.c_str() );
-            }
-
-            // nothing to do if we dont't have good xcorr results of if the phase is manual
-            if ( ! goodXcorr || phase.isManual )
-            {
-                // remove thoretical phases wihtout good xcorr results
-                if ( phase.procInfo.source == Catalog::Phase::Source::THEORETICAL )
-                    phasesToBeRemoved.push_back(phase);
-                continue;
-            }
-
-            const auto& pdata = xcorr.get(refEv.id, phase.stationId, phase.procInfo.type);
-
-            //
-            // Set new phase time and uncertainty
-            //
-            Catalog::Phase newPhase(phase);
-            newPhase.time  -= Core::TimeSpan(pdata.mean_lag);
-            newPhase.lowerUncertainty = pdata.mean_lag - pdata.min_lag;
-            newPhase.upperUncertainty = pdata.max_lag - pdata.mean_lag;
-            newPhase.procInfo.weight = computePickWeight(newPhase);
-            newPhase.procInfo.source = Catalog::Phase::Source::XCORR;
-            newPhase.type = newPhase.procInfo.type + "x";
-
-            if ( phase.procInfo.source == Catalog::Phase::Source::THEORETICAL )
-            {
-                newP += newPhase.procInfo.type == "P" ? 1 : 0;
-                newS += newPhase.procInfo.type == "S" ? 1 : 0;
-            }
-
-            // remove the old phase since the new one will be added
-            phasesToBeRemoved.push_back(phase);
-            newPhases.push_back(newPhase);
+            SEISCOMP_INFO("xcorr: event %5s sta %4s %5s dist %.2f [km] - no good cross correlations pairs",
+                          string(refEv).c_str(), station.networkCode.c_str(),
+                          station.stationCode.c_str(), stationDistance);
         }
-
-        //
-        // Replace automatic/theoretical phases with xcorr detected ones
-        //
-        for (const Catalog::Phase& ph : phasesToBeRemoved)
+        else
         {
-            catalog->removePhase(ph);
+            if ( goodPXcorr )
+            {
+                const auto& pdata = xcorr.get(refEv.id, station.id, Phase::Type::P);
+                SEISCOMP_INFO("xcorr: event %5s sta %4s %5s dist %.2f [km] - "
+                          "%d P phases, mean coeff %.2f lag %.2f (events: %s)",
+                          string(refEv).c_str(), station.networkCode.c_str(),
+                          station.stationCode.c_str(), stationDistance,
+                          pdata.ccCount, pdata.mean_coeff, pdata.mean_lag,
+                          pdata.peersStr.c_str());
+            }
+            if ( goodSXcorr )
+            {
+                const auto& sdata = xcorr.get(refEv.id, station.id, Phase::Type::S);
+                SEISCOMP_INFO("xcorr: event %5s sta %4s %5s dist %.2f [km] - "
+                          "%d S phases, mean coeff %.2f lag %.2f (events: %s)",
+                          string(refEv).c_str(), station.networkCode.c_str(),
+                          station.stationCode.c_str(), stationDistance,
+                          sdata.ccCount, sdata.mean_coeff, sdata.mean_lag,
+                          sdata.peersStr.c_str() );
+            }
         }
-
-        for (Catalog::Phase& ph : newPhases)
-        {
-            catalog->addPhase(ph, false, false);
-        }
-
-        const auto& refEvPhases = catalog->getPhases().equal_range(refEv.id);
-        SEISCOMP_INFO("Event %s: created %u new phases (%u P and %u S) total phases %lu",
-                       string(refEv).c_str(), (newP+newS), newP, newS,
-                       std::distance(refEvPhases.first, refEvPhases.second));
     }
 }
- 
+
+/*
+ * Update theoretical and automatic phase pick time and uncertainties based on
+ * cross-correlation results
+ * Also remove theoretical phases without good cross correlation results
+ */
+void HypoDD::fixPhases(CatalogPtr& catalog, const Catalog::Event& refEv, XCorrCache& xcorr)
+{
+    unsigned newP = 0, newS = 0;
+
+    std::vector<Catalog::Phase> phasesToBeRemoved;
+    std::vector<Catalog::Phase> newPhases;
+
+    auto eqlrng = catalog->getPhases().equal_range(refEv.id);
+    for (auto it = eqlrng.first; it != eqlrng.second; it++)
+    {
+        const Catalog::Phase& phase = it->second;
+        bool goodXcorr = xcorr.has(refEv.id, phase.stationId, phase.procInfo.type);
+
+        // nothing to do if we dont't have good xcorr results of if the phase is manual
+        if ( ! goodXcorr || phase.isManual )
+        {
+            // remove thoretical phases wihtout good xcorr results
+            if ( phase.procInfo.source == Catalog::Phase::Source::THEORETICAL )
+                phasesToBeRemoved.push_back(phase);
+            continue;
+        }
+
+        const auto& pdata = xcorr.get(refEv.id, phase.stationId, phase.procInfo.type);
+
+        //
+        // Set new phase time and uncertainty
+        //
+        Catalog::Phase newPhase(phase);
+        newPhase.time  -= Core::TimeSpan(pdata.mean_lag);
+        newPhase.lowerUncertainty = pdata.mean_lag - pdata.min_lag;
+        newPhase.upperUncertainty = pdata.max_lag - pdata.mean_lag;
+        newPhase.procInfo.weight = computePickWeight(newPhase);
+        newPhase.procInfo.source = Catalog::Phase::Source::XCORR;
+        newPhase.type = newPhase.procInfo.type + "x";
+
+        if ( phase.procInfo.source == Catalog::Phase::Source::THEORETICAL )
+        {
+            newP += newPhase.procInfo.type == "P" ? 1 : 0;
+            newS += newPhase.procInfo.type == "S" ? 1 : 0;
+        }
+
+        // remove the old phase since the new one will be added
+        phasesToBeRemoved.push_back(phase);
+        newPhases.push_back(newPhase);
+    }
+
+    //
+    // Replace automatic/theoretical phases with xcorr detected ones
+    //
+    for (const Catalog::Phase& ph : phasesToBeRemoved)
+    {
+        catalog->removePhase(ph);
+    }
+
+    for (Catalog::Phase& ph : newPhases)
+    {
+        catalog->addPhase(ph, false, false);
+    }
+
+    const auto& refEvPhases = catalog->getPhases().equal_range(refEv.id);
+    SEISCOMP_INFO("Event %s total phases %lu, created %u new phases (%u P and %u S)",
+                   string(refEv).c_str(), std::distance(refEvPhases.first, refEvPhases.second),
+                   (newP+newS), newP, newS );
+}
+
 
 void HypoDD::printCounters()
 {

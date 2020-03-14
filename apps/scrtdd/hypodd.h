@@ -305,10 +305,10 @@ class HypoDD : public Core::BaseObject {
                                    bool computeTheoreticalPhases);
         XCorrCache buildXCorrCache(CatalogPtr& catalog, unsigned evToRelocateId,
                                    bool computeTheoreticalPhases);
-        void buildXcorrDiffTTimePairs(CatalogPtr& catalog,
-                                      unsigned evToRelocateId,
-                                      bool computeTheoreticalPhases,
+        void buildXcorrDiffTTimePairs(CatalogPtr& catalog, const Catalog::Event& refEv,
                                       XCorrCache& xcorr);
+
+        void fixPhases(CatalogPtr& catalog, const Catalog::Event& refEv, XCorrCache& xcorr);
  
         bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, PhaseXCorrCfg& phCfg1,
                          const Catalog::Event& event2, const Catalog::Phase& phase2, PhaseXCorrCfg& phCfg2,
