@@ -1260,7 +1260,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
         unsigned currEventId = kv.first;
         CatalogPtr& neighbourCat  = kv.second;
 
-        // remove from currrent catalogl the existing pairs
+        // remove from currrent catalog the existing pairs
         auto eqlrng = existingPairs.equal_range(currEventId);
         for (auto existingPair = eqlrng.first; existingPair != eqlrng.second; existingPair++)
         {
@@ -1290,9 +1290,9 @@ HypoDD::addMissingEventPhases(const CatalogCPtr& searchCatalog,
     for (Phase& ph : newPhases)
     {
         refEvCatalog->removePhase(ph.eventId, ph.stationId, ph.procInfo.type);
-        refEvCatalog->addPhase(ph, false, false);
+        refEvCatalog->addPhase(ph);
         const Station& station = searchCatalog->getStations().at(ph.stationId);
-        refEvCatalog->addStation(station, true);
+        refEvCatalog->addStation(station);
     }
 }
 
@@ -1688,8 +1688,6 @@ void HypoDD::fixPhases(CatalogPtr& catalog, const Event& refEv, XCorrCache& xcor
             newS += newPhase.procInfo.type == Phase::Type::S ? 1 : 0;
         }
 
-        // remove the old phase since the new one will be added
-        phasesToBeRemoved.push_back(phase);
         newPhases.push_back(newPhase);
     }
 
@@ -1698,12 +1696,13 @@ void HypoDD::fixPhases(CatalogPtr& catalog, const Event& refEv, XCorrCache& xcor
     //
     for (const Phase& ph : phasesToBeRemoved)
     {
-        catalog->removePhase(ph);
+        catalog->removePhase(ph.eventId, ph.stationId, ph.procInfo.type);
     }
 
     for (Phase& ph : newPhases)
     {
-        catalog->addPhase(ph, false, false);
+        catalog->removePhase(ph.eventId, ph.stationId, ph.procInfo.type);
+        catalog->addPhase(ph);
     }
 
     const auto& refEvPhases = catalog->getPhases().equal_range(refEv.id);

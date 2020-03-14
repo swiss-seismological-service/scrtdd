@@ -47,7 +47,6 @@ using Seiscomp::Core::stringify;
 
 namespace {
 
-
 template <class Map, class Val> typename Map::iterator
 searchByValue(Map & SearchMap, const Val & SearchVal)
 {
@@ -374,15 +373,7 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
 
         SEISCOMP_DEBUG("Adding origin '%s' to the catalog", org->publicID().c_str());
 
-        // make sure we didn't ger duplicated events
-        if ( this->searchEvent(ev) != _events.end())
-        {
-            SEISCOMP_WARNING("Skipping duplicated origin %s (%s)",
-                             org->publicID().c_str(), string(ev).c_str());
-            continue;
-        }
-
-        this->addEvent(ev, false, false);
+        this->addEvent(ev);
         Event& newEvent = searchByValue(this->_events, ev)->second;  // fetch the id
 
         // Add Phases
@@ -416,7 +407,7 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
             } catch ( Core::ValueException& ) { }
 
             // add station if not already there
-            if (searchStation(sta) == _stations.end())
+            if ( searchStation(sta.networkCode, sta.stationCode) == _stations.end() )
             {
                 DataModel::Station* orgArrStation = findStation(sta.networkCode, sta.stationCode,
                                                                 pick->time());
@@ -431,10 +422,10 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
                 sta.latitude = orgArrStation->latitude();
                 sta.longitude = orgArrStation->longitude();
                 sta.elevation = orgArrStation->elevation(); // meter
-                this->addStation(sta, false);
+                this->addStation(sta);
             }
             // the station has to be there at this point
-            sta = this->searchStation(sta)->second;
+            sta = searchStation(sta.networkCode, sta.stationCode)->second;
 
             // get uncertainty
             pair<double,double> uncertainty = getPickUncertainty(pick.get());
@@ -451,7 +442,7 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
             ph.locationCode     = pick->waveformID().locationCode();
             ph.channelCode      = pick->waveformID().channelCode();
             ph.isManual         = (pick->evaluationMode() == Seiscomp::DataModel::MANUAL);
-            this->addPhase(ph, true, false);
+            this->addPhase(ph);
         }
     }
 }
@@ -537,7 +528,7 @@ CatalogPtr Catalog::extractEvent(unsigned eventId, bool keepEvId) const
     }
     else
     {
-        eventToExtract->addEvent(event, false, false);
+        eventToExtract->addEvent(event);
         newEventId = eventToExtract->searchEvent(event)->first;
     }
 
@@ -546,19 +537,11 @@ CatalogPtr Catalog::extractEvent(unsigned eventId, bool keepEvId) const
     {
         Catalog::Phase phase = it->second;
 
-        auto search = this->getStations().find(phase.stationId);
-        if (search == this->getStations().end())
-        {
-            string msg = stringify("Malformed catalog: cannot find station '%s' "
-                                   " referenced by phase '%s' for event '%s'",
-                                   phase.stationId.c_str(), string(phase).c_str(), string(event).c_str());
-            throw runtime_error(msg);
-        }
-        const Catalog::Station& station = search->second;
-        eventToExtract->addStation(station, true);
+        const Catalog::Station& station = _stations.at(phase.stationId);
+        eventToExtract->addStation(station);
 
         phase.eventId = newEventId;
-        eventToExtract->addPhase(phase, false, false);
+        eventToExtract->addPhase(phase);
     } 
 
     return eventToExtract;
@@ -582,7 +565,7 @@ unsigned Catalog::add(unsigned evId, const Catalog& evCat, bool keepEvId)
     else
     {
         // don't add an event with same values, but keep merging phases
-        addEvent(event, false, false);
+        addEvent(event);
         newEventId = searchEvent(event)->first;
     }
 
@@ -592,10 +575,10 @@ unsigned Catalog::add(unsigned evId, const Catalog& evCat, bool keepEvId)
         Catalog::Phase phase = it->second;
 
         const Catalog::Station& station = evCat._stations.at(phase.stationId); 
-        addStation(station, true);
+        addStation(station);
 
         phase.eventId = newEventId;
-        addPhase(phase, false, false);
+        addPhase(phase);
     }
 
     return newEventId;
@@ -707,9 +690,16 @@ map<unsigned,Catalog::Phase>::const_iterator Catalog::searchPhase(const Phase& p
 }
 
 
-map<unsigned,Catalog::Phase>::const_iterator Catalog::searchPhase(unsigned eventId,
-                                                                  const std::string& stationId,
-                                                                  const Phase::Type& type) const
+std::map<std::string,Catalog::Station>::const_iterator 
+Catalog::searchStation(const std::string& networkCode, const std::string& stationCode) const
+{
+    string stationId = networkCode + "." + stationCode;
+    return _stations.find(stationId);
+}
+
+
+map<unsigned,Catalog::Phase>::const_iterator
+Catalog::searchPhase(unsigned eventId, const std::string& stationId, const Phase::Type& type) const
 {
     auto eqlrng = _phases.equal_range(eventId);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
@@ -722,60 +712,29 @@ map<unsigned,Catalog::Phase>::const_iterator Catalog::searchPhase(unsigned event
 }
 
 
-bool Catalog::addStation(const Station& station, bool checkDuplicate)
+void Catalog::addStation(const Station& station)
 {
-    if ( checkDuplicate && _stations.find(station.id) != _stations.end() )
+    if ( searchStation(station.networkCode, station.stationCode) == _stations.end() )
     {
-        return false;
+        Station newStation = station;
+        newStation.id = newStation.networkCode + "." + newStation.stationCode;
+        _stations[newStation.id] = newStation;
     }
-
-    Station newStation = station;
-    newStation.id = newStation.networkCode + newStation.stationCode;
-    _stations[newStation.id] = newStation;
-    return true;
 }
 
 
-bool Catalog::addEvent(const Event& event, bool checkDuplicateValue, bool checkDuplicateId)
+void Catalog::addEvent(const Event& event)
 {
-    if ( checkDuplicateValue && searchEvent(event) != _events.end() )
-    {
-        return false;
-    }
-
-    if ( checkDuplicateId && _events.find(event.id) != _events.end() )
-    {
-        return false;
-    }
-
     decltype(_events)::key_type maxKey = _events.empty() ? 0 : _events.rbegin()->first;
     Event newEvent = event;
     newEvent.id = maxKey + 1;
     _events[newEvent.id] = newEvent;
-    return true;
 }
 
 
-bool Catalog::addPhase(const Phase& phase, bool checkDuplicateValue, bool checkDuplicateId)
+void Catalog::addPhase(const Phase& phase)
 {
-    if ( checkDuplicateValue && searchPhase(phase) != _phases.end() )
-    {
-        return false;
-    }
-
-    if ( checkDuplicateId )
-    {
-        auto eqlrng = _phases.equal_range(phase.eventId);
-        for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-        {
-            const Catalog::Phase& currPh = it->second;
-            if ( phase.stationId == currPh.stationId )
-                return false;
-        }
-    }
-
     _phases.emplace(phase.eventId, phase);
-    return true;
 }
 
 void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile) const
