@@ -507,8 +507,8 @@ double HypoDD::computePickWeight(const Catalog::Phase& phase) const
 
 /*
  * Build a catalog with requested phases only and for the same event/station pair
- * make sure to have only one phase. If multiple phases are found, keep the first
- * one arrived
+ * make sure to have only one phase. If multiple phases are found, keep the highest
+ * priority one
  */
 CatalogPtr HypoDD::filterPhasesAndSetWeights(const CatalogCPtr& catalog, const Catalog::Phase::Source& source,
                                              const std::vector<std::string>& PphaseToKeep,
@@ -939,95 +939,88 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
         throw runtime_error(msg);
     }
 
-    CatalogPtr relocatedEvCat;
-    try
+    // extract event to relocate
+    Catalog::Event evToRelocate = evToRelocateCat->getEvents().begin()->second;
+
+    //
+    // Select neighbouring events
+    //
+    int numNeighbours;
+    bool keepUnmatchedPhases = doXcorr; //useful for detecting missed picks
+
+    CatalogPtr neighbourCat = selectNeighbouringEvents(
+        _ddbgc, evToRelocate, evToRelocateCat, minPhaseWeight, minESdist,  maxESdist,
+        minEStoIEratio, minDTperEvt,  maxDTperEvt, minNumNeigh, maxNumNeigh,
+        numEllipsoids, maxEllipsoidSize, keepUnmatchedPhases, &numNeighbours
+    );
+
+    // add event to the neighbours
+    unsigned evToRelocateNewId = neighbourCat->add(evToRelocate.id, *evToRelocateCat, false);
+
+    // add numNeighbours information computed by selectNeighbouringEvents
+    evToRelocate = neighbourCat->getEvents().at(evToRelocateNewId);
+    evToRelocate.relocInfo.numNeighbours = numNeighbours;
+    neighbourCat->updateEvent(evToRelocate);
+
+    // write catalog for debugging purpose
+    if ( ! _workingDirCleanup )
     {
-        // extract event to relocate
-        Catalog::Event evToRelocate = evToRelocateCat->getEvents().begin()->second;
+        neighbourCat->writeToFile(
+            (boost::filesystem::path(workingDir)/"starting-event.csv").string(),
+            (boost::filesystem::path(workingDir)/"starting-phase.csv").string(),
+            (boost::filesystem::path(workingDir)/"starting-station.csv").string());
+    }
 
-        //
-        // Select neighbouring events
-        //
-        int numNeighbours;
-        bool keepUnmatchedPhases = doXcorr; //useful for detecting missed picks
+    // Create station.dat for hypodd
+    string stationFile = (boost::filesystem::path(workingDir)/"station.dat").string();
+    createStationDatFile(neighbourCat, stationFile);
 
-        CatalogPtr neighbourCat = selectNeighbouringEvents(
-            _ddbgc, evToRelocate, evToRelocateCat, minPhaseWeight, minESdist,  maxESdist,
-            minEStoIEratio, minDTperEvt,  maxDTperEvt, minNumNeigh, maxNumNeigh,
-            numEllipsoids, maxEllipsoidSize, keepUnmatchedPhases, &numNeighbours
-        );
+    // Create event.dat for hypodd
+    string eventFile = (boost::filesystem::path(workingDir)/"event.dat").string();
+    createEventDatFile(neighbourCat, eventFile); 
 
-        // add event to the neighbours
-        unsigned evToRelocateNewId = neighbourCat->add(evToRelocate.id, *evToRelocateCat, false);
+    // Create cross correlated differential travel times file (dt.cc) for hypodd
+    string dtccFile = (boost::filesystem::path(workingDir)/"dt.cc").string();
+    if ( doXcorr )
+    {
+        // Perform cross correlation, which also detects picks around theoretical
+        // arrival times. The catalog will be updated with those theoretical phases 
+        const XCorrCache xcorr = buildXCorrCache(neighbourCat, evToRelocateNewId, computeTheoreticalPhases);
+        createDtCc(neighbourCat, evToRelocateNewId, dtccFile, xcorr);
+    }
+    else
+    {
+        // Create an empty cross correlated differential travel times file (dt.cc) for hypodd
+        ofstream(dtccFile).close();
+    }
 
-        // add numNeighbours information computed by selectNeighbouringEvents
-        evToRelocate = neighbourCat->getEvents().at(evToRelocateNewId);
-        evToRelocate.relocInfo.numNeighbours = numNeighbours;
-        neighbourCat->updateEvent(evToRelocate);
+    // Create differential travel times file (dt.ct) for hypodd
+    string dtctFile = (boost::filesystem::path(workingDir)/"dt.ct").string();
+    createDtCt(neighbourCat, evToRelocateNewId, dtctFile);
 
-        // write catalog for debugging purpose
-        if ( ! _workingDirCleanup )
-        {
-            neighbourCat->writeToFile(
-                (boost::filesystem::path(workingDir)/"starting-event.csv").string(),
-                (boost::filesystem::path(workingDir)/"starting-phase.csv").string(),
-                (boost::filesystem::path(workingDir)/"starting-station.csv").string());
-        }
+    // run hypodd
+    // input : dt.cc dt.ct event.sel station.sel hypoDD.inp
+    // output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
+    runHypodd(workingDir, dtccFile, dtctFile, eventFile, stationFile, hypoddCtrlFile);
 
-        // Create station.dat for hypodd
-        string stationFile = (boost::filesystem::path(workingDir)/"station.dat").string();
-        createStationDatFile(neighbourCat, stationFile);
+    // Load the relocated origin from Hypodd
+    string ddrelocFile = (boost::filesystem::path(workingDir)/"hypoDD.reloc").string();
+    string ddresidualFile = (boost::filesystem::path(workingDir)/"hypoDD.res").string();
+    CatalogPtr relocatedCatalog = loadRelocatedCatalog(neighbourCat, ddrelocFile, ddresidualFile);
+    CatalogPtr relocatedEvCat = relocatedCatalog->extractEvent(evToRelocateNewId, true);
 
-        // Create event.dat for hypodd
-        string eventFile = (boost::filesystem::path(workingDir)/"event.dat").string();
-        createEventDatFile(neighbourCat, eventFile); 
+    // sometimes hypoDD.reloc file is there but it doesn't contain the relocated event 
+    Catalog::Event firstAndOnlyEv = relocatedEvCat->getEvents().begin()->second;
+    if ( ! firstAndOnlyEv.relocInfo.isRelocated )
+        relocatedEvCat.reset();
 
-        // Create cross correlated differential travel times file (dt.cc) for hypodd
-        string dtccFile = (boost::filesystem::path(workingDir)/"dt.cc").string();
-        if ( doXcorr )
-        {
-            // Perform cross correlation, which also detects picks around theoretical
-            // arrival times. The catalog will be updated with those theoretical phases 
-            const XCorrCache xcorr = buildXCorrCache(neighbourCat, evToRelocateNewId, computeTheoreticalPhases);
-            createDtCc(neighbourCat, evToRelocateNewId, dtccFile, xcorr);
-        }
-        else
-        {
-            // Create an empty cross correlated differential travel times file (dt.cc) for hypodd
-            ofstream(dtccFile).close();
-        }
-
-        // Create differential travel times file (dt.ct) for hypodd
-        string dtctFile = (boost::filesystem::path(workingDir)/"dt.ct").string();
-        createDtCt(neighbourCat, evToRelocateNewId, dtctFile);
-
-        // run hypodd
-        // input : dt.cc dt.ct event.sel station.sel hypoDD.inp
-        // output : hypoDD.loc hypoDD.reloc hypoDD.sta hypoDD.res hypoDD.src
-        runHypodd(workingDir, dtccFile, dtctFile, eventFile, stationFile, hypoddCtrlFile);
-
-        // Load the relocated origin from Hypodd
-        string ddrelocFile = (boost::filesystem::path(workingDir)/"hypoDD.reloc").string();
-        string ddresidualFile = (boost::filesystem::path(workingDir)/"hypoDD.res").string();
-        CatalogPtr relocatedCatalog = loadRelocatedCatalog(neighbourCat, ddrelocFile, ddresidualFile);
-        relocatedEvCat = relocatedCatalog->extractEvent(evToRelocateNewId, true);
-
-        // sometimes hypoDD.reloc file is there but it doesn't contain the relocated event 
-        Catalog::Event firstAndOnlyEv = relocatedEvCat->getEvents().begin()->second;
-        if ( ! firstAndOnlyEv.relocInfo.isRelocated )
-            relocatedEvCat.reset();
-
-        // write catalog for debugging purpose
-        if ( ! _workingDirCleanup )
-        {
-            relocatedCatalog->writeToFile(
-                (boost::filesystem::path(workingDir)/"relocated-event.csv").string(),
-                (boost::filesystem::path(workingDir)/"relocated-phase.csv").string(),
-                (boost::filesystem::path(workingDir)/"relocated-station.csv").string());
-        }
-
-    } catch ( exception &e ) {
-        SEISCOMP_ERROR("%s", e.what());
+    // write catalog for debugging purpose
+    if ( ! _workingDirCleanup )
+    {
+        relocatedCatalog->writeToFile(
+            (boost::filesystem::path(workingDir)/"relocated-event.csv").string(),
+            (boost::filesystem::path(workingDir)/"relocated-phase.csv").string(),
+            (boost::filesystem::path(workingDir)/"relocated-station.csv").string());
     }
 
     return relocatedEvCat;
@@ -1644,8 +1637,6 @@ HypoDD::XCorrCache
 HypoDD::buildXCorrCache(std::map<unsigned,CatalogPtr>& neighbourCats,
                        bool computeTheoreticalPhases)
 {
-    SEISCOMP_INFO("Computing cross-correlation differential travel time file");
-
     XCorrCache xcorr;
     _counters = {0};
     _wf->resetCounters();
@@ -1673,14 +1664,8 @@ HypoDD::buildXCorrCache(CatalogPtr& catalog, unsigned evToRelocateId,
 
 
 /*
- * Compute and store to file differential travel times from cross
- * correlation for pairs of earthquakes.
- *
- * Each event pair is listed by a header line (in free format)
- * #, ID1, ID2, OTC
- * followed by lines with observations (in free format):
- * STA, DT, WGHT, PHA
- *
+ * Compute and store to XCorrCache cross-correlated differential travel times
+ * for pairs of earthquake
  */
 void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                                       unsigned refEvId,
@@ -1694,6 +1679,9 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
         throw runtime_error(msg);
     }
     const Catalog::Event& refEv = search->second;
+
+    SEISCOMP_INFO("Computing cross-correlation differential travel times for event %s",
+                  string(refEv).c_str() );
 
     // Compute theoretical phases for stations that have no picks. The cross correlation will
     // be used to detect and fix pick time
