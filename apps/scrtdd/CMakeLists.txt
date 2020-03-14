@@ -7,6 +7,7 @@ SET(RTDD_SOURCES
 		hypodd.cpp
 		wfmngr.cpp
 		catalog.cpp
+		datasrc.cpp
 		csvreader.cpp
 )
 
