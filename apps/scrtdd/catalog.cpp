@@ -693,7 +693,7 @@ map<unsigned,Catalog::Phase>::const_iterator Catalog::searchPhase(const Phase& p
 std::map<std::string,Catalog::Station>::const_iterator 
 Catalog::searchStation(const std::string& networkCode, const std::string& stationCode) const
 {
-    string stationId = networkCode + "." + stationCode;
+    string stationId = networkCode + stationCode;
     return _stations.find(stationId);
 }
 
@@ -717,7 +717,7 @@ void Catalog::addStation(const Station& station)
     if ( searchStation(station.networkCode, station.stationCode) == _stations.end() )
     {
         Station newStation = station;
-        newStation.id = newStation.networkCode + "." + newStation.stationCode;
+        newStation.id = newStation.networkCode + newStation.stationCode;
         _stations[newStation.id] = newStation;
     }
 }
