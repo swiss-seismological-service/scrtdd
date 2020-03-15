@@ -357,23 +357,10 @@ HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& work
     }
 
     _wfDebugDir = (boost::filesystem::path(_workingDir)/"wfdebug").string();
-    if ( _waveformDebug )
-    {
-        if ( ! Util::pathExists(_wfDebugDir) )
-        {
-            if ( ! Util::createPath(_wfDebugDir) )
-            {
-                string msg = "Unable to create waveform debug directory: " + _wfDebugDir;
-                throw runtime_error(msg);
-            }
-        }
-    }
 
     _wf = new WfMngr(_cfg.step2Clustering.recordStreamURL, _cacheDir, _wfDebugDir);
     _wf->setProcessing(_cfg.wfFilter.filterStr, _cfg.wfFilter.resampleFreq);
     _wf->setSnr(_cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd);
-    _wf->setWaveformDebug(_waveformDebug);
-
 
     setUseCatalogDiskCache(true);
     setWaveformCacheAll(false);
