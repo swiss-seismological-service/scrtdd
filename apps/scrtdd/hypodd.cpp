@@ -1481,7 +1481,7 @@ HypoDD::createThoreticalPhase(const Station& station,
     refEvNewPhase.upperUncertainty = Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
     refEvNewPhase.procInfo.weight = Catalog::computePickWeight(refEvNewPhase);
     refEvNewPhase.procInfo.source = Phase::Source::THEORETICAL;
-    refEvNewPhase.type = static_cast<char>(phaseType) + "t";
+    refEvNewPhase.type = stringify("%ct", static_cast<char>(phaseType));
 
     return refEvNewPhase;
 }
@@ -1688,7 +1688,7 @@ void HypoDD::fixPhases(CatalogPtr& catalog, const Event& refEv, XCorrCache& xcor
         newPhase.upperUncertainty = pdata.max_lag - pdata.mean_lag;
         newPhase.procInfo.weight = Catalog::computePickWeight(newPhase);
         newPhase.procInfo.source = Phase::Source::XCORR;
-        newPhase.type = static_cast<char>(newPhase.procInfo.type) + "x";
+        newPhase.type = stringify("%cx", static_cast<char>(newPhase.procInfo.type));
 
         if ( phase.procInfo.source == Phase::Source::THEORETICAL )
         {
@@ -2818,6 +2818,11 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
             {"3",Phase::Type::P},
             {"4",Phase::Type::S} };
 
+        auto make_key = [](unsigned evid, const string& staid, const Phase::Type& type) {
+            return stringify("%s+%s+%c", to_string(evid).c_str(), staid.c_str(),
+                             static_cast<char>(type) );
+            };
+
         ifstream in(ddresidualFile);
         while (!in.eof())
         {
@@ -2849,13 +2854,13 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
             double residual = std::stod(fields[6]) / 1000.; //ms -> s
             double finalWeight = std::stod(fields[7]);
 
-            string key1 = to_string(ev1Id) + "+" + stationId + "+" + static_cast<char>(dataType);
+            string key1 = make_key(ev1Id, stationId, dataType);
             struct residual& info1 = resInfos[key1];
             info1.residuals += residual;
             info1.weights += finalWeight;
             info1.count++;
 
-            string key2 = to_string(ev2Id) + "+" + stationId + "+" + static_cast<char>(dataType);
+            string key2 = make_key(ev2Id, stationId, dataType); 
             struct residual& info2 = resInfos[key2];
             info2.residuals += residual;
             info2.weights += finalWeight;
@@ -2865,7 +2870,7 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
         for (auto& pair : phases)
         {
             Phase &phase = pair.second;
-            string key = to_string(phase.eventId) + "+" + phase.stationId + "+" + static_cast<char>(phase.procInfo.type);
+            string key = make_key(phase.eventId, phase.stationId, phase.procInfo.type);
             if ( resInfos.find(key) != resInfos.end() )
             {
                 struct residual& info = resInfos[key];
