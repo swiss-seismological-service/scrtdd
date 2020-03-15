@@ -104,7 +104,6 @@ struct Config {
     struct {
         std::string filterStr = "";
         double resampleFreq = 0;
-        bool dump = false;
     } wfFilter;
 
     struct {
@@ -140,6 +139,12 @@ class HypoDD : public Core::BaseObject {
 
         void setUseCatalogDiskCache(bool cache) { _useCatalogDiskCache = cache; }
         bool useCatalogDiskCache() { return _useCatalogDiskCache; }
+
+        void setWaveformCacheAll(bool all) { _waveformCacheAll = all; }
+        bool waveformCacheAll() { return _waveformCacheAll; }
+
+        void setWaveformDebug(bool debug);
+        bool waveformDebug() { return _waveformDebug; }
 
         static std::string relocationReport(const CatalogCPtr& relocatedEv);
 
@@ -365,8 +370,10 @@ class HypoDD : public Core::BaseObject {
         const Config _cfg;
 
         WfMngrPtr  _wf;
-        bool _useCatalogDiskCache = false;
         WfMngr::WfCache _wfCache;
+        bool _useCatalogDiskCache;
+        bool _waveformCacheAll;
+        bool _waveformDebug;
 
         struct {
             unsigned xcorr_performed;
