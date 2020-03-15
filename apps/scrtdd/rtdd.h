@@ -122,6 +122,8 @@ class RTDD : public Application {
             bool        allowManualOrigin;
             int         profileTimeAlive; //seconds
             bool        cacheWaveforms;
+            bool        cacheAllWaveforms;
+            bool        debugWaveforms;
 
             // Mode
             bool        forceProcessing;
@@ -153,6 +155,8 @@ class RTDD : public Application {
                       const std::string& workingDir,
                       bool cleanupWorkingDir,
                       bool cacheWaveforms,
+                      bool cacheAllWaveforms,
+                      bool debugWaveforms,
                       bool preloadData);
             void unload();
             bool isLoaded() { return loaded; }

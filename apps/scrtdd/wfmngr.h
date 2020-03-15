@@ -42,7 +42,7 @@ class WfMngr : public Core::BaseObject {
         WfMngr(const std::string& recordStreamURL, const std::string& cacheDir, const std::string& wfDebugDir);
         virtual ~WfMngr() { }
 
-        void setWfebug(bool dump ) { _dump = dump; }
+        void setWaveformDebug(bool dump ) { _dump = dump; }
 
         void setSnr(double minSnr, double noiseStart, double noiseEnd, double signalStart, double signalEnd)
         {

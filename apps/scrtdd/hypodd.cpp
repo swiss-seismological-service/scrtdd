@@ -357,7 +357,7 @@ HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& work
     }
 
     _wfDebugDir = (boost::filesystem::path(_workingDir)/"wfdebug").string();
-    if ( _cfg.wfFilter.dump )
+    if ( _waveformDebug )
     {
         if ( ! Util::pathExists(_wfDebugDir) )
         {
@@ -368,13 +368,17 @@ HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& work
             }
         }
     }
-    
+
     _wf = new WfMngr(_cfg.step2Clustering.recordStreamURL, _cacheDir, _wfDebugDir);
     _wf->setProcessing(_cfg.wfFilter.filterStr, _cfg.wfFilter.resampleFreq);
     _wf->setSnr(_cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd);
-    _wf->setWfebug(_cfg.wfFilter.dump);
-}
+    _wf->setWaveformDebug(_waveformDebug);
 
+
+    setUseCatalogDiskCache(true);
+    setWaveformCacheAll(false);
+    setWaveformDebug(false);
+}
 
 
 HypoDD::~HypoDD()
@@ -405,6 +409,24 @@ void HypoDD::setCatalog(const CatalogCPtr& catalog)
                                                 _cfg.validPphases, _cfg.validSphases);
 }
 
+
+void HypoDD::setWaveformDebug(bool debug)
+{
+    _waveformDebug = debug;
+    if ( _waveformDebug )
+    {
+        if ( ! Util::pathExists(_wfDebugDir) )
+        {
+            if ( ! Util::createPath(_wfDebugDir) )
+            {
+                string msg = "Unable to create waveform debug directory: " + _wfDebugDir;
+                throw runtime_error(msg);
+            }
+        }
+    }
+
+    _wf->setWaveformDebug(_waveformDebug);
+}
 
 
 // Creates dir name from event. This id has the following format:
@@ -1548,10 +1570,10 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
 
     // xcorr settings depending on the phase type
     // (NO snr check for theoretical phases because the pick time is likely wrong and fixed later)
-    map<Catalog::Phase::Source, PhaseXCorrCfg> phCfg = {
-        {Catalog::Phase::Source::CATALOG,      {_useCatalogDiskCache, &_wfCache, true }},
-        {Catalog::Phase::Source::RT_EVENT,     {false,                nullptr,   true }},
-        {Catalog::Phase::Source::THEORETICAL,  {false,                nullptr,   false}}
+    map<Phase::Source, PhaseXCorrCfg> phCfg = {
+        {Phase::Source::CATALOG,      {_useCatalogDiskCache, &_wfCache, true }},
+        {Phase::Source::RT_EVENT,     {_waveformCacheAll,    nullptr,   true }},
+        {Phase::Source::THEORETICAL,  {_waveformCacheAll,    nullptr,   false}}
     };
 
     // keep track of refEv distant to stations

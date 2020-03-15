@@ -232,6 +232,8 @@ RTDD::Config::Config()
     allowManualOrigin = false;
     profileTimeAlive = -1;
     cacheWaveforms = false;
+    cacheAllWaveforms = false;
+    debugWaveforms = false;
 
     forceProcessing = false;
     testMode = false;
@@ -283,6 +285,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
                 "Load catalog waveforms from the configured recordstream and save them into the profile working directory", true);
     NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf", "Enable the saving of processed waveforms (filtered/resampled, SNR rejected, ZRT projected, etc) into the profile working directory", false, true);
+    NEW_OPT_CLI(_config.cacheAllWaveforms, "Mode", "debug-wf-cache", "All waveforms will be saved to disk cache, this is useful to speed up debugging/testing. Normally only catalog phase waveforms are stored to disk", false, true); 
     NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
                 "Time span in hours after which objects expire", true);
 
@@ -556,7 +559,6 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.wfFilter.resampleFreq = configGetDouble(prefix + "resampling");
         } catch ( ... ) { prof->ddcfg.wfFilter.resampleFreq = 0.; }
-        prof->ddcfg.wfFilter.dump = _config.dumpWaveforms;
 
         prefix = string("profile.") + *it + ".step2options.snr.";
         try {
@@ -684,7 +686,7 @@ bool RTDD::run()
             {
                 profile->load(query(), &_cache, _eventParameters.get(),
                               _config.workingDirectory, !_config.keepWorkingFiles,
-                              true, true);
+                              true, _config.cacheAllWaveforms, _config.dumpWaveforms, true);
                 profile->unload();
                 break;
             }
@@ -792,7 +794,8 @@ bool RTDD::run()
             {
                 profile->load(query(), &_cache, _eventParameters.get(),
                               _config.workingDirectory, !_config.keepWorkingFiles,
-                              _config.cacheWaveforms, false);
+                              _config.cacheWaveforms, _config.cacheAllWaveforms, 
+                              _config.dumpWaveforms, false);
                 try {
                     HDD::CatalogPtr relocatedCat = profile->relocateCatalog(overwrite_files);
                     relocatedCat->writeToFile("reloc-event.csv","reloc-phase.csv","reloc-station.csv");
@@ -1034,7 +1037,8 @@ void RTDD::checkProfileStatus()
             {
                 currProfile->load(query(), &_cache, _eventParameters.get(),
                                   _config.workingDirectory, !_config.keepWorkingFiles,
-                                  _config.cacheWaveforms, true);
+                                  _config.cacheWaveforms, _config.cacheAllWaveforms,
+                                  _config.dumpWaveforms, true);
             }
         }
         else  // periodic clean up of profiles
@@ -1374,7 +1378,8 @@ void RTDD::relocateOrigin(DataModel::Origin *org, ProfilePtr profile,
 {
     profile->load(query(), &_cache, _eventParameters.get(),
                   _config.workingDirectory, !_config.keepWorkingFiles,
-                  _config.cacheWaveforms, false);
+                  _config.cacheWaveforms, _config.cacheAllWaveforms,
+                  _config.dumpWaveforms, false);
     HDD::CatalogPtr relocatedOrg = profile->relocateSingleEvent(org);
     convertOrigin(relocatedOrg, profile, org, newOrg, newOrgPicks);
 }
@@ -1815,6 +1820,8 @@ void RTDD::Profile::load(DatabaseQuery* query,
                          const string& workingDir,
                          bool cleanupWorkingDir,
                          bool cacheWaveforms,
+                         bool cacheAllWaveforms,
+                         bool debugWaveforms,
                          bool preloadData)
 {
     if ( loaded ) return;
@@ -1843,6 +1850,8 @@ void RTDD::Profile::load(DatabaseQuery* query,
     hypodd = new HDD::HypoDD(ddbgc, ddcfg, pWorkingDir);
     hypodd->setWorkingDirCleanup(cleanupWorkingDir);
     hypodd->setUseCatalogDiskCache(cacheWaveforms);
+    hypodd->setWaveformCacheAll(cacheAllWaveforms);
+    hypodd->setWaveformDebug(debugWaveforms);
     loaded = true;
     lastUsage = Core::Time::GMT();
 
