@@ -716,43 +716,12 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     else
     {
         SEISCOMP_ERROR("Failed to perform step 1 origin relocation");
-
-        if (  _cfg.artificialPhases.enable )
-        {
-            //
-            // Alternative Step 1: since step 1 failed we don't have a refined location and thus we won't
-            // get good theoretical picks estimate. So let's try to refine location using cross correlation
-            // before trying to create artificial phases
-            //
-            SEISCOMP_INFO("Performing alternative step 1: initial location refinement (with cross correlation)");
-
-            eventWorkingDir = (boost::filesystem::path(subFolder)/"step1-xcorr").string();
-
-            relocatedEvCat  = relocateEventSingleStep(
-                    evToRelocateCat, eventWorkingDir, true, false,  _cfg.hypodd.step2CtrlFile, _cfg.step2Clustering.minWeight,
-                    _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist, _cfg.step2Clustering.minEStoIEratio,
-                    _cfg.step2Clustering.minDTperEvt, _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh,
-                    _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids, _cfg.step2Clustering.maxEllipsoidSize
-            );
-
-            if ( relocatedEvCat )
-            {
-                SEISCOMP_INFO("Alternative step 1 relocation successful");
-                SEISCOMP_INFO("%s", relocationReport(relocatedEvCat).c_str() );
-
-                evToRelocateCat = relocatedEvCat;
-            }
-            else
-            {
-                SEISCOMP_ERROR("Failed to perform alternative step 1 origin relocation");
-            }
-        }
     }
 
     //
     // Step 2: relocate the refined location this time with cross correlation
     //
-    SEISCOMP_INFO("Performing step 2: relocation with cross correlation (with theoretical phases)");
+    SEISCOMP_INFO("Performing step 2: relocation with cross correlation");
 
     eventWorkingDir = (boost::filesystem::path(subFolder)/"step2").string();
 
