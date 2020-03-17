@@ -1528,8 +1528,8 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
     // (NO snr check for theoretical phases because the pick time is likely wrong and fixed later)
     map<Phase::Source, PhaseXCorrCfg> phCfg = {
         {Phase::Source::CATALOG,      {_useCatalogDiskCache, &_wfCache, true }},
-        {Phase::Source::RT_EVENT,     {_waveformCacheAll,    nullptr,   true }},
-        {Phase::Source::THEORETICAL,  {_waveformCacheAll,    nullptr,   false}}
+        {Phase::Source::RT_EVENT,     {(_useCatalogDiskCache && _waveformCacheAll), nullptr, true}},
+        {Phase::Source::THEORETICAL,  {(_useCatalogDiskCache && _waveformCacheAll), nullptr, false}}
     };
 
     // keep track of refEv distant to stations
