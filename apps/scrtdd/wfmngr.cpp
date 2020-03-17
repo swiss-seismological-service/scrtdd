@@ -191,10 +191,12 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
     string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
                               string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
 
+    bool snrCheck = (allowSnrCheck && _snr.minSnr > 0);
+
     const string wfId = WfMngr::waveformId(ph, tw);
 
     // Check if we have already excluded the trace because the snr is too high (save time)
-    if ( allowSnrCheck && _snrExcludedWfs.count(wfId) != 0 )
+    if ( snrCheck && _snrExcludedWfs.count(wfId) != 0 )
     {
         return nullptr;
     }
@@ -249,9 +251,9 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
         }
     }
 
-    // we check the SNR if asked to do so or if the trace has to be cached in memory because
-    // we have to know its SNR for future uses (trace can be requested with or without SNR check)
-    bool performSnrCheck = (allowSnrCheck || memCache) && (_snr.minSnr > 0);
+    // we check the SNR if asked to do so or if the trace has to be cached in memory ( we 
+    // have to know its SNR for future uses in case the trace is later requested with SNR check)
+    bool performSnrCheck = snrCheck || (memCache && _snr.minSnr > 0);
 
     // if the SNR window is bigger than the xcorr window, than extend
     // the waveform time window
@@ -318,7 +320,7 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
     }
 
     // the trace has a high SNR, discard it if the SNR check was requested
-    if ( allowSnrCheck && _snrExcludedWfs.count(wfId) != 0 )
+    if ( snrCheck && _snrExcludedWfs.count(wfId) != 0 )
     {
         if ( _dump )
         {

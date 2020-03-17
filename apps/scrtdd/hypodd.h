@@ -254,6 +254,13 @@ class HypoDD : public Core::BaseObject {
                 return resultsByPhase[key];
             }
 
+            void remove(unsigned evId, const std::string& stationId,
+                        const Catalog::Phase::Type& type)
+            {
+                std::string key = make_key(evId, stationId, type);
+                resultsByPhase.erase(key);
+            }
+
             void computeStats()
             {
                 for ( auto& pair : resultsByPhase )  pair.second.computeStats();
