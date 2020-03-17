@@ -1491,11 +1491,8 @@ HypoDD::buildXCorrCache(std::map<unsigned,CatalogPtr>& neighbourCats,
 
         // Update theoretical and automatic phase pick time and uncertainties based on
         // cross-correlation results
-        // drop theoretical phases without good cross correlation results
-        if ( computeTheoreticalPhases )
-        {
-            fixPhases(neighbourCat, refEv, xcorr);
-        } 
+        // Also drop theoretical phases wihout any good cross correlation result
+        fixPhases(neighbourCat, refEv, xcorr);
     }
 
     printCounters();
@@ -1525,8 +1522,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                   string(refEv).c_str() );
 
     // xcorr settings depending on the phase type
-    // (NO snr check for theoretical phases because the pick time is likely wrong and fixed later)
-    map<Phase::Source, PhaseXCorrCfg> phCfg = {
+    map<Phase::Source, PhaseXCorrCfg> phCfgs = {
         {Phase::Source::CATALOG,      {_useCatalogDiskCache, &_wfCache, true }},
         {Phase::Source::RT_EVENT,     {(_useCatalogDiskCache && _waveformCacheAll), nullptr, true}},
         {Phase::Source::THEORETICAL,  {(_useCatalogDiskCache && _waveformCacheAll), nullptr, false}}
@@ -1569,9 +1565,15 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             {
                 const Phase& phase = it->second;
 
+                // for non-manual phases the SNR is checked later, once the pick time
+                // has been fixed using xcorr results
+                PhaseXCorrCfg refPhCfg = phCfgs.at(refPhase.procInfo.source);
+                refPhCfg.allowSnrCheck = refPhase.isManual;
+                PhaseXCorrCfg phaseCfg = phCfgs.at(phase.procInfo.source);
+                phaseCfg.allowSnrCheck = phase.isManual;
+
                 double coeff, lag, dtcc, weight;
-                if ( xcorrPhases(refEv, refPhase, phCfg.at(refPhase.procInfo.source),
-                                 event, phase, phCfg.at(phase.procInfo.source),
+                if ( xcorrPhases(refEv, refPhase, refPhCfg, event, phase, phaseCfg,
                                  coeff, lag, dtcc, weight) )
                 {
                     //
@@ -1582,10 +1584,36 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                 }
             }
         }
-    }
 
-    // finalize statistics
-    xcorr.computeStats();
+        if ( xcorr.has(refEv.id, refPhase.stationId, refPhase.procInfo.type) )
+        {
+            // finalize statistics
+            auto& entry = xcorr.getForUpdate(refEv.id, refPhase.stationId, refPhase.procInfo.type);
+            entry.computeStats();
+
+            // discard phases with low SNR
+            if ( _cfg.snr.minSnr > 0 && ! refPhase.isManual )
+            {
+                const auto xcorrCfg = _cfg.xcorr.at(refPhase.procInfo.type);
+                Core::TimeWindow tw = xcorrTimeWindowShort(refPhase);
+
+                GenericRecordCPtr trace;
+                for (const string& component : xcorrCfg.components )
+                {
+                    Phase tmpPh = refPhase;
+                    tmpPh.time  -= Core::TimeSpan(entry.mean_lag);
+                    tmpPh.channelCode = WfMngr::getBandAndInstrumentCodes(tmpPh.channelCode) + component;
+                    trace = _wf->getWaveform(tw, refEv, tmpPh, nullptr, (_useCatalogDiskCache && _waveformCacheAll), true);
+                    if ( trace ) break;
+                }
+
+                if ( ! trace )
+                {
+                    xcorr.remove(refEv.id, refPhase.stationId, refPhase.procInfo.type);
+                }
+            }
+        }
+    }
 
     // Print some useful information
     for (const auto& kv : stationByDistance)
@@ -1598,7 +1626,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
 
         if ( ! goodPXcorr && ! goodSXcorr )
         {
-            SEISCOMP_INFO("xcorr: event %5s sta %4s %5s dist %.2f [km] - no good cross correlations pairs",
+            SEISCOMP_INFO("xcorr: event %5s sta %4s %5s dist %.2f [km] - low corr coeff pairs",
                           string(refEv).c_str(), station.networkCode.c_str(),
                           station.stationCode.c_str(), stationDistance);
         }
@@ -1630,8 +1658,8 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
 
 /*
  * Update theoretical and automatic phase pick time and uncertainties based on
- * cross-correlation results
- * Also remove theoretical phases without good cross correlation results
+ * cross-correlation results.
+ * Also drop theoretical phases wihout any good cross correlation result
  */
 void HypoDD::fixPhases(CatalogPtr& catalog, const Event& refEv, XCorrCache& xcorr)
 {
@@ -1671,7 +1699,7 @@ void HypoDD::fixPhases(CatalogPtr& catalog, const Event& refEv, XCorrCache& xcor
         if ( phase.procInfo.source == Phase::Source::THEORETICAL )
         {
             newP += newPhase.procInfo.type == Phase::Type::P ? 1 : 0;
-            newS += newPhase.procInfo.type == Phase::Type::S ? 1 : 0;
+            newS += newPhase.procInfo.type == Phase::Type::S ? 1 : 0; 
         }
 
         newPhases.push_back(newPhase);
