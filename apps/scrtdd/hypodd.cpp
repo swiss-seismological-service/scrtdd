@@ -1523,9 +1523,9 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
 
     // xcorr settings depending on the phase type
     map<Phase::Source, PhaseXCorrCfg> phCfgs = {
-        {Phase::Source::CATALOG,      {_useCatalogDiskCache, &_wfCache, true }},
-        {Phase::Source::RT_EVENT,     {(_useCatalogDiskCache && _waveformCacheAll), nullptr, true}},
-        {Phase::Source::THEORETICAL,  {(_useCatalogDiskCache && _waveformCacheAll), nullptr, false}}
+        {Phase::Source::CATALOG,      {_useCatalogDiskCache, &_wfCache,}},
+        {Phase::Source::RT_EVENT,     {(_useCatalogDiskCache && _waveformCacheAll), nullptr,}},
+        {Phase::Source::THEORETICAL,  {(_useCatalogDiskCache && _waveformCacheAll), nullptr,}}
     };
 
     // keep track of refEv distant to stations
@@ -2075,15 +2075,19 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
         double numer = 0, denomL = 0, denomS = 0;
         for (int idxS = 0; idxS < smpsSsize; idxS++)
         {
+            denomS += smpsS[idxS] * smpsS[idxS];
+
             int idxL = idxS + (smpsLsize-smpsSsize)/2 + delay;
             if (idxL < 0 || idxL >= smpsLsize)
                 continue;
+
             numer  += smpsS[idxS] * smpsL[idxL];
             denomL += smpsL[idxL] * smpsL[idxL];
-            denomS += smpsS[idxS] * smpsS[idxS];
         }
+
         const double denom =  std::sqrt(denomS * denomL);
         const double coeff = numer / denom;
+
         if ( std::abs(coeff) > std::abs(coeffOut) || ! std::isfinite(coeffOut) )
         {
             coeffOut = coeff;
