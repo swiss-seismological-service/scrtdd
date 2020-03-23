@@ -393,16 +393,15 @@ This configuration is a combination of seedlink and sds archive, which is very u
 
 Please note that seedlink service might delay the relocation of incoming origins due to timeouts. For this reason we suggest to pass to configuration option: timeout and retries
 
-e.g. Below we force a timeout of 0 seconds (default is 5 minutes) and do not try to reconnect (`scrtdd` will deal with what data is available. 
+e.g. Below we force a timeout of 1 seconds (default is 5 minutes) and do not try to reconnect (`scrtdd` will deal with what data is available):
 
 ```
-recordstream = combined://slink/localhost:18000?timeout=0&retries=0;sdsarchive//rz_nas/miniseed
+recordstream = combined://slink/localhost:18000?timeout=1&retries=0;sdsarchive//rz_nas/miniseed
 ```
-
-You might think this configuration is strict, but do not forget the number of waveforms to load is huge: number of neighours (e.g. 40) times number of phases (e.g. ~40-100; P and S, real and theoretical), times number of components (1 for Z, 3 for T). So, even a timeout of few seconds can delay the origin relocation of tens of minutes.
 
 Also we use `cron.delayTimes` option to re-perform the relocation some minutes later in case we know more waveforms will become available at a later time.
- 
+
+
 ### 3.5 Performance
 
 scrtdd spends most of the relocation time downloading waveforms (real-time events, the catalog waveforms are cached to disk) and the rest is shared betweeen cross-correlation and hypoDD execution (high CPU usage). Two configuration options have a huge impact on the performance: `step2options.clustering` and `crosscorrelation.s-phase.components`. `step2options.clustering` is relevant because we can specify how many neighbouring events and how many phases we want to use, which consequently determines the number of cross-correlations to perform, the waveforms to download and the size of the input for hypodDD. `crosscorrelation.s-phase.components` defines the components we want to use in the cross-correlation of the `S` phases. Usign the `T` components means scrtdd has to download the additional two components to perform the projection to ZRT, which might be more accurate than 'Z' only.
