@@ -53,7 +53,7 @@ Please remember to set the Hypodd array limits (compilation time options availab
 
 New origins will be relocated in real time against a background catalog of high quality locations. Those high quality events that form the background catalog can be already present in seiscompo database or not. In the latter case the background catalog has to be generated. Either way, the catalog has to be specified in scrtdd when configuring it.
 
-### 2.1. Selecting a background catalog from existing origins or events
+### 2.1. Selecting a background catalog from existing origins
 
 If we already have a high quality catalog, then we can easily specify it in scrtdd configuration as a path to a file containing a list of origin id. The file format must be a csv file in which there must be at least one column called seiscompId, from which the ids will be fetched by scrtdd.
 
@@ -82,7 +82,7 @@ Once the candidate origins have been selected, we write their seiscomp id in a f
 scrtdd --dump-catalog myCatalog.csv [db and log options]
 ```
 
-See also the `Troubleshooting` paragraph for details on how to specify a database connection via command line and for printing the logs on the console for easy debugging.
+See also the `Troubleshooting` paragraph for details on how to specify a database connection via command line and for printing the logs on the console for easy debugging and `--dump-catalog-options` option.
 
 The above command will generate three files (event.csv, phase.csv and stations.csv) which contain the information needed by scrtdd to relocate the selected events. 
 
@@ -233,7 +233,7 @@ It is possible to use ph2dt utility to perform the clustering. It this case the 
 scrtdd --reloc-profile profileName --use-ph2dt /some/path/ph2dt.inp [--ph2dt-path /some/path/ph2dt]
 ```
 
-#### 2.2.5 Useful options
+### 2.3 Useful options
 
 There are also some other interesting catalong related options:
 
@@ -265,14 +265,14 @@ Catalog:
                                         id an origin will be selected following
                                         the provided options whose format is: 
                                         'type,evalmode,includeCreator,excludeCr
-                                        eator,profile', where 
-                                        type:'preferred','last','first' 
-                                        evalmode:'any','onlyManual','onlyAutoma
-                                        tic' includeCreator:'any' or 
-                                        author/methodID  excludeCreator:'none' 
-                                        or author/methodID profile:'any' or 
-                                        profileName. e.g. to select preferred 
-                                        origins from the provided event ids use
+                                        eator,profile', where:
+                                        type=preferred|last|first,
+                                        evalmode=any|onlyManual|onlyAutomatic
+                                        includeCreator=any|anyAuthor|anyMethodID
+                                        excludeCreator=none|anyAuthor|anyMethodID
+                                        profile:any|anyProfileName  (match region)
+                                        e.g. to select preferred origins from the
+                                        provided event ids use:
                                         'preferred,any,any,none,any'
 
 MultiEvents:
@@ -296,7 +296,7 @@ We first need to create a new profile or we can modify the profile used to creat
 
 The waveform cache folder is located in `workingDirectory/profileName/wfcache/` (e.g. `~/seiscomp3/var/lib/rtdd/myProfile/wfcache/`).
 
-## 3.1 Testing
+### 3.1 Testing
 
 Real time relocation uses the same configuration we have seen in full catalog relocation, but real time relocation is done in two steps, each one controlled by a specific configuration.
 
@@ -366,7 +366,7 @@ As an example you can see below the single event relocation of several manually 
 
 Once we are happy with the configuration we can simply enable and start scrtdd as any other module and it will start relocating origins as soon as they arrive in the messsaging system
 
-### 3.2 Tesing speed-up
+### 3.2 Speed-up the testing phase
 
 Since real-time origin waveforms are never saved to disk, if we are testing over and over the same origins to find the best configuration parameters we might consider using `--debug-wf-cache` option that force `scrtdd` to save all waveforms to disk. Just be aware that using this options increase the size of the cache folder (`workingDirectory/profileName/wfcache/` e.g. `~/seiscomp3/var/lib/rtdd/myProfile/wfcache/`) with phases that will not be useful in real-time (only the catalog phases will be used again), so you might want to delete the cache folder at the end of the relocation testing (or copy it beforehand and restore it).
 
@@ -393,15 +393,21 @@ This configuration is a combination of seedlink and sds archive, which is very u
 
 Please note that seedlink service might delay the relocation of incoming origins due to timeouts. For this reason we suggest to pass to configuration option: timeout and retries
 
-e.g. Below we force a timeout of 2 seconds(default is 5 minutes) and do not try to reconnect (`scrtdd` will deal with what data is available. We can also configure the `cron.delayTimes` option to re-perform the relocation some minutes later in case we know more waveforms will become available later):
+e.g. Below we force a timeout of 0 seconds (default is 5 minutes) and do not try to reconnect (`scrtdd` will deal with what data is available. 
 
 ```
-recordstream = combined://slink/localhost:18000?timeout=2&retries=0;sdsarchive//rz_nas/miniseed
+recordstream = combined://slink/localhost:18000?timeout=0&retries=0;sdsarchive//rz_nas/miniseed
 ```
 
+You might think this configuration is strict, but do not forget the number of waveforms to load is huge: number of neighours (e.g. 40) times number of phases (e.g. ~40-100; P and S, real and theoretical), times number of components (1 for Z, 3 for T). So, even a timeout of few seconds can delay the origin relocation of tens of minutes.
+
+Also we use `cron.delayTimes` option to re-perform the relocation some minutes later in case we know more waveforms will become available at a later time.
+ 
 ### 3.5 Performance
 
-scrtdd spends most of the relocation time downloading waveforms (real-time events, the catalog waveforms are cached to disk) and the rest is shared betweeen cross-correlation and hypoDD execution. Two configuration options have a huge impact on the performance: `step2options.clustering` and `crosscorrelation.s-phase.components`. `step2options.clustering` is relevant because we can specify how many neighbouring events and how many phases we want to use, which consequently determines the number of cross-correlations to perform and the size of the input for hypodDD. `crosscorrelation.s-phase.components` defines the components we want to use in the cross-correlation of the `S` phases. Usign the `T` components means scrtdd has to download the additional two components to perform the projection to ZRT.
+scrtdd spends most of the relocation time downloading waveforms (real-time events, the catalog waveforms are cached to disk) and the rest is shared betweeen cross-correlation and hypoDD execution (high CPU usage). Two configuration options have a huge impact on the performance: `step2options.clustering` and `crosscorrelation.s-phase.components`. `step2options.clustering` is relevant because we can specify how many neighbouring events and how many phases we want to use, which consequently determines the number of cross-correlations to perform, the waveforms to download and the size of the input for hypodDD. `crosscorrelation.s-phase.components` defines the components we want to use in the cross-correlation of the `S` phases. Usign the `T` components means scrtdd has to download the additional two components to perform the projection to ZRT, which might be more accurate than 'Z' only.
+
+Also don't forget what said regarding recordstream configuration, which might be tested only in real-time since the old waveforms are not stored in seedlink server (that is, when testing offline the waveforms are loaded from sdsarchive).
 
 If we want to analyze the performance impact of downloading waveforms during the relocatione we can make use of `--debug-wf-cache` option: the waveforms will be cached the first time we relocate an origin and the second time we relocate the same origin they will be read from disk.
 
