@@ -1521,11 +1521,13 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
     SEISCOMP_INFO("Computing cross-correlation differential travel times for event %s",
                   string(refEv).c_str() );
 
+    WfMngr::WfCache wfTmpCache;
+
     // xcorr settings depending on the phase type
     map<Phase::Source, PhaseXCorrCfg> phCfgs = {
         {Phase::Source::CATALOG,      {_useCatalogDiskCache, &_wfCache,}},
-        {Phase::Source::RT_EVENT,     {(_useCatalogDiskCache && _waveformCacheAll), nullptr,}},
-        {Phase::Source::THEORETICAL,  {(_useCatalogDiskCache && _waveformCacheAll), nullptr,}}
+        {Phase::Source::RT_EVENT,     {(_useCatalogDiskCache && _waveformCacheAll), &wfTmpCache,}},
+        {Phase::Source::THEORETICAL,  {(_useCatalogDiskCache && _waveformCacheAll), &wfTmpCache,}}
     };
 
     // keep track of refEv distant to stations
