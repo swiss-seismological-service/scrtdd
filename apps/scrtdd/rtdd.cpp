@@ -816,6 +816,9 @@ bool RTDD::run()
         // force process of any origin
         _config.forceProcessing = true;
 
+        // do not preload profile
+        _config.profileTimeAlive = 3600;
+
         // split multiple origins
         std::vector<std::string> ids;
         boost::split(ids, _config.originIDs, boost::is_any_of(","), boost::token_compress_on);
@@ -857,6 +860,9 @@ bool RTDD::run()
 
         // force process of any origin
         _config.forceProcessing = true;
+
+        // do not preload profile
+        _config.profileTimeAlive = 3600;
 
          vector<OriginPtr> origins;
         for(unsigned i = 0; i < _eventParameters->originCount(); i++)
