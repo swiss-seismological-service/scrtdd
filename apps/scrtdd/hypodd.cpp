@@ -989,37 +989,6 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
             // check events/station distance
             const Station& station = stations.at(phase.stationId);
 
-            if ( excludedStations.find(station.id) != excludedStations.end() )
-            {
-                evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
-                continue;
-            }
-
-            if ( includedStations.find(station.id) == includedStations.end() )
-            {
-                // compute distance between station and reference event
-                double stationDistance = computeDistance(refEv, station);
-
-                // check this station distance is ok
-                if ( ( maxESdist > 0 && stationDistance > maxESdist ) ||  // too far away ?
-                     ( stationDistance < minESdist ) )                    // too close ?
-                {
-                    excludedStations.insert(station.id);
-                    evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
-                    continue;
-                }
-
-                if ( (stationDistance/eventDistance) < minEStoIEratio ) // ratio too small ?
-                {
-                    // since this is dependents on the current event we cannot save it into excludedStations 
-                    evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
-                    continue;
-                }
-
-                // this station is ok for refEv
-                includedStations.insert(station.id);
-            }
-
             // compute distance between current event and station
             double stationDistance = computeDistance(event, station);
 
@@ -1027,6 +996,18 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
             if ( ( maxESdist > 0 && stationDistance > maxESdist ) ||      // too far away ?
                  ( stationDistance < minESdist )                 ||       // too close ?
                  ( (stationDistance / eventDistance) < minEStoIEratio ) ) // ratio too small ?
+            {
+                evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
+                continue;
+            } 
+
+            // compute distance between reference event and station
+            double staRefEvDistance = computeDistance(refEv, station);
+
+            // check this station distance is ok
+            if ( ( maxESdist > 0 && staRefEvDistance > maxESdist ) ||      // too far away ?
+                 ( staRefEvDistance < minESdist )                 ||       // too close ?
+                 ( (staRefEvDistance / eventDistance) < minEStoIEratio ) ) // ratio too small ?
             {
                 evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
                 continue;
@@ -1048,7 +1029,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                 // theoretical picks to refEv those phases might become useful for xcorr
                 if ( keepUnmatched )
                 {
-                    unmatchedPhases.emplace(stationDistance, pair<string,Phase::Type>(phase.stationId, phase.procInfo.type));
+                    unmatchedPhases.emplace(staRefEvDistance, pair<string,Phase::Type>(phase.stationId, phase.procInfo.type));
                 }
                 else
                 {
@@ -1057,7 +1038,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                 continue;
             }
 
-            stationByDistance.emplace(stationDistance, pair<string,Phase::Type>(phase.stationId, phase.procInfo.type));
+            stationByDistance.emplace(staRefEvDistance, pair<string,Phase::Type>(phase.stationId, phase.procInfo.type));
         }
 
         int dtCount = stationByDistance.size();
@@ -1542,15 +1523,6 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
     {
         const Phase& refPhase = itRef->second;
 
-        // save events/station distance
-        if ( computedStations.find(refPhase.stationId) == computedStations.end() )
-        {
-            const Station& station = catalog->getStations().at(refPhase.stationId);
-            double stationDistance = computeDistance(refEv, station);
-            stationByDistance.emplace(stationDistance, refPhase.stationId);
-            computedStations.insert(refPhase.stationId);
-        }
-
         //
         // loop through catalog events and cross correlate phase pairs
         //
@@ -1585,6 +1557,15 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                     //
                     auto& entry = xcorr.getForUpdate(refEv.id, refPhase.stationId, refPhase.procInfo.type);
                     entry.update(event, phase, coeff, lag, dtcc, weight);
+                }
+
+                // keep trace of  events/station distance for every xcorr performed
+                if ( computedStations.find(refPhase.stationId) == computedStations.end() )
+                {
+                    const Station& station = catalog->getStations().at(refPhase.stationId);
+                    double stationDistance = computeDistance(refEv, station);
+                    stationByDistance.emplace(stationDistance, refPhase.stationId);
+                    computedStations.insert(refPhase.stationId);
                 }
             }
         }
@@ -1630,7 +1611,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
 
         if ( ! goodPXcorr && ! goodSXcorr )
         {
-            SEISCOMP_INFO("xcorr: event %5s sta %4s %5s dist %.2f [km] - low corr coeff pairs",
+            SEISCOMP_INFO("xcorr: event %5s sta %4s %5s dist %7.2f [km] - low corr coeff pairs",
                           string(refEv).c_str(), station.networkCode.c_str(),
                           station.stationCode.c_str(), stationDistance);
         }
@@ -1639,7 +1620,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             if ( goodPXcorr )
             {
                 const auto& pdata = xcorr.get(refEv.id, station.id, Phase::Type::P);
-                SEISCOMP_INFO("xcorr: event %5s sta %4s %5s dist %.2f [km] - "
+                SEISCOMP_INFO("xcorr: event %5s sta %4s %5s dist %7.2f [km] - "
                           "%d P phases, mean coeff %.2f lag %.2f (events: %s)",
                           string(refEv).c_str(), station.networkCode.c_str(),
                           station.stationCode.c_str(), stationDistance,
@@ -1649,7 +1630,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             if ( goodSXcorr )
             {
                 const auto& sdata = xcorr.get(refEv.id, station.id, Phase::Type::S);
-                SEISCOMP_INFO("xcorr: event %5s sta %4s %5s dist %.2f [km] - "
+                SEISCOMP_INFO("xcorr: event %5s sta %4s %5s dist %7.2f [km] - "
                           "%d S phases, mean coeff %.2f lag %.2f (events: %s)",
                           string(refEv).c_str(), station.networkCode.c_str(),
                           station.stationCode.c_str(), stationDistance,
