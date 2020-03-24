@@ -1820,7 +1820,8 @@ HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phC
     bool goodCoeff = false;
 
     //
-    // Make sure we are using the same channels in cross correlation
+    // Try to use the same channels in cross correlation, in case the two phases differ
+    // but do not change the catalog phase channels
     //
     const string channelCodeRoot1 = WfMngr::getBandAndInstrumentCodes(phase1.channelCode);
     const string channelCodeRoot2 = WfMngr::getBandAndInstrumentCodes(phase2.channelCode);
@@ -1831,26 +1832,24 @@ HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phC
     {
         commonChRoot = channelCodeRoot1;
     }
-    else 
+    else if (phase1.procInfo.source == Phase::Source::CATALOG && phase2.procInfo.source != Phase::Source::CATALOG )
     {
-        //
-        // if the channel codes don't match then look for a possible match
-        //
         DataModel::ThreeComponents dummy;
-        DataModel::SensorLocation *loc = WfMngr::findSensorLocation(phase1.networkCode, phase1.stationCode, phase1.locationCode, phase1.time);
-        if ( loc && getThreeComponents(dummy, loc, channelCodeRoot2.c_str(), phase1.time) )
+        DataModel::SensorLocation *loc2 = WfMngr::findSensorLocation(phase2.networkCode, phase2.stationCode, phase2.locationCode, phase2.time);
+        if ( loc2 && getThreeComponents(dummy, loc2, channelCodeRoot1.c_str(), phase2.time) )
+        {
+            // phase 2 has the same channels of phase 1
+            commonChRoot = channelCodeRoot1;
+        } 
+    }
+    else if (phase1.procInfo.source != Phase::Source::CATALOG && phase2.procInfo.source == Phase::Source::CATALOG )
+    { 
+        DataModel::ThreeComponents dummy;
+        DataModel::SensorLocation *loc1 = WfMngr::findSensorLocation(phase1.networkCode, phase1.stationCode, phase1.locationCode, phase1.time);
+        if ( loc1 && getThreeComponents(dummy, loc1, channelCodeRoot2.c_str(), phase1.time) )
         {
             // phase 1 has the same channels of phase 2
             commonChRoot = channelCodeRoot2;
-        }
-        else
-        {
-            loc = WfMngr::findSensorLocation(phase2.networkCode, phase2.stationCode, phase2.locationCode, phase2.time);
-            if ( loc && getThreeComponents(dummy, loc, channelCodeRoot1.c_str(), phase2.time) )
-            {
-                // phase 2 has the same channels of phase 1
-                commonChRoot = channelCodeRoot1;
-            }
         }
     }
 
