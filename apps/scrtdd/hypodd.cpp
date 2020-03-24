@@ -1566,11 +1566,13 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                 const Phase& phase = it->second;
 
                 // for non-manual phases the SNR is checked later, once the pick time
-                // has been fixed using xcorr results
+                // has been fixed using xcorr results (we also trust pick times for all
+                // catalog phases)
                 PhaseXCorrCfg refPhCfg = phCfgs.at(refPhase.procInfo.source);
-                refPhCfg.allowSnrCheck = refPhase.isManual;
+                refPhCfg.allowSnrCheck = refPhase.isManual || (refPhase.procInfo.source == Phase::Source::CATALOG);
+                // Catalog phases always allow SNR check, since will not fix those
                 PhaseXCorrCfg phaseCfg = phCfgs.at(phase.procInfo.source);
-                phaseCfg.allowSnrCheck = phase.isManual;
+                phaseCfg.allowSnrCheck = true;
 
                 double coeff, lag, dtcc, weight;
                 if ( xcorrPhases(refEv, refPhase, refPhCfg, event, phase, phaseCfg,
@@ -1591,8 +1593,8 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             auto& entry = xcorr.getForUpdate(refEv.id, refPhase.stationId, refPhase.procInfo.type);
             entry.computeStats();
 
-            // discard phases with low SNR
-            if ( _cfg.snr.minSnr > 0 && ! refPhase.isManual )
+            // discard phases with low SNR (if not already done at the previous step)
+            if ( _cfg.snr.minSnr > 0 && ! refPhase.isManual && (refPhase.procInfo.source != Phase::Source::CATALOG) )
             {
                 const auto xcorrCfg = _cfg.xcorr.at(refPhase.procInfo.type);
                 Core::TimeWindow tw = xcorrTimeWindowShort(refPhase);
@@ -1674,8 +1676,8 @@ void HypoDD::fixPhases(CatalogPtr& catalog, const Event& refEv, XCorrCache& xcor
         const Phase& phase = it->second;
         bool goodXcorr = xcorr.has(refEv.id, phase.stationId, phase.procInfo.type);
 
-        // nothing to do if we dont't have good xcorr results of if the phase is manual
-        if ( ! goodXcorr || phase.isManual )
+        // nothing to do if we dont't have good xcorr results of if the phase is manual or from catalog
+        if ( ! goodXcorr || phase.isManual || (phase.procInfo.source == Phase::Source::CATALOG) )
         {
             // remove thoretical phases wihtout good xcorr results
             if ( phase.procInfo.source == Phase::Source::THEORETICAL )
