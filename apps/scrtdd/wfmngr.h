@@ -143,8 +143,9 @@ class WfMngr : public Core::BaseObject {
     private:
         std::string _recordStreamURL;
         std::string _cacheDir;
-        std::string _wfDebugDir;        
+        std::string _wfDebugDir;
         std::set<std::string> _unloadableWfs;
+        std::set<std::string> _snrGoodWfs;
         std::set<std::string> _snrExcludedWfs;
 
         bool _dump = false;
