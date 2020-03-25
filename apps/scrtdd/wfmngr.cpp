@@ -191,25 +191,29 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
     string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
                               string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
 
-    bool snrCheck = (allowSnrCheck && _snr.minSnr > 0);
+    bool doSnrCheck = (allowSnrCheck && _snr.minSnr > 0);
 
     const string wfId = WfMngr::waveformId(ph, tw);
-
-    // Check if we have already excluded the trace because the snr is too high (save time)
-    if ( snrCheck && _snrExcludedWfs.count(wfId) != 0 )
-    {
-        return nullptr;
-    }
 
     // try to load the waveform from the memory cache, if present
     if ( memCache )
     {
-        const auto it = memCache->find(wfId);
-
-        if ( it != memCache->end() )
+        // Check if the snr is good
+        if ( ! doSnrCheck || _snrGoodWfs.count(wfId) != 0 )
         {
-            return it->second; // waveform cached, just return it 
+            const auto it = memCache->find(wfId);
+
+            if ( it != memCache->end() )
+            {
+                return it->second; // waveform cached, just return it 
+            }
         }
+    }
+
+    // Check if we have already excluded the trace because the snr is too high (save time)
+    if ( doSnrCheck && _snrExcludedWfs.count(wfId) != 0 )
+    {
+        return nullptr;
     }
 
     // Check if we have already excluded the trace because we couldn't load it (save time)
@@ -251,13 +255,9 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
         }
     }
 
-    // we check the SNR if asked to do so or if the trace has to be cached in memory ( we 
-    // have to know its SNR for future uses in case the trace is later requested with SNR check)
-    bool performSnrCheck = snrCheck || (memCache && _snr.minSnr > 0);
-
     // if the SNR window is bigger than the xcorr window, than extend
     // the waveform time window
-    const Core::TimeWindow twToLoad = traceTimeWindowToLoad(ph, tw, useDiskCache, performSnrCheck);
+    const Core::TimeWindow twToLoad = traceTimeWindowToLoad(ph, tw, useDiskCache, doSnrCheck);
 
     // Load waveform:
     // - if no projection required, just load the requested component
@@ -293,12 +293,16 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
     filter(*trace, true, _wfFilter.filterStr, _wfFilter.resampleFreq);
 
     // check SNR threshold
-    if ( performSnrCheck  )
+    if ( doSnrCheck  )
     {
         double snr = S2Nratio(trace, ph.time, _snr.noiseStart, _snr.noiseEnd, _snr.signalStart, _snr.signalEnd);
         if ( snr < _snr.minSnr ) 
         {
             _snrExcludedWfs.insert(wfId);
+        }
+        else
+        {
+            _snrGoodWfs.insert(wfId);
         }
     }
 
@@ -320,7 +324,7 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
     }
 
     // the trace has a high SNR, discard it if the SNR check was requested
-    if ( snrCheck && _snrExcludedWfs.count(wfId) != 0 )
+    if ( doSnrCheck && _snrExcludedWfs.count(wfId) != 0 )
     {
         if ( _dump )
         {
