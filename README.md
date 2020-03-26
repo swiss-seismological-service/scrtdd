@@ -82,7 +82,7 @@ Once the candidate origins have been selected, we write their seiscomp id in a f
 scrtdd --dump-catalog myCatalog.csv [db and log options]
 ```
 
-See also the `Troubleshooting` paragraph for details on how to specify a database connection via command line and for printing the logs on the console for easy debugging and `--dump-catalog-options` option.
+See also the `Troubleshooting` paragraph for details on how to specify a database connection via command line and for printing the logs on the console for easy debugging and `--dump-catalog-options` option for using event id instead of origin id in myCatalog.csv.
 
 The above command will generate three files (event.csv, phase.csv and stations.csv) which contain the information needed by scrtdd to relocate the selected events. 
 
@@ -366,11 +366,21 @@ As an example you can see below the single event relocation of several manually 
 
 Once we are happy with the configuration we can simply enable and start scrtdd as any other module and it will start relocating origins as soon as they arrive in the messsaging system
 
-### 3.2 Speed-up the testing phase
+### 3.2 Phase update
+
+Once cross-correlation is peformed scrtdd updates automatic phase pick time and uncertainties. The pick time is updated accordingly to the average lag detected by all the good (above configured threshold) cross-correlation results. Since the real-time events are cross-correlated against catalog events, which have good manual picks, the new pick time is expected to improve pick accuracy. Also the pick uncertainty is derived from the uncertainties of catalog-events. If there is no cross-correlations result above the configured threshold, the pick time is kept untouched.
+
+The same process is applied to theoretical phases. Every theoretical phase that has at least one good cross-correlation result is added to the relocated origin, with pick time and uncertainties derived from catalog phases. Theoretical phases that have no good cross-correlation results never end up in the relocated origin.
+
+Picks that have been updated are identifiable by a `x` suffix.
+
+Manual picks are never modified.
+
+### 3.3 Speed-up the testing phase
 
 Since real-time origin waveforms are never saved to disk, if we are testing over and over the same origins to find the best configuration parameters we might consider using `--debug-wf-cache` option that force `scrtdd` to save all waveforms to disk. Just be aware that using this options increase the size of the cache folder (`workingDirectory/profileName/wfcache/` e.g. `~/seiscomp3/var/lib/rtdd/myProfile/wfcache/`) with phases that will not be useful in real-time (only the catalog phases will be used again), so you might want to delete the cache folder at the end of the relocation testing (or copy it beforehand and restore it).
 
-### 3.3 Catalog waveforms preloading
+### 3.4 Catalog waveforms preloading
 
 When scrtdd starts for the first time it loads all the catalog waveforms and store them to disk. In this way the waveforms become quickly available in real-time without the need to access the recordstream. However this takes some time.  If for some reasons (debugging?) we need to force the downloading of all waveforms before starting the module we can use the following option (once the waveforms are downloaded they will not be downloaded again unless the files are deleted from disks):
 
@@ -381,7 +391,7 @@ scrtdd --help
                                         into the profile working directory
 ```
 
-### 3.4 RecordStream configuration
+### 3.5 RecordStream configuration
 
 SeisComP3 applications access waveform data through the RecordStream interface and it is usually configured in global.cfg, for example:
 
@@ -402,7 +412,7 @@ recordstream = combined://slink/localhost:18000?timeout=1&retries=0;sdsarchive//
 Also we use `cron.delayTimes` option to re-perform the relocation some minutes later in case we know more waveforms will become available at a later time.
 
 
-### 3.5 Performance
+### 3.6 Performance
 
 scrtdd spends most of the relocation time downloading waveforms (real-time events, the catalog waveforms are cached to disk) and the rest is shared betweeen cross-correlation and hypoDD execution (high CPU usage). Two configuration options have a huge impact on the performance: `step2options.clustering` and `crosscorrelation.s-phase.components`. `step2options.clustering` is relevant because we can specify how many neighbouring events and how many phases we want to use, which consequently determines the number of cross-correlations to perform, the waveforms to download and the size of the input for hypodDD. `crosscorrelation.s-phase.components` defines the components we want to use in the cross-correlation of the `S` phases. Usign the `T` components means scrtdd has to download the additional two components to perform the projection to ZRT, which might be more accurate than 'Z' only.
 

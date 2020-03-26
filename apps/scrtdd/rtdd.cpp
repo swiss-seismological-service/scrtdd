@@ -285,14 +285,14 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
                 "Load catalog waveforms from the configured recordstream and save them into the profile working directory", true);
     NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf", "Enable the saving of processed waveforms (filtered/resampled, SNR rejected, ZRT projected, etc) into the profile working directory", false, true);
-    NEW_OPT_CLI(_config.cacheAllWaveforms, "Mode", "debug-wf-cache", "All waveforms will be saved to disk cache, this is useful to speed up debugging/testing. Normally only catalog phase waveforms are stored to disk", false, true); 
+    NEW_OPT_CLI(_config.cacheAllWaveforms, "Mode", "debug-wf-cache", "All waveforms will be saved to disk cache, this is useful to speed up debugging/testing. Normally only catalog phase waveforms are cached to disk since they are re-used", false, true); 
     NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
                 "Time span in hours after which objects expire", true);
 
     NEW_OPT_CLI(_config.dumpCatalog, "Catalog", "dump-catalog",
                 "Dump the seiscomp event/origin id file passed as argument into a catalog file triplet (station.csv,event.csv,phase.csv)", true);
     NEW_OPT_CLI(_config.dumpCatalogXML, "Catalog", "dump-catalog-xml",
-                "Convert the input catalog into XML format. The input can be a single file (containing seiscomp event/origin ids) or a catalog file triplet (station.csv,event.csv,phase.csv)", true);
+                "Convert the input catalog into XML format. The input can be a single file (containing seiscomp origin ids) or a catalog file triplet (station.csv,event.csv,phase.csv)", true);
     NEW_OPT_CLI(_config.mergeCatalogs, "Catalog", "merge-catalogs",
                 "Merge in a single catalog all the catalog file triplets (station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,phase2.csv,...) passed as arguments", true);
     NEW_OPT_CLI(_config.originIDs, "SingleEvent", "origin-id,O",
