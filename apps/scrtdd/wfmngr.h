@@ -80,11 +80,6 @@ class WfMngr : public Core::BaseObject {
         //
         //  static: utility functions
         //
-        static DataModel::SensorLocation* findSensorLocation(const std::string &networkCode,
-                                                      const std::string &stationCode,
-                                                      const std::string &locationCode,
-                                                      const Core::Time &atTime);
-
         static GenericRecordPtr readWaveformFromRecordStream(const std::string& recordStreamURL,
                                                       const Core::TimeWindow& tw,
                                                       const std::string& networkCode,

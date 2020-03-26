@@ -325,6 +325,36 @@ private:
     std::uniform_int_distribution<size_t> dist_;
 };
 
+
+/*
+ *  HypoDD support staionid with max 7 chars. Arghhhh!!!!
+ */
+class HypoDDStationIdConversion 
+{
+  public:
+    string toHdd(const string& stationId)
+    {
+        if ( _toHdd.find(stationId) == _toHdd.end() )
+        {
+            string newId = "ST" + to_string(_currentId++);
+            _toHdd[stationId] = newId;
+            _fromHdd[newId] = stationId;
+        }
+        return _toHdd.at(stationId);
+    }
+
+    string fromHdd(const string& staionId)
+    {
+        return _fromHdd.at(staionId);
+    }
+
+  private:
+    unsigned _currentId = 1;
+    map<string,string> _toHdd;
+    map<string,string> _fromHdd;
+} staIds;
+
+
 }
 
 
@@ -1336,8 +1366,9 @@ HypoDD::getMissingPhases(const CatalogCPtr& searchCatalog,
         for (auto it = refEvPhases.first; it != refEvPhases.second; ++it)
         {
             const Phase& phase = it->second;
-            if ( station.networkCode == phase.networkCode &&
-                 station.stationCode == phase.stationCode)
+            if ( station.networkCode  == phase.networkCode &&
+                 station.stationCode  == phase.stationCode &&
+                 station.locationCode == phase.locationCode)
             {
                 if ( phase.procInfo.type == Phase::Type::P ) foundP = true;
                 if ( phase.procInfo.type == Phase::Type::S ) foundS = true;
@@ -1377,9 +1408,10 @@ HypoDD::findPhasePeers(const Station& station, const Phase::Type& phaseType,
         {
             const Phase& phase = it->second;
 
-            if ( station.networkCode == phase.networkCode &&
-                 station.stationCode == phase.stationCode &&
-                 phaseType           == phase.procInfo.type )
+            if ( station.networkCode  == phase.networkCode  &&
+                 station.stationCode  == phase.stationCode  &&
+                 station.locationCode == phase.locationCode &&
+                 phaseType            == phase.procInfo.type )
             {
                 if ( phase.isManual )
                 {
@@ -1404,12 +1436,11 @@ HypoDD::createThoreticalPhase(const Station& station,
 {
     const auto xcorrCfg = _cfg.xcorr.at(phaseType);
 
-    // detect locationCode/channelCode   
+    // store most recent channelCode used
     struct {
-        string locationCode;
         string channelCode;
         Core::Time time;
-    } streamInfo = {"", "", Core::Time()};
+    } streamInfo = {"", Core::Time()};
 
     for (const PhasePeer& peer : peers)
     {
@@ -1417,7 +1448,7 @@ HypoDD::createThoreticalPhase(const Station& station,
         const Phase& phase = peer.second;
         // get the closest in time to refEv stream information
         if ( (refEv.time - phase.time).abs() < (refEv.time - streamInfo.time).abs() )
-            streamInfo = {phase.locationCode, phase.channelCode, phase.time};
+            streamInfo = {phase.channelCode, phase.time};
     }
 
     // initialize the new phase
@@ -1427,7 +1458,7 @@ HypoDD::createThoreticalPhase(const Station& station,
     refEvNewPhase.stationId    = station.id;
     refEvNewPhase.networkCode  = station.networkCode;
     refEvNewPhase.stationCode  = station.stationCode;
-    refEvNewPhase.locationCode = streamInfo.locationCode;
+    refEvNewPhase.locationCode = station.locationCode;
     refEvNewPhase.channelCode  = WfMngr::getBandAndInstrumentCodes(streamInfo.channelCode) + xcorrCfg.components[0];
     refEvNewPhase.isManual     = false;
     refEvNewPhase.procInfo.type = phaseType;
@@ -1818,7 +1849,7 @@ HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phC
     else if (phase1.procInfo.source == Phase::Source::CATALOG && phase2.procInfo.source != Phase::Source::CATALOG )
     {
         DataModel::ThreeComponents dummy;
-        DataModel::SensorLocation *loc2 = WfMngr::findSensorLocation(phase2.networkCode, phase2.stationCode, phase2.locationCode, phase2.time);
+        DataModel::SensorLocation *loc2 = Catalog::findSensorLocation(phase2.networkCode, phase2.stationCode, phase2.locationCode, phase2.time);
         if ( loc2 && getThreeComponents(dummy, loc2, channelCodeRoot1.c_str(), phase2.time) )
         {
             // phase 2 has the same channels of phase 1
@@ -1828,7 +1859,7 @@ HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phC
     else if (phase1.procInfo.source != Phase::Source::CATALOG && phase2.procInfo.source == Phase::Source::CATALOG )
     { 
         DataModel::ThreeComponents dummy;
-        DataModel::SensorLocation *loc1 = WfMngr::findSensorLocation(phase1.networkCode, phase1.stationCode, phase1.locationCode, phase1.time);
+        DataModel::SensorLocation *loc1 = Catalog::findSensorLocation(phase1.networkCode, phase1.stationCode, phase1.locationCode, phase1.time);
         if ( loc1 && getThreeComponents(dummy, loc1, channelCodeRoot2.c_str(), phase1.time) )
         {
             // phase 1 has the same channels of phase 2
@@ -2219,7 +2250,7 @@ void HypoDD::writeAbsTTimePairs(const CatalogCPtr& catalog,
                 double weight = (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0;
 
                 evStream << stringify("%-12s %.6f %.6f %.2f %c",
-                                      refPhase.stationId.c_str(), ref_travel_time,
+                                      staIds.toHdd(refPhase.stationId).c_str(), ref_travel_time,
                                       travel_time, weight, 
                                       static_cast<char>(refPhase.procInfo.type));
                 evStream << endl;
@@ -2313,7 +2344,7 @@ void HypoDD::writeXcorrDiffTTimePairs(CatalogPtr& catalog,
             {
                 const auto& data = xcorr.get(refEv.id, event.id, phase.stationId, phase.procInfo.type);
 
-                evStream << stringify("%-12s %.6f %.4f %c", phase.stationId.c_str(),
+                evStream << stringify("%-12s %.6f %.4f %c", staIds.toHdd(phase.stationId).c_str(),
                                       data.dtcc, data.weight,
                                       static_cast<char>(phase.procInfo.type));
                 evStream << endl;
@@ -2486,7 +2517,7 @@ void HypoDD::createStationDatFile(const CatalogCPtr& catalog, const string& staF
     {
         const Station& station = kv.second;
         outStream << stringify("%-12s %12.6f %12.6f %12.f",
-                              station.id.c_str(), station.latitude,
+                              staIds.toHdd(station.id).c_str(), station.latitude,
                               station.longitude, station.elevation);
         outStream << endl;
     }
@@ -2554,7 +2585,7 @@ void HypoDD::createPhaseDatFile(const CatalogCPtr& catalog, const string& phaseF
             }
 
             outStream << stringify("%-12s %12.6f %5.2f %c",
-                                  phase.stationId.c_str(), travel_time,
+                                  staIds.toHdd(phase.stationId).c_str(), travel_time,
                                   phase.procInfo.weight, static_cast<char>(phase.procInfo.type));
             outStream << endl;
         }
@@ -2841,7 +2872,7 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
                 continue;
             }
 
-            string stationId = fields[0];
+            string stationId = staIds.fromHdd(fields[0]);
             unsigned ev1Id = std::stoul(fields[2]);
             unsigned ev2Id = std::stoul(fields[3]);
             Phase::Type dataType = dataTypeMap[ fields[4] ]; // 1=ccP; 2=ccS; 3=ctP; 4=ctS

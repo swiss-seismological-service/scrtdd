@@ -46,12 +46,14 @@ class Catalog : public Core::BaseObject {
             double elevation; // meter
             std::string networkCode;
             std::string stationCode;
+            std::string locationCode;
 
             // search by value when the Id is not known (works between multiple catalogs )
             bool operator==(const Station& other) const
             {
                 return (networkCode == other.networkCode) &&
                         (stationCode == other.stationCode) &&
+                        (locationCode == other.locationCode) &&
                         (latitude == other.latitude) &&
                         (longitude == other.longitude) &&
                         (elevation == other.elevation);
@@ -222,7 +224,9 @@ class Catalog : public Core::BaseObject {
         std::map<unsigned,Event>::const_iterator searchEvent(const Event&) const;
         std::map<unsigned,Phase>::const_iterator searchPhase(const Phase&) const;
         std::map<std::string,Station>::const_iterator
-        searchStation(const std::string& networkCode, const std::string& stationCode) const;
+        searchStation(const std::string& networkCode,
+                      const std::string& stationCode,
+                      const std::string& locationCode) const;
         std::map<unsigned,Phase>::const_iterator
         searchPhase(unsigned eventId, const std::string& stationId, const Phase::Type& type) const;
 
@@ -243,6 +247,11 @@ class Catalog : public Core::BaseObject {
         static DataModel::Station* findStation(const std::string& netCode,
                                                const std::string& stationCode,
                                                const Core::Time& atTime);
+
+        static DataModel::SensorLocation* findSensorLocation(const std::string &networkCode,
+                                                      const std::string &stationCode,
+                                                      const std::string &locationCode,
+                                                      const Core::Time &atTime);
 
         static constexpr double DEFAULT_MANUAL_PICK_UNCERTAINTY    = 0.030;
         static constexpr double DEFAULT_AUTOMATIC_PICK_UNCERTAINTY = 0.100;
