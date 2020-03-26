@@ -160,7 +160,7 @@
                             and stations.
                             The files must be in csv format with the first line containing the column names. Each file
                             requires a minimum set of columns, which can appear in any order. Additional
-                            columns can be present and will not be used but are allowed for informationl purpose.
+                            columns can be present and will not be used but are allowed.
                         </description>
 
                         <parameter name="eventFile" type="path">
@@ -184,7 +184,7 @@
                         <parameter name="stationFile" type="path">
                             <description>
                                 Path to the stations file to be used for this profile
-                                Columns: id,latitude,longitude,elevation,networkCode,stationCode
+                                Columns: id,latitude,longitude,elevation,networkCode,stationCode,locationCode
                             </description>
                         </parameter>
 
@@ -639,7 +639,13 @@
                 <option long-flag="debug-wf">
                     <description>Enable the dumping of waveforms (filtered and resampled phases, artificial phases, SNR rejected phases) into the profile working directory ('cacheWaveforms' folder). Useful when run in combination with --load-profile-wf</description>
                 </option>
- 
+
+                <option long-flag="debug-wf-cache">
+                    <description>
+                        All waveforms will be saved to disk cache, this is useful to speed up debugging/testing. Normally only catalog phase waveforms are cached to disk since they are re-used.
+                    </description>
+                </option>
+  
                 <option long-flag="expiry" flag="x" argument="hours">
                     <description>Time span in hours after which objects expire</description>
                 </option>
