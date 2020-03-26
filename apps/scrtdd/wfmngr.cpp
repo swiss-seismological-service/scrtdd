@@ -88,32 +88,6 @@ WfMngr::getOrientationCode(const std::string& channelCode)
 }
 
 
-DataModel::SensorLocation *
-WfMngr::findSensorLocation(const std::string &networkCode,
-                                              const std::string &stationCode,
-                                              const std::string &locationCode,
-                                              const Core::Time &atTime)
-{
-    DataModel::Inventory *inv = Client::Inventory::Instance()->inventory();
-    if ( ! inv )
-    {
-        SEISCOMP_ERROR("Inventory not available");
-        return nullptr;
-    }
-
-    DataModel::InventoryError error;
-    DataModel::SensorLocation *loc = DataModel::getSensorLocation(inv, networkCode, stationCode, locationCode, atTime, &error);
-
-    if ( ! loc )
-    {
-        SEISCOMP_DEBUG("Unable to fetch SensorLocation information (%s.%s.%s at %s): %s",
-                       networkCode.c_str(), stationCode.c_str(), locationCode.c_str(),
-                       atTime.iso().c_str(), error.toString());
-    }
-    return loc;
-}
-
-
 string 
 WfMngr::waveformId(const Catalog::Phase& ph, const Core::TimeWindow& tw)
 {
@@ -231,7 +205,7 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
     DataModel::ThreeComponents tc;
 
     Core::Time refTime = tw.startTime();
-    DataModel::SensorLocation *loc = findSensorLocation(ph.networkCode, ph.stationCode, ph.locationCode, refTime);
+    DataModel::SensorLocation *loc = Catalog::findSensorLocation(ph.networkCode, ph.stationCode, ph.locationCode, refTime);
 
     if ( ! loc )
     {

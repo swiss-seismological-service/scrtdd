@@ -155,6 +155,31 @@ DataModel::Station* Catalog::findStation(const string& netCode,
 }
 
 
+DataModel::SensorLocation *
+Catalog::findSensorLocation(const std::string &networkCode,
+                            const std::string &stationCode,
+                            const std::string &locationCode,
+                            const Core::Time &atTime)
+{
+    DataModel::Inventory *inv = Client::Inventory::Instance()->inventory();
+    if ( ! inv )
+    {
+        SEISCOMP_ERROR("Inventory not available");
+        return nullptr;
+    }
+
+    DataModel::InventoryError error;
+    DataModel::SensorLocation *loc = DataModel::getSensorLocation(inv, networkCode, stationCode, locationCode, atTime, &error);
+
+    if ( ! loc )
+    {
+        SEISCOMP_DEBUG("Unable to fetch SensorLocation information (%s.%s.%s at %s): %s",
+                       networkCode.c_str(), stationCode.c_str(), locationCode.c_str(),
+                       atTime.iso().c_str(), error.toString());
+    }
+    return loc;
+}
+
 
 /*
  * Catalog class
@@ -260,6 +285,7 @@ Catalog::Catalog(const string& stationFile,
         sta.elevation = std::stod(row.at("elevation"));
         sta.networkCode = row.at("networkCode");
         sta.stationCode = row.at("stationCode");
+        sta.locationCode = row.at("locationCode");
         _stations[sta.id] = sta;
     }
 
@@ -392,8 +418,9 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
 
             // find the station
             Station sta;
-            sta.networkCode = pick->waveformID().networkCode();
-            sta.stationCode = pick->waveformID().stationCode();
+            sta.networkCode  = pick->waveformID().networkCode();
+            sta.stationCode  = pick->waveformID().stationCode();
+            sta.locationCode = pick->waveformID().locationCode();
  
             // skip not selected picks/phases or those who has 0 weight, unless  manual
             try {
@@ -407,25 +434,27 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
             } catch ( Core::ValueException& ) { }
 
             // add station if not already there
-            if ( searchStation(sta.networkCode, sta.stationCode) == _stations.end() )
+            if ( searchStation(sta.networkCode, sta.stationCode, sta.locationCode) == _stations.end() )
             {
-                DataModel::Station* orgArrStation = findStation(sta.networkCode, sta.stationCode,
-                                                                pick->time());
-                if ( !orgArrStation )
-                {
-                    SEISCOMP_ERROR("Cannot load station %s.%s information for arrival '%s' (origin '%s')."
-                                   "All picks associated with this station will not be used.",
-                                    sta.networkCode.c_str(), sta.stationCode.c_str(),
+                DataModel::SensorLocation *loc = findSensorLocation(sta.networkCode, sta.stationCode,
+                                                                    sta.locationCode, pick->time());
+
+                if ( ! loc )
+                { 
+                    SEISCOMP_ERROR("Cannot load sensor location %s.%s.%s information for arrival "
+                                   "'%s' (origin '%s'). All picks associated with this station will not be used.",
+                                    sta.networkCode.c_str(), sta.stationCode.c_str(), sta.locationCode.c_str(),
                                     orgArr->pickID().c_str(), org->publicID().c_str());
                     continue;
                 }
-                sta.latitude = orgArrStation->latitude();
-                sta.longitude = orgArrStation->longitude();
-                sta.elevation = orgArrStation->elevation(); // meter
+
+                sta.latitude  = loc->latitude();
+                sta.longitude = loc->longitude();
+                sta.elevation = loc->elevation(); // meter
                 this->addStation(sta);
             }
             // the station has to be there at this point
-            sta = searchStation(sta.networkCode, sta.stationCode)->second;
+            sta = searchStation(sta.networkCode, sta.stationCode, sta.locationCode)->second;
 
             // get uncertainty
             pair<double,double> uncertainty = getPickUncertainty(pick.get());
@@ -691,9 +720,11 @@ map<unsigned,Catalog::Phase>::const_iterator Catalog::searchPhase(const Phase& p
 
 
 std::map<std::string,Catalog::Station>::const_iterator 
-Catalog::searchStation(const std::string& networkCode, const std::string& stationCode) const
+Catalog::searchStation(const std::string& networkCode,
+                       const std::string& stationCode,
+                       const std::string& locationCode) const
 {
-    string stationId = networkCode + stationCode;
+    string stationId = networkCode + "." + stationCode + "." + locationCode;
     return _stations.find(stationId);
 }
 
@@ -712,13 +743,13 @@ Catalog::searchPhase(unsigned eventId, const std::string& stationId, const Phase
 }
 
 
-void Catalog::addStation(const Station& station)
+void Catalog::addStation(const Station& sta)
 {
-    if ( searchStation(station.networkCode, station.stationCode) == _stations.end() )
+    if ( searchStation(sta.networkCode, sta.stationCode, sta.locationCode) == _stations.end() )
     {
-        Station newStation = station;
-        newStation.id = newStation.networkCode + newStation.stationCode;
-        _stations[newStation.id] = newStation;
+        Station newSta = sta;
+        newSta.id = newSta.networkCode + "." + newSta.stationCode + "." + newSta.locationCode;
+        _stations[newSta.id] = newSta;
     }
 }
 
@@ -824,13 +855,14 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
      * Write Stations
      * */
     ofstream staStream(stationFile);
-    staStream << "id,latitude,longitude,elevation,networkCode,stationCode" << endl;
+    staStream << "id,latitude,longitude,elevation,networkCode,stationCode,locationCode" << endl;
     for (const auto& kv : _stations )
     {
         const Catalog::Station& sta = kv.second;
-        staStream << stringify("%s,%.6f,%.6f,%.1f,%s,%s",
+        staStream << stringify("%s,%.6f,%.6f,%.1f,%s,%s,%s",
                                sta.id.c_str(), sta.latitude, sta.longitude, sta.elevation,
-                               sta.networkCode.c_str(), sta.stationCode.c_str())
+                               sta.networkCode.c_str(), sta.stationCode.c_str(),
+                               sta.locationCode.c_str())
                   << endl;
     }
 }
