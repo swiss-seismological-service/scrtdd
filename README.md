@@ -148,7 +148,7 @@ At this point we have to configure the other profile options that control the re
 
 Then it is time to set the cross-correlation parameters, which require a more careful selection and it is covered in the next paragraph.
 
-In the ```data``` folder of this project there are some hypoDD 2.1b configuration example files (the velocity model has to be changed to reflect your specific use case).
+In the ```data``` folder of this project there are some hypoDD 1.3 and 2.1b configuration example files (the velocity model has to be changed to reflect your specific use case).
 
 Finally, when the configuration is ready, we can relocate the catalog with the command:
 
