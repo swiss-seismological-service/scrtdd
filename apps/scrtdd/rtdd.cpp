@@ -317,9 +317,10 @@ void RTDD::createCommandLineDescription() {
     commandline().addOption<string>("MultiEvents", "ph2dt-path", "Specify path to ph2dt executable", nullptr, false);
     commandline().addOption<string>("MultiEvents", "use-ph2dt", "When relocating a catalog use ph2dt. This option requires a ph2dt control file", nullptr, false);
     commandline().addOption("MultiEvents", "no-overwrite", "When relocating a profile don't overwrite existing files in the working directory (avoid re-computation and allow manual editing)");
-    commandline().addOption<string>("Catalog", "merge-catalogs-keepid",
+   commandline().addOption<string>("Catalog", "merge-catalogs-keepid",
                 "Similar to --merge-catalogs option but events keeps their ids. If multiple events share the same id, subsequent events will be discarded.", nullptr, false);
-    commandline().addOption<string>("Catalog", "dump-catalog-options", "Allows --dump-catalog to accept event ids besides origin ids. For each event id an origin will be selected following the provided options whose format is: 'type,evalmode,includeCreator,excludeCreator,profile', where type:'preferred','last','first' evalmode:'any','onlyManual','onlyAutomatic' includeCreator:'any' or author/methodID  excludeCreator:'none' or author/methodID profile:'any' or profileName. e.g. to select preferred origins from the provided event ids use 'preferred,any,any,none,any'", nullptr, false);
+    commandline().addOption<string>("Catalog", "dump-catalog-options", "Allows --dump-catalog to accept event ids besides origin ids. For each event id an origin will be selected following the provided options whose format is: 'type,evalmode,includeCreator,excludeCreator,region', where type=preferred|last|first  evalmode=any|onlyManual|onlyAutomatic  includeCreator=any|author|methodID  excludeCreator=none|author|methodID  region=any|profileName e.g. to select preferred origins within my profile region given the input event ids use 'preferred,any,any,none,myProfile", nullptr, false);
+ 
 }
 
 

@@ -82,11 +82,7 @@ Once the candidate origins have been selected, we write their seiscomp id in a f
 scrtdd --dump-catalog myCatalog.csv [db and log options]
 ```
 
-See also the `Troubleshooting` paragraph for details on how to specify a database connection via command line and for printing the logs on the console for easy debugging and `--dump-catalog-options` option for using event id instead of origin id in myCatalog.csv.
-
 The above command will generate three files (event.csv, phase.csv and stations.csv) which contain the information needed by scrtdd to relocate the selected events. 
-
-Note: those file use the extended catalog format, useful when the catalog information is fully contained in those files. Compare to the previous example format (list of event/origin ids) the extended format doesn't require the catalog to be present on the seiscomp database. This might come in handy when using events coming from a different seiscomp installation e.g the events can be dumped (--dump-catalog) and used in another machine. Also those file can be easily generated from another source.
 
 E.g. *file event.csv*
 
@@ -101,11 +97,11 @@ id,isotime,latitude,longitude,depth,magnitude,horizontal_err,vertical_err,rms
 E.g. *file station.csv*
 
 ```
-id,latitude,longitude,elevation,networkCode,stationCode
-4DAG01,46.457412,8.079460,2358.0,4D,AG01
-4DAG02,46.460620,8.078122,2375.0,4D,AG02
-4DAG03,46.458288,8.075408,2369.0,4D,AG03
-4DBSG1,46.107760,7.732020,3378.0,4D,BSG1
+id,latitude,longitude,elevation,networkCode,stationCode,locationCode
+4DAG01,46.457412,8.079460,2358.0,4D,AG01,
+4DAG02,46.460620,8.078122,2375.0,4D,AG02,
+4DAG03,46.458288,8.075408,2369.0,4D,AG03,00
+4DBSG1,46.107760,7.732020,3378.0,4D,BSG1,AB
 ```
 
 E.g. *file phase.csv*
@@ -122,7 +118,23 @@ eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,sta
 1,IVMRGE,2014-01-10T04:46:58.219541Z,0.100,0.100,Pg,IV,MRGE,,HHR,manual
 ```
 
-Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might perform some editing of those files, if required, then we relocate them. 
+Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might perform some editing of those files, if required, then we relocate them (next paragraph).
+ 
+See also the `Troubleshooting` paragraph for details on how to specify a database connection via command line and for printing the logs on the console for easy debugging.
+
+Also it is useful the `--dump-catalog-options` option, which allows to use event id instead of origin id in myCatalog.csv. For example we can list all events between two dates and then ask scrtdd to extract the preferred manual origins within our profile region (our catalog):
+
+```
+# prepare myCatalog.csv
+echo seiscompId > myCatalog.csv
+# save all events ids between 2018-11-27 and 2018-12-14 in myCatalog.csv
+scevtls [db and log options] --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" >> myCatalog.csv
+# create the catalog using only manually reviewed preferred origins within the region defined in myProfile
+scrtdd --dump-catalog myCatalog.csv --dump-catalog-options 'preferred,onlyManual,any,none,myProfile' [db and log options]
+```
+
+Note: event.csv, phase.csv and stations.csv files are the extended catalog format, useful when the catalog information is fully contained in those files. Compare to the paragraph 2.1 example format (list of origin ids) the extended format doesn't require the catalog to be present on the seiscomp database. This might come in handy when using events coming from a different seiscomp installation e.g the events can be dumped (--dump-catalog) and used in another machine. Also those file can be easily generated from another source.
+
 
 #### 2.2.2 Relocating the candidate events (multi-event mode) to generate a high quality background catalog
 
@@ -230,7 +242,7 @@ For comparison we can always find the raw waveforms (not processed) fetched from
 It is possible to use ph2dt utility to perform the clustering. It this case the scrtdd configuration `step2options.clusteing.*` will not be used. Instead, ph2dt will be run to generate dt.ct file, and for each entry in the generated dt.ct file the cross-correlation will be performed and the relative dt.cc file created.
 
 ```
-scrtdd --reloc-profile profileName --use-ph2dt /some/path/ph2dt.inp [--ph2dt-path /some/path/ph2dt]
+scrtdd --reloc-profile profileName --use-ph2dt /some/path/ph2dt.inp --ph2dt-path /some/path/ph2dt
 ```
 
 ### 2.3 Useful options
@@ -246,10 +258,24 @@ Catalog:
                                         passed as argument into a catalog file 
                                         triplet (station.csv,event.csv,phase.cs
                                         v)
+  --dump-catalog-options arg            Allows --dump-catalog to accept event 
+                                        ids besides origin ids. For each event 
+                                        id an origin will be selected following
+                                        the provided options whose format is: 
+                                        'type,evalmode,includeCreator,excludeCr
+                                        eator,region', where 
+                                        type=preferred|last|first  
+                                        evalmode=any|onlyManual|onlyAutomatic  
+                                        includeCreator=any|author|methodID  
+                                        excludeCreator=none|author|methodID  
+                                        region=any|profileName e.g. to select 
+                                        preferred origins within my profile 
+                                        region given the input event ids use 
+                                        'preferred,any,any,none,myProfile 
   --dump-catalog-xml arg                Convert the input catalog into XML 
                                         format. The input can be a single file 
-                                        (containing seiscomp event/origin ids) 
-                                        or a catalog file triplet 
+                                        (containing seiscomp origin ids) or a 
+                                        catalog file triplet 
                                         (station.csv,event.csv,phase.csv)
   --merge-catalogs arg                  Merge in a single catalog all the 
                                         catalog file triplets 
@@ -260,20 +286,7 @@ Catalog:
                                         events keeps their ids. If multiple 
                                         events share the same id, subsequent 
                                         events will be discarded.
-  --dump-catalog-options arg            Allows --dump-catalog to accept event 
-                                        ids besides origin ids. For each event 
-                                        id an origin will be selected following
-                                        the provided options whose format is: 
-                                        'type,evalmode,includeCreator,excludeCr
-                                        eator,profile', where:
-                                        type=preferred|last|first,
-                                        evalmode=any|onlyManual|onlyAutomatic
-                                        includeCreator=any|anyAuthor|anyMethodID
-                                        excludeCreator=none|anyAuthor|anyMethodID
-                                        profile:any|anyProfileName  (match region)
-                                        e.g. to select preferred origins from the
-                                        provided event ids use:
-                                        'preferred,any,any,none,any'
+
 
 MultiEvents:
   --reloc-profile arg                   Relocate the catalog of profile passed 
@@ -284,9 +297,8 @@ MultiEvents:
                                         file
   --no-overwrite                        When relocating a profile don't 
                                         overwrite existing files in the working
-                                        directory (e.g. avoid re-computation of
-                                        cross correlation file dt.cc and allow
-                                        manual editing of hypoDD.inp configuration)
+                                        directory (avoid re-computation and 
+                                        allow manual editing)
 
 ```
 
