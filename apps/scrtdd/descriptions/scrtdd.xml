@@ -662,7 +662,8 @@
                 </option>
 
                 <option long-flag="dump-catalog-options" argument="arg">
-                    <description>Allows --dump-catalog to accept event ids besides origin ids. For each event id an origin will be selected following the provided options whose format is: 'type,evalmode,includeCreator,excludeCreator,profile', where type:'preferred','last','first' evalmode:'any','onlyManual','onlyAutomatic' includeCreator:'any' or author/methodID  excludeCreator:'none' or author/methodID profile:'any' or profileName. e.g. to select preferred origins from the provided event ids use 'preferred,any,any,none,any'</description>
+                    <description>Allows --dump-catalog to accept event ids besides origin ids. For each event id an origin will be selected following the provided options whose format is: 'type,evalmode,includeCreator,excludeCreator,region', where type=preferred|last|first  evalmode=any|onlyManual|onlyAutomatic  includeCreator=any|author|methodID  excludeCreator=none|author|methodID  region=any|profileName e.g. to select preferred origins within my profile region given the input event ids use 'preferred,any,any,none,myProfile'
+                    </description>
                 </option>
 
                 <option long-flag="dump-catalog-xml" argument="arg">
