@@ -451,8 +451,11 @@ Check log file: ~/.seiscomp/log/scrtdd.log
 Alternatively, when running scrtdd from the command line use the following options to see the logs on the console:
 
 ```
-scrtdd [some options]--verbosity=3 --console=1
+scrtdd [some options] --verbosity=3 --console=1
 ```
+
+Verbosity 3 should be preferred to level 4, since the debug level 4 makes the logs hard to read due to the huge amount of information. Any useful information to the user is given at level 3 or above, while level 4 is only for debugging.
+
 ### 5.2. Database connection
 
 The seiscomp database connection can be configured either inside `global.cfg`  (and thus every module knows what database to use since they inherit global.cfg), or in `scmaster.cfg`, in which case scmaster module passes the database connection string to every module when they connect to the messagin system. Since several scrtdd command line options don't need the messaging system,  scrtdd doesn't connect to it and in those cases we have to pass the database connection string to scrtdd via command line option (Since the database is still required for the inventory).
