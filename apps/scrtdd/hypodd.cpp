@@ -534,6 +534,13 @@ CatalogPtr HypoDD::relocateCatalog(bool force, bool usePh2dt)
             (boost::filesystem::path(catalogWorkingDir)/"starting-station.csv").string() );
     }
 
+    // build station id conversion table
+    for (const auto& kv : catToReloc->getStations() )
+    {
+        const Station& station = kv.second;
+        staIds.toHdd(station.id);
+    }
+
     // Create station.dat for hypodd (if not already generated)
     string stationFile = (boost::filesystem::path(catalogWorkingDir)/"station.dat").string();
     if ( force || ! Util::fileExists(stationFile) )
