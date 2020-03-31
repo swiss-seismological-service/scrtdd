@@ -991,7 +991,27 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
     }
 
     //
-    // From the events within distance select the ones who respect the constraints
+    // Select stations within configured distance
+    //
+    map<string,double> validatedStationDistance;
+    for (const auto& kv : stations )
+    {
+        const string& staId = kv.first;
+        const Station& station = kv.second;
+
+        // compute distance between reference event and station
+        double staRefEvDistance = computeDistance(refEv, station);
+
+        // check this station distance is ok
+        if ( ( maxESdist <= 0 || staRefEvDistance <= maxESdist ) ||  // too far away ?
+             ( staRefEvDistance >= minESdist )                  )     // too close ?
+        {
+            validatedStationDistance[staId] = staRefEvDistance;
+        }
+    } 
+
+    //
+    // Select from the events within distance the ones who respect the constraints
     //
     multimap<double,CatalogPtr> selectedEvents; // distance, event
     map<unsigned,int> dtCountByEvent;           // eventid, dtCount
@@ -1010,11 +1030,11 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         multimap<double, pair<string,Phase::Type> > stationByDistance; // distance, <stationid,phaseType>
         multimap<double, pair<string,Phase::Type> > unmatchedPhases; // distance, <stationid,phaseType>
 
-        // Check enough phases (> minDTperEvt) ?
         auto eqlrng = phases.equal_range(event.id);
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
             const Phase& phase = it->second;
+            const Station& station = stations.at(phase.stationId);
 
             // check pick weight
             if (phase.procInfo.weight < minPhaseWeight)
@@ -1023,31 +1043,35 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
                 continue;
             }
 
-            // check events/station distance
-            const Station& station = stations.at(phase.stationId);
+            // check this station distance to reference event is ok
+            const auto& staRefEvDistanceIt = validatedStationDistance.find(phase.stationId);
+            if ( staRefEvDistanceIt == validatedStationDistance.end() )
+            {
+                evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
+                continue;
+            }
 
-            // compute distance between current event and station
-            double stationDistance = computeDistance(event, station);
+            double staRefEvDistance = staRefEvDistanceIt->second;
 
-            // check this station distance is ok
-            if ( ( maxESdist > 0 && stationDistance > maxESdist ) ||      // too far away ?
-                 ( stationDistance < minESdist )                 ||       // too close ?
-                 ( (stationDistance / eventDistance) < minEStoIEratio ) ) // ratio too small ?
+            if ( (staRefEvDistance / eventDistance) < minEStoIEratio )  // ratio too small ?
             {
                 evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
                 continue;
             } 
 
-            // compute distance between reference event and station
-            double staRefEvDistance = computeDistance(refEv, station);
-
-            // check this station distance is ok
-            if ( ( maxESdist > 0 && staRefEvDistance > maxESdist ) ||      // too far away ?
-                 ( staRefEvDistance < minESdist )                 ||       // too close ?
-                 ( (staRefEvDistance / eventDistance) < minEStoIEratio ) ) // ratio too small ?
+            // check this station distance to current event is ok
+            if ( maxESdist > 0 )
             {
-                evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
-                continue;
+                // compute distance between current event and station
+                double stationDistance = computeDistance(event, station);
+
+                if ( ( stationDistance > maxESdist )                 ||      // too far away ?
+                     ( stationDistance < minESdist )                 ||       // too close ?
+                     ( (stationDistance / eventDistance) < minEStoIEratio ) ) // ratio too small ?
+                {
+                    evCat->removePhase(event.id, phase.stationId, phase.procInfo.type);
+                    continue;
+                }
             }
 
             // now find corresponding phase in reference event phases
@@ -1080,7 +1104,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
 
         int dtCount = stationByDistance.size();
 
-        // if not enought phases skip event
+        // Check enough phases (> minDTperEvt) ? if not skip event
         if ( dtCount < minDTperEvt )
         {
             continue;
