@@ -25,7 +25,6 @@ hypoDD.res
 * source paramater information:
 hypoDD.src
 *
-*
 *--- data type selection: 
 * IDAT:  1= cross corr; 2= catalog; 3= cross & cat 
 * IPHA: 1= P; 2= S; 3= P&S
@@ -48,7 +47,7 @@ hypoDD.src
 * IAQ:		remove airquakes: 0=NO, 1=YES
 * NSET:      	number of sets of iteration with specifications following
 *  ISTART  ISOLV  IAQ  NSET
-    2        1     1     4
+    2        2     1     4
 *
 *--- data weighting and re-weighting: 
 * NITER: 		last iteration to used the following weights
@@ -60,10 +59,10 @@ hypoDD.src
 *       ---  CROSS DATA ----- ----CATALOG DATA ----
 * NITER WTCCP WTCCS WRCC WDCC WTCTP WTCTS WRCT WDCT DAMP
 *********************************************************
- 05     0.010 0.010 -9   -9    1.0   1.0    -9   50   50
- 05     0.100 0.100 -9   -9    1.0   1.0     8   30   50
- 05     1.000 1.000 -9    5    1.0   1.0     8   20   50
- 05     1.000 1.000  6    5    1.0   1.0     6   15   60
+ 05     0.     0.    -9   -9    1.0   1.0  -9   50   -9
+ 05     0.     0.    -9   -9    1.0   1.0   8   30   50
+ 05     0.     0.    -9   -9    1.0   1.0   8   20   50
+ 05     0.     0.    -9   -9    1.0   1.0   6   15   60
 *********************************************************
 *
 *--- FORWARD MODEL:
