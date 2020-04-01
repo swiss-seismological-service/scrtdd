@@ -21,6 +21,10 @@
 #include <cmath>
 #include <iostream>
 
+namespace Seiscomp {
+namespace HDD {
+
+ 
 lsqrBase::lsqrBase()
 {
   this->eps = 1e-16;
@@ -776,3 +780,8 @@ TerminationPrintOut()
     }
 
 }
+
+
+}
+}
+ 

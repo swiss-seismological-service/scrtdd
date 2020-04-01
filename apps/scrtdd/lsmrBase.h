@@ -20,6 +20,9 @@
 
 #include <iosfwd>
 
+namespace Seiscomp {
+namespace HDD {
+ 
 /** \class lsmrBase
  *
  *  \brief LSMR solves Ax = b or min ||Ax - b|| with or without damping,
@@ -531,4 +534,7 @@ private:
   std::ostream * nout;
 };
 
+}
+}
+ 
 #endif

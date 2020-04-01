@@ -20,6 +20,10 @@
 
 #include <iosfwd>
 
+namespace Seiscomp {
+namespace HDD {
+
+ 
 /** \class lsqrBase
  *
  *  \brief implement a solver for a set of linear equations.
@@ -337,4 +341,7 @@ private:
   double * se;
 };
 
+}
+}
+ 
 #endif 
