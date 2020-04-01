@@ -9,6 +9,8 @@ SET(RTDD_SOURCES
 		catalog.cpp
 		datasrc.cpp
 		csvreader.cpp
+		lsmrBase.cpp
+		lsqrBase.cpp
 )
 
 INCLUDE_DIRECTORIES(${RTDDMSG_DIR}) 
