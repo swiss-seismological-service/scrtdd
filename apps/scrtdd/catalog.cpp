@@ -300,8 +300,6 @@ Catalog::Catalog(const string& stationFile,
         ev.longitude   = std::stod(row.at("longitude"));
         ev.depth       = std::stod(row.at("depth"));
         ev.magnitude   = std::stod(row.at("magnitude"));
-        ev.horiz_err   = std::stod(row.at("horizontal_err"));
-        ev.vert_err    = std::stod(row.at("vertical_err"));
         ev.rms         = std::stod(row.at("rms"));
         ev.relocInfo.isRelocated = false;
         if ( loadRelocationInfo && (row.count("relocated") != 0) && strToBool(row.at("relocated")) )
@@ -314,8 +312,6 @@ Catalog::Catalog(const string& stationFile,
             ev.relocInfo.numCCs           = std::stoi(row.at("numCCs"));
             ev.relocInfo.numCTp           = std::stoi(row.at("numCTp"));
             ev.relocInfo.numCTs           = std::stoi(row.at("numCTs"));
-            ev.relocInfo.rmsResidualCC    = std::stod(row.at("residualCC"));
-            ev.relocInfo.rmsResidualCT    = std::stod(row.at("residualCT"));
             ev.relocInfo.numNeighbours    = std::stod(row.at("numNeighbours"));
         }
         _events[ev.id] = ev;
@@ -373,8 +369,6 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
         ev.latitude    = org->latitude();
         ev.longitude   = org->longitude();
         ev.depth       = org->depth(); // km
-        ev.horiz_err   = 0;
-        ev.vert_err    = 0;
         try {
             ev.rms = org->quality().standardError();
         } catch ( ... ) {  ev.rms = 0; }
@@ -776,8 +770,8 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
     stringstream evStreamNoReloc;
     stringstream evStreamReloc;
 
-    evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude,horizontal_err,vertical_err,rms"; 
-    evStreamReloc << evStreamNoReloc.str() << ",relocated,numNeighbours,numCCp,numCCs,numCTp,numCTs,residualCC,residualCT,lonUncertainty,latUncertainty,depthUncertainty" << endl;
+    evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude,rms"; 
+    evStreamReloc << evStreamNoReloc.str() << ",relocated,numNeighbours,numCCp,numCCs,numCTp,numCTs,lonUncertainty,latUncertainty,depthUncertainty" << endl;
     evStreamNoReloc << endl;
 
     bool relocInfo = false;
@@ -786,10 +780,9 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
         const Catalog::Event& ev = kv.second;
 
         stringstream evStream;
-        evStream << stringify("%u,%s,%.6f,%.6f,%.4f,%.2f,%.4f,%.4f,%.4f",
+        evStream << stringify("%u,%s,%.6f,%.6f,%.4f,%.2f,%.4f",
                               ev.id,ev.time.iso().c_str(),
-                              ev.latitude,ev.longitude,ev.depth,ev.magnitude,
-                              ev.horiz_err,ev.vert_err,ev.rms);
+                              ev.latitude,ev.longitude,ev.depth,ev.magnitude,ev.rms);
 
         evStreamNoReloc << evStream.str() << endl;
         evStreamReloc   << evStream.str();
@@ -801,10 +794,9 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
         else
         {
             relocInfo = true;
-            evStreamReloc <<  stringify(",true,%d,%d,%d,%d,%d,%.4f,%.4f,%.6f,%.6f,%.6f",
+            evStreamReloc <<  stringify(",true,%d,%d,%d,%d,%d,%.6f,%.6f,%.6f",
                                   ev.relocInfo.numNeighbours, ev.relocInfo.numCCp, ev.relocInfo.numCCs,
                                   ev.relocInfo.numCTp, ev.relocInfo.numCTs,
-                                  ev.relocInfo.rmsResidualCC, ev.relocInfo.rmsResidualCT, 
                                   ev.relocInfo.lonUncertainty, ev.relocInfo.latUncertainty,
                                   ev.relocInfo.depthUncertainty );
         }

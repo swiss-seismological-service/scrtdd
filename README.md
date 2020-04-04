@@ -21,10 +21,7 @@
 
 The SCRTDD is a [Seiscomp3](<https://github.com/SeisComP3/seiscomp3>) extension module that implements both Real-Time Double-Difference Event relocation and classic offline multi-event (catalog) Double-Difference relocation.
 
-The actual methods are described in the paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser and "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Felix Waldhauser et al.
-
-The actual Double-Difference inversion method is currently performed by the hypoDD software, which has to be installed in the system (currently tested on version 1.3 and 2.1b), while scrtdd code deals with the seiscomp3 internal details, allowing the user to quickly and easily perform Double-Difference relocations on existing events or in real-time.
-
+The actual methods are based on the paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser et al. and "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Felix Waldhauser et al.
 
 ## Compile
 
@@ -38,21 +35,13 @@ git submodule add -f https://github.com/swiss-seismological-service/scrtdd.git s
 For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#compiling
 
 
-
 # Getting Started
 
-## 1. Install hypoDD software
-
-Go to https://www.ldeo.columbia.edu/~felixw/hypoDD.html and dowload hypoDD. Untar the sources, go to src folder, run make. Done! 
-
-Please remember to set the Hypodd array limits (compilation time options available via include/*inc files) accordingly with the size of your problem.
-
-
-## 2. Defining a background catalog for real time relocations
+## 1. Defining a background catalog for real time relocations
 
 New origins will be relocated in real time against a background catalog of high quality locations. Those high quality events that form the background catalog can be already present in seiscompo database or not. In the latter case the background catalog has to be generated. Either way, the catalog has to be specified in scrtdd when configuring it.
 
-### 2.1. Selecting a background catalog from existing origins
+### 1.1. Using origins from seiscomp database as background catalog
 
 If we already have a high quality catalog, then we can easily specify it in scrtdd configuration as a path to a file containing a list of origin id. The file format must be a csv file in which there must be at least one column called seiscompId, from which the ids will be fetched by scrtdd.
 
@@ -69,11 +58,11 @@ Origin/20190223103327.031726.346363
 
 ![Catalog selection option](/data/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
 
-### 2.2. Generating a background catalog
+### 1.2. Generating a background catalog
 
 In the more general case in which we don't already have a background catalog, we have to build one using scrtdd. Generating a background catalog involves two steps: first we select the candidate events that might have low quality locations (we still want them to be as accurate as possible though, and with many phases. That is we want origins manully relocated using manual picks) and then we use scrtdd to relocated those events to achieve the quality needed for a background catalog. The higher the quality of the background catalog, the higher will be the quality of the real time origin relocations.
 
-#### 2.2.1 Dumping the candidate events to files
+#### 1.2.1 Dumping the candidate events to files
 
 Once the candidate origins have been selected, we write their seiscomp id in a file using the same format as the example above (myCatalog.csv). Once that's done, we run the command:
 
@@ -135,13 +124,13 @@ scrtdd --dump-catalog myCatalog.csv --dump-catalog-options 'preferred,onlyManual
 Note: event.csv, phase.csv and stations.csv files are the extended catalog format, useful when the catalog information is fully contained in those files. Compare to the paragraph 2.1 example format (list of origin ids) the extended format doesn't require the catalog to be present on the seiscomp database. This might come in handy when using events coming from a different seiscomp installation e.g the events can be dumped (--dump-catalog) and used in another machine. Also those file can be easily generated from another source.
 
 
-#### 2.2.2 Relocating the candidate events (multi-event mode) to generate a high quality background catalog
+#### 1.2.2 Relocating the candidate events (multi-event mode) to generate a high quality background catalog
 
 To relocate a catalog (multi-event relocation) we need to create a new profile in scrtdd configuration and then we have to set the generated files (event.csv, phase.csv, stations.csv) as the catalog of the profile.
 
 ![Catalog selection option](/data/catalog-selection2.png?raw=true "Catalog selection from raw file format")
 
-At this point we have to configure the other profile options that control the relocation process: `step2options` (`step1options` is used only in real-time), which control the creation of catalog absolute travel time entries (dt.ct file in HypoDD terminology) and cross correlated differential travel times for pairs of events (dt.cc file in HypoDD terminology). The clustering options should work just fine with the default values, however some adjustments are worth it. For example:
+At this point we have to configure the other profile options that control the relocation process: `step2options` (`step1options` is used only in real-time), which control the creation of catalog absolute travel time entries (dt.ct file in HypoDD terminology) and cross correlated differential travel times for pairs of events (dt.cc file in HypoDD terminology). The clustering options should work just fine with the default values, however some adjustments are worth it. For example we force to have only well connected events (`minNumNeigh` and `minObservationPerEvPair`), which helps in avoiding ill-defined double difference system that can be hard to solve. Then we minimize `maxNumNeigh` to reduce computation time (we can get very good results without using all the possible neighbours for every event). Finallly we like to disable the ellipsoid algorithms (`numEllipsoids=0`) since that is mostly useful in single event relocation.
 
 ![Relocation options](/data/multiEventStep2options.png?raw=true "Relocation options")
 
@@ -170,9 +159,56 @@ Now that we have a high quality background catalog we are ready to perform real 
 
 Be aware that the first time you run the command it will be very slow because the waveforms have to be downloaded from the configured recordstream and saved to disk for the next runs, which will be much faster. However some temporary waveforms (e.g. theoretical phases) are never saved to disk since they are not part of the catalog phases and thus not useful when `scrtdd` is enabled for real-time relocations. Nevertheless, during the parameters tuning phase the relocation is performed several times and storing the temporary waveforms too makes the process faster. For this reason we can use an option `--debug-wf-cache` that force `scrtdd` to save all waveforms to disk. Just be aware that using this options increase the size of the cache folder (`workingDirectory/profileName/wfcache/` e.g. `~/seiscomp3/var/lib/rtdd/myProfile/wfcache/`) with phases that will not be useful in real-time. so you might want to delete the cache folder at the end of the relocation attempts.
 
-#### 2.2.3 Cross-correlation, waveform filtering and signal to noise ratio options
+### 1.2.3 Useful options
 
-Those parameters require some trial and error to be correctly set but after that they can be kept identical for real-time relocation without any major change, except for the parameter ```maxDelay``` that should be increased in real-time relocation to accomodate the larger uncertainty of automatic picks compared to manual ones (unless scrtdd is used to only relocate manually reviewed origins).
+There are also some other interesting catalong related options:
+
+
+```
+scrtdd --help
+
+MultiEvents:
+  --reloc-profile arg                   Relocate the catalog of profile passed 
+                                        as argument 
+Catalog:
+  --dump-catalog arg                    Dump the seiscomp event/origin id file 
+                                        passed as argument into a catalog file 
+                                        triplet (station.csv,event.csv,phase.cs
+                                        v)
+  --dump-catalog-options arg            Allows --dump-catalog to accept event 
+                                        ids besides origin ids. For each event 
+                                        id an origin will be selected following
+                                        the provided options whose format is: 
+                                        'type,evalmode,includeCreator,excludeCr
+                                        eator,region', where 
+                                        type=preferred|last|first  
+                                        evalmode=any|onlyManual|onlyAutomatic  
+                                        includeCreator=any|author|methodID  
+                                        excludeCreator=none|author|methodID  
+                                        region=any|profileName e.g. to select 
+                                        preferred origins within my profile 
+                                        region given the input event ids use 
+                                        'preferred,any,any,none,myProfile 
+  --dump-catalog-xml arg                Convert the input catalog into XML 
+                                        format. The input can be a single file 
+                                        (containing seiscomp origin ids) or a 
+                                        catalog file triplet 
+                                        (station.csv,event.csv,phase.csv)
+  --merge-catalogs arg                  Merge in a single catalog all the 
+                                        catalog file triplets 
+                                        (station1.csv,event1.csv,phase1.csv,sta
+                                        tion2.csv,event2.csv,phase2.csv,...) 
+                                        passed as arguments
+  --merge-catalogs-keepid arg           Similar to --merge-catalogs option but 
+                                        events keeps their ids. If multiple 
+                                        events share the same id, subsequent 
+                                        events will be discarded.
+
+```
+
+## 2. Cross-correlation, waveform filtering and signal to noise ratio options
+
+Those parameters require some trial and error to be correctly set but after that they can be kept identical for real-time relocation without any major change, except for the parameter ```maxDelay``` that should be increased in real-time relocation to accomodate the larger uncertainty of automatic picks (unless scrtdd is used to only relocate manually reviewed origins). Here is an example configuration:
 
 ![Relocation options](/data/xcorr.png?raw=true "Relocation options")
 
@@ -255,70 +291,7 @@ For comparison we can always find the raw waveforms (not processed) fetched from
 * `NET.ST.LOC.CH.startime-endtime.mseed`
 
 
-#### 2.2.4 Using ph2dt
 
-It is possible to use ph2dt utility to perform the clustering. It this case the scrtdd configuration `step2options.clusteing.*` will not be used. Instead, ph2dt will be run to generate dt.ct file, and for each entry in the generated dt.ct file the cross-correlation will be performed and the relative dt.cc file created.
-
-```
-scrtdd --reloc-profile profileName --use-ph2dt /some/path/ph2dt.inp --ph2dt-path /some/path/ph2dt
-```
-
-### 2.3 Useful options
-
-There are also some other interesting catalong related options:
-
-
-```
-scrtdd --help
-
-Catalog:
-  --dump-catalog arg                    Dump the seiscomp event/origin id file 
-                                        passed as argument into a catalog file 
-                                        triplet (station.csv,event.csv,phase.cs
-                                        v)
-  --dump-catalog-options arg            Allows --dump-catalog to accept event 
-                                        ids besides origin ids. For each event 
-                                        id an origin will be selected following
-                                        the provided options whose format is: 
-                                        'type,evalmode,includeCreator,excludeCr
-                                        eator,region', where 
-                                        type=preferred|last|first  
-                                        evalmode=any|onlyManual|onlyAutomatic  
-                                        includeCreator=any|author|methodID  
-                                        excludeCreator=none|author|methodID  
-                                        region=any|profileName e.g. to select 
-                                        preferred origins within my profile 
-                                        region given the input event ids use 
-                                        'preferred,any,any,none,myProfile 
-  --dump-catalog-xml arg                Convert the input catalog into XML 
-                                        format. The input can be a single file 
-                                        (containing seiscomp origin ids) or a 
-                                        catalog file triplet 
-                                        (station.csv,event.csv,phase.csv)
-  --merge-catalogs arg                  Merge in a single catalog all the 
-                                        catalog file triplets 
-                                        (station1.csv,event1.csv,phase1.csv,sta
-                                        tion2.csv,event2.csv,phase2.csv,...) 
-                                        passed as arguments
-  --merge-catalogs-keepid arg           Similar to --merge-catalogs option but 
-                                        events keeps their ids. If multiple 
-                                        events share the same id, subsequent 
-                                        events will be discarded.
-
-
-MultiEvents:
-  --reloc-profile arg                   Relocate the catalog of profile passed 
-                                        as argument
-  --ph2dt-path arg                      Specify path to ph2dt executable
-  --use-ph2dt arg                       When relocating a catalog use ph2dt. 
-                                        This option requires a ph2dt control 
-                                        file
-  --no-overwrite                        When relocating a profile don't 
-                                        overwrite existing files in the working
-                                        directory (avoid re-computation and 
-                                        allow manual editing)
-
-```
 
 ## 3. Real time single origin relocation
 
@@ -336,6 +309,8 @@ Step 2: the refined location computerd in the previous step is used as starting 
 
 If step2 completes successfully the relocated origin is sent to the messaging system.
 
+You can see below the most important parameters we want to configure. We enable the ellipsoid clustering algorithms selecting `numEllipsoids != 0` and we define the number of neighbour events to use for relocation. We also increased `maxEllipsoidSize` in `step1options` to accomodate the possible large error in the automatic origin locations.
+ 
 
 ![Relocation options](/data/step1options.png?raw=true "Relocation options")
 ![Relocation options](/data/step2options.png?raw=true "Relocation options")
@@ -489,22 +464,3 @@ or in case of a Postgresql database:
 scrtdd [some options] --plugins dbpostgresql -d postgresql://user:password@host/seiscompDbName
 ``` 
 
-### 5.3. Working directory and HypoDD input/output files
-
-A useful option we can find in scrtdd configuration is `keepWorkingFiles`, which prevent the deletion of scrtdd processing files from the working directory (e.g. `~/seiscomp3/var/lib/rtdd/myProfile/`). In this way we can access the working folder and check input, output files used for running hypodd. More importantly we can also run hypodd from the command line using the same files generated by `scrtdd` (and possible edit those) and view the console output since the hypodd log file doesn't always reports all the errors. Look at `scrtdd` logs to understand where the working directory is and how to run hypodd manually:
-
-```
-[...]
-20:51:33 [info] Creating station file ~/seiscomp3/var/lib/rtdd/myProfile/20170103161341_46266_007400_20200225195133_0950/step1/station.dat
-20:51:33 [info] Creating event file ~/seiscomp3/var/lib/rtdd/myProfile/20170103161341_46266_007400_20200225195133_0950/step1/event.dat
-20:51:33 [info] Creating differential travel time file ~/seiscomp3/var/lib/rtdd/myProfile/20170103161341_46266_007400_20200225195133_0950/step1/dt.ct
-20:51:33 [info] Running hypodd...
-20:51:33 [info] Working directory ~/seiscomp3/var/lib/rtdd/myProfile/20170103161341_46266_007400_20200225195133_0950/step1
-20:51:33 [info] Executing command: /bin/sh -c ~/dev/HYPODD_2.1b/src/hypoDD/hypoDD hypoDD.inp >hypoDD.out 2>&1 
-20:51:33 [info] Loading catalog relocated by hypodd...
-[...]
-```
-
-### 5.4. HypoDD limits
-
-Finally, remember to set the Hypodd array limits (compilation time options available via *inc files) accordingly with the size of your problem. If the full catalog relocation doesn't seem to relocate at all, you might have probably hit array limits.

@@ -75,8 +75,6 @@ class Catalog : public Core::BaseObject {
             double longitude;
             double depth;   // km
             double magnitude;
-            double horiz_err;
-            double vert_err;
             double rms;
 
             struct {
@@ -88,8 +86,6 @@ class Catalog : public Core::BaseObject {
                 int numCCs;
                 int numCTp;
                 int numCTs;
-                double rmsResidualCC;
-                double rmsResidualCT;
                 int numNeighbours;
             } relocInfo;
 
@@ -101,8 +97,6 @@ class Catalog : public Core::BaseObject {
                     (longitude == other.longitude) &&
                     (depth == other.depth) &&
                     (magnitude == other.magnitude) &&
-                    (horiz_err == other.horiz_err) &&
-                    (vert_err == other.vert_err) &&
                     (rms == other.rms);
             }
             bool operator!=(const Event& other) const

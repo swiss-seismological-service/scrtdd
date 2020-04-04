@@ -26,7 +26,6 @@
 #include <seiscomp3/datamodel/origin.h>
 #include <seiscomp3/datamodel/amplitude.h>
 #include <seiscomp3/datamodel/journaling.h>
-#include <seiscomp3/seismology/ttt.h>
 #include <seiscomp3/utils/timer.h>
 
 #include "app.h"
@@ -163,7 +162,7 @@ class RTDD : public Application {
             bool isLoaded() { return loaded; }
             Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
             HDD::CatalogPtr relocateSingleEvent(DataModel::Origin *org);
-            HDD::CatalogPtr relocateCatalog(bool force = true);
+            HDD::CatalogPtr relocateCatalog();
             void evalXCorr();
 
             std::string name;
@@ -211,9 +210,6 @@ class RTDD : public Application {
         std::list<ProfilePtr>      _profiles;
 
         DataModel::EventParametersPtr _eventParameters;
-
-        Logging::Channel *_processingInfoChannel;
-        Logging::Output  *_processingInfoOutput;
 
         ObjectLog        *_inputEvts;
         ObjectLog        *_inputOrgs;

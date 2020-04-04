@@ -16,7 +16,7 @@
  *
  *=========================================================================*/
 
-#include "lsmrBase.h"
+#include "lsmr.h"
 
 #include <algorithm>
 #include <cmath>

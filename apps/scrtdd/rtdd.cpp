@@ -266,9 +266,6 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 
     _cache.setPopCallback(boost::bind(&RTDD::removedFromCache, this, _1));
 
-    _processingInfoChannel = nullptr;
-    _processingInfoOutput = nullptr;
-
     NEW_OPT(_config.publicIDPattern, "publicIDpattern");
     NEW_OPT(_config.keepWorkingFiles, "keepWorkingFiles");
     NEW_OPT(_config.onlyPreferredOrigin, "onlyPreferredOrigins");
@@ -316,13 +313,9 @@ RTDD::~RTDD() {
 void RTDD::createCommandLineDescription() {
     Application::createCommandLineDescription();
     commandline().addOption("Mode", "dump-config", "Dump the configuration and exit");  
-    commandline().addOption<string>("MultiEvents", "ph2dt-path", "Specify path to ph2dt executable", nullptr, false);
-    commandline().addOption<string>("MultiEvents", "use-ph2dt", "When relocating a catalog use ph2dt. This option requires a ph2dt control file", nullptr, false);
-    commandline().addOption("MultiEvents", "no-overwrite", "When relocating a profile don't overwrite existing files in the working directory (avoid re-computation and allow manual editing)");
-   commandline().addOption<string>("Catalog", "merge-catalogs-keepid",
+    commandline().addOption<string>("Catalog", "merge-catalogs-keepid",
                 "Similar to --merge-catalogs option but events keeps their ids. If multiple events share the same id, subsequent events will be discarded.", nullptr, false);
     commandline().addOption<string>("Catalog", "dump-catalog-options", "Allows --dump-catalog to accept event ids besides origin ids. For each event id an origin will be selected following the provided options whose format is: 'type,evalmode,includeCreator,excludeCreator,region', where type=preferred|last|first  evalmode=any|onlyManual|onlyAutomatic  includeCreator=any|author|methodID  excludeCreator=none|author|methodID  region=any|profileName e.g. to select preferred origins within my profile region given the input event ids use 'preferred,any,any,none,myProfile", nullptr, false);
- 
 }
 
 
@@ -354,11 +347,6 @@ bool RTDD::validateParameters()
     }
 
     _config.workingDirectory = env->absolutePath(configGetPath("workingDirectory"));
-
-    std::string hypoddExec = "hypodd";
-    try {
-        hypoddExec = env->absolutePath(configGetPath("hypoddPath"));
-    } catch ( ... ) { }
 
     bool profilesOK = true;
 
@@ -477,11 +465,6 @@ bool RTDD::validateParameters()
             prof->ddcfg.step1Clustering.minEStoIEratio = configGetDouble(prefix + "minStaionToEventPairDistRatio");
         } catch ( ... ) { prof->ddcfg.step1Clustering.minEStoIEratio = 0; } 
 
-        prefix = string("profile.") + *it + ".step1options.hypoDD.";
-        try {
-            prof->ddcfg.hypodd.step1CtrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
-        } catch ( ... ) { }
-
         prefix = string("profile.") + *it + ".step2options.clustering.";
         prof->ddcfg.step2Clustering.recordStreamURL = recordStreamURL();
         try {
@@ -518,9 +501,6 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.step2Clustering.minEStoIEratio = configGetDouble(prefix + "minStaionToEventPairDistRatio");
         } catch ( ... ) { prof->ddcfg.step2Clustering.minEStoIEratio = 0; } 
-
-        prefix = string("profile.") + *it + ".step2options.hypoDD.";
-        prof->ddcfg.hypodd.step2CtrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
 
         prefix = string("profile.") + *it + ".step2options.crosscorrelation.p-phase.";
         try {
@@ -582,13 +562,6 @@ bool RTDD::validateParameters()
             }
         }
 
-        prof->ddcfg.hypodd.exec = hypoddExec;
-
-        if ( commandline().hasOption("ph2dt-path") )
-            prof->ddcfg.ph2dt.exec = env->absolutePath(commandline().option<string>("ph2dt-path"));
-        if ( commandline().hasOption("use-ph2dt") )
-            prof->ddcfg.ph2dt.ctrlFile = env->absolutePath(commandline().option<string>("use-ph2dt"));
-
         prof->ddcfg.artificialPhases.enable = true; // no reason to make this configurable
 
         _profiles.push_back(prof);
@@ -641,12 +614,6 @@ bool RTDD::init() {
             return false;
         }
     }
-
-    // Log into processing/info to avoid logging the same information into the global info channel
-    _processingInfoChannel = SEISCOMP_DEF_LOGCHANNEL("processing/info", Logging::LL_INFO);
-    _processingInfoOutput = new Logging::FileRotatorOutput(Environment::Instance()->logFile("scrtdd-processing-info").c_str(),  60*60*24, 30);
-
-    _processingInfoOutput->subscribe(_processingInfoChannel);
 
     _inputEvts = addInputObjectLog("event");
     _inputOrgs = addInputObjectLog("origin");
@@ -813,8 +780,6 @@ bool RTDD::run()
     // relocate full catalog and exit
     if ( !_config.relocateProfile.empty() )
     {
-        bool overwrite_files = ! commandline().hasOption("no-overwrite");
-
         for ( ProfilePtr profile : _profiles )
         {
             if ( profile->name == _config.relocateProfile)
@@ -824,7 +789,7 @@ bool RTDD::run()
                               _config.cacheWaveforms, _config.cacheAllWaveforms, 
                               _config.dumpWaveforms, false);
                 try {
-                    HDD::CatalogPtr relocatedCat = profile->relocateCatalog(overwrite_files);
+                    HDD::CatalogPtr relocatedCat = profile->relocateCatalog();
                     relocatedCat->writeToFile("reloc-event.csv","reloc-phase.csv","reloc-station.csv");
                     SEISCOMP_INFO("Wrote files reloc-event.csv, reloc-phase.csv, reloc-station.csv");
                 } catch ( exception &e ) {
@@ -924,9 +889,6 @@ void RTDD::done() {
 
     // Remove crontab log file if exists
     unlink((Environment::Instance()->logDir() + "/" + name() + ".sched").c_str());
-
-    if ( _processingInfoChannel ) delete _processingInfoChannel;
-    if ( _processingInfoOutput )  delete _processingInfoOutput;
 }
 
 
@@ -1930,7 +1892,7 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
 
 
 
-HDD::CatalogPtr RTDD::Profile::relocateCatalog(bool force)
+HDD::CatalogPtr RTDD::Profile::relocateCatalog()
 {
     if ( !loaded )
     {
@@ -1938,7 +1900,7 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog(bool force)
         throw runtime_error(msg.c_str());
     }
     lastUsage = Core::Time::GMT();
-    return hypodd->relocateCatalog(force, ! ddcfg.ph2dt.ctrlFile.empty());
+    return hypodd->relocateCatalog();
 }
 
 

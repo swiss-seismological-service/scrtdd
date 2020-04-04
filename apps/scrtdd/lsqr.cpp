@@ -16,7 +16,7 @@
  *
  *=========================================================================*/
 
-#include "lsqrBase.h"
+#include "lsqr.h"
 
 #include <cmath>
 #include <iostream>

@@ -37,12 +37,6 @@
                 </description>
             </parameter>
 
-            <parameter name="hypoddPath" type="path" default="hypoDD">
-                <description>
-                    Path to hypodd executable.
-                </description>
-            </parameter>
-
             <parameter name="activeProfiles" type="list:string" default="">
                 <description>
                     Defines a list of active profiles.
@@ -332,15 +326,6 @@
                                 </parameter> 
                             </group> 
                         </group> 
-                        <group name="hypoDD">
-                            <parameter name="controlFile" type="path">
-                                <description>
-                                    Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
-                                    The input/output files will be replaced by SCRTDD with its own files, thus the values
-                                    at those lines are not relevant.
-                                </description>
-                            </parameter>
-                        </group>
                     </group>
 
                     <group name="step2options">
@@ -468,16 +453,6 @@
                                     </description>
                                 </parameter> 
                             </group>
-                            </group>
-
-                        <group name="hypoDD">
-                            <parameter name="controlFile" type="path">
-                                <description>
-                                    Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
-                                    The input/output files will be replaced by SCRTDD with its own files, thus the values
-                                    at those lines are not relevant.
-                                </description>
-                            </parameter>
                         </group>
 
                         <group name="crosscorrelation">
@@ -712,16 +687,6 @@
                     <description>Relocate the catalog of profile passed as argument</description>
                 </option>
  
-                <option long-flag="ph2dt-path">
-                    <description>Specify path to ph2dt executable</description>
-                </option> 
-                <option long-flag="use-ph2dt">
-                    <description>"When relocating a catalog use ph2dt. This option requires a ph2dt control file</description>
-                </option> 
-                <option long-flag="no-overwrite">
-                    <description>When relocating a profile don't overwrite existing files in the working directory (avoid re-computation and allow manual editing)</description>
-                </option> 
-
             </group>
 
         </command-line>
