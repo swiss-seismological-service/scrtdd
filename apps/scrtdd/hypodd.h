@@ -133,6 +133,7 @@ class HypoDD : public Core::BaseObject {
 
         CatalogPtr relocateCatalog(bool force = true, bool usePh2dt = false);
         CatalogPtr relocateSingleEvent(const CatalogCPtr& orgToRelocate);
+        void evalXCorr();
 
         void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
         bool workingDirCleanup() { return _workingDirCleanup; }

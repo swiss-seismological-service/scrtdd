@@ -286,6 +286,8 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
                 "Load catalog waveforms from the configured recordstream and save them into the profile working directory", true);
     NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf", "Enable the saving of processed waveforms (filtered/resampled, SNR rejected, ZRT projected, etc) into the profile working directory", false, true);
     NEW_OPT_CLI(_config.cacheAllWaveforms, "Mode", "debug-wf-cache", "All waveforms will be saved to disk cache, this is useful to speed up debugging/testing. Normally only catalog phase waveforms are cached to disk since they are re-used", false, true); 
+    NEW_OPT_CLI(_config.evalXCorr, "Mode", "eval-xcorr",
+                "Evaluate cross-correlation settings for the given profile", true);
     NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
                 "Time span in hours after which objects expire", true);
 
@@ -341,6 +343,7 @@ bool RTDD::validateParameters()
          !_config.mergeCatalogs.empty()   ||
          !_config.dumpCatalogXML.empty()  ||
          !_config.loadProfile.empty()     ||
+         !_config.evalXCorr.empty()       ||
          !_config.relocateProfile.empty() ||
          (!_config.originIDs.empty() && _config.testMode)
        )
@@ -678,7 +681,29 @@ bool RTDD::run()
         ar.close();
     }
 
-    // load catalog and exit
+    // evaluate cross-correlation settings and exit
+    if ( !_config.evalXCorr.empty() )
+    {
+        // do not preload profile
+        _config.profileTimeAlive = 3600;
+
+        for ( ProfilePtr profile : _profiles )
+        {
+            if ( profile->name == _config.evalXCorr)
+            {
+                profile->load(query(), &_cache, _eventParameters.get(),
+                              _config.workingDirectory, !_config.keepWorkingFiles,
+                              _config.cacheWaveforms, _config.cacheAllWaveforms, 
+                              _config.dumpWaveforms, false); 
+                profile->evalXCorr();
+                profile->unload();
+                break;
+            }
+        } 
+        return true;
+    }
+
+    // load catalog waveforms and exit
     if ( !_config.loadProfile.empty() )
     {
         for ( ProfilePtr profile : _profiles )
@@ -687,7 +712,8 @@ bool RTDD::run()
             {
                 profile->load(query(), &_cache, _eventParameters.get(),
                               _config.workingDirectory, !_config.keepWorkingFiles,
-                              true, _config.cacheAllWaveforms, _config.dumpWaveforms, true);
+                              true, _config.cacheAllWaveforms,
+                              _config.dumpWaveforms, true);
                 profile->unload();
                 break;
             }
@@ -1916,6 +1942,16 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog(bool force)
 }
 
 
+void RTDD::Profile::evalXCorr()
+{
+    if ( !loaded )
+    {
+        string msg = Core::stringify("Cannot evalute cross-correlation settings, profile %s not initialized", name.c_str());
+        throw runtime_error(msg.c_str());
+    }
+    lastUsage = Core::Time::GMT();
+    hypodd->evalXCorr();
+}
 
 // End Profile class
 

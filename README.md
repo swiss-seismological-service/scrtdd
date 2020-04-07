@@ -13,7 +13,6 @@
  * GNU Affero General Public License for more details.                     *
  *                                                                         *
  *                                                                         *
- *                                                                         *
  *   Developed by Luca Scarabello, Tobias Diehl                            *
  *                                                                         *
  ***************************************************************************/
@@ -177,6 +176,9 @@ Those parameters require some trial and error to be correctly set but after that
 
 ![Relocation options](/data/xcorr.png?raw=true "Relocation options")
 
+
+### 2.1 Logs
+
 To help figuring out the right values for cross-correlation the log file (or console output with ```--console=1 --verbosity=3```) come in handy:
 
 ```
@@ -186,9 +188,25 @@ To help figuring out the right values for cross-correlation the log file (or con
 12:32:22 [info] xcorr on theoretical picks 15577/40361 (P 58%, S 42%) success 15% (2313/15577). Successful P 7% (671/9083). Successful S 25% (1642/6494)
 ```
 
-scrtdd computes theoretical picks so that they can be used in cross-correlation. If the resulting correlation coefficient is good enough a new pick is also created and added to the relocated origin.
+We can see that the statistics are broken down in actual picks and theoretical picks. This is because scrtdd computes theoretical picks so that they can be used in cross-correlation. If the resulting correlation coefficient is good enough the result is used in the double-difference system inversion. This is especially useful to increase the number of observations in real-time when automatic origins have only few automatic picks/phases. A new pick is also created and added to the relocated origin when the cross-correlation results are good enough.
 
-Another source of information for waveform filtering and signal to noise ratio options comes from a command line option:
+
+### 2.2 EvalXcorr command
+
+A more sophisticated method for evaluating the settings is the `--eval-xcorr' command:
+
+```
+scrtdd --eval-xcorr profileName --debug-wf-cache --verbosity=2 --console=1
+```
+
+```
+
+```
+
+
+### 2.3 Waveforms inspection
+
+A more in-depth source of information for waveform filtering and signal to noise ratio options comes from this option:
 
 
 ```
@@ -199,7 +217,7 @@ scrtdd --help
                                         into the profile working directory. 
 ```
 
-Simply adding ```--debug-wf``` to the command line will make scrtdd dump to disk miniseed files for inspection (e.g. scrttv waveformfile.mseed). Just make sure to delete the folder before using this option to make sure to not look at previous relocation output. The option is mostly useful when relocating a single event mode because in multi-event mode there will be way too many waveforms to be able to check them manually, but we can still do some random check to get an overall feeling of the filtering and snr.
+Simply adding ```--debug-wf``` to the command line will make scrtdd dump to disk miniseed files for inspection (e.g. scrttv waveformfile.mseed). Just make sure to delete the folder before using this option to make sure to not look at previous relocation output.  This option can be added to any scrtdd commands (e.g. `--relocate-profile`, `--ev`, `--origin-id` ) but it is mostly useful when relocating a single event mode because in multi-event mode there will be way too many waveforms to be able to check them all manually, although we can still do some random check to get an overall feeling of the filtering and snr.
 
 The generated waveforms will be stored in `workingDirectory/profileName/wfdebug/` (e.g. `~/seiscomp3/var/lib/rtdd/myProfile/wfdebug/`) after filtering and resampling, that is the same wavforms used for the cross-correlation. The files follow the patters:
 
@@ -208,7 +226,7 @@ The generated waveforms will be stored in `workingDirectory/profileName/wfdebug/
 * evNumber.NET.STATION.phaseTime.theoretical.mseed  (e.g. ev267.CH.SFRU.Pt.theoretical.mseed) - event 267 theoretical P phase on CH.SFRU station
 * evNumber.NET.STATION.phaseTime.snr-rejected.mseed (e.g. ev9.XY.VET02.S.snr-rejected.mseed)  - event 9 S phase not used in cross-correlation due to the configured signal to noise ratio threshold
 
-The logs tell us the details of the cross-correlation, so that we can see what waveform was cross-correlated with which others e.g.
+Also, scrtdd logs tell us the details of the cross-correlation, so that we can see what waveform was cross-correlated with which others and then inspect the corresponding waveform miniseed files e.g.:
 
 ```
 12:21:52 [info] xcorr: event   267 sta   CH LKBD2 dist 19.78 [km] - 3 P phases, mean coeff 0.71 lag 0.13 (events: 1 78 265 )

@@ -2941,6 +2941,157 @@ CatalogPtr HypoDD::loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
 }
 
 
+namespace {
+
+    struct XCorrEvalStats {
+        unsigned total = 0;
+        unsigned detected = 0;
+        double deviation = 0;
+        double absDeviation = 0;
+        double meanCoeff = 0;
+        unsigned meanCount = 0;
+
+        XCorrEvalStats& operator+=(XCorrEvalStats const& rhs)&
+        {
+          total += rhs.total;
+          detected += rhs.detected;
+          deviation += rhs.deviation;
+          absDeviation += rhs.absDeviation;
+          meanCoeff += rhs.meanCoeff;
+          meanCount += rhs.meanCount;
+          return *this;
+        }
+
+        friend XCorrEvalStats operator+(XCorrEvalStats lhs, XCorrEvalStats const& rhs)
+        {
+          lhs+=rhs;
+          return lhs;
+        }
+
+        string describe() const
+        {
+            unsigned normalizer = detected ? detected : 1;
+            return stringify("detected phases %3.f%% (%2d/%2d), mean coeff %.2f, mean num CC %d,"
+                             " mean time-diff %6.3f [sec], mean abs time-diff %6.3f [sec]",
+                             (detected * 100. / total), detected, total, meanCoeff/normalizer,
+                             meanCount/normalizer, deviation/normalizer, absDeviation/normalizer);
+        }
+    };
+}
+
+
+void
+HypoDD::evalXCorr()
+{
+    XCorrEvalStats totalStats;
+    map<string,XCorrEvalStats> statsByStation; // key station id
+    map<int,XCorrEvalStats> statsByDistance; // key distance
+    const int DIST_STEP = 3; // km
+
+    _counters = {0};
+    _wf->resetCounters(); 
+    int loop = 0;
+
+    for (const auto& kv : _ddbgc->getEvents() )
+    {
+        const Event& event = kv.second;
+
+        // find the neighbouring events
+        CatalogPtr neighbourCat;
+        try {
+            neighbourCat = selectNeighbouringEvents(
+                _ddbgc, event, _ddbgc, _cfg.step2Clustering.minWeight,
+                _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist,
+                _cfg.step2Clustering.minEStoIEratio, _cfg.step2Clustering.minDTperEvt,
+                _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh,
+                _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids,
+                _cfg.step2Clustering.maxEllipsoidSize, false, nullptr );
+        } catch ( ... ) { continue; }
+
+        // create theoretical phases for this event
+        // beware: no event phases are present in neighbourCat so the event
+        // will end up with only theoretical phases
+        addMissingEventPhases(neighbourCat, event, neighbourCat);
+
+        typedef pair<string,Phase::Type> PhaseSelection;
+        std::vector<PhaseSelection> selectedPhases;
+
+        auto phrng = neighbourCat->getPhases().equal_range(event.id);
+        for (auto it = phrng.first; it != phrng.second; ++it)
+        {
+            selectedPhases.push_back(PhaseSelection(it->second.stationId, it->second.procInfo.type));
+        }
+
+        // cross correlate every neighbour phase with corresponding event theoretical phase
+        XCorrCache xcorr;
+        buildXcorrDiffTTimePairs(neighbourCat, event, xcorr);
+
+        // Update theoretical and automatic phase pick time and uncertainties based on
+        // cross-correlation results
+        // Also drop theoretical phases wihout any good cross correlation result
+        fixPhases(neighbourCat, event, xcorr);
+
+        //
+        // Compare the detected phases with the actual event phases (manual or automatic)
+        //
+        XCorrEvalStats evStats;
+        for ( const PhaseSelection& sel : selectedPhases )
+        {
+            const Phase& catalogPhase = _ddbgc->searchPhase(event.id, sel.first, sel.second)->second;
+
+            XCorrEvalStats stats;
+            stats.total++;
+
+            auto it = neighbourCat->searchPhase(event.id, catalogPhase.stationId, catalogPhase.procInfo.type);
+            if ( it != neighbourCat->getPhases().end() )
+            {
+                const Phase& detectedPhase = it->second;
+                stats.detected++;
+                double deviation = (catalogPhase.time - detectedPhase.time).length();
+                stats.deviation += deviation;
+                stats.absDeviation += std::abs(deviation);
+                const auto& pdata = xcorr.get(event.id, catalogPhase.stationId, catalogPhase.procInfo.type);
+                stats.meanCoeff += pdata.mean_coeff;
+                stats.meanCount += pdata.ccCount;
+            }
+
+            evStats += stats;
+            statsByStation[catalogPhase.stationId] += stats;
+
+            const Station& station = _ddbgc->getStations().at(catalogPhase.stationId);
+            double stationDistance = computeDistance(event, station);
+            statsByDistance[ int(stationDistance/DIST_STEP) ] += stats;
+        }
+
+        totalStats += evStats;
+        SEISCOMP_WARNING("Event %-5s mag %3.1f %s", string(event).c_str(), event.magnitude,
+                         evStats.describe().c_str());
+
+        if ( ++loop % 10 == 0 )
+        {
+            SEISCOMP_WARNING("Progressive stats: %s", totalStats.describe().c_str());
+        }
+    }
+
+    printCounters();
+
+    SEISCOMP_WARNING("Final stats: %s", totalStats.describe().c_str());
+
+    SEISCOMP_WARNING("Stats by event to station distance in %d km step", DIST_STEP);
+    for ( const auto& kv : statsByDistance)
+    {
+        SEISCOMP_WARNING("Dist %3d-%-3d [km]: %s", kv.first*DIST_STEP, (kv.first+1)*DIST_STEP,
+                         kv.second.describe().c_str());
+    }
+
+    SEISCOMP_WARNING("Stats by station");
+    for ( const auto& kv : statsByStation)
+    {
+        SEISCOMP_WARNING("%-12s: %s", kv.first.c_str(), kv.second.describe().c_str());
+    }
+}
+
+
 } // HDD
 } // Seiscomp
 
