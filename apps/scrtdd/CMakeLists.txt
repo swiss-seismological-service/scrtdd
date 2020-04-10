@@ -1,17 +1,17 @@
 SET(RTDD_TARGET scrtdd)
 
 SET(RTDD_SOURCES
-		main.cpp
-		app.cpp
-		rtdd.cpp
-		hypodd.cpp
-		wfmngr.cpp
-		catalog.cpp
-		datasrc.cpp
-		csvreader.cpp
-		solver.cpp
 		lsmr.cpp
 		lsqr.cpp
+		solver.cpp
+		csvreader.cpp
+		datasrc.cpp
+		catalog.cpp
+		wfmngr.cpp
+		hypodd.cpp
+		app.cpp
+		rtdd.cpp
+		main.cpp
 )
 
 INCLUDE_DIRECTORIES(${RTDDMSG_DIR}) 

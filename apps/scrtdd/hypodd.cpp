@@ -31,7 +31,6 @@
 #include <iomanip>
 #include <cmath>
 #include <random>
-#include <set>
 #include <regex>
 #include <boost/filesystem.hpp>
 #include <boost/bind.hpp>
@@ -315,8 +314,8 @@ CatalogPtr HypoDD::relocateCatalog()
     //
     // update selected event list, numNeighbours information and artifical phases
     //
-    set<unsigned> selectedEvents;
-    multimap<unsigned,Phase> newPhases;
+    unordered_set<unsigned> selectedEvents;
+    unordered_multimap<unsigned,Phase> newPhases;
 
     for (const auto& kv : neighbourCats)
     {
@@ -624,9 +623,9 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
         numEllipsoids = 0;
     }
 
-    const map<string,Station>& stations = catalog->getStations();
+    const unordered_map<string,Station>& stations = catalog->getStations();
     const map<unsigned,Event>& events = catalog->getEvents();
-    const multimap<unsigned,Phase>& phases = catalog->getPhases();
+    const unordered_multimap<unsigned,Phase>& phases = catalog->getPhases();
 
     /*
      * Build ellipsoids
@@ -647,8 +646,8 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
     //
     // sort catalog events by distance and drop the ones further than the outmost ellipsoid
     //
-    map<unsigned,double> distanceByEvent; // eventid, distance
-    map<unsigned,double> azimuthByEvent;  // eventid, azimuth
+    unordered_map<unsigned,double> distanceByEvent; // eventid, distance
+    unordered_map<unsigned,double> azimuthByEvent;  // eventid, azimuth
 
     for (const auto& kv : events )
     {
@@ -674,7 +673,7 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
     //
     // Select stations within configured distance
     //
-    map<string,double> validatedStationDistance;
+    unordered_map<string,double> validatedStationDistance;
     for (const auto& kv : stations )
     {
         const string& staId = kv.first;
@@ -695,9 +694,9 @@ CatalogPtr HypoDD::selectNeighbouringEvents(const CatalogCPtr& catalog,
     // Select from the events within distance the ones who respect the constraints
     //
     multimap<double,CatalogPtr> selectedEvents; // distance, event
-    map<unsigned,int> dtCountByEvent;           // eventid, dtCount
-    set<string> includedStations;
-    set<string> excludedStations;
+    unordered_map<unsigned,int> dtCountByEvent;           // eventid, dtCount
+    unordered_set<string> includedStations;
+    unordered_set<string> excludedStations;
 
     for (const auto& kv : distanceByEvent)
     {
@@ -962,7 +961,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
     // is the same as pair eventYY-eventXX), we'll remove the
     // pairs that appeared in previous catalogs from the
     // following catalogs
-    std::multimap<unsigned,unsigned> existingPairs;
+    std::unordered_multimap<unsigned,unsigned> existingPairs;
 
     for (auto kv : neighboursByEvent )
     {
@@ -998,7 +997,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
  */ 
 void
 HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
-                        std::set<unsigned> eventsToRelocate, const XCorrCache& xcorr,
+                        std::unordered_set<unsigned> eventsToRelocate, const XCorrCache& xcorr,
                         ObservationParams& obsparams ) const
 {
     // copy event because we'll update it
@@ -1133,9 +1132,9 @@ HypoDD::loadRelocatedCatalog(const Solver& solver,
 {
     SEISCOMP_INFO("Loading relocated event(s)...");
 
-    map<string,Station> stations = originalCatalog->getStations();
+    unordered_map<string,Station> stations = originalCatalog->getStations();
     map<unsigned,Event> events = originalCatalog->getEvents();
-    multimap<unsigned,Phase> phases = originalCatalog->getPhases();
+    unordered_multimap<unsigned,Phase> phases = originalCatalog->getPhases();
 
     for ( auto& kv : events )
     {
@@ -1435,7 +1434,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
 
     // keep track of refEv distant to stations
     multimap<double,string> stationByDistance; // <distance, stationid>
-    set<string> computedStations;
+    unordered_set<string> computedStations;
 
     //
     // loop through reference event phases

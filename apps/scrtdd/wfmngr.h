@@ -25,8 +25,8 @@
 #include <seiscomp3/core/recordsequence.h>
 #include <seiscomp3/datamodel/utils.h>
 
-#include <set>
-#include <map>
+#include <unordered_set>
+#include <unordered_map>
 #include <vector>
 
 namespace Seiscomp {
@@ -69,12 +69,12 @@ class WfMngr : public Core::BaseObject {
             wf_downloaded = _counters.wf_downloaded;
         }
 
-        typedef std::map<std::string, GenericRecordCPtr> WfCache;
+        typedef std::unordered_map<std::string, GenericRecordCPtr> WfCache;
 
         GenericRecordCPtr getWaveform(const Core::TimeWindow& tw,
                                      const Catalog::Event& ev,
                                      const Catalog::Phase& ph,
-                                     std::map<std::string,GenericRecordCPtr>* memCache,
+                                     std::unordered_map<std::string,GenericRecordCPtr>* memCache,
                                      bool useDiskCache,
                                      bool allowSnrCheck);
         //
@@ -139,9 +139,9 @@ class WfMngr : public Core::BaseObject {
         std::string _recordStreamURL;
         std::string _cacheDir;
         std::string _wfDebugDir;
-        std::set<std::string> _unloadableWfs;
-        std::set<std::string> _snrGoodWfs;
-        std::set<std::string> _snrExcludedWfs;
+        std::unordered_set<std::string> _unloadableWfs;
+        std::unordered_set<std::string> _snrGoodWfs;
+        std::unordered_set<std::string> _snrExcludedWfs;
 
         bool _dump = false;
 

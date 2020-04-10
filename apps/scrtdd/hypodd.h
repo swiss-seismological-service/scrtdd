@@ -27,8 +27,8 @@
 #include <seiscomp3/seismology/ttt.h>
 
 #include <unordered_map>
-#include <set>
 #include <map>
+#include <unordered_set>
 #include <vector>
 #include <tuple>
 
@@ -195,7 +195,7 @@ class HypoDD : public Core::BaseObject {
             }
         }; 
         void addObservations(Solver& solver, CatalogPtr& catalog, unsigned evId,
-                             std::set<unsigned> eventsToRelocate, const XCorrCache& xcorr,
+                             std::unordered_set<unsigned> eventsToRelocate, const XCorrCache& xcorr,
                              ObservationParams& obsparams ) const;
         void addObservationParams(Solver& solver, const ObservationParams& obsParams,
                                   TravelTimeTableInterfacePtr ttt,

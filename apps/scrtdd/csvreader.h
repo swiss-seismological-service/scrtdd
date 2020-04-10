@@ -19,6 +19,8 @@
 #ifndef __RTDD_APPLICATIONS_CSVREADER_H__
 #define __RTDD_APPLICATIONS_CSVREADER_H__
 
+#include <unordered_map>
+
 namespace CSV {
 
 /*
@@ -67,16 +69,16 @@ std::vector<std::vector<std::string> > read(const std::string &filename);
 /*
  * Read file with a header: the first line must be the header
  */
-std::vector< std::map<std::string,std::string> > readWithHeader(std::istream &in);
+std::vector< std::unordered_map<std::string,std::string> > readWithHeader(std::istream &in);
 
-std::vector< std::map<std::string,std::string> > readWithHeader(const std::string &filename);
+std::vector< std::unordered_map<std::string,std::string> > readWithHeader(const std::string &filename);
 
 /*
  * Read file without a header. The header is passed to the function instead.
  */
-std::vector< std::map<std::string,std::string> > readWithHeader(std::istream &in, const std::vector<std::string>& header);
+std::vector< std::unordered_map<std::string,std::string> > readWithHeader(std::istream &in, const std::vector<std::string>& header);
 
-std::vector< std::map<std::string,std::string> > readWithHeader(const std::string &filename, const std::vector<std::string>& header);
+std::vector< std::unordered_map<std::string,std::string> > readWithHeader(const std::string &filename, const std::vector<std::string>& header);
 
 }
 

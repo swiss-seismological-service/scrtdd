@@ -187,17 +187,17 @@ Catalog::findSensorLocation(const std::string &networkCode,
 
 
 
-Catalog::Catalog() : Catalog(map<string,Station>(),
+Catalog::Catalog() : Catalog(unordered_map<string,Station>(),
                              map<unsigned,Event>(),
-                             multimap<unsigned,Phase>())
+                             unordered_multimap<unsigned,Phase>())
 {
 }
 
 
 
-Catalog::Catalog(const map<string,Station>& stations,
+Catalog::Catalog(const unordered_map<string,Station>& stations,
                  const map<unsigned,Event>& events,
-                 const multimap<unsigned,Phase>& phases)
+                 const unordered_multimap<unsigned,Phase>& phases)
         : _stations(stations),
           _events(events),
           _phases(phases) 
@@ -205,9 +205,9 @@ Catalog::Catalog(const map<string,Station>& stations,
 }
 
 
-Catalog::Catalog(map<string,Station>&& stations,
+Catalog::Catalog(unordered_map<string,Station>&& stations,
                  map<unsigned,Event>&& events,
-                 multimap<unsigned,Phase>&& phases)
+                 unordered_multimap<unsigned,Phase>&& phases)
         : _stations(stations),
           _events(events),
           _phases(phases) 
@@ -274,7 +274,7 @@ Catalog::Catalog(const string& stationFile,
         throw runtime_error(msg);
     }
 
-    vector<map<string,string> > stations = CSV::readWithHeader(stationFile);
+    vector<unordered_map<string,string> > stations = CSV::readWithHeader(stationFile);
 
     for (const auto& row : stations )
     {
@@ -289,7 +289,7 @@ Catalog::Catalog(const string& stationFile,
         _stations[sta.id] = sta;
     }
 
-    vector<map<string,string> >events = CSV::readWithHeader(eventFile);
+    vector<unordered_map<string,string> >events = CSV::readWithHeader(eventFile);
 
     for (const auto& row : events )
     {
@@ -317,7 +317,7 @@ Catalog::Catalog(const string& stationFile,
         _events[ev.id] = ev;
     }
 
-    vector<map<string,string> >phases = CSV::readWithHeader(phaFile);
+    vector<unordered_map<string,string> >phases = CSV::readWithHeader(phaFile);
 
     for (const auto& row : phases )
     {
@@ -501,7 +501,7 @@ void Catalog::add(const std::string& idFile, DataSource& dataSrc)
     }
 
     vector<string> ids;
-    vector< map<string,string> > rows = CSV::readWithHeader(idFile);
+    vector< unordered_map<string,string> > rows = CSV::readWithHeader(idFile);
 
     for(const auto& row : rows)
     {
@@ -635,7 +635,7 @@ void Catalog::removeEvent(unsigned eventId)
 
 void Catalog::removePhase(const Phase& phase)
 {
-    std::map<unsigned,Phase>::const_iterator it = searchPhase(phase);
+    unordered_map<unsigned,Phase>::const_iterator it = searchPhase(phase);
     if ( it != _phases.end() )
     {
         _phases.erase(it);
@@ -645,7 +645,7 @@ void Catalog::removePhase(const Phase& phase)
 
 void Catalog::removePhase(unsigned eventId, const std::string& stationId, const Phase::Type& type)
 {
-    std::map<unsigned,Phase>::const_iterator it = searchPhase(eventId, stationId, type);
+    unordered_map<unsigned,Phase>::const_iterator it = searchPhase(eventId, stationId, type);
     if ( it != _phases.end() )
     {
         _phases.erase(it);
@@ -655,7 +655,7 @@ void Catalog::removePhase(unsigned eventId, const std::string& stationId, const 
 
 bool Catalog::updateStation(const Station& newStation)
 {
-    map<string,Catalog::Station>::iterator it = _stations.find(newStation.id);
+    unordered_map<string,Catalog::Station>::iterator it = _stations.find(newStation.id);
     if ( it != _stations.end() )
     {
         it->second = newStation;
@@ -695,25 +695,28 @@ bool Catalog::updatePhase(const Phase& newPh)
 }
 
 
-map<string,Catalog::Station>::const_iterator Catalog::searchStation(const Station& station) const
+unordered_map<string,Catalog::Station>::const_iterator
+Catalog::searchStation(const Station& station) const
 {
     return searchByValue(_stations, station);
 }
 
 
-map<unsigned,Catalog::Event>::const_iterator Catalog::searchEvent(const Event& event) const
+map<unsigned,Catalog::Event>::const_iterator
+Catalog::searchEvent(const Event& event) const
 {
     return searchByValue(_events, event);
 }
 
 
-map<unsigned,Catalog::Phase>::const_iterator Catalog::searchPhase(const Phase& phase) const
+unordered_map<unsigned,Catalog::Phase>::const_iterator
+Catalog::searchPhase(const Phase& phase) const
 {
     return searchByValue(_phases, phase);
 }
 
 
-std::map<std::string,Catalog::Station>::const_iterator 
+unordered_map<std::string,Catalog::Station>::const_iterator 
 Catalog::searchStation(const std::string& networkCode,
                        const std::string& stationCode,
                        const std::string& locationCode) const
@@ -723,7 +726,7 @@ Catalog::searchStation(const std::string& networkCode,
 }
 
 
-map<unsigned,Catalog::Phase>::const_iterator
+unordered_map<unsigned,Catalog::Phase>::const_iterator
 Catalog::searchPhase(unsigned eventId, const std::string& stationId, const Phase::Type& type) const
 {
     auto eqlrng = _phases.equal_range(eventId);
@@ -818,7 +821,8 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
     }
     phStream << endl;
 
-    for (const auto& kv : _phases )
+    const multimap<unsigned,Catalog::Phase> orderedPhases(_phases.begin(), _phases.end());
+    for ( const auto& kv : orderedPhases )
     {
         const Catalog::Phase& ph = kv.second;
         phStream << stringify("%u,%s,%s,%.3f,%.3f,%s,%s,%s,%s,%s,%s",
@@ -848,7 +852,9 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
      * */
     ofstream staStream(stationFile);
     staStream << "id,latitude,longitude,elevation,networkCode,stationCode,locationCode" << endl;
-    for (const auto& kv : _stations )
+
+    const map<string,Catalog::Station> orderedStations(_stations.begin(), _stations.end());
+    for (const auto& kv : orderedStations )
     {
         const Catalog::Station& sta = kv.second;
         staStream << stringify("%s,%.6f,%.6f,%.1f,%s,%s,%s",
@@ -872,8 +878,8 @@ Catalog::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
                                              const std::vector<std::string>& PphaseToKeep,
                                              const std::vector<std::string>& SphaseToKeep)
 {
-    multimap<unsigned,Phase> filteredS;
-    multimap<unsigned,Phase> filteredP;
+    unordered_multimap<unsigned,Phase> filteredS;
+    unordered_multimap<unsigned,Phase> filteredP;
 
     // loop through each event
     for (const auto& kv :  catalog->getEvents() )
@@ -957,7 +963,7 @@ Catalog::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
 
     // loop through selected phases and replace actual phase name
     //  with a generic P or S
-    multimap<unsigned,Phase> filteredPhases;
+    unordered_multimap<unsigned,Phase> filteredPhases;
     for (auto& it : filteredP)
     {
         Phase& phase = it.second;

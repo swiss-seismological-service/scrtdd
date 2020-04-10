@@ -1884,7 +1884,7 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
     HDD::CatalogPtr orgToRelocate = new HDD::Catalog(
         hypodd->getCatalog()->getStations(),
         map<unsigned,HDD::Catalog::Event>(),
-        multimap<unsigned,HDD::Catalog::Phase>()
+        unordered_multimap<unsigned,HDD::Catalog::Phase>()
     );
     orgToRelocate->add({org}, dataSrc);
     return hypodd->relocateSingleEvent(orgToRelocate);

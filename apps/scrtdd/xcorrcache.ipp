@@ -20,7 +20,7 @@
 
 #include "catalog.h"
 
-#include <map>
+#include <unordered_map>
 
 namespace Seiscomp {
 namespace HDD {
@@ -40,7 +40,7 @@ public:
         typedef struct {
             double coeff, lag, dtcc, weight, lowerUncertainty, upperUncertainty;
         } PeerInfo;
-        std::map<unsigned,const PeerInfo> peers;
+        std::unordered_map<unsigned,const PeerInfo> peers;
 
         std::string peersStr; // debug
 
@@ -127,7 +127,7 @@ private:
     }
 
     // cache of computed xcorr
-    std::map<std::string, Entry> resultsByPhase;
+    std::unordered_map<std::string, Entry> resultsByPhase;
 
 };
 
