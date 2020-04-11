@@ -21,6 +21,8 @@
 
 #include <unordered_map>
 
+namespace Seiscomp {
+namespace HDD {
 namespace CSV {
 
 /*
@@ -80,6 +82,8 @@ std::vector< std::unordered_map<std::string,std::string> > readWithHeader(std::i
 
 std::vector< std::unordered_map<std::string,std::string> > readWithHeader(const std::string &filename, const std::vector<std::string>& header);
 
+}
+}
 }
 
 #endif

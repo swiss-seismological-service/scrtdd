@@ -68,20 +68,24 @@ public:
         for ( unsigned int ob = 0; ob < _dd->nObs; ob++ )
         {
             const unsigned phStaIdx = _dd->phStaByObs[ob]; // station for this observation
-            double sum = 0.0;
-            for ( unsigned int ev = 0; ev < 2; ev++ )
+
+            const int evIdx1 = _dd->evByObs[ob][0]; // event 1 for this observation
+            if ( evIdx1 >= 0 )
             {
-                const int evIdx = _dd->evByObs[ob][ev]; // event for this observation
-
-                if ( evIdx < 0 ) // this part of the observation is constant
-                    continue;
-
-                for ( unsigned int param = 0; param < 4; param++ )
-                {
-                    sum += _dd->G[evIdx * _dd->nPhStas + phStaIdx][param] * x[evIdx*4+param];
-                }
+                y[ob] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][0] * x[evIdx1 * 4 + 0];
+                y[ob] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][1] * x[evIdx1 * 4 + 1];
+                y[ob] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][2] * x[evIdx1 * 4 + 2];
+                y[ob] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][3] * x[evIdx1 * 4 + 3];
             }
-            y[ob] += sum;
+
+            const int evIdx2 = _dd->evByObs[ob][1]; // event 2 for this observation
+            if ( evIdx2 >= 0 )
+            {
+                y[ob] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][0] * x[evIdx2 * 4 + 0];
+                y[ob] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][1] * x[evIdx2 * 4 + 1];
+                y[ob] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][2] * x[evIdx2 * 4 + 2];
+                y[ob] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][3] * x[evIdx2 * 4 + 3];
+            } 
         }
     }
 
@@ -101,17 +105,23 @@ public:
         for ( unsigned int ob = 0; ob < _dd->nObs; ob++ )
         {
             const unsigned phStaIdx = _dd->phStaByObs[ob]; // station for this observation
-            for ( unsigned int ev = 0; ev < 2; ev++ )
+
+            const int evIdx1 = _dd->evByObs[ob][0]; // event 1 for this observation
+            if ( evIdx1 >= 0 )
             {
-                const int evIdx = _dd->evByObs[ob][ev]; //  event for this observation
+                x[evIdx1 * 4 + 0] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][0] * y[ob];
+                x[evIdx1 * 4 + 1] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][1] * y[ob];
+                x[evIdx1 * 4 + 2] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][2] * y[ob];
+                x[evIdx1 * 4 + 3] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][3] * y[ob];
+            }
 
-                if ( evIdx < 0 ) // this part of the observation is constant
-                    continue; 
-
-                for ( unsigned int param = 0; param < 4; param++ )
-                {
-                    x[evIdx*4+param] += _dd->G[evIdx * _dd->nPhStas + phStaIdx][param] * y[ob];
-                }
+            const int evIdx2 = _dd->evByObs[ob][1]; // event 2 for this observation
+            if ( evIdx2 >= 0 )
+            {
+                x[evIdx2 * 4 + 0] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][0] * y[ob];
+                x[evIdx2 * 4 + 1] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][1] * y[ob];
+                x[evIdx2 * 4 + 2] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][2] * y[ob];
+                x[evIdx2 * 4 + 3] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][3] * y[ob];
             }
         }
     }
@@ -129,6 +139,32 @@ namespace Seiscomp {
 namespace HDD {
 
 
+/*
+ * Compute distance in km between two points and optionally
+ * azimuth and backazimuth
+ */
+double
+Solver::computeDistance(double lat1, double lon1, double depth1,
+                        double lat2, double lon2, double depth2,
+                        double *azimuth, double *backAzimuth)
+{
+    double Hdist, az, baz;
+    Math::Geo::delazi(lat1, lon1, lat2, lon2, &Hdist, &az, &baz);
+    Hdist = Math::Geo::deg2km(Hdist);
+
+    if (azimuth) *azimuth = az;
+    if (backAzimuth) *backAzimuth = baz;
+
+    if ( depth1 == depth2 )
+        return Hdist;
+
+    // this is an approximation that works when the distance is small
+    // and the Earth curvature can be assumed flat 
+    double Vdist = abs(depth1 - depth2);
+    return std::sqrt( std::pow(Hdist,2) + std::pow(Vdist,2) );
+}
+
+ 
 Solver::Solver(std::string type)
     : _type(type)
 {
@@ -137,22 +173,22 @@ Solver::Solver(std::string type)
 
 void
 Solver::addObservation(unsigned evId1, unsigned evId2, const std::string& staId, char phase,
-                       double doubleDiff, double weight)
+                       double observedDiffTime, double weight)
 {
     int evIdx1 = _eventIdConverter.convert(evId1);
     int evIdx2 = _eventIdConverter.convert(evId2);
     unsigned phStaIdx = _phStaIdConverter.convert(string(1,phase) + "@" + staId);
-    _observations.push_back( Observation( {evIdx1, evIdx2, phStaIdx, doubleDiff, weight} ) );
+    _observations.push_back( Observation( {evIdx1, evIdx2, phStaIdx, observedDiffTime, weight} ) );
 }
 
 
 void
 Solver::addObservation(unsigned evId, const std::string& staId, char phase,
-                       double doubleDiff, double weight)
+                       double observedDiffTime, double weight)
 {
     int evIdx = _eventIdConverter.convert(evId);
     unsigned phStaIdx = _phStaIdConverter.convert(string(1,phase) + "@" + staId);
-    _observations.push_back( Observation( {evIdx, -1 , phStaIdx, doubleDiff, weight} ) );
+    _observations.push_back( Observation( {evIdx, -1 , phStaIdx, observedDiffTime, weight} ) );
 }
 
 
@@ -166,7 +202,7 @@ Solver::addObservationParams(unsigned evId, const std::string& staId, char phase
     unsigned phStaIdx = _phStaIdConverter.convert(string(1,phase) + "@" + staId);
     _eventParams[evIdx] = EventParams( {evLat, evLon, evDepth, 0, 0, 0} );
     _stationParams[phStaIdx] = StationParams( {staLat, staLon, staElevation, 0, 0, 0} );
-    _partialDeriv[evIdx][phStaIdx] = PartialDerivatives( {travelTime, 0, 0, 0, 0} );
+    _obsParams[evIdx][phStaIdx] = ObservationParams( {travelTime, 0, 0, 0, 0} );
 }
 
 
@@ -174,24 +210,31 @@ void
 Solver::getEventChanges(unsigned evId, double &deltaLat, double &deltaLon, double &deltaDepth, double &deltaTT) const
 {
     unsigned evIdx = _eventIdConverter.toIdx(evId);
+    const EventParams& evprm = _eventParams.at(evIdx);
 
     double deltaX = _dd->m[evIdx*4];
     double deltaY = _dd->m[evIdx*4+1];
-    deltaDepth    = _dd->m[evIdx*4+2]; // no conversion required
+    deltaDepth    = -_dd->m[evIdx*4+2]; // make depth positive
     deltaTT       = _dd->m[evIdx*4+3]; // no conversion required
 
-    double newX = _eventParams.at(evIdx).x + deltaX;
-    double newY = _eventParams.at(evIdx).y + deltaY;
+    double newX = evprm.x + deltaX;
+    double newY = evprm.y + deltaY;
 
-    // compute distance and azimuth of evId to centroid
-    double distance = std::sqrt( std::pow(newX,2) + std::pow(newY, 2) );
-    double azimuth  = std::atan2(newY, newX);
+    // compute distance and azimuth of evId to centroid (0,0,0)
+    double hdist = std::sqrt( std::pow(newX,2) + std::pow(newY, 2) );
+    hdist = Math::Geo::km2deg(hdist); // distance to degree
+
+    double azimuth  = std::atan2(newX, newY);
+    azimuth = rad2deg(azimuth);
 
     // Computes the coordinates (lat, lon) of the point which
-    // is at an azimuth of 'azi' and a distance of 'dist' as seen
+    // is at a degree azimuth of 'azi' and a distance of 'dist' as seen
     // from the centroid (lat0, lon0)
-    Math::Geo::delandaz2coord(distance, azimuth, _centroid.lat, _centroid.lon,
-                              &deltaLat, &deltaLon);
+    double newLat, newLon;
+    Math::Geo::delandaz2coord(hdist, azimuth, _centroid.lat, _centroid.lon, &newLat, &newLon);
+
+    deltaLat = newLat - evprm.lat;
+    deltaLon = newLon - evprm.lon;
 }
 
 
@@ -221,46 +264,54 @@ Solver::computePartialDerivatives()
     auto convertCoord = [this](double lat, double lon, double depth,
                            double& x, double& y, double& z)
     {
-        double distance, az, baz;
-        Math::Geo::delazi(lat, lon, this->_centroid.lat, this->_centroid.lon, &distance, &az, &baz);
-        distance = Math::Geo::deg2km(distance); // distance to km
+        double distance, az;
+        distance = computeDistance(this->_centroid.lat, this->_centroid.lon, 0, lat, lon, 0, &az);
         az = deg2rad(az);
-        x = distance * std::cos(az);
-        y = distance * std::sin(az);
-        z = depth - _centroid.depth;
+        x = distance * std::sin(az);
+        y = distance * std::cos(az);
+        z = _centroid.depth - depth;
     };
 
-    for ( auto& kv1 : _partialDeriv )
+    //
+    // convert events coordinates
+    //
+    for ( auto& kv : _eventParams )
+    {
+        EventParams& evprm = kv.second;
+        convertCoord(evprm.lat, evprm.lon, evprm.depth, evprm.x,  evprm.y, evprm.z);
+    }
+
+    // convert stations coordinates
+    for ( auto& kv : _stationParams )
+    {
+        StationParams& staprm = kv.second;
+        convertCoord(staprm.lat, staprm.lon, -staprm.elevation/1000., staprm.x,  staprm.y, staprm.z);
+    }
+
+    //
+    // compute derivatives
+    //
+    for ( auto& kv1 : _obsParams )
     {
         unsigned evIdx = kv1.first;
 
         for ( auto& kv2 : kv1.second )
         {
             unsigned phStaIdx = kv2.first;
-            PartialDerivatives& deriv = kv2.second;
+            ObservationParams& obsprm = kv2.second;
+            const EventParams& evprm = _eventParams.at(evIdx);
+            const StationParams& staprm = _stationParams.at(phStaIdx);
 
-            // convert event and station coordinates
-            convertCoord(_eventParams.at(evIdx).lat, _eventParams.at(evIdx).lon,  _eventParams.at(evIdx).depth,
-                         _eventParams.at(evIdx).x,  _eventParams.at(evIdx).y, _eventParams.at(evIdx).z);
-            convertCoord(_stationParams.at(phStaIdx).lat, _stationParams.at(phStaIdx).lon,  -_stationParams.at(phStaIdx).elevation/1000.,
-                         _stationParams.at(phStaIdx).x,  _stationParams.at(phStaIdx).y, _stationParams.at(phStaIdx).z);
+            double distance = computeDistance(evprm.lat, evprm.lon, evprm.depth,
+                                               staprm.lat, staprm.lon, -staprm.elevation/1000.);
 
-            // compute derivatives
-            double distance, az, baz;
-            Math::Geo::delazi(_eventParams.at(evIdx).lat, _eventParams.at(evIdx).lon,
-                              _stationParams.at(phStaIdx).lat, _stationParams.at(phStaIdx).lon,
-                              &distance, &az, &baz);
-            distance = Math::Geo::deg2km(distance); // distance to km
-            deriv.slowness = deriv.travelTime / distance;
+            double azimuth = std::atan2( staprm.y - evprm.y, staprm.x - evprm.x);
+            double takeOff = std::atan2( staprm.z - evprm.z, staprm.x - evprm.x);
 
-            double azimuth = std::atan2( _stationParams.at(phStaIdx).y - _eventParams.at(evIdx).y,
-                                         _stationParams.at(phStaIdx).x - _eventParams.at(evIdx).x);
-            double takeOff = std::atan2( _stationParams.at(phStaIdx).z - _eventParams.at(evIdx).z,
-                                         _stationParams.at(phStaIdx).x - _eventParams.at(evIdx).x);
-
-            deriv.dx = deriv.slowness * std::cos(azimuth);
-            deriv.dy = deriv.slowness * std::sin(azimuth);
-            deriv.dz = deriv.slowness * std::sin(takeOff);
+            obsprm.slowness = obsprm.travelTime / distance;
+            obsprm.dx = obsprm.slowness * std::cos(azimuth);
+            obsprm.dy = obsprm.slowness * std::sin(azimuth);
+            obsprm.dz = obsprm.slowness * std::sin(takeOff);
         }
     }
 }
@@ -269,22 +320,21 @@ Solver::computePartialDerivatives()
 void
 Solver::prepareDDSystem()
 {
-    // compute partial derivatives
     computePartialDerivatives();
 
     _dd = DDSystemPtr(new DDSystem(_observations.size(),  _eventIdConverter.size(), _phStaIdConverter.size()) );
 
     // initialize G
-    for ( const auto& kv1 : _partialDeriv )
+    for ( const auto& kv1 : _obsParams )
     {
         unsigned evIdx = kv1.first;
         for ( const auto& kv2 : kv1.second )
         {
             unsigned phStaIdx = kv2.first;
-            const PartialDerivatives& deriv = kv2.second;
-            _dd->G[evIdx * _dd->nPhStas + phStaIdx][0] = deriv.dx;
-            _dd->G[evIdx * _dd->nPhStas + phStaIdx][1] = deriv.dy;
-            _dd->G[evIdx * _dd->nPhStas + phStaIdx][2] = deriv.dz;
+            const ObservationParams& obsprm = kv2.second;
+            _dd->G[evIdx * _dd->nPhStas + phStaIdx][0] = obsprm.dx;
+            _dd->G[evIdx * _dd->nPhStas + phStaIdx][1] = obsprm.dy;
+            _dd->G[evIdx * _dd->nPhStas + phStaIdx][2] = obsprm.dz;
             _dd->G[evIdx * _dd->nPhStas + phStaIdx][3] = 1.; // travel time
         }
     }
@@ -294,23 +344,24 @@ Solver::prepareDDSystem()
     int ob = 0;
     for ( const Observation& obsrv : _observations )
     {
-        // force throwing exception if no parameter was provided
-        if ( obsrv.ev1Idx >= 0) _partialDeriv.at(obsrv.ev1Idx).at(obsrv.phStaIdx);
-        if ( obsrv.ev2Idx >= 0) _partialDeriv.at(obsrv.ev2Idx).at(obsrv.phStaIdx);
-
         _dd->W[ob] = obsrv.weight;
         _dd->evByObs[ob][0] = obsrv.ev1Idx;
         _dd->evByObs[ob][1] = obsrv.ev2Idx;
         _dd->phStaByObs[ob] = obsrv.phStaIdx;
-        _dd->d[ob] = obsrv.doubleDifference;
+
+        // compute double difference
+        const ObservationParams& obsprm1 = _obsParams.at(obsrv.ev1Idx).at(obsrv.phStaIdx);
+        const ObservationParams& obsprm2 = _obsParams.at(obsrv.ev2Idx).at(obsrv.phStaIdx); 
+        _dd->d[ob] = obsprm1.travelTime - obsprm2.travelTime - obsrv.observedDiffTime;
         ob++;
     }
 
-    _dd->precomputeWeighting();
+    // perform observation weighting: this is optional
+    _dd->applyWeights();
 
     // free memory 
     _observations.clear();
-    _partialDeriv.clear();
+    _obsParams.clear();
     _stationParams.clear();
 }
 
@@ -343,7 +394,7 @@ void Solver::_solve()
     const double eps = 1e-15;
     solver.SetEpsilon( eps );
     solver.SetDamp( 0.0 );
-    solver.SetMaximumNumberOfIterations( 20 );
+    solver.SetMaximumNumberOfIterations(100);
     solver.SetToleranceA( 1e-16 );
     solver.SetToleranceB( 1e-16 );
     solver.SetUpperLimitOnConditional( 1.0 / ( 10 * sqrt( eps ) ) );

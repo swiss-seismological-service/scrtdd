@@ -401,7 +401,7 @@ bool RTDD::validateParameters()
         // check if the file contains only seiscomp event/origin ids
         bool eventIdOnly = false;
         try {
-            eventIdOnly = CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0;
+            eventIdOnly = HDD::CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0;
         } catch ( exception &e ) {
             SEISCOMP_ERROR("%seventFile: cannot read catalog %s (%s)", prefix.c_str(), eventFile.c_str(), e.what());
             profilesOK = false;
@@ -1714,7 +1714,7 @@ RTDD::fetchOrigins(const std::string& idFile, std::string options)
     // fetch origins
     vector<DataModel::OriginPtr> origins;
 
-    for(const auto& row : CSV::readWithHeader(idFile) )
+    for(const auto& row : HDD::CSV::readWithHeader(idFile) )
     {
         const string& id = row.at("seiscompId");
 

@@ -42,8 +42,8 @@ struct Ellipsoid
         az += orientation; // correct azimuth by the orientation of a and b axes
         az = deg2rad(az);
 
-        double dist_x = distance * std::cos(az);
-        double dist_y = distance * std::sin(az);
+        double dist_x = distance * std::sin(az);
+        double dist_y = distance * std::cos(az);
         double dist_z = depth - this->depth;
 
         double one = std::pow( dist_x / axis_a, 2) +

@@ -38,16 +38,16 @@ public:
         unsigned ccCount;
 
         typedef struct {
-            double coeff, lag, dtcc, weight, lowerUncertainty, upperUncertainty;
+            double coeff, lag, lowerUncertainty, upperUncertainty;
         } PeerInfo;
         std::unordered_map<unsigned,const PeerInfo> peers;
 
         std::string peersStr; // debug
 
         void update(const Catalog::Event& event, const Catalog::Phase& phase,
-                    double coeff, double lag, double dtcc, double weight)
+                    double coeff, double lag)
         {
-            PeerInfo pi= {coeff, lag, dtcc, weight, phase.lowerUncertainty, phase.upperUncertainty};
+            PeerInfo pi= {coeff, lag, phase.lowerUncertainty, phase.upperUncertainty};
             peers.insert( std::pair<unsigned,const PeerInfo>(event.id, pi) );
             peersStr   += std::string(event) + " ";
         }

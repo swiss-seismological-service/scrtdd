@@ -26,6 +26,8 @@
 
 using namespace std;
 
+namespace Seiscomp {
+namespace HDD {
 namespace CSV {
 
 enum class CSVState {
@@ -158,4 +160,6 @@ vector< unordered_map<string,string> > readWithHeader(const string &filename,
     return readWithHeader(csvfile, header);
 }
 
-} // CSV
+}
+}
+}

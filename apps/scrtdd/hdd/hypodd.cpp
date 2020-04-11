@@ -51,42 +51,21 @@ using Station = HDD::Catalog::Station;
 
 namespace {
 
-/*
- * Compute distance in km between two points
- */
-double computeDistance(double lat1, double lon1, double depth1,
-                       double lat2, double lon2, double depth2,
-                       double *azimuth = nullptr, double *backAzimuth = nullptr)
-{
-    double distance, az, baz;
-    Math::Geo::delazi(lat1, lon1, lat2, lon2, &distance, &az, &baz);
-
-    if (azimuth) *azimuth = az;
-    if (backAzimuth) *backAzimuth = baz;
-
-    double Hdist = Math::Geo::deg2km(distance);
-    double Vdist = abs(depth1 - depth2);
-    // this is an approximation that works when the distance is small
-    // and the Earth curvature can be assumed flat
-    return std::sqrt( std::pow(Hdist,2) + std::pow(Vdist,2) );
-}
-
-
 double computeDistance(const Event& ev1, const Event& ev2,
                        double *azimuth = nullptr, double *backAzimuth = nullptr)
 {
-    return computeDistance(ev1.latitude, ev1.longitude, ev1.depth,
-                           ev2.latitude, ev2.longitude, ev2.depth,
-                           azimuth, backAzimuth);
+    return HDD::Solver::computeDistance(ev1.latitude, ev1.longitude, ev1.depth,
+                                        ev2.latitude, ev2.longitude, ev2.depth,
+                                        azimuth, backAzimuth);
 }
 
 
 double computeDistance(const Event& event, const Station& station,
                        double *azimuth = nullptr, double *backAzimuth = nullptr)
 {
-    return computeDistance(event.latitude, event.longitude, event.depth,
-                           station.latitude, station.longitude, -(station.elevation/1000.),
-                           azimuth, backAzimuth);
+    return HDD::Solver::computeDistance(event.latitude, event.longitude, event.depth,
+                                       station.latitude, station.longitude, -(station.elevation/1000.),
+                                   azimuth, backAzimuth);
 }
 
 class Randomer {
@@ -358,7 +337,7 @@ CatalogPtr HypoDD::relocateCatalog()
     solver.solve();
 
     // load relocated catalog
-    CatalogPtr relocatedCatalog = loadRelocatedCatalog(solver, catToReloc);
+    CatalogPtr relocatedCatalog = loadRelocatedCatalog(solver, catToReloc, selectedEvents);
 
     // write catalog for debugging purpose
     if ( ! _workingDirCleanup )
@@ -552,7 +531,7 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
         solver.solve();
 
         // load relocated catalog
-        CatalogPtr relocatedCatalog = loadRelocatedCatalog(solver, neighbourCat);
+        CatalogPtr relocatedCatalog = loadRelocatedCatalog(solver, neighbourCat, {evToRelocateNewId});
         relocatedEvCat = relocatedCatalog->extractEvent(evToRelocateNewId, true);
 
         // sometimes hypoDD.reloc file is there but it doesn't contain the relocated event 
@@ -1055,9 +1034,9 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
             //
             if ( xcorr.has(refEv.id, event.id, refPhase.stationId, refPhase.procInfo.type) )
             {
-                const auto& data = xcorr.get(refEv.id, event.id, refPhase.stationId, refPhase.procInfo.type);
-                diffTime = data.dtcc;
-                weight = data.weight;
+                const auto& xcdata = xcorr.get(refEv.id, event.id, refPhase.stationId, refPhase.procInfo.type);
+                diffTime = ref_travel_time - travel_time - xcdata.lag;
+                weight = xcdata.coeff * xcdata.coeff;
 
                 if (refPhase.procInfo.type == Phase::Type::P) refEv.relocInfo.numCCp++;
                 if (refPhase.procInfo.type == Phase::Type::S) refEv.relocInfo.numCCs++;
@@ -1068,30 +1047,28 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
                 // When xcorr times are not availables, add absolute trave time differences
                 // to the solver
                 //
-                weight = (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0;
                 diffTime = ref_travel_time - travel_time;
+                weight = (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0;
 
                 if (refPhase.procInfo.type == Phase::Type::P) refEv.relocInfo.numCTp++;
                 if (refPhase.procInfo.type == Phase::Type::S) refEv.relocInfo.numCTs++;
             }
 
-            double doubleDifference = diffTime - (ref_travel_time - travel_time);
-
             char phaseTypeAsChar = static_cast<char>(refPhase.procInfo.type);
+
 
             if ( eventsToRelocate.count(event.id) == 0 )
             {
                 solver.addObservation(refEv.id, refPhase.stationId, phaseTypeAsChar,
-                                      doubleDifference, weight);
-                obsparams.add(refEv.id, refPhase.stationId, phaseTypeAsChar);
+                                      diffTime, weight);
             }
             else
             {
                 solver.addObservation(refEv.id, event.id, refPhase.stationId,
-                                      phaseTypeAsChar, doubleDifference, weight);
-                obsparams.add(refEv.id, refPhase.stationId, phaseTypeAsChar);
-                obsparams.add(event.id, refPhase.stationId, phaseTypeAsChar);
+                                      phaseTypeAsChar, diffTime, weight);
             }
+            obsparams.add(refEv.id, refPhase.stationId, phaseTypeAsChar);
+            obsparams.add(event.id, refPhase.stationId, phaseTypeAsChar); 
         }
     }
 
@@ -1128,7 +1105,8 @@ HypoDD::addObservationParams(Solver& solver, const ObservationParams& obsParams,
 
 CatalogPtr
 HypoDD::loadRelocatedCatalog(const Solver& solver,
-                             const CatalogCPtr& originalCatalog) const
+                             const CatalogCPtr& originalCatalog, 
+                             std::unordered_set<unsigned> eventsToRelocate ) const
 {
     SEISCOMP_INFO("Loading relocated event(s)...");
 
@@ -1140,6 +1118,9 @@ HypoDD::loadRelocatedCatalog(const Solver& solver,
     {
         Event& event = kv.second;
 
+        if ( eventsToRelocate.count(event.id) == 0 )
+            continue;
+
         double deltaLat, deltaLon, deltaDepth, deltaTT;
         solver.getEventChanges(event.id, deltaLat, deltaLon, deltaDepth, deltaTT);
 
@@ -1147,7 +1128,7 @@ HypoDD::loadRelocatedCatalog(const Solver& solver,
         event.latitude  += deltaLat;
         event.longitude += deltaLon;
         event.depth     += deltaDepth;
-        event.time      += deltaTT;
+        event.time      += Core::TimeSpan(deltaTT);
 //        event.rms       = ;
 //        event.relocInfo.lonUncertainty   = ;
 //        event.relocInfo.latUncertainty   = ;
@@ -1469,15 +1450,14 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                 PhaseXCorrCfg phaseCfg = phCfgs.at(phase.procInfo.source);
                 phaseCfg.allowSnrCheck = true;
 
-                double coeff, lag, dtcc, weight;
-                if ( xcorrPhases(refEv, refPhase, refPhCfg, event, phase, phaseCfg,
-                                 coeff, lag, dtcc, weight) )
+                double coeff, lag;
+                if ( xcorrPhases(refEv, refPhase, refPhCfg, event, phase, phaseCfg, coeff, lag) )
                 {
                     //
                     // Store good xcorr results
                     //
                     auto& entry = xcorr.getForUpdate(refEv.id, refPhase.stationId, refPhase.procInfo.type);
-                    entry.update(event, phase, coeff, lag, dtcc, weight);
+                    entry.update(event, phase, coeff, lag);
                 }
 
                 // keep trace of  events/station distance for every xcorr performed
@@ -1710,7 +1690,7 @@ HypoDD::xcorrTimeWindowShort(const Phase& phase) const
 bool
 HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phCfg1,
                     const Event& event2, const Phase& phase2, PhaseXCorrCfg& phCfg2,
-                    double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut)
+                    double& coeffOut, double& lagOut)
 {
     if ( phase1.procInfo.type != phase2.procInfo.type )
     {
@@ -1784,8 +1764,7 @@ HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phC
             tmpPh2.channelCode = commonChRoot + component;
         }
 
-        performed = _xcorrPhases(event1, tmpPh1, phCfg1, event2, tmpPh2, phCfg2,
-                                 coeffOut, lagOut, diffTimeOut, weightOut);
+        performed = _xcorrPhases(event1, tmpPh1, phCfg1, event2, tmpPh2, phCfg2, coeffOut, lagOut);
 
         goodCoeff = ( performed && std::abs(coeffOut) >= xcorrCfg.minCoef );
 
@@ -1834,9 +1813,9 @@ HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phC
 bool
 HypoDD::_xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phCfg1,
                      const Event& event2, const Phase& phase2, PhaseXCorrCfg& phCfg2,
-                     double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut)
+                     double& coeffOut, double& lagOut)
 {
-    coeffOut = lagOut = diffTimeOut = weightOut = 0;
+    coeffOut = lagOut = 0;
 
     auto xcorrCfg = _cfg.xcorr.at(phase1.procInfo.type);
 
@@ -1910,13 +1889,8 @@ HypoDD::_xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& ph
         xcorr_lag = xcorr_lag2;
     }
 
-    // compute differential travel time and weight of measurement
-    double travel_time1 = phase1.time - event1.time;
-    double travel_time2 = phase2.time - event2.time;
     coeffOut  = xcorr_coeff;
     lagOut    = xcorr_lag;
-    diffTimeOut = travel_time1 - travel_time2 - xcorr_lag;
-    weightOut = xcorr_coeff * xcorr_coeff;
 
     return true;
 }
@@ -1966,8 +1940,7 @@ HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double
         {
             if ( ! std::isfinite(coeff) )
                 return;
-
-            if (coeff < prevCoeff && notDecreasing )
+            if ( coeff < prevCoeff && notDecreasing )
                 values.push_back(prevCoeff);
             notDecreasing = coeff >= prevCoeff;
             prevCoeff = coeff;

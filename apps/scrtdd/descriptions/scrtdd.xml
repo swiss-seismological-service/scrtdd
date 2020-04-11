@@ -26,14 +26,15 @@
 
             <parameter name="workingDirectory" type="path" default="@ROOTDIR@/var/lib/rtdd">
                 <description>
-                    Defines the directory used for storing temporary processing files.
+                    Defines the directory used for storing processing files (waveforms cache
+                    and debugging files).
                 </description>
             </parameter>
 
             <parameter name="keepWorkingFiles" type="boolean" default="false">
                 <description>
                     Do not delete temporary processing files from the working directory
-                    after the processing is completed.
+                    after the processing is completed (useful for debugging only).
                 </description>
             </parameter>
 
@@ -48,8 +49,9 @@
                 <parameter name="profileTimeAlive" type="int" default="-1">
                     <description>
                         Defines how long the profile data should be kept in memory (in seconds). This is useful
-                        to release memory (catalog waveform data) after a period of inactivity at the cost of
-                        re-loading and re-process the waveforms whenever a new event occurs.
+                        to release memory (e.g. catalog waveform data) after a period of inactivity at the cost of
+                        re-loading and re-process the waveforms whenever a new event occurs (not 
+                        very time consuming but still a bit slower than keeping the waveforms in memory).
                         A negative value force the profile to never expires (always in memory).
                     </description>
                 </parameter>
@@ -110,7 +112,10 @@
                     <description>
                         Defines a regional profile. Origins that fall in this region will use this
                         configuration. If an origin falls in multiple profile regions, then the
-                        profile defined first will be used.
+                        profile defined first in activeProfile option will be used.
+                        This hierarchical regions, where a generic and broad region is defined as last
+                        entry to be used as last resort default region and more specifig and small 
+                        regions are defined first to be used for specic areas with custom settings.
                         The region check is not used for full catalog relocation (see --relocate-profile
                         command line option)
                     </description>

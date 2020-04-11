@@ -1,19 +1,20 @@
 SET(RTDD_TARGET scrtdd)
 
 SET(RTDD_SOURCES
-		lsmr.cpp
-		lsqr.cpp
-		solver.cpp
-		csvreader.cpp
-		datasrc.cpp
-		catalog.cpp
-		wfmngr.cpp
-		hypodd.cpp
+		hdd/lsmr.cpp
+		hdd/lsqr.cpp
+		hdd/solver.cpp
+		hdd/csvreader.cpp
+		hdd/datasrc.cpp
+		hdd/catalog.cpp
+		hdd/wfmngr.cpp
+		hdd/hypodd.cpp
 		app.cpp
 		rtdd.cpp
 		main.cpp
 )
 
+INCLUDE_DIRECTORIES(hdd)
 INCLUDE_DIRECTORIES(${RTDDMSG_DIR}) 
 
 SC_ADD_EXECUTABLE(RTDD ${RTDD_TARGET})

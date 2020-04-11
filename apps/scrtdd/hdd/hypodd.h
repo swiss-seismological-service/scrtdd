@@ -112,7 +112,7 @@ struct Config {
     } ttt;
 
     struct {
-        std::string type = "LSMR"; // LSMR or LSQR
+        std::string type = "LSQR"; // LSMR or LSQR
     } solver;
 };
 
@@ -200,8 +200,8 @@ class HypoDD : public Core::BaseObject {
         void addObservationParams(Solver& solver, const ObservationParams& obsParams,
                                   TravelTimeTableInterfacePtr ttt,
                                   const CatalogCPtr& catalog) const;
-
-        CatalogPtr loadRelocatedCatalog(const Solver& solver, const CatalogCPtr& originalCatalog) const;
+        CatalogPtr loadRelocatedCatalog(const Solver& solver, const CatalogCPtr& originalCatalog,
+                                        std::unordered_set<unsigned> eventsToRelocate ) const;
  
         void addMissingEventPhases(const CatalogCPtr& searchCatalog,
                                    const Catalog::Event& refEv,
@@ -239,10 +239,10 @@ class HypoDD : public Core::BaseObject {
         };
         bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, PhaseXCorrCfg& phCfg1,
                          const Catalog::Event& event2, const Catalog::Phase& phase2, PhaseXCorrCfg& phCfg2,
-                         double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
+                         double& coeffOut, double& lagOut);
         bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, PhaseXCorrCfg& phCfg1,
                           const Catalog::Event& event2, const Catalog::Phase& phase2, PhaseXCorrCfg& phCfg2,
-                          double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
+                          double& coeffOut, double& lagOut);
         bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
                    bool qualityCheck, double& delayOut, double& coeffOut) const;
         Core::TimeWindow xcorrTimeWindowLong(const Catalog::Phase& phase) const;

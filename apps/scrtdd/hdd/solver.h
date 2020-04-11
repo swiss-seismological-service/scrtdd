@@ -72,9 +72,9 @@ struct DDSystem : public Core::BaseObject {
         d = new double[nObs];
         evByObs = new int[nObs][2];
         phStaByObs = new unsigned[nObs];
-   }
+    }
 
-    void precomputeWeighting()
+    void applyWeights()
     {
         // pre-compute G and d weighting
         for ( unsigned ob = 0; ob < nObs; ob++ )
@@ -138,6 +138,9 @@ public:
 
     void getEventChanges(unsigned evId, double &deltaLat, double &deltaLon, double &deltaDepth, double &deltaTT) const;
 
+    static double computeDistance(double lat1, double lon1, double depth1,
+                                  double lat2, double lon2, double depth2,
+                                  double *azimuth = nullptr, double *backAzimuth = nullptr);
 private:
 
     void computePartialDerivatives();
@@ -186,7 +189,7 @@ private:
         int ev1Idx;
         int ev2Idx;
         unsigned phStaIdx;
-        double doubleDifference;
+        double observedDiffTime;
         double weight;
     };
     std::list<Observation> _observations;
@@ -203,7 +206,7 @@ private:
     };
     std::map<unsigned,StationParams> _stationParams;  // key = phStaIdx
 
-    struct PartialDerivatives {
+    struct ObservationParams {
         double travelTime;
         double slowness;
         double dx;
@@ -211,7 +214,7 @@ private:
         double dz;
     };
     // key1=evIdx  key2=phStaIdx
-    std::map<unsigned, std::map<unsigned,PartialDerivatives>> _partialDeriv;
+    std::map<unsigned, std::map<unsigned,ObservationParams>> _obsParams;
 
     struct {
         double lat, lon, depth;
