@@ -126,15 +126,14 @@ public:
     virtual ~Solver() { }
 
     void addObservation(unsigned evId1, unsigned evId2, const std::string& staId, char phase,
-                        double diffTime, double weight);
-    void addObservation(unsigned evId, const std::string& staId, char phase,
-                        double diffTime, double weight);
+                        double diffTime, double weight, bool ev2Fixed);
 
     void addObservationParams(unsigned evId, const std::string& staId, char phase,
                               double evLat, double evLon, double evDepth,
                               double staLat, double staLon, double staElevation,
                               double travelTime);
-    void solve();
+
+    void solve(bool useObservationWeghts=true, double dampingFactor=0.);
 
     void getEventChanges(unsigned evId, double &deltaLat, double &deltaLon, double &deltaDepth, double &deltaTT) const;
 
@@ -144,8 +143,8 @@ public:
 private:
 
     void computePartialDerivatives();
-    void prepareDDSystem();
-    template <class T> void _solve();
+    void prepareDDSystem(bool useObservationWeghts);
+    template <class T> void _solve(bool useObservationWeghts, double dampingFactor);
 
 private:
 
@@ -191,6 +190,7 @@ private:
         unsigned phStaIdx;
         double observedDiffTime;
         double weight;
+        bool ev2Fixed;
     };
     std::list<Observation> _observations;
 

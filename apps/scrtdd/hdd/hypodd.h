@@ -112,7 +112,9 @@ struct Config {
     } ttt;
 
     struct {
-        std::string type = "LSQR"; // LSMR or LSQR
+        std::string type = "LSMR"; // LSMR or LSQR
+        bool useObservationWeghts = true;
+        double dampingFactor = 0.;
     } solver;
 };
 
@@ -195,10 +197,9 @@ class HypoDD : public Core::BaseObject {
             }
         }; 
         void addObservations(Solver& solver, CatalogPtr& catalog, unsigned evId,
-                             std::unordered_set<unsigned> eventsToRelocate, const XCorrCache& xcorr,
+                             bool fixedNeighbours, const XCorrCache& xcorr,
                              ObservationParams& obsparams ) const;
         void addObservationParams(Solver& solver, const ObservationParams& obsParams,
-                                  TravelTimeTableInterfacePtr ttt,
                                   const CatalogCPtr& catalog) const;
         CatalogPtr loadRelocatedCatalog(const Solver& solver, const CatalogCPtr& originalCatalog,
                                         std::unordered_set<unsigned> eventsToRelocate ) const;

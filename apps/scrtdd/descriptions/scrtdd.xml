@@ -299,15 +299,6 @@
                                 <description>
                                     This option define how event phases are selected. 
                                 </description>
-                                <parameter name="minWeight" type="double">
-                                    <description>
-                                        Min phase weight required. Phases not satisfying this condition will not be used.
-                                        Check disabled by default.
-                                        The weighting scheme is based on pick class: weight = (1 / 2^class). The class is derived from pick time uncertainties:
-                                        Class 0: 0-0.025 sec, class 1: 0.025-0.050 sec, class 2: 0.050-0.100 sec, class 3: 0.100-0.200 sec, class 4: 0.200-0.400 sec, class 5: over  0.400 sec.
-                                        Picks without uncertainties have a fixed class of 1 if manual and class 4 if automatic.
-                                    </description>
-                                </parameter>
                                 <parameter name="minStationDistance" type="double">
                                     <description>
                                         Min distance (km) between event pair and station required. Phases belonging
@@ -427,15 +418,6 @@
                                 <description>
                                     This option define how event phases are selected. 
                                 </description>
-                                <parameter name="minWeight" type="double">
-                                    <description>
-                                        Min phase weight required. Phases not satisfying this condition will not be used.
-                                        Check disabled by default.
-                                        The weighting scheme is based on pick class: weight = (1 / 2^class). The class is derived from pick time uncertainties:
-                                        Class 0: 0-0.025 sec, class 1: 0.025-0.050 sec, class 2: 0.050-0.100 sec, class 3: 0.100-0.200 sec, class 4: 0.200-0.400 sec, class 5: over  0.400 sec.
-                                        Picks without uncertainties have a fixed class of 1 if manual and class 4 if automatic.
-                                    </description>
-                                </parameter>
                                 <parameter name="minStationDistance" type="double">
                                     <description>
                                         Min distance (km) between event pair and station required. Phases belonging
@@ -555,8 +537,39 @@
                                 <description>End of signal window with respect to pick time (+/- secs)</description>
                             </parameter> 
                         </group>
-                     </group>
+                    </group>
 
+                    <group name="solver">
+                        <description>
+                            Configuration for the double-difference equations system
+                       </description>
+                        <parameter name="tableType" type="string" default="LOCSAT">
+                            <description>i
+                                Type of traveltime tables to use. e.g. libtau or LOCSAT
+                            </description>
+                        </parameter>
+                        <parameter name="tableModel" type="string" default="iasp91">
+                            <description>
+                                Traveltime table model to use. This can be a system default
+                                or a user defined one. Either way, it has to be configured
+                                in global settings and selected in here.
+                            </description>
+                        </parameter>   
+                        <parameter name="solverType" type="string" default="LSMR" >
+                            <description>
+                                Solver algorithm to use: either LSMR or LSQR
+                            </description>
+                        </parameter>   
+                        <parameter name="dampingFactor" type="double" default="0">
+                            <description>
+                            </description>
+                        </parameter>
+                        <parameter name="useObservationWeights" type="boolean" default="true">
+                            <description>
+                            </description>
+                        </parameter> 
+                    </group>
+ 
                 </struct>
             </group>
 

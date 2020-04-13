@@ -453,9 +453,6 @@ bool RTDD::validateParameters()
 
         prefix = string("profile.") + *it + ".step1options.clustering.phaseSelection.";
         try {
-            prof->ddcfg.step1Clustering.minWeight = configGetDouble(prefix + "minWeight");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.minWeight = 0; }
-        try {
             prof->ddcfg.step1Clustering.minESdist = configGetDouble(prefix + "minStationDistance");
         } catch ( ... ) { prof->ddcfg.step1Clustering.minESdist = 0; }
         try {
@@ -489,9 +486,6 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.step2Clustering.maxEllipsoidSize = 5; }
 
         prefix = string("profile.") + *it + ".step2options.clustering.phaseSelection.";
-        try {
-            prof->ddcfg.step2Clustering.minWeight = configGetDouble(prefix + "minWeight");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.minWeight = 0; }
         try {
             prof->ddcfg.step2Clustering.minESdist = configGetDouble(prefix + "minStationDistance");
         } catch ( ... ) { prof->ddcfg.step2Clustering.minESdist = 0; }
@@ -562,7 +556,27 @@ bool RTDD::validateParameters()
             }
         }
 
-        prof->ddcfg.artificialPhases.enable = true; // no reason to make this configurable
+        prefix = string("profile.") + *it + ".solver.";
+        try {
+            prof->ddcfg.ttt.type = configGetString(prefix + "tableType");
+        } catch ( ... ) { prof->ddcfg.ttt.type = "LOCSAT"; }
+        try {
+            prof->ddcfg.ttt.model = configGetString(prefix + "tableModel");
+        } catch ( ... ) { prof->ddcfg.ttt.model = "iasp91"; }
+        try {
+            prof->ddcfg.solver.type = configGetString(prefix + "solverType");
+        } catch ( ... ) { prof->ddcfg.solver.type = "LSMR"; }
+        try {
+            prof->ddcfg.solver.dampingFactor = configGetDouble(prefix + "dampingFactor");
+        } catch ( ... ) { prof->ddcfg.solver.dampingFactor = 0.; } 
+        try {
+            prof->ddcfg.solver.useObservationWeghts = configGetBool(prefix + "useObservationWeights");
+        } catch ( ... ) { prof->ddcfg.solver.useObservationWeghts = true; }
+
+        // no reason to make those configurable 
+        prof->ddcfg.step1Clustering.minWeight = 0;
+        prof->ddcfg.step2Clustering.minWeight = 0;
+        prof->ddcfg.artificialPhases.enable = true;
 
         _profiles.push_back(prof);
     }

@@ -304,7 +304,7 @@ CatalogPtr HypoDD::relocateCatalog()
         // update selected events
         selectedEvents.insert(evId);
 
-        // update event number of neighbouring information
+        // update number of neighbouring information
         const Event& ev1 = neighbourCat->getEvents().at(evId);
         Event ev2 = catToReloc->getEvents().at(evId);
         ev2.relocInfo.numNeighbours = ev1.relocInfo.numNeighbours;
@@ -327,14 +327,16 @@ CatalogPtr HypoDD::relocateCatalog()
     {
         unsigned refEvId = kv.first;
         CatalogPtr& neighbourCat = kv.second;
-        addObservations(solver, neighbourCat, refEvId, selectedEvents, xcorr, obsparams);
+        addObservations(solver, neighbourCat, refEvId, false, xcorr, obsparams);
     }
 
+//   update ccP ccS ctP ctS
+
     // Also add travel time information to the solver
-    addObservationParams(solver, obsparams, _ttt, catToReloc);
+    addObservationParams(solver, obsparams, catToReloc);
 
     // solve the system
-    solver.solve();
+    solver.solve(_cfg.solver.useObservationWeghts, _cfg.solver.dampingFactor);
 
     // load relocated catalog
     CatalogPtr relocatedCatalog = loadRelocatedCatalog(solver, catToReloc, selectedEvents);
@@ -349,19 +351,6 @@ CatalogPtr HypoDD::relocateCatalog()
     }
 
     if ( _workingDirCleanup ) boost::filesystem::remove_all(catalogWorkingDir);
-
-    // Remove not relocated events or events that were selected only as neighbour
-    vector<unsigned> evIdsToRemove;
-    for (const auto& kv : relocatedCatalog->getEvents() )
-    {
-        const Event& ev = kv.second;
-        if ( ! ev.relocInfo.isRelocated || 
-             ( selectedEvents.count(ev.id) == 0 && selectedEvents.size() > 0 ) )
-        {
-            evIdsToRemove.push_back(ev.id);
-        }
-    }
-    for (unsigned evId : evIdsToRemove ) relocatedCatalog->removeEvent(evId);
 
     return relocatedCatalog;
 }
@@ -521,23 +510,17 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
 
         // Add absolute travel time or xcorr differences to the solver (the observations)
         ObservationParams obsparams;
-        addObservations(solver, neighbourCat, evToRelocateNewId, {evToRelocateNewId},
-                        xcorr, obsparams);
+        addObservations(solver, neighbourCat, evToRelocateNewId, true, xcorr, obsparams);
 
         // Add travel time information to the solver
-        addObservationParams(solver, obsparams, _ttt, neighbourCat);
+        addObservationParams(solver, obsparams, neighbourCat);
 
         // Solve the system
-        solver.solve();
+        solver.solve(_cfg.solver.useObservationWeghts, _cfg.solver.dampingFactor);
 
         // load relocated catalog
         CatalogPtr relocatedCatalog = loadRelocatedCatalog(solver, neighbourCat, {evToRelocateNewId});
         relocatedEvCat = relocatedCatalog->extractEvent(evToRelocateNewId, true);
-
-        // sometimes hypoDD.reloc file is there but it doesn't contain the relocated event 
-        Event firstAndOnlyEv = relocatedEvCat->getEvents().begin()->second;
-        if ( ! firstAndOnlyEv.relocInfo.isRelocated )
-            relocatedEvCat.reset();
 
         // write catalog for debugging purpose
         if ( ! _workingDirCleanup )
@@ -976,7 +959,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
  */ 
 void
 HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
-                        std::unordered_set<unsigned> eventsToRelocate, const XCorrCache& xcorr,
+                        bool fixedNeighbours, const XCorrCache& xcorr,
                         ObservationParams& obsparams ) const
 {
     // copy event because we'll update it
@@ -1036,7 +1019,10 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
             {
                 const auto& xcdata = xcorr.get(refEv.id, event.id, refPhase.stationId, refPhase.procInfo.type);
                 diffTime = ref_travel_time - travel_time - xcdata.lag;
-                weight = xcdata.coeff * xcdata.coeff;
+                //weight = xcdata.coeff * xcdata.coeff;
+                weight = (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0;
+
+                SEISCOMP_INFO("Abs diff %.3f xcorr diff %.3f lag %.3f", ref_travel_time - travel_time, diffTime, xcdata.lag);
 
                 if (refPhase.procInfo.type == Phase::Type::P) refEv.relocInfo.numCCp++;
                 if (refPhase.procInfo.type == Phase::Type::S) refEv.relocInfo.numCCs++;
@@ -1056,17 +1042,8 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
 
             char phaseTypeAsChar = static_cast<char>(refPhase.procInfo.type);
 
-
-            if ( eventsToRelocate.count(event.id) == 0 )
-            {
-                solver.addObservation(refEv.id, refPhase.stationId, phaseTypeAsChar,
-                                      diffTime, weight);
-            }
-            else
-            {
-                solver.addObservation(refEv.id, event.id, refPhase.stationId,
-                                      phaseTypeAsChar, diffTime, weight);
-            }
+            solver.addObservation(refEv.id, event.id, refPhase.stationId,
+                                  phaseTypeAsChar, diffTime, weight, fixedNeighbours);
             obsparams.add(refEv.id, refPhase.stationId, phaseTypeAsChar);
             obsparams.add(event.id, refPhase.stationId, phaseTypeAsChar); 
         }
@@ -1079,7 +1056,6 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
 
 void
 HypoDD::addObservationParams(Solver& solver, const ObservationParams& obsParams,
-                             TravelTimeTableInterfacePtr ttt,
                              const CatalogCPtr& catalog) const
 {
     for ( const auto& kv : obsParams.entries )
@@ -1092,7 +1068,7 @@ HypoDD::addObservationParams(Solver& solver, const ObservationParams& obsParams,
         const Event& event = catalog->getEvents().at(entry.eventId);
         const Station& station = catalog->getStations().at(entry.stationId);
 
-        TravelTime tt = ttt->compute(string(1, entry.phaseType).c_str(),
+        TravelTime tt = _ttt->compute(string(1, entry.phaseType).c_str(),
                                      event.latitude, event.longitude, event.depth, 
                                      station.latitude, station.longitude, station.elevation);
         solver.addObservationParams(event.id, station.id, entry.phaseType,
@@ -1129,23 +1105,41 @@ HypoDD::loadRelocatedCatalog(const Solver& solver,
         event.longitude += deltaLon;
         event.depth     += deltaDepth;
         event.time      += Core::TimeSpan(deltaTT);
-//        event.rms       = ;
-//        event.relocInfo.lonUncertainty   = ;
-//        event.relocInfo.latUncertainty   = ;
-//        event.relocInfo.depthUncertainty = ;
+/*
+        event.relocInfo.lonUncertainty   = ;
+        event.relocInfo.latUncertainty   = ;
+        event.relocInfo.depthUncertainty = ;
+*/
+        event.rms = 0.;
+        unsigned rmsCount = 0;
+        auto eqlrng = phases.equal_range(event.id);
+        for (auto it = eqlrng.first; it != eqlrng.second; ++it) 
+        {
+            Phase& phase = it->second;
+            const Station& station = stations.at(phase.stationId);
+            char phaseTypeAsChar = static_cast<char>(phase.procInfo.type);
+
+//            phase.relocInfo.finalWeight = finalWeights;
+//            phase.relocInfo.isRelocated = finalWeight > 0;
+//            if ( ! phase.relocInfo.isRelocated )
+//              continue;
+ 
+            TravelTime tt = _ttt->compute(string(1, phaseTypeAsChar).c_str(),
+                                         event.latitude, event.longitude, event.depth,
+                                         station.latitude, station.longitude, station.elevation);
+
+            phase.relocInfo.residual = tt.time - (phase.time - event.time);
+
+            event.rms += (phase.relocInfo.residual * phase.relocInfo.residual);
+            ++rmsCount;
+        }
+
+        if ( rmsCount > 0 )
+            event.rms = std::sqrt(event.rms / rmsCount);
     }
 
-/*    for (auto& pair : phases)
-    {
-        Phase &phase = pair.second;
-        phase.relocInfo.isRelocated = finalWeight > 0;
-        phase.relocInfo.residual = residuals;
-        phase.relocInfo.finalWeight = finalWeights;
-    }
-*/
     return new Catalog(stations, events, phases);
 }
- 
 
 
 void

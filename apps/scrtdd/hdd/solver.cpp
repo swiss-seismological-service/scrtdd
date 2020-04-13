@@ -173,22 +173,12 @@ Solver::Solver(std::string type)
 
 void
 Solver::addObservation(unsigned evId1, unsigned evId2, const std::string& staId, char phase,
-                       double observedDiffTime, double weight)
+                       double observedDiffTime, double weight, bool ev2Fixed)
 {
     int evIdx1 = _eventIdConverter.convert(evId1);
     int evIdx2 = _eventIdConverter.convert(evId2);
     unsigned phStaIdx = _phStaIdConverter.convert(string(1,phase) + "@" + staId);
-    _observations.push_back( Observation( {evIdx1, evIdx2, phStaIdx, observedDiffTime, weight} ) );
-}
-
-
-void
-Solver::addObservation(unsigned evId, const std::string& staId, char phase,
-                       double observedDiffTime, double weight)
-{
-    int evIdx = _eventIdConverter.convert(evId);
-    unsigned phStaIdx = _phStaIdConverter.convert(string(1,phase) + "@" + staId);
-    _observations.push_back( Observation( {evIdx, -1 , phStaIdx, observedDiffTime, weight} ) );
+    _observations.push_back( Observation( {evIdx1, evIdx2, phStaIdx, observedDiffTime, weight, ev2Fixed} ) );
 }
 
 
@@ -318,7 +308,7 @@ Solver::computePartialDerivatives()
 
 
 void
-Solver::prepareDDSystem()
+Solver::prepareDDSystem(bool useObservationWeghts)
 {
     computePartialDerivatives();
 
@@ -346,7 +336,7 @@ Solver::prepareDDSystem()
     {
         _dd->W[ob] = obsrv.weight;
         _dd->evByObs[ob][0] = obsrv.ev1Idx;
-        _dd->evByObs[ob][1] = obsrv.ev2Idx;
+        _dd->evByObs[ob][1] = obsrv.ev2Fixed ? -1 : obsrv.ev2Idx;
         _dd->phStaByObs[ob] = obsrv.phStaIdx;
 
         // compute double difference
@@ -356,8 +346,9 @@ Solver::prepareDDSystem()
         ob++;
     }
 
-    // perform observation weighting: this is optional
-    _dd->applyWeights();
+    // perform observation weighting
+    if ( useObservationWeghts )
+       _dd->applyWeights();
 
     // free memory 
     _observations.clear();
@@ -366,45 +357,42 @@ Solver::prepareDDSystem()
 }
 
 
-void Solver::solve()
+void Solver::solve(bool useObservationWeghts, double dampingFactor)
 {
     if ( _type == "LSQR" )
     {
-        _solve<lsqrBase>();
+        _solve<lsqrBase>(useObservationWeghts, dampingFactor);
     }
     else if ( _type == "LSMR" )
     {
-        _solve<lsmrBase>();
+        _solve<lsmrBase>(useObservationWeghts, dampingFactor);
     }
     else
     {
-        throw runtime_error("Sovler: invalid type, only LSQR and LSMR are valid");
+        throw runtime_error("Solver: invalid type, only LSQR and LSMR are valid");
     }
 }
 
 
 template <class T>
-void Solver::_solve()
+void Solver::_solve(bool useObservationWeghts, double dampingFactor)
 {
-    prepareDDSystem();
+    prepareDDSystem(useObservationWeghts);
 
     Adapter<T> solver;
     solver.setDDSytem(_dd);
 
+    solver.SetDamp(dampingFactor);
+    solver.SetMaximumNumberOfIterations(100);
+
     const double eps = 1e-15;
     solver.SetEpsilon( eps );
-    solver.SetDamp( 0.0 );
-    solver.SetMaximumNumberOfIterations(100);
     solver.SetToleranceA( 1e-16 );
     solver.SetToleranceB( 1e-16 );
     solver.SetUpperLimitOnConditional( 1.0 / ( 10 * sqrt( eps ) ) );
 
     std::ostringstream solverLogs;
     solver.SetOutputStream( solverLogs );
-
-//    double se[_dd->nEvts*4];
-//    solver.SetStandardErrorEstimates( se );
-//    solver.SetStandardErrorEstimatesFlag( true );
 
     solver.Solve(_dd->nObs, _dd->nEvts*4, _dd->d, _dd->m );
 
