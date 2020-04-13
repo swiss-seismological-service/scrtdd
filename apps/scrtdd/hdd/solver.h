@@ -50,26 +50,29 @@ struct DDSystem : public Core::BaseObject {
     const unsigned nEvts;
     // number of stations
     const unsigned nPhStas;
-    // W[nObs]: weight of each observation
+    // W[nObs+4]: weight of each observation + cluster mean shift constraints (x,y,z,time) 
     double *W;
     // G[nEvts*nPhStas][4]: 3 partial derivatives for each event/station pair + tt (dx,dy,dz,1)
     double (*G)[4];
     // m[nEvts*4]: changes for each event hypocentral parameters we wish to determine (x,y,z,t)
     double (*m);
-    // d[nObs]: double differences, one for each observation
+    // d[nObs+4]: double differences, one for each observation + mean shift constraints (x,y,z,time)
     double *d;
     // evByObs[nObs][2]: map of 2 event idx for each observation (index -1 means no parameters)
     int (*evByObs)[2];
     // phStaByObs[nObs]: map of station idx for each observation
     unsigned *phStaByObs;
 
+    const unsigned numRowsG;
+    const unsigned numColsG;
+
     DDSystem(unsigned _nObs, unsigned _nEvts, unsigned _nPhStas)
-        : nObs(_nObs), nEvts(_nEvts), nPhStas(_nPhStas)
+        : nObs(_nObs), nEvts(_nEvts), nPhStas(_nPhStas), numRowsG(nObs+4), numColsG(nEvts*4)
     {
-        W = new double[nObs];
+        W = new double[numRowsG];
         G = new double[nEvts*nPhStas][4];
-        m = new double[nEvts*4](); // note the (), means zero initialization
-        d = new double[nObs];
+        m = new double[numColsG](); // note the (), means zero initialization
+        d = new double[numRowsG];
         evByObs = new int[nObs][2];
         phStaByObs = new unsigned[nObs];
     }

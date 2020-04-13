@@ -62,8 +62,10 @@ public:
      */
     void Aprod1(unsigned int m, unsigned int n, const double * x, double * y ) const
     {
-        if ( m != _dd->nObs ) throw std::runtime_error("Solver: Internal logic error (m != nObs)");
-        if ( n != (_dd->nEvts*4) ) throw std::runtime_error("Solver: Internal logic error (n != nEvts)");
+        if ( m != _dd->numRowsG )
+            throw std::runtime_error("Solver: Internal logic error (m != numRowsG)");
+        if ( n != (_dd->numColsG) )
+            throw std::runtime_error("Solver: Internal logic error (n != numColsG");
 
         for ( unsigned int ob = 0; ob < _dd->nObs; ob++ )
         {
@@ -87,6 +89,26 @@ public:
                 y[ob] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][3] * x[evIdx2 * 4 + 3];
             } 
         }
+
+        // do not waste computing if meanshift minimization is not used
+        double *meanShiftWeight = &_dd->W[_dd->nObs];
+        if ( meanShiftWeight[0] != 0 || meanShiftWeight[1] != 0 ||
+             meanShiftWeight[2] != 0 || meanShiftWeight[3] != 0 )
+        {
+            double meanShift[4] = {0};
+            for (unsigned evIdx = 0; evIdx < _dd->nEvts; evIdx++ )
+            {
+                meanShift[0] += x[evIdx * 4 + 0];
+                meanShift[1] += x[evIdx * 4 + 1];
+                meanShift[2] += x[evIdx * 4 + 2];
+                meanShift[3] += x[evIdx * 4 + 3]; 
+            }
+            y[_dd->nObs + 0] += meanShift[0] * meanShiftWeight[0];
+            y[_dd->nObs + 1] += meanShift[1] * meanShiftWeight[1];
+            y[_dd->nObs + 2] += meanShift[2] * meanShiftWeight[2];
+            y[_dd->nObs + 3] += meanShift[3] * meanShiftWeight[3];
+        }
+
     }
 
     /**
@@ -99,8 +121,10 @@ public:
      */
     void Aprod2(unsigned int m, unsigned int n, double * x, const double * y ) const
     {
-        if ( m != _dd->nObs ) throw std::runtime_error("Solver: Internal logic error (m != nObs)");
-        if ( n != (_dd->nEvts*4) ) throw std::runtime_error("Solver: Internal logic error (n != nEvts)");
+        if ( m != _dd->numRowsG )
+            throw std::runtime_error("Solver: Internal logic error (m != numRowsG)");
+        if ( n != (_dd->numColsG) )
+            throw std::runtime_error("Solver: Internal logic error (n != numColsG"); 
 
         for ( unsigned int ob = 0; ob < _dd->nObs; ob++ )
         {
@@ -124,6 +148,20 @@ public:
                 x[evIdx2 * 4 + 3] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][3] * y[ob];
             }
         }
+
+        // do not waste computing if meanshift minimization is not used
+        double *meanShiftWeight = &_dd->W[_dd->nObs];
+        if ( meanShiftWeight[0] != 0 || meanShiftWeight[1] != 0 ||
+             meanShiftWeight[2] != 0 || meanShiftWeight[3] != 0 )
+        {
+            for (unsigned evIdx = 0; evIdx < _dd->nEvts; evIdx++ )
+            {
+                x[evIdx * 4 + 0] += meanShiftWeight[0] * y[_dd->nObs + 0];
+                x[evIdx * 4 + 1] += meanShiftWeight[1] * y[_dd->nObs + 1];
+                x[evIdx * 4 + 2] += meanShiftWeight[2] * y[_dd->nObs + 2];
+                x[evIdx * 4 + 3] += meanShiftWeight[3] * y[_dd->nObs + 3];
+            }
+        } 
     }
 
 private:
@@ -346,6 +384,16 @@ Solver::prepareDDSystem(bool useObservationWeghts)
         ob++;
     }
 
+    // cluster zero mean shift
+    _dd->d[_dd->nObs + 0] = 0;
+    _dd->d[_dd->nObs + 1] = 0;
+    _dd->d[_dd->nObs + 2] = 0;
+    _dd->d[_dd->nObs + 3] = 0;
+    _dd->W[_dd->nObs + 0] = 0;
+    _dd->W[_dd->nObs + 1] = 0;
+    _dd->W[_dd->nObs + 2] = 0;
+    _dd->W[_dd->nObs + 3] = 0;
+
     // perform observation weighting
     if ( useObservationWeghts )
        _dd->applyWeights();
@@ -394,7 +442,7 @@ void Solver::_solve(bool useObservationWeghts, double dampingFactor)
     std::ostringstream solverLogs;
     solver.SetOutputStream( solverLogs );
 
-    solver.Solve(_dd->nObs, _dd->nEvts*4, _dd->d, _dd->m );
+    solver.Solve(_dd->numRowsG, _dd->numColsG, _dd->d, _dd->m );
 
     SEISCOMP_INFO("%s", solverLogs.str().c_str() );
     SEISCOMP_INFO("Stopped because %u : %s", solver.GetStoppingReason(), solver.GetStoppingReasonMessage().c_str());
