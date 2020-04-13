@@ -290,34 +290,6 @@ CatalogPtr HypoDD::relocateCatalog()
     // arrival times. The catalog will be updated with those theoretical phases 
     const XCorrCache xcorr = buildXCorrCache(neighbourCats, _cfg.artificialPhases.enable);
 
-    //
-    // update selected event list, numNeighbours information and artifical phases
-    //
-    unordered_set<unsigned> selectedEvents;
-    unordered_multimap<unsigned,Phase> newPhases;
-
-    for (const auto& kv : neighbourCats)
-    {
-        unsigned evId = kv.first;
-        const CatalogPtr& neighbourCat = kv.second;
-
-        // update selected events
-        selectedEvents.insert(evId);
-
-        // update number of neighbouring information
-        const Event& ev1 = neighbourCat->getEvents().at(evId);
-        Event ev2 = catToReloc->getEvents().at(evId);
-        ev2.relocInfo.numNeighbours = ev1.relocInfo.numNeighbours;
-        catToReloc->updateEvent(ev2);
-
-        // Save new phases (artificial phases too)
-        auto eqlrng = neighbourCat->getPhases().equal_range(evId);
-        newPhases.insert(eqlrng.first, eqlrng.second);
-    }
-
-    // Replace phases with new ones
-    catToReloc = new Catalog(catToReloc->getStations(), catToReloc->getEvents(), newPhases);
-
     // Create a solver and then add observations
     Solver solver = Solver(_cfg.solver.type);
 
@@ -330,13 +302,46 @@ CatalogPtr HypoDD::relocateCatalog()
         addObservations(solver, neighbourCat, refEvId, false, xcorr, obsparams);
     }
 
-//   update ccP ccS ctP ctS
-
     // Also add travel time information to the solver
     addObservationParams(solver, obsparams, catToReloc);
 
     // solve the system
     solver.solve(_cfg.solver.useObservationWeghts, _cfg.solver.dampingFactor);
+
+    //
+    // Update selected event list and the starting catalog with:
+    //  - artifical phases (added by buildXCorrCache)
+    //  - reloc information numCC numCT (added by addObservations)
+    //  - reloc information nnumNeighbours (added by selectNeighbouringEventsCatalog)
+    unordered_set<unsigned> selectedEvents;
+    unordered_multimap<unsigned,Phase> newPhases;
+
+    for (const auto& kv : neighbourCats)
+    {
+        unsigned evId = kv.first;
+        const CatalogPtr& neighbourCat = kv.second;
+
+        // update selected events
+        selectedEvents.insert(evId);
+
+        // update relocation information
+        const Event& ev1 = neighbourCat->getEvents().at(evId);
+        Event ev2 = catToReloc->getEvents().at(evId);
+        ev2.relocInfo.numNeighbours = ev1.relocInfo.numNeighbours;
+        ev2.relocInfo.numCCp = ev1.relocInfo.numCCp;
+        ev2.relocInfo.numCCs = ev1.relocInfo.numCCs;
+        ev2.relocInfo.numCTp = ev1.relocInfo.numCTp;
+        ev2.relocInfo.numCTs = ev1.relocInfo.numCTs;
+
+        catToReloc->updateEvent(ev2);
+
+        // Save new phases (artificial phases too)
+        auto eqlrng = neighbourCat->getPhases().equal_range(evId);
+        newPhases.insert(eqlrng.first, eqlrng.second);
+    }
+
+    // Replace phases with new ones
+    catToReloc = new Catalog(catToReloc->getStations(), catToReloc->getEvents(), newPhases);
 
     // load relocated catalog
     CatalogPtr relocatedCatalog = loadRelocatedCatalog(solver, catToReloc, selectedEvents);
@@ -1029,6 +1034,10 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
 {
     // copy event because we'll update it
     Event refEv = catalog->getEvents().at(refEvId);
+    refEv.relocInfo.numCCp = 0;
+    refEv.relocInfo.numCCs = 0;
+    refEv.relocInfo.numCTp = 0;
+    refEv.relocInfo.numCTs = 0;
 
     //
     // loop through reference event phases
