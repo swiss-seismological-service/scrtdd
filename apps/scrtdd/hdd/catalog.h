@@ -196,9 +196,7 @@ class Catalog : public Core::BaseObject {
         unsigned add(unsigned evId, const Catalog& eventCatalog, bool keepEvId);
         CatalogPtr extractEvent(unsigned eventId, bool keepEvId) const;
 
-        void removeEvent(const Event& event);
         void removeEvent(unsigned eventId);
-        void removePhase(const Phase& phase);
         void removePhase(unsigned eventId, const std::string& stationId, const Phase::Type& type);
 
         void addStation(const Station&);
@@ -213,14 +211,11 @@ class Catalog : public Core::BaseObject {
         const std::map<unsigned,Event>& getEvents() const { return _events;}
         const std::unordered_multimap<unsigned,Phase>& getPhases() const { return _phases;}
 
-        // search by value when the Id is not known
-        std::unordered_map<std::string,Station>::const_iterator searchStation(const Station&) const;
-        std::map<unsigned,Event>::const_iterator searchEvent(const Event&) const;
-        std::unordered_map<unsigned,Phase>::const_iterator searchPhase(const Phase&) const;
         std::unordered_map<std::string,Station>::const_iterator
         searchStation(const std::string& networkCode,
                       const std::string& stationCode,
                       const std::string& locationCode) const;
+        std::map<unsigned,Event>::const_iterator searchEvent(const Event&) const;
         std::unordered_map<unsigned,Phase>::const_iterator
         searchPhase(unsigned eventId, const std::string& stationId, const Phase::Type& type) const;
 

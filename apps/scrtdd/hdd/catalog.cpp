@@ -608,19 +608,6 @@ unsigned Catalog::add(unsigned evId, const Catalog& evCat, bool keepEvId)
 }
 
 
-
-void Catalog::removeEvent(const Event& event)
-{
-    map<unsigned,Catalog::Event>::const_iterator it = searchEvent(event);
-    if ( it != _events.end() )
-    {
-        _events.erase(it);
-        auto eqlrng = _phases.equal_range(it->second.id);
-        _phases.erase(eqlrng.first, eqlrng.second);
-    }
-}
-
-
 void Catalog::removeEvent(unsigned eventId)
 {
     map<unsigned,Catalog::Event>::const_iterator it = _events.find(eventId);
@@ -630,16 +617,6 @@ void Catalog::removeEvent(unsigned eventId)
     }
     auto eqlrng = _phases.equal_range(eventId);
     _phases.erase(eqlrng.first, eqlrng.second);
-}
-
-
-void Catalog::removePhase(const Phase& phase)
-{
-    unordered_map<unsigned,Phase>::const_iterator it = searchPhase(phase);
-    if ( it != _phases.end() )
-    {
-        _phases.erase(it);
-    }
 }
 
 
@@ -695,24 +672,10 @@ bool Catalog::updatePhase(const Phase& newPh)
 }
 
 
-unordered_map<string,Catalog::Station>::const_iterator
-Catalog::searchStation(const Station& station) const
-{
-    return searchByValue(_stations, station);
-}
-
-
 map<unsigned,Catalog::Event>::const_iterator
 Catalog::searchEvent(const Event& event) const
 {
     return searchByValue(_events, event);
-}
-
-
-unordered_map<unsigned,Catalog::Phase>::const_iterator
-Catalog::searchPhase(const Phase& phase) const
-{
-    return searchByValue(_phases, phase);
 }
 
 
