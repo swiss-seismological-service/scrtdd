@@ -1225,8 +1225,7 @@ HypoDD::addMissingEventPhases(const CatalogCPtr& searchCatalog,
 
     for (Phase& ph : newPhases)
     {
-        refEvCatalog->removePhase(ph.eventId, ph.stationId, ph.procInfo.type);
-        refEvCatalog->addPhase(ph);
+        refEvCatalog->updatePhase(ph, true);
         const Station& station = searchCatalog->getStations().at(ph.stationId);
         refEvCatalog->addStation(station);
     }
@@ -1669,8 +1668,7 @@ void HypoDD::fixPhases(CatalogPtr& catalog, const Event& refEv, XCorrCache& xcor
 
     for (Phase& ph : newPhases)
     {
-        catalog->removePhase(ph.eventId, ph.stationId, ph.procInfo.type);
-        catalog->addPhase(ph);
+        catalog->updatePhase(ph, true);
     }
 
     const auto& refEvPhases = catalog->getPhases().equal_range(refEv.id);

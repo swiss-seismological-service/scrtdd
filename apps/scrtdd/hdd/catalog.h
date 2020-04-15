@@ -199,13 +199,13 @@ class Catalog : public Core::BaseObject {
         void removeEvent(unsigned eventId);
         void removePhase(unsigned eventId, const std::string& stationId, const Phase::Type& type);
 
-        void addStation(const Station&);
-        void addEvent(const Event&);
+        std::string addStation(const Station&);
+        unsigned addEvent(const Event&);
         void addPhase(const Phase&);
 
-        bool updateStation(const Station& newStation);
-        bool updateEvent(const Event& newEv);
-        bool updatePhase(const Phase& newPh);
+        bool updateStation(const Station& newStation, bool addIfMissing=false);
+        bool updateEvent(const Event& newEv, bool addIfMissing=false);
+        bool updatePhase(const Phase& newPh, bool addIfMissing=false);
 
         const std::unordered_map<std::string,Station>& getStations() const { return _stations;}
         const std::map<unsigned,Event>& getEvents() const { return _events;}

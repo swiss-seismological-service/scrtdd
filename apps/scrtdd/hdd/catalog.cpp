@@ -393,8 +393,7 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
 
         SEISCOMP_DEBUG("Adding origin '%s' to the catalog", org->publicID().c_str());
 
-        this->addEvent(ev);
-        Event& newEvent = searchByValue(this->_events, ev)->second;  // fetch the id
+        unsigned newEventId = this->addEvent(ev);
 
         // Add Phases
         for ( size_t i = 0; i < org->arrivalCount(); ++i )
@@ -454,7 +453,7 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
             pair<double,double> uncertainty = getPickUncertainty(pick.get());
 
             Phase ph;
-            ph.eventId          = newEvent.id;
+            ph.eventId          = newEventId;
             ph.stationId        = sta.id;
             ph.time             = pick->time().value();
             ph.lowerUncertainty = uncertainty.first;
@@ -551,8 +550,7 @@ CatalogPtr Catalog::extractEvent(unsigned eventId, bool keepEvId) const
     }
     else
     {
-        eventToExtract->addEvent(event);
-        newEventId = eventToExtract->searchEvent(event)->first;
+        newEventId = eventToExtract->addEvent(event);
     }
 
     auto eqlrng = this->getPhases().equal_range(event.id);
@@ -588,8 +586,7 @@ unsigned Catalog::add(unsigned evId, const Catalog& evCat, bool keepEvId)
     else
     {
         // don't add an event with same values, but keep merging phases
-        addEvent(event);
-        newEventId = searchEvent(event)->first;
+        newEventId = addEvent(event);
     }
 
     auto eqlrng = evCat._phases.equal_range(event.id);
@@ -630,7 +627,7 @@ void Catalog::removePhase(unsigned eventId, const std::string& stationId, const 
 }
 
 
-bool Catalog::updateStation(const Station& newStation)
+bool Catalog::updateStation(const Station& newStation, bool addIfMissing)
 {
     unordered_map<string,Catalog::Station>::iterator it = _stations.find(newStation.id);
     if ( it != _stations.end() )
@@ -638,11 +635,15 @@ bool Catalog::updateStation(const Station& newStation)
         it->second = newStation;
         return true;
     }
+    else if ( addIfMissing )
+    {
+        addStation(newStation);
+    } 
     return false;
 }
 
 
-bool Catalog::updateEvent(const Event& newEv)
+bool Catalog::updateEvent(const Event& newEv, bool addIfMissing)
 {
     map<unsigned,Catalog::Event>::iterator it = _events.find(newEv.id);
     if ( it != _events.end() )
@@ -650,25 +651,33 @@ bool Catalog::updateEvent(const Event& newEv)
         it->second = newEv;
         return true;
     }
+    else if ( addIfMissing )
+    {
+        addEvent(newEv);
+    }
     return false;
 }
 
 
-bool Catalog::updatePhase(const Phase& newPh)
+bool Catalog::updatePhase(const Phase& newPh, bool addIfMissing)
 {
     auto eqlrng = _phases.equal_range(newPh.eventId);
-    auto it = eqlrng.first;
-    bool updated = false;
-    while ( it != eqlrng.second )
+    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
-        Catalog::Phase& oldPh = it->second;
-        if ( oldPh.stationId == newPh.stationId )
+        Catalog::Phase& ph = it->second;
+        if ( ph.stationId     == newPh.stationId &&
+             ph.procInfo.type == newPh.procInfo.type )
         {
-            oldPh = newPh;
-            updated = true;
+            ph = newPh;
+            return true;
         }
     }
-    return updated;
+
+    if ( addIfMissing )
+    {
+        addPhase(newPh);
+    }
+    return false;
 }
 
 
@@ -703,23 +712,26 @@ Catalog::searchPhase(unsigned eventId, const std::string& stationId, const Phase
 }
 
 
-void Catalog::addStation(const Station& sta)
+string Catalog::addStation(const Station& sta)
 {
-    if ( searchStation(sta.networkCode, sta.stationCode, sta.locationCode) == _stations.end() )
+    string stationId = sta.networkCode + "." + sta.stationCode + "." + sta.locationCode;
+    if ( _stations.find(stationId) == _stations.end() )
     {
         Station newSta = sta;
-        newSta.id = newSta.networkCode + "." + newSta.stationCode + "." + newSta.locationCode;
+        newSta.id = stationId;
         _stations[newSta.id] = newSta;
     }
+    return stationId;
 }
 
 
-void Catalog::addEvent(const Event& event)
+unsigned Catalog::addEvent(const Event& event)
 {
     decltype(_events)::key_type maxKey = _events.empty() ? 0 : _events.rbegin()->first;
     Event newEvent = event;
     newEvent.id = maxKey + 1;
     _events[newEvent.id] = newEvent;
+    return newEvent.id;
 }
 
 
@@ -837,9 +849,9 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
  */
 CatalogPtr 
 Catalog::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
-                                             const Phase::Source& source,
-                                             const std::vector<std::string>& PphaseToKeep,
-                                             const std::vector<std::string>& SphaseToKeep)
+                                   const Phase::Source& source,
+                                   const std::vector<std::string>& PphaseToKeep,
+                                   const std::vector<std::string>& SphaseToKeep)
 {
     unordered_multimap<unsigned,Phase> filteredS;
     unordered_multimap<unsigned,Phase> filteredP;
