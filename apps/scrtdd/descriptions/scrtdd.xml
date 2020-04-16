@@ -58,17 +58,17 @@
 
                 <parameter name="cacheWaveforms" type="boolean" default="true">
                     <description>
-                        Save catalog waveforms to local disk to avoid re-reading them from the configured
-                        recordStream when a profile is loaded (see profileTimeAlive).
-                        The waveforms are saved in the configured working directory and they can also be
-                        moved to other machines. Also it is safe to delete the
-                        cache, in which case the waveforms will be loaded and saved again on disk
-                        the next time the profile is loaded (they will be read again from the configured
-                        recordStream).
-                        Please note that exists a command line options '--load-profile-wf' useful to load
-                        the catalog waveforms from the record stream and save them on disk. This is useful
-                        to make sure all the data is ready when the module is started and avoid lenghty
-                        loading in case of big catalogs or slow network connection.
+                        Save catalog waveforms to local disk after they have been loaded the first
+                        times. This avoid re-reading them from the configured recordStream in the 
+                        future since this operation is drammatically slow (unless the recordstream
+                        points to a local disk source, in which case there is no advantace in
+                        caching the waveforms).
+                        It is safe to delete the cache folder, in which case the waveforms will be
+                        loaded and saved again on disk the next time the profile is loaded (they will
+                        be read again from the configured recordStream).
+                        Please note that exists a command line options '--load-profile-wf' useful to
+                        load all the catalog waveforms from the record stream and save them on disk.                         This is useful to make sure all the wavefrorms are on disk before when the
+                        module is started and avoid lenghty loading the first time the module starts.
                     </description>
                 </parameter>
 
@@ -564,12 +564,23 @@
                             <description>
                             </description>
                         </parameter>
-                        <parameter name="useObservationWeights" type="boolean" default="true">
+                        <parameter name="clusterMeanShiftWeight" type="double" default="0">
                             <description>
                             </description>
                         </parameter> 
+                        <parameter name="useObservationWeights" type="boolean" default="true">
+                            <description>
+                            </description>
+                        </parameter>
+                        <parameter name="solverIterations" type="int" default="100">
+                            <description>
+                            </description>
+                        </parameter> 
+                        <parameter name="algoIterations" type="int" default="20">
+                            <description>
+                            </description>
+                        </parameter>
                     </group>
- 
                 </struct>
             </group>
 

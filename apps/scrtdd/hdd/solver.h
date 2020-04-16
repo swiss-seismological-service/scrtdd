@@ -128,6 +128,8 @@ public:
     Solver(std::string type);
     virtual ~Solver() { }
 
+    void reset() { *this = Solver(_type); }
+
     void addObservation(unsigned evId1, unsigned evId2, const std::string& staId, char phase,
                         double diffTime, double weight, bool ev2Fixed);
 
@@ -136,9 +138,10 @@ public:
                               double staLat, double staLon, double staElevation,
                               double travelTime);
 
-    void solve(bool useObservationWeghts=true, double dampingFactor=0.);
+    void solve(bool useObservationWeghts=true, double dampingFactor=0,
+               double meanShiftWeight=0, unsigned numIterations=20);
 
-    void getEventChanges(unsigned evId, double &deltaLat, double &deltaLon, double &deltaDepth, double &deltaTT) const;
+    bool getEventChanges(unsigned evId, double &deltaLat, double &deltaLon, double &deltaDepth, double &deltaTT) const;
 
     static double computeDistance(double lat1, double lon1, double depth1,
                                   double lat2, double lon2, double depth2,
@@ -146,8 +149,9 @@ public:
 private:
 
     void computePartialDerivatives();
-    void prepareDDSystem(bool useObservationWeghts);
-    template <class T> void _solve(bool useObservationWeghts, double dampingFactor);
+    void prepareDDSystem(bool useObservationWeghts, double meanShiftWeigh);
+    template <class T> void _solve(bool useObservationWeghts, double dampingFactor,
+                                   double meanShiftWeight, unsigned numIterations);
 
 private:
 
@@ -201,13 +205,13 @@ private:
         double lat, lon, depth;
         double x, y, z; // km
     };
-    std::map<unsigned,EventParams> _eventParams; // key = evIdx
+    std::unordered_map<unsigned,EventParams> _eventParams; // key = evIdx
 
     struct StationParams {
         double lat, lon, elevation;
         double x, y, z; // km
     };
-    std::map<unsigned,StationParams> _stationParams;  // key = phStaIdx
+    std::unordered_map<unsigned,StationParams> _stationParams;  // key = phStaIdx
 
     struct ObservationParams {
         double travelTime;
@@ -217,7 +221,7 @@ private:
         double dz;
     };
     // key1=evIdx  key2=phStaIdx
-    std::map<unsigned, std::map<unsigned,ObservationParams>> _obsParams;
+    std::unordered_map<unsigned, std::unordered_map<unsigned,ObservationParams>> _obsParams;
 
     struct {
         double lat, lon, depth;

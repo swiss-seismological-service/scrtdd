@@ -151,11 +151,12 @@ As an example you can see below two catalogs before and after scrtdd relocation:
 
 ![Relocation example picture](/data/multiEventRelocationExample.png?raw=true "Relocation example")
 
-The relocation output files (reloc-event.csv reloc-phase.csv and reloc-stations.csv) will become the background catalog used in real-time relocation. At this point the profile configuration is not needed anymore, so the profile can be removed from the list of active profiles (`scrtdd.activeProfiles`) or it can be updated with real-time configuration.
+The relocation output files (reloc-event.csv reloc-phase.csv and reloc-stations.csv) will become the background catalog used in real-time relocation and this is the only output we need to keep. The profile configuration can be now deleted or, in the case we want to kept it, it has to be removed from the list of active profiles (`scrtdd.activeProfiles`). 
+
+Now that we have a high quality background catalog we are ready to perform real-time relocation. For that we will create a new profile whose catalog will be the relocation output files:
 
 ![Catalog selection option](/data/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
-Now that we have a high quality background catalog we are ready to perform real time relocation.
 
 Notes:
 

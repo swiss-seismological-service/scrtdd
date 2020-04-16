@@ -234,16 +234,19 @@ Solver::addObservationParams(unsigned evId, const std::string& staId, char phase
 }
 
 
-void
+bool
 Solver::getEventChanges(unsigned evId, double &deltaLat, double &deltaLon, double &deltaDepth, double &deltaTT) const
 {
+    if ( ! _eventIdConverter.hasId(evId) )
+        return false;
+
     unsigned evIdx = _eventIdConverter.toIdx(evId);
     const EventParams& evprm = _eventParams.at(evIdx);
 
     double deltaX = _dd->m[evIdx*4];
     double deltaY = _dd->m[evIdx*4+1];
-    deltaDepth    = -_dd->m[evIdx*4+2]; // make depth positive
-    deltaTT       = _dd->m[evIdx*4+3]; // no conversion required
+    deltaDepth    = -_dd->m[evIdx*4+2];
+    deltaTT       = -_dd->m[evIdx*4+3];
 
     double newX = evprm.x + deltaX;
     double newY = evprm.y + deltaY;
@@ -263,6 +266,8 @@ Solver::getEventChanges(unsigned evId, double &deltaLat, double &deltaLon, doubl
 
     deltaLat = newLat - evprm.lat;
     deltaLon = newLon - evprm.lon;
+
+    return true;
 }
 
 
@@ -346,7 +351,7 @@ Solver::computePartialDerivatives()
 
 
 void
-Solver::prepareDDSystem(bool useObservationWeghts)
+Solver::prepareDDSystem(bool useObservationWeghts, double meanShiftWeight)
 {
     computePartialDerivatives();
 
@@ -384,15 +389,15 @@ Solver::prepareDDSystem(bool useObservationWeghts)
         ob++;
     }
 
-    // cluster zero mean shift
+    // cluster zero mean shift and its weights
     _dd->d[_dd->nObs + 0] = 0;
     _dd->d[_dd->nObs + 1] = 0;
     _dd->d[_dd->nObs + 2] = 0;
     _dd->d[_dd->nObs + 3] = 0;
-    _dd->W[_dd->nObs + 0] = 0;
-    _dd->W[_dd->nObs + 1] = 0;
-    _dd->W[_dd->nObs + 2] = 0;
-    _dd->W[_dd->nObs + 3] = 0;
+    _dd->W[_dd->nObs + 0] = meanShiftWeight;
+    _dd->W[_dd->nObs + 1] = meanShiftWeight;
+    _dd->W[_dd->nObs + 2] = meanShiftWeight;
+    _dd->W[_dd->nObs + 3] = meanShiftWeight;
 
     // perform observation weighting
     if ( useObservationWeghts )
@@ -405,15 +410,16 @@ Solver::prepareDDSystem(bool useObservationWeghts)
 }
 
 
-void Solver::solve(bool useObservationWeghts, double dampingFactor)
+void Solver::solve(bool useObservationWeghts, double dampingFactor,
+                   double meanShiftWeight, unsigned numIterations)
 {
     if ( _type == "LSQR" )
     {
-        _solve<lsqrBase>(useObservationWeghts, dampingFactor);
+        _solve<lsqrBase>(useObservationWeghts, dampingFactor, meanShiftWeight, numIterations);
     }
     else if ( _type == "LSMR" )
     {
-        _solve<lsmrBase>(useObservationWeghts, dampingFactor);
+        _solve<lsmrBase>(useObservationWeghts, dampingFactor, meanShiftWeight, numIterations);
     }
     else
     {
@@ -423,15 +429,16 @@ void Solver::solve(bool useObservationWeghts, double dampingFactor)
 
 
 template <class T>
-void Solver::_solve(bool useObservationWeghts, double dampingFactor)
+void Solver::_solve(bool useObservationWeghts, double dampingFactor,
+                    double meanShiftWeight, unsigned numIterations)
 {
-    prepareDDSystem(useObservationWeghts);
+    prepareDDSystem(useObservationWeghts, meanShiftWeight);
 
     Adapter<T> solver;
     solver.setDDSytem(_dd);
 
     solver.SetDamp(dampingFactor);
-    solver.SetMaximumNumberOfIterations(100);
+    solver.SetMaximumNumberOfIterations(numIterations);
 
     const double eps = 1e-15;
     solver.SetEpsilon( eps );
@@ -450,8 +457,8 @@ void Solver::_solve(bool useObservationWeghts, double dampingFactor)
     SEISCOMP_INFO("Frobenius norm estimation of Abar = %.4f", solver.GetFrobeniusNormEstimateOfAbar());
     SEISCOMP_INFO("Condition number estimation of Abar = %.4f", solver.GetConditionNumberEstimateOfAbar());
     SEISCOMP_INFO("Estimate of final value of norm(rbar) = %.4f", solver.GetFinalEstimateOfNormRbar());
-    SEISCOMP_INFO("Estimate of final value of norm of residuals = %.4f", solver.GetFinalEstimateOfNormOfResiduals());
-    SEISCOMP_INFO("Estimate of norm of final solution = %.4f", solver.GetFinalEstimateOfNormOfX());
+    SEISCOMP_INFO("Estimate of final value of norm of residuals = %.7f", solver.GetFinalEstimateOfNormOfResiduals());
+    SEISCOMP_INFO("Estimate of norm of final solution = %.7f", solver.GetFinalEstimateOfNormOfX());
 }
 
 

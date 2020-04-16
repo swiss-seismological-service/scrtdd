@@ -570,8 +570,17 @@ bool RTDD::validateParameters()
             prof->ddcfg.solver.dampingFactor = configGetDouble(prefix + "dampingFactor");
         } catch ( ... ) { prof->ddcfg.solver.dampingFactor = 0.; } 
         try {
+            prof->ddcfg.solver.meanShiftWeight = configGetDouble(prefix + "clusterMeanShiftWeight");
+        } catch ( ... ) { prof->ddcfg.solver.meanShiftWeight = 0.; }
+        try {
             prof->ddcfg.solver.useObservationWeghts = configGetBool(prefix + "useObservationWeights");
         } catch ( ... ) { prof->ddcfg.solver.useObservationWeghts = true; }
+        try {
+            prof->ddcfg.solver.solverIterations = configGetInt(prefix + "solverIterations");
+        } catch ( ... ) { prof->ddcfg.solver.solverIterations = 100; }
+        try {
+            prof->ddcfg.solver.algoIterations = configGetInt(prefix + "algoIterations");
+        } catch ( ... ) { prof->ddcfg.solver.algoIterations = 20; }
 
         // no reason to make those configurable 
         prof->ddcfg.step1Clustering.minWeight = 0;

@@ -30,7 +30,6 @@
 #include <map>
 #include <unordered_set>
 #include <vector>
-#include <tuple>
 
 namespace Seiscomp {
 namespace HDD {
@@ -115,6 +114,9 @@ struct Config {
         std::string type = "LSMR"; // LSMR or LSQR
         bool useObservationWeghts = true;
         double dampingFactor = 0.;
+        double meanShiftWeight = 0.;
+        unsigned solverIterations = 100;
+        unsigned algoIterations = 20;
     } solver;
 };
 
@@ -179,31 +181,26 @@ class HypoDD : public Core::BaseObject {
                                         bool keepUnmatched) const;
 
         struct ObservationParams {
-
             struct Entry {
-                unsigned eventId;
-                std::string stationId;
+                Catalog::Event event;
+                Catalog::Station station;
                 char phaseType;
+                double travelTime;
             };
-            std::unordered_map<std::string,Entry> entries;
-
-            void add(unsigned eventId, std::string stationId, char phaseType)
-            {
-                const std::string key = std::to_string(eventId) + "@" + stationId + ":" + phaseType;
-                if ( entries.find(key) == entries.end() )
-                {
-                    entries[key] = Entry( {eventId, stationId, phaseType} );
-                }
-            }
+            void add(TravelTimeTableInterfacePtr ttt, const Catalog::Event& event,
+                     const Catalog::Station& station, char phaseType);
+            const Entry& get(unsigned eventId, const std::string stationId, char phaseType ) const;
+            void addToSolver(Solver& solver) const;
+            private:
+            std::unordered_map<std::string,Entry> _entries;
         }; 
         void addObservations(Solver& solver, CatalogPtr& catalog, unsigned evId,
                              bool fixedNeighbours, const XCorrCache& xcorr,
                              ObservationParams& obsparams ) const;
-        void addObservationParams(Solver& solver, const ObservationParams& obsParams,
-                                  const CatalogCPtr& catalog) const;
         CatalogPtr loadRelocatedCatalog(const Solver& solver, const CatalogCPtr& originalCatalog,
-                                        std::unordered_set<unsigned> eventsToRelocate ) const;
- 
+                                        std::unordered_set<unsigned> eventsToRelocate,
+                                        ObservationParams& obsparams ) const;
+
         void addMissingEventPhases(const CatalogCPtr& searchCatalog,
                                    const Catalog::Event& refEv,
                                    CatalogPtr& refEvCatalog);
