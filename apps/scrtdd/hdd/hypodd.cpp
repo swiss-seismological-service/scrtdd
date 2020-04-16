@@ -552,13 +552,11 @@ string HypoDD::relocationReport(const CatalogCPtr& relocatedEv)
         return "Event not relocated";
 
     return stringify("Neighboring events %d. Cross-correlated P phases %d, S phases %d. "
-                     "Catalog P phases %d, S phases %d. Rms residual %.2f [sec]. Rms %.4f."
-                     "Error [km]: East-west %.3f, north-south %.3f, depth %.3f",
+                     "Catalog P phases %d, S phases %d. Rms residual %.2f [sec]. Rms %.4f.",
                       event.relocInfo.numNeighbours,
                       event.relocInfo.numCCp, event.relocInfo.numCCs,
                       event.relocInfo.numCTp, event.relocInfo.numCTs, 
-                      event.rms, event.relocInfo.lonUncertainty,
-                      event.relocInfo.latUncertainty, event.relocInfo.depthUncertainty);
+                      event.rms);
  
 }
 
@@ -1179,11 +1177,7 @@ HypoDD::loadRelocatedCatalog(const Solver& solver,
         event.longitude += deltaLon;
         event.depth     += deltaDepth;
         event.time      += Core::TimeSpan(deltaTT);
-/*
-        event.relocInfo.lonUncertainty   = ;
-        event.relocInfo.latUncertainty   = ;
-        event.relocInfo.depthUncertainty = ;
-*/
+
         event.rms = 0.;
         unsigned rmsCount = 0;
         auto eqlrng = phases.equal_range(event.id);

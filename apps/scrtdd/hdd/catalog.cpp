@@ -305,9 +305,6 @@ Catalog::Catalog(const string& stationFile,
         if ( loadRelocationInfo && (row.count("relocated") != 0) && strToBool(row.at("relocated")) )
         {
             ev.relocInfo.isRelocated = true;
-            ev.relocInfo.lonUncertainty   = std::stod(row.at("lonUncertainty"));
-            ev.relocInfo.latUncertainty   = std::stod(row.at("latUncertainty"));
-            ev.relocInfo.depthUncertainty = std::stod(row.at("depthUncertainty"));
             ev.relocInfo.numCCp           = std::stoi(row.at("numCCp"));
             ev.relocInfo.numCCs           = std::stoi(row.at("numCCs"));
             ev.relocInfo.numCTp           = std::stoi(row.at("numCTp"));
@@ -749,7 +746,7 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
     stringstream evStreamReloc;
 
     evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude,rms"; 
-    evStreamReloc << evStreamNoReloc.str() << ",relocated,numNeighbours,numCCp,numCCs,numCTp,numCTs,lonUncertainty,latUncertainty,depthUncertainty" << endl;
+    evStreamReloc << evStreamNoReloc.str() << ",relocated,numNeighbours,numCCp,numCCs,numCTp,numCTs" << endl;
     evStreamNoReloc << endl;
 
     bool relocInfo = false;
@@ -772,11 +769,10 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
         else
         {
             relocInfo = true;
-            evStreamReloc <<  stringify(",true,%d,%d,%d,%d,%d,%.6f,%.6f,%.6f",
-                                  ev.relocInfo.numNeighbours, ev.relocInfo.numCCp, ev.relocInfo.numCCs,
-                                  ev.relocInfo.numCTp, ev.relocInfo.numCTs,
-                                  ev.relocInfo.lonUncertainty, ev.relocInfo.latUncertainty,
-                                  ev.relocInfo.depthUncertainty );
+            evStreamReloc <<  stringify(",true,%d,%d,%d,%d,%d",
+                                  ev.relocInfo.numNeighbours,
+                                  ev.relocInfo.numCCp, ev.relocInfo.numCCs,
+                                  ev.relocInfo.numCTp, ev.relocInfo.numCTs);
         }
         evStreamReloc << endl;
     }

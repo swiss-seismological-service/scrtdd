@@ -1426,15 +1426,12 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     newOrg->setTime(DataModel::TimeQuantity(event.time));
 
     RealQuantity latitude = DataModel::RealQuantity(event.latitude);
-    if ( event.relocInfo.isRelocated ) latitude.setUncertainty(event.relocInfo.latUncertainty);
-    newOrg->setLatitude(latitude);
+    newOrg->setLatitude(event.latitude);
 
     RealQuantity longitude = DataModel::RealQuantity(normalizeLon(event.longitude));
-    if ( event.relocInfo.isRelocated ) longitude.setUncertainty(event.relocInfo.lonUncertainty);
     newOrg->setLongitude(longitude);
 
     RealQuantity depth = DataModel::RealQuantity(event.depth);
-    if ( event.relocInfo.isRelocated ) depth.setUncertainty(event.relocInfo.depthUncertainty);
     newOrg->setDepth(depth);
 
     if ( event.relocInfo.isRelocated )

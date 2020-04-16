@@ -79,9 +79,6 @@ class Catalog : public Core::BaseObject {
 
             struct {
                 bool isRelocated = false;
-                double lonUncertainty;
-                double latUncertainty;
-                double depthUncertainty;
                 int numCCp;
                 int numCCs;
                 int numCTp;
