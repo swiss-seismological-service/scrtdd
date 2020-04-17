@@ -70,24 +70,27 @@ public:
         for ( unsigned int ob = 0; ob < _dd->nObs; ob++ )
         {
             const unsigned phStaIdx = _dd->phStaByObs[ob]; // station for this observation
+            double sum = 0;
 
             const int evIdx1 = _dd->evByObs[ob][0]; // event 1 for this observation
             if ( evIdx1 >= 0 )
             {
-                y[ob] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][0] * x[evIdx1 * 4 + 0];
-                y[ob] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][1] * x[evIdx1 * 4 + 1];
-                y[ob] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][2] * x[evIdx1 * 4 + 2];
-                y[ob] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][3] * x[evIdx1 * 4 + 3];
+                sum += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][0] * x[evIdx1 * 4 + 0];
+                sum += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][1] * x[evIdx1 * 4 + 1];
+                sum += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][2] * x[evIdx1 * 4 + 2];
+                sum += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][3] * x[evIdx1 * 4 + 3];
             }
 
             const int evIdx2 = _dd->evByObs[ob][1]; // event 2 for this observation
             if ( evIdx2 >= 0 )
             {
-                y[ob] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][0] * x[evIdx2 * 4 + 0];
-                y[ob] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][1] * x[evIdx2 * 4 + 1];
-                y[ob] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][2] * x[evIdx2 * 4 + 2];
-                y[ob] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][3] * x[evIdx2 * 4 + 3];
-            } 
+                sum -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][0] * x[evIdx2 * 4 + 0];
+                sum -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][1] * x[evIdx2 * 4 + 1];
+                sum -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][2] * x[evIdx2 * 4 + 2];
+                sum -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][3] * x[evIdx2 * 4 + 3];
+            }
+
+            y[ob] += _dd->W[ob] * sum;
         }
 
         // do not waste computing if meanshift minimization is not used
@@ -130,22 +133,24 @@ public:
         {
             const unsigned phStaIdx = _dd->phStaByObs[ob]; // station for this observation
 
+            double YW = y[ob] * _dd->W[ob];
+
             const int evIdx1 = _dd->evByObs[ob][0]; // event 1 for this observation
             if ( evIdx1 >= 0 )
             {
-                x[evIdx1 * 4 + 0] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][0] * y[ob];
-                x[evIdx1 * 4 + 1] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][1] * y[ob];
-                x[evIdx1 * 4 + 2] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][2] * y[ob];
-                x[evIdx1 * 4 + 3] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][3] * y[ob];
+                x[evIdx1 * 4 + 0] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][0] * YW;
+                x[evIdx1 * 4 + 1] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][1] * YW;
+                x[evIdx1 * 4 + 2] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][2] * YW;
+                x[evIdx1 * 4 + 3] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][3] * YW;
             }
 
             const int evIdx2 = _dd->evByObs[ob][1]; // event 2 for this observation
             if ( evIdx2 >= 0 )
             {
-                x[evIdx2 * 4 + 0] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][0] * y[ob];
-                x[evIdx2 * 4 + 1] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][1] * y[ob];
-                x[evIdx2 * 4 + 2] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][2] * y[ob];
-                x[evIdx2 * 4 + 3] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][3] * y[ob];
+                x[evIdx2 * 4 + 0] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][0] * YW;
+                x[evIdx2 * 4 + 1] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][1] * YW;
+                x[evIdx2 * 4 + 2] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][2] * YW;
+                x[evIdx2 * 4 + 3] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][3] * YW;
             }
         }
 
@@ -351,7 +356,7 @@ Solver::computePartialDerivatives()
 
 
 void
-Solver::prepareDDSystem(bool useObservationWeghts, double meanShiftWeight)
+Solver::prepareDDSystem(double meanShiftWeight)
 {
     computePartialDerivatives();
 
@@ -389,6 +394,12 @@ Solver::prepareDDSystem(bool useObservationWeghts, double meanShiftWeight)
         ob++;
     }
 
+    // apply weights to d
+    for ( unsigned ob = 0; ob < _dd->nObs; ob++ )
+    {
+        _dd->d[ob] *= _dd->W[ob];
+    }
+
     // cluster zero mean shift and its weights
     _dd->d[_dd->nObs + 0] = 0;
     _dd->d[_dd->nObs + 1] = 0;
@@ -399,10 +410,6 @@ Solver::prepareDDSystem(bool useObservationWeghts, double meanShiftWeight)
     _dd->W[_dd->nObs + 2] = meanShiftWeight;
     _dd->W[_dd->nObs + 3] = meanShiftWeight;
 
-    // perform observation weighting
-    if ( useObservationWeghts )
-       _dd->applyWeights();
-
     // free memory 
     _observations.clear();
     _obsParams.clear();
@@ -410,16 +417,15 @@ Solver::prepareDDSystem(bool useObservationWeghts, double meanShiftWeight)
 }
 
 
-void Solver::solve(bool useObservationWeghts, double dampingFactor,
-                   double meanShiftWeight, unsigned numIterations)
+void Solver::solve(double dampingFactor, double meanShiftWeight, unsigned numIterations)
 {
     if ( _type == "LSQR" )
     {
-        _solve<lsqrBase>(useObservationWeghts, dampingFactor, meanShiftWeight, numIterations);
+        _solve<lsqrBase>(dampingFactor, meanShiftWeight, numIterations);
     }
     else if ( _type == "LSMR" )
     {
-        _solve<lsmrBase>(useObservationWeghts, dampingFactor, meanShiftWeight, numIterations);
+        _solve<lsmrBase>(dampingFactor, meanShiftWeight, numIterations);
     }
     else
     {
@@ -429,10 +435,9 @@ void Solver::solve(bool useObservationWeghts, double dampingFactor,
 
 
 template <class T>
-void Solver::_solve(bool useObservationWeghts, double dampingFactor,
-                    double meanShiftWeight, unsigned numIterations)
+void Solver::_solve(double dampingFactor, double meanShiftWeight, unsigned numIterations)
 {
-    prepareDDSystem(useObservationWeghts, meanShiftWeight);
+    prepareDDSystem(meanShiftWeight);
 
     Adapter<T> solver;
     solver.setDDSytem(_dd);

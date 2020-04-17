@@ -77,28 +77,6 @@ struct DDSystem : public Core::BaseObject {
         phStaByObs = new unsigned[nObs];
     }
 
-    void applyWeights()
-    {
-        // pre-compute G and d weighting
-        for ( unsigned ob = 0; ob < nObs; ob++ )
-        {
-            d[ob] *= W[ob];
-            const unsigned staIdx = phStaByObs[ob]; // station for this observation
-            for ( unsigned int ev = 0; ev < 2; ev++ )
-            {
-                const int evIdx = evByObs[ob][ev]; //  event for this observation
-
-                if ( evIdx == -1 ) // this part of the observation is constant
-                    continue; 
-
-                for ( unsigned int param = 0; param < 4; param++ )
-                {
-                    G[evIdx * nPhStas + staIdx][param] *= W[ob];
-                }
-            }
-        }
-    }
-
     virtual ~DDSystem()
     {
         delete[] phStaByObs;
@@ -138,8 +116,7 @@ public:
                               double staLat, double staLon, double staElevation,
                               double travelTime);
 
-    void solve(bool useObservationWeghts=true, double dampingFactor=0,
-               double meanShiftWeight=0, unsigned numIterations=20);
+    void solve(double dampingFactor=0, double meanShiftWeight=0, unsigned numIterations = 20);
 
     bool getEventChanges(unsigned evId, double &deltaLat, double &deltaLon, double &deltaDepth, double &deltaTT) const;
 
@@ -149,9 +126,8 @@ public:
 private:
 
     void computePartialDerivatives();
-    void prepareDDSystem(bool useObservationWeghts, double meanShiftWeigh);
-    template <class T> void _solve(bool useObservationWeghts, double dampingFactor,
-                                   double meanShiftWeight, unsigned numIterations);
+    void prepareDDSystem(double meanShiftWeigh);
+    template <class T> void _solve(double dampingFactor, double meanShiftWeight, unsigned numIterations);
 
 private:
 

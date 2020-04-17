@@ -330,7 +330,7 @@ CatalogPtr HypoDD::relocateCatalog()
         obsparams.addToSolver(solver);
 
         // solve the system
-        solver.solve(true, _cfg.solver.dampingFactor, _cfg.solver.meanShiftWeight, _cfg.solver.solverIterations);
+        solver.solve(_cfg.solver.dampingFactor, _cfg.solver.meanShiftWeight, _cfg.solver.solverIterations);
 
         obsparams = ObservationParams(); // reset for next loop
 
@@ -533,7 +533,7 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
             obsparams.addToSolver(solver);
 
             // Solve the system
-            solver.solve(true, _cfg.solver.dampingFactor, _cfg.solver.meanShiftWeight, _cfg.solver.solverIterations);
+            solver.solve(_cfg.solver.dampingFactor, _cfg.solver.meanShiftWeight, _cfg.solver.solverIterations);
 
             obsparams = ObservationParams(); // reset for next loop
 
