@@ -245,8 +245,8 @@ Solver::getEventChanges(unsigned evId, double &deltaLat, double &deltaLon, doubl
 
     double deltaX = _dd->m[evIdx*4];
     double deltaY = _dd->m[evIdx*4+1];
-    deltaDepth    = -_dd->m[evIdx*4+2];
-    deltaTT       = -_dd->m[evIdx*4+3];
+    deltaDepth    = -_dd->m[evIdx*4+2]; // make depth positive
+    deltaTT       = _dd->m[evIdx*4+3];
 
     double newX = evprm.x + deltaX;
     double newY = evprm.y + deltaY;
@@ -338,12 +338,12 @@ Solver::computePartialDerivatives()
             double distance = computeDistance(evprm.lat, evprm.lon, evprm.depth,
                                                staprm.lat, staprm.lon, -staprm.elevation/1000.);
 
-            double azimuth = std::atan2( staprm.y - evprm.y, staprm.x - evprm.x);
-            double takeOff = std::atan2( staprm.z - evprm.z, staprm.x - evprm.x);
+            double angle   = std::atan2( evprm.y - staprm.y, evprm.x - staprm.x);
+            double takeOff = std::atan2( evprm.z - staprm.z, evprm.x - staprm.x);
 
             obsprm.slowness = obsprm.travelTime / distance;
-            obsprm.dx = obsprm.slowness * std::cos(azimuth);
-            obsprm.dy = obsprm.slowness * std::sin(azimuth);
+            obsprm.dx = obsprm.slowness * std::cos(angle);
+            obsprm.dy = obsprm.slowness * std::sin(angle);
             obsprm.dz = obsprm.slowness * std::sin(takeOff);
         }
     }
@@ -385,7 +385,7 @@ Solver::prepareDDSystem(bool useObservationWeghts, double meanShiftWeight)
         // compute double difference
         const ObservationParams& obsprm1 = _obsParams.at(obsrv.ev1Idx).at(obsrv.phStaIdx);
         const ObservationParams& obsprm2 = _obsParams.at(obsrv.ev2Idx).at(obsrv.phStaIdx); 
-        _dd->d[ob] = obsprm1.travelTime - obsprm2.travelTime - obsrv.observedDiffTime;
+        _dd->d[ob] = obsrv.observedDiffTime - (obsprm1.travelTime - obsprm2.travelTime);
         ob++;
     }
 

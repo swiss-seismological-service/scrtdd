@@ -330,8 +330,7 @@ CatalogPtr HypoDD::relocateCatalog()
         obsparams.addToSolver(solver);
 
         // solve the system
-        solver.solve(_cfg.solver.useObservationWeghts, _cfg.solver.dampingFactor,
-                     _cfg.solver.meanShiftWeight, _cfg.solver.solverIterations);
+        solver.solve(true, _cfg.solver.dampingFactor, _cfg.solver.meanShiftWeight, _cfg.solver.solverIterations);
 
         obsparams = ObservationParams(); // reset for next loop
 
@@ -534,8 +533,7 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
             obsparams.addToSolver(solver);
 
             // Solve the system
-            solver.solve(_cfg.solver.useObservationWeghts, _cfg.solver.dampingFactor,
-                         _cfg.solver.meanShiftWeight, _cfg.solver.solverIterations);
+            solver.solve(true, _cfg.solver.dampingFactor, _cfg.solver.meanShiftWeight, _cfg.solver.solverIterations);
 
             obsparams = ObservationParams(); // reset for next loop
 
@@ -1082,7 +1080,7 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
 
             if ( event.depth < 0 )
             {
-                SEISCOMP_WARNING("Ignoring airquake event %s", string(event).c_str());
+                SEISCOMP_DEBUG("Ignoring airquake event %s", string(event).c_str());
                 continue;
             }
 
@@ -1098,7 +1096,7 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
             double ref_travel_time = refPhase.time - refEv.time;
             if (ref_travel_time < 0)
             {
-                SEISCOMP_WARNING("Ignoring phase %s with negative travel time",
+                SEISCOMP_DEBUG("Ignoring phase %s with negative travel time",
                                string(refPhase).c_str());
                 continue;
             }
@@ -1106,7 +1104,7 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
             double travel_time = phase.time - event.time;
             if (travel_time < 0)
             {
-                SEISCOMP_WARNING("Ignoring phase %s with negative travel time",
+                SEISCOMP_DEBUG("Ignoring phase %s with negative travel time",
                                string(phase).c_str());
                 continue;
             }
@@ -1140,13 +1138,24 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
                 if (refPhase.procInfo.type == Phase::Type::P) refEv.relocInfo.numCTp++;
                 if (refPhase.procInfo.type == Phase::Type::S) refEv.relocInfo.numCTs++;
             }
- 
+
+            if ( !_cfg.solver.useObservationWeghts )
+            {
+                weight = 1.0;
+            }
+
             char phaseTypeAsChar = static_cast<char>(refPhase.procInfo.type);
 
+            try {
+                obsparams.add(_ttt, refEv, station, phaseTypeAsChar);
+                obsparams.add(_ttt, event, station, phaseTypeAsChar);
+            } catch ( exception &e ) {
+                SEISCOMP_DEBUG("Skipping observation: %s", e.what());
+                continue;
+            } 
             solver.addObservation(refEv.id, event.id, refPhase.stationId,
                                   phaseTypeAsChar, diffTime, weight, fixedNeighbours);
-            obsparams.add(_ttt, refEv, station, phaseTypeAsChar);
-            obsparams.add(_ttt, event, station, phaseTypeAsChar);
+
         }
     }
 
@@ -1182,9 +1191,6 @@ HypoDD::ObservationParams::addToSolver(Solver& solver) const
     for ( const auto& kv : _entries )
     {
         const ObservationParams::Entry& e = kv.second;
-        SEISCOMP_INFO("solver.addObservationParams %f %f %f",
-                      e.event.latitude, e.event.longitude, e.event.depth);
-
         solver.addObservationParams(e.event.id, e.station.id, e.phaseType,
                                     e.event.latitude, e.event.longitude, e.event.depth,
                                     e.station.latitude, e.station.longitude, e.station.elevation,
@@ -1243,10 +1249,14 @@ HypoDD::loadRelocatedCatalog(const Solver& solver,
 //            phase.relocInfo.isRelocated = finalWeight > 0;
 //            if ( ! phase.relocInfo.isRelocated )
 //              continue;
-        
-            SEISCOMP_INFO("loadRelocatedCatalog %f %f %f", event.latitude, event.longitude, event.depth);
 
-            obsparams.add(_ttt, event, station, phaseTypeAsChar);
+            try {
+                obsparams.add(_ttt, event, station, phaseTypeAsChar);
+            } catch ( exception &e ) {
+                SEISCOMP_DEBUG("Skipping observation: %s", e.what());
+                continue;
+            }
+
             double travelTime = obsparams.get(event.id, station.id, phaseTypeAsChar).travelTime;
             phase.relocInfo.residual = travelTime - (phase.time - event.time);
 
