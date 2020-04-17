@@ -2194,8 +2194,35 @@ HypoDD::evalXCorr()
 {
     XCorrEvalStats totalStats;
     map<string,XCorrEvalStats> statsByStation; // key station id
-    map<int,XCorrEvalStats> statsByDistance; // key distance
-    const int DIST_STEP = 3; // km
+    map<int,XCorrEvalStats> statsByInterEvDistance; // key distance
+    map<int,XCorrEvalStats> statsByStaDistance; // key distance
+    const double EV_DIST_STEP = 0.1; // km
+    const double STA_DIST_STEP = 3; // km
+
+    auto printStats = [&]()
+    {
+        SEISCOMP_WARNING("Cumulative stats: %s", totalStats.describe().c_str());
+
+        SEISCOMP_WARNING("Stats by inter-event distance in %.2f km step", EV_DIST_STEP);
+        for ( const auto& kv : statsByInterEvDistance)
+        {
+            SEISCOMP_WARNING("Inter-event dist %.2f-%-.2f [km]: %s", kv.first*EV_DIST_STEP,
+                             (kv.first+1)*EV_DIST_STEP, kv.second.describe().c_str());
+        }
+
+        SEISCOMP_WARNING("Stats by event to station distance in %.2f km step", STA_DIST_STEP);
+        for ( const auto& kv : statsByStaDistance)
+        {
+            SEISCOMP_WARNING("Station dist %3d-%-3d [km]: %s", int(kv.first*STA_DIST_STEP),
+                            int((kv.first+1)*STA_DIST_STEP), kv.second.describe().c_str());
+        }
+
+        SEISCOMP_WARNING("Stats by station");
+        for ( const auto& kv : statsByStation)
+        {
+            SEISCOMP_WARNING("%-12s: %s", kv.first.c_str(), kv.second.describe().c_str());
+        }
+    };
 
     _counters = {0};
     _wf->resetCounters(); 
@@ -2248,56 +2275,72 @@ HypoDD::evalXCorr()
         {
             const Phase& catalogPhase = _ddbgc->searchPhase(event.id, sel.first, sel.second)->second;
 
-            XCorrEvalStats stats;
-            stats.total++;
+            XCorrEvalStats phStaStats;
+            phStaStats.total++;
 
-            auto it = neighbourCat->searchPhase(event.id, catalogPhase.stationId, catalogPhase.procInfo.type);
+            auto it = neighbourCat->searchPhase(event.id, catalogPhase.stationId,
+                                                catalogPhase.procInfo.type);
             if ( it != neighbourCat->getPhases().end() )
             {
                 const Phase& detectedPhase = it->second;
-                stats.detected++;
+                phStaStats.detected++;
                 double deviation = (catalogPhase.time - detectedPhase.time).length();
-                stats.deviation += deviation;
-                stats.absDeviation += std::abs(deviation);
-                const auto& pdata = xcorr.get(event.id, catalogPhase.stationId, catalogPhase.procInfo.type);
-                stats.meanCoeff += pdata.mean_coeff;
-                stats.meanCount += pdata.ccCount;
+                phStaStats.deviation += deviation;
+                phStaStats.absDeviation += std::abs(deviation);
+                auto& pdata = xcorr.get(event.id, catalogPhase.stationId,
+                                        catalogPhase.procInfo.type);
+                phStaStats.meanCoeff += pdata.mean_coeff;
+                phStaStats.meanCount += pdata.ccCount;
             }
 
-            evStats += stats;
-            statsByStation[catalogPhase.stationId] += stats;
+            evStats += phStaStats;
+            statsByStation[catalogPhase.stationId] += phStaStats;
 
             const Station& station = _ddbgc->getStations().at(catalogPhase.stationId);
             double stationDistance = computeDistance(event, station);
-            statsByDistance[ int(stationDistance/DIST_STEP) ] += stats;
+            statsByStaDistance[ int(stationDistance/STA_DIST_STEP) ] += phStaStats;
+
+            //
+            //  collect stats by inter event distance
+            //
+            for (const auto& kv : neighbourCat->getEvents() )
+            {
+                const Event& neighbEv = kv.second;
+                if ( neighbEv == event )
+                    continue;
+                XCorrEvalStats stats;
+                stats.total++;
+                if ( xcorr.has(event.id, neighbEv.id, catalogPhase.stationId,
+                              catalogPhase.procInfo.type) )
+                {
+                    auto& data = xcorr.get(event.id, neighbEv.id, catalogPhase.stationId,
+                                           catalogPhase.procInfo.type);
+                    stats.detected++;
+                    stats.deviation += phStaStats.deviation;
+                    stats.absDeviation += phStaStats.absDeviation;
+                    stats.meanCoeff += data.coeff;
+                    stats.meanCount++;
+                } 
+                double interEvDistance = computeDistance(event, neighbEv);
+                statsByInterEvDistance[ int(interEvDistance/EV_DIST_STEP) ] += stats;
+            }
         }
 
         totalStats += evStats;
         SEISCOMP_WARNING("Event %-5s mag %3.1f %s", string(event).c_str(), event.magnitude,
                          evStats.describe().c_str());
 
-        if ( ++loop % 10 == 0 )
+        if ( ++loop % 50 == 0 )
         {
-            SEISCOMP_WARNING("Progressive stats: %s", totalStats.describe().c_str());
+            SEISCOMP_WARNING("<<<Progressive stats>>>");
+            printStats();
         }
     }
 
+    SEISCOMP_WARNING("<<<Final stats>>>");
+    printStats();
     printCounters();
 
-    SEISCOMP_WARNING("Final stats: %s", totalStats.describe().c_str());
-
-    SEISCOMP_WARNING("Stats by event to station distance in %d km step", DIST_STEP);
-    for ( const auto& kv : statsByDistance)
-    {
-        SEISCOMP_WARNING("Dist %3d-%-3d [km]: %s", kv.first*DIST_STEP, (kv.first+1)*DIST_STEP,
-                         kv.second.describe().c_str());
-    }
-
-    SEISCOMP_WARNING("Stats by station");
-    for ( const auto& kv : statsByStation)
-    {
-        SEISCOMP_WARNING("%-12s: %s", kv.first.c_str(), kv.second.describe().c_str());
-    }
 }
 
 
