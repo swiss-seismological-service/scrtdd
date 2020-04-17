@@ -63,8 +63,10 @@ T nextPowerOf2(T a, T min=1, T max=1<<31)
 namespace Seiscomp {
 namespace HDD {
 
-WfMngr::WfMngr(const std::string& recordStreamURL, const std::string& cacheDir, const std::string& wfDebugDir)
-              : _recordStreamURL(recordStreamURL), _cacheDir(cacheDir) , _wfDebugDir(wfDebugDir)
+WfMngr::WfMngr(const std::string& recordStreamURL, const std::string& cacheDir,
+               const std::string& tmpCacheDir, const std::string& wfDebugDir)
+              : _recordStreamURL(recordStreamURL), _cacheDir(cacheDir),
+                _tmpCacheDir(tmpCacheDir), _wfDebugDir(wfDebugDir)
 {
     resetCounters();
 }
@@ -159,14 +161,21 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
                     const Catalog::Event& ev,
                     const Catalog::Phase& ph,
                     WfCache* memCache,
-                    bool useDiskCache,
+                    CacheType cacheType,
                     bool allowSnrCheck)
 {
     string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
                               string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
 
-    bool doSnrCheck = (allowSnrCheck && _snr.minSnr > 0);
+    bool useDiskCache = false;
+    string cacheDir;
+    if ( cacheType != CacheType::NONE )
+    {
+        useDiskCache = true;
+        cacheDir = cacheType == CacheType::PERMANENT ? _cacheDir : _tmpCacheDir;
+    }
 
+    bool doSnrCheck = (allowSnrCheck && _snr.minSnr > 0);
     const string wfId = WfMngr::waveformId(ph, tw);
 
     // try to load the waveform from the memory cache, if present
@@ -242,7 +251,7 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
         if ( ! projectionRequired )
         {
             trace = loadWaveform(twToLoad, ph.networkCode, ph.stationCode,
-                                 ph.locationCode, ph.channelCode, useDiskCache);
+                                 ph.locationCode, ph.channelCode, cacheDir);
         }
         else 
         {
@@ -253,7 +262,7 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
                 _counters.wf_no_avail++;
                 return nullptr;
             }
-            trace = loadProjectWaveform(twToLoad, ev, ph, tc, loc, useDiskCache);
+            trace = loadProjectWaveform(twToLoad, ev, ph, tc, loc, cacheDir);
         }
 
     } catch ( exception &e ) {
@@ -326,7 +335,7 @@ WfMngr::loadProjectWaveform(const Core::TimeWindow& tw,
                             const Catalog::Phase& ph,
                             const DataModel::ThreeComponents& tc,
                             const DataModel::SensorLocation *loc,
-                            bool useDiskCache) const
+                            const string& cacheDir) const
 {
     string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
                               string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
@@ -391,11 +400,11 @@ WfMngr::loadProjectWaveform(const Core::TimeWindow& tw,
 
     // Load the available components
     GenericRecordPtr tr1 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                                        tc.comps[ThreeComponents::Vertical]->code(), useDiskCache);
+                                        tc.comps[ThreeComponents::Vertical]->code(), cacheDir);
     GenericRecordPtr tr2 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                                        tc.comps[ThreeComponents::FirstHorizontal]->code(), useDiskCache);
+                                        tc.comps[ThreeComponents::FirstHorizontal]->code(), cacheDir);
     GenericRecordPtr tr3 = loadWaveform(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                                        tc.comps[ThreeComponents::SecondHorizontal]->code(), useDiskCache);
+                                        tc.comps[ThreeComponents::SecondHorizontal]->code(), cacheDir);
 
     // The wrapper will direct 3 codes into the right slots using the
     // Stream configuration class and will finally use the transformation
@@ -484,19 +493,21 @@ WfMngr::waveformDebugPath(const Catalog::Event& ev, const Catalog::Phase& ph, co
 
 
 string
-WfMngr::waveformPath(const Catalog::Phase& ph, const Core::TimeWindow& tw) const
+WfMngr::waveformPath(const string& cacheDir,
+                     const Catalog::Phase& ph,
+                     const Core::TimeWindow& tw) const
 {
-    return waveformPath(ph.networkCode, ph.stationCode, ph.locationCode, ph.channelCode, tw);
+    return waveformPath(cacheDir, ph.networkCode, ph.stationCode, ph.locationCode, ph.channelCode, tw);
 }
 
 
 string
-WfMngr::waveformPath(const string& networkCode, const string& stationCode,
-                     const string& locationCode, const string& channelCode,
-                     const Core::TimeWindow& tw) const
+WfMngr::waveformPath(const string& cacheDir, const string& networkCode,
+                     const string& stationCode, const string& locationCode,
+                     const string& channelCode, const Core::TimeWindow& tw) const
 {
     string cacheFile = waveformId(networkCode, stationCode, locationCode, channelCode, tw) + ".mseed";
-    return (boost::filesystem::path(_cacheDir)/cacheFile).string();
+    return (boost::filesystem::path(cacheDir)/cacheFile).string();
 }
 
 
@@ -510,13 +521,13 @@ WfMngr::loadWaveform(const Core::TimeWindow& tw,
                      const string& stationCode,
                      const string& locationCode,
                      const string& channelCode,
-                     bool useDiskCache) const
+                     const string& cacheDir) const
 {
-    string cacheFile = waveformPath(networkCode, stationCode, locationCode, channelCode, tw);
+    string cacheFile = waveformPath(cacheDir, networkCode, stationCode, locationCode, channelCode, tw);
 
     GenericRecordPtr trace;
     // First try to read trace from disk cache
-    if ( useDiskCache )
+    if ( ! cacheDir.empty() )
     {
         trace = readTrace(cacheFile);
         _counters.wf_cached++;
@@ -527,7 +538,7 @@ WfMngr::loadWaveform(const Core::TimeWindow& tw,
     {
         trace = readWaveformFromRecordStream(_recordStreamURL, tw, networkCode, stationCode, locationCode, channelCode);
         // then save the trace to disk for later usage
-        if ( useDiskCache )
+        if ( ! cacheDir.empty() )
         {
             writeTrace(trace, cacheFile);
         }

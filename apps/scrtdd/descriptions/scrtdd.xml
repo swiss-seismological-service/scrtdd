@@ -644,12 +644,6 @@
                     <description>Enable the dumping of waveforms (filtered and resampled phases, artificial phases, SNR rejected phases) into the profile working directory ('cacheWaveforms' folder). Useful when run in combination with --load-profile-wf</description>
                 </option>
 
-                <option long-flag="debug-wf-cache">
-                    <description>
-                        All waveforms will be saved to disk cache, this is useful to speed up debugging/testing. Normally only catalog phase waveforms are cached to disk since they are re-used.
-                    </description>
-                </option>
-
                 <option long-flag="eval-xcorr" argument="profile">
                     <description>"Evaluate cross-correlation settings for the given profile</description>
                 </option>

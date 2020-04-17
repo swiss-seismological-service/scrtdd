@@ -48,6 +48,7 @@ using DataModel::ThreeComponents;
 using Event = HDD::Catalog::Event;
 using Phase = HDD::Catalog::Phase;
 using Station = HDD::Catalog::Station;
+using CacheType = HDD::WfMngr::CacheType;
 
 namespace {
 
@@ -125,9 +126,19 @@ HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& work
         }
     }
 
+    _tmpCacheDir = (boost::filesystem::path(_workingDir)/"tmpcache").string();
+    if ( ! Util::pathExists(_tmpCacheDir) )
+    {
+        if ( ! Util::createPath(_tmpCacheDir) )
+        {
+            string msg = "Unable to create cache directory: " + _tmpCacheDir;
+            throw runtime_error(msg);
+        }
+    }
+
     _wfDebugDir = (boost::filesystem::path(_workingDir)/"wfdebug").string();
 
-    _wf = new WfMngr(_cfg.step2Clustering.recordStreamURL, _cacheDir, _wfDebugDir);
+    _wf = new WfMngr(_cfg.step2Clustering.recordStreamURL, _cacheDir, _tmpCacheDir, _wfDebugDir);
     _wf->setProcessing(_cfg.wfFilter.filterStr, _cfg.wfFilter.resampleFreq);
     _wf->setSnr(_cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd);
 
@@ -149,7 +160,8 @@ HypoDD::~HypoDD()
     {
         for(auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(_workingDir), {}))
         {
-            if ( ! boost::filesystem::equivalent(entry, _cacheDir) && 
+            if ( ! boost::filesystem::equivalent(entry, _cacheDir) &&
+                 ! boost::filesystem::equivalent(entry, _tmpCacheDir) &&
                  ! boost::filesystem::equivalent(entry, _wfDebugDir )  )
             {
                 SEISCOMP_INFO("Deleting %s", entry.path().string().c_str());
@@ -229,7 +241,7 @@ void HypoDD::preloadData()
             {
                 Phase tmpPh = phase;
                 tmpPh.channelCode = WfMngr::getBandAndInstrumentCodes(tmpPh.channelCode) + component;
-                _wf->getWaveform(tw, event, tmpPh, &_wfCache, _useCatalogDiskCache, true); 
+                _wf->getWaveform(tw, event, tmpPh, &_wfCache, CacheType::PERMANENT, true);
             }
 
             numPhases++;
@@ -1507,11 +1519,14 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
 
     WfMngr::WfCache wfTmpCache;
 
+    CacheType permCache = _useCatalogDiskCache ? CacheType::PERMANENT : CacheType::NONE;
+    CacheType tempCache = (_useCatalogDiskCache && _waveformCacheAll) ? CacheType::TEMP : CacheType::NONE; 
+
     // xcorr settings depending on the phase type
     map<Phase::Source, PhaseXCorrCfg> phCfgs = {
-        {Phase::Source::CATALOG,      {_useCatalogDiskCache, &_wfCache,}},
-        {Phase::Source::RT_EVENT,     {(_useCatalogDiskCache && _waveformCacheAll), &wfTmpCache,}},
-        {Phase::Source::THEORETICAL,  {(_useCatalogDiskCache && _waveformCacheAll), &wfTmpCache,}}
+        {Phase::Source::CATALOG,      {permCache, &_wfCache,}},
+        {Phase::Source::RT_EVENT,     {tempCache, &wfTmpCache,}},
+        {Phase::Source::THEORETICAL,  {tempCache, &wfTmpCache,}}
     };
 
     // keep track of refEv distant to stations
@@ -1590,7 +1605,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                     Phase tmpPh = refPhase;
                     tmpPh.time  -= Core::TimeSpan(entry.mean_lag);
                     tmpPh.channelCode = WfMngr::getBandAndInstrumentCodes(tmpPh.channelCode) + component;
-                    trace = _wf->getWaveform(tw, refEv, tmpPh, nullptr, (_useCatalogDiskCache && _waveformCacheAll), true);
+                    trace = _wf->getWaveform(tw, refEv, tmpPh, nullptr, tempCache, true);
                     if ( trace ) break;
                 }
 
@@ -1923,14 +1938,14 @@ HypoDD::_xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& ph
     Core::TimeWindow tw2 = xcorrTimeWindowLong(phase2);
 
     // load the long trace 1, because we want to cache the long version. Then we'll trim it.
-    GenericRecordCPtr tr1 = _wf->getWaveform(tw1, event1, phase1, phCfg1.cache, phCfg1.useDiskCache, phCfg1.allowSnrCheck);
+    GenericRecordCPtr tr1 = _wf->getWaveform(tw1, event1, phase1, phCfg1.cache, phCfg1.type, phCfg1.allowSnrCheck);
     if ( !tr1 )
     {
         return false;
     }
 
     // load the long trace 2, because we want to cache the long version. Then we'll trim it
-    GenericRecordCPtr tr2 = _wf->getWaveform(tw2, event2, phase2, phCfg2.cache, phCfg2.useDiskCache, phCfg2.allowSnrCheck);
+    GenericRecordCPtr tr2 = _wf->getWaveform(tw2, event2, phase2, phCfg2.cache, phCfg2.type, phCfg2.allowSnrCheck);
     if ( !tr2 )
     {
         return false;

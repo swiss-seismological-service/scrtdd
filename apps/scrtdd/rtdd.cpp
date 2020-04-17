@@ -282,7 +282,6 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
                 "Load catalog waveforms from the configured recordstream and save them into the profile working directory", true);
     NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf", "Enable the saving of processed waveforms (filtered/resampled, SNR rejected, ZRT projected, etc) into the profile working directory", false, true);
-    NEW_OPT_CLI(_config.cacheAllWaveforms, "Mode", "debug-wf-cache", "All waveforms will be saved to disk cache, this is useful to speed up debugging/testing. Normally only catalog phase waveforms are cached to disk since they are re-used", false, true); 
     NEW_OPT_CLI(_config.evalXCorr, "Mode", "eval-xcorr",
                 "Evaluate cross-correlation settings for the given profile", true);
     NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
@@ -676,6 +675,7 @@ bool RTDD::run()
     {
         // do not preload profile
         _config.profileTimeAlive = 3600;
+        _config.cacheAllWaveforms = true;
 
         for ( ProfilePtr profile : _profiles )
         {
@@ -803,6 +803,7 @@ bool RTDD::run()
     // relocate full catalog and exit
     if ( !_config.relocateProfile.empty() )
     {
+        _config.cacheAllWaveforms = true;
         for ( ProfilePtr profile : _profiles )
         {
             if ( profile->name == _config.relocateProfile)
@@ -828,11 +829,9 @@ bool RTDD::run()
     // relocate passed origin and exit
     if ( !_config.originIDs.empty() )
     {
-        // force process of any origin
-        _config.forceProcessing = true;
-
-        // do not preload profile
-        _config.profileTimeAlive = 3600;
+        _config.cacheAllWaveforms = true;
+        _config.forceProcessing = true; // force process of any origin 
+        _config.profileTimeAlive = 3600; // do not preload profile 
 
         // split multiple origins
         std::vector<std::string> ids;
@@ -873,11 +872,9 @@ bool RTDD::run()
             return false;
         }
 
-        // force process of any origin
-        _config.forceProcessing = true;
-
-        // do not preload profile
-        _config.profileTimeAlive = 3600;
+        _config.cacheAllWaveforms = true;
+        _config.forceProcessing = true; // force process of any origin 
+        _config.profileTimeAlive = 3600; // do not preload profile  
 
          vector<OriginPtr> origins;
         for(unsigned i = 0; i < _eventParameters->originCount(); i++)

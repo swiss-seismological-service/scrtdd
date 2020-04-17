@@ -162,8 +162,8 @@ Notes:
 
 - It is possible to transform the catalog in xml (see `--dump-catalog-xml` option) and insert the origins in the seiscomp database and configure the background catalog for real-time as a list of seiscomp origin ids. While it is neat to have the background catalog in the seiscomp database, this approach is inconvenient in the common scenario where the background catalog is re-generated from time to time to include more recent seismicity.
 
-- Be aware that the first time you run the command it will be very slow because the waveforms have to be downloaded from the configured recordstream and saved to disk for the next runs, which will be much faster. However some temporary waveforms (e.g. theoretical phases) are never saved to disk since they are used only once. Nevertheless, during the parameters tuning phase, the user has to perform the relocation several times to find the best configuration and storing even the temporary waveforms makes the process much faster. For this reason we can add the option `--debug-wf-cache` that force `scrtdd` to save all waveforms to disk, even those that wouldn't be normally saved. Just be aware that using this options increase the size of the cache folder (workingDirectory/profileName/wfcache/ e.g. ~/seiscomp3/var/lib/rtdd/myProfile/wfcache/) with phases that will not be used anymore after the parameters tuning is completed, so you might want to delete the cache folder at the end of the relocation testing and the next time scrtdd runs, will download only the necessary waveforms.
- 
+- Be aware that the first time you run the command it will be very slow because the waveforms have to be downloaded from the configured recordstream and saved to disk for the next runs, which will be much faster. 
+
 
 ### 1.2.3 Useful options
 
@@ -242,7 +242,7 @@ We can see that the statistics are broken down in actual picks and theoretical p
 A more sophisticated method for evaluating the settings is the `--eval-xcorr' command:
 
 ```
-scrtdd --eval-xcorr profileName --debug-wf-cache --verbosity=2 --console=1
+scrtdd --eval-xcorr profileName --verbosity=2 --console=1
 ```
 
 ```
@@ -305,7 +305,7 @@ For comparison we can always find the raw waveforms (not processed) fetched from
 
 ## 3. Real time single origin relocation
 
-We first need to create a new profile or we can modify the profile used to create the background catalog. If we decice to go for a new profile we might want to copy the waveform cache folder of the background catalog profile to the new real-time profile cache folder to avoid re-downloading all the catalog phases.
+We first need to create a new profile or we can modify the profile used to create the background catalog if we don't need that anymore. If we decice to go for a new profile we might want to copy the waveform cache folder of the background catalog profile to the new real-time profile cache folder to avoid re-downloading all the catalog waveforms (see the `Performance` paragraph for more details).
 
 The waveform cache folder is located in `workingDirectory/profileName/wfcache/` (e.g. `~/seiscomp3/var/lib/rtdd/myProfile/wfcache/`).
 
@@ -355,13 +355,13 @@ SingleEvent:
 If we want to process an origin we can run the following command and then check on scolv the relocated origin (the messaging system must be active). This is mostly useful when we want to relocate an origin on a running system and keep the relocation:
 
 ```
-scrtdd -O someOriginId [db and log options] 
+scrtdd --origin-id someOriginId [db and log options] 
 ```
 
 For testing purpose we are more likely interested in not interfere with database and messaging system so we can use the `--ep` option and the relocated origin will be sent to the output as xml file. We can finally open the xml file with scolv for inspection:
 
 ```
-scrtdd -O someOriginId --ep - [db and log options] >  relocated-origin.xml
+scrtdd --origin-id someOriginId --ep - [db and log options] >  relocated-origin.xml
 ```
 
 Alternatively the `--ep` option (without `-O`) can process all origins contained in the input XML file:
@@ -411,15 +411,14 @@ recordstream = combined://slink/localhost:18000?timeout=1&retries=0;sdsarchive//
 
 Also we use `cron.delayTimes` option to re-perform the relocation some minutes later in case we know more waveforms will become available at a later time.
 
-### 3.4 Speed-up the testing when performing configuration tuning
+## 4. Performance and waveforms data
 
-Since real-time origin waveforms are never saved to disk, when we are testing over and over the same origins to find the best configuration parameters, we might consider using --debug-wf-cache option that force scrtdd to save all waveforms to disk, even those that wouldn't be normally saved (only catalog phases are saved by default since they are used for every relocation). Just be aware that using this options increase the size of the cache folder (workingDirectory/profileName/wfcache/ e.g. ~/seiscomp3/var/lib/rtdd/myProfile/wfcache/) with phases that will not be used anymore after the parameters tuning is completed, so you might want to delete the cache folder at the end of the relocation testing (or copy it beforehand and restore it) and the next time scrtdd runs, will download only the necessary waveforms.
+scrtdd spends most of the relocation time downloading waveforms (unless the recordstream points to a local disk storage) and the rest is shared betweeen cross-correlation and double difference system inversion. For this reason the waveforms are cached to disk after being downloaded so that there is no need to download them again. This is obviously true for catalog phases waveforms that are re-used over and over, but that's not true for real-time events waveforms and also for some temporary waveforms (e.g. theoretical phases) that are never saved. The cache folder is `workingDirectory/profileName/wfcache/` (e.g. /installation/path/seiscomp3/var/lib/rtdd/myProfile/wfcache/). 
 
-## 4. Performance
+However, during the parameters tuning phase, the user performs relocations (both single-event and multi-event) from the command line several times to find the best configuration. For those speacial cases even the temporary waveforms are saved to make the process much faster. A different folder is used: `workingDirectory/profileName/tmpcache/` which can be deleted after the parameter tuning phase. The commands that store temporary waveforms are: `--reloc-profile`, `--ep`, `-O`, `--origin-id`.
 
-scrtdd spends most of the relocation time downloading waveforms (the real-time event waveforms, since the catalog waveforms are cached to disk) and the rest is shared betweeen cross-correlation and double difference system inversion. Two configuration options have a huge impact on the performance: `step2options.clustering` and `crosscorrelation.s-phase.components`. `step2options.clustering` is relevant because we can specify how many neighbouring events and how many phases we want to use, which consequently determines the number of cross-correlations to perform, the waveforms to download and the size of the input for the double difference inversion. `crosscorrelation.s-phase.components` defines the components we want to use in the cross-correlation of the `S` phases. Usign the `T` components means scrtdd has to download the additional two components to perform the projection to ZRT, which might be more accurate than 'Z' only.
+Due to the time required to download waveforms, when relocating events in real-time, two configuration options have a huge impact on the performance: `step2options.clustering` and `crosscorrelation.s-phase.components`. `step2options.clustering` is relevant because we can specify how many neighbouring events and how many phases we want to use, which consequently determines the number of cross-correlations to perform, the waveforms to download and the size of the input for the double difference inversion. `crosscorrelation.s-phase.components` defines the components we want to use in the cross-correlation of the `S` phases. Usign the `T` components means scrtdd has to download the additional two components to perform the projection to ZRT, which might be more accurate than 'Z' only.
 
-If we want to have a glimpse on the performance impact of downloading waveforms during the relocatione we can make use of `--debug-wf-cache` option: the waveforms will be cached the first time we relocate an origin and the second time we relocate the same origin the waveforms will be read from disk and the execution time will depend only (almost) on cpu processing. This is also true for multi-event catalog relocation.
 
 ### 4.1 Catalog waveforms preloading
 

@@ -231,7 +231,7 @@ class HypoDD : public Core::BaseObject {
         void fixPhases(CatalogPtr& catalog, const Catalog::Event& refEv, XCorrCache& xcorr);
 
         struct PhaseXCorrCfg {
-            bool useDiskCache;
+            WfMngr::CacheType type;
             WfMngr::WfCache* cache;
             bool allowSnrCheck;
         };
@@ -252,6 +252,7 @@ class HypoDD : public Core::BaseObject {
         bool _workingDirCleanup = true;
         std::string _workingDir;
         std::string _cacheDir;
+        std::string _tmpCacheDir;
         std::string _wfDebugDir;
 
         CatalogCPtr _srcCat;
