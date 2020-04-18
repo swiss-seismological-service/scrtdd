@@ -32,10 +32,7 @@ using Seiscomp::Core::stringify;
 namespace {
 
 /**
- * Common adapter for both LSQR and LSMR solvers:
- *
- *      W*G*m = W*d -> A*x = b
- *
+ * Common DDSystem adapter for both LSQR and LSMR solvers
  * T can be lsqrBase or lsmrBase
  */
 template <class T>
@@ -356,7 +353,7 @@ Solver::computePartialDerivatives()
 
 
 void
-Solver::prepareDDSystem(double meanShiftWeight)
+Solver::prepareDDSystem(double meanShiftConstrainWeight)
 {
     computePartialDerivatives();
 
@@ -405,10 +402,10 @@ Solver::prepareDDSystem(double meanShiftWeight)
     _dd->d[_dd->nObs + 1] = 0;
     _dd->d[_dd->nObs + 2] = 0;
     _dd->d[_dd->nObs + 3] = 0;
-    _dd->W[_dd->nObs + 0] = meanShiftWeight;
-    _dd->W[_dd->nObs + 1] = meanShiftWeight;
-    _dd->W[_dd->nObs + 2] = meanShiftWeight;
-    _dd->W[_dd->nObs + 3] = meanShiftWeight;
+    _dd->W[_dd->nObs + 0] = meanShiftConstrainWeight;
+    _dd->W[_dd->nObs + 1] = meanShiftConstrainWeight;
+    _dd->W[_dd->nObs + 2] = meanShiftConstrainWeight;
+    _dd->W[_dd->nObs + 3] = meanShiftConstrainWeight;
 
     // free memory 
     _observations.clear();
@@ -417,15 +414,15 @@ Solver::prepareDDSystem(double meanShiftWeight)
 }
 
 
-void Solver::solve(double dampingFactor, double meanShiftWeight, unsigned numIterations)
+void Solver::solve(double dampingFactor, double meanShiftConstrainWeight, unsigned numIterations)
 {
     if ( _type == "LSQR" )
     {
-        _solve<lsqrBase>(dampingFactor, meanShiftWeight, numIterations);
+        _solve<lsqrBase>(dampingFactor, meanShiftConstrainWeight, numIterations);
     }
     else if ( _type == "LSMR" )
     {
-        _solve<lsmrBase>(dampingFactor, meanShiftWeight, numIterations);
+        _solve<lsmrBase>(dampingFactor, meanShiftConstrainWeight, numIterations);
     }
     else
     {
@@ -435,9 +432,9 @@ void Solver::solve(double dampingFactor, double meanShiftWeight, unsigned numIte
 
 
 template <class T>
-void Solver::_solve(double dampingFactor, double meanShiftWeight, unsigned numIterations)
+void Solver::_solve(double dampingFactor, double meanShiftConstrainWeight, unsigned numIterations)
 {
-    prepareDDSystem(meanShiftWeight);
+    prepareDDSystem(meanShiftConstrainWeight);
 
     Adapter<T> solver;
     solver.setDDSytem(_dd);

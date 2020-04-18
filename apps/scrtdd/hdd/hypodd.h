@@ -114,7 +114,7 @@ struct Config {
         std::string type = "LSMR"; // LSMR or LSQR
         bool useObservationWeghts = true;
         double dampingFactor = 0.;
-        double meanShiftWeight = 0.;
+        double meanShiftConstrainWeight = 0.;
         unsigned solverIterations = 100;
         unsigned algoIterations = 20;
     } solver;

@@ -569,8 +569,8 @@ bool RTDD::validateParameters()
             prof->ddcfg.solver.dampingFactor = configGetDouble(prefix + "dampingFactor");
         } catch ( ... ) { prof->ddcfg.solver.dampingFactor = 0.; } 
         try {
-            prof->ddcfg.solver.meanShiftWeight = configGetDouble(prefix + "clusterMeanShiftWeight");
-        } catch ( ... ) { prof->ddcfg.solver.meanShiftWeight = 0.; }
+            prof->ddcfg.solver.meanShiftConstrainWeight = configGetDouble(prefix + "meanShiftConstrainWeight");
+        } catch ( ... ) { prof->ddcfg.solver.meanShiftConstrainWeight = 0.; }
         try {
             prof->ddcfg.solver.useObservationWeghts = configGetBool(prefix + "useObservationWeights");
         } catch ( ... ) { prof->ddcfg.solver.useObservationWeghts = true; }

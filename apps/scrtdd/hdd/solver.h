@@ -29,7 +29,8 @@ namespace HDD {
 
 
 /*
- * double difference problem:
+ * Store data for a double-difference problem as described in Waldhaused &
+ * Ellsworth 2000 paper:
  *
  *      W*G*m = d*W;
  *
@@ -39,6 +40,9 @@ namespace HDD {
  * determine for each event ( delta x, delta y, delta z and delta travel time)
  * d is the data vector containing the double-differences
  * W is a diagonal matrix to weight each equation.
+ *
+ * This class also contains 4 additional equations for constraining the mean
+ * shift of all earthquakes during relocation.
  *
  * We take advantage of the sparsness of G matrix, so G is not a full matrix
  */
@@ -116,9 +120,11 @@ public:
                               double staLat, double staLon, double staElevation,
                               double travelTime);
 
-    void solve(double dampingFactor=0, double meanShiftWeight=0, unsigned numIterations = 20);
+    void solve(double dampingFactor=0, double meanShiftConstrainWeight=0,
+               unsigned numIterations = 20);
 
-    bool getEventChanges(unsigned evId, double &deltaLat, double &deltaLon, double &deltaDepth, double &deltaTT) const;
+    bool getEventChanges(unsigned evId, double &deltaLat, double &deltaLon,
+                         double &deltaDepth, double &deltaTT) const;
 
     static double computeDistance(double lat1, double lon1, double depth1,
                                   double lat2, double lon2, double depth2,
@@ -127,7 +133,8 @@ private:
 
     void computePartialDerivatives();
     void prepareDDSystem(double meanShiftWeigh);
-    template <class T> void _solve(double dampingFactor, double meanShiftWeight, unsigned numIterations);
+    template <class T> void _solve(double dampingFactor, double meanShiftConstrainWeight,
+                                   unsigned numIterations);
 
 private:
 

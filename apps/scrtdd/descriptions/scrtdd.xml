@@ -564,7 +564,7 @@
                             <description>
                             </description>
                         </parameter>
-                        <parameter name="clusterMeanShiftWeight" type="double" default="0">
+                        <parameter name="meanShiftConstrainWeight" type="double" default="0">
                             <description>
                             </description>
                         </parameter> 
