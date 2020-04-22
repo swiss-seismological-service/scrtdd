@@ -302,58 +302,8 @@ CatalogPtr HypoDD::relocateCatalog()
     // arrival times. The catalog will be updated with those theoretical phases 
     const XCorrCache xcorr = buildXCorrCache(neighbourCats, _cfg.artificialPhases.enable);
 
-    // Build list of selected event
-    unordered_set<unsigned> selectedEvents;
-    for (const auto& kv : neighbourCats)
-    {
-        unsigned evId = kv.first;
-        selectedEvents.insert(evId);
-    }
-
-    // Create a solver and then add observations
-    Solver solver(_cfg.solver.type);
-    ObservationParams obsparams;
-    unsigned rmsCount = 0;
-    double rms = 0;
-    for ( unsigned iteration=0; iteration < _cfg.solver.algoIterations; iteration++ )
-    {
-        solver.reset();
-
-        // Add absolute travel time or xcorr differences to the solver (the observations)
-        for (auto& kv : neighbourCats)
-        {
-            unsigned refEvId = kv.first;
-            CatalogPtr& neighbourCat = kv.second;
-            addObservations(solver, neighbourCat, refEvId, false, xcorr, obsparams);
-        }
-
-        obsparams.addToSolver(solver);
-
-        // solve the system
-        solver.solve(_cfg.solver.dampingFactor, _cfg.solver.meanShiftConstrainWeight, _cfg.solver.solverIterations);
-
-        obsparams = ObservationParams(); // reset for next loop
-
-        // update event parameters
-        for (auto& kv : neighbourCats)
-        {
-            CatalogPtr& neighbourCat = kv.second;
-            neighbourCat = loadRelocatedCatalog(solver, neighbourCat, selectedEvents, obsparams);
-            rms += neighbourCat->getEvents().at(kv.first).rms;
-            ++rmsCount;
-        }
-        SEISCOMP_INFO("Iteration %u rms %f", iteration,
-                      ( rmsCount > 0 ? std::sqrt(rms / rmsCount) : 0.) );
-    }
-
-    CatalogPtr relocatedCatalog( new Catalog() );
-
-    for (const auto& kv : neighbourCats)
-    {
-        unsigned evId = kv.first;
-        const CatalogPtr& neighbourCat = kv.second;
-        relocatedCatalog->add(evId, *neighbourCat, true);
-    }
+    // The actual relocation
+    CatalogPtr relocatedCatalog = relocate(neighbourCats, false, xcorr);
 
     // write catalog for debugging purpose
     if ( ! _workingDirCleanup )
@@ -519,29 +469,9 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
             xcorr = buildXCorrCache(neighbourCat, evToRelocateNewId, computeTheoreticalPhases);
         }
 
-        // Create a solver and then add observations
-        Solver solver = Solver(_cfg.solver.type); 
-        ObservationParams obsparams;
-
-        for ( unsigned iteration=0; iteration < _cfg.solver.algoIterations; iteration++ )
-        {
-            solver.reset();
-
-            // Add absolute travel time or xcorr differences to the solver (the observations)
-            addObservations(solver, neighbourCat, evToRelocateNewId, true, xcorr, obsparams);
-
-            obsparams.addToSolver(solver);
-
-            // Solve the system
-            solver.solve(_cfg.solver.dampingFactor, _cfg.solver.meanShiftConstrainWeight, _cfg.solver.solverIterations);
-
-            obsparams = ObservationParams(); // reset for next loop
-
-            //  update event parameters
-            neighbourCat = loadRelocatedCatalog(solver, neighbourCat, {evToRelocateNewId}, obsparams);
-        }
-
-        CatalogPtr relocatedEvCat = neighbourCat->extractEvent(evToRelocateNewId, true);
+        // The actual relocation
+        map<unsigned,CatalogPtr> neighbourCats = {{evToRelocateNewId, neighbourCat}};
+        CatalogPtr relocatedEvCat = relocate(neighbourCats, true, xcorr);
 
         // write catalog for debugging purpose
         if ( ! _workingDirCleanup )
@@ -559,6 +489,91 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
     return relocatedEvCat;
 }
 
+
+CatalogPtr
+HypoDD::relocate(map<unsigned,CatalogPtr>& neighbourCats, bool keepNeighboursFixed,
+                 const XCorrCache xcorr) const
+{
+    // Build list of selected event
+    unordered_set<unsigned> selectedEvents;
+    for (const auto& kv : neighbourCats)
+    {
+        unsigned evId = kv.first;
+        selectedEvents.insert(evId);
+    }
+    unsigned rmsCount = 0;
+    double rms = 0; 
+    for (auto& kv : neighbourCats)
+    {
+        CatalogPtr& neighbourCat = kv.second;
+        rms += neighbourCat->getEvents().at(kv.first).rms;
+        ++rmsCount;
+    }
+    SEISCOMP_WARNING("Starting average rms %f",  ( rmsCount > 0 ? (rms / rmsCount) : 0.) );
+
+    // Create a solver and then add observations
+    Solver solver(_cfg.solver.type);
+    ObservationParams obsparams;
+
+    for ( unsigned iteration=0; iteration < _cfg.solver.algoIterations; iteration++ )
+    {
+        solver.reset();
+
+        // Add absolute travel time/xcorr differences to the solver (the observations)
+        for (auto& kv : neighbourCats)
+        {
+            unsigned refEvId = kv.first;
+            CatalogPtr& neighbourCat = kv.second;
+            addObservations(solver, neighbourCat, refEvId, keepNeighboursFixed, xcorr, obsparams);
+        }
+
+        obsparams.addToSolver(solver);
+
+        // compute parameters for this loop iteration
+        auto interpolate = [&](double start, double end) -> double
+        {
+            return start + (end - start) * iteration / (_cfg.solver.algoIterations-1);
+        };
+        double dampingFactor = interpolate(_cfg.solver.dampingFactorStart,
+                                           _cfg.solver.dampingFactorEnd);
+        double meanShiftConstrainWeight = interpolate(_cfg.solver.meanShiftConstrainWeightStart,
+                                                      _cfg.solver.meanShiftConstrainWeightEnd);
+        double downWeightingByResidual = interpolate(_cfg.solver.downWeightingByResidualStart,
+                                                     _cfg.solver.downWeightingByResidualEnd);
+
+        // solve the system
+        solver.solve(_cfg.solver.solverIterations, dampingFactor,
+                     meanShiftConstrainWeight, downWeightingByResidual);
+
+        obsparams = ObservationParams();
+
+        // update event parameters
+        unsigned rmsCount = 0;
+        double rms = 0; 
+        for (auto& kv : neighbourCats)
+        {
+            CatalogPtr& neighbourCat = kv.second;
+            neighbourCat = updateRelocatedEvents(solver, neighbourCat, selectedEvents, obsparams);
+            rms += neighbourCat->getEvents().at(kv.first).rms;
+            ++rmsCount;
+        }
+        SEISCOMP_WARNING("Iteration %u dampingFactor %.2f meanShiftConstrainWeight %.2f downWeightingByResidual %.2f avg rms %f", 
+                         iteration, dampingFactor, meanShiftConstrainWeight, downWeightingByResidual,
+                         ( rmsCount > 0 ? (rms / rmsCount) : 0.) );
+    }
+
+    // build the relocated catalog from the results of relocations
+    CatalogPtr relocatedCatalog( new Catalog() );
+    for (const auto& kv : neighbourCats)
+    {
+        const CatalogPtr& neighbourCat = kv.second;
+        const Event& event = neighbourCat->getEvents().at(kv.first);
+        if ( event.relocInfo.isRelocated )
+            relocatedCatalog->add(event.id, *neighbourCat, true);
+    }
+
+    return relocatedCatalog;
+}
 
 
 string HypoDD::relocationReport(const CatalogCPtr& relocatedEv)
@@ -1035,15 +1050,13 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
 
 
 /*
- * Create absolute travel times difference and differential travel times
- * from cross correlation for pairs of earthquakes.
- * Then add them to the Solver
- * Always prefer xcorr observation over absolute travel time difference
- * whenever the former is available
+ * Add to the Solver the absolute travel times differences and the
+ * differential travel times from cross correlation for pairs of
+ * earthquakes
  */ 
 void
 HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
-                        bool fixedNeighbours, const XCorrCache& xcorr,
+                        bool keepNeighboursFixed, const XCorrCache& xcorr,
                         ObservationParams& obsparams ) const
 {
     // copy event because we'll update it
@@ -1067,6 +1080,7 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
     {
         const Phase& refPhase = it->second;
         const Station& station = catalog->getStations().at(refPhase.stationId);
+        char phaseTypeAsChar = static_cast<char>(refPhase.procInfo.type);
 
         //
         // loop through neighbouring events and look for the matching phase
@@ -1109,53 +1123,47 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
                 continue;
             }
 
-            double diffTime;
-            double weight;
+            try {
+                obsparams.add(_ttt, refEv, station, phaseTypeAsChar);
+                obsparams.add(_ttt, event, station, phaseTypeAsChar);
+            } catch ( exception &e ) {
+                SEISCOMP_DEBUG("Skipping observation (ev %u-%u sta %s phase %c): %s",
+                    refEv.id, event.id, station.id.c_str(), phaseTypeAsChar, e.what());
+                continue;
+            }
 
             //
-            // if we have xcorr results for current event/refEvent pair at station/phase
-            // add differential travel times from cross correlation to the solver
+            // Conpute absolute trave time differences to the solver
             //
+            double diffTime = ref_travel_time - travel_time;
+            double weight = (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0;
+
+            //
+            // Check if we have xcorr results for current event/refEvent pair at station/phase
+            // and use those instead
+            //  
             if ( xcorr.has(refEv.id, event.id, refPhase.stationId, refPhase.procInfo.type) )
             {
+
                 const auto& xcdata = xcorr.get(refEv.id, event.id, refPhase.stationId, refPhase.procInfo.type);
-                diffTime = ref_travel_time - travel_time - xcdata.lag;
+                diffTime -= xcdata.lag;
                 //weight = xcdata.coeff * xcdata.coeff;
-                weight = (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0;
 
                 if (refPhase.procInfo.type == Phase::Type::P) refEv.relocInfo.numCCp++;
                 if (refPhase.procInfo.type == Phase::Type::S) refEv.relocInfo.numCCs++;
             }
             else
             {
-                //
-                // When xcorr times are not availables, add absolute trave time differences
-                // to the solver
-                //
-                diffTime = ref_travel_time - travel_time;
-                weight = (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0;
-
                 if (refPhase.procInfo.type == Phase::Type::P) refEv.relocInfo.numCTp++;
                 if (refPhase.procInfo.type == Phase::Type::S) refEv.relocInfo.numCTs++;
-            }
+            } 
 
-            if ( !_cfg.solver.useObservationWeghts )
+            if ( !_cfg.solver.useAPrioriWeights )
             {
                 weight = 1.0;
             }
-
-            char phaseTypeAsChar = static_cast<char>(refPhase.procInfo.type);
-
-            try {
-                obsparams.add(_ttt, refEv, station, phaseTypeAsChar);
-                obsparams.add(_ttt, event, station, phaseTypeAsChar);
-            } catch ( exception &e ) {
-                SEISCOMP_DEBUG("Skipping observation: %s", e.what());
-                continue;
-            } 
-            solver.addObservation(refEv.id, event.id, refPhase.stationId,
-                                  phaseTypeAsChar, diffTime, weight, fixedNeighbours);
-
+            solver.addObservation(refEv.id, event.id, refPhase.stationId,  phaseTypeAsChar,
+                                  diffTime, weight, true, !keepNeighboursFixed);
         }
     }
 
@@ -1199,7 +1207,7 @@ HypoDD::ObservationParams::addToSolver(Solver& solver) const
 }
 
 CatalogPtr
-HypoDD::loadRelocatedCatalog(const Solver& solver,
+HypoDD::updateRelocatedEvents(const Solver& solver,
                              const CatalogCPtr& originalCatalog, 
                              std::unordered_set<unsigned> eventsToRelocate,
                              ObservationParams& obsparams ) const

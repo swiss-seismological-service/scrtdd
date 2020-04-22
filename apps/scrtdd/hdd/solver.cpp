@@ -59,10 +59,12 @@ public:
      */
     void Aprod1(unsigned int m, unsigned int n, const double * x, double * y ) const
     {
-        if ( m != _dd->numRowsG )
-            throw std::runtime_error("Solver: Internal logic error (m != numRowsG)");
-        if ( n != (_dd->numColsG) )
-            throw std::runtime_error("Solver: Internal logic error (n != numColsG");
+        if ( m != _dd->numRowsG || n != _dd->numColsG )
+        {
+            string msg = stringify("Solver: Internal logic error (m=%u n=%u but G=%ux%u)",
+                                   m, n, _dd->numRowsG, _dd->numColsG);
+            throw std::runtime_error(msg.c_str());
+        }
 
         for ( unsigned int ob = 0; ob < _dd->nObs; ob++ )
         {
@@ -121,10 +123,12 @@ public:
      */
     void Aprod2(unsigned int m, unsigned int n, double * x, const double * y ) const
     {
-        if ( m != _dd->numRowsG )
-            throw std::runtime_error("Solver: Internal logic error (m != numRowsG)");
-        if ( n != (_dd->numColsG) )
-            throw std::runtime_error("Solver: Internal logic error (n != numColsG"); 
+        if ( m != _dd->numRowsG || n != _dd->numColsG )
+        {
+            string msg = stringify("Solver: Internal logic error (m=%u n=%u but G=%ux%u)",
+                                   m, n, _dd->numRowsG, _dd->numColsG);
+            throw std::runtime_error(msg.c_str());
+        }
 
         for ( unsigned int ob = 0; ob < _dd->nObs; ob++ )
         {
@@ -204,21 +208,20 @@ Solver::computeDistance(double lat1, double lon1, double depth1,
     return std::sqrt( std::pow(Hdist,2) + std::pow(Vdist,2) );
 }
 
- 
-Solver::Solver(std::string type)
-    : _type(type)
-{
-}
-
 
 void
 Solver::addObservation(unsigned evId1, unsigned evId2, const std::string& staId, char phase,
-                       double observedDiffTime, double weight, bool ev2Fixed)
+                       double observedDiffTime, double aPrioriWeight,
+                       bool computeEv1Changes, bool computeEv2Changes)
 {
-    int evIdx1 = _eventIdConverter.convert(evId1);
-    int evIdx2 = _eventIdConverter.convert(evId2);
-    unsigned phStaIdx = _phStaIdConverter.convert(string(1,phase) + "@" + staId);
-    _observations.push_back( Observation( {evIdx1, evIdx2, phStaIdx, observedDiffTime, weight, ev2Fixed} ) );
+    string phStaId = string(1,phase) + "@" + staId;
+    string obsId = to_string(evId1) + "+" + to_string(evId2) + "_" + phStaId;
+    unsigned evIdx1 = _eventIdConverter.convert(evId1);
+    unsigned evIdx2 = _eventIdConverter.convert(evId2);
+    unsigned phStaIdx = _phStaIdConverter.convert(phStaId);
+    unsigned obsIdx = _obsIdConverter.convert(obsId);
+    _observations[obsIdx] = Observation( {evIdx1, evIdx2, phStaIdx, computeEv1Changes,
+            computeEv2Changes, observedDiffTime, aPrioriWeight});
 }
 
 
@@ -228,8 +231,9 @@ Solver::addObservationParams(unsigned evId, const std::string& staId, char phase
                              double staLat, double staLon, double staElevation,
                              double travelTime)
 {
+    string phStaId = string(1,phase) + "@" + staId;
     int evIdx  = _eventIdConverter.convert(evId);
-    unsigned phStaIdx = _phStaIdConverter.convert(string(1,phase) + "@" + staId);
+    unsigned phStaIdx = _phStaIdConverter.convert(phStaId);
     _eventParams[evIdx] = EventParams( {evLat, evLon, evDepth, 0, 0, 0} );
     _stationParams[phStaIdx] = StationParams( {staLat, staLon, staElevation, 0, 0, 0} );
     _obsParams[evIdx][phStaIdx] = ObservationParams( {travelTime, 0, 0, 0, 0} );
@@ -351,9 +355,59 @@ Solver::computePartialDerivatives()
     }
 }
 
+vector<double>
+Solver::computeResidualWeights(vector<double> residuals, const double alpha)
+{
+    //
+    // Find the median absolute deviation of residuals (MAD)
+    // 
+    auto computeMedian = [](vector<double> values) -> double
+    {
+        vector<double> tmp(values);
+        const auto middleItr = tmp.begin() + tmp.size() / 2;
+        std::nth_element(tmp.begin(), middleItr, tmp.end());
+        double median = *middleItr;
+        if (tmp.size() % 2 == 0)
+        {
+            const auto leftMiddleItr = std::max_element(tmp.begin(), middleItr);
+            median = (*leftMiddleItr + *middleItr) / 2;
+        }
+        return median;
+    };
+
+    const double median = computeMedian(residuals);
+
+    vector<double> resAbsoluteDeviation(_dd->nObs);
+    for ( unsigned i = 0; i < residuals.size(); i++ )
+    {
+        resAbsoluteDeviation[i] = std::abs(residuals[i] - median);
+    }
+
+    const double MAD = computeMedian(resAbsoluteDeviation);
+
+
+    //
+    // Compute weights
+    //
+    vector<double> weights( residuals.size() );
+ 
+    const double MAD_gn = 0.67449; // MAD for gaussian noise
+    for ( unsigned i = 0; i < residuals.size(); i++ )
+    {
+        double weight;
+        weight = 1. - std::pow( residuals[i]/(alpha*MAD/MAD_gn), 2);
+        weight = std::max(weight, 0.);
+        weight = std::pow(weight, 2);
+
+        weights[i] = weight;
+    }
+
+    return weights;
+}
+
 
 void
-Solver::prepareDDSystem(double meanShiftConstrainWeight)
+Solver::prepareDDSystem(double meanShiftConstrainWeight, double residualDownWeight)
 {
     computePartialDerivatives();
 
@@ -376,28 +430,26 @@ Solver::prepareDDSystem(double meanShiftConstrainWeight)
 
     // initialize: W, d, evByObsi, phStaByObs
     // note: m is zero initialized
-    int ob = 0;
-    for ( const Observation& obsrv : _observations )
+    for ( auto& kw: _observations )
     {
-        _dd->W[ob] = obsrv.weight;
-        _dd->evByObs[ob][0] = obsrv.ev1Idx;
-        _dd->evByObs[ob][1] = obsrv.ev2Fixed ? -1 : obsrv.ev2Idx;
-        _dd->phStaByObs[ob] = obsrv.phStaIdx;
+        unsigned obIdx = kw.first;
+        Observation& obsrv = kw.second;
+
+        _dd->W[obIdx] = obsrv.aPrioriWeight;
+        _dd->evByObs[obIdx][0] = obsrv.computeEv1Changes ? obsrv.ev1Idx : -1;
+        _dd->evByObs[obIdx][1] = obsrv.computeEv2Changes ? obsrv.ev2Idx : -1;
+        _dd->phStaByObs[obIdx] = obsrv.phStaIdx;
 
         // compute double difference
         const ObservationParams& obsprm1 = _obsParams.at(obsrv.ev1Idx).at(obsrv.phStaIdx);
         const ObservationParams& obsprm2 = _obsParams.at(obsrv.ev2Idx).at(obsrv.phStaIdx); 
-        _dd->d[ob] = obsrv.observedDiffTime - (obsprm1.travelTime - obsprm2.travelTime);
-        ob++;
+        _dd->d[obIdx] = obsrv.observedDiffTime - (obsprm1.travelTime - obsprm2.travelTime);
+
+        // apply weights to d
+        _dd->d[obIdx] *= _dd->W[obIdx];
     }
 
-    // apply weights to d
-    for ( unsigned ob = 0; ob < _dd->nObs; ob++ )
-    {
-        _dd->d[ob] *= _dd->W[ob];
-    }
-
-    // cluster zero mean shift and its weights
+    // Init remaining 4 equations for cluster zero mean shift and their weights
     _dd->d[_dd->nObs + 0] = 0;
     _dd->d[_dd->nObs + 1] = 0;
     _dd->d[_dd->nObs + 2] = 0;
@@ -407,6 +459,18 @@ Solver::prepareDDSystem(double meanShiftConstrainWeight)
     _dd->W[_dd->nObs + 2] = meanShiftConstrainWeight;
     _dd->W[_dd->nObs + 3] = meanShiftConstrainWeight;
 
+    // downweight observations by residuals
+    if ( residualDownWeight > 0 )
+    {
+        vector<double> residuals(_dd->d, _dd->d+_dd->nObs);
+        vector<double> resWeights = computeResidualWeights(residuals, residualDownWeight);
+        for ( unsigned obIdx = 0; obIdx < _dd->nObs; obIdx++ )
+        {
+            _dd->W[obIdx] *= resWeights[obIdx];
+            _dd->d[obIdx] *= resWeights[obIdx]; 
+        }
+    }
+
     // free memory 
     _observations.clear();
     _obsParams.clear();
@@ -414,33 +478,37 @@ Solver::prepareDDSystem(double meanShiftConstrainWeight)
 }
 
 
-void Solver::solve(double dampingFactor, double meanShiftConstrainWeight, unsigned numIterations)
+void Solver::solve(unsigned numIterations, double dampingFactor,
+                   double meanShiftConstrainWeight, double residualDownWeight)
 {
     if ( _type == "LSQR" )
     {
-        _solve<lsqrBase>(dampingFactor, meanShiftConstrainWeight, numIterations);
+        _solve<lsqrBase>(numIterations, dampingFactor,
+                         meanShiftConstrainWeight, residualDownWeight);
     }
     else if ( _type == "LSMR" )
     {
-        _solve<lsmrBase>(dampingFactor, meanShiftConstrainWeight, numIterations);
+        _solve<lsmrBase>(numIterations, dampingFactor,
+                         meanShiftConstrainWeight, residualDownWeight);
     }
     else
     {
-        throw runtime_error("Solver: invalid type, only LSQR and LSMR are valid");
+        throw runtime_error("Solver: invalid type, only LSQR and LSMR are valid methods");
     }
 }
 
 
 template <class T>
-void Solver::_solve(double dampingFactor, double meanShiftConstrainWeight, unsigned numIterations)
+void Solver::_solve(unsigned numIterations, double dampingFactor,
+                    double meanShiftConstrainWeight, double residualDownWeight)
 {
-    prepareDDSystem(meanShiftConstrainWeight);
+    prepareDDSystem(meanShiftConstrainWeight, residualDownWeight);
 
     Adapter<T> solver;
     solver.setDDSytem(_dd);
 
     solver.SetDamp(dampingFactor);
-    solver.SetMaximumNumberOfIterations(numIterations);
+    solver.SetMaximumNumberOfIterations(numIterations ? numIterations : _dd->numColsG/2);
 
     const double eps = 1e-15;
     solver.SetEpsilon( eps );
@@ -448,12 +516,13 @@ void Solver::_solve(double dampingFactor, double meanShiftConstrainWeight, unsig
     solver.SetToleranceB( 1e-16 );
     solver.SetUpperLimitOnConditional( 1.0 / ( 10 * sqrt( eps ) ) );
 
-    std::ostringstream solverLogs;
-    solver.SetOutputStream( solverLogs );
+//    std::ostringstream solverLogs;
+//    solver.SetOutputStream( solverLogs );
 
     solver.Solve(_dd->numRowsG, _dd->numColsG, _dd->d, _dd->m );
 
-    SEISCOMP_INFO("%s", solverLogs.str().c_str() );
+//    SEISCOMP_DEBUG("%s", solverLogs.str().c_str() );
+
     SEISCOMP_INFO("Stopped because %u : %s", solver.GetStoppingReason(), solver.GetStoppingReasonMessage().c_str());
     SEISCOMP_INFO("Used %u Iterations", solver.GetNumberOfIterationsPerformed());
     SEISCOMP_INFO("Frobenius norm estimation of Abar = %.4f", solver.GetFrobeniusNormEstimateOfAbar());

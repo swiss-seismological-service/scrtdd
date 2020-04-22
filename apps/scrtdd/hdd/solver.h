@@ -23,6 +23,7 @@
 
 #include <seiscomp3/core/baseobject.h>
 #include <unordered_map>
+#include <vector>
 
 namespace Seiscomp {
 namespace HDD {
@@ -75,7 +76,7 @@ struct DDSystem : public Core::BaseObject {
     {
         W = new double[numRowsG];
         G = new double[nEvts*nPhStas][4];
-        m = new double[numColsG](); // note the (), means zero initialization
+        m = new double[numColsG](); // note the () means zero initialization
         d = new double[numRowsG];
         evByObs = new int[nObs][2];
         phStaByObs = new unsigned[nObs];
@@ -107,21 +108,22 @@ class Solver : public Core::BaseObject
 {
 
 public:
-    Solver(std::string type);
-    virtual ~Solver() { }
+    Solver(std::string type) : _type(type) {}
+    virtual ~Solver() {}
 
     void reset() { *this = Solver(_type); }
 
     void addObservation(unsigned evId1, unsigned evId2, const std::string& staId, char phase,
-                        double diffTime, double weight, bool ev2Fixed);
+                        double diffTime, double aPrioriWeight,
+                        bool computeEv1Changes, bool computeEv2Changes);
 
     void addObservationParams(unsigned evId, const std::string& staId, char phase,
                               double evLat, double evLon, double evDepth,
                               double staLat, double staLon, double staElevation,
                               double travelTime);
 
-    void solve(double dampingFactor=0, double meanShiftConstrainWeight=0,
-               unsigned numIterations = 20);
+    void solve(unsigned numIterations = 0,  double dampingFactor=0,
+               double meanShiftConstrainWeight=0, double residualDownWeight=0);
 
     bool getEventChanges(unsigned evId, double &deltaLat, double &deltaLon,
                          double &deltaDepth, double &deltaTT) const;
@@ -132,9 +134,14 @@ public:
 private:
 
     void computePartialDerivatives();
-    void prepareDDSystem(double meanShiftWeigh);
-    template <class T> void _solve(double dampingFactor, double meanShiftConstrainWeight,
-                                   unsigned numIterations);
+
+    std::vector<double> computeResidualWeights(std::vector<double> residuals, const double alpha);
+
+    void prepareDDSystem(double meanShiftWeigh, double residualDownWeight);
+
+    template <class T>
+    void _solve(unsigned numIterations, double dampingFactor,
+                double meanShiftConstrainWeight, double residualDownWeight);
 
 private:
 
@@ -173,16 +180,18 @@ private:
     };
     IdToIndex<unsigned> _eventIdConverter;
     IdToIndex<std::string> _phStaIdConverter;
+    IdToIndex<std::string> _obsIdConverter;
 
     struct Observation {
-        int ev1Idx;
-        int ev2Idx;
+        unsigned ev1Idx;
+        unsigned ev2Idx;
         unsigned phStaIdx;
+        bool computeEv1Changes;
+        bool computeEv2Changes;
         double observedDiffTime;
-        double weight;
-        bool ev2Fixed;
+        double aPrioriWeight;
     };
-    std::list<Observation> _observations;
+    std::unordered_map<unsigned,Observation> _observations; // key = obsIdx
 
     struct EventParams {
         double lat, lon, depth;
@@ -210,8 +219,8 @@ private:
         double lat, lon, depth;
     } _centroid;
 
-    std::string _type;
     DDSystemPtr _dd;
+    std::string _type;
 };
 
 DEFINE_SMARTPOINTER(Solver);

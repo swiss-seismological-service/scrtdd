@@ -112,11 +112,15 @@ struct Config {
 
     struct {
         std::string type = "LSMR"; // LSMR or LSQR
-        bool useObservationWeghts = true;
-        double dampingFactor = 0.;
-        double meanShiftConstrainWeight = 0.;
-        unsigned solverIterations = 100;
+        bool useAPrioriWeights = false;
+        unsigned solverIterations = 0;
         unsigned algoIterations = 20;
+        double dampingFactorStart = 0.;
+        double dampingFactorEnd = 0.;
+        double meanShiftConstrainWeightStart = 0.;
+        double meanShiftConstrainWeightEnd = 0.;
+        double downWeightingByResidualStart = 0.;
+        double downWeightingByResidualEnd = 0.;
     } solver;
 };
 
@@ -163,6 +167,10 @@ class HypoDD : public Core::BaseObject {
                                 int minDTperEvt, int maxDTperEvt, int minNumNeigh, int maxNumNeigh,
                                 int numEllipsoids, double maxEllipsoidSize);
 
+        CatalogPtr relocate(std::map<unsigned,CatalogPtr>& neighbourCats,
+                            bool keepNeighboursFixed,
+                            const XCorrCache xcorr) const;
+
         CatalogPtr selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             const Catalog::Event& refEv,
                                             const CatalogCPtr& refEvCatalog,
@@ -197,7 +205,7 @@ class HypoDD : public Core::BaseObject {
         void addObservations(Solver& solver, CatalogPtr& catalog, unsigned evId,
                              bool fixedNeighbours, const XCorrCache& xcorr,
                              ObservationParams& obsparams ) const;
-        CatalogPtr loadRelocatedCatalog(const Solver& solver, const CatalogCPtr& originalCatalog,
+        CatalogPtr updateRelocatedEvents(const Solver& solver, const CatalogCPtr& originalCatalog,
                                         std::unordered_set<unsigned> eventsToRelocate,
                                         ObservationParams& obsparams ) const;
 

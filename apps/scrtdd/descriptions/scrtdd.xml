@@ -541,45 +541,61 @@
 
                     <group name="solver">
                         <description>
-                            Configuration for the double-difference equations system
-                       </description>
-                        <parameter name="tableType" type="string" default="LOCSAT">
-                            <description>i
-                                Type of traveltime tables to use. e.g. libtau or LOCSAT
-                            </description>
-                        </parameter>
-                        <parameter name="tableModel" type="string" default="iasp91">
+                            Configuration for the double-difference equations system solver
+                        </description>
+                        <group name="travelTimeTable">
                             <description>
-                                Traveltime table model to use. This can be a system default
-                                or a user defined one. Either way, it has to be configured
-                                in global settings and selected in here.
-                            </description>
-                        </parameter>   
+                                Traveltime table used by the solver. This can be a system default
+                                or a user defined one. Either way, it has to be configured in 
+                                the global settings and selected in here.
+                            </description> 
+                            <parameter name="tableType" type="string" default="LOCSAT">
+                            </parameter>
+                            <parameter name="tableModel" type="string" default="iasp91">
+                            </parameter> 
+                        </group> 
                         <parameter name="solverType" type="string" default="LSMR" >
                             <description>
-                                Solver algorithm to use: either LSMR or LSQR
-                            </description>
-                        </parameter>   
-                        <parameter name="dampingFactor" type="double" default="0">
-                            <description>
-                            </description>
-                        </parameter>
-                        <parameter name="meanShiftConstrainWeight" type="double" default="0">
-                            <description>
-                            </description>
-                        </parameter> 
-                        <parameter name="useObservationWeights" type="boolean" default="true">
-                            <description>
+                                Solver algorithm to use: either LSMR or LSQR. Both works solving
+                                the double-difference equations system in a least squares sense.
+                                LSMR is based on Fong and Saunders algorithm from 2010. LSQR is
+                                based on Paige and Saunders algorithm from 1982
                             </description>
                         </parameter>
-                        <parameter name="solverIterations" type="int" default="100">
+                        <parameter name="useAPrioriWeights" type="boolean" default="false">
                             <description>
+                                This should be enabled only if uncertainties are set on manual
+                                picks otherwise there is no way to properly access pick quality
+                                and consequently the observation weight.
                             </description>
-                        </parameter> 
+                        </parameter>
+                        <parameter name="solverIterations" type="int" default="0">
+                            <description>
+                                0 means it will be decided by the software
+                            </description>
+                        </parameter>
                         <parameter name="algoIterations" type="int" default="20">
                             <description>
                             </description>
-                        </parameter>
+                        </parameter> 
+                        <group name="downWeightingByResidual">
+                            <description>
+                            </description> 
+                            <parameter name="startingValue" type="double" default="0"></parameter>
+                            <parameter name="finalValue"    type="double" default="0"></parameter> 
+                        </group> 
+                        <group name="meanShiftConstrainWeight">
+                            <description>
+                            </description> 
+                            <parameter name="startingValue" type="double" default="0"></parameter>
+                            <parameter name="finalValue"    type="double" default="0"></parameter> 
+                        </group>   
+                        <group name="dampingFactor">
+                            <description>
+                            </description> 
+                            <parameter name="startingValue" type="double" default="0"></parameter>
+                            <parameter name="finalValue"    type="double" default="0"></parameter> 
+                        </group> 
                     </group>
                 </struct>
             </group>

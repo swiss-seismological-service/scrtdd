@@ -557,29 +557,41 @@ bool RTDD::validateParameters()
 
         prefix = string("profile.") + *it + ".solver.";
         try {
-            prof->ddcfg.ttt.type = configGetString(prefix + "tableType");
+            prof->ddcfg.solver.type = configGetString(prefix + "solverType");
+        } catch ( ... ) { prof->ddcfg.solver.type = "LSMR"; } 
+        try {
+            prof->ddcfg.ttt.type = configGetString(prefix + "travelTimeTable.tableType");
         } catch ( ... ) { prof->ddcfg.ttt.type = "LOCSAT"; }
         try {
-            prof->ddcfg.ttt.model = configGetString(prefix + "tableModel");
+            prof->ddcfg.ttt.model = configGetString(prefix + "travelTimeTable.tableModel");
         } catch ( ... ) { prof->ddcfg.ttt.model = "iasp91"; }
         try {
-            prof->ddcfg.solver.type = configGetString(prefix + "solverType");
-        } catch ( ... ) { prof->ddcfg.solver.type = "LSMR"; }
-        try {
-            prof->ddcfg.solver.dampingFactor = configGetDouble(prefix + "dampingFactor");
-        } catch ( ... ) { prof->ddcfg.solver.dampingFactor = 0.; } 
-        try {
-            prof->ddcfg.solver.meanShiftConstrainWeight = configGetDouble(prefix + "meanShiftConstrainWeight");
-        } catch ( ... ) { prof->ddcfg.solver.meanShiftConstrainWeight = 0.; }
-        try {
-            prof->ddcfg.solver.useObservationWeghts = configGetBool(prefix + "useObservationWeights");
-        } catch ( ... ) { prof->ddcfg.solver.useObservationWeghts = true; }
+            prof->ddcfg.solver.useAPrioriWeights = configGetBool(prefix + "useAPrioriWeights");
+        } catch ( ... ) { prof->ddcfg.solver.useAPrioriWeights = false; }
         try {
             prof->ddcfg.solver.solverIterations = configGetInt(prefix + "solverIterations");
-        } catch ( ... ) { prof->ddcfg.solver.solverIterations = 100; }
+        } catch ( ... ) { prof->ddcfg.solver.solverIterations = 0; }
         try {
             prof->ddcfg.solver.algoIterations = configGetInt(prefix + "algoIterations");
-        } catch ( ... ) { prof->ddcfg.solver.algoIterations = 20; }
+        } catch ( ... ) { prof->ddcfg.solver.algoIterations = 20; } 
+        try {
+            prof->ddcfg.solver.dampingFactorStart = configGetDouble(prefix + "dampingFactor.startingValue");
+        } catch ( ... ) { prof->ddcfg.solver.dampingFactorStart = 0.; } 
+        try {
+            prof->ddcfg.solver.dampingFactorEnd = configGetDouble(prefix + "dampingFactor.finalValue");
+        } catch ( ... ) { prof->ddcfg.solver.dampingFactorEnd = 0.; }
+        try {
+            prof->ddcfg.solver.meanShiftConstrainWeightStart = configGetDouble(prefix + "meanShiftConstrainWeight.startingValue");
+        } catch ( ... ) { prof->ddcfg.solver.meanShiftConstrainWeightStart = 0.; } 
+        try {
+            prof->ddcfg.solver.meanShiftConstrainWeightEnd = configGetDouble(prefix + "meanShiftConstrainWeight.finalValue");
+        } catch ( ... ) { prof->ddcfg.solver.meanShiftConstrainWeightEnd = 0.; }
+        try {
+            prof->ddcfg.solver.downWeightingByResidualStart = configGetDouble(prefix + "downWeightingByResidual.startingValue");
+        } catch ( ... ) { prof->ddcfg.solver.downWeightingByResidualStart = 0.; } 
+        try {
+            prof->ddcfg.solver.downWeightingByResidualEnd = configGetDouble(prefix + "downWeightingByResidual.finalValue");
+        } catch ( ... ) { prof->ddcfg.solver.downWeightingByResidualEnd = 0.; }
 
         // no reason to make those configurable 
         prof->ddcfg.step1Clustering.minWeight = 0;
