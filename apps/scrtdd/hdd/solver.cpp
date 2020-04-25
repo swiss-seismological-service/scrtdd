@@ -49,6 +49,78 @@ public:
         _dd = dd;
     }
 
+    /*
+     * Scale G by normalizing the L2-norm of each column as suggested
+     * by LSQR and LSMR solvers
+     */
+    void L2normalize()
+    {
+        std::fill_n(_dd->L2NScaler, _dd->numColsG, 0.);
+
+        for ( unsigned int ob = 0; ob < _dd->nObs; ob++ )
+        {
+            const double obsW = _dd->W[ob];
+            if ( obsW == 0. )
+                continue;
+
+            const unsigned phStaIdx = _dd->phStaByObs[ob]; // station for this observation
+
+            const int evIdx1 = _dd->evByObs[ob][0]; // event 1 for this observation
+            if ( evIdx1 >= 0 )
+            {
+                const unsigned idxG = evIdx1 * _dd->nPhStas + phStaIdx;
+                const unsigned evOffset = evIdx1 * 4;
+                _dd->L2NScaler[evOffset+0] += std::pow(_dd->G[idxG][0] * obsW, 2);
+                _dd->L2NScaler[evOffset+1] += std::pow(_dd->G[idxG][1] * obsW, 2);
+                _dd->L2NScaler[evOffset+2] += std::pow(_dd->G[idxG][2] * obsW, 2);
+                _dd->L2NScaler[evOffset+3] += std::pow(_dd->G[idxG][3] * obsW, 2);
+            }
+
+            const int evIdx2 = _dd->evByObs[ob][1]; // event 2 for this observation
+            if ( evIdx2 >= 0 )
+            {
+                const unsigned idxG = evIdx2 * _dd->nPhStas + phStaIdx;
+                const unsigned evOffset = evIdx2 * 4;
+                _dd->L2NScaler[evOffset+0] += std::pow(_dd->G[idxG][0] * obsW, 2);
+                _dd->L2NScaler[evOffset+1] += std::pow(_dd->G[idxG][1] * obsW, 2);
+                _dd->L2NScaler[evOffset+2] += std::pow(_dd->G[idxG][2] * obsW, 2);
+                _dd->L2NScaler[evOffset+3] += std::pow(_dd->G[idxG][3] * obsW, 2);
+            }
+        }
+
+        double const* meanShiftWeight = &_dd->W[_dd->nObs];
+        if ( meanShiftWeight[0] != 0 || meanShiftWeight[1] != 0 ||
+             meanShiftWeight[2] != 0 || meanShiftWeight[3] != 0 )
+        {
+            for (unsigned evOffset = 0; evOffset < _dd->numColsG; evOffset += 4 )
+            {
+                _dd->L2NScaler[evOffset+0] += std::pow(meanShiftWeight[0], 2);
+                _dd->L2NScaler[evOffset+1] += std::pow(meanShiftWeight[1], 2);
+                _dd->L2NScaler[evOffset+2] += std::pow(meanShiftWeight[2], 2);
+                _dd->L2NScaler[evOffset+3] += std::pow(meanShiftWeight[3], 2); 
+            }
+        }
+
+        for ( unsigned col = 0; col < _dd->numColsG; col++)
+        {
+            _dd->L2NScaler[col] = 1. / std::sqrt(_dd->L2NScaler[col]);
+        }
+    }
+
+    /*
+     * Rescale m back to the initial scaling
+     */
+    void L2DeNormalize()
+    {
+        for (unsigned evOffset = 0; evOffset < _dd->numColsG; evOffset += 4 )
+        {
+            _dd->m[evOffset+0] *= _dd->L2NScaler[evOffset+0];
+            _dd->m[evOffset+1] *= _dd->L2NScaler[evOffset+1];
+            _dd->m[evOffset+2] *= _dd->L2NScaler[evOffset+2];
+            _dd->m[evOffset+3] *= _dd->L2NScaler[evOffset+3];
+        }
+    }
+
     /**
      * Required by lsqrBase and lsmrBase:
      *
@@ -68,49 +140,54 @@ public:
 
         for ( unsigned int ob = 0; ob < _dd->nObs; ob++ )
         {
+            if ( _dd->W[ob] == 0. )
+                continue;
+
             const unsigned phStaIdx = _dd->phStaByObs[ob]; // station for this observation
             double sum = 0;
 
             const int evIdx1 = _dd->evByObs[ob][0]; // event 1 for this observation
             if ( evIdx1 >= 0 )
             {
-                sum += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][0] * x[evIdx1 * 4 + 0];
-                sum += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][1] * x[evIdx1 * 4 + 1];
-                sum += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][2] * x[evIdx1 * 4 + 2];
-                sum += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][3] * x[evIdx1 * 4 + 3];
+                const unsigned idxG = evIdx1 * _dd->nPhStas + phStaIdx;
+                const unsigned evOffset = evIdx1 * 4;
+                sum += _dd->G[idxG][0] * _dd->L2NScaler[evOffset+0] * x[evOffset+0];
+                sum += _dd->G[idxG][1] * _dd->L2NScaler[evOffset+1] * x[evOffset+1];
+                sum += _dd->G[idxG][2] * _dd->L2NScaler[evOffset+2] * x[evOffset+2];
+                sum += _dd->G[idxG][3] * _dd->L2NScaler[evOffset+3] * x[evOffset+3];
             }
 
             const int evIdx2 = _dd->evByObs[ob][1]; // event 2 for this observation
             if ( evIdx2 >= 0 )
             {
-                sum -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][0] * x[evIdx2 * 4 + 0];
-                sum -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][1] * x[evIdx2 * 4 + 1];
-                sum -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][2] * x[evIdx2 * 4 + 2];
-                sum -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][3] * x[evIdx2 * 4 + 3];
+                const unsigned idxG = evIdx2 * _dd->nPhStas + phStaIdx;
+                const unsigned evOffset = evIdx2 * 4;
+                sum -= _dd->G[idxG][0] * _dd->L2NScaler[evOffset+0] * x[evOffset+0];
+                sum -= _dd->G[idxG][1] * _dd->L2NScaler[evOffset+1] * x[evOffset+1];
+                sum -= _dd->G[idxG][2] * _dd->L2NScaler[evOffset+2] * x[evOffset+2];
+                sum -= _dd->G[idxG][3] * _dd->L2NScaler[evOffset+3] * x[evOffset+3];
             }
 
             y[ob] += _dd->W[ob] * sum;
         }
 
-        // do not waste computing if meanshift minimization is not used
         double *meanShiftWeight = &_dd->W[_dd->nObs];
         if ( meanShiftWeight[0] != 0 || meanShiftWeight[1] != 0 ||
              meanShiftWeight[2] != 0 || meanShiftWeight[3] != 0 )
         {
             double meanShift[4] = {0};
-            for (unsigned evIdx = 0; evIdx < _dd->nEvts; evIdx++ )
+            for (unsigned evOffset = 0; evOffset < _dd->numColsG; evOffset += 4 )
             {
-                meanShift[0] += x[evIdx * 4 + 0];
-                meanShift[1] += x[evIdx * 4 + 1];
-                meanShift[2] += x[evIdx * 4 + 2];
-                meanShift[3] += x[evIdx * 4 + 3]; 
+                meanShift[0] += x[evOffset+0] * _dd->L2NScaler[evOffset+0];
+                meanShift[1] += x[evOffset+1] * _dd->L2NScaler[evOffset+1];
+                meanShift[2] += x[evOffset+2] * _dd->L2NScaler[evOffset+2];
+                meanShift[3] += x[evOffset+3] * _dd->L2NScaler[evOffset+3]; 
             }
-            y[_dd->nObs + 0] += meanShift[0] * meanShiftWeight[0];
-            y[_dd->nObs + 1] += meanShift[1] * meanShiftWeight[1];
-            y[_dd->nObs + 2] += meanShift[2] * meanShiftWeight[2];
-            y[_dd->nObs + 3] += meanShift[3] * meanShiftWeight[3];
+            y[_dd->nObs+0] += meanShift[0] * meanShiftWeight[0];
+            y[_dd->nObs+1] += meanShift[1] * meanShiftWeight[1];
+            y[_dd->nObs+2] += meanShift[2] * meanShiftWeight[2];
+            y[_dd->nObs+3] += meanShift[3] * meanShiftWeight[3];
         }
-
     }
 
     /**
@@ -132,48 +209,53 @@ public:
 
         for ( unsigned int ob = 0; ob < _dd->nObs; ob++ )
         {
-            const unsigned phStaIdx = _dd->phStaByObs[ob]; // station for this observation
+            const double wY = y[ob] * _dd->W[ob];
+            if ( wY == 0. )
+                continue;
 
-            double YW = y[ob] * _dd->W[ob];
+            const unsigned phStaIdx = _dd->phStaByObs[ob]; // station for this observation
 
             const int evIdx1 = _dd->evByObs[ob][0]; // event 1 for this observation
             if ( evIdx1 >= 0 )
             {
-                x[evIdx1 * 4 + 0] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][0] * YW;
-                x[evIdx1 * 4 + 1] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][1] * YW;
-                x[evIdx1 * 4 + 2] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][2] * YW;
-                x[evIdx1 * 4 + 3] += _dd->G[evIdx1 * _dd->nPhStas + phStaIdx][3] * YW;
+                const unsigned idxG = evIdx1 * _dd->nPhStas + phStaIdx;
+                const unsigned evOffset = evIdx1 * 4;
+                x[evOffset+0] += _dd->G[idxG][0] * _dd->L2NScaler[evOffset+0] * wY;
+                x[evOffset+1] += _dd->G[idxG][1] * _dd->L2NScaler[evOffset+1] * wY;
+                x[evOffset+2] += _dd->G[idxG][2] * _dd->L2NScaler[evOffset+2] * wY;
+                x[evOffset+3] += _dd->G[idxG][3] * _dd->L2NScaler[evOffset+3] * wY;
             }
 
             const int evIdx2 = _dd->evByObs[ob][1]; // event 2 for this observation
             if ( evIdx2 >= 0 )
             {
-                x[evIdx2 * 4 + 0] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][0] * YW;
-                x[evIdx2 * 4 + 1] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][1] * YW;
-                x[evIdx2 * 4 + 2] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][2] * YW;
-                x[evIdx2 * 4 + 3] -= _dd->G[evIdx2 * _dd->nPhStas + phStaIdx][3] * YW;
+                const unsigned idxG = evIdx2 * _dd->nPhStas + phStaIdx;
+                const unsigned evOffset = evIdx2 * 4;
+                x[evOffset+0] -= _dd->G[idxG][0] * _dd->L2NScaler[evOffset+0] * wY;
+                x[evOffset+1] -= _dd->G[idxG][1] * _dd->L2NScaler[evOffset+1] * wY;
+                x[evOffset+2] -= _dd->G[idxG][2] * _dd->L2NScaler[evOffset+2] * wY;
+                x[evOffset+3] -= _dd->G[idxG][3] * _dd->L2NScaler[evOffset+3] * wY;
             }
         }
 
-        // do not waste computing if meanshift minimization is not used
         double *meanShiftWeight = &_dd->W[_dd->nObs];
         if ( meanShiftWeight[0] != 0 || meanShiftWeight[1] != 0 ||
              meanShiftWeight[2] != 0 || meanShiftWeight[3] != 0 )
         {
-            for (unsigned evIdx = 0; evIdx < _dd->nEvts; evIdx++ )
+            for (unsigned evOffset = 0; evOffset < _dd->numColsG; evOffset += 4 )
             {
-                x[evIdx * 4 + 0] += meanShiftWeight[0] * y[_dd->nObs + 0];
-                x[evIdx * 4 + 1] += meanShiftWeight[1] * y[_dd->nObs + 1];
-                x[evIdx * 4 + 2] += meanShiftWeight[2] * y[_dd->nObs + 2];
-                x[evIdx * 4 + 3] += meanShiftWeight[3] * y[_dd->nObs + 3];
+                x[evOffset+0] += meanShiftWeight[0] * y[_dd->nObs+0] * _dd->L2NScaler[evOffset+0];
+                x[evOffset+1] += meanShiftWeight[1] * y[_dd->nObs+1] * _dd->L2NScaler[evOffset+1];
+                x[evOffset+2] += meanShiftWeight[2] * y[_dd->nObs+2] * _dd->L2NScaler[evOffset+2];
+                x[evOffset+3] += meanShiftWeight[3] * y[_dd->nObs+3] * _dd->L2NScaler[evOffset+3];
             }
-        } 
+        }
     }
 
 private:
 
     Seiscomp::HDD::DDSystemPtr _dd;
-}; 
+};
 
 
 }
@@ -413,6 +495,10 @@ Solver::prepareDDSystem(double meanShiftConstrainWeight, double residualDownWeig
 
     _dd = DDSystemPtr(new DDSystem(_observations.size(),  _eventIdConverter.size(), _phStaIdConverter.size()) );
 
+    // Init m and L2NScaler
+    std::fill_n(_dd->m, _dd->numColsG, 0);
+    std::fill_n(_dd->L2NScaler, _dd->numColsG, 1.);
+
     // initialize G
     for ( const auto& kv1 : _obsParams )
     {
@@ -450,14 +536,14 @@ Solver::prepareDDSystem(double meanShiftConstrainWeight, double residualDownWeig
     }
 
     // Init remaining 4 equations for cluster zero mean shift and their weights
-    _dd->d[_dd->nObs + 0] = 0;
-    _dd->d[_dd->nObs + 1] = 0;
-    _dd->d[_dd->nObs + 2] = 0;
-    _dd->d[_dd->nObs + 3] = 0;
-    _dd->W[_dd->nObs + 0] = meanShiftConstrainWeight;
-    _dd->W[_dd->nObs + 1] = meanShiftConstrainWeight;
-    _dd->W[_dd->nObs + 2] = meanShiftConstrainWeight;
-    _dd->W[_dd->nObs + 3] = meanShiftConstrainWeight;
+    _dd->d[_dd->nObs+0] = 0;
+    _dd->d[_dd->nObs+1] = 0;
+    _dd->d[_dd->nObs+2] = 0;
+    _dd->d[_dd->nObs+3] = 0;
+    _dd->W[_dd->nObs+0] = meanShiftConstrainWeight;
+    _dd->W[_dd->nObs+1] = meanShiftConstrainWeight;
+    _dd->W[_dd->nObs+2] = meanShiftConstrainWeight;
+    _dd->W[_dd->nObs+3] = meanShiftConstrainWeight;
 
     // downweight observations by residuals
     if ( residualDownWeight > 0 )
@@ -479,17 +565,18 @@ Solver::prepareDDSystem(double meanShiftConstrainWeight, double residualDownWeig
 
 
 void Solver::solve(unsigned numIterations, double dampingFactor,
-                   double meanShiftConstrainWeight, double residualDownWeight)
+                   double meanShiftConstrainWeight, double residualDownWeight,
+                   bool normalizeG)
 {
     if ( _type == "LSQR" )
     {
-        _solve<lsqrBase>(numIterations, dampingFactor,
-                         meanShiftConstrainWeight, residualDownWeight);
+        _solve<lsqrBase>(numIterations, dampingFactor, meanShiftConstrainWeight,
+                         residualDownWeight, normalizeG);
     }
     else if ( _type == "LSMR" )
     {
-        _solve<lsmrBase>(numIterations, dampingFactor,
-                         meanShiftConstrainWeight, residualDownWeight);
+        _solve<lsmrBase>(numIterations, dampingFactor, meanShiftConstrainWeight,
+                         residualDownWeight, normalizeG);
     }
     else
     {
@@ -500,12 +587,17 @@ void Solver::solve(unsigned numIterations, double dampingFactor,
 
 template <class T>
 void Solver::_solve(unsigned numIterations, double dampingFactor,
-                    double meanShiftConstrainWeight, double residualDownWeight)
+                    double meanShiftConstrainWeight, double residualDownWeight,
+                    bool normalizeG)
 {
     prepareDDSystem(meanShiftConstrainWeight, residualDownWeight);
 
     Adapter<T> solver;
     solver.setDDSytem(_dd);
+    if ( normalizeG )
+    {
+        solver.L2normalize();
+    }
 
     solver.SetDamp(dampingFactor);
     solver.SetMaximumNumberOfIterations(numIterations ? numIterations : _dd->numColsG/2);
@@ -520,6 +612,11 @@ void Solver::_solve(unsigned numIterations, double dampingFactor,
 //    solver.SetOutputStream( solverLogs );
 
     solver.Solve(_dd->numRowsG, _dd->numColsG, _dd->d, _dd->m );
+
+    if ( normalizeG )
+    {
+        solver.L2DeNormalize();
+    }
 
 //    SEISCOMP_DEBUG("%s", solverLogs.str().c_str() );
 

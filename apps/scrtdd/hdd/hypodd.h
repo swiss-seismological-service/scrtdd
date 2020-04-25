@@ -112,6 +112,7 @@ struct Config {
 
     struct {
         std::string type = "LSMR"; // LSMR or LSQR
+        bool L2normalization = true;
         unsigned solverIterations = 0;
         unsigned algoIterations = 20; 
         double dampingFactorStart = 0.;

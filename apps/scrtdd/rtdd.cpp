@@ -605,6 +605,7 @@ bool RTDD::validateParameters()
         prof->ddcfg.step1Clustering.minWeight = 0;
         prof->ddcfg.step2Clustering.minWeight = 0;
         prof->ddcfg.artificialPhases.enable = true;
+        prof->ddcfg.solver.L2normalization = true;
 
         _profiles.push_back(prof);
     }

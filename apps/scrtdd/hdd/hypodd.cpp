@@ -551,7 +551,8 @@ HypoDD::relocate(map<unsigned,CatalogPtr>& neighbourCats, bool keepNeighboursFix
 
         // solve the system
         solver.solve(_cfg.solver.solverIterations, dampingFactor,
-                     meanShiftConstrainWeight, downWeightingByResidual);
+                     meanShiftConstrainWeight, downWeightingByResidual,
+                     _cfg.solver.L2normalization);
 
         obsparams = ObservationParams();
 
@@ -1157,14 +1158,12 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
                 const auto& xcdata = xcorr.get(refEv.id, event.id, refPhase.stationId, refPhase.procInfo.type);
                 diffTime -= xcdata.lag;
                 weight *= _cfg.solver.xcorrObsWeight;
-
                 if (refPhase.procInfo.type == Phase::Type::P) refEv.relocInfo.numCCp++;
                 if (refPhase.procInfo.type == Phase::Type::S) refEv.relocInfo.numCCs++;
             }
             else
             {
                 weight *= _cfg.solver.absTTDiffObsWeight;
-
                 if (refPhase.procInfo.type == Phase::Type::P) refEv.relocInfo.numCTp++;
                 if (refPhase.procInfo.type == Phase::Type::S) refEv.relocInfo.numCTs++;
             } 

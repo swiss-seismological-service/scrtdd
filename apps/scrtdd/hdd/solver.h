@@ -63,6 +63,8 @@ struct DDSystem : public Core::BaseObject {
     double (*m);
     // d[nObs+4]: double differences, one for each observation + mean shift constraints (x,y,z,time)
     double *d;
+    // L2NScaler[nEvts*4]: L2 norm scaler for each G column
+    double *L2NScaler;
     // evByObs[nObs][2]: map of 2 event idx for each observation (index -1 means no parameters)
     int (*evByObs)[2];
     // phStaByObs[nObs]: map of station idx for each observation
@@ -76,8 +78,9 @@ struct DDSystem : public Core::BaseObject {
     {
         W = new double[numRowsG];
         G = new double[nEvts*nPhStas][4];
-        m = new double[numColsG](); // note the () means zero initialization
+        m = new double[numColsG];
         d = new double[numRowsG];
+        L2NScaler = new double[numColsG];
         evByObs = new int[nObs][2];
         phStaByObs = new unsigned[nObs];
     }
@@ -86,6 +89,7 @@ struct DDSystem : public Core::BaseObject {
     {
         delete[] phStaByObs;
         delete[] evByObs;
+        delete[] L2NScaler;
         delete[] d;
         delete[] m;
         delete[] G;
@@ -122,8 +126,9 @@ public:
                               double staLat, double staLon, double staElevation,
                               double travelTime);
 
-    void solve(unsigned numIterations = 0,  double dampingFactor=0,
-               double meanShiftConstrainWeight=0, double residualDownWeight=0);
+    void solve(unsigned numIterations=0, double dampingFactor=0,
+               double meanShiftConstrainWeight=0, double residualDownWeight=0,
+               bool normalizeG=true);
 
     bool getEventChanges(unsigned evId, double &deltaLat, double &deltaLon,
                          double &deltaDepth, double &deltaTT) const;
@@ -141,7 +146,8 @@ private:
 
     template <class T>
     void _solve(unsigned numIterations, double dampingFactor,
-                double meanShiftConstrainWeight, double residualDownWeight);
+                double meanShiftConstrainWeight, double residualDownWeight,
+                bool normalizeG );
 
 private:
 
