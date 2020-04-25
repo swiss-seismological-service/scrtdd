@@ -144,7 +144,9 @@ Finally, when the configuration is ready, we can relocate the catalog with the c
 scrtdd --reloc-profile profileName [db and log options] 
 ```
 
-scrtdd will relocated the catalog and will generate another set of files reloc-event.csv reloc-phase.csv and reloc-stations.csv, which together define a new catalog with relocated origins. At this point we should check the relocated events (and HypoDD logs) and see if we are happy with the results. If not, we change scrtdd settings and relocate the catalog again until we are satisfied with the relocation.
+scrtdd will relocated the catalog and will generate another set of files reloc-event.csv reloc-phase.csv and reloc-stations.csv, which together define a new catalog with relocated origins. 
+
+At this point we should check the relocated events (and logs) and see whether the results make sense and are satisfactory. Usually we want to keep tuning the scrtdd settings and relocate the catalog multiple times until we are sure we reached the best relocations. Having a good background catalog is the base for good real-time relocations.
 
 As an example you can see below two catalogs before and after scrtdd relocation:
 

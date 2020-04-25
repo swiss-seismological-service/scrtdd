@@ -112,15 +112,17 @@ struct Config {
 
     struct {
         std::string type = "LSMR"; // LSMR or LSQR
-        bool useAPrioriWeights = false;
         unsigned solverIterations = 0;
-        unsigned algoIterations = 20;
+        unsigned algoIterations = 20; 
         double dampingFactorStart = 0.;
         double dampingFactorEnd = 0.;
         double meanShiftConstrainWeightStart = 0.;
         double meanShiftConstrainWeightEnd = 0.;
         double downWeightingByResidualStart = 0.;
         double downWeightingByResidualEnd = 0.;
+        bool usePickUncertainty = false;
+        double absTTDiffObsWeight = 1.0;
+        double xcorrObsWeight = 1.0; 
     } solver;
 };
 

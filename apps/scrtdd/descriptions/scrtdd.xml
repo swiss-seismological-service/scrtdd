@@ -545,9 +545,8 @@
                         </description>
                         <group name="travelTimeTable">
                             <description>
-                                Traveltime table used by the solver. This can be a system default
-                                or a user defined one. Either way, it has to be configured in 
-                                the global settings and selected in here.
+                                Traveltime table used by the solver (e.g. LOCSAT or taup). This
+                                can be a system default or a user custom travel time table.
                             </description> 
                             <parameter name="tableType" type="string" default="LOCSAT">
                             </parameter>
@@ -562,14 +561,7 @@
                                 based on Paige and Saunders algorithm from 1982
                             </description>
                         </parameter>
-                        <parameter name="useAPrioriWeights" type="boolean" default="false">
-                            <description>
-                                This should be enabled only if uncertainties are set on manual
-                                picks otherwise there is no way to properly access pick quality
-                                and consequently the observation weight.
-                            </description>
-                        </parameter>
-                        <parameter name="solverIterations" type="int" default="0">
+                       <parameter name="solverIterations" type="int" default="0">
                             <description>
                                 0 means it will be decided by the software
                             </description>
@@ -580,6 +572,7 @@
                         </parameter> 
                         <group name="downWeightingByResidual">
                             <description>
+                                Set to 0 to disable
                             </description> 
                             <parameter name="startingValue" type="double" default="0"></parameter>
                             <parameter name="finalValue"    type="double" default="0"></parameter> 
@@ -595,7 +588,40 @@
                             </description> 
                             <parameter name="startingValue" type="double" default="0"></parameter>
                             <parameter name="finalValue"    type="double" default="0"></parameter> 
-                        </group> 
+                        </group>
+                        <group name="aPrioriWeights">
+                            <description>
+                                Those options allow the double-difference equations to have different
+                                starting weights. By default they are equally weighted and the
+                                residual itselfs drive the re-weighting (see downWeightingByResidual
+                                option). So these settings shouldn't be strictly necessary but
+                                it could be interesting to experiment with them
+                            </description>
+                            <parameter name="usePickUncertainties" type="boolean" default="false">
+                                <description>
+                                   Observation weights are scaled based on pick uncertainties.
+                                   This should be enabled only if uncertainties are used for manual
+                                   picks otherwise there is no way to properly access pick quality
+                                   and consequently the observation weight.
+                                </description>
+                            </parameter>
+                            <parameter name="absoluteTTObsWeight" type="double" default="1.0">
+                                <description>
+                                    Starting weight for observations coming from difference
+                                    in absolute travel times.
+                                    Useful to give more weight to xcorr observations than
+                                    absolute travel time ones.
+                                </description>
+                            </parameter>
+                            <parameter name="xcorrObsWeight" type="double" default="1.0">
+                                <description>
+                                    Starting weight for observations coming from lag measured
+                                    via cross-correlation.
+                                    Useful to give more weight to cross-correlation observations
+                                    than absolute travel time ones.
+                                </description>
+                            </parameter>
+                        </group>
                     </group>
                 </struct>
             </group>

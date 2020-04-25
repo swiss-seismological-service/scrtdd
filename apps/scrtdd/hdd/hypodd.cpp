@@ -266,7 +266,7 @@ CatalogPtr HypoDD::relocateCatalog()
 {
     SEISCOMP_INFO("Starting HypoDD relocator in multiple events mode");
 
-    CatalogPtr catToReloc = new Catalog(*_ddbgc);
+    const CatalogCPtr catToReloc = _ddbgc;
 
     // Create working directory 
     string catalogWorkingDir = (boost::filesystem::path(_workingDir)/"catalog").string(); 
@@ -279,15 +279,6 @@ CatalogPtr HypoDD::relocateCatalog()
         }
     }
 
-    // write catalog for debugging purpose
-    if ( ! _workingDirCleanup )
-    {
-        catToReloc->writeToFile(
-            (boost::filesystem::path(catalogWorkingDir)/"starting-event.csv").string(),
-            (boost::filesystem::path(catalogWorkingDir)/"starting-phase.csv").string(),
-            (boost::filesystem::path(catalogWorkingDir)/"starting-station.csv").string() );
-    }
-
     // Find Neighbouring Events in the catalog
     map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
         catToReloc, _cfg.step2Clustering.minWeight,
@@ -297,6 +288,22 @@ CatalogPtr HypoDD::relocateCatalog()
         _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids,
         _cfg.step2Clustering.maxEllipsoidSize, true
     );
+
+    // write catalog for debugging purpose
+    if ( ! _workingDirCleanup )
+    {
+        catToReloc->writeToFile(
+            (boost::filesystem::path(catalogWorkingDir)/"starting-event.csv").string(),
+            (boost::filesystem::path(catalogWorkingDir)/"starting-phase.csv").string(),
+            (boost::filesystem::path(catalogWorkingDir)/"starting-station.csv").string() );
+        CatalogPtr catToDump( new Catalog() );
+        for (const auto& kv : neighbourCats)
+            catToDump->add(kv.first, *kv.second, true);
+        catToDump->writeToFile(
+            (boost::filesystem::path(catalogWorkingDir)/"selected-event.csv").string(),
+            (boost::filesystem::path(catalogWorkingDir)/"selected-phase.csv").string(),
+            (boost::filesystem::path(catalogWorkingDir)/"selected-station.csv").string() ); 
+    } 
 
     // Perform cross correlation, which also detects picks around theoretical
     // arrival times. The catalog will be updated with those theoretical phases 
@@ -532,6 +539,7 @@ HypoDD::relocate(map<unsigned,CatalogPtr>& neighbourCats, bool keepNeighboursFix
         // compute parameters for this loop iteration
         auto interpolate = [&](double start, double end) -> double
         {
+            if ( _cfg.solver.algoIterations < 2 ) return (start + end) / 2;
             return start + (end - start) * iteration / (_cfg.solver.algoIterations-1);
         };
         double dampingFactor = interpolate(_cfg.solver.dampingFactorStart,
@@ -1136,8 +1144,9 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
             // Conpute absolute trave time differences to the solver
             //
             double diffTime = ref_travel_time - travel_time;
-            double weight = (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0;
-
+            double weight   =  _cfg.solver.usePickUncertainty
+                            ? (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0
+                            : 1.0;
             //
             // Check if we have xcorr results for current event/refEvent pair at station/phase
             // and use those instead
@@ -1147,21 +1156,19 @@ HypoDD::addObservations(Solver& solver, CatalogPtr& catalog, unsigned refEvId,
 
                 const auto& xcdata = xcorr.get(refEv.id, event.id, refPhase.stationId, refPhase.procInfo.type);
                 diffTime -= xcdata.lag;
-                //weight = xcdata.coeff * xcdata.coeff;
+                weight *= _cfg.solver.xcorrObsWeight;
 
                 if (refPhase.procInfo.type == Phase::Type::P) refEv.relocInfo.numCCp++;
                 if (refPhase.procInfo.type == Phase::Type::S) refEv.relocInfo.numCCs++;
             }
             else
             {
+                weight *= _cfg.solver.absTTDiffObsWeight;
+
                 if (refPhase.procInfo.type == Phase::Type::P) refEv.relocInfo.numCTp++;
                 if (refPhase.procInfo.type == Phase::Type::S) refEv.relocInfo.numCTs++;
             } 
 
-            if ( !_cfg.solver.useAPrioriWeights )
-            {
-                weight = 1.0;
-            }
             solver.addObservation(refEv.id, event.id, refPhase.stationId,  phaseTypeAsChar,
                                   diffTime, weight, true, !keepNeighboursFixed);
         }
