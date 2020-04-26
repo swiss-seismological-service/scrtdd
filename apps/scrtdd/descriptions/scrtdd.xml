@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <seiscomp>
     <module name="scrtdd" category="Processing" inherit-global-bindings="true">
-        <description>Real Time Double-Difference location module.</description>
+        <description>Double-Difference relocation module for real-time and catalogs relocation</description>
         <configuration>
 
             <parameter name="publicIDpattern" type="string" default="RTDD.@time/%Y%m%d%H%M%S.%f@.@id@">
@@ -150,16 +150,19 @@
 
                     <group name="catalog">
                         <description>
-                            The files used to define a background catalog. New origins will be relocated using this
-                            catalog, which must contains high quality locations. In full catalog relocation mode
-                            (see --relocate-profile command line option) this is the catalog that will be relocated.
-                            There are two ways to define a catalog: one is providing an event file containing the ids
-                            of existing origins; the second way consists in providing extended information 
-                            (useful when the events are not in the database) and three files are required event, phase
-                            and stations.
-                            The files must be in csv format with the first line containing the column names. Each file
-                            requires a minimum set of columns, which can appear in any order. Additional
-                            columns can be present and will not be used but are allowed.
+                            Define a catalog for this profile. In real-time mode this represents the 
+                            background catalog used as base catalog to relocate origins received from
+                            the messaging system.
+                            In multi-event mode, this represents the catalog to be relocated
+                            as a whole (see --relocate-profile command line option).
+                            There are two ways to define a catalog file: one is providing a single 
+                            file containing the ids of existing origins; the second way consists in
+                            providing 3 files event, phase and stations (in this format the origins
+                            don't need to be present in the database).
+                            The files must be in csv format with the first line containing the
+                            column names. Each file requires a minimum set of columns, which can
+                            appear in any order. Additional columns can be present and will not be
+                            used.
                         </description>
 
                         <parameter name="eventFile" type="path">
@@ -543,16 +546,6 @@
                         <description>
                             Configuration for the double-difference equations system solver
                         </description>
-                        <group name="travelTimeTable">
-                            <description>
-                                Traveltime table used by the solver (e.g. LOCSAT or taup). This
-                                can be a system default or a user custom travel time table.
-                            </description> 
-                            <parameter name="tableType" type="string" default="LOCSAT">
-                            </parameter>
-                            <parameter name="tableModel" type="string" default="iasp91">
-                            </parameter> 
-                        </group> 
                         <parameter name="solverType" type="string" default="LSMR" >
                             <description>
                                 Solver algorithm to use: either LSMR or LSQR. Both works solving
@@ -560,7 +553,7 @@
                                 LSMR is based on Fong and Saunders algorithm from 2010. LSQR is
                                 based on Paige and Saunders algorithm from 1982
                             </description>
-                        </parameter>
+                       </parameter>
                        <parameter name="solverIterations" type="int" default="0">
                             <description>
                                 0 means it will be decided by the software
@@ -572,19 +565,26 @@
                         </parameter> 
                         <group name="downWeightingByResidual">
                             <description>
-                                Set to 0 to disable
+                                Set to 0 to disable. The values are the standard deviations
+                                of the double-difference residuals beyond which the observations
+                                are dropped (thier weight becomes 0).
                             </description> 
-                            <parameter name="startingValue" type="double" default="0"></parameter>
-                            <parameter name="finalValue"    type="double" default="0"></parameter> 
+                            <parameter name="startingValue" type="double" default="10"></parameter>
+                            <parameter name="finalValue"    type="double" default="3"></parameter> 
                         </group> 
                         <group name="meanShiftConstrainWeight">
                             <description>
+                                Constrain the mean shift of all earthquakes during relocation to zero
                             </description> 
-                            <parameter name="startingValue" type="double" default="0"></parameter>
-                            <parameter name="finalValue"    type="double" default="0"></parameter> 
+                            <parameter name="startingValue" type="double" default="0.9"></parameter>
+                            <parameter name="finalValue"    type="double" default="0.6"></parameter> 
                         </group>   
                         <group name="dampingFactor">
                             <description>
+                                Regularizer for moderately or severely ill-conditioned systems.
+                                These values constrain the changes in earthquakes parameters
+                                to avoid that bad observations result in huge earthquakes parameters
+                                changes.
                             </description> 
                             <parameter name="startingValue" type="double" default="0"></parameter>
                             <parameter name="finalValue"    type="double" default="0"></parameter> 
@@ -622,6 +622,16 @@
                                 </description>
                             </parameter>
                         </group>
+                        <group name="travelTimeTable">
+                            <description>
+                                Traveltime table used by the solver (e.g. LOCSAT or taup). This
+                                can be a system default or a user custom travel time table.
+                            </description> 
+                            <parameter name="tableType" type="string" default="LOCSAT">
+                            </parameter>
+                            <parameter name="tableModel" type="string" default="iasp91">
+                            </parameter> 
+                        </group>  
                     </group>
                 </struct>
             </group>

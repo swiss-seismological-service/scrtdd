@@ -579,16 +579,16 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.solver.dampingFactorEnd = 0.; }
         try {
             prof->ddcfg.solver.meanShiftConstrainWeightStart = configGetDouble(prefix + "meanShiftConstrainWeight.startingValue");
-        } catch ( ... ) { prof->ddcfg.solver.meanShiftConstrainWeightStart = 0.; } 
+        } catch ( ... ) { prof->ddcfg.solver.meanShiftConstrainWeightStart = 0.9; } 
         try {
             prof->ddcfg.solver.meanShiftConstrainWeightEnd = configGetDouble(prefix + "meanShiftConstrainWeight.finalValue");
-        } catch ( ... ) { prof->ddcfg.solver.meanShiftConstrainWeightEnd = 0.; }
+        } catch ( ... ) { prof->ddcfg.solver.meanShiftConstrainWeightEnd = 0.6; }
         try {
             prof->ddcfg.solver.downWeightingByResidualStart = configGetDouble(prefix + "downWeightingByResidual.startingValue");
-        } catch ( ... ) { prof->ddcfg.solver.downWeightingByResidualStart = 0.; } 
+        } catch ( ... ) { prof->ddcfg.solver.downWeightingByResidualStart = 10.; } 
         try {
             prof->ddcfg.solver.downWeightingByResidualEnd = configGetDouble(prefix + "downWeightingByResidual.finalValue");
-        } catch ( ... ) { prof->ddcfg.solver.downWeightingByResidualEnd = 0.; } 
+        } catch ( ... ) { prof->ddcfg.solver.downWeightingByResidualEnd = 3.; } 
         try {
             prof->ddcfg.solver.usePickUncertainty = configGetBool(prefix + "aPrioriWeights.usePickUncertainties");
         } catch ( ... ) { prof->ddcfg.solver.usePickUncertainty = false; }

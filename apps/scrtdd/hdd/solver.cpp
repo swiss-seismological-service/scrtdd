@@ -608,8 +608,8 @@ void Solver::_solve(unsigned numIterations, double dampingFactor,
     solver.SetToleranceB( 1e-16 );
     solver.SetUpperLimitOnConditional( 1.0 / ( 10 * sqrt( eps ) ) );
 
-//    std::ostringstream solverLogs;
-//    solver.SetOutputStream( solverLogs );
+    //std::ostringstream solverLogs;
+    //solver.SetOutputStream( solverLogs );
 
     solver.Solve(_dd->numRowsG, _dd->numColsG, _dd->d, _dd->m );
 
@@ -618,15 +618,10 @@ void Solver::_solve(unsigned numIterations, double dampingFactor,
         solver.L2DeNormalize();
     }
 
-//    SEISCOMP_DEBUG("%s", solverLogs.str().c_str() );
+    //SEISCOMP_DEBUG("%s", solverLogs.str().c_str() );
 
     SEISCOMP_INFO("Stopped because %u : %s", solver.GetStoppingReason(), solver.GetStoppingReasonMessage().c_str());
     SEISCOMP_INFO("Used %u Iterations", solver.GetNumberOfIterationsPerformed());
-    SEISCOMP_INFO("Frobenius norm estimation of Abar = %.4f", solver.GetFrobeniusNormEstimateOfAbar());
-    SEISCOMP_INFO("Condition number estimation of Abar = %.4f", solver.GetConditionNumberEstimateOfAbar());
-    SEISCOMP_INFO("Estimate of final value of norm(rbar) = %.4f", solver.GetFinalEstimateOfNormRbar());
-    SEISCOMP_INFO("Estimate of final value of norm of residuals = %.7f", solver.GetFinalEstimateOfNormOfResiduals());
-    SEISCOMP_INFO("Estimate of norm of final solution = %.7f", solver.GetFinalEstimateOfNormOfX());
 }
 
 

@@ -516,7 +516,7 @@ HypoDD::relocate(map<unsigned,CatalogPtr>& neighbourCats, bool keepNeighboursFix
         rms += neighbourCat->getEvents().at(kv.first).rms;
         ++rmsCount;
     }
-    SEISCOMP_WARNING("Starting average rms %f",  ( rmsCount > 0 ? (rms / rmsCount) : 0.) );
+    SEISCOMP_INFO("Starting average rms %f",  ( rmsCount > 0 ? (rms / rmsCount) : 0.) );
 
     // Create a solver and then add observations
     Solver solver(_cfg.solver.type);
@@ -566,7 +566,7 @@ HypoDD::relocate(map<unsigned,CatalogPtr>& neighbourCats, bool keepNeighboursFix
             rms += neighbourCat->getEvents().at(kv.first).rms;
             ++rmsCount;
         }
-        SEISCOMP_WARNING("Iteration %u dampingFactor %.2f meanShiftConstrainWeight %.2f downWeightingByResidual %.2f avg rms %f", 
+        SEISCOMP_INFO("Iteration %u dampingFactor %.2f meanShiftConstrainWeight %.2f downWeightingByResidual %.2f avg rms %f", 
                          iteration, dampingFactor, meanShiftConstrainWeight, downWeightingByResidual,
                          ( rmsCount > 0 ? (rms / rmsCount) : 0.) );
     }
@@ -1745,7 +1745,7 @@ void HypoDD::fixPhases(CatalogPtr& catalog, const Event& refEv, XCorrCache& xcor
     }
 
     const auto& refEvPhases = catalog->getPhases().equal_range(refEv.id);
-    SEISCOMP_INFO("Event %s total phases %lu, created %u new phases (%u P and %u S)",
+    SEISCOMP_INFO("Event %s total phases %lu: created %u (%u P and %u S) from theoretical picks",
                    string(refEv).c_str(), std::distance(refEvPhases.first, refEvPhases.second),
                    (newP+newS), newP, newS );
 }
