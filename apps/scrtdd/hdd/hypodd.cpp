@@ -550,9 +550,14 @@ HypoDD::relocate(map<unsigned,CatalogPtr>& neighbourCats, bool keepNeighboursFix
                                                      _cfg.solver.downWeightingByResidualEnd);
 
         // solve the system
-        solver.solve(_cfg.solver.solverIterations, dampingFactor,
-                     meanShiftConstrainWeight, downWeightingByResidual,
-                     _cfg.solver.L2normalization);
+        try {
+            solver.solve(_cfg.solver.solverIterations, dampingFactor,
+                         meanShiftConstrainWeight, downWeightingByResidual,
+                         _cfg.solver.L2normalization);
+        } catch ( exception &e ) {
+            SEISCOMP_INFO("Cannot solve the double-different system, stop here (%s)", e.what());
+            break;
+        }
 
         obsparams = ObservationParams();
 

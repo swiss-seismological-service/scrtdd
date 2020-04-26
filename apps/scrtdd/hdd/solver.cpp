@@ -440,6 +440,11 @@ Solver::computePartialDerivatives()
 vector<double>
 Solver::computeResidualWeights(vector<double> residuals, const double alpha)
 {
+    if ( residuals.size() < 1 )
+    {
+        return vector<double>();
+    }
+
     //
     // Find the median absolute deviation of residuals (MAD)
     // 
@@ -568,6 +573,11 @@ void Solver::solve(unsigned numIterations, double dampingFactor,
                    double meanShiftConstrainWeight, double residualDownWeight,
                    bool normalizeG)
 {
+    if ( _observations.size() == 0 )
+    {
+        throw runtime_error("Solver: no observations given");
+    }
+
     if ( _type == "LSQR" )
     {
         _solve<lsqrBase>(numIterations, dampingFactor, meanShiftConstrainWeight,
