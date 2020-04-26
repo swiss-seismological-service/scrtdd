@@ -555,7 +555,7 @@ HypoDD::relocate(map<unsigned,CatalogPtr>& neighbourCats, bool keepNeighboursFix
                          meanShiftConstrainWeight, downWeightingByResidual,
                          _cfg.solver.L2normalization);
         } catch ( exception &e ) {
-            SEISCOMP_INFO("Cannot solve the double-different system, stop here (%s)", e.what());
+            SEISCOMP_INFO("Cannot solve the double-difference system, stop here (%s)", e.what());
             break;
         }
 
