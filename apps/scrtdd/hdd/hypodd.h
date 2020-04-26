@@ -172,7 +172,7 @@ class HypoDD : public Core::BaseObject {
 
         CatalogPtr relocate(std::map<unsigned,CatalogPtr>& neighbourCats,
                             bool keepNeighboursFixed,
-                            const XCorrCache xcorr) const;
+                            const XCorrCache& xcorr) const;
 
         CatalogPtr selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             const Catalog::Event& refEv,

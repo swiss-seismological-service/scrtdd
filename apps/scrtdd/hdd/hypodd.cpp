@@ -499,7 +499,7 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
 
 CatalogPtr
 HypoDD::relocate(map<unsigned,CatalogPtr>& neighbourCats, bool keepNeighboursFixed,
-                 const XCorrCache xcorr) const
+                 const XCorrCache& xcorr) const
 {
     // Build list of selected event
     unordered_set<unsigned> selectedEvents;
