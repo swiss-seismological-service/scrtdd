@@ -478,7 +478,7 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
 
         // The actual relocation
         map<unsigned,CatalogPtr> neighbourCats = {{evToRelocateNewId, neighbourCat}};
-        CatalogPtr relocatedEvCat = relocate(neighbourCats, true, xcorr);
+        relocatedEvCat = relocate(neighbourCats, true, xcorr);
 
         // write catalog for debugging purpose
         if ( ! _workingDirCleanup )
