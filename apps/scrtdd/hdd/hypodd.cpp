@@ -483,7 +483,7 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
         // write catalog for debugging purpose
         if ( ! _workingDirCleanup )
         {
-            neighbourCat->writeToFile(
+            relocatedEvCat->writeToFile(
                 (boost::filesystem::path(workingDir)/"relocated-event.csv").string(),
                 (boost::filesystem::path(workingDir)/"relocated-phase.csv").string(),
                 (boost::filesystem::path(workingDir)/"relocated-station.csv").string());
