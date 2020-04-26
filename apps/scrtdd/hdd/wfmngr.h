@@ -25,8 +25,8 @@
 #include <seiscomp3/core/recordsequence.h>
 #include <seiscomp3/datamodel/utils.h>
 
-#include <set>
-#include <map>
+#include <unordered_set>
+#include <unordered_map>
 #include <vector>
 
 namespace Seiscomp {
@@ -39,7 +39,10 @@ class WfMngr : public Core::BaseObject {
 
     public:
 
-        WfMngr(const std::string& recordStreamURL, const std::string& cacheDir, const std::string& wfDebugDir);
+        WfMngr(const std::string& recordStreamURL,
+               const std::string& cacheDir,
+               const std::string& tmpCacheDir,
+               const std::string& wfDebugDir);
         virtual ~WfMngr() { }
 
         void setWaveformDebug(bool dump ) { _dump = dump; }
@@ -69,13 +72,15 @@ class WfMngr : public Core::BaseObject {
             wf_downloaded = _counters.wf_downloaded;
         }
 
-        typedef std::map<std::string, GenericRecordCPtr> WfCache;
+        typedef std::unordered_map<std::string, GenericRecordCPtr> WfCache;
+
+        enum class CacheType { NONE, PERMANENT, TEMP };
 
         GenericRecordCPtr getWaveform(const Core::TimeWindow& tw,
                                      const Catalog::Event& ev,
                                      const Catalog::Phase& ph,
-                                     std::map<std::string,GenericRecordCPtr>* memCache,
-                                     bool useDiskCache,
+                                     std::unordered_map<std::string,GenericRecordCPtr>* memCache,
+                                     CacheType cacheType,
                                      bool allowSnrCheck);
         //
         //  static: utility functions
@@ -108,19 +113,21 @@ class WfMngr : public Core::BaseObject {
                                       const std::string& stationCode,
                                       const std::string& locationCode,
                                       const std::string& channelCode,
-                                      bool useDiskCache) const;
+                                      const std::string& cacheDir) const;
         GenericRecordPtr loadProjectWaveform(const Core::TimeWindow& tw,
                                              const Catalog::Event& ev,
                                              const Catalog::Phase& ph,
                                              const DataModel::ThreeComponents& tc,
                                              const DataModel::SensorLocation *loc,
-                                             bool useDiskCache) const;
+                                            const std::string& cacheDir) const;
 
-        std::string waveformPath(const Catalog::Phase& ph, const Core::TimeWindow& tw) const;
-
-        std::string waveformPath(const std::string& networkCode, const std::string& stationCode,
-                                 const std::string& locationCode, const std::string& channelCode,
+        std::string waveformPath(const std::string& cacheDir,
+                                 const Catalog::Phase& ph,
                                  const Core::TimeWindow& tw) const;
+
+        std::string waveformPath(const std::string& cacheDir, const std::string& networkCode,
+                                 const std::string& stationCode, const std::string& locationCode,
+                                 const std::string& channelCode,  const Core::TimeWindow& tw) const;
 
         std::string waveformDebugPath(const Catalog::Event& ev, const Catalog::Phase& ph,
                                       const std::string& ext) const;
@@ -138,10 +145,11 @@ class WfMngr : public Core::BaseObject {
     private:
         std::string _recordStreamURL;
         std::string _cacheDir;
+        std::string _tmpCacheDir;
         std::string _wfDebugDir;
-        std::set<std::string> _unloadableWfs;
-        std::set<std::string> _snrGoodWfs;
-        std::set<std::string> _snrExcludedWfs;
+        std::unordered_set<std::string> _unloadableWfs;
+        std::unordered_set<std::string> _snrGoodWfs;
+        std::unordered_set<std::string> _snrExcludedWfs;
 
         bool _dump = false;
 

@@ -266,9 +266,6 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 
     _cache.setPopCallback(boost::bind(&RTDD::removedFromCache, this, _1));
 
-    _processingInfoChannel = nullptr;
-    _processingInfoOutput = nullptr;
-
     NEW_OPT(_config.publicIDPattern, "publicIDpattern");
     NEW_OPT(_config.keepWorkingFiles, "keepWorkingFiles");
     NEW_OPT(_config.onlyPreferredOrigin, "onlyPreferredOrigins");
@@ -285,7 +282,8 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
     NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
                 "Load catalog waveforms from the configured recordstream and save them into the profile working directory", true);
     NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf", "Enable the saving of processed waveforms (filtered/resampled, SNR rejected, ZRT projected, etc) into the profile working directory", false, true);
-    NEW_OPT_CLI(_config.cacheAllWaveforms, "Mode", "debug-wf-cache", "All waveforms will be saved to disk cache, this is useful to speed up debugging/testing. Normally only catalog phase waveforms are cached to disk since they are re-used", false, true); 
+    NEW_OPT_CLI(_config.evalXCorr, "Mode", "eval-xcorr",
+                "Evaluate cross-correlation settings for the given profile", true);
     NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
                 "Time span in hours after which objects expire", true);
 
@@ -314,13 +312,9 @@ RTDD::~RTDD() {
 void RTDD::createCommandLineDescription() {
     Application::createCommandLineDescription();
     commandline().addOption("Mode", "dump-config", "Dump the configuration and exit");  
-    commandline().addOption<string>("MultiEvents", "ph2dt-path", "Specify path to ph2dt executable", nullptr, false);
-    commandline().addOption<string>("MultiEvents", "use-ph2dt", "When relocating a catalog use ph2dt. This option requires a ph2dt control file", nullptr, false);
-    commandline().addOption("MultiEvents", "no-overwrite", "When relocating a profile don't overwrite existing files in the working directory (avoid re-computation and allow manual editing)");
-   commandline().addOption<string>("Catalog", "merge-catalogs-keepid",
+    commandline().addOption<string>("Catalog", "merge-catalogs-keepid",
                 "Similar to --merge-catalogs option but events keeps their ids. If multiple events share the same id, subsequent events will be discarded.", nullptr, false);
     commandline().addOption<string>("Catalog", "dump-catalog-options", "Allows --dump-catalog to accept event ids besides origin ids. For each event id an origin will be selected following the provided options whose format is: 'type,evalmode,includeCreator,excludeCreator,region', where type=preferred|last|first  evalmode=any|onlyManual|onlyAutomatic  includeCreator=any|author|methodID  excludeCreator=none|author|methodID  region=any|profileName e.g. to select preferred origins within my profile region given the input event ids use 'preferred,any,any,none,myProfile", nullptr, false);
- 
 }
 
 
@@ -341,6 +335,7 @@ bool RTDD::validateParameters()
          !_config.mergeCatalogs.empty()   ||
          !_config.dumpCatalogXML.empty()  ||
          !_config.loadProfile.empty()     ||
+         !_config.evalXCorr.empty()       ||
          !_config.relocateProfile.empty() ||
          (!_config.originIDs.empty() && _config.testMode)
        )
@@ -351,11 +346,6 @@ bool RTDD::validateParameters()
     }
 
     _config.workingDirectory = env->absolutePath(configGetPath("workingDirectory"));
-
-    std::string hypoddExec = "hypodd";
-    try {
-        hypoddExec = env->absolutePath(configGetPath("hypoddPath"));
-    } catch ( ... ) { }
 
     bool profilesOK = true;
 
@@ -410,7 +400,7 @@ bool RTDD::validateParameters()
         // check if the file contains only seiscomp event/origin ids
         bool eventIdOnly = false;
         try {
-            eventIdOnly = CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0;
+            eventIdOnly = HDD::CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0;
         } catch ( exception &e ) {
             SEISCOMP_ERROR("%seventFile: cannot read catalog %s (%s)", prefix.c_str(), eventFile.c_str(), e.what());
             profilesOK = false;
@@ -462,9 +452,6 @@ bool RTDD::validateParameters()
 
         prefix = string("profile.") + *it + ".step1options.clustering.phaseSelection.";
         try {
-            prof->ddcfg.step1Clustering.minWeight = configGetDouble(prefix + "minWeight");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.minWeight = 0; }
-        try {
             prof->ddcfg.step1Clustering.minESdist = configGetDouble(prefix + "minStationDistance");
         } catch ( ... ) { prof->ddcfg.step1Clustering.minESdist = 0; }
         try {
@@ -473,11 +460,6 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.step1Clustering.minEStoIEratio = configGetDouble(prefix + "minStaionToEventPairDistRatio");
         } catch ( ... ) { prof->ddcfg.step1Clustering.minEStoIEratio = 0; } 
-
-        prefix = string("profile.") + *it + ".step1options.hypoDD.";
-        try {
-            prof->ddcfg.hypodd.step1CtrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
-        } catch ( ... ) { }
 
         prefix = string("profile.") + *it + ".step2options.clustering.";
         prof->ddcfg.step2Clustering.recordStreamURL = recordStreamURL();
@@ -504,9 +486,6 @@ bool RTDD::validateParameters()
 
         prefix = string("profile.") + *it + ".step2options.clustering.phaseSelection.";
         try {
-            prof->ddcfg.step2Clustering.minWeight = configGetDouble(prefix + "minWeight");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.minWeight = 0; }
-        try {
             prof->ddcfg.step2Clustering.minESdist = configGetDouble(prefix + "minStationDistance");
         } catch ( ... ) { prof->ddcfg.step2Clustering.minESdist = 0; }
         try {
@@ -515,9 +494,6 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.step2Clustering.minEStoIEratio = configGetDouble(prefix + "minStaionToEventPairDistRatio");
         } catch ( ... ) { prof->ddcfg.step2Clustering.minEStoIEratio = 0; } 
-
-        prefix = string("profile.") + *it + ".step2options.hypoDD.";
-        prof->ddcfg.hypodd.step2CtrlFile = env->absolutePath(configGetPath(prefix + "controlFile"));
 
         prefix = string("profile.") + *it + ".step2options.crosscorrelation.p-phase.";
         try {
@@ -579,14 +555,57 @@ bool RTDD::validateParameters()
             }
         }
 
-        prof->ddcfg.hypodd.exec = hypoddExec;
+        prefix = string("profile.") + *it + ".solver.";
+        try {
+            prof->ddcfg.ttt.type = configGetString(prefix + "travelTimeTable.tableType");
+        } catch ( ... ) { prof->ddcfg.ttt.type = "LOCSAT"; }
+        try {
+            prof->ddcfg.ttt.model = configGetString(prefix + "travelTimeTable.tableModel");
+        } catch ( ... ) { prof->ddcfg.ttt.model = "iasp91"; } 
+        try {
+            prof->ddcfg.solver.type = configGetString(prefix + "solverType");
+        } catch ( ... ) { prof->ddcfg.solver.type = "LSMR"; }
+        try {
+            prof->ddcfg.solver.solverIterations = configGetInt(prefix + "solverIterations");
+        } catch ( ... ) { prof->ddcfg.solver.solverIterations = 0; }
+        try {
+            prof->ddcfg.solver.algoIterations = configGetInt(prefix + "algoIterations");
+        } catch ( ... ) { prof->ddcfg.solver.algoIterations = 20; } 
+        try {
+            prof->ddcfg.solver.dampingFactorStart = configGetDouble(prefix + "dampingFactor.startingValue");
+        } catch ( ... ) { prof->ddcfg.solver.dampingFactorStart = 0.; } 
+        try {
+            prof->ddcfg.solver.dampingFactorEnd = configGetDouble(prefix + "dampingFactor.finalValue");
+        } catch ( ... ) { prof->ddcfg.solver.dampingFactorEnd = 0.; }
+        try {
+            prof->ddcfg.solver.meanShiftConstrainWeightStart = configGetDouble(prefix + "meanShiftConstrainWeight.startingValue");
+        } catch ( ... ) { prof->ddcfg.solver.meanShiftConstrainWeightStart = 0.9; } 
+        try {
+            prof->ddcfg.solver.meanShiftConstrainWeightEnd = configGetDouble(prefix + "meanShiftConstrainWeight.finalValue");
+        } catch ( ... ) { prof->ddcfg.solver.meanShiftConstrainWeightEnd = 0.6; }
+        try {
+            prof->ddcfg.solver.downWeightingByResidualStart = configGetDouble(prefix + "downWeightingByResidual.startingValue");
+        } catch ( ... ) { prof->ddcfg.solver.downWeightingByResidualStart = 10.; } 
+        try {
+            prof->ddcfg.solver.downWeightingByResidualEnd = configGetDouble(prefix + "downWeightingByResidual.finalValue");
+        } catch ( ... ) { prof->ddcfg.solver.downWeightingByResidualEnd = 3.; } 
+        try {
+            prof->ddcfg.solver.usePickUncertainty = configGetBool(prefix + "aPrioriWeights.usePickUncertainties");
+        } catch ( ... ) { prof->ddcfg.solver.usePickUncertainty = false; }
+        try {
+            prof->ddcfg.solver.absTTDiffObsWeight = configGetDouble(prefix + "aPrioriWeights.absoluteTTObsWeight");
+        } catch ( ... ) { prof->ddcfg.solver.absTTDiffObsWeight = 1.0; }
+        try {
+            prof->ddcfg.solver.xcorrObsWeight = configGetDouble(prefix + "aPrioriWeights.xcorrObsWeight");
+        } catch ( ... ) { prof->ddcfg.solver.xcorrObsWeight = 1.0; }
 
-        if ( commandline().hasOption("ph2dt-path") )
-            prof->ddcfg.ph2dt.exec = env->absolutePath(commandline().option<string>("ph2dt-path"));
-        if ( commandline().hasOption("use-ph2dt") )
-            prof->ddcfg.ph2dt.ctrlFile = env->absolutePath(commandline().option<string>("use-ph2dt"));
 
-        prof->ddcfg.artificialPhases.enable = true; // no reason to make this configurable
+
+        // no reason to make those configurable 
+        prof->ddcfg.step1Clustering.minWeight = 0;
+        prof->ddcfg.step2Clustering.minWeight = 0;
+        prof->ddcfg.artificialPhases.enable = true;
+        prof->ddcfg.solver.L2normalization = true;
 
         _profiles.push_back(prof);
     }
@@ -639,12 +658,6 @@ bool RTDD::init() {
         }
     }
 
-    // Log into processing/info to avoid logging the same information into the global info channel
-    _processingInfoChannel = SEISCOMP_DEF_LOGCHANNEL("processing/info", Logging::LL_INFO);
-    _processingInfoOutput = new Logging::FileRotatorOutput(Environment::Instance()->logFile("scrtdd-processing-info").c_str(),  60*60*24, 30);
-
-    _processingInfoOutput->subscribe(_processingInfoChannel);
-
     _inputEvts = addInputObjectLog("event");
     _inputOrgs = addInputObjectLog("origin");
     _outputOrgs = addOutputObjectLog("origin", primaryMessagingGroup());
@@ -678,7 +691,30 @@ bool RTDD::run()
         ar.close();
     }
 
-    // load catalog and exit
+    // evaluate cross-correlation settings and exit
+    if ( !_config.evalXCorr.empty() )
+    {
+        // do not preload profile
+        _config.profileTimeAlive = 3600;
+        _config.cacheAllWaveforms = true;
+
+        for ( ProfilePtr profile : _profiles )
+        {
+            if ( profile->name == _config.evalXCorr)
+            {
+                profile->load(query(), &_cache, _eventParameters.get(),
+                              _config.workingDirectory, !_config.keepWorkingFiles,
+                              _config.cacheWaveforms, _config.cacheAllWaveforms, 
+                              _config.dumpWaveforms, false); 
+                profile->evalXCorr();
+                profile->unload();
+                break;
+            }
+        } 
+        return true;
+    }
+
+    // load catalog waveforms and exit
     if ( !_config.loadProfile.empty() )
     {
         for ( ProfilePtr profile : _profiles )
@@ -687,7 +723,8 @@ bool RTDD::run()
             {
                 profile->load(query(), &_cache, _eventParameters.get(),
                               _config.workingDirectory, !_config.keepWorkingFiles,
-                              true, _config.cacheAllWaveforms, _config.dumpWaveforms, true);
+                              true, _config.cacheAllWaveforms,
+                              _config.dumpWaveforms, true);
                 profile->unload();
                 break;
             }
@@ -787,8 +824,7 @@ bool RTDD::run()
     // relocate full catalog and exit
     if ( !_config.relocateProfile.empty() )
     {
-        bool overwrite_files = ! commandline().hasOption("no-overwrite");
-
+        _config.cacheAllWaveforms = true;
         for ( ProfilePtr profile : _profiles )
         {
             if ( profile->name == _config.relocateProfile)
@@ -798,7 +834,7 @@ bool RTDD::run()
                               _config.cacheWaveforms, _config.cacheAllWaveforms, 
                               _config.dumpWaveforms, false);
                 try {
-                    HDD::CatalogPtr relocatedCat = profile->relocateCatalog(overwrite_files);
+                    HDD::CatalogPtr relocatedCat = profile->relocateCatalog();
                     relocatedCat->writeToFile("reloc-event.csv","reloc-phase.csv","reloc-station.csv");
                     SEISCOMP_INFO("Wrote files reloc-event.csv, reloc-phase.csv, reloc-station.csv");
                 } catch ( exception &e ) {
@@ -814,11 +850,9 @@ bool RTDD::run()
     // relocate passed origin and exit
     if ( !_config.originIDs.empty() )
     {
-        // force process of any origin
-        _config.forceProcessing = true;
-
-        // do not preload profile
-        _config.profileTimeAlive = 3600;
+        _config.cacheAllWaveforms = true;
+        _config.forceProcessing = true; // force process of any origin 
+        _config.profileTimeAlive = 3600; // do not preload profile 
 
         // split multiple origins
         std::vector<std::string> ids;
@@ -859,11 +893,9 @@ bool RTDD::run()
             return false;
         }
 
-        // force process of any origin
-        _config.forceProcessing = true;
-
-        // do not preload profile
-        _config.profileTimeAlive = 3600;
+        _config.cacheAllWaveforms = true;
+        _config.forceProcessing = true; // force process of any origin 
+        _config.profileTimeAlive = 3600; // do not preload profile  
 
          vector<OriginPtr> origins;
         for(unsigned i = 0; i < _eventParameters->originCount(); i++)
@@ -898,9 +930,6 @@ void RTDD::done() {
 
     // Remove crontab log file if exists
     unlink((Environment::Instance()->logDir() + "/" + name() + ".sched").c_str());
-
-    if ( _processingInfoChannel ) delete _processingInfoChannel;
-    if ( _processingInfoOutput )  delete _processingInfoOutput;
 }
 
 
@@ -1424,15 +1453,12 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     newOrg->setTime(DataModel::TimeQuantity(event.time));
 
     RealQuantity latitude = DataModel::RealQuantity(event.latitude);
-    if ( event.relocInfo.isRelocated ) latitude.setUncertainty(event.relocInfo.latUncertainty);
-    newOrg->setLatitude(latitude);
+    newOrg->setLatitude(event.latitude);
 
     RealQuantity longitude = DataModel::RealQuantity(normalizeLon(event.longitude));
-    if ( event.relocInfo.isRelocated ) longitude.setUncertainty(event.relocInfo.lonUncertainty);
     newOrg->setLongitude(longitude);
 
     RealQuantity depth = DataModel::RealQuantity(event.depth);
-    if ( event.relocInfo.isRelocated ) depth.setUncertainty(event.relocInfo.depthUncertainty);
     newOrg->setDepth(depth);
 
     if ( event.relocInfo.isRelocated )
@@ -1726,7 +1752,7 @@ RTDD::fetchOrigins(const std::string& idFile, std::string options)
     // fetch origins
     vector<DataModel::OriginPtr> origins;
 
-    for(const auto& row : CSV::readWithHeader(idFile) )
+    for(const auto& row : HDD::CSV::readWithHeader(idFile) )
     {
         const string& id = row.at("seiscompId");
 
@@ -1896,7 +1922,7 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
     HDD::CatalogPtr orgToRelocate = new HDD::Catalog(
         hypodd->getCatalog()->getStations(),
         map<unsigned,HDD::Catalog::Event>(),
-        multimap<unsigned,HDD::Catalog::Phase>()
+        unordered_multimap<unsigned,HDD::Catalog::Phase>()
     );
     orgToRelocate->add({org}, dataSrc);
     return hypodd->relocateSingleEvent(orgToRelocate);
@@ -1904,7 +1930,7 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
 
 
 
-HDD::CatalogPtr RTDD::Profile::relocateCatalog(bool force)
+HDD::CatalogPtr RTDD::Profile::relocateCatalog()
 {
     if ( !loaded )
     {
@@ -1912,10 +1938,20 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog(bool force)
         throw runtime_error(msg.c_str());
     }
     lastUsage = Core::Time::GMT();
-    return hypodd->relocateCatalog(force, ! ddcfg.ph2dt.ctrlFile.empty());
+    return hypodd->relocateCatalog();
 }
 
 
+void RTDD::Profile::evalXCorr()
+{
+    if ( !loaded )
+    {
+        string msg = Core::stringify("Cannot evalute cross-correlation settings, profile %s not initialized", name.c_str());
+        throw runtime_error(msg.c_str());
+    }
+    lastUsage = Core::Time::GMT();
+    hypodd->evalXCorr();
+}
 
 // End Profile class
 

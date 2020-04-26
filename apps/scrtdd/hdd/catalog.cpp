@@ -187,17 +187,17 @@ Catalog::findSensorLocation(const std::string &networkCode,
 
 
 
-Catalog::Catalog() : Catalog(map<string,Station>(),
+Catalog::Catalog() : Catalog(unordered_map<string,Station>(),
                              map<unsigned,Event>(),
-                             multimap<unsigned,Phase>())
+                             unordered_multimap<unsigned,Phase>())
 {
 }
 
 
 
-Catalog::Catalog(const map<string,Station>& stations,
+Catalog::Catalog(const unordered_map<string,Station>& stations,
                  const map<unsigned,Event>& events,
-                 const multimap<unsigned,Phase>& phases)
+                 const unordered_multimap<unsigned,Phase>& phases)
         : _stations(stations),
           _events(events),
           _phases(phases) 
@@ -205,9 +205,9 @@ Catalog::Catalog(const map<string,Station>& stations,
 }
 
 
-Catalog::Catalog(map<string,Station>&& stations,
+Catalog::Catalog(unordered_map<string,Station>&& stations,
                  map<unsigned,Event>&& events,
-                 multimap<unsigned,Phase>&& phases)
+                 unordered_multimap<unsigned,Phase>&& phases)
         : _stations(stations),
           _events(events),
           _phases(phases) 
@@ -274,7 +274,7 @@ Catalog::Catalog(const string& stationFile,
         throw runtime_error(msg);
     }
 
-    vector<map<string,string> > stations = CSV::readWithHeader(stationFile);
+    vector<unordered_map<string,string> > stations = CSV::readWithHeader(stationFile);
 
     for (const auto& row : stations )
     {
@@ -289,7 +289,7 @@ Catalog::Catalog(const string& stationFile,
         _stations[sta.id] = sta;
     }
 
-    vector<map<string,string> >events = CSV::readWithHeader(eventFile);
+    vector<unordered_map<string,string> >events = CSV::readWithHeader(eventFile);
 
     for (const auto& row : events )
     {
@@ -300,28 +300,21 @@ Catalog::Catalog(const string& stationFile,
         ev.longitude   = std::stod(row.at("longitude"));
         ev.depth       = std::stod(row.at("depth"));
         ev.magnitude   = std::stod(row.at("magnitude"));
-        ev.horiz_err   = std::stod(row.at("horizontal_err"));
-        ev.vert_err    = std::stod(row.at("vertical_err"));
         ev.rms         = std::stod(row.at("rms"));
         ev.relocInfo.isRelocated = false;
         if ( loadRelocationInfo && (row.count("relocated") != 0) && strToBool(row.at("relocated")) )
         {
             ev.relocInfo.isRelocated = true;
-            ev.relocInfo.lonUncertainty   = std::stod(row.at("lonUncertainty"));
-            ev.relocInfo.latUncertainty   = std::stod(row.at("latUncertainty"));
-            ev.relocInfo.depthUncertainty = std::stod(row.at("depthUncertainty"));
             ev.relocInfo.numCCp           = std::stoi(row.at("numCCp"));
             ev.relocInfo.numCCs           = std::stoi(row.at("numCCs"));
             ev.relocInfo.numCTp           = std::stoi(row.at("numCTp"));
             ev.relocInfo.numCTs           = std::stoi(row.at("numCTs"));
-            ev.relocInfo.rmsResidualCC    = std::stod(row.at("residualCC"));
-            ev.relocInfo.rmsResidualCT    = std::stod(row.at("residualCT"));
             ev.relocInfo.numNeighbours    = std::stod(row.at("numNeighbours"));
         }
         _events[ev.id] = ev;
     }
 
-    vector<map<string,string> >phases = CSV::readWithHeader(phaFile);
+    vector<unordered_map<string,string> >phases = CSV::readWithHeader(phaFile);
 
     for (const auto& row : phases )
     {
@@ -373,8 +366,6 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
         ev.latitude    = org->latitude();
         ev.longitude   = org->longitude();
         ev.depth       = org->depth(); // km
-        ev.horiz_err   = 0;
-        ev.vert_err    = 0;
         try {
             ev.rms = org->quality().standardError();
         } catch ( ... ) {  ev.rms = 0; }
@@ -399,8 +390,7 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
 
         SEISCOMP_DEBUG("Adding origin '%s' to the catalog", org->publicID().c_str());
 
-        this->addEvent(ev);
-        Event& newEvent = searchByValue(this->_events, ev)->second;  // fetch the id
+        unsigned newEventId = this->addEvent(ev);
 
         // Add Phases
         for ( size_t i = 0; i < org->arrivalCount(); ++i )
@@ -460,7 +450,7 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
             pair<double,double> uncertainty = getPickUncertainty(pick.get());
 
             Phase ph;
-            ph.eventId          = newEvent.id;
+            ph.eventId          = newEventId;
             ph.stationId        = sta.id;
             ph.time             = pick->time().value();
             ph.lowerUncertainty = uncertainty.first;
@@ -507,7 +497,7 @@ void Catalog::add(const std::string& idFile, DataSource& dataSrc)
     }
 
     vector<string> ids;
-    vector< map<string,string> > rows = CSV::readWithHeader(idFile);
+    vector< unordered_map<string,string> > rows = CSV::readWithHeader(idFile);
 
     for(const auto& row : rows)
     {
@@ -557,8 +547,7 @@ CatalogPtr Catalog::extractEvent(unsigned eventId, bool keepEvId) const
     }
     else
     {
-        eventToExtract->addEvent(event);
-        newEventId = eventToExtract->searchEvent(event)->first;
+        newEventId = eventToExtract->addEvent(event);
     }
 
     auto eqlrng = this->getPhases().equal_range(event.id);
@@ -594,8 +583,7 @@ unsigned Catalog::add(unsigned evId, const Catalog& evCat, bool keepEvId)
     else
     {
         // don't add an event with same values, but keep merging phases
-        addEvent(event);
-        newEventId = searchEvent(event)->first;
+        newEventId = addEvent(event);
     }
 
     auto eqlrng = evCat._phases.equal_range(event.id);
@@ -614,19 +602,6 @@ unsigned Catalog::add(unsigned evId, const Catalog& evCat, bool keepEvId)
 }
 
 
-
-void Catalog::removeEvent(const Event& event)
-{
-    map<unsigned,Catalog::Event>::const_iterator it = searchEvent(event);
-    if ( it != _events.end() )
-    {
-        _events.erase(it);
-        auto eqlrng = _phases.equal_range(it->second.id);
-        _phases.erase(eqlrng.first, eqlrng.second);
-    }
-}
-
-
 void Catalog::removeEvent(unsigned eventId)
 {
     map<unsigned,Catalog::Event>::const_iterator it = _events.find(eventId);
@@ -639,19 +614,9 @@ void Catalog::removeEvent(unsigned eventId)
 }
 
 
-void Catalog::removePhase(const Phase& phase)
-{
-    std::map<unsigned,Phase>::const_iterator it = searchPhase(phase);
-    if ( it != _phases.end() )
-    {
-        _phases.erase(it);
-    }
-}
-
-
 void Catalog::removePhase(unsigned eventId, const std::string& stationId, const Phase::Type& type)
 {
-    std::map<unsigned,Phase>::const_iterator it = searchPhase(eventId, stationId, type);
+    unordered_map<unsigned,Phase>::const_iterator it = searchPhase(eventId, stationId, type);
     if ( it != _phases.end() )
     {
         _phases.erase(it);
@@ -659,19 +624,23 @@ void Catalog::removePhase(unsigned eventId, const std::string& stationId, const 
 }
 
 
-bool Catalog::updateStation(const Station& newStation)
+bool Catalog::updateStation(const Station& newStation, bool addIfMissing)
 {
-    map<string,Catalog::Station>::iterator it = _stations.find(newStation.id);
+    unordered_map<string,Catalog::Station>::iterator it = _stations.find(newStation.id);
     if ( it != _stations.end() )
     {
         it->second = newStation;
         return true;
     }
+    else if ( addIfMissing )
+    {
+        addStation(newStation);
+    } 
     return false;
 }
 
 
-bool Catalog::updateEvent(const Event& newEv)
+bool Catalog::updateEvent(const Event& newEv, bool addIfMissing)
 {
     map<unsigned,Catalog::Event>::iterator it = _events.find(newEv.id);
     if ( it != _events.end() )
@@ -679,47 +648,44 @@ bool Catalog::updateEvent(const Event& newEv)
         it->second = newEv;
         return true;
     }
+    else if ( addIfMissing )
+    {
+        addEvent(newEv);
+    }
     return false;
 }
 
 
-bool Catalog::updatePhase(const Phase& newPh)
+bool Catalog::updatePhase(const Phase& newPh, bool addIfMissing)
 {
     auto eqlrng = _phases.equal_range(newPh.eventId);
-    auto it = eqlrng.first;
-    bool updated = false;
-    while ( it != eqlrng.second )
+    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
-        Catalog::Phase& oldPh = it->second;
-        if ( oldPh.stationId == newPh.stationId )
+        Catalog::Phase& ph = it->second;
+        if ( ph.stationId     == newPh.stationId &&
+             ph.procInfo.type == newPh.procInfo.type )
         {
-            oldPh = newPh;
-            updated = true;
+            ph = newPh;
+            return true;
         }
     }
-    return updated;
+
+    if ( addIfMissing )
+    {
+        addPhase(newPh);
+    }
+    return false;
 }
 
 
-map<string,Catalog::Station>::const_iterator Catalog::searchStation(const Station& station) const
-{
-    return searchByValue(_stations, station);
-}
-
-
-map<unsigned,Catalog::Event>::const_iterator Catalog::searchEvent(const Event& event) const
+map<unsigned,Catalog::Event>::const_iterator
+Catalog::searchEvent(const Event& event) const
 {
     return searchByValue(_events, event);
 }
 
 
-map<unsigned,Catalog::Phase>::const_iterator Catalog::searchPhase(const Phase& phase) const
-{
-    return searchByValue(_phases, phase);
-}
-
-
-std::map<std::string,Catalog::Station>::const_iterator 
+unordered_map<std::string,Catalog::Station>::const_iterator 
 Catalog::searchStation(const std::string& networkCode,
                        const std::string& stationCode,
                        const std::string& locationCode) const
@@ -729,7 +695,7 @@ Catalog::searchStation(const std::string& networkCode,
 }
 
 
-map<unsigned,Catalog::Phase>::const_iterator
+unordered_map<unsigned,Catalog::Phase>::const_iterator
 Catalog::searchPhase(unsigned eventId, const std::string& stationId, const Phase::Type& type) const
 {
     auto eqlrng = _phases.equal_range(eventId);
@@ -743,23 +709,26 @@ Catalog::searchPhase(unsigned eventId, const std::string& stationId, const Phase
 }
 
 
-void Catalog::addStation(const Station& sta)
+string Catalog::addStation(const Station& sta)
 {
-    if ( searchStation(sta.networkCode, sta.stationCode, sta.locationCode) == _stations.end() )
+    string stationId = sta.networkCode + "." + sta.stationCode + "." + sta.locationCode;
+    if ( _stations.find(stationId) == _stations.end() )
     {
         Station newSta = sta;
-        newSta.id = newSta.networkCode + "." + newSta.stationCode + "." + newSta.locationCode;
+        newSta.id = stationId;
         _stations[newSta.id] = newSta;
     }
+    return stationId;
 }
 
 
-void Catalog::addEvent(const Event& event)
+unsigned Catalog::addEvent(const Event& event)
 {
     decltype(_events)::key_type maxKey = _events.empty() ? 0 : _events.rbegin()->first;
     Event newEvent = event;
     newEvent.id = maxKey + 1;
     _events[newEvent.id] = newEvent;
+    return newEvent.id;
 }
 
 
@@ -776,8 +745,8 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
     stringstream evStreamNoReloc;
     stringstream evStreamReloc;
 
-    evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude,horizontal_err,vertical_err,rms"; 
-    evStreamReloc << evStreamNoReloc.str() << ",relocated,numNeighbours,numCCp,numCCs,numCTp,numCTs,residualCC,residualCT,lonUncertainty,latUncertainty,depthUncertainty" << endl;
+    evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude,rms"; 
+    evStreamReloc << evStreamNoReloc.str() << ",relocated,numNeighbours,numCCp,numCCs,numCTp,numCTs" << endl;
     evStreamNoReloc << endl;
 
     bool relocInfo = false;
@@ -786,10 +755,9 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
         const Catalog::Event& ev = kv.second;
 
         stringstream evStream;
-        evStream << stringify("%u,%s,%.6f,%.6f,%.4f,%.2f,%.4f,%.4f,%.4f",
+        evStream << stringify("%u,%s,%.6f,%.6f,%.4f,%.2f,%.4f",
                               ev.id,ev.time.iso().c_str(),
-                              ev.latitude,ev.longitude,ev.depth,ev.magnitude,
-                              ev.horiz_err,ev.vert_err,ev.rms);
+                              ev.latitude,ev.longitude,ev.depth,ev.magnitude,ev.rms);
 
         evStreamNoReloc << evStream.str() << endl;
         evStreamReloc   << evStream.str();
@@ -801,12 +769,10 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
         else
         {
             relocInfo = true;
-            evStreamReloc <<  stringify(",true,%d,%d,%d,%d,%d,%.4f,%.4f,%.6f,%.6f,%.6f",
-                                  ev.relocInfo.numNeighbours, ev.relocInfo.numCCp, ev.relocInfo.numCCs,
-                                  ev.relocInfo.numCTp, ev.relocInfo.numCTs,
-                                  ev.relocInfo.rmsResidualCC, ev.relocInfo.rmsResidualCT, 
-                                  ev.relocInfo.lonUncertainty, ev.relocInfo.latUncertainty,
-                                  ev.relocInfo.depthUncertainty );
+            evStreamReloc <<  stringify(",true,%d,%d,%d,%d,%d",
+                                  ev.relocInfo.numNeighbours,
+                                  ev.relocInfo.numCCp, ev.relocInfo.numCCs,
+                                  ev.relocInfo.numCTp, ev.relocInfo.numCTs);
         }
         evStreamReloc << endl;
     }
@@ -826,7 +792,8 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
     }
     phStream << endl;
 
-    for (const auto& kv : _phases )
+    const multimap<unsigned,Catalog::Phase> orderedPhases(_phases.begin(), _phases.end());
+    for ( const auto& kv : orderedPhases )
     {
         const Catalog::Phase& ph = kv.second;
         phStream << stringify("%u,%s,%s,%.3f,%.3f,%s,%s,%s,%s,%s,%s",
@@ -856,7 +823,9 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
      * */
     ofstream staStream(stationFile);
     staStream << "id,latitude,longitude,elevation,networkCode,stationCode,locationCode" << endl;
-    for (const auto& kv : _stations )
+
+    const map<string,Catalog::Station> orderedStations(_stations.begin(), _stations.end());
+    for (const auto& kv : orderedStations )
     {
         const Catalog::Station& sta = kv.second;
         staStream << stringify("%s,%.6f,%.6f,%.1f,%s,%s,%s",
@@ -876,12 +845,12 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
  */
 CatalogPtr 
 Catalog::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
-                                             const Phase::Source& source,
-                                             const std::vector<std::string>& PphaseToKeep,
-                                             const std::vector<std::string>& SphaseToKeep)
+                                   const Phase::Source& source,
+                                   const std::vector<std::string>& PphaseToKeep,
+                                   const std::vector<std::string>& SphaseToKeep)
 {
-    multimap<unsigned,Phase> filteredS;
-    multimap<unsigned,Phase> filteredP;
+    unordered_multimap<unsigned,Phase> filteredS;
+    unordered_multimap<unsigned,Phase> filteredP;
 
     // loop through each event
     for (const auto& kv :  catalog->getEvents() )
@@ -965,7 +934,7 @@ Catalog::filterPhasesAndSetWeights(const CatalogCPtr& catalog,
 
     // loop through selected phases and replace actual phase name
     //  with a generic P or S
-    multimap<unsigned,Phase> filteredPhases;
+    unordered_multimap<unsigned,Phase> filteredPhases;
     for (auto& it : filteredP)
     {
         Phase& phase = it.second;

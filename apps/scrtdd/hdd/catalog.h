@@ -26,7 +26,7 @@
 #include <seiscomp3/datamodel/databasequery.h>
 #include <seiscomp3/datamodel/origin.h>
 
-#include <map>
+#include <unordered_map>
 #include <vector>
 
 namespace Seiscomp {
@@ -75,21 +75,14 @@ class Catalog : public Core::BaseObject {
             double longitude;
             double depth;   // km
             double magnitude;
-            double horiz_err;
-            double vert_err;
             double rms;
 
             struct {
                 bool isRelocated = false;
-                double lonUncertainty;
-                double latUncertainty;
-                double depthUncertainty;
                 int numCCp;
                 int numCCs;
                 int numCTp;
                 int numCTs;
-                double rmsResidualCC;
-                double rmsResidualCT;
                 int numNeighbours;
             } relocInfo;
 
@@ -101,8 +94,6 @@ class Catalog : public Core::BaseObject {
                     (longitude == other.longitude) &&
                     (depth == other.depth) &&
                     (magnitude == other.magnitude) &&
-                    (horiz_err == other.horiz_err) &&
-                    (vert_err == other.vert_err) &&
                     (rms == other.rms);
             }
             bool operator!=(const Event& other) const
@@ -182,12 +173,12 @@ class Catalog : public Core::BaseObject {
         Catalog& operator=(Catalog&& other);
 
         // custom data format constructors
-        Catalog(std::map<std::string,Station>&& stations,
+        Catalog(std::unordered_map<std::string,Station>&& stations,
                 std::map<unsigned,Event>&& events,
-                std::multimap<unsigned,Phase>&& phases);
-        Catalog(const std::map<std::string,Station>& stations,
+                std::unordered_multimap<unsigned,Phase>&& phases);
+        Catalog(const std::unordered_map<std::string,Station>& stations,
                 const std::map<unsigned,Event>& events,
-                const std::multimap<unsigned,Phase>& phases);
+                const std::unordered_multimap<unsigned,Phase>& phases);
         Catalog(const std::string& stationFile,
                 const std::string& eventFile,
                 const std::string& phaseFile,
@@ -202,32 +193,27 @@ class Catalog : public Core::BaseObject {
         unsigned add(unsigned evId, const Catalog& eventCatalog, bool keepEvId);
         CatalogPtr extractEvent(unsigned eventId, bool keepEvId) const;
 
-        void removeEvent(const Event& event);
         void removeEvent(unsigned eventId);
-        void removePhase(const Phase& phase);
         void removePhase(unsigned eventId, const std::string& stationId, const Phase::Type& type);
 
-        void addStation(const Station&);
-        void addEvent(const Event&);
+        std::string addStation(const Station&);
+        unsigned addEvent(const Event&);
         void addPhase(const Phase&);
 
-        bool updateStation(const Station& newStation);
-        bool updateEvent(const Event& newEv);
-        bool updatePhase(const Phase& newPh);
+        bool updateStation(const Station& newStation, bool addIfMissing=false);
+        bool updateEvent(const Event& newEv, bool addIfMissing=false);
+        bool updatePhase(const Phase& newPh, bool addIfMissing=false);
 
-        const std::map<std::string,Station>& getStations() const { return _stations;}
+        const std::unordered_map<std::string,Station>& getStations() const { return _stations;}
         const std::map<unsigned,Event>& getEvents() const { return _events;}
-        const std::multimap<unsigned,Phase>& getPhases() const { return _phases;}
+        const std::unordered_multimap<unsigned,Phase>& getPhases() const { return _phases;}
 
-        // search by value when the Id is not known
-        std::map<std::string,Station>::const_iterator searchStation(const Station&) const;
-        std::map<unsigned,Event>::const_iterator searchEvent(const Event&) const;
-        std::map<unsigned,Phase>::const_iterator searchPhase(const Phase&) const;
-        std::map<std::string,Station>::const_iterator
+        std::unordered_map<std::string,Station>::const_iterator
         searchStation(const std::string& networkCode,
                       const std::string& stationCode,
                       const std::string& locationCode) const;
-        std::map<unsigned,Phase>::const_iterator
+        std::map<unsigned,Event>::const_iterator searchEvent(const Event&) const;
+        std::unordered_map<unsigned,Phase>::const_iterator
         searchPhase(unsigned eventId, const std::string& stationId, const Phase::Type& type) const;
 
         void writeToFile(std::string eventFile,
@@ -258,9 +244,9 @@ class Catalog : public Core::BaseObject {
 
     private:
 
-        std::map<std::string,Station> _stations; // indexed by station id
+        std::unordered_map<std::string,Station> _stations; // indexed by station id
         std::map<unsigned,Event> _events; //indexed by event id
-        std::multimap<unsigned,Phase> _phases; //indexed by event id
+        std::unordered_multimap<unsigned,Phase> _phases; //indexed by event id
 };
 
 

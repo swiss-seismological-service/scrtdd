@@ -17,7 +17,6 @@
 
 #include <string>
 #include <vector>
-#include <map>
 #include <iterator>
 #include <istream>
 #include <fstream>
@@ -27,6 +26,8 @@
 
 using namespace std;
 
+namespace Seiscomp {
+namespace HDD {
 namespace CSV {
 
 enum class CSVState {
@@ -109,15 +110,15 @@ vector<vector<string>> read(const string &filename)
     return read(csvfile);
 }
 
-vector< map<string,string> > format(const vector<string>& header,
+vector< unordered_map<string,string> > format(const vector<string>& header,
                                     const vector<vector<string>>::const_iterator& begin,
                                     const vector<vector<string>>::const_iterator& end)
 {
-    vector< map<string,string> > rows;
+    vector< unordered_map<string,string> > rows;
     for (auto it = begin; it != end; it++)
     {
         const vector<string> columns = *it;
-        map<string,string> row;
+        unordered_map<string,string> row;
         for (size_t i = 0; i < header.size(); ++i)
         {
             row[ header[i] ] = columns[i];
@@ -127,20 +128,20 @@ vector< map<string,string> > format(const vector<string>& header,
     return rows;
 }
 
-vector< map<string,string> > readWithHeader(istream &in)
+vector< unordered_map<string,string> > readWithHeader(istream &in)
 {
     vector<vector<string>> rows = read(in);
     return format(rows[0], rows.begin()+1, rows.end());
 }
 
-vector< map<string,string> > readWithHeader(istream &in,
+vector< unordered_map<string,string> > readWithHeader(istream &in,
                                             const vector<string>& header)
 {
     vector<vector<string>> rows = read(in);
     return format(header, rows.begin(), rows.end());
 }
 
-vector< map<string,string> > readWithHeader(const string &filename)
+vector< unordered_map<string,string> > readWithHeader(const string &filename)
 {
     ifstream csvfile;
     csvfile.exceptions(std::ios::failbit | std::ios::badbit);
@@ -149,7 +150,7 @@ vector< map<string,string> > readWithHeader(const string &filename)
     return readWithHeader(csvfile);
 }
 
-vector< map<string,string> > readWithHeader(const string &filename,
+vector< unordered_map<string,string> > readWithHeader(const string &filename,
                                             const vector<string>& header)
 {
     ifstream csvfile;
@@ -159,4 +160,6 @@ vector< map<string,string> > readWithHeader(const string &filename,
     return readWithHeader(csvfile, header);
 }
 
-} // CSV
+}
+}
+}

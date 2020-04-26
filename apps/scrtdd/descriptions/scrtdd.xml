@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <seiscomp>
     <module name="scrtdd" category="Processing" inherit-global-bindings="true">
-        <description>Real Time Double-Difference location module.</description>
+        <description>Double-Difference relocation module for real-time and catalogs relocation</description>
         <configuration>
 
             <parameter name="publicIDpattern" type="string" default="RTDD.@time/%Y%m%d%H%M%S.%f@.@id@">
@@ -26,20 +26,15 @@
 
             <parameter name="workingDirectory" type="path" default="@ROOTDIR@/var/lib/rtdd">
                 <description>
-                    Defines the directory used for storing temporary processing files.
+                    Defines the directory used for storing processing files (waveforms cache
+                    and debugging files).
                 </description>
             </parameter>
 
             <parameter name="keepWorkingFiles" type="boolean" default="false">
                 <description>
                     Do not delete temporary processing files from the working directory
-                    after the processing is completed.
-                </description>
-            </parameter>
-
-            <parameter name="hypoddPath" type="path" default="hypoDD">
-                <description>
-                    Path to hypodd executable.
+                    after the processing is completed (useful for debugging only).
                 </description>
             </parameter>
 
@@ -54,25 +49,26 @@
                 <parameter name="profileTimeAlive" type="int" default="-1">
                     <description>
                         Defines how long the profile data should be kept in memory (in seconds). This is useful
-                        to release memory (catalog waveform data) after a period of inactivity at the cost of
-                        re-loading and re-process the waveforms whenever a new event occurs.
+                        to release memory (e.g. catalog waveform data) after a period of inactivity at the cost of
+                        re-loading and re-process the waveforms whenever a new event occurs (not 
+                        very time consuming but still a bit slower than keeping the waveforms in memory).
                         A negative value force the profile to never expires (always in memory).
                     </description>
                 </parameter>
 
                 <parameter name="cacheWaveforms" type="boolean" default="true">
                     <description>
-                        Save catalog waveforms to local disk to avoid re-reading them from the configured
-                        recordStream when a profile is loaded (see profileTimeAlive).
-                        The waveforms are saved in the configured working directory and they can also be
-                        moved to other machines. Also it is safe to delete the
-                        cache, in which case the waveforms will be loaded and saved again on disk
-                        the next time the profile is loaded (they will be read again from the configured
-                        recordStream).
-                        Please note that exists a command line options '--load-profile-wf' useful to load
-                        the catalog waveforms from the record stream and save them on disk. This is useful
-                        to make sure all the data is ready when the module is started and avoid lenghty
-                        loading in case of big catalogs or slow network connection.
+                        Save catalog waveforms to local disk after they have been loaded the first
+                        times. This avoid re-reading them from the configured recordStream in the 
+                        future since this operation is drammatically slow (unless the recordstream
+                        points to a local disk source, in which case there is no advantace in
+                        caching the waveforms).
+                        It is safe to delete the cache folder, in which case the waveforms will be
+                        loaded and saved again on disk the next time the profile is loaded (they will
+                        be read again from the configured recordStream).
+                        Please note that exists a command line options '--load-profile-wf' useful to
+                        load all the catalog waveforms from the record stream and save them on disk.                         This is useful to make sure all the wavefrorms are on disk before when the
+                        module is started and avoid lenghty loading the first time the module starts.
                     </description>
                 </parameter>
 
@@ -116,7 +112,10 @@
                     <description>
                         Defines a regional profile. Origins that fall in this region will use this
                         configuration. If an origin falls in multiple profile regions, then the
-                        profile defined first will be used.
+                        profile defined first in activeProfile option will be used.
+                        This hierarchical regions, where a generic and broad region is defined as last
+                        entry to be used as last resort default region and more specifig and small 
+                        regions are defined first to be used for specic areas with custom settings.
                         The region check is not used for full catalog relocation (see --relocate-profile
                         command line option)
                     </description>
@@ -151,16 +150,19 @@
 
                     <group name="catalog">
                         <description>
-                            The files used to define a background catalog. New origins will be relocated using this
-                            catalog, which must contains high quality locations. In full catalog relocation mode
-                            (see --relocate-profile command line option) this is the catalog that will be relocated.
-                            There are two ways to define a catalog: one is providing an event file containing the ids
-                            of existing origins; the second way consists in providing extended information 
-                            (useful when the events are not in the database) and three files are required event, phase
-                            and stations.
-                            The files must be in csv format with the first line containing the column names. Each file
-                            requires a minimum set of columns, which can appear in any order. Additional
-                            columns can be present and will not be used but are allowed.
+                            Define a catalog for this profile. In real-time mode this represents the 
+                            background catalog used as base catalog to relocate origins received from
+                            the messaging system.
+                            In multi-event mode, this represents the catalog to be relocated
+                            as a whole (see --relocate-profile command line option).
+                            There are two ways to define a catalog file: one is providing a single 
+                            file containing the ids of existing origins; the second way consists in
+                            providing 3 files event, phase and stations (in this format the origins
+                            don't need to be present in the database).
+                            The files must be in csv format with the first line containing the
+                            column names. Each file requires a minimum set of columns, which can
+                            appear in any order. Additional columns can be present and will not be
+                            used.
                         </description>
 
                         <parameter name="eventFile" type="path">
@@ -300,15 +302,6 @@
                                 <description>
                                     This option define how event phases are selected. 
                                 </description>
-                                <parameter name="minWeight" type="double">
-                                    <description>
-                                        Min phase weight required. Phases not satisfying this condition will not be used.
-                                        Check disabled by default.
-                                        The weighting scheme is based on pick class: weight = (1 / 2^class). The class is derived from pick time uncertainties:
-                                        Class 0: 0-0.025 sec, class 1: 0.025-0.050 sec, class 2: 0.050-0.100 sec, class 3: 0.100-0.200 sec, class 4: 0.200-0.400 sec, class 5: over  0.400 sec.
-                                        Picks without uncertainties have a fixed class of 1 if manual and class 4 if automatic.
-                                    </description>
-                                </parameter>
                                 <parameter name="minStationDistance" type="double">
                                     <description>
                                         Min distance (km) between event pair and station required. Phases belonging
@@ -332,15 +325,6 @@
                                 </parameter> 
                             </group> 
                         </group> 
-                        <group name="hypoDD">
-                            <parameter name="controlFile" type="path">
-                                <description>
-                                    Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
-                                    The input/output files will be replaced by SCRTDD with its own files, thus the values
-                                    at those lines are not relevant.
-                                </description>
-                            </parameter>
-                        </group>
                     </group>
 
                     <group name="step2options">
@@ -437,15 +421,6 @@
                                 <description>
                                     This option define how event phases are selected. 
                                 </description>
-                                <parameter name="minWeight" type="double">
-                                    <description>
-                                        Min phase weight required. Phases not satisfying this condition will not be used.
-                                        Check disabled by default.
-                                        The weighting scheme is based on pick class: weight = (1 / 2^class). The class is derived from pick time uncertainties:
-                                        Class 0: 0-0.025 sec, class 1: 0.025-0.050 sec, class 2: 0.050-0.100 sec, class 3: 0.100-0.200 sec, class 4: 0.200-0.400 sec, class 5: over  0.400 sec.
-                                        Picks without uncertainties have a fixed class of 1 if manual and class 4 if automatic.
-                                    </description>
-                                </parameter>
                                 <parameter name="minStationDistance" type="double">
                                     <description>
                                         Min distance (km) between event pair and station required. Phases belonging
@@ -468,16 +443,6 @@
                                     </description>
                                 </parameter> 
                             </group>
-                            </group>
-
-                        <group name="hypoDD">
-                            <parameter name="controlFile" type="path">
-                                <description>
-                                    Path to hypoDD control file (e.g. some_path/hypoDD.inp) to be used with hypoDD.
-                                    The input/output files will be replaced by SCRTDD with its own files, thus the values
-                                    at those lines are not relevant.
-                                </description>
-                            </parameter>
                         </group>
 
                         <group name="crosscorrelation">
@@ -575,8 +540,99 @@
                                 <description>End of signal window with respect to pick time (+/- secs)</description>
                             </parameter> 
                         </group>
-                     </group>
+                    </group>
 
+                    <group name="solver">
+                        <description>
+                            Configuration for the double-difference equations system solver
+                        </description>
+                        <parameter name="solverType" type="string" default="LSMR" >
+                            <description>
+                                Solver algorithm to use: either LSMR or LSQR. Both works solving
+                                the double-difference equations system in a least squares sense.
+                                LSMR is based on Fong and Saunders algorithm from 2010. LSQR is
+                                based on Paige and Saunders algorithm from 1982
+                            </description>
+                       </parameter>
+                       <parameter name="solverIterations" type="int" default="0">
+                            <description>
+                                0 means it will be decided by the software
+                            </description>
+                        </parameter>
+                        <parameter name="algoIterations" type="int" default="20">
+                            <description>
+                            </description>
+                        </parameter> 
+                        <group name="downWeightingByResidual">
+                            <description>
+                                Set to 0 to disable. The values are the standard deviations
+                                of the double-difference residuals beyond which the observations
+                                are dropped (thier weight becomes 0).
+                            </description> 
+                            <parameter name="startingValue" type="double" default="10"></parameter>
+                            <parameter name="finalValue"    type="double" default="3"></parameter> 
+                        </group> 
+                        <group name="meanShiftConstrainWeight">
+                            <description>
+                                Constrain the mean shift of all earthquakes during relocation to zero
+                            </description> 
+                            <parameter name="startingValue" type="double" default="0.9"></parameter>
+                            <parameter name="finalValue"    type="double" default="0.6"></parameter> 
+                        </group>   
+                        <group name="dampingFactor">
+                            <description>
+                                Regularizer for moderately or severely ill-conditioned systems.
+                                These values constrain the changes in earthquakes parameters
+                                to avoid that bad observations result in huge earthquakes parameters
+                                changes.
+                            </description> 
+                            <parameter name="startingValue" type="double" default="0"></parameter>
+                            <parameter name="finalValue"    type="double" default="0"></parameter> 
+                        </group>
+                        <group name="aPrioriWeights">
+                            <description>
+                                Those options allow the double-difference equations to have different
+                                starting weights. By default they are equally weighted and the
+                                residual itselfs drive the re-weighting (see downWeightingByResidual
+                                option). So these settings shouldn't be strictly necessary but
+                                it could be interesting to experiment with them
+                            </description>
+                            <parameter name="usePickUncertainties" type="boolean" default="false">
+                                <description>
+                                   Observation weights are scaled based on pick uncertainties.
+                                   This should be enabled only if uncertainties are used for manual
+                                   picks otherwise there is no way to properly access pick quality
+                                   and consequently the observation weight.
+                                </description>
+                            </parameter>
+                            <parameter name="absoluteTTObsWeight" type="double" default="1.0">
+                                <description>
+                                    Starting weight for observations coming from difference
+                                    in absolute travel times.
+                                    Useful to give more weight to xcorr observations than
+                                    absolute travel time ones.
+                                </description>
+                            </parameter>
+                            <parameter name="xcorrObsWeight" type="double" default="1.0">
+                                <description>
+                                    Starting weight for observations coming from lag measured
+                                    via cross-correlation.
+                                    Useful to give more weight to cross-correlation observations
+                                    than absolute travel time ones.
+                                </description>
+                            </parameter>
+                        </group>
+                        <group name="travelTimeTable">
+                            <description>
+                                Traveltime table used by the solver (e.g. LOCSAT or taup). This
+                                can be a system default or a user custom travel time table.
+                            </description> 
+                            <parameter name="tableType" type="string" default="LOCSAT">
+                            </parameter>
+                            <parameter name="tableModel" type="string" default="iasp91">
+                            </parameter> 
+                        </group>  
+                    </group>
                 </struct>
             </group>
 
@@ -632,7 +688,7 @@
 
             <group name="Mode">
 
-                <option long-flag="load-profile-wf" argument="arg">
+                <option long-flag="load-profile-wf" argument="profile">
                     <description>Load catalog waveforms from the configured recordstream and save them in the working directory configured for the profile</description>
                 </option>
 
@@ -640,12 +696,10 @@
                     <description>Enable the dumping of waveforms (filtered and resampled phases, artificial phases, SNR rejected phases) into the profile working directory ('cacheWaveforms' folder). Useful when run in combination with --load-profile-wf</description>
                 </option>
 
-                <option long-flag="debug-wf-cache">
-                    <description>
-                        All waveforms will be saved to disk cache, this is useful to speed up debugging/testing. Normally only catalog phase waveforms are cached to disk since they are re-used.
-                    </description>
+                <option long-flag="eval-xcorr" argument="profile">
+                    <description>"Evaluate cross-correlation settings for the given profile</description>
                 </option>
-  
+
                 <option long-flag="expiry" flag="x" argument="hours">
                     <description>Time span in hours after which objects expire</description>
                 </option>
@@ -657,35 +711,35 @@
             </group>
             <group name="Catalog">
 
-                <option long-flag="dump-catalog" argument="arg">
+                <option long-flag="dump-catalog" argument="catalog-file">
                     <description>Dump the seiscomp event/origin id file passed as argument into a catalog file triplet (station.csv,event.csv,phase.csv)</description>
                 </option>
 
-                <option long-flag="dump-catalog-options" argument="arg">
+                <option long-flag="dump-catalog-options" argument="type,evalmode,includeCreator,excludeCreator,region">
                     <description>Allows --dump-catalog to accept event ids besides origin ids. For each event id an origin will be selected following the provided options whose format is: 'type,evalmode,includeCreator,excludeCreator,region', where type=preferred|last|first  evalmode=any|onlyManual|onlyAutomatic  includeCreator=any|author|methodID  excludeCreator=none|author|methodID  region=any|profileName e.g. to select preferred origins within my profile region given the input event ids use 'preferred,any,any,none,myProfile'
                     </description>
                 </option>
 
-                <option long-flag="dump-catalog-xml" argument="arg">
+                <option long-flag="dump-catalog-xml" argument="catalog-files">
                     <description>Convert the input catalog into XML format. The input can be a single file (containing seiscomp event/origin ids) or a catalog file triplet (station.csv,event.csv,phase.csv)</description>
                 </option>
 
-                <option long-flag="merge-catalogs" argument="arg">
+                <option long-flag="merge-catalogs" argument="catalog-files">
                     <description>Merge in a single catalog all the catalog file triplets (station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,phase2.csv,...) passed as arguments.</description>
                 </option>
 
-                <option long-flag="merge-catalogs-keepid" argument="arg">
+                <option long-flag="merge-catalogs-keepid" argument="catalog-files">
                     <description>Similar to --merge-catalogs option but events keeps their ids. If multiple events share the same id, subsequent events will be discarded.</description>
                 </option>
 
             </group>
             <group name="SingleEvent">
 
-                <option long-flag="origin-id" flag="O" argument="arg">
+                <option long-flag="origin-id" flag="O" argument="origin-id">
                     <description>Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed accordingly with the matching profile region unless --profile option is used</description>
                 </option>
 
-                <option long-flag="ep" argument="arg">
+                <option long-flag="ep" argument="xml-file">
                     <description>Event parameters XML file for offline processing of contained origins (imply test option). Each origin will be processed accordingly with the matching profile region unless --profile option is used</description>
                 </option>
 
@@ -693,7 +747,7 @@
                     <description>"Test mode, no messages are sent</description>
                 </option>
 
-                <option long-flag="profile" argument="arg">
+                <option long-flag="profile" argument="profile">
                     <description>
                         Force a specific profile to be used when relocating an origin. This overrides the selection 
                         of profiles based on region information and the initial origin location
@@ -704,20 +758,10 @@
 
             <group name="MultiEvents">
 
-                <option long-flag="reloc-profile" argument="arg">
+                <option long-flag="reloc-profile" argument="profile">
                     <description>Relocate the catalog of profile passed as argument</description>
                 </option>
  
-                <option long-flag="ph2dt-path">
-                    <description>Specify path to ph2dt executable</description>
-                </option> 
-                <option long-flag="use-ph2dt">
-                    <description>"When relocating a catalog use ph2dt. This option requires a ph2dt control file</description>
-                </option> 
-                <option long-flag="no-overwrite">
-                    <description>When relocating a profile don't overwrite existing files in the working directory (avoid re-computation and allow manual editing)</description>
-                </option> 
-
             </group>
 
         </command-line>

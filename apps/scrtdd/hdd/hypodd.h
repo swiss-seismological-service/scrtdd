@@ -18,14 +18,18 @@
 #ifndef __RTDD_APPLICATIONS_HYPODD_H__
 #define __RTDD_APPLICATIONS_HYPODD_H__
 
-#include <seiscomp3/core/baseobject.h>
-
-#include <set>
-#include <map>
-#include <vector>
-
 #include "catalog.h"
 #include "wfmngr.h"
+#include "solver.h"
+#include "xcorrcache.ipp"
+
+#include <seiscomp3/core/baseobject.h>
+#include <seiscomp3/seismology/ttt.h>
+
+#include <unordered_map>
+#include <map>
+#include <unordered_set>
+#include <vector>
 
 namespace Seiscomp {
 namespace HDD {
@@ -34,19 +38,6 @@ struct Config {
 
     std::vector<std::string> validPphases = {"Pg","P","Px"};
     std::vector<std::string> validSphases = {"Sg","S","Sx"};
-
-    // hypodd executable specific
-    struct {
-        std::string exec = "hypodd";
-        std::string step1CtrlFile;
-        std::string step2CtrlFile;
-    } hypodd;
-
-    // ph2dt executable specific
-    struct {
-        std::string exec = "ph2dt";
-        std::string ctrlFile;
-    } ph2dt;
 
     // differential travel time specific
     struct {
@@ -113,6 +104,27 @@ struct Config {
         double signalStart = 0;
         double signalEnd = 0;
     } snr;
+
+    struct {
+        std::string type  = "LOCSAT";
+        std::string model = "iasp91";
+    } ttt;
+
+    struct {
+        std::string type = "LSMR"; // LSMR or LSQR
+        bool L2normalization = true;
+        unsigned solverIterations = 0;
+        unsigned algoIterations = 20; 
+        double dampingFactorStart = 0.;
+        double dampingFactorEnd = 0.;
+        double meanShiftConstrainWeightStart = 0.;
+        double meanShiftConstrainWeightEnd = 0.;
+        double downWeightingByResidualStart = 0.;
+        double downWeightingByResidualEnd = 0.;
+        bool usePickUncertainty = false;
+        double absTTDiffObsWeight = 1.0;
+        double xcorrObsWeight = 1.0; 
+    } solver;
 };
 
 
@@ -131,8 +143,9 @@ class HypoDD : public Core::BaseObject {
         CatalogCPtr getCatalog() { return _srcCat; }
         void setCatalog(const CatalogCPtr& catalog);
 
-        CatalogPtr relocateCatalog(bool force = true, bool usePh2dt = false);
+        CatalogPtr relocateCatalog();
         CatalogPtr relocateSingleEvent(const CatalogCPtr& orgToRelocate);
+        void evalXCorr();
 
         void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
         bool workingDirCleanup() { return _workingDirCleanup; }
@@ -149,16 +162,17 @@ class HypoDD : public Core::BaseObject {
         static std::string relocationReport(const CatalogCPtr& relocatedEv);
 
     private:
-        class XCorrCache;
-
         std::string generateWorkingSubDir(const Catalog::Event& ev) const;
 
         CatalogPtr relocateEventSingleStep(const CatalogCPtr& evToRelocateCat, const std::string& workingDir,
-                                bool doXcorr, bool computeTheoreticalPhases,
-                                std::string hypoddCtrlFile, double minPhaseWeight,
+                                bool doXcorr, bool computeTheoreticalPhases, double minPhaseWeight,
                                 double minESdist, double maxESdist, double minEStoIEratio,
                                 int minDTperEvt, int maxDTperEvt, int minNumNeigh, int maxNumNeigh,
                                 int numEllipsoids, double maxEllipsoidSize);
+
+        CatalogPtr relocate(std::map<unsigned,CatalogPtr>& neighbourCats,
+                            bool keepNeighboursFixed,
+                            const XCorrCache xcorr) const;
 
         CatalogPtr selectNeighbouringEvents(const CatalogCPtr& catalog,
                                             const Catalog::Event& refEv,
@@ -176,6 +190,27 @@ class HypoDD : public Core::BaseObject {
                                         int minNumNeigh, int maxNumNeigh,
                                         int numEllipsoids, double maxEllipsoidSize,
                                         bool keepUnmatched) const;
+
+        struct ObservationParams {
+            struct Entry {
+                Catalog::Event event;
+                Catalog::Station station;
+                char phaseType;
+                double travelTime;
+            };
+            void add(TravelTimeTableInterfacePtr ttt, const Catalog::Event& event,
+                     const Catalog::Station& station, char phaseType);
+            const Entry& get(unsigned eventId, const std::string stationId, char phaseType ) const;
+            void addToSolver(Solver& solver) const;
+            private:
+            std::unordered_map<std::string,Entry> _entries;
+        }; 
+        void addObservations(Solver& solver, CatalogPtr& catalog, unsigned evId,
+                             bool fixedNeighbours, const XCorrCache& xcorr,
+                             ObservationParams& obsparams ) const;
+        CatalogPtr updateRelocatedEvents(const Solver& solver, const CatalogCPtr& originalCatalog,
+                                        std::unordered_set<unsigned> eventsToRelocate,
+                                        ObservationParams& obsparams ) const;
 
         void addMissingEventPhases(const CatalogCPtr& searchCatalog,
                                    const Catalog::Event& refEv,
@@ -197,119 +232,6 @@ class HypoDD : public Core::BaseObject {
                                              const std::vector<HypoDD::PhasePeer>& peers,
                                              double phaseVelocity); 
 
-        // Used to save xcorr results
-        class XCorrCache {
-
-        public:
-
-            struct XCorrCacheEntry {
-
-                double mean_coeff;
-                double mean_lag;
-                double min_lag;
-                double max_lag;
-                unsigned ccCount;
-
-                typedef struct {
-                    double coeff, lag, dtcc, weight, lowerUncertainty, upperUncertainty;
-                } PeerInfo;
-                std::map<unsigned,const PeerInfo> peers;
-
-                std::string peersStr; // debug
-
-                void update(const Catalog::Event& event, const Catalog::Phase& phase,
-                            double coeff, double lag, double dtcc, double weight)
-                {
-                    PeerInfo pi= {coeff, lag, dtcc, weight, phase.lowerUncertainty, phase.upperUncertainty};
-                    peers.insert( std::pair<unsigned,const PeerInfo>(event.id, pi) );
-                    peersStr   += std::string(event) + " ";
-                }
-
-                void computeStats()
-                {
-                    ccCount = peers.size();
-                    mean_coeff = 0;
-                    mean_lag   = 0;
-                    min_lag    = 0;
-                    max_lag    = 0;
-                    for ( auto& pair : peers )
-                    {
-                        const PeerInfo& data = pair.second;
-                        mean_coeff += std::abs(data.coeff);
-                        mean_lag   += data.lag;
-                        min_lag    += data.lag - data.lowerUncertainty;
-                        max_lag    += data.lag + data.upperUncertainty; 
-                    }
-                    mean_coeff /= ccCount;
-                    mean_lag   /= ccCount;
-                    min_lag    /= ccCount;
-                    max_lag    /= ccCount; 
-                }
-            };
-
-            XCorrCacheEntry& getForUpdate(unsigned evId, const std::string& stationId,
-                                          const Catalog::Phase::Type& type)
-            {
-                std::string key = make_key(evId, stationId, type);
-                return resultsByPhase[key];
-            }
-
-            void remove(unsigned evId, const std::string& stationId,
-                        const Catalog::Phase::Type& type)
-            {
-                std::string key = make_key(evId, stationId, type);
-                resultsByPhase.erase(key);
-            }
-
-            void computeStats()
-            {
-                for ( auto& pair : resultsByPhase )  pair.second.computeStats();
-            }
-
-            bool has(unsigned evId, const std::string& stationId, const Catalog::Phase::Type& type ) const
-            {
-                std::string key = make_key(evId, stationId, type);
-                return resultsByPhase.count(key) != 0;
-            }
-
-            const XCorrCacheEntry& get(unsigned evId, const std::string& stationId,
-                                       const Catalog::Phase::Type& type ) const
-            {
-                std::string key = make_key(evId, stationId, type);
-                return resultsByPhase.at(key);
-            }
-
-            bool has(unsigned evId1, unsigned evId2, const std::string& stationId,
-                     const Catalog::Phase::Type& type ) const
-            {
-                return has(evId1, stationId, type) && (get(evId1, stationId, type).peers.count(evId2) != 0);
-            }
-
-            const XCorrCacheEntry::PeerInfo& get(unsigned evId1, unsigned evId2,
-                                                 const std::string& stationId,
-                                                 const Catalog::Phase::Type& type ) const
-            {
-                return get(evId1, stationId, type).peers.at(evId2);
-            } 
-
-        private:
-            static std::string make_key(unsigned evId, const std::string& stationId,
-                                        const Catalog::Phase::Type& type )
-            {
-                return std::to_string(evId) + "." + stationId + "." + static_cast<char>(type);
-            }
-
-            // cache of computed xcorr
-            std::map<std::string, XCorrCacheEntry> resultsByPhase;
-
-        };
-
-        struct PhaseXCorrCfg {
-            bool useDiskCache;
-            WfMngr::WfCache* cache;
-            bool allowSnrCheck;
-        };
-
         XCorrCache buildXCorrCache(std::map<unsigned,CatalogPtr>& neighbourCats,
                                    bool computeTheoreticalPhases);
         XCorrCache buildXCorrCache(CatalogPtr& catalog, unsigned evToRelocateId,
@@ -318,13 +240,18 @@ class HypoDD : public Core::BaseObject {
                                       XCorrCache& xcorr);
 
         void fixPhases(CatalogPtr& catalog, const Catalog::Event& refEv, XCorrCache& xcorr);
- 
+
+        struct PhaseXCorrCfg {
+            WfMngr::CacheType type;
+            WfMngr::WfCache* cache;
+            bool allowSnrCheck;
+        };
         bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, PhaseXCorrCfg& phCfg1,
                          const Catalog::Event& event2, const Catalog::Phase& phase2, PhaseXCorrCfg& phCfg2,
-                         double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
+                         double& coeffOut, double& lagOut);
         bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, PhaseXCorrCfg& phCfg1,
                           const Catalog::Event& event2, const Catalog::Phase& phase2, PhaseXCorrCfg& phCfg2,
-                          double& coeffOut, double& lagOut, double& diffTimeOut, double& weightOut);
+                          double& coeffOut, double& lagOut);
         bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
                    bool qualityCheck, double& delayOut, double& coeffOut) const;
         Core::TimeWindow xcorrTimeWindowLong(const Catalog::Phase& phase) const;
@@ -332,43 +259,11 @@ class HypoDD : public Core::BaseObject {
 
         void printCounters();
 
-        //
-        // External HypoDD program specific
-        //
-        void runHypodd(const std::string& workingDir, const std::string& dtccFile,
-                       const std::string& dtctFile, const std::string& eventFile,
-                       const std::string& stationFile, const std::string& ctrlFile) const;
-        void runPh2dt(const std::string& workingDir,
-                      const std::string& stationFile,
-                      const std::string& phaseFile) const;
-
-        void createStationDatFile(const CatalogCPtr& catalog, const std::string& staFileName) const;
-        void createPhaseDatFile(const CatalogCPtr& catalog, const std::string& phaseFileName) const;
-        void createEventDatFile(const CatalogCPtr& catalog, const std::string& eventFileName) const;
-
-        void createDtCt(std::map<unsigned,CatalogPtr>& neighbourCats, const std::string& dtctFile) const;
-        void createDtCt(CatalogPtr& catalog, unsigned evToRelocateId, const std::string& dtctFile) const;
-        void writeAbsTTimePairs(const CatalogCPtr& catalog, unsigned evToRelocateId, std::ofstream& outStream) const;
-
-        std::set<unsigned> createDtCcPh2dt(const CatalogCPtr& catalog,
-                                           const std::string& dtctFile,
-                                           const std::string& dtccFile);
-        void createDtCc(std::map<unsigned,CatalogPtr>& neighbourCats,
-                        const std::string& dtccFile, const XCorrCache& xcorr);
-        void createDtCc(CatalogPtr& catalog, unsigned evToRelocateId,
-                         const std::string& dtccFile, const XCorrCache& xcorr);
-        void writeXcorrDiffTTimePairs(CatalogPtr& catalog,
-                                      unsigned evToRelocateId,
-                                      const XCorrCache& xcorr,
-                                      std::ofstream& outStream);
-
-        CatalogPtr loadRelocatedCatalog(const CatalogCPtr& originalCatalog,
-                                        const std::string& ddrelocFile,
-                                        const std::string& ddresidualFile="") const;
     private:
         bool _workingDirCleanup = true;
         std::string _workingDir;
         std::string _cacheDir;
+        std::string _tmpCacheDir;
         std::string _wfDebugDir;
 
         CatalogCPtr _srcCat;
@@ -381,6 +276,8 @@ class HypoDD : public Core::BaseObject {
         bool _useCatalogDiskCache;
         bool _waveformCacheAll;
         bool _waveformDebug;
+
+        TravelTimeTableInterfacePtr _ttt;
 
         struct {
             unsigned xcorr_performed;
