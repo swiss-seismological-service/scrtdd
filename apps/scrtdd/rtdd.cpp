@@ -456,10 +456,10 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.step1Clustering.minESdist = 0; }
         try {
             prof->ddcfg.step1Clustering.maxESdist = configGetDouble(prefix + "maxStationDistance");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.maxESdist = -1; }
+        } catch ( ... ) { prof->ddcfg.step1Clustering.maxESdist = 150; }
         try {
-            prof->ddcfg.step1Clustering.minEStoIEratio = configGetDouble(prefix + "minStaionToEventPairDistRatio");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.minEStoIEratio = 0; } 
+            prof->ddcfg.step1Clustering.minEStoIEratio = configGetDouble(prefix + "minStationToEventPairDistRatio");
+        } catch ( ... ) { prof->ddcfg.step1Clustering.minEStoIEratio = 5; } 
 
         prefix = string("profile.") + *it + ".step2options.clustering.";
         prof->ddcfg.step2Clustering.recordStreamURL = recordStreamURL();
@@ -490,21 +490,31 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.step2Clustering.minESdist = 0; }
         try {
             prof->ddcfg.step2Clustering.maxESdist = configGetDouble(prefix + "maxStationDistance");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.maxESdist = -1; }
+        } catch ( ... ) { prof->ddcfg.step2Clustering.maxESdist = 150; }
         try {
-            prof->ddcfg.step2Clustering.minEStoIEratio = configGetDouble(prefix + "minStaionToEventPairDistRatio");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.minEStoIEratio = 0; } 
+            prof->ddcfg.step2Clustering.minEStoIEratio = configGetDouble(prefix + "minStationToEventPairDistRatio");
+        } catch ( ... ) { prof->ddcfg.step2Clustering.minEStoIEratio = 5; } 
 
         prefix = string("profile.") + *it + ".step2options.crosscorrelation.p-phase.";
         try {
             prof->ddcfg.xcorr[PhaseType::P].startOffset = configGetDouble(prefix + "start");
+        } catch ( ... ) {
+            prof->ddcfg.xcorr[PhaseType::P].startOffset = -0.50;
+        }
+        try {
             prof->ddcfg.xcorr[PhaseType::P].endOffset = configGetDouble(prefix + "end");
+        } catch ( ... ) {
+            prof->ddcfg.xcorr[PhaseType::P].endOffset = 0.50;
+        }
+        try {
             prof->ddcfg.xcorr[PhaseType::P].maxDelay = configGetDouble(prefix + "maxDelay");
+        } catch ( ... ) {
+            prof->ddcfg.xcorr[PhaseType::P].maxDelay = 0.250;
+        }
+        try {
             prof->ddcfg.xcorr[PhaseType::P].minCoef = configGetDouble(prefix + "minCCCoef");
         } catch ( ... ) {
-            SEISCOMP_ERROR("profile.%s: invalid or missing cross correlation parameters", it->c_str());
-            profilesOK = false;
-            continue;
+            prof->ddcfg.xcorr[PhaseType::P].minCoef = 0.70;
         }
         try {
             prof->ddcfg.xcorr[PhaseType::P].components = configGetStrings(prefix + "components");
@@ -515,13 +525,23 @@ bool RTDD::validateParameters()
         prefix = string("profile.") + *it + ".step2options.crosscorrelation.s-phase.";
         try {
             prof->ddcfg.xcorr[PhaseType::S].startOffset = configGetDouble(prefix + "start");
+        } catch ( ... ) {
+            prof->ddcfg.xcorr[PhaseType::S].startOffset = -0.50;
+        }
+        try {
             prof->ddcfg.xcorr[PhaseType::S].endOffset = configGetDouble(prefix + "end");
+        } catch ( ... ) {
+            prof->ddcfg.xcorr[PhaseType::S].endOffset = 0.75;
+        }
+        try {
             prof->ddcfg.xcorr[PhaseType::S].maxDelay = configGetDouble(prefix + "maxDelay");
+        } catch ( ... ) {
+            prof->ddcfg.xcorr[PhaseType::S].maxDelay = 0.400;
+        }
+        try {
             prof->ddcfg.xcorr[PhaseType::S].minCoef = configGetDouble(prefix + "minCCCoef");
         } catch ( ... ) {
-            SEISCOMP_ERROR("profile.%s: invalid or missing cross correlation parameters", it->c_str());
-            profilesOK = false;
-            continue;
+            prof->ddcfg.xcorr[PhaseType::S].minCoef = 0.75;
         }
         try {
             prof->ddcfg.xcorr[PhaseType::S].components = configGetStrings(prefix + "components");
@@ -532,10 +552,10 @@ bool RTDD::validateParameters()
         prefix = string("profile.") + *it + ".step2options.waveformFiltering.";
         try {
             prof->ddcfg.wfFilter.filterStr = configGetString(prefix + "filterString");
-        } catch ( ... ) { prof->ddcfg.wfFilter.filterStr = ""; }
+        } catch ( ... ) { prof->ddcfg.wfFilter.filterStr = "ITAPER(1)>>BW_HLP(2,1,20)"; }
         try {
             prof->ddcfg.wfFilter.resampleFreq = configGetDouble(prefix + "resampling");
-        } catch ( ... ) { prof->ddcfg.wfFilter.resampleFreq = 0.; }
+        } catch ( ... ) { prof->ddcfg.wfFilter.resampleFreq = 400; }
 
         prefix = string("profile.") + *it + ".step2options.snr.";
         try {

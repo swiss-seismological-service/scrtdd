@@ -306,23 +306,23 @@
                                     <description>
                                         Min distance (km) between event pair and station required. Phases belonging
                                         to stations not satisfyig this condition will not be used.
-                                        Check disabled by default. 
+                                        Leave it empty to remove limits
                                     </description>
                                 </parameter>
-                                <parameter name="maxStationDistance" type="double">
+                                <parameter name="maxStationDistance" type="double" default="150">
                                     <description>
                                         Max distance (km) between event pair and station allowed. Phases belonging
                                         to stations not satisfyig this condition will not be used.
-                                        No limit by default.
+                                        Set it to -1 to remove limits
                                     </description>
                                 </parameter>
-                                <parameter name="minStaionToEventPairDistRatio" type="double">
+                                <parameter name="minStationToEventPairDistRatio" type="double" default="5">
                                     <description>
                                         Min ratio between event-station distance and pair inter-event-pair distance. Phases
                                         belonging to stations not satisfyig this condition will not be used.
-                                        Check disabled by default.
+                                        Set it to 0 to remove limits
                                     </description>
-                                </parameter> 
+                                </parameter>  
                             </group> 
                         </group> 
                     </group>
@@ -425,21 +425,21 @@
                                     <description>
                                         Min distance (km) between event pair and station required. Phases belonging
                                         to stations not satisfyig this condition will not be used.
-                                        Check disabled by default. 
+                                        Leave it empty to remove limits
                                     </description>
                                 </parameter>
-                                <parameter name="maxStationDistance" type="double">
+                                <parameter name="maxStationDistance" type="double" default="150">
                                     <description>
                                         Max distance (km) between event pair and station allowed. Phases belonging
                                         to stations not satisfyig this condition will not be used.
-                                        No limit by default.
+                                        Set it to -1 to remove limits
                                     </description>
                                 </parameter>
-                                <parameter name="minStaionToEventPairDistanceRatio" type="double">
+                                <parameter name="minStationToEventPairDistRatio" type="double" default="5">
                                     <description>
                                         Min ratio between event-station distance and pair inter-event-pair distance. Phases
                                         belonging to stations not satisfyig this condition will not be used.
-                                        Check disabled by default.
+                                        Set it to 0 to remove limits
                                     </description>
                                 </parameter> 
                             </group>
@@ -447,22 +447,22 @@
 
                         <group name="crosscorrelation">
                             <group name="p-phase">
-                                <parameter name="minCCCoef" type="double">
+                                <parameter name="minCCCoef" type="double" default="0.70">
                                     <description>
                                         Min crosscorrelation coefficient accepted to use a differential travel time
                                     </description>
                                 </parameter>
-                                <parameter name="start" type="double">
+                                <parameter name="start" type="double" default="-0.50">
                                     <description>
                                         Start of data window to cross correlate with respect to pick time (+/- secs)
                                     </description>
                                 </parameter>
-                                <parameter name="end" type="double">
+                                <parameter name="end" type="double" default="0.50">
                                     <description>
                                         End of data window to cross correlate with respect to pick time (+/- secs)
                                     </description>
                                 </parameter>
-                                <parameter name="maxDelay" type="double">
+                                <parameter name="maxDelay" type="double" default="0.250">
                                     <description>Maximum data windows lag accepted (secs)</description>
                                 </parameter>
                                 <parameter name="components" type="list:string" default="Z">
@@ -474,22 +474,22 @@
                                 </parameter>
                             </group>
                             <group name="s-phase">
-                                <parameter name="minCCCoef" type="double">
+                                <parameter name="minCCCoef" type="double" default="0.75">
                                     <description>
                                         Min crosscorrelation coefficient accepted to use a differential travel time
                                     </description>
                                 </parameter>
-                                <parameter name="start" type="double">
+                                <parameter name="start" type="double" default="-0.50">
                                     <description>
                                         Start of data window to cross correlate with respect to pick time (+/- secs)
                                     </description>
                                 </parameter>
-                                <parameter name="end" type="double">
+                                <parameter name="end" type="double" default="0.75">
                                     <description>
                                         End of data window to cross correlate with respect to pick time (+/- secs)
                                     </description>
                                 </parameter>
-                                <parameter name="maxDelay" type="double">
+                                <parameter name="maxDelay" type="double" default="0.400">
                                     <description>Maximum data windows lag accepted (secs)</description>
                                 </parameter>
                                 <parameter name="components" type="list:string" default="T,Z">
@@ -506,12 +506,15 @@
                             <description>
                                 Filter waveforms before performing the cross correlation
                             </description>
-                            <parameter name="filterString" type="string">
-                                <description>SeisComP3 string based filter definition</description>
+                            <parameter name="filterString" type="string" default="ITAPER(1)>>BW_HLP(2,1,20)">
+                                <description>
+                                    SeisComP3 string based filter definition. Set to "" to disable filtering
+                                </description>
                             </parameter>
-                            <parameter name="resampling" type="double">
+                            <parameter name="resampling" type="double" default="400">
                                 <description>
                                     Resample all traces at this samplig interval (hz)
+                                    Set it to 0 to not resample
                                 </description>
                             </parameter>
                         </group>
@@ -554,9 +557,9 @@
                                 based on Paige and Saunders algorithm from 1982
                             </description>
                        </parameter>
-                       <parameter name="solverIterations" type="int" default="0">
+                       <parameter name="solverIterations" type="int" >
                             <description>
-                                0 means it will be decided by the software
+                                By default is defined as 2 times the number of events
                             </description>
                         </parameter>
                         <parameter name="algoIterations" type="int" default="20">
@@ -586,8 +589,8 @@
                                 to avoid that bad observations result in huge earthquakes parameters
                                 changes.
                             </description> 
-                            <parameter name="startingValue" type="double" default="0"></parameter>
-                            <parameter name="finalValue"    type="double" default="0"></parameter> 
+                            <parameter name="startingValue" type="double"></parameter>
+                            <parameter name="finalValue"    type="double"></parameter> 
                         </group>
                         <group name="aPrioriWeights">
                             <description>
