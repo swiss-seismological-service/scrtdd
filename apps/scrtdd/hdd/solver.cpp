@@ -623,15 +623,21 @@ void Solver::_solve(unsigned numIterations, double dampingFactor,
 
     solver.Solve(_dd->numRowsG, _dd->numColsG, _dd->d, _dd->m );
 
-    if ( normalizeG )
-    {
-        solver.L2DeNormalize();
-    }
-
     //SEISCOMP_DEBUG("%s", solverLogs.str().c_str() );
 
     SEISCOMP_INFO("Stopped because %u : %s", solver.GetStoppingReason(), solver.GetStoppingReasonMessage().c_str());
     SEISCOMP_INFO("Used %u Iterations", solver.GetNumberOfIterationsPerformed());
+
+    if ( normalizeG )
+    {
+        solver.L2DeNormalize();
+    } 
+
+    if ( solver.GetStoppingReason() == 4 )
+    {
+        string msg = stringify("Solver: no solution found (%s)", solver.GetStoppingReasonMessage().c_str() );
+        throw runtime_error(msg.c_str());
+    } 
 }
 
 
