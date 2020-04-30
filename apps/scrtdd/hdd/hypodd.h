@@ -117,8 +117,8 @@ struct Config {
         unsigned algoIterations = 20; 
         double dampingFactorStart = 0.;
         double dampingFactorEnd = 0.;
-        double meanShiftConstrainWeightStart = 0.;
-        double meanShiftConstrainWeightEnd = 0.;
+        std::array<double,4> meanShiftConstraintStart = {0.}; // lon, lat, depth, time
+        std::array<double,4> meanShiftConstraintEnd = {0.}; // lon, lat, depth, time
         double downWeightingByResidualStart = 0.;
         double downWeightingByResidualEnd = 0.;
         bool usePickUncertainty = false;

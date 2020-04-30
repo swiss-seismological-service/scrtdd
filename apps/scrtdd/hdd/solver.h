@@ -126,12 +126,20 @@ public:
                               double staLat, double staLon, double staElevation,
                               double travelTime);
 
-    void solve(unsigned numIterations=0, double dampingFactor=0,
-               double meanShiftConstrainWeight=0, double residualDownWeight=0,
+    void solve(unsigned numIterations=0,
+               double dampingFactor=0,
+               double residualDownWeight=0,
+               double meanLonShiftConstraint=0,
+               double meanLatShiftConstraint=0,
+               double meanDepthShiftConstraint=0,
+               double meanTTShiftConstraint=0,
                bool normalizeG=true);
 
     bool getEventChanges(unsigned evId, double &deltaLat, double &deltaLon,
                          double &deltaDepth, double &deltaTT) const;
+
+    bool getObservationParamsChanges(unsigned evId, const std::string& staId, char phase,
+                                     double &totalAPrioriWeight, double &totalFinalWeight) const;
 
     static double computeDistance(double lat1, double lon1, double depth1,
                                   double lat2, double lon2, double depth2,
@@ -142,12 +150,14 @@ private:
 
     std::vector<double> computeResidualWeights(std::vector<double> residuals, const double alpha);
 
-    void prepareDDSystem(double meanShiftWeigh, double residualDownWeight);
+    void prepareDDSystem(std::array<double,4> meanShiftConstraint, double residualDownWeight);
 
     template <class T>
     void _solve(unsigned numIterations, double dampingFactor,
-                double meanShiftConstrainWeight, double residualDownWeight,
-                bool normalizeG );
+                double residualDownWeight, std::array<double,4> meanShiftConstraint,
+                bool normalizeG);
+
+    void loadSolutions();
 
 private:
 
@@ -221,9 +231,21 @@ private:
     // key1=evIdx  key2=phStaIdx
     std::unordered_map<unsigned, std::unordered_map<unsigned,ObservationParams>> _obsParams;
 
+    struct ParamStats {
+        double totalAPrioriWeight = 0;
+        double totalFinalWeight = 0;
+    };
+    // key1=evIdx  key2=phStaIdx
+    std::unordered_map<unsigned, std::unordered_map<unsigned,ParamStats>> _paramStats;
+
     struct {
         double lat, lon, depth;
     } _centroid;
+
+    struct EventDeltas {
+        double deltaLat, deltaLon, deltaDepth, deltaTT;
+    };
+    std::unordered_map<unsigned,EventDeltas> _eventDeltas; // key = evIdx
 
     DDSystemPtr _dd;
     std::string _type;

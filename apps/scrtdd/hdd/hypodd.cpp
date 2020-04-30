@@ -544,16 +544,23 @@ HypoDD::relocate(map<unsigned,CatalogPtr>& neighbourCats, bool keepNeighboursFix
         };
         double dampingFactor = interpolate(_cfg.solver.dampingFactorStart,
                                            _cfg.solver.dampingFactorEnd);
-        double meanShiftConstrainWeight = interpolate(_cfg.solver.meanShiftConstrainWeightStart,
-                                                      _cfg.solver.meanShiftConstrainWeightEnd);
         double downWeightingByResidual = interpolate(_cfg.solver.downWeightingByResidualStart,
-                                                     _cfg.solver.downWeightingByResidualEnd);
+                                                     _cfg.solver.downWeightingByResidualEnd); 
+        double meanLonShiftConstraint = interpolate(_cfg.solver.meanShiftConstraintStart[0],
+                                                    _cfg.solver.meanShiftConstraintEnd[0]);
+        double meanLatShiftConstraint = interpolate(_cfg.solver.meanShiftConstraintStart[1],
+                                                    _cfg.solver.meanShiftConstraintEnd[1]); 
+        double meanDepthShiftConstraint = interpolate(_cfg.solver.meanShiftConstraintStart[2],
+                                                      _cfg.solver.meanShiftConstraintEnd[2]); 
+        double meanTTShiftConstraint = interpolate(_cfg.solver.meanShiftConstraintStart[3],
+                                                    _cfg.solver.meanShiftConstraintEnd[3]);
 
         // solve the system
         try {
             solver.solve(_cfg.solver.solverIterations, dampingFactor,
-                         meanShiftConstrainWeight, downWeightingByResidual,
-                         _cfg.solver.L2normalization);
+                         downWeightingByResidual, meanLonShiftConstraint,
+                         meanLatShiftConstraint,  meanDepthShiftConstraint,
+                         meanTTShiftConstraint, _cfg.solver.L2normalization);
         } catch ( exception &e ) {
             SEISCOMP_INFO("Cannot solve the double-difference system, stop here (%s)", e.what());
             break;
@@ -563,16 +570,22 @@ HypoDD::relocate(map<unsigned,CatalogPtr>& neighbourCats, bool keepNeighboursFix
 
         // update event parameters
         unsigned rmsCount = 0;
-        double rms = 0; 
+        double rms = 0;
         for (auto& kv : neighbourCats)
         {
             CatalogPtr& neighbourCat = kv.second;
             neighbourCat = updateRelocatedEvents(solver, neighbourCat, selectedEvents, obsparams);
-            rms += neighbourCat->getEvents().at(kv.first).rms;
-            ++rmsCount;
+            if ( neighbourCat->getEvents().at(kv.first).relocInfo.isRelocated )
+            {
+                rms += neighbourCat->getEvents().at(kv.first).rms;
+                ++rmsCount;
+            }
         }
-        SEISCOMP_INFO("Iteration %u dampingFactor %.2f meanShiftConstrainWeight %.2f downWeightingByResidual %.2f avg rms %f", 
-                         iteration, dampingFactor, meanShiftConstrainWeight, downWeightingByResidual,
+        SEISCOMP_INFO("Iteration %u dampingFactor %.2f downWeightingByResidual %.2f "
+                      "meanShiftConstrainWeight %.2f,%.2f,%.2f,%.2f avg rms %f", 
+                         iteration, dampingFactor, downWeightingByResidual,
+                         meanLonShiftConstraint, meanLatShiftConstraint,
+                         meanDepthShiftConstraint, meanTTShiftConstraint,
                          ( rmsCount > 0 ? (rms / rmsCount) : 0.) );
     }
 
@@ -1219,9 +1232,9 @@ HypoDD::ObservationParams::addToSolver(Solver& solver) const
 
 CatalogPtr
 HypoDD::updateRelocatedEvents(const Solver& solver,
-                             const CatalogCPtr& originalCatalog, 
-                             std::unordered_set<unsigned> eventsToRelocate,
-                             ObservationParams& obsparams ) const
+                              const CatalogCPtr& originalCatalog, 
+                              std::unordered_set<unsigned> eventsToRelocate,
+                              ObservationParams& obsparams ) const
 {
     unordered_map<string,Station> stations = originalCatalog->getStations();
     map<unsigned,Event> events = originalCatalog->getEvents();
@@ -1230,7 +1243,7 @@ HypoDD::updateRelocatedEvents(const Solver& solver,
     for ( auto& kv : events )
     {
         Event& event = kv.second;
-//        event.relocInfo.isRelocated = false;
+        event.relocInfo.isRelocated = false;
 
         if ( eventsToRelocate.count(event.id) == 0 )
         {
@@ -1264,10 +1277,20 @@ HypoDD::updateRelocatedEvents(const Solver& solver,
             const Station& station = stations.at(phase.stationId);
             char phaseTypeAsChar = static_cast<char>(phase.procInfo.type);
 
-//            phase.relocInfo.finalWeight = finalWeights;
-//            phase.relocInfo.isRelocated = finalWeight > 0;
-//            if ( ! phase.relocInfo.isRelocated )
-//              continue;
+            phase.relocInfo.isRelocated = false;
+
+            double totalAPrioriWeight, totalFinalWeight;
+            if ( ! solver.getObservationParamsChanges(event.id, station.id, phaseTypeAsChar,
+                                                      totalAPrioriWeight, totalFinalWeight) )
+            {
+                continue;
+            }
+
+            if ( totalFinalWeight <= 0. )
+              continue;
+
+            phase.relocInfo.isRelocated = true;
+            phase.relocInfo.finalWeight = phase.procInfo.weight * totalFinalWeight / totalAPrioriWeight;
 
             try {
                 obsparams.add(_ttt, event, station, phaseTypeAsChar);

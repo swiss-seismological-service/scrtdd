@@ -120,7 +120,7 @@
                         command line option)
                     </description>
 
-                    <parameter name="regionType" type="string">
+                    <parameter name="regionType" type="string" default="CIRCULAR" >
                         <description>
                             Type of region: RECTANGULAR or CIRCULAR
                         </description>
@@ -575,26 +575,41 @@
                         </parameter> 
                         <group name="downWeightingByResidual">
                             <description>
-                                Set to 0 to disable. The values are the standard deviations
-                                of the double-difference residuals beyond which the observations
-                                are dropped (thier weight becomes 0).
+                                This is the most important parameter to configure. When the doubble
+                                difference system is created all observations have weigth 1.0 (unless
+                                a priori weights options is used). Then in subsequent iterations 
+                                the each observation is downweighted accordingly to its residuals.
+                                This allows to eventualy get rid of bad observations (wrong data
+                                possibly coming from automatick picks for example) and also to
+                                scale observation wights accordingly to their quality and resolution
+                                (e.g. absolute travel time differences vs cross-correlation ones).
+                                The values are the standard deviations of the double-difference
+                                residuals beyond which the observations are dropped (thier weight
+                                becomes 0).
+                                Set it to 0 to disable downweighting
                             </description> 
                             <parameter name="startingValue" type="double" default="10"></parameter>
                             <parameter name="finalValue"    type="double" default="3"></parameter> 
                         </group> 
-                        <group name="meanShiftConstrainWeight">
+                        <group name="meanShiftconstraintWeight">
                             <description>
-                                Constrain the mean shift of all earthquakes during relocation to zero
+                                Constrain the mean shift of all earthquakes during relocation to zero.
+                                This is useful to avoid the shifting of the full cluster as the
+                                result of the relocation. However a small shift of the cluster
+                                centroid can be allowed to correct for possible errors in the
+                                initial absolute locations.
+                                4 weight values are required: longitude, latitude, depth and time
+                                constraint weights. A weight of zero means no constraint.
                             </description> 
-                            <parameter name="startingValue" type="double" default="0.9"></parameter>
-                            <parameter name="finalValue"    type="double" default="0.6"></parameter> 
+                            <parameter name="startingValue" type="double" default="0.9,0.9,1.0,0.9"></parameter>
+                            <parameter name="finalValue"    type="double" default="0.6,0.6,1.0,0.6"></parameter> 
                         </group>   
                         <group name="dampingFactor">
                             <description>
                                 Regularizer for moderately or severely ill-conditioned systems.
                                 These values constrain the changes in earthquakes parameters
                                 to avoid that bad observations result in huge earthquakes parameters
-                                changes.
+                                changes
                             </description> 
                             <parameter name="startingValue" type="double"></parameter>
                             <parameter name="finalValue"    type="double"></parameter> 

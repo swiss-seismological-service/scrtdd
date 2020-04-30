@@ -70,6 +70,36 @@ namespace {
 
 using Seiscomp::Core::fromString;
 
+template <class T>
+bool configGetTypedList(const Application* app, const string &parameter, vector<T>& values, unsigned requiredItems, bool allowEmpty)
+{
+    vector<string> stringValues;
+
+    try { stringValues = app->configGetStrings(parameter); }
+    catch ( ... ) { }
+
+    if ( stringValues.size() != requiredItems &&
+         ! ( allowEmpty && stringValues.empty() ) )
+    {
+        SEISCOMP_ERROR("%s: expected %u values but got %zu",
+                       parameter.c_str(), requiredItems, stringValues.size() );
+        return false;
+    }
+
+    for ( unsigned i = 0; i < stringValues.size(); i++ )
+    {
+        T val;
+        if ( ! fromString(val, stringValues[i] ) )
+        {
+            SEISCOMP_ERROR("%s: invalid value(s)", parameter.c_str());
+            return false;
+        }
+        values.push_back(val);
+    }
+    return true;
+}
+
+
 // Rectangular region class defining a rectangular region
 // by latmin, lonmin, latmax, lonmax.
 struct RectangularRegion : public Seiscomp::RTDD::Region
@@ -78,29 +108,19 @@ struct RectangularRegion : public Seiscomp::RTDD::Region
     }
 
     bool init(const Application* app, const string &prefix) {
-        vector<string> region;
-        try { region = app->configGetStrings(prefix + "region"); }
-        catch ( ... ) {}
+
+        vector<double> region;
+        if ( ! configGetTypedList(app, prefix + "region", region, 4, true ) )
+            return false;
 
         if ( region.empty() )
             isEmpty = true;
         else {
             isEmpty = false;
-
-            // Parse region
-            if ( region.size() != 4 ) {
-                SEISCOMP_ERROR("%s: expected 4 values in region definition, got %d",
-                               prefix.c_str(), (int)region.size());
-                return false;
-            }
-
-            if ( !fromString(latMin, region[0]) ||
-                 !fromString(lonMin, region[1]) ||
-                 !fromString(latMax, region[2]) ||
-                 !fromString(lonMax, region[3]) ) {
-                SEISCOMP_ERROR("%s: invalid region value(s)", prefix.c_str());
-                return false;
-            }
+            latMin = region[0];
+            lonMin = region[1];
+            latMax = region[2];
+            lonMax = region[3];
         }
 
         return true;
@@ -137,28 +157,18 @@ struct CircularRegion : public Seiscomp::RTDD::Region
     }
 
     bool init(const Application* app, const string &prefix) {
-        vector<string> region;
-        try { region = app->configGetStrings(prefix + "region"); }
-        catch ( ... ) {}
+
+        vector<double> region;
+        if ( ! configGetTypedList(app, prefix + "region", region, 3, true ) )
+            return false;
 
         if ( region.empty() )
             isEmpty = true;
         else {
             isEmpty = false;
-
-            // Parse region
-            if ( region.size() != 3 ) {
-                SEISCOMP_ERROR("%s: expected 3 values in region definition, got %d",
-                               prefix.c_str(), (int)region.size());
-                return false;
-            }
-
-            if ( !fromString(lat, region[0]) ||
-                 !fromString(lon, region[1]) ||
-                 !fromString(radius, region[2]) ) {
-                SEISCOMP_ERROR("%s: invalid region value(s)", prefix.c_str());
-                return false;
-            }
+            lat    = region[0];
+            lon    = region[1];
+            radius = region[2];
         }
 
         return true;
@@ -375,20 +385,18 @@ bool RTDD::validateParameters()
         } catch ( ... ) {}
         if ( regionType == "RECTANGULAR" )
             prof->region = new RectangularRegion;
-        else if ( regionType == "CIRCULAR" )
+        else
             prof->region = new CircularRegion;
 
         if ( prof->region == nullptr ) {
             SEISCOMP_ERROR("profile.%s: invalid region type: %s",
                            it->c_str(), regionType.c_str());
-            it = _config.activeProfiles.erase(it);
             profilesOK = false;
             continue;
         }
 
         if ( !prof->region->init(this, prefix) ) {
             SEISCOMP_ERROR("profile.%s: invalid region parameters", it->c_str());
-            it = _config.activeProfiles.erase(it);
             profilesOK = false;
             continue;
         }
@@ -597,12 +605,22 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.solver.dampingFactorEnd = configGetDouble(prefix + "dampingFactor.finalValue");
         } catch ( ... ) { prof->ddcfg.solver.dampingFactorEnd = 0.; }
-        try {
-            prof->ddcfg.solver.meanShiftConstrainWeightStart = configGetDouble(prefix + "meanShiftConstrainWeight.startingValue");
-        } catch ( ... ) { prof->ddcfg.solver.meanShiftConstrainWeightStart = 0.9; } 
-        try {
-            prof->ddcfg.solver.meanShiftConstrainWeightEnd = configGetDouble(prefix + "meanShiftConstrainWeight.finalValue");
-        } catch ( ... ) { prof->ddcfg.solver.meanShiftConstrainWeightEnd = 0.6; }
+        vector<double> cs, ce;
+        if ( configGetTypedList(this, prefix + "meanShiftconstraintWeight.startingValue", cs, 4, true) &&
+             configGetTypedList(this, prefix + "meanShiftconstraintWeight.finalValue", ce, 4, true) ) 
+        {
+            if ( cs.empty() )
+                prof->ddcfg.solver.meanShiftConstraintStart = {0.9, 0.9, 1.0, 0.9};
+            else
+                prof->ddcfg.solver.meanShiftConstraintStart = {cs[0], cs[1], cs[2], cs[3]};
+            if ( ce.empty() ) 
+                prof->ddcfg.solver.meanShiftConstraintEnd = {0.6, 0.6, 1.0, 0.6};
+            else
+                prof->ddcfg.solver.meanShiftConstraintEnd = {ce[0], ce[1], ce[2], ce[3]};
+        } else {
+            profilesOK = false;
+            continue;
+        }
         try {
             prof->ddcfg.solver.downWeightingByResidualStart = configGetDouble(prefix + "downWeightingByResidual.startingValue");
         } catch ( ... ) { prof->ddcfg.solver.downWeightingByResidualStart = 10.; } 
@@ -638,7 +656,7 @@ bool RTDD::validateParameters()
         setDatabaseEnabled(false, false);
     }
 
-    if (!profilesOK) return false;
+    if ( ! profilesOK ) return false;
 
     if ( commandline().hasOption("dump-config") )
     {
@@ -714,17 +732,13 @@ bool RTDD::run()
     // evaluate cross-correlation settings and exit
     if ( !_config.evalXCorr.empty() )
     {
-        // do not preload profile
-        _config.profileTimeAlive = 3600;
-        _config.cacheAllWaveforms = true;
-
         for ( ProfilePtr profile : _profiles )
         {
             if ( profile->name == _config.evalXCorr)
             {
                 profile->load(query(), &_cache, _eventParameters.get(),
                               _config.workingDirectory, !_config.keepWorkingFiles,
-                              _config.cacheWaveforms, _config.cacheAllWaveforms, 
+                              _config.cacheWaveforms, true,
                               _config.dumpWaveforms, false); 
                 profile->evalXCorr();
                 profile->unload();
@@ -844,14 +858,13 @@ bool RTDD::run()
     // relocate full catalog and exit
     if ( !_config.relocateProfile.empty() )
     {
-        _config.cacheAllWaveforms = true;
         for ( ProfilePtr profile : _profiles )
         {
             if ( profile->name == _config.relocateProfile)
             {
                 profile->load(query(), &_cache, _eventParameters.get(),
                               _config.workingDirectory, !_config.keepWorkingFiles,
-                              _config.cacheWaveforms, _config.cacheAllWaveforms, 
+                              _config.cacheWaveforms, true,
                               _config.dumpWaveforms, false);
                 try {
                     HDD::CatalogPtr relocatedCat = profile->relocateCatalog();

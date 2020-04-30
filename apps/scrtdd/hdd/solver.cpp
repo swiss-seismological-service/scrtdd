@@ -329,33 +329,145 @@ Solver::getEventChanges(unsigned evId, double &deltaLat, double &deltaLon, doubl
         return false;
 
     unsigned evIdx = _eventIdConverter.toIdx(evId);
-    const EventParams& evprm = _eventParams.at(evIdx);
 
-    double deltaX = _dd->m[evIdx*4];
-    double deltaY = _dd->m[evIdx*4+1];
-    deltaDepth    = -_dd->m[evIdx*4+2]; // make depth positive
-    deltaTT       = _dd->m[evIdx*4+3];
+    if ( _eventDeltas.find(evIdx) == _eventDeltas.end() )
+        return false;
 
-    double newX = evprm.x + deltaX;
-    double newY = evprm.y + deltaY;
-
-    // compute distance and azimuth of evId to centroid (0,0,0)
-    double hdist = std::sqrt( std::pow(newX,2) + std::pow(newY, 2) );
-    hdist = Math::Geo::km2deg(hdist); // distance to degree
-
-    double azimuth  = std::atan2(newX, newY);
-    azimuth = rad2deg(azimuth);
-
-    // Computes the coordinates (lat, lon) of the point which
-    // is at a degree azimuth of 'azi' and a distance of 'dist' as seen
-    // from the centroid (lat0, lon0)
-    double newLat, newLon;
-    Math::Geo::delandaz2coord(hdist, azimuth, _centroid.lat, _centroid.lon, &newLat, &newLon);
-
-    deltaLat = newLat - evprm.lat;
-    deltaLon = newLon - evprm.lon;
-
+    const EventDeltas& evDelta = _eventDeltas.at(evIdx);
+    deltaLat = evDelta.deltaLat;
+    deltaLon = evDelta.deltaLon;
+    deltaDepth = evDelta.deltaDepth;
+    deltaTT = evDelta.deltaTT;
     return true;
+}
+
+
+bool
+Solver::getObservationParamsChanges(unsigned evId, const std::string& staId, char phase,
+                                    double &totalAPrioriWeight, double &totalFinalWeight) const
+{
+    if ( ! _eventIdConverter.hasId(evId) )
+        return false;
+
+    string phStaId = string(1,phase) + "@" + staId;
+    if ( ! _phStaIdConverter.hasId(phStaId) )
+        return false;
+
+    int evIdx  = _eventIdConverter.toIdx(evId);
+    unsigned phStaIdx = _phStaIdConverter.toIdx(phStaId);
+
+    const auto& it1 = _paramStats.find(evIdx);
+    if ( it1 == _paramStats.end() )
+        return false;
+
+    const auto& it2 = it1->second.find(phStaIdx);
+    if ( it2 == it1->second.end() )
+        return false;
+
+    const ParamStats& prmSts = it2->second;
+
+    totalAPrioriWeight = prmSts.totalAPrioriWeight;
+    totalFinalWeight   = prmSts.totalFinalWeight;
+    return true;
+}
+
+
+void
+Solver::loadSolutions()
+{
+    auto computeEventDelta = [this](unsigned evIdx, EventDeltas& evDelta)
+    {
+        const EventParams& evprm = _eventParams.at(evIdx);
+        const unsigned evOffset = evIdx * 4;
+
+        double deltaX      = _dd->m[evOffset+0];
+        double deltaY      = _dd->m[evOffset+1];
+        evDelta.deltaDepth = _dd->m[evOffset+2];
+        evDelta.deltaTT    = _dd->m[evOffset+3];
+
+        double newX = evprm.x + deltaX;
+        double newY = evprm.y + deltaY;
+
+        // compute distance and azimuth of evId to centroid (0,0,0)
+        double hdist = std::sqrt( std::pow(newX,2) + std::pow(newY, 2) );
+        hdist = Math::Geo::km2deg(hdist); // distance to degree
+
+        double azimuth  = std::atan2(newX, newY);
+        azimuth = rad2deg(azimuth);
+
+        // Computes the coordinates (lat, lon) of the point which
+        // is at a degree azimuth of 'azi' and a distance of 'dist' as seen
+        // from the centroid (lat0, lon0)
+        double newLat, newLon;
+        Math::Geo::delandaz2coord(hdist, azimuth, _centroid.lat, _centroid.lon, &newLat, &newLon);
+
+        evDelta.deltaLat = newLat - evprm.lat;
+        evDelta.deltaLon = newLon - evprm.lon;
+    };
+
+    //
+    // Compute final weghts for each ObservationParams
+    // Note: we could have done this even before solving the system
+    //       but here is more convenient because we might eventually
+    //       add more information depending on the solution
+    //
+    for ( unsigned int ob = 0; ob < _dd->nObs; ob++ )
+    {
+        double observationWeight = _dd->W[ob];
+
+        if ( observationWeight == 0. ) continue;
+
+        const unsigned phStaIdx = _dd->phStaByObs[ob]; // station for this observation
+
+        const int evIdx1 = _dd->evByObs[ob][0]; // event 1 for this observation
+        if ( evIdx1 >= 0 )
+        {
+            _paramStats.at(evIdx1).at(phStaIdx).totalFinalWeight += observationWeight;
+        }
+
+        const int evIdx2 = _dd->evByObs[ob][1]; // event 2 for this observation
+        if ( evIdx2 >= 0 )
+        {
+            _paramStats.at(evIdx2).at(phStaIdx).totalFinalWeight += observationWeight;
+        }
+    }
+
+    //
+    // Now build a map of events that have at least one observation whose weight is non zero
+    // (that is discard events that lost all their observations due to downweighting )
+    //
+    for ( const auto& kv1 : _paramStats )
+    {
+        unsigned evIdx = kv1.first;
+        bool allZero = true;
+
+        for ( const auto& kv2 : kv1.second )
+        {
+            const ParamStats& pweight = kv2.second;
+            if ( pweight.totalFinalWeight != 0 )
+            {
+                allZero = false;
+                break;
+            }
+        }
+
+        if ( ! allZero ) _eventDeltas[evIdx] = { 0 };
+    }
+
+    //
+    // Load change in event parameters for all events that have at least
+    // one non-zero-weight observation
+    //
+    for ( auto& kw : _eventDeltas )
+    {
+        const unsigned evIds = kw.first;
+        EventDeltas& evDelta = kw.second;
+        computeEventDelta( evIds, evDelta );
+    }
+
+    // free some memory
+    _eventParams.clear();
+    _dd = nullptr;
 }
 
 
@@ -390,7 +502,7 @@ Solver::computePartialDerivatives()
         az = deg2rad(az);
         x = distance * std::sin(az);
         y = distance * std::cos(az);
-        z = _centroid.depth - depth;
+        z = depth - _centroid.depth;
     };
 
     //
@@ -494,7 +606,7 @@ Solver::computeResidualWeights(vector<double> residuals, const double alpha)
 
 
 void
-Solver::prepareDDSystem(double meanShiftConstrainWeight, double residualDownWeight)
+Solver::prepareDDSystem(array<double,4> meanShiftConstraint, double residualDownWeight)
 {
     computePartialDerivatives();
 
@@ -538,6 +650,12 @@ Solver::prepareDDSystem(double meanShiftConstrainWeight, double residualDownWeig
 
         // apply weights to d
         _dd->d[obIdx] *= _dd->W[obIdx];
+
+        // keep track of the wights for these obsparms
+        if ( obsrv.computeEv1Changes )
+            _paramStats[obsrv.ev1Idx][obsrv.phStaIdx].totalAPrioriWeight += _dd->W[obIdx];
+        if ( obsrv.computeEv2Changes )
+            _paramStats[obsrv.ev2Idx][obsrv.phStaIdx].totalAPrioriWeight += _dd->W[obIdx];
     }
 
     // Init remaining 4 equations for cluster zero mean shift and their weights
@@ -545,10 +663,10 @@ Solver::prepareDDSystem(double meanShiftConstrainWeight, double residualDownWeig
     _dd->d[_dd->nObs+1] = 0;
     _dd->d[_dd->nObs+2] = 0;
     _dd->d[_dd->nObs+3] = 0;
-    _dd->W[_dd->nObs+0] = meanShiftConstrainWeight;
-    _dd->W[_dd->nObs+1] = meanShiftConstrainWeight;
-    _dd->W[_dd->nObs+2] = meanShiftConstrainWeight;
-    _dd->W[_dd->nObs+3] = meanShiftConstrainWeight;
+    _dd->W[_dd->nObs+0] = meanShiftConstraint[0];
+    _dd->W[_dd->nObs+1] = meanShiftConstraint[1];
+    _dd->W[_dd->nObs+2] = meanShiftConstraint[2];
+    _dd->W[_dd->nObs+3] = meanShiftConstraint[3];
 
     // downweight observations by residuals
     if ( residualDownWeight > 0 )
@@ -562,31 +680,44 @@ Solver::prepareDDSystem(double meanShiftConstrainWeight, double residualDownWeig
         }
     }
 
-    // free memory 
+    // free some memory 
     _observations.clear();
     _obsParams.clear();
     _stationParams.clear();
 }
 
 
-void Solver::solve(unsigned numIterations, double dampingFactor,
-                   double meanShiftConstrainWeight, double residualDownWeight,
-                   bool normalizeG)
+void 
+Solver::solve(unsigned numIterations,
+              double dampingFactor,
+              double residualDownWeight,
+              double meanLonShiftConstraint,
+              double meanLatShiftConstraint,
+              double meanDepthShiftConstraint,
+              double meanTTShiftConstraint,
+              bool normalizeG)
 {
     if ( _observations.size() == 0 )
     {
         throw runtime_error("Solver: no observations given");
     }
 
+    array<double,4> meanShiftConstraint = {
+        meanLonShiftConstraint,
+        meanLatShiftConstraint,
+        meanDepthShiftConstraint,
+        meanTTShiftConstraint,
+    };
+
     if ( _type == "LSQR" )
     {
-        _solve<lsqrBase>(numIterations, dampingFactor, meanShiftConstrainWeight,
-                         residualDownWeight, normalizeG);
+        _solve<lsqrBase>(numIterations, dampingFactor, residualDownWeight,
+                         meanShiftConstraint, normalizeG);
     }
     else if ( _type == "LSMR" )
     {
-        _solve<lsmrBase>(numIterations, dampingFactor, meanShiftConstrainWeight,
-                         residualDownWeight, normalizeG);
+        _solve<lsmrBase>(numIterations, dampingFactor, residualDownWeight,
+                         meanShiftConstraint, normalizeG);
     }
     else
     {
@@ -596,11 +727,13 @@ void Solver::solve(unsigned numIterations, double dampingFactor,
 
 
 template <class T>
-void Solver::_solve(unsigned numIterations, double dampingFactor,
-                    double meanShiftConstrainWeight, double residualDownWeight,
+void Solver::_solve(unsigned numIterations,
+                    double dampingFactor,
+                    double residualDownWeight,
+                    array<double,4> meanShiftConstraint,
                     bool normalizeG)
 {
-    prepareDDSystem(meanShiftConstrainWeight, residualDownWeight);
+    prepareDDSystem(meanShiftConstraint, residualDownWeight);
 
     Adapter<T> solver;
     solver.setDDSytem(_dd);
@@ -628,15 +761,23 @@ void Solver::_solve(unsigned numIterations, double dampingFactor,
     SEISCOMP_INFO("Stopped because %u : %s", solver.GetStoppingReason(), solver.GetStoppingReasonMessage().c_str());
     SEISCOMP_INFO("Used %u Iterations", solver.GetNumberOfIterationsPerformed());
 
+    if ( solver.GetStoppingReason() == 4 )
+    {
+        _dd = nullptr;
+        string msg = stringify("Solver: no solution found (%s)", solver.GetStoppingReasonMessage().c_str() );
+        throw runtime_error(msg.c_str());
+    }
+
     if ( normalizeG )
     {
         solver.L2DeNormalize();
-    } 
+    }
 
-    if ( solver.GetStoppingReason() == 4 )
+    loadSolutions();
+
+    if ( _eventDeltas.empty() )
     {
-        string msg = stringify("Solver: no solution found (%s)", solver.GetStoppingReasonMessage().c_str() );
-        throw runtime_error(msg.c_str());
+        throw runtime_error("Solver: no event has been relocated");
     } 
 }
 
