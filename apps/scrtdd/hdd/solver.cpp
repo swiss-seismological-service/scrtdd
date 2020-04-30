@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "solver.h"
+#include "distance.h"
 
 #include <stdexcept>
 #include <sstream>
@@ -265,32 +266,6 @@ namespace Seiscomp {
 namespace HDD {
 
 
-/*
- * Compute distance in km between two points and optionally
- * azimuth and backazimuth
- */
-double
-Solver::computeDistance(double lat1, double lon1, double depth1,
-                        double lat2, double lon2, double depth2,
-                        double *azimuth, double *backAzimuth)
-{
-    double Hdist, az, baz;
-    Math::Geo::delazi(lat1, lon1, lat2, lon2, &Hdist, &az, &baz);
-    Hdist = Math::Geo::deg2km(Hdist);
-
-    if (azimuth) *azimuth = az;
-    if (backAzimuth) *backAzimuth = baz;
-
-    if ( depth1 == depth2 )
-        return Hdist;
-
-    // this is an approximation that works when the distance is small
-    // and the Earth curvature can be assumed flat 
-    double Vdist = abs(depth1 - depth2);
-    return std::sqrt( std::pow(Hdist,2) + std::pow(Vdist,2) );
-}
-
-
 void
 Solver::addObservation(unsigned evId1, unsigned evId2, const std::string& staId, char phase,
                        double observedDiffTime, double aPrioriWeight,
@@ -344,6 +319,7 @@ Solver::getEventChanges(unsigned evId, double &deltaLat, double &deltaLon, doubl
 
 bool
 Solver::getObservationParamsChanges(unsigned evId, const std::string& staId, char phase,
+                                    unsigned &startingObservations, unsigned &finalObservations,
                                     double &totalAPrioriWeight, double &totalFinalWeight) const
 {
     if ( ! _eventIdConverter.hasId(evId) )
@@ -422,13 +398,17 @@ Solver::loadSolutions()
         const int evIdx1 = _dd->evByObs[ob][0]; // event 1 for this observation
         if ( evIdx1 >= 0 )
         {
-            _paramStats.at(evIdx1).at(phStaIdx).totalFinalWeight += observationWeight;
+            ParamStats& prmSts = _paramStats.at(evIdx1).at(phStaIdx);
+            prmSts.finalObservations++;
+            prmSts.totalFinalWeight += observationWeight;
         }
 
         const int evIdx2 = _dd->evByObs[ob][1]; // event 2 for this observation
         if ( evIdx2 >= 0 )
         {
-            _paramStats.at(evIdx2).at(phStaIdx).totalFinalWeight += observationWeight;
+            ParamStats& prmSts = _paramStats.at(evIdx2).at(phStaIdx);
+            prmSts.finalObservations++;
+            prmSts.totalFinalWeight += observationWeight;
         }
     }
 
@@ -444,7 +424,7 @@ Solver::loadSolutions()
         for ( const auto& kv2 : kv1.second )
         {
             const ParamStats& pweight = kv2.second;
-            if ( pweight.totalFinalWeight != 0 )
+            if ( pweight.finalObservations > 0 )
             {
                 allZero = false;
                 break;
@@ -653,9 +633,18 @@ Solver::prepareDDSystem(array<double,4> meanShiftConstraint, double residualDown
 
         // keep track of the wights for these obsparms
         if ( obsrv.computeEv1Changes )
-            _paramStats[obsrv.ev1Idx][obsrv.phStaIdx].totalAPrioriWeight += _dd->W[obIdx];
+        {
+            ParamStats& prmSts = _paramStats[obsrv.ev1Idx][obsrv.phStaIdx];
+            prmSts.startingObservations++;
+            prmSts.totalAPrioriWeight += _dd->W[obIdx];
+        }
+
         if ( obsrv.computeEv2Changes )
-            _paramStats[obsrv.ev2Idx][obsrv.phStaIdx].totalAPrioriWeight += _dd->W[obIdx];
+        {
+            ParamStats& prmSts = _paramStats[obsrv.ev2Idx][obsrv.phStaIdx];
+            prmSts.startingObservations++;
+            prmSts.totalAPrioriWeight += _dd->W[obIdx]; 
+        }
     }
 
     // Init remaining 4 equations for cluster zero mean shift and their weights

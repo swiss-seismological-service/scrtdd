@@ -17,6 +17,7 @@
 
 #include "hypodd.h"
 #include "ellipsoid.ipp"
+#include "distance.h"
 
 #include <seiscomp3/core/datetime.h>
 #include <seiscomp3/core/strings.h>
@@ -51,23 +52,6 @@ using Station = HDD::Catalog::Station;
 using CacheType = HDD::WfMngr::CacheType;
 
 namespace {
-
-double computeDistance(const Event& ev1, const Event& ev2,
-                       double *azimuth = nullptr, double *backAzimuth = nullptr)
-{
-    return HDD::Solver::computeDistance(ev1.latitude, ev1.longitude, ev1.depth,
-                                        ev2.latitude, ev2.longitude, ev2.depth,
-                                        azimuth, backAzimuth);
-}
-
-
-double computeDistance(const Event& event, const Station& station,
-                       double *azimuth = nullptr, double *backAzimuth = nullptr)
-{
-    return HDD::Solver::computeDistance(event.latitude, event.longitude, event.depth,
-                                       station.latitude, station.longitude, -(station.elevation/1000.),
-                                   azimuth, backAzimuth);
-}
 
 class Randomer {
 
@@ -138,7 +122,7 @@ HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& work
 
     _wfDebugDir = (boost::filesystem::path(_workingDir)/"wfdebug").string();
 
-    _wf = new WfMngr(_cfg.step2Clustering.recordStreamURL, _cacheDir, _tmpCacheDir, _wfDebugDir);
+    _wf = new WfMngr(_cfg.ddObservations2.recordStreamURL, _cacheDir, _tmpCacheDir, _wfDebugDir);
     _wf->setProcessing(_cfg.wfFilter.filterStr, _cfg.wfFilter.resampleFreq);
     _wf->setSnr(_cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd);
 
@@ -281,12 +265,12 @@ CatalogPtr HypoDD::relocateCatalog()
 
     // Find Neighbouring Events in the catalog
     map<unsigned,CatalogPtr> neighbourCats = selectNeighbouringEventsCatalog(
-        catToReloc, _cfg.step2Clustering.minWeight,
-        _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist,
-        _cfg.step2Clustering.minEStoIEratio, _cfg.step2Clustering.minDTperEvt,
-        _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh,
-        _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids,
-        _cfg.step2Clustering.maxEllipsoidSize, true
+        catToReloc, _cfg.ddObservations2.minWeight,
+        _cfg.ddObservations2.minESdist, _cfg.ddObservations2.maxESdist,
+        _cfg.ddObservations2.minEStoIEratio, _cfg.ddObservations2.minDTperEvt,
+        _cfg.ddObservations2.maxDTperEvt, _cfg.ddObservations2.minNumNeigh,
+        _cfg.ddObservations2.maxNumNeigh, _cfg.ddObservations2.numEllipsoids,
+        _cfg.ddObservations2.maxEllipsoidSize, true
     );
 
     // write catalog for debugging purpose
@@ -358,10 +342,10 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
                                                                     _cfg.validSphases);
 
     CatalogPtr relocatedEvCat = relocateEventSingleStep(
-            evToRelocateCat, eventWorkingDir, false, false, _cfg.step1Clustering.minWeight,
-            _cfg.step1Clustering.minESdist, _cfg.step1Clustering.maxESdist, _cfg.step1Clustering.minEStoIEratio,
-            _cfg.step1Clustering.minDTperEvt, _cfg.step1Clustering.maxDTperEvt, _cfg.step1Clustering.minNumNeigh,
-            _cfg.step1Clustering.maxNumNeigh, _cfg.step1Clustering.numEllipsoids, _cfg.step1Clustering.maxEllipsoidSize
+            evToRelocateCat, eventWorkingDir, false, false, _cfg.ddObservations1.minWeight,
+            _cfg.ddObservations1.minESdist, _cfg.ddObservations1.maxESdist, _cfg.ddObservations1.minEStoIEratio,
+            _cfg.ddObservations1.minDTperEvt, _cfg.ddObservations1.maxDTperEvt, _cfg.ddObservations1.minNumNeigh,
+            _cfg.ddObservations1.maxNumNeigh, _cfg.ddObservations1.numEllipsoids, _cfg.ddObservations1.maxEllipsoidSize
     );
 
     if ( relocatedEvCat )
@@ -384,10 +368,10 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     eventWorkingDir = (boost::filesystem::path(subFolder)/"step2").string();
 
     CatalogPtr relocatedEvWithXcorr = relocateEventSingleStep(
-            evToRelocateCat, eventWorkingDir, true, _cfg.artificialPhases.enable, _cfg.step2Clustering.minWeight,
-            _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist, _cfg.step2Clustering.minEStoIEratio,
-            _cfg.step2Clustering.minDTperEvt, _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh,
-            _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids, _cfg.step2Clustering.maxEllipsoidSize
+            evToRelocateCat, eventWorkingDir, true, _cfg.artificialPhases.enable, _cfg.ddObservations2.minWeight,
+            _cfg.ddObservations2.minESdist, _cfg.ddObservations2.maxESdist, _cfg.ddObservations2.minEStoIEratio,
+            _cfg.ddObservations2.minDTperEvt, _cfg.ddObservations2.maxDTperEvt, _cfg.ddObservations2.minNumNeigh,
+            _cfg.ddObservations2.maxNumNeigh, _cfg.ddObservations2.numEllipsoids, _cfg.ddObservations2.maxEllipsoidSize
     );
 
     if ( relocatedEvWithXcorr )
@@ -984,7 +968,7 @@ HypoDD::selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                 removedEvents.push_back( event.id );
                 // next loop we don't want other events to pick this as neighbour
                 validCatalog->removeEvent( event.id );
-                todoEvents.remove( event.id ); // invalidate loop !
+                todoEvents.remove( event.id ); // this invalidates the loop !
                 // stop here because we dont' want to keep building potentially wrong neighbours
                 break;
             }
@@ -1230,6 +1214,7 @@ HypoDD::ObservationParams::addToSolver(Solver& solver) const
     }
 }
 
+
 CatalogPtr
 HypoDD::updateRelocatedEvents(const Solver& solver,
                               const CatalogCPtr& originalCatalog, 
@@ -1279,14 +1264,16 @@ HypoDD::updateRelocatedEvents(const Solver& solver,
 
             phase.relocInfo.isRelocated = false;
 
+            unsigned startingObservations, finalObservations;
             double totalAPrioriWeight, totalFinalWeight;
             if ( ! solver.getObservationParamsChanges(event.id, station.id, phaseTypeAsChar,
+                                                      startingObservations, finalObservations,
                                                       totalAPrioriWeight, totalFinalWeight) )
             {
                 continue;
             }
 
-            if ( totalFinalWeight <= 0. )
+            if (  finalObservations == 0 )
               continue;
 
             phase.relocInfo.isRelocated = true;
@@ -1295,7 +1282,8 @@ HypoDD::updateRelocatedEvents(const Solver& solver,
             try {
                 obsparams.add(_ttt, event, station, phaseTypeAsChar);
             } catch ( exception &e ) {
-                SEISCOMP_DEBUG("Skipping observation: %s", e.what());
+                SEISCOMP_DEBUG("Skipping observation parameter (ev %u sta %s phase %c): %s",
+                                  event.id, station.id.c_str(), phaseTypeAsChar, e.what()); 
                 continue;
             }
 
@@ -1592,6 +1580,13 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
     for (auto itRef = eqlrngRef.first; itRef != eqlrngRef.second; ++itRef)
     {
         const Phase& refPhase = itRef->second;
+        const Station& station = catalog->getStations().at(refPhase.stationId);
+        double stationDistance = computeDistance(refEv, station);
+
+        // skip stations too far away
+        if ( stationDistance > _cfg.ddObservations2.xcorrMaxEvStaDist &&
+             _cfg.ddObservations2.xcorrMaxEvStaDist >= 0 )
+            continue;
 
         //
         // loop through catalog events and cross correlate phase pairs
@@ -1601,6 +1596,13 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             const Event& event = kv.second;
 
             if (event == refEv)
+                continue;
+
+            double interEventDistance = computeDistance(refEv, event);
+
+            // skip events too far away
+            if ( interEventDistance > _cfg.ddObservations2.xcorrMaxInterEvDist &&
+                 _cfg.ddObservations2.xcorrMaxInterEvDist >= 0 )
                 continue;
 
             auto it = catalog->searchPhase(event.id, refPhase.stationId, refPhase.procInfo.type);
@@ -1631,8 +1633,6 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                 // keep trace of  events/station distance for every xcorr performed
                 if ( computedStations.find(refPhase.stationId) == computedStations.end() )
                 {
-                    const Station& station = catalog->getStations().at(refPhase.stationId);
-                    double stationDistance = computeDistance(refEv, station);
                     stationByDistance.emplace(stationDistance, refPhase.stationId);
                     computedStations.insert(refPhase.stationId);
                 }
@@ -1883,7 +1883,8 @@ HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phC
     {
         commonChRoot = channelCodeRoot1;
     }
-    else if (phase1.procInfo.source == Phase::Source::CATALOG && phase2.procInfo.source != Phase::Source::CATALOG )
+    else if (phase1.procInfo.source == Phase::Source::CATALOG &&
+             phase2.procInfo.source != Phase::Source::CATALOG )
     {
         DataModel::ThreeComponents dummy;
         DataModel::SensorLocation *loc2 = Catalog::findSensorLocation(phase2.networkCode, phase2.stationCode, phase2.locationCode, phase2.time);
@@ -1893,7 +1894,8 @@ HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phC
             commonChRoot = channelCodeRoot1;
         } 
     }
-    else if (phase1.procInfo.source != Phase::Source::CATALOG && phase2.procInfo.source == Phase::Source::CATALOG )
+    else if (phase1.procInfo.source != Phase::Source::CATALOG &&
+             phase2.procInfo.source == Phase::Source::CATALOG )
     { 
         DataModel::ThreeComponents dummy;
         DataModel::SensorLocation *loc1 = Catalog::findSensorLocation(phase1.networkCode, phase1.stationCode, phase1.locationCode, phase1.time);
@@ -2288,12 +2290,12 @@ HypoDD::evalXCorr()
         CatalogPtr neighbourCat;
         try {
             neighbourCat = selectNeighbouringEvents(
-                _ddbgc, event, _ddbgc, _cfg.step2Clustering.minWeight,
-                _cfg.step2Clustering.minESdist, _cfg.step2Clustering.maxESdist,
-                _cfg.step2Clustering.minEStoIEratio, _cfg.step2Clustering.minDTperEvt,
-                _cfg.step2Clustering.maxDTperEvt, _cfg.step2Clustering.minNumNeigh,
-                _cfg.step2Clustering.maxNumNeigh, _cfg.step2Clustering.numEllipsoids,
-                _cfg.step2Clustering.maxEllipsoidSize, false, nullptr );
+                _ddbgc, event, _ddbgc, _cfg.ddObservations2.minWeight,
+                _cfg.ddObservations2.minESdist, _cfg.ddObservations2.maxESdist,
+                _cfg.ddObservations2.minEStoIEratio, _cfg.ddObservations2.minDTperEvt,
+                _cfg.ddObservations2.maxDTperEvt, _cfg.ddObservations2.minNumNeigh,
+                _cfg.ddObservations2.maxNumNeigh, _cfg.ddObservations2.numEllipsoids,
+                _cfg.ddObservations2.maxEllipsoidSize, false, nullptr );
         } catch ( ... ) { continue; }
 
         // create theoretical phases for this event

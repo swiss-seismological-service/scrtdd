@@ -8,6 +8,7 @@ SET(RTDD_SOURCES
 		hdd/datasrc.cpp
 		hdd/catalog.cpp
 		hdd/wfmngr.cpp
+		hdd/distance.cpp
 		hdd/hypodd.cpp
 		app.cpp
 		rtdd.cpp

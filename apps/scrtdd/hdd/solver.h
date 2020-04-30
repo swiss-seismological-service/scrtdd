@@ -139,11 +139,9 @@ public:
                          double &deltaDepth, double &deltaTT) const;
 
     bool getObservationParamsChanges(unsigned evId, const std::string& staId, char phase,
+                                     unsigned &startingObservations, unsigned &finalObservations,
                                      double &totalAPrioriWeight, double &totalFinalWeight) const;
 
-    static double computeDistance(double lat1, double lon1, double depth1,
-                                  double lat2, double lon2, double depth2,
-                                  double *azimuth = nullptr, double *backAzimuth = nullptr);
 private:
 
     void computePartialDerivatives();
@@ -232,6 +230,8 @@ private:
     std::unordered_map<unsigned, std::unordered_map<unsigned,ObservationParams>> _obsParams;
 
     struct ParamStats {
+        unsigned startingObservations = 0;
+        unsigned finalObservations = 0;
         double totalAPrioriWeight = 0;
         double totalFinalWeight = 0;
     };

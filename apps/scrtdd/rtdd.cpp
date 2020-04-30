@@ -438,70 +438,70 @@ bool RTDD::validateParameters()
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservationsNoXcorr.clustering.";
         try {
-            prof->ddcfg.step1Clustering.minNumNeigh = configGetInt(prefix + "minNumNeigh");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.minNumNeigh = 1; }
+            prof->ddcfg.ddObservations1.minNumNeigh = configGetInt(prefix + "minNumNeigh");
+        } catch ( ... ) { prof->ddcfg.ddObservations1.minNumNeigh = 1; }
         try {
-            prof->ddcfg.step1Clustering.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.maxNumNeigh = -1; }
+            prof->ddcfg.ddObservations1.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
+        } catch ( ... ) { prof->ddcfg.ddObservations1.maxNumNeigh = -1; }
         try {
-            prof->ddcfg.step1Clustering.minDTperEvt = configGetInt(prefix + "minObservationPerEvtPair");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.minDTperEvt = 1; }
+            prof->ddcfg.ddObservations1.minDTperEvt = configGetInt(prefix + "minObservationPerEvtPair");
+        } catch ( ... ) { prof->ddcfg.ddObservations1.minDTperEvt = 1; }
         try {
-            prof->ddcfg.step1Clustering.maxDTperEvt = configGetInt(prefix + "maxObservationPerEvtPair");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.maxDTperEvt = -1; }
+            prof->ddcfg.ddObservations1.maxDTperEvt = configGetInt(prefix + "maxObservationPerEvtPair");
+        } catch ( ... ) { prof->ddcfg.ddObservations1.maxDTperEvt = -1; }
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservationsNoXcorr.clustering.neighboringEventSelection.";
         try {
-            prof->ddcfg.step1Clustering.numEllipsoids = configGetInt(prefix + "numEllipsoids");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.numEllipsoids = 5; }
+            prof->ddcfg.ddObservations1.numEllipsoids = configGetInt(prefix + "numEllipsoids");
+        } catch ( ... ) { prof->ddcfg.ddObservations1.numEllipsoids = 5; }
         try {
-            prof->ddcfg.step1Clustering.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.maxEllipsoidSize = 5; }
+            prof->ddcfg.ddObservations1.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
+        } catch ( ... ) { prof->ddcfg.ddObservations1.maxEllipsoidSize = 5; }
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservationsNoXcorr.clustering.phaseSelection.";
         try {
-            prof->ddcfg.step1Clustering.minESdist = configGetDouble(prefix + "minStationDistance");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.minESdist = 0; }
+            prof->ddcfg.ddObservations1.minESdist = configGetDouble(prefix + "minStationDistance");
+        } catch ( ... ) { prof->ddcfg.ddObservations1.minESdist = 0; }
         try {
-            prof->ddcfg.step1Clustering.maxESdist = configGetDouble(prefix + "maxStationDistance");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.maxESdist = 150; }
+            prof->ddcfg.ddObservations1.maxESdist = configGetDouble(prefix + "maxStationDistance");
+        } catch ( ... ) { prof->ddcfg.ddObservations1.maxESdist = 150; }
         try {
-            prof->ddcfg.step1Clustering.minEStoIEratio = configGetDouble(prefix + "minStationToEventPairDistRatio");
-        } catch ( ... ) { prof->ddcfg.step1Clustering.minEStoIEratio = 5; } 
+            prof->ddcfg.ddObservations1.minEStoIEratio = configGetDouble(prefix + "minStationToEventPairDistRatio");
+        } catch ( ... ) { prof->ddcfg.ddObservations1.minEStoIEratio = 5; } 
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservations.clustering.";
-        prof->ddcfg.step2Clustering.recordStreamURL = recordStreamURL();
+        prof->ddcfg.ddObservations2.recordStreamURL = recordStreamURL();
         try {
-            prof->ddcfg.step2Clustering.minNumNeigh = configGetInt(prefix + "minNumNeigh");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.minNumNeigh = 1; }
+            prof->ddcfg.ddObservations2.minNumNeigh = configGetInt(prefix + "minNumNeigh");
+        } catch ( ... ) { prof->ddcfg.ddObservations2.minNumNeigh = 1; }
         try {
-            prof->ddcfg.step2Clustering.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.maxNumNeigh = -1; }
+            prof->ddcfg.ddObservations2.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
+        } catch ( ... ) { prof->ddcfg.ddObservations2.maxNumNeigh = -1; }
         try {
-            prof->ddcfg.step2Clustering.minDTperEvt = configGetInt(prefix + "minObservationPerEvtPair");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.minDTperEvt = 1; }
+            prof->ddcfg.ddObservations2.minDTperEvt = configGetInt(prefix + "minObservationPerEvtPair");
+        } catch ( ... ) { prof->ddcfg.ddObservations2.minDTperEvt = 1; }
         try {
-            prof->ddcfg.step2Clustering.maxDTperEvt = configGetInt(prefix + "maxObservationPerEvtPair");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.maxDTperEvt = -1; }
+            prof->ddcfg.ddObservations2.maxDTperEvt = configGetInt(prefix + "maxObservationPerEvtPair");
+        } catch ( ... ) { prof->ddcfg.ddObservations2.maxDTperEvt = -1; }
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservations.clustering.neighboringEventSelection.";
         try {
-            prof->ddcfg.step2Clustering.numEllipsoids = configGetInt(prefix + "numEllipsoids");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.numEllipsoids = 5; }
+            prof->ddcfg.ddObservations2.numEllipsoids = configGetInt(prefix + "numEllipsoids");
+        } catch ( ... ) { prof->ddcfg.ddObservations2.numEllipsoids = 5; }
         try {
-            prof->ddcfg.step2Clustering.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.maxEllipsoidSize = 5; }
+            prof->ddcfg.ddObservations2.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
+        } catch ( ... ) { prof->ddcfg.ddObservations2.maxEllipsoidSize = 5; }
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservations.clustering.phaseSelection.";
         try {
-            prof->ddcfg.step2Clustering.minESdist = configGetDouble(prefix + "minStationDistance");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.minESdist = 0; }
+            prof->ddcfg.ddObservations2.minESdist = configGetDouble(prefix + "minStationDistance");
+        } catch ( ... ) { prof->ddcfg.ddObservations2.minESdist = 0; }
         try {
-            prof->ddcfg.step2Clustering.maxESdist = configGetDouble(prefix + "maxStationDistance");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.maxESdist = 150; }
+            prof->ddcfg.ddObservations2.maxESdist = configGetDouble(prefix + "maxStationDistance");
+        } catch ( ... ) { prof->ddcfg.ddObservations2.maxESdist = 150; }
         try {
-            prof->ddcfg.step2Clustering.minEStoIEratio = configGetDouble(prefix + "minStationToEventPairDistRatio");
-        } catch ( ... ) { prof->ddcfg.step2Clustering.minEStoIEratio = 5; } 
+            prof->ddcfg.ddObservations2.minEStoIEratio = configGetDouble(prefix + "minStationToEventPairDistRatio");
+        } catch ( ... ) { prof->ddcfg.ddObservations2.minEStoIEratio = 5; } 
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservations.crosscorrelation.p-phase.";
         try {
@@ -555,6 +555,18 @@ bool RTDD::validateParameters()
             prof->ddcfg.xcorr[PhaseType::S].components = configGetStrings(prefix + "components");
         } catch ( ... ) {
             prof->ddcfg.xcorr[PhaseType::S].components = {"T","Z"};
+        }
+
+        prefix = string("profile.") + *it + ".doubleDifferenceObservations.crosscorrelation.exclusions.";
+        try {
+            prof->ddcfg.ddObservations2.xcorrMaxEvStaDist = configGetDouble(prefix + "maxStationDistance");
+        } catch ( ... ) {
+            prof->ddcfg.ddObservations2.xcorrMaxEvStaDist = 70;
+        }
+        try {
+            prof->ddcfg.ddObservations2.xcorrMaxInterEvDist = configGetDouble(prefix + "maxInterEventDistance");
+        } catch ( ... ) {
+            prof->ddcfg.ddObservations2.xcorrMaxInterEvDist = 3;
         }
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservations.waveformFiltering.";
@@ -640,8 +652,8 @@ bool RTDD::validateParameters()
 
 
         // no reason to make those configurable 
-        prof->ddcfg.step1Clustering.minWeight = 0;
-        prof->ddcfg.step2Clustering.minWeight = 0;
+        prof->ddcfg.ddObservations1.minWeight = 0;
+        prof->ddcfg.ddObservations2.minWeight = 0;
         prof->ddcfg.artificialPhases.enable = true;
         prof->ddcfg.solver.L2normalization = true;
 

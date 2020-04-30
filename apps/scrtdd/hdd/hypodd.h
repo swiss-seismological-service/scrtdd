@@ -39,7 +39,7 @@ struct Config {
     std::vector<std::string> validPphases = {"Pg","P","Px"};
     std::vector<std::string> validSphases = {"Sg","S","Sx"};
 
-    // differential travel time specific
+    // Absolute travel time difference observations only
     struct {
         double minWeight      = 0;  // Min weight of phases required (0-1)
         double minEStoIEratio = 0;  // Min epi-sta to  interevent distance ration required
@@ -54,26 +54,29 @@ struct Config {
         // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
         int numEllipsoids       = 5;
         double maxEllipsoidSize = 10; // km
-    } step1Clustering;
+    } ddObservations1;
 
-    // cross correlation specific
+    // Absolute travel time difference AND cross-correlation observations
     struct {
+        double minWeight      = 0;  // Min weight of phases required (0-1)
+        double minEStoIEratio = 0;  // Min epi-sta to  interevent distance ration required
+        double minESdist      = 0;  // Min epi-sta distance required
+        double maxESdist      =-1;  // Max epi-sta distance allowed
+        int minNumNeigh       = 1;  // Min neighbors required
+        int maxNumNeigh       =-1;  // Max neighbors allowed (furthest events are discarded)
+        int minDTperEvt       = 1;  // Min differential times per event pair required (Including P+S)
+        int maxDTperEvt       =-1;  // Max differential times per event pair required (Including P+S)
+        // From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
+        // events are selected within each of five concentric, vertically longated
+        // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
+        int numEllipsoids       = 5;
+        double maxEllipsoidSize = 10; // km
+
+        //  cross-correlation specific
+        double xcorrMaxEvStaDist   = -1; // max event to staion distance
+        double xcorrMaxInterEvDist = -1; // max inter-event distance
         std::string recordStreamURL;
-
-        double minWeight      = 0;  // Min weight of phases required (0-1)
-        double minEStoIEratio = 0;  // Min epi-sta to  interevent distance ration required
-        double minESdist      = 0;  // Min epi-sta distance required
-        double maxESdist      =-1;  // Max epi-sta distance allowed
-        int minNumNeigh       = 1;  // Min neighbors required
-        int maxNumNeigh       =-1;  // Max neighbors allowed (furthest events are discarded)
-        int minDTperEvt       = 1;  // Min differential times per event pair required (Including P+S)
-        int maxDTperEvt       =-1;  // Max differential times per event pair required (Including P+S)
-        // From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
-        // events are selected within each of five concentric, vertically longated
-        // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
-        int numEllipsoids       = 5;
-        double maxEllipsoidSize = 10; // km
-    } step2Clustering;
+    } ddObservations2;
 
     struct XCorr {
         double minCoef;     // Min xcorr coefficient required (0-1)
