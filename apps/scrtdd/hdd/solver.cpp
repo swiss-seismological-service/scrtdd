@@ -342,8 +342,10 @@ Solver::getObservationParamsChanges(unsigned evId, const std::string& staId, cha
 
     const ParamStats& prmSts = it2->second;
 
-    totalAPrioriWeight = prmSts.totalAPrioriWeight;
-    totalFinalWeight   = prmSts.totalFinalWeight;
+    startingObservations = prmSts.startingObservations;
+    finalObservations    = prmSts.finalObservations;
+    totalAPrioriWeight   = prmSts.totalAPrioriWeight;
+    totalFinalWeight     = prmSts.totalFinalWeight;
     return true;
 }
 

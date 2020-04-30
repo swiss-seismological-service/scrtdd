@@ -21,6 +21,7 @@
 #include "catalog.h"
 #include "wfmngr.h"
 #include "solver.h"
+#include "clustering.h"
 #include "xcorrcache.ipp"
 
 #include <seiscomp3/core/baseobject.h>
@@ -167,32 +168,15 @@ class HypoDD : public Core::BaseObject {
     private:
         std::string generateWorkingSubDir(const Catalog::Event& ev) const;
 
-        CatalogPtr relocateEventSingleStep(const CatalogCPtr& evToRelocateCat, const std::string& workingDir,
-                                bool doXcorr, bool computeTheoreticalPhases, double minPhaseWeight,
+        CatalogPtr relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
+                                const std::string& workingDir, bool doXcorr, 
+                                bool computeTheoreticalPhases, double minPhaseWeight,
                                 double minESdist, double maxESdist, double minEStoIEratio,
                                 int minDTperEvt, int maxDTperEvt, int minNumNeigh, int maxNumNeigh,
                                 int numEllipsoids, double maxEllipsoidSize);
 
-        CatalogPtr relocate(std::map<unsigned,CatalogPtr>& neighbourCats,
-                            bool keepNeighboursFixed,
-                            const XCorrCache& xcorr) const;
-
-        CatalogPtr selectNeighbouringEvents(const CatalogCPtr& catalog,
-                                            const Catalog::Event& refEv,
-                                            const CatalogCPtr& refEvCatalog,
-                                            double minPhaseWeight = 0, double minESdis=0,
-                                            double maxESdis=-1, double minEStoIEratio=0,
-                                            int minDTperEvt=1, int maxDTperEvt=-1,
-                                            int minNumNeigh=1, int maxNumNeigh=-1,
-                                            int numEllipsoids=5, double maxEllipsoidSize=10,
-                                            bool keepUnmatched=false, int *numNeigh=nullptr) const;
-        std::map<unsigned,CatalogPtr> 
-        selectNeighbouringEventsCatalog(const CatalogCPtr& catalog, double minPhaseWeight,
-                                        double minESdis, double maxESdis, double minEStoIEratio,
-                                        int minDTperEvt, int maxDTperEvt,
-                                        int minNumNeigh, int maxNumNeigh,
-                                        int numEllipsoids, double maxEllipsoidSize,
-                                        bool keepUnmatched) const;
+        CatalogPtr relocate(CatalogPtr& catalog, const std::list<NeighboursPtr>& neighbourCats, 
+                            bool keepNeighboursFixed, const XCorrCache& xcorr) const;
 
         struct ObservationParams {
             struct Entry {
@@ -208,39 +192,47 @@ class HypoDD : public Core::BaseObject {
             private:
             std::unordered_map<std::string,Entry> _entries;
         }; 
-        void addObservations(Solver& solver, CatalogPtr& catalog, unsigned evId,
-                             bool fixedNeighbours, const XCorrCache& xcorr,
-                             ObservationParams& obsparams ) const;
-        CatalogPtr updateRelocatedEvents(const Solver& solver, const CatalogCPtr& originalCatalog,
-                                        std::unordered_set<unsigned> eventsToRelocate,
-                                        ObservationParams& obsparams ) const;
 
-        void addMissingEventPhases(const CatalogCPtr& searchCatalog,
-                                   const Catalog::Event& refEv,
-                                   CatalogPtr& refEvCatalog);
+        CatalogPtr addObservations(Solver& solver, const CatalogCPtr& catalog,
+                                   const NeighboursPtr& neighbours,
+                                   bool keepNeighboursFixed, const XCorrCache& xcorr,
+                                   ObservationParams& obsparams ) const;
+
+        CatalogPtr updateRelocatedEvents(const Solver& solver,
+                                         const CatalogCPtr& catalog,
+                                         const std::list<NeighboursPtr>& neighbourCats,
+                                         ObservationParams& obsparams ) const;
+
+        void addMissingEventPhases(CatalogPtr& catalog, const NeighboursPtr& neighbours,
+                                   const Catalog::Event& refEv);
+
         std::vector<Catalog::Phase> findMissingEventPhases(const CatalogCPtr& searchCatalog,
-                                                           const Catalog::Event& refEv,
-                                                           const CatalogPtr& refEvCatalog);
+                                                           const NeighboursPtr& neighbours,
+                                                           const Catalog::Event& refEv);
+
         typedef std::pair<std::string,Catalog::Phase::Type> MissingStationPhase;
+
         std::vector<MissingStationPhase> getMissingPhases(const CatalogCPtr& searchCatalog,
-                                                          const Catalog::Event& refEv,
-                                                          const CatalogPtr& refEvCatalog) const;
+                                                          const Catalog::Event& refEv) const;
+
         typedef std::pair<Catalog::Event, Catalog::Phase> PhasePeer;
-        std::vector<PhasePeer> findPhasePeers(const Catalog::Station& station,
+        std::vector<PhasePeer> findPhasePeers(const Catalog::Station& station, 
                                               const Catalog::Phase::Type& phaseType,
-                                              const CatalogCPtr& searchCatalog) const;
+                                              const CatalogCPtr& searchCatalog, 
+                                              const NeighboursPtr& neighbours) const;
+
         Catalog::Phase createThoreticalPhase(const Catalog::Station& station,
                                              const Catalog::Phase::Type& phaseType,
                                              const Catalog::Event& refEv,
                                              const std::vector<HypoDD::PhasePeer>& peers,
                                              double phaseVelocity); 
 
-        XCorrCache buildXCorrCache(std::map<unsigned,CatalogPtr>& neighbourCats,
+        XCorrCache buildXCorrCache(CatalogPtr& catalog,
+                                   const std::list<NeighboursPtr>& neighbourCats,
                                    bool computeTheoreticalPhases);
-        XCorrCache buildXCorrCache(CatalogPtr& catalog, unsigned evToRelocateId,
-                                   bool computeTheoreticalPhases);
-        void buildXcorrDiffTTimePairs(CatalogPtr& catalog, const Catalog::Event& refEv,
-                                      XCorrCache& xcorr);
+
+        void buildXcorrDiffTTimePairs(CatalogPtr& catalog, const NeighboursPtr& neighbours,
+                                      const Catalog::Event& refEv, XCorrCache& xcorr);
 
         void fixPhases(CatalogPtr& catalog, const Catalog::Event& refEv, XCorrCache& xcorr);
 
@@ -249,15 +241,24 @@ class HypoDD : public Core::BaseObject {
             WfMngr::WfCache* cache;
             bool allowSnrCheck;
         };
-        bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, PhaseXCorrCfg& phCfg1,
-                         const Catalog::Event& event2, const Catalog::Phase& phase2, PhaseXCorrCfg& phCfg2,
+
+        bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
+                         PhaseXCorrCfg& phCfg1,
+                         const Catalog::Event& event2, const Catalog::Phase& phase2, 
+                         PhaseXCorrCfg& phCfg2,
                          double& coeffOut, double& lagOut);
-        bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, PhaseXCorrCfg& phCfg1,
-                          const Catalog::Event& event2, const Catalog::Phase& phase2, PhaseXCorrCfg& phCfg2,
+
+        bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
+                          PhaseXCorrCfg& phCfg1,
+                          const Catalog::Event& event2, const Catalog::Phase& phase2,
+                          PhaseXCorrCfg& phCfg2,
                           double& coeffOut, double& lagOut);
+
         bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
                    bool qualityCheck, double& delayOut, double& coeffOut) const;
+
         Core::TimeWindow xcorrTimeWindowLong(const Catalog::Phase& phase) const;
+
         Core::TimeWindow xcorrTimeWindowShort(const Catalog::Phase& phase) const;
 
         void printCounters();
