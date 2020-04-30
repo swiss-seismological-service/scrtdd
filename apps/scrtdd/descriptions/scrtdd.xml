@@ -507,6 +507,23 @@
                                     </description>
                                 </parameter>
                             </group>
+                            <group name="exclusions">
+                                <parameter name="maxStationDistance" type="double" default="70">
+                                    <description>
+                                        Max distance (km) between event and station allowed.
+                                        Phases belonging to furhter stations will not be used
+                                        in cross-correlation. Set it to -1 to remove limits
+                                    </description>
+                                </parameter> 
+                                <parameter name="maxInterEventDistance" type="double" default="3">
+                                    <description>
+                                        Max distance (km) between events allowed.
+                                        Event pairs whose inter-event distance if further than 
+                                        this value will not be used in cross-correlation.
+                                        Set it to -1 to remove limits 
+                                    </description>
+                                </parameter>
+                            </group>
                         </group>
 
                         <group name="waveformFiltering">
