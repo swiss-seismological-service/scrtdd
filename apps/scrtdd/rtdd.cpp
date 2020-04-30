@@ -428,7 +428,7 @@ bool RTDD::validateParameters()
             prof->ddcfg.validSphases = {"Sg","S","Sx"};
         }
 
-        prefix = string("profile.") + *it + ".step1options.clustering.";
+        prefix = string("profile.") + *it + ".doubleDifferenceObservationsNoXcorr.clustering.";
         try {
             prof->ddcfg.step1Clustering.minNumNeigh = configGetInt(prefix + "minNumNeigh");
         } catch ( ... ) { prof->ddcfg.step1Clustering.minNumNeigh = 1; }
@@ -442,7 +442,7 @@ bool RTDD::validateParameters()
             prof->ddcfg.step1Clustering.maxDTperEvt = configGetInt(prefix + "maxObservationPerEvtPair");
         } catch ( ... ) { prof->ddcfg.step1Clustering.maxDTperEvt = -1; }
 
-        prefix = string("profile.") + *it + ".step1options.clustering.neighboringEventSelection.";
+        prefix = string("profile.") + *it + ".doubleDifferenceObservationsNoXcorr.clustering.neighboringEventSelection.";
         try {
             prof->ddcfg.step1Clustering.numEllipsoids = configGetInt(prefix + "numEllipsoids");
         } catch ( ... ) { prof->ddcfg.step1Clustering.numEllipsoids = 5; }
@@ -450,7 +450,7 @@ bool RTDD::validateParameters()
             prof->ddcfg.step1Clustering.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
         } catch ( ... ) { prof->ddcfg.step1Clustering.maxEllipsoidSize = 5; }
 
-        prefix = string("profile.") + *it + ".step1options.clustering.phaseSelection.";
+        prefix = string("profile.") + *it + ".doubleDifferenceObservationsNoXcorr.clustering.phaseSelection.";
         try {
             prof->ddcfg.step1Clustering.minESdist = configGetDouble(prefix + "minStationDistance");
         } catch ( ... ) { prof->ddcfg.step1Clustering.minESdist = 0; }
@@ -461,7 +461,7 @@ bool RTDD::validateParameters()
             prof->ddcfg.step1Clustering.minEStoIEratio = configGetDouble(prefix + "minStationToEventPairDistRatio");
         } catch ( ... ) { prof->ddcfg.step1Clustering.minEStoIEratio = 5; } 
 
-        prefix = string("profile.") + *it + ".step2options.clustering.";
+        prefix = string("profile.") + *it + ".doubleDifferenceObservations.clustering.";
         prof->ddcfg.step2Clustering.recordStreamURL = recordStreamURL();
         try {
             prof->ddcfg.step2Clustering.minNumNeigh = configGetInt(prefix + "minNumNeigh");
@@ -476,7 +476,7 @@ bool RTDD::validateParameters()
             prof->ddcfg.step2Clustering.maxDTperEvt = configGetInt(prefix + "maxObservationPerEvtPair");
         } catch ( ... ) { prof->ddcfg.step2Clustering.maxDTperEvt = -1; }
 
-        prefix = string("profile.") + *it + ".step2options.clustering.neighboringEventSelection.";
+        prefix = string("profile.") + *it + ".doubleDifferenceObservations.clustering.neighboringEventSelection.";
         try {
             prof->ddcfg.step2Clustering.numEllipsoids = configGetInt(prefix + "numEllipsoids");
         } catch ( ... ) { prof->ddcfg.step2Clustering.numEllipsoids = 5; }
@@ -484,7 +484,7 @@ bool RTDD::validateParameters()
             prof->ddcfg.step2Clustering.maxEllipsoidSize = configGetDouble(prefix + "maxEllipsoidSize");
         } catch ( ... ) { prof->ddcfg.step2Clustering.maxEllipsoidSize = 5; }
 
-        prefix = string("profile.") + *it + ".step2options.clustering.phaseSelection.";
+        prefix = string("profile.") + *it + ".doubleDifferenceObservations.clustering.phaseSelection.";
         try {
             prof->ddcfg.step2Clustering.minESdist = configGetDouble(prefix + "minStationDistance");
         } catch ( ... ) { prof->ddcfg.step2Clustering.minESdist = 0; }
@@ -495,7 +495,7 @@ bool RTDD::validateParameters()
             prof->ddcfg.step2Clustering.minEStoIEratio = configGetDouble(prefix + "minStationToEventPairDistRatio");
         } catch ( ... ) { prof->ddcfg.step2Clustering.minEStoIEratio = 5; } 
 
-        prefix = string("profile.") + *it + ".step2options.crosscorrelation.p-phase.";
+        prefix = string("profile.") + *it + ".doubleDifferenceObservations.crosscorrelation.p-phase.";
         try {
             prof->ddcfg.xcorr[PhaseType::P].startOffset = configGetDouble(prefix + "start");
         } catch ( ... ) {
@@ -522,7 +522,7 @@ bool RTDD::validateParameters()
             prof->ddcfg.xcorr[PhaseType::P].components = {"Z"};
         }
 
-        prefix = string("profile.") + *it + ".step2options.crosscorrelation.s-phase.";
+        prefix = string("profile.") + *it + ".doubleDifferenceObservations.crosscorrelation.s-phase.";
         try {
             prof->ddcfg.xcorr[PhaseType::S].startOffset = configGetDouble(prefix + "start");
         } catch ( ... ) {
@@ -549,7 +549,7 @@ bool RTDD::validateParameters()
             prof->ddcfg.xcorr[PhaseType::S].components = {"T","Z"};
         }
 
-        prefix = string("profile.") + *it + ".step2options.waveformFiltering.";
+        prefix = string("profile.") + *it + ".doubleDifferenceObservations.waveformFiltering.";
         try {
             prof->ddcfg.wfFilter.filterStr = configGetString(prefix + "filterString");
         } catch ( ... ) { prof->ddcfg.wfFilter.filterStr = "ITAPER(1)>>BW_HLP(2,1,20)"; }
@@ -557,7 +557,7 @@ bool RTDD::validateParameters()
             prof->ddcfg.wfFilter.resampleFreq = configGetDouble(prefix + "resampling");
         } catch ( ... ) { prof->ddcfg.wfFilter.resampleFreq = 400; }
 
-        prefix = string("profile.") + *it + ".step2options.snr.";
+        prefix = string("profile.") + *it + ".doubleDifferenceObservations.snr.";
         try {
             prof->ddcfg.snr.minSnr = configGetDouble(prefix + "minSnr");
         } catch ( ... ) { prof->ddcfg.snr.minSnr = 0.; }

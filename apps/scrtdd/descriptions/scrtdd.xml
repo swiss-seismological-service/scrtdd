@@ -206,29 +206,31 @@
 
                     </group>
 
-                    <group name="step1options">
+                    <group name="doubleDifferenceObservationsNoXcorr">
                         <description>
-                            These options control the step 1 of real-time single event relocation. These options
-                            are NOT used in multi-event (full catalog) relocation (--relocate-profile command
-                            line option).
-                            The real-time relocation works in two steps: the first one is the location refinement,
-                            in which scrtdd compute a preliminary relocation of the origin using only catalog
-                            absolute travel times (dt.ct) and it is controlled by those options. A second step 
-                            relocation is then performed, where scrtdd use both catalog absolute travel times (dt.ct)
-                            and cross correlation differential travel times (dt.cc) for pairs of earthquakes, which
-                            is controlled by step2options.
-                            The multi-event (full catalog) relocation works in one step only, where the relocation
-                            is performed with both catalog absolute travel times (dt.ct) and cross correlation
-                            differential travel times (dt.cc),  both controlled by step2options.
+                            These options control the creation of double-difference observations
+                            without cross-correlation and are used only in real-time single event
+                            relocation but NOT in multi-event relocation (--relocate-profile 
+                            command line option).
+                            The real-time relocation works in two steps: the first one refines the
+                            initial location creating double-difference observations from absolute
+                            travel time differences and solving the system. The first step is
+                            controlled by this option group.
+                            A second step is then performed, starting from the refined location 
+                            and solving again a double-difference system but this time using both
+                            absolute travel times difference and cross correlation differential
+                            travel times observations. The second step is controlled by 
+                            'doubleDifferenceObservations' option group.
                         </description>
                         <group name="clustering">
                             <description>
-                                Those options control the creation of catalog absolute travel time entries
-                                (dt.ct file in HypoDD terminology) and cross correlation differential travel times
-                                (dt.cc file in HypoDD terminology) for pairs of earthquakes. To build the event
-                                pairs a clustering algorithm is performed, joining together events that have phases
-                                on same stations. Here it is possible to configure how the clustering is performed,
-                                selecting how/what events and phases will be used.
+                                Those options control the selection of event pairs and the phases
+                                within pairs, to be used to create double-difference observations.
+                                Wihtin an event pair, an observation is created for every station
+                                for which exist phases for both events.
+                                To build the event pairs a clustering algorithm is performed, joining
+                                together events within a given distance and fulfilling specific
+                                requirements which are confiurable in here
                             </description>
                             <parameter name="minNumNeigh" type="int">
                                 <description>
@@ -327,28 +329,33 @@
                         </group> 
                     </group>
 
-                    <group name="step2options">
+                    <group name="doubleDifferenceObservations">
                         <description>
-                            These options control the step 2 of real-time single event relocation and the
-                            multi-event (full catalog) relocation (--relocate-profile command line option).
-                            The real-time relocation works in two steps: the first one is the location refinement,
-                            in which scrtdd compute a preliminary relocation of the origin using only catalog
-                            absolute travel times (dt.ct), and a second step relocation (controlled by these options),
-                            where scrtdd  performs a more precise relocation using both catalog absolute 
-                            travel times (dt.ct) and cross correlation differential travel times (dt.cc) for pairs 
-                            of earthquakes.
-                            The multi-event (full catalog) relocation works in one step only, where the relocation
-                            is performed with both catalog absolute travel times (dt.ct) and cross correlation
-                            differential travel times (dt.cc),  both controlled by step2options. 
+                            These options control the creation of double-difference observations
+                            with cross-correlation and are used both in real-time single event
+                            relocation and in multi-event relocation (--relocate-profile 
+                            command line option).
+                            The real-time relocation works in two steps: the first one refines the
+                            initial location creating double-difference observations from absolute
+                            travel time differences and solving the system. The first step is
+                            controlled by 'doubleDifferenceObservationsNoXcorr' option group.
+                            A second step is then performed, starting from the refined location 
+                            and solving again a double-difference system but this time using both
+                            absolute travel times difference and cross correlation differential
+                            travel times observations. The second step is controlled by this
+                            option group.
+                            The multi-event relocation works in one step only and it uses this 
+                            option group.
                         </description>
                         <group name="clustering">
                             <description>
-                                Those options control the creation of catalog absolute travel time entries
-                                (dt.ct file in HypoDD terminology) and cross correlation differential travel times
-                                (dt.cc file in HypoDD terminology) for pairs of earthquakes. To build the event
-                                pairs a clustering algorithm is performed, joining together events that have phases
-                                on same stations. Here it is possible to configure how the clustering is performed,
-                                selecting how/what events and phases will be used.
+                                Those options control the selection of event pairs and the phases
+                                within pairs, to be used to create double-difference observations.
+                                Wihtin an event pair, an observation is created for every station
+                                for which exist phases for both events.
+                                To build the event pairs a clustering algorithm is performed, joining
+                                together events within a given distance and fulfilling specific
+                                requirements which are confiurable in here
                             </description>
                             <parameter name="minNumNeigh" type="int">
                                 <description>
