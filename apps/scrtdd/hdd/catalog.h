@@ -79,11 +79,15 @@ class Catalog : public Core::BaseObject {
 
             struct {
                 bool isRelocated = false;
-                int numCCp;
-                int numCCs;
-                int numCTp;
-                int numCTs;
-                int numNeighbours;
+                unsigned numNeighbours;
+                unsigned numCCp;
+                unsigned numCCs;
+                unsigned numCTp;
+                unsigned numCTs;
+                unsigned numObservs;
+                unsigned numFinalObservs;
+                double meanObsWeight;
+                double meanFinalObsWeight;
             } relocInfo;
 
             // search by value when the Id is not known (works between multiple catalogs )
@@ -131,8 +135,12 @@ class Catalog : public Core::BaseObject {
 
             struct {
                 bool isRelocated = false;
-                double finalWeight;
                 double residual;
+                double finalWeight;
+                unsigned numObservs;
+                unsigned numFinalObservs;
+                double meanObsWeight;
+                double meanFinalObsWeight;
             } relocInfo;
 
 

@@ -1632,7 +1632,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
         }
 
         newArr->setWeight( phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight : 0. );
-        newArr->setTimeUsed( phase.relocInfo.isRelocated );
+        newArr->setTimeUsed( phase.relocInfo.isRelocated && phase.relocInfo.finalWeight > 0 );
         newArr->setTimeResidual( phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0. );
 
         auto search = relocatedOrg->getStations().find(phase.stationId);

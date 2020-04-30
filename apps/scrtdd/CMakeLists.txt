@@ -1,6 +1,7 @@
 SET(RTDD_TARGET scrtdd)
 
 SET(RTDD_SOURCES
+		hdd/distance.cpp
 		hdd/lsmr.cpp
 		hdd/lsqr.cpp
 		hdd/solver.cpp
@@ -8,7 +9,7 @@ SET(RTDD_SOURCES
 		hdd/datasrc.cpp
 		hdd/catalog.cpp
 		hdd/wfmngr.cpp
-		hdd/distance.cpp
+		hdd/clustering.cpp
 		hdd/hypodd.cpp
 		app.cpp
 		rtdd.cpp

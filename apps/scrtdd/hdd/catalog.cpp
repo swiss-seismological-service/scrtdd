@@ -305,11 +305,15 @@ Catalog::Catalog(const string& stationFile,
         if ( loadRelocationInfo && (row.count("relocated") != 0) && strToBool(row.at("relocated")) )
         {
             ev.relocInfo.isRelocated = true;
-            ev.relocInfo.numCCp           = std::stoi(row.at("numCCp"));
-            ev.relocInfo.numCCs           = std::stoi(row.at("numCCs"));
-            ev.relocInfo.numCTp           = std::stoi(row.at("numCTp"));
-            ev.relocInfo.numCTs           = std::stoi(row.at("numCTs"));
-            ev.relocInfo.numNeighbours    = std::stod(row.at("numNeighbours"));
+            ev.relocInfo.numNeighbours    = std::stoul(row.at("numNeighbours"));
+            ev.relocInfo.numCCp           = std::stoul(row.at("numCCp"));
+            ev.relocInfo.numCCs           = std::stoul(row.at("numCCs"));
+            ev.relocInfo.numCTp           = std::stoul(row.at("numCTp"));
+            ev.relocInfo.numCTs           = std::stoul(row.at("numCTs"));
+            ev.relocInfo.numObservs       = std::stoul(row.at("numObservs"));
+            ev.relocInfo.numFinalObservs  = std::stoul(row.at("numFinalObservs"));
+            ev.relocInfo.meanObsWeight      = std::stod(row.at("meanObsWeight"));
+            ev.relocInfo.meanFinalObsWeight = std::stod(row.at("meanFinalObsWeight")); 
         }
         _events[ev.id] = ev;
     }
@@ -333,10 +337,14 @@ Catalog::Catalog(const string& stationFile,
         ph.relocInfo.isRelocated = false;
         if ( loadRelocationInfo && (row.count("usedInReloc") != 0) && strToBool(row.at("usedInReloc")) )
         {
-            ph.relocInfo.isRelocated  = true;
-            ph.procInfo.weight        = std::stod(row.at("initialWeight"));
-            ph.relocInfo.finalWeight  = std::stod(row.at("finalWeight"));
-            ph.relocInfo.residual     = std::stod(row.at("residual"));
+            ph.relocInfo.isRelocated     = true;
+            ph.procInfo.weight           = std::stod(row.at("initialWeight"));
+            ph.relocInfo.finalWeight     = std::stod(row.at("finalWeight"));
+            ph.relocInfo.residual        = std::stod(row.at("residual"));
+            ph.relocInfo.numObservs      = std::stoul(row.at("numObservs"));
+            ph.relocInfo.numFinalObservs = std::stoul(row.at("numFinalObservs")); 
+            ph.relocInfo.meanObsWeight      = std::stod(row.at("meanObsWeight"));
+            ph.relocInfo.meanFinalObsWeight = std::stod(row.at("meanFinalObsWeight"));
         }
         _phases.emplace(ph.eventId, ph);
     }
@@ -746,7 +754,7 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
     stringstream evStreamReloc;
 
     evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude,rms"; 
-    evStreamReloc << evStreamNoReloc.str() << ",relocated,numNeighbours,numCCp,numCCs,numCTp,numCTs" << endl;
+    evStreamReloc << evStreamNoReloc.str() << ",relocated,numNeighbours,numCCp,numCCs,numCTp,numCTs,numObservs,numFinalObservs,meanObsWeight,meanFinalObsWeight" << endl;
     evStreamNoReloc << endl;
 
     bool relocInfo = false;
@@ -769,10 +777,12 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
         else
         {
             relocInfo = true;
-            evStreamReloc <<  stringify(",true,%d,%d,%d,%d,%d",
+            evStreamReloc <<  stringify(",true,%u,%u,%u,%u,%u,%u,%u,%.2f,%.2f",
                                   ev.relocInfo.numNeighbours,
                                   ev.relocInfo.numCCp, ev.relocInfo.numCCs,
-                                  ev.relocInfo.numCTp, ev.relocInfo.numCTs);
+                                  ev.relocInfo.numCTp, ev.relocInfo.numCTs,
+                                  ev.relocInfo.numObservs, ev.relocInfo.numFinalObservs,
+                                  ev.relocInfo.meanObsWeight, ev.relocInfo.meanFinalObsWeight);
         }
         evStreamReloc << endl;
     }
@@ -788,7 +798,7 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
     phStream << "eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode,evalMode";
     if (relocInfo)
     {
-        phStream << ",usedInReloc,initialWeight,finalWeight,residual";
+        phStream << ",usedInReloc,residual,initialWeight,finalWeight,numObservs,numFinalObservs,meanObsWeight,meanFinalObsWeight";
     }
     phStream << endl;
 
@@ -811,8 +821,11 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
             }
             else
             {
-                phStream << stringify(",true,%.4f,%.3f,%.3f", ph.procInfo.weight,
-                                      ph.relocInfo.finalWeight, ph.relocInfo.residual);
+                phStream << stringify(",true,%.3f,%.2f,%.2f,%u,%u,%.2f,%.2f",
+                                      ph.relocInfo.residual,
+                                      ph.procInfo.weight, ph.relocInfo.finalWeight,
+                                      ph.relocInfo.numObservs,  ph.relocInfo.numFinalObservs,
+                                      ph.relocInfo.meanObsWeight, ph.relocInfo.meanFinalObsWeight);
             }
         }
         phStream << endl;
