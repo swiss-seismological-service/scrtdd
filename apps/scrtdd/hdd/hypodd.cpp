@@ -1466,7 +1466,9 @@ HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phC
 
         performed = _xcorrPhases(event1, tmpPh1, phCfg1, event2, tmpPh2, phCfg2, coeffOut, lagOut);
 
-        goodCoeff = ( performed && std::abs(coeffOut) >= xcorrCfg.minCoef );
+        coeffOut = std::abs(coeffOut);
+
+        goodCoeff = ( performed && coeffOut >= xcorrCfg.minCoef );
 
         // if the xcorr was successfull and the coeffiecnt is good then stopi here
         if ( goodCoeff )
@@ -1876,13 +1878,13 @@ HypoDD::evalXCorr()
             const Phase& catalogPhase = _ddbgc->searchPhase(event.id, stationId, phaseType)->second;
 
             XCorrEvalStats phStaStats;
-            phStaStats.total++;
+            phStaStats.total = 1;
 
             if ( xcorr.has(event.id, stationId, phaseType) )
             {
                 const Phase& detectedPhase = catalog->searchPhase(event.id, stationId,
                                                                   phaseType)->second;
-                phStaStats.detected++;
+                phStaStats.detected = 1;
                 double deviation = (catalogPhase.time - detectedPhase.time).length();
                 phStaStats.deviation = deviation;
                 phStaStats.absDeviation = std::abs(deviation);
@@ -1906,12 +1908,13 @@ HypoDD::evalXCorr()
                 if ( neighbours->has(neighEvId, stationId, phaseType) )
                 {
                     XCorrEvalStats tmpStats;
-                    tmpStats.total++;
+                    tmpStats.total = 1;
                     if ( xcorr.has(event.id, neighEvId, stationId, phaseType) )
                     {
-                        tmpStats.detected++;
+                        tmpStats.detected = 1;
+                        tmpStats.meanCount = 1;
                         const auto& pdata = xcorr.get(event.id, neighEvId, stationId, phaseType);
-                        tmpStats.meanCoeff += pdata.coeff;
+                        tmpStats.meanCoeff = pdata.coeff;
                         tmpStats.deviation = phStaStats.deviation;
                         tmpStats.deviation -= xcorr.get(event.id, stationId, phaseType).mean_lag - pdata.lag; 
                         tmpStats.absDeviation = std::abs(tmpStats.deviation);
