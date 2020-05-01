@@ -566,6 +566,8 @@ Solver::computeResidualWeights(vector<double> residuals, const double alpha)
 
     const double MAD = computeMedian(resAbsoluteDeviation);
 
+    SEISCOMP_INFO("Solver: residual median %.4f [msec] MedianAbsoluteDeviation %.4f [msec]",
+                  median*1000, MAD*1000);
 
     //
     // Compute weights

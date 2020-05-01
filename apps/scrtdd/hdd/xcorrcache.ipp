@@ -100,7 +100,7 @@ public:
     }
 
     const Entry& get(unsigned evId, const std::string& stationId,
-                               const Catalog::Phase::Type& type ) const
+                     const Catalog::Phase::Type& type ) const
     {
         std::string key = make_key(evId, stationId, type);
         return resultsByPhase.at(key);
@@ -113,8 +113,8 @@ public:
     }
 
     const Entry::PeerInfo& get(unsigned evId1, unsigned evId2,
-                                         const std::string& stationId,
-                                         const Catalog::Phase::Type& type ) const
+                               const std::string& stationId,
+                               const Catalog::Phase::Type& type ) const
     {
         return get(evId1, stationId, type).peers.at(evId2);
     } 

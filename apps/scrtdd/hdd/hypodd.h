@@ -203,17 +203,20 @@ class HypoDD : public Core::BaseObject {
                                          const std::list<NeighboursPtr>& neighbourCats,
                                          ObservationParams& obsparams ) const;
 
-        void addMissingEventPhases(CatalogPtr& catalog, const NeighboursPtr& neighbours,
-                                   const Catalog::Event& refEv);
+        void addMissingEventPhases(const Catalog::Event& refEv, CatalogPtr& refEvCatalog,
+                                   const CatalogCPtr& searchCatalog,
+                                   const NeighboursPtr& neighbours);
 
-        std::vector<Catalog::Phase> findMissingEventPhases(const CatalogCPtr& searchCatalog,
-                                                           const NeighboursPtr& neighbours,
-                                                           const Catalog::Event& refEv);
+        std::vector<Catalog::Phase> findMissingEventPhases(const Catalog::Event& refEv,
+                                                           CatalogPtr& refEvCatalog,
+                                                           const CatalogCPtr& searchCatalog,
+                                                           const NeighboursPtr& neighbours);
 
         typedef std::pair<std::string,Catalog::Phase::Type> MissingStationPhase;
 
-        std::vector<MissingStationPhase> getMissingPhases(const CatalogCPtr& searchCatalog,
-                                                          const Catalog::Event& refEv) const;
+        std::vector<MissingStationPhase> getMissingPhases(const Catalog::Event& refEv,
+                                                     CatalogPtr& refEvCatalog,
+                                                     const CatalogCPtr& searchCatalog) const;
 
         typedef std::pair<Catalog::Event, Catalog::Phase> PhasePeer;
         std::vector<PhasePeer> findPhasePeers(const Catalog::Station& station, 

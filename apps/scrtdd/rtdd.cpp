@@ -428,12 +428,12 @@ bool RTDD::validateParameters()
         try {
             prof->ddcfg.validPphases = configGetStrings(prefix + "P-Phases");
         } catch ( ... ) {
-            prof->ddcfg.validPphases = {"Pg","P","Px"};
+            prof->ddcfg.validPphases = {"Pg","P"};
         }
         try {
             prof->ddcfg.validSphases = configGetStrings(prefix + "S-Phases");
         } catch ( ... ) {
-            prof->ddcfg.validSphases = {"Sg","S","Sx"};
+            prof->ddcfg.validSphases = {"Sg","S"};
         }
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservationsNoXcorr.clustering.";
