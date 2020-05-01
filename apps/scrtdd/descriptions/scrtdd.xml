@@ -108,18 +108,17 @@
             </group>
 
             <group name="profile">
+                <description>
+                    Defines regional profiles. Origins that fall within a profile region will use
+                    the profile configuration. If an origin falls in multiple profile regions, then
+                    the profile defined first in activeProfile option will be used.
+                    This allows for hierarchical regions, where special regions are defined
+                    first and then a generic and broad region is defined as last entry to be used as
+                    default configuration.
+                    The region check is not used for multi-event relocation (see --relocate-profile
+                    command line option)
+                </description> 
                 <struct type="rtdd profile" link = "rtdd.activeProfiles">
-                    <description>
-                        Defines a regional profile. Origins that fall in this region will use this
-                        configuration. If an origin falls in multiple profile regions, then the
-                        profile defined first in activeProfile option will be used.
-                        This hierarchical regions, where a generic and broad region is defined as last
-                        entry to be used as last resort default region and more specifig and small 
-                        regions are defined first to be used for specic areas with custom settings.
-                        The region check is not used for full catalog relocation (see --relocate-profile
-                        command line option)
-                    </description>
-
                     <parameter name="regionType" type="string" default="CIRCULAR" >
                         <description>
                             Type of region: RECTANGULAR or CIRCULAR

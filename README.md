@@ -155,7 +155,7 @@ As an example you can see below two catalogs before and after scrtdd relocation:
 
 ![Relocation example picture](/data/multiEventRelocationExample.png?raw=true "Relocation example")
 
-The relocation output files (reloc-event.csv reloc-phase.csv and reloc-stations.csv) will become the background catalog used in real-time relocation and this is the only output we need to keep. The profile configuration can be now deleted or, in the case we want to kept it, it has to be removed from the list of active profiles (`scrtdd.activeProfiles`). 
+The relocation output files (reloc-event.csv reloc-phase.csv and reloc-stations.csv) will become the background catalog used in real-time relocation and this is the only output we need to keep from the relocation process. The profile configuration can be now deleted or, in the case we want to kept it, it has to be removed from the list of active profiles (`scrtdd.activeProfiles`) to avoid interaction with real-time processing.
 
 Now that we have a high quality background catalog we are ready to perform real-time relocation. For that we will create a new profile whose catalog will be the relocation output files:
 
@@ -241,9 +241,9 @@ To help figuring out the right values for cross-correlation the log file (or con
 We can see that the statistics are broken down in actual picks and theoretical picks. This is because scrtdd computes theoretical picks so that they can be used in cross-correlation. If the resulting correlation coefficient is good enough the result is used in the double-difference system inversion. This is especially useful to increase the number of observations in real-time when automatic origins have only few automatic picks/phases. A new pick is also created and added to the relocated origin when the cross-correlation results are good enough.
 
 
-### 2.2 EvalXcorr command
+### 2.2 Eval-xcorr command
 
-A more sophisticated method for evaluating the settings is the `--eval-xcorr' command (here we use `--verbosity=2` because the statistics are printed at this log level, useful to skip other information):
+A more sophisticated method for evaluating the settings is the `--eval-xcorr` command (here we use `--verbosity=2` because the statistics are printed at this log level, useful to skip other information):
 
 ```
 scrtdd --eval-xcorr profileName --verbosity=2 --console=1
