@@ -628,7 +628,7 @@ HypoDD::addObservations(Solver& solver, const CatalogCPtr& catalog, const Neighb
         {
             const Event& event = catalog->getEvents().at(neighEvId);
 
-            if ( ! neighbours->contains(neighEvId, refPhase.stationId, refPhase.procInfo.type) )
+            if ( ! neighbours->has(neighEvId, refPhase.stationId, refPhase.procInfo.type) )
                 continue;
 
             const Phase& phase = catalog->searchPhase(event.id, refPhase.stationId,
@@ -837,31 +837,33 @@ HypoDD::updateRelocatedEvents(const Solver& solver,
 
 
 void
-HypoDD::addMissingEventPhases(CatalogPtr& catalog,
-                              const NeighboursPtr& neighbours,
-                              const Event& refEv)
+HypoDD::addMissingEventPhases(const Event& refEv, CatalogPtr& refEvCatalog,
+                              const CatalogCPtr& searchCatalog,
+                              const NeighboursPtr& neighbours)
 {
-    std::vector<Phase> newPhases = findMissingEventPhases(catalog, neighbours, refEv);
+    std::vector<Phase> newPhases = findMissingEventPhases(refEv, refEvCatalog,
+                                                          searchCatalog, neighbours);
 
     for (Phase& ph : newPhases)
     {
-        catalog->updatePhase(ph, true);
-        const Station& station = catalog->getStations().at(ph.stationId);
-        catalog->addStation(station);
+        refEvCatalog->updatePhase(ph, true);
+        const Station& station = searchCatalog->getStations().at(ph.stationId);
+        refEvCatalog->addStation(station);
     }
 }
 
 
 
 std::vector<Phase>
-HypoDD::findMissingEventPhases(const CatalogCPtr& searchCatalog,
-                               const NeighboursPtr& neighbours,
-                               const Event& refEv)
+HypoDD::findMissingEventPhases(const Event& refEv, CatalogPtr& refEvCatalog,
+                               const CatalogCPtr& searchCatalog,
+                               const NeighboursPtr& neighbours)
 {
     //
     // find stations for which the refEv doesn't have phases
     //
-    vector<MissingStationPhase> missingPhases = getMissingPhases(searchCatalog, refEv);
+    vector<MissingStationPhase> missingPhases = getMissingPhases(refEv, refEvCatalog, 
+                                                                 searchCatalog);
 
     //
     // for each missed phase try to detect it
@@ -906,10 +908,10 @@ HypoDD::findMissingEventPhases(const CatalogCPtr& searchCatalog,
 
 
 vector<HypoDD::MissingStationPhase>
-HypoDD::getMissingPhases(const CatalogCPtr& searchCatalog,
-                         const Event& refEv) const
+HypoDD::getMissingPhases(const Event& refEv, CatalogPtr& refEvCatalog,
+                         const CatalogCPtr& searchCatalog) const
 {
-    const auto& refEvPhases = searchCatalog->getPhases().equal_range(refEv.id);
+    const auto& refEvPhases = refEvCatalog->getPhases().equal_range(refEv.id);
 
     //
     // loop through stations and find those for which the refEv doesn't have phases
@@ -961,7 +963,7 @@ HypoDD::findPhasePeers(const Station& station, const Phase::Type& phaseType,
     {
         const Event& event = searchCatalog->getEvents().at(neighEvId);
 
-        if ( neighbours->contains(neighEvId, station.id, phaseType) )
+        if ( neighbours->has(neighEvId, station.id, phaseType) )
         {
             const Phase& phase = searchCatalog->searchPhase(neighEvId, station.id, phaseType)->second;
 
@@ -1051,7 +1053,7 @@ HypoDD::buildXCorrCache(CatalogPtr& catalog,
         // be used to detect and fix pick time
         if ( computeTheoreticalPhases )
         {
-            addMissingEventPhases(catalog, neighbours, refEv);
+            addMissingEventPhases(refEv, catalog, catalog, neighbours);
         }
 
         buildXcorrDiffTTimePairs(catalog, neighbours, refEv, xcorr);
@@ -1129,7 +1131,7 @@ HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                  _cfg.ddObservations2.xcorrMaxInterEvDist >= 0 )
                 continue;
 
-            if ( neighbours->contains(neighEvId, refPhase.stationId, refPhase.procInfo.type) )
+            if ( neighbours->has(neighEvId, refPhase.stationId, refPhase.procInfo.type) )
             {
                 const Phase& phase = catalog->searchPhase(event.id, refPhase.stationId,
                                                           refPhase.procInfo.type)->second;
@@ -1759,14 +1761,19 @@ namespace {
             }
         }
 
-        string describe() const
+        string describe(bool theoretical) const
         {
             XCorrEvalStats tmp = *this;
             tmp.normalize();
-            return stringify("detected phases %3.f%% (%2d/%2d), mean coeff %.2f, mean num CC %d,"
-                             " mean time-diff %6.3f [sec], mean abs time-diff %6.3f [sec]",
-                             (tmp.detected * 100. / tmp.total), tmp.detected, tmp.total,
-                             tmp.meanCoeff, tmp.meanCount, tmp.deviation, tmp.absDeviation);
+            string log = stringify("detected ph %3.f%% (%6d/%-6d) Avg: coeff %.2f #matches %2d",
+                                    (tmp.detected * 100. / tmp.total), tmp.detected, 
+                                    tmp.total, tmp.meanCoeff, tmp.meanCount);
+            if ( theoretical )
+            {
+                log += stringify(" time-diff %3.f [msec] abs time-diff %3.f [msec]",
+                                 tmp.deviation*1000, tmp.absDeviation*1000);
+            }
+            return log;
         }
     };
 }
@@ -1775,6 +1782,8 @@ namespace {
 void
 HypoDD::evalXCorr()
 {
+    bool theoretical = false; // this is useful for testing the ability of detecting phases
+
     XCorrEvalStats totalStats;
     map<string,XCorrEvalStats> statsByStation; // key station id
     map<int,XCorrEvalStats> statsByInterEvDistance; // key distance
@@ -1782,28 +1791,31 @@ HypoDD::evalXCorr()
     const double EV_DIST_STEP = 0.1; // km
     const double STA_DIST_STEP = 3; // km
 
-    auto printStats = [&]()
+    auto printStats = [&](bool theoretical)
     {
-        SEISCOMP_WARNING("Cumulative stats: %s", totalStats.describe().c_str());
+        SEISCOMP_WARNING("Cumulative stats: %s", totalStats.describe(theoretical).c_str());
 
         SEISCOMP_WARNING("Stats by inter-event distance in %.2f km step", EV_DIST_STEP);
         for ( const auto& kv : statsByInterEvDistance)
         {
             SEISCOMP_WARNING("Inter-event dist %.2f-%-.2f [km]: %s", kv.first*EV_DIST_STEP,
-                             (kv.first+1)*EV_DIST_STEP, kv.second.describe().c_str());
+                             (kv.first+1)*EV_DIST_STEP,
+                             kv.second.describe(theoretical).c_str());
         }
 
         SEISCOMP_WARNING("Stats by event to station distance in %.2f km step", STA_DIST_STEP);
         for ( const auto& kv : statsByStaDistance)
         {
             SEISCOMP_WARNING("Station dist %3d-%-3d [km]: %s", int(kv.first*STA_DIST_STEP),
-                            int((kv.first+1)*STA_DIST_STEP), kv.second.describe().c_str());
+                            int((kv.first+1)*STA_DIST_STEP),
+                            kv.second.describe(theoretical).c_str());
         }
 
         SEISCOMP_WARNING("Stats by station");
         for ( const auto& kv : statsByStation)
         {
-            SEISCOMP_WARNING("%-12s: %s", kv.first.c_str(), kv.second.describe().c_str());
+            SEISCOMP_WARNING("%-12s: %s", kv.first.c_str(),
+                             kv.second.describe(theoretical).c_str());
         }
     };
 
@@ -1827,55 +1839,56 @@ HypoDD::evalXCorr()
                 _cfg.ddObservations2.maxEllipsoidSize, false);
         } catch ( ... ) { continue; }
 
-        CatalogPtr neighbourCat = neighbours->fromNeighbours(_ddbgc);
- 
-        // create theoretical phases for this event
-        // beware: no event phases are present in neighbourCat so the event
-        // will end up with only theoretical phases
-        addMissingEventPhases(neighbourCat, neighbours, event);
+        CatalogPtr catalog;
 
-        typedef pair<string,Phase::Type> PhaseSelection;
-        std::vector<PhaseSelection> selectedPhases;
-
-        auto phrng = neighbourCat->getPhases().equal_range(event.id);
-        for (auto it = phrng.first; it != phrng.second; ++it)
+        if ( theoretical )
         {
-            selectedPhases.push_back(PhaseSelection(it->second.stationId, it->second.procInfo.type));
+            catalog = neighbours->fromNeighbours(_ddbgc, false);
+ 
+            // create theoretical phases for this event
+            // beware: no event phases are present in catalog so the event
+            // will end up with only theoretical phases
+            addMissingEventPhases(event, catalog, _ddbgc, neighbours);
+        }
+        else
+        {
+            catalog = neighbours->fromNeighbours(_ddbgc, true);
         }
 
         // cross correlate every neighbour phase with corresponding event theoretical phase
         XCorrCache xcorr;
-        buildXcorrDiffTTimePairs(neighbourCat, neighbours, event, xcorr);
+        buildXcorrDiffTTimePairs(catalog, neighbours, event, xcorr);
 
         // Update theoretical and automatic phase pick time and uncertainties based on
         // cross-correlation results
         // Also drop theoretical phases wihout any good cross correlation result
-        fixPhases(neighbourCat, event, xcorr);
+        if ( theoretical )
+            fixPhases(catalog, event, xcorr);
 
         //
         // Compare the detected phases with the actual event phases (manual or automatic)
         //
         XCorrEvalStats evStats;
-        for ( const PhaseSelection& sel : selectedPhases )
+        for ( const auto& kv : neighbours->allPhases() )
+            for ( Phase::Type phaseType : kv.second )
         {
-            const Phase& catalogPhase = _ddbgc->searchPhase(event.id, sel.first, sel.second)->second;
+            const string stationId = kv.first;
+            const Phase& catalogPhase = _ddbgc->searchPhase(event.id, stationId, phaseType)->second;
 
             XCorrEvalStats phStaStats;
             phStaStats.total++;
 
-            auto it = neighbourCat->searchPhase(event.id, catalogPhase.stationId,
-                                                catalogPhase.procInfo.type);
-            if ( it != neighbourCat->getPhases().end() )
+            if ( xcorr.has(event.id, stationId, phaseType) )
             {
-                const Phase& detectedPhase = it->second;
+                const Phase& detectedPhase = catalog->searchPhase(event.id, stationId,
+                                                                  phaseType)->second;
                 phStaStats.detected++;
                 double deviation = (catalogPhase.time - detectedPhase.time).length();
-                phStaStats.deviation += deviation;
-                phStaStats.absDeviation += std::abs(deviation);
-                auto& pdata = xcorr.get(event.id, catalogPhase.stationId,
-                                        catalogPhase.procInfo.type);
-                phStaStats.meanCoeff += pdata.mean_coeff;
-                phStaStats.meanCount += pdata.ccCount;
+                phStaStats.deviation = deviation;
+                phStaStats.absDeviation = std::abs(deviation);
+                auto& pdata = xcorr.get(event.id, stationId, phaseType);
+                phStaStats.meanCoeff = pdata.mean_coeff;
+                phStaStats.meanCount = pdata.ccCount;
             }
 
             evStats += phStaStats;
@@ -1888,42 +1901,41 @@ HypoDD::evalXCorr()
             //
             //  collect stats by inter event distance
             //
-            for (const auto& kv : neighbourCat->getEvents() )
+            for ( unsigned neighEvId : neighbours->ids )
             {
-                const Event& neighbEv = kv.second;
-                if ( neighbEv == event )
-                    continue;
-                XCorrEvalStats stats;
-                stats.total++;
-                if ( xcorr.has(event.id, neighbEv.id, catalogPhase.stationId,
-                              catalogPhase.procInfo.type) )
+                if ( neighbours->has(neighEvId, stationId, phaseType) )
                 {
-                    auto& data = xcorr.get(event.id, neighbEv.id, catalogPhase.stationId,
-                                           catalogPhase.procInfo.type);
-                    stats.detected++;
-                    stats.deviation += phStaStats.deviation;
-                    stats.absDeviation += phStaStats.absDeviation;
-                    stats.meanCoeff += data.coeff;
-                    stats.meanCount++;
-                } 
-                double interEvDistance = computeDistance(event, neighbEv);
-                statsByInterEvDistance[ int(interEvDistance/EV_DIST_STEP) ] += stats;
+                    XCorrEvalStats tmpStats;
+                    tmpStats.total++;
+                    if ( xcorr.has(event.id, neighEvId, stationId, phaseType) )
+                    {
+                        tmpStats.detected++;
+                        const auto& pdata = xcorr.get(event.id, neighEvId, stationId, phaseType);
+                        tmpStats.meanCoeff += pdata.coeff;
+                        tmpStats.deviation = phStaStats.deviation;
+                        tmpStats.deviation -= xcorr.get(event.id, stationId, phaseType).mean_lag - pdata.lag; 
+                        tmpStats.absDeviation = std::abs(tmpStats.deviation);
+                    }
+                    const Event& neighbEv = catalog->getEvents().at(neighEvId);
+                    double interEvDistance = computeDistance(event, neighbEv); 
+                    statsByInterEvDistance[ int(interEvDistance/EV_DIST_STEP) ] += tmpStats;
+                }
             }
         }
 
         totalStats += evStats;
         SEISCOMP_WARNING("Event %-5s mag %3.1f %s", string(event).c_str(), event.magnitude,
-                         evStats.describe().c_str());
+                         evStats.describe(theoretical).c_str());
 
         if ( ++loop % 50 == 0 )
         {
             SEISCOMP_WARNING("<<<Progressive stats>>>");
-            printStats();
+            printStats(theoretical);
         }
     }
 
     SEISCOMP_WARNING("<<<Final stats>>>");
-    printStats();
+    printStats(theoretical);
     printCounters();
 
 }

@@ -190,14 +190,14 @@
                             </description>
                         </parameter>
 
-                        <parameter name="P-Phases" type="list:string" default="Pg,P,Px">
+                        <parameter name="P-Phases" type="list:string" default="Pg,P">
                             <description>
                                 Defines a priority list of accepted P phases. Phases not in the list will be discarded.
                                 if multiple phases exist for the same event/station pair, the first one in the list will be used.
                             </description>
                         </parameter>
 
-                        <parameter name="S-Phases" type="list:string" default="Sg,S,Sx">
+                        <parameter name="S-Phases" type="list:string" default="Sg,S">
                             <description>
                                 Defines a priority list of accepted S phases. Phases not in this list will be discarded.
                                 if multiple phases exist for the same event/station pair, the first one in the list will be used.

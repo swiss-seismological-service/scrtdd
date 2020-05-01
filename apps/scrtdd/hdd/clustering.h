@@ -43,12 +43,21 @@ struct Neighbours : public Core::BaseObject
          std::unordered_map<std::string, // indexed by station id
                             std::set<Catalog::Phase::Type> > > phases;
 
-    bool contains(unsigned neighbourId) const
+    std::unordered_map<std::string, std::set<Catalog::Phase::Type> > allPhases() const
+    {
+         std::unordered_map<std::string, std::set<Catalog::Phase::Type> > allPhases;
+         for ( const auto& kw1 : phases )
+            for ( const auto& kw2 : kw1.second )
+                 allPhases[kw2.first].insert(kw2.second.begin(), kw2.second.end());
+         return allPhases;
+    }
+
+    bool has(unsigned neighbourId) const
     {
         return ids.find(neighbourId) != ids.end();
     }
 
-    bool contains(unsigned neighbourId, const std::string stationId) const
+    bool has(unsigned neighbourId, const std::string stationId) const
     {
         const auto& neighPhases = phases.find(neighbourId);
         if ( neighPhases != phases.end() )
@@ -56,7 +65,7 @@ struct Neighbours : public Core::BaseObject
         return false;
     }
 
-    bool contains(unsigned neighbourId, const std::string stationId, Catalog::Phase::Type type) const
+    bool has(unsigned neighbourId, const std::string stationId, Catalog::Phase::Type type) const
     {
         const auto& neighPhases = phases.find(neighbourId);
         if ( neighPhases != phases.end() ) {

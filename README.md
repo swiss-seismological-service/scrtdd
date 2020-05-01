@@ -243,16 +243,65 @@ We can see that the statistics are broken down in actual picks and theoretical p
 
 ### 2.2 EvalXcorr command
 
-A more sophisticated method for evaluating the settings is the `--eval-xcorr' command:
+A more sophisticated method for evaluating the settings is the `--eval-xcorr' command (here we use `--verbosity=2` because the statistics are printed at this log level, useful to skip other information):
 
 ```
 scrtdd --eval-xcorr profileName --verbosity=2 --console=1
 ```
 
-```
+Example output:
 
 ```
+[warning] <<<Final stats>>>
+[warning] Cumulative stats: detected ph  73% (  6523/8882  ) Avg: coeff 0.81 #matches 13
+[warning] Stats by inter-event distance in 0.10 km step
+[warning] Inter-event dist 0.00-0.10 [km]: detected ph  28% ( 23611/83750 ) Avg: coeff 0.69 #matches  0
+[warning] Inter-event dist 0.10-0.20 [km]: detected ph  24% ( 26550/111050) Avg: coeff 0.63 #matches  0
+[warning] Inter-event dist 0.20-0.30 [km]: detected ph  21% ( 10187/47549 ) Avg: coeff 0.62 #matches  0
+[warning] Inter-event dist 0.30-0.40 [km]: detected ph  22% (  6548/29684 ) Avg: coeff 0.64 #matches  0
+[warning] Inter-event dist 0.40-0.50 [km]: detected ph  16% (  3380/20589 ) Avg: coeff 0.57 #matches  0
+[warning] Inter-event dist 0.50-0.60 [km]: detected ph  15% (  4118/26954 ) Avg: coeff 0.56 #matches  0
+[warning] Inter-event dist 0.60-0.70 [km]: detected ph  17% (  5438/32782 ) Avg: coeff 0.60 #matches  0
+[warning] Inter-event dist 0.70-0.80 [km]: detected ph  15% (  1558/10116 ) Avg: coeff 0.59 #matches  0
+[warning] Inter-event dist 0.80-0.90 [km]: detected ph  14% (   413/2949  ) Avg: coeff 0.57 #matches  0
+[warning] Inter-event dist 0.90-1.00 [km]: detected ph  14% (   195/1416  ) Avg: coeff 0.66 #matches  0
+[warning] Inter-event dist 1.00-1.10 [km]: detected ph  11% (   858/7467  ) Avg: coeff 0.51 #matches  0
+[warning] Inter-event dist 1.10-1.20 [km]: detected ph  11% (   190/1734  ) Avg: coeff 0.48 #matches  0
+[warning] Inter-event dist 1.20-1.30 [km]: detected ph  13% (  1592/12381 ) Avg: coeff 0.58 #matches  0
+[warning] Inter-event dist 1.30-1.40 [km]: detected ph  11% (   608/5450  ) Avg: coeff 0.62 #matches  0
+[warning] Inter-event dist 1.40-1.50 [km]: detected ph  12% (   160/1284  ) Avg: coeff 0.63 #matches  0
+[warning] Inter-event dist 1.50-1.60 [km]: detected ph  10% (    73/744   ) Avg: coeff 0.51 #matches  0
+[warning] Inter-event dist 1.60-1.70 [km]: detected ph  10% (    15/143   ) Avg: coeff 0.68 #matches  0
+[warning] Inter-event dist 1.70-1.80 [km]: detected ph   0% (     0/9     ) Avg: coeff 0.00 #matches  0
+[warning] Stats by event to station distance in 3.00 km step
+[warning] Station dist   3-6   [km]: detected ph  95% (    38/40    ) Avg: coeff 0.81 #matches 29
+[warning] Station dist   6-9   [km]: detected ph  84% (  1436/1704  ) Avg: coeff 0.81 #matches 24
+[warning] Station dist   9-12  [km]: detected ph  68% (   710/1040  ) Avg: coeff 0.81 #matches  9
+[warning] Station dist  12-15  [km]: detected ph  76% (   967/1278  ) Avg: coeff 0.80 #matches  8
+[warning] Station dist  15-18  [km]: detected ph  64% (   263/412   ) Avg: coeff 0.81 #matches  5
+[warning] Station dist  18-21  [km]: detected ph  70% (   307/438   ) Avg: coeff 0.81 #matches 14
+[warning] Station dist  21-24  [km]: detected ph  77% (   469/612   ) Avg: coeff 0.81 #matches 11
+[warning] Station dist  24-27  [km]: detected ph  68% (   378/552   ) Avg: coeff 0.80 #matches  7
+[warning] Station dist  27-30  [km]: detected ph  74% (   527/713   ) Avg: coeff 0.81 #matches 11
+[warning] Station dist  30-33  [km]: detected ph  61% (   113/185   ) Avg: coeff 0.80 #matches  3
+[warning] Station dist  33-36  [km]: detected ph  79% (   676/858   ) Avg: coeff 0.83 #matches 15
+[warning] Station dist  36-39  [km]: detected ph  62% (   135/217   ) Avg: coeff 0.81 #matches  5
+[warning] Station dist  39-42  [km]: detected ph  58% (    73/126   ) Avg: coeff 0.82 #matches  6
+[warning] Station dist  42-45  [km]: detected ph  60% (    52/86    ) Avg: coeff 0.82 #matches  3
+[warning] Station dist  45-48  [km]: detected ph  84% (   203/241   ) Avg: coeff 0.82 #matches  6
+[warning] Station dist  48-51  [km]: detected ph  37% (     7/19    ) Avg: coeff 0.79 #matches  1
+[warning] Station dist  51-54  [km]: detected ph  84% (    42/50    ) Avg: coeff 0.80 #matches  3
+[warning] Station dist  54-57  [km]: detected ph  76% (    50/66    ) Avg: coeff 0.83 #matches  2
+[warning] Station dist  57-60  [km]: detected ph  51% (    37/72    ) Avg: coeff 0.80 #matches  2
+[warning] Stats by station
+[warning] 4D.MH36.A   : detected ph  81% (    30/37    ) Avg: coeff 0.79 #matches  4
+[warning] 4D.MH44.A   : detected ph  92% (    35/38    ) Avg: coeff 0.82 #matches  5
+[warning] 4D.MH48.A   : detected ph  85% (    23/27    ) Avg: coeff 0.81 #matches  4
+[warning] 4D.MH54.A   : detected ph  92% (    23/25    ) Avg: coeff 0.83 #matches  2
+[...]
+```
 
+It is especially interesting to compare the results after the catalog has been relocated and loaded back to the profile. The new statistics should see how number of detected phases, quality of correlation coefficient decrease with increasing inter-event distance (if the relocation is good).
 
 ### 2.3 Waveforms inspection
 
