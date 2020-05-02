@@ -232,10 +232,10 @@ This set of configuration parameters require some trial and error to be correctl
 To help figuring out the right values for cross-correlation the log file (or console output with ```--console=1 --verbosity=3```) come in handy:
 
 ```
-12:32:22 [info] Cross-correlation statistics: performed 40361, waveforms with Signal to Noise ratio too low 2435, waveforms not available 98
-12:32:22 [info] Total xcorr 40361 (P 59%, S 41%) success 28% (11499/40361). Successful P 22% (5300/23844). Successful S 38% (6199/16517)
-12:32:22 [info] xcorr on actual picks 24784/40361 (P 60%, S 40%) success 37% (9186/24784). Successful P 31% (4629/14761). Successful S 45% (4557/10023)
-12:32:22 [info] xcorr on theoretical picks 15577/40361 (P 58%, S 42%) success 15% (2313/15577). Successful P 7% (671/9083). Successful S 25% (1642/6494)
+[info] Cross-correlation statistics: performed 40361, waveforms with Signal to Noise ratio too low 2435, waveforms not available 98
+[info] Total xcorr 40361 (P 59%, S 41%) success 28% (11499/40361). Successful P 22% (5300/23844). Successful S 38% (6199/16517)
+[info] xcorr on actual picks 24784/40361 (P 60%, S 40%) success 37% (9186/24784). Successful P 31% (4629/14761). Successful S 45% (4557/10023)
+[info] xcorr on theoretical picks 15577/40361 (P 58%, S 42%) success 15% (2313/15577). Successful P 7% (671/9083). Successful S 25% (1642/6494)
 ```
 
 We can see that the statistics are broken down in actual picks and theoretical picks. This is because scrtdd computes theoretical picks so that they can be used in cross-correlation. If the resulting correlation coefficient is good enough the result is used in the double-difference system inversion. This is especially useful to increase the number of observations in real-time when automatic origins have only few automatic picks/phases. A new pick is also created and added to the relocated origin when the cross-correlation results are good enough.
@@ -256,37 +256,45 @@ Example output:
 [warning] <<<Progressive stats>>>
 [...]
 [warning] <<<Final stats>>>
-[warning] Cumulative stats: detected ph  73% (  6523/8882  ) Avg: coeff 0.81 #matches 13
-[warning] Stats by inter-event distance in 0.10 km step
-[warning] Inter-event dist 0.00-0.10 [km]: detected ph  28% ( 23611/83750 ) Avg: coeff 0.85 #matches  1
-[warning] Inter-event dist 0.10-0.20 [km]: detected ph  24% ( 26550/111050) Avg: coeff 0.83 #matches  1
-[warning] Inter-event dist 0.20-0.30 [km]: detected ph  21% ( 10187/47549 ) Avg: coeff 0.82 #matches  1
-[warning] Inter-event dist 0.30-0.40 [km]: detected ph  22% (  6548/29684 ) Avg: coeff 0.82 #matches  1
-[warning] Inter-event dist 0.40-0.50 [km]: detected ph  16% (  3380/20589 ) Avg: coeff 0.82 #matches  1
-[warning] Inter-event dist 0.50-0.60 [km]: detected ph  15% (  4118/26954 ) Avg: coeff 0.81 #matches  1
-[warning] Inter-event dist 0.60-0.70 [km]: detected ph  17% (  5438/32782 ) Avg: coeff 0.82 #matches  1
-[warning] Inter-event dist 0.70-0.80 [km]: detected ph  15% (  1558/10116 ) Avg: coeff 0.81 #matches  1
-[warning] Inter-event dist 0.80-0.90 [km]: detected ph  14% (   413/2949  ) Avg: coeff 0.82 #matches  1
-[warning] Inter-event dist 0.90-1.00 [km]: detected ph  14% (   195/1416  ) Avg: coeff 0.82 #matches  1
-[warning] Inter-event dist 1.00-1.10 [km]: detected ph  11% (   858/7467  ) Avg: coeff 0.81 #matches  1
+Cumulative stats: #pha   8882 pha good CC  73% avg coeff 0.81 avg #matches/ph 13
+Stats by inter-event distance in 0.10 km step
+Inter-event dist 0.00-0.10 [km]: #CC  83750 good CC  28% avg coeff 0.85 avg #matches/ev 10
+Inter-event dist 0.10-0.20 [km]: #CC 110997 good CC  24% avg coeff 0.83 avg #matches/ev  9
+Inter-event dist 0.20-0.30 [km]: #CC  47531 good CC  21% avg coeff 0.82 avg #matches/ev  8
+Inter-event dist 0.30-0.40 [km]: #CC  29676 good CC  22% avg coeff 0.82 avg #matches/ev  8
+Inter-event dist 0.40-0.50 [km]: #CC  20583 good CC  16% avg coeff 0.82 avg #matches/ev  6
+Inter-event dist 0.50-0.60 [km]: #CC  26951 good CC  15% avg coeff 0.81 avg #matches/ev  6
+Inter-event dist 0.60-0.70 [km]: #CC  32748 good CC  17% avg coeff 0.82 avg #matches/ev  6
+Inter-event dist 0.70-0.80 [km]: #CC  10117 good CC  15% avg coeff 0.81 avg #matches/ev  5
+Inter-event dist 0.80-0.90 [km]: #CC   2949 good CC  14% avg coeff 0.82 avg #matches/ev  4
+Inter-event dist 0.90-1.00 [km]: #CC   1409 good CC  14% avg coeff 0.82 avg #matches/ev  3
+Inter-event dist 1.00-1.10 [km]: #CC   7467 good CC  11% avg coeff 0.81 avg #matches/ev  3
 [...]
-[warning] Stats by event to station distance in 3.00 km step
-[warning] Station dist   3-6   [km]: detected ph  95% (    38/40    ) Avg: coeff 0.81 #matches 29
-[warning] Station dist   6-9   [km]: detected ph  84% (  1436/1704  ) Avg: coeff 0.81 #matches 24
-[warning] Station dist   9-12  [km]: detected ph  68% (   710/1040  ) Avg: coeff 0.81 #matches  9
-[warning] Station dist  12-15  [km]: detected ph  76% (   967/1278  ) Avg: coeff 0.80 #matches  8
-[warning] Station dist  15-18  [km]: detected ph  64% (   263/412   ) Avg: coeff 0.81 #matches  5
-[warning] Station dist  18-21  [km]: detected ph  70% (   307/438   ) Avg: coeff 0.81 #matches 14
-[warning] Station dist  21-24  [km]: detected ph  77% (   469/612   ) Avg: coeff 0.81 #matches 11
-[warning] Station dist  24-27  [km]: detected ph  68% (   378/552   ) Avg: coeff 0.80 #matches  7
-[warning] Station dist  27-30  [km]: detected ph  74% (   527/713   ) Avg: coeff 0.81 #matches 11
-[warning] Station dist  30-33  [km]: detected ph  61% (   113/185   ) Avg: coeff 0.80 #matches  3
+Stats by event to station distance in 3.00 km step
+Station dist   3-6   [km]: #pha     40 pha good CC  95% avg coeff 0.81 avg #matches/ph 29
+Station dist   6-9   [km]: #pha   1704 pha good CC  84% avg coeff 0.81 avg #matches/ph 24
+Station dist   9-12  [km]: #pha   1040 pha good CC  68% avg coeff 0.81 avg #matches/ph  9
+Station dist  12-15  [km]: #pha   1278 pha good CC  76% avg coeff 0.80 avg #matches/ph  8
+Station dist  15-18  [km]: #pha    412 pha good CC  64% avg coeff 0.81 avg #matches/ph  5
+Station dist  18-21  [km]: #pha    438 pha good CC  70% avg coeff 0.81 avg #matches/ph 14
+Station dist  21-24  [km]: #pha    612 pha good CC  77% avg coeff 0.81 avg #matches/ph 11
+Station dist  24-27  [km]: #pha    552 pha good CC  68% avg coeff 0.80 avg #matches/ph  7
+Station dist  27-30  [km]: #pha    713 pha good CC  74% avg coeff 0.81 avg #matches/ph 11
+Station dist  30-33  [km]: #pha    185 pha good CC  61% avg coeff 0.80 avg #matches/ph  3
+Station dist  33-36  [km]: #pha    858 pha good CC  79% avg coeff 0.83 avg #matches/ph 15
+Station dist  36-39  [km]: #pha    217 pha good CC  62% avg coeff 0.81 avg #matches/ph  5
+Station dist  39-42  [km]: #pha    126 pha good CC  58% avg coeff 0.82 avg #matches/ph  6
 [...]
-[warning] Stats by station
-[warning] 4D.MH36.A   : detected ph  81% (    30/37    ) Avg: coeff 0.79 #matches  4
-[warning] 4D.MH54.A   : detected ph  92% (    23/25    ) Avg: coeff 0.83 #matches  2
-[warning] 4D.RA43.    : detected ph   0% (     0/5     ) Avg: coeff 0.00 #matches  0
-[warning] 8D.AMIDI.   : detected ph  93% (    13/14    ) Avg: coeff 0.84 #matches  3
+Stats by station
+4D.MH36.A   : #pha     37 pha good CC  81% avg coeff 0.79 avg #matches/ph  4
+4D.MH44.A   : #pha     38 pha good CC  92% avg coeff 0.82 avg #matches/ph  5
+4D.MH48.A   : #pha     27 pha good CC  85% avg coeff 0.81 avg #matches/ph  4
+4D.MH54.A   : #pha     25 pha good CC  92% avg coeff 0.83 avg #matches/ph  2
+4D.RA43.    : #pha      5 pha good CC   0% avg coeff 0.00 avg #matches/ph  0
+8D.AMIDI.   : #pha     14 pha good CC  93% avg coeff 0.84 avg #matches/ph  3
+8D.BTAO.    : #pha      5 pha good CC   0% avg coeff 0.00 avg #matches/ph  0
+8D.BTNF.    : #pha      6 pha good CC   0% avg coeff 0.00 avg #matches/ph  0
+8D.GSF03.   : #pha      7 pha good CC   0% avg coeff 0.00 avg #matches/ph  0
 [...]
 ```
 
