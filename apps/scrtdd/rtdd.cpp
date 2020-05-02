@@ -427,14 +427,10 @@ bool RTDD::validateParameters()
 
         try {
             prof->ddcfg.validPphases = configGetStrings(prefix + "P-Phases");
-        } catch ( ... ) {
-            prof->ddcfg.validPphases = {"Pg","P"};
-        }
+        } catch ( ... ) {  prof->ddcfg.validPphases = {"Pg","P"};  }
         try {
             prof->ddcfg.validSphases = configGetStrings(prefix + "S-Phases");
-        } catch ( ... ) {
-            prof->ddcfg.validSphases = {"Sg","S"};
-        }
+        } catch ( ... ) {  prof->ddcfg.validSphases = {"Sg","S"};  }
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservationsNoXcorr.clustering.";
         try {
@@ -506,68 +502,51 @@ bool RTDD::validateParameters()
         prefix = string("profile.") + *it + ".doubleDifferenceObservations.crosscorrelation.p-phase.";
         try {
             prof->ddcfg.xcorr[PhaseType::P].startOffset = configGetDouble(prefix + "start");
-        } catch ( ... ) {
-            prof->ddcfg.xcorr[PhaseType::P].startOffset = -0.50;
-        }
+        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::P].startOffset = -0.50;  }
         try {
             prof->ddcfg.xcorr[PhaseType::P].endOffset = configGetDouble(prefix + "end");
-        } catch ( ... ) {
-            prof->ddcfg.xcorr[PhaseType::P].endOffset = 0.50;
-        }
+        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::P].endOffset = 0.50; }
         try {
             prof->ddcfg.xcorr[PhaseType::P].maxDelay = configGetDouble(prefix + "maxDelay");
-        } catch ( ... ) {
-            prof->ddcfg.xcorr[PhaseType::P].maxDelay = 0.250;
-        }
+        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::P].maxDelay = 0.250; }
         try {
             prof->ddcfg.xcorr[PhaseType::P].minCoef = configGetDouble(prefix + "minCCCoef");
-        } catch ( ... ) {
-            prof->ddcfg.xcorr[PhaseType::P].minCoef = 0.70;
-        }
+        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::P].minCoef = 0.70; }
         try {
             prof->ddcfg.xcorr[PhaseType::P].components = configGetStrings(prefix + "components");
-        } catch ( ... ) {
-            prof->ddcfg.xcorr[PhaseType::P].components = {"Z"};
-        }
+        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::P].components = {"Z"}; }
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservations.crosscorrelation.s-phase.";
         try {
             prof->ddcfg.xcorr[PhaseType::S].startOffset = configGetDouble(prefix + "start");
-        } catch ( ... ) {
-            prof->ddcfg.xcorr[PhaseType::S].startOffset = -0.50;
-        }
+        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::S].startOffset = -0.50; }
         try {
             prof->ddcfg.xcorr[PhaseType::S].endOffset = configGetDouble(prefix + "end");
-        } catch ( ... ) {
-            prof->ddcfg.xcorr[PhaseType::S].endOffset = 0.75;
-        }
+        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::S].endOffset = 0.75; }
         try {
             prof->ddcfg.xcorr[PhaseType::S].maxDelay = configGetDouble(prefix + "maxDelay");
-        } catch ( ... ) {
-            prof->ddcfg.xcorr[PhaseType::S].maxDelay = 0.400;
-        }
+        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::S].maxDelay = 0.400; }
         try {
             prof->ddcfg.xcorr[PhaseType::S].minCoef = configGetDouble(prefix + "minCCCoef");
-        } catch ( ... ) {
-            prof->ddcfg.xcorr[PhaseType::S].minCoef = 0.75;
-        }
+        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::S].minCoef = 0.75; }
         try {
             prof->ddcfg.xcorr[PhaseType::S].components = configGetStrings(prefix + "components");
-        } catch ( ... ) {
-            prof->ddcfg.xcorr[PhaseType::S].components = {"T","Z"};
-        }
+        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::S].components = {"T","Z"}; }
 
-        prefix = string("profile.") + *it + ".doubleDifferenceObservations.crosscorrelation.exclusions.";
+        prefix = string("profile.") + *it + ".doubleDifferenceObservations.crosscorrelation.options.";
         try {
             prof->ddcfg.ddObservations2.xcorrMaxEvStaDist = configGetDouble(prefix + "maxStationDistance");
-        } catch ( ... ) {
-            prof->ddcfg.ddObservations2.xcorrMaxEvStaDist = 70;
-        }
+        } catch ( ... ) { prof->ddcfg.ddObservations2.xcorrMaxEvStaDist = 70; }
         try {
             prof->ddcfg.ddObservations2.xcorrMaxInterEvDist = configGetDouble(prefix + "maxInterEventDistance");
-        } catch ( ... ) {
-            prof->ddcfg.ddObservations2.xcorrMaxInterEvDist = 3;
-        }
+        } catch ( ... ) { prof->ddcfg.ddObservations2.xcorrMaxInterEvDist = 3; }
+
+        try {
+            prof->useTheoreticalAuto = configGetDouble(prefix + "theoreticalPhaseAutoOrigin");
+        } catch ( ... ) { prof->useTheoreticalAuto = true; }
+        try {
+            prof->useTheoreticalManual = configGetDouble(prefix + "theoreticalPhaseManualOrigin");
+        } catch ( ... ) { prof->useTheoreticalManual = false; }
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservations.waveformFiltering.";
         try {
@@ -649,12 +628,9 @@ bool RTDD::validateParameters()
             prof->ddcfg.solver.xcorrObsWeight = configGetDouble(prefix + "aPrioriWeights.xcorrObsWeight");
         } catch ( ... ) { prof->ddcfg.solver.xcorrObsWeight = 1.0; }
 
-
-
         // no reason to make those configurable 
         prof->ddcfg.ddObservations1.minWeight = 0;
         prof->ddcfg.ddObservations2.minWeight = 0;
-        prof->ddcfg.artificialPhases.enable = true;
         prof->ddcfg.solver.L2normalization = true;
 
         _profiles.push_back(prof);
@@ -1021,15 +997,10 @@ void RTDD::handleMessage(Core::Message *msg)
 
         if ( !  reloc_resp.hasError() )
         {
-            // disable this feature since we cannot return additional picks to scolv
-            currProfile->ddcfg.artificialPhases.enable = false;
-
             OriginPtr relocatedOrg;
             std::vector<DataModel::PickPtr> relocatedOrgPicks; // we cannot return these to scolv
             processOrigin(originToReloc.get(), relocatedOrg, relocatedOrgPicks, currProfile, 
                           true, true, false);
-
-            currProfile->ddcfg.artificialPhases.enable = true; // restore
 
             if ( relocatedOrg )
             {
@@ -1970,6 +1941,12 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
         unordered_multimap<unsigned,HDD::Catalog::Phase>()
     );
     orgToRelocate->add({org}, dataSrc);
+
+    if ( org->evaluationMode() == DataModel::MANUAL )
+        hypodd->setUseArtificialPhases(this->useTheoreticalManual);
+    else
+        hypodd->setUseArtificialPhases(this->useTheoreticalAuto);
+
     return hypodd->relocateSingleEvent(orgToRelocate);
 }
 
@@ -1983,6 +1960,7 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog()
         throw runtime_error(msg.c_str());
     }
     lastUsage = Core::Time::GMT();
+    hypodd->setUseArtificialPhases(this->useTheoreticalManual);
     return hypodd->relocateCatalog();
 }
 

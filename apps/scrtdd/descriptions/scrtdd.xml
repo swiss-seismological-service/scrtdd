@@ -506,7 +506,7 @@
                                     </description>
                                 </parameter>
                             </group>
-                            <group name="exclusions">
+                            <group name="options">
                                 <parameter name="maxStationDistance" type="double" default="70">
                                     <description>
                                         Max distance (km) between event and station allowed.
@@ -520,6 +520,28 @@
                                         Event pairs whose inter-event distance if further than 
                                         this value will not be used in cross-correlation.
                                         Set it to -1 to remove limits 
+                                    </description>
+                                </parameter>
+                                <parameter name="theoreticalPhaseAutoOrigin" type="boolean" default="true">
+                                    <description>
+                                        Automatic origins: cross-correlate actual phases against 
+                                        theoretical ones. This allows to increase the number of
+                                        double-difference observations and so the accuracy of the
+                                        relocations. For automatic origins this improves considerably
+                                        the relocation results
+                                    </description>
+                                </parameter>
+
+                                <parameter name="theoreticalPhaseManualOrigin" type="boolean" default="false">
+                                    <description>
+                                        Manual origins: cross-correlate actual phases against 
+                                        theoretical ones. This allows to increase the number of
+                                        double-difference observations and so the accuracy of the
+                                        relocations. Normally this increases the quality of the
+                                        relocations even when the manual origins have many good
+                                        manuallly picked phases. Since this feature is a bit slower
+                                        it should be enabled only at the end of the parameters 
+                                        tuning process to avoid lengthy relocations
                                     </description>
                                 </parameter>
                             </group>
