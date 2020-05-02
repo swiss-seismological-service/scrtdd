@@ -1731,7 +1731,7 @@ namespace {
 
     struct XCorrEvalStats {
         unsigned total = 0;
-        unsigned detected = 0;
+        unsigned goodCC = 0;
         double deviation = 0;
         double absDeviation = 0;
         double meanCoeff = 0;
@@ -1740,7 +1740,7 @@ namespace {
         XCorrEvalStats& operator+=(XCorrEvalStats const& rhs)&
         {
           total += rhs.total;
-          detected += rhs.detected;
+          goodCC += rhs.goodCC;
           deviation += rhs.deviation;
           absDeviation += rhs.absDeviation;
           meanCoeff += rhs.meanCoeff;
@@ -1756,12 +1756,12 @@ namespace {
 
         void normalize()
         {
-            if ( detected != 0 )
+            if ( goodCC != 0 )
             {
-              deviation    /= detected;
-              absDeviation /= detected;
-              meanCoeff    /= detected;
-              meanCount    /= detected;
+              deviation    /= goodCC;
+              absDeviation /= goodCC;
+              meanCoeff    /= goodCC;
+              meanCount    /= goodCC;
             }
         }
 
@@ -1769,9 +1769,9 @@ namespace {
         {
             XCorrEvalStats tmp = *this;
             tmp.normalize();
-            string log = stringify("detected ph %3.f%% (%6d/%-6d) Avg: coeff %.2f #matches %2d",
-                                    (tmp.detected * 100. / tmp.total), tmp.detected, 
-                                    tmp.total, tmp.meanCoeff, tmp.meanCount);
+            string log = stringify("#pha %6d pha good CC %3.f%% avg coeff %.2f avg #matches/ph %2d",
+                              tmp.total, (tmp.goodCC * 100. / tmp.total),
+                              tmp.meanCoeff, tmp.meanCount); 
             if ( theoretical )
             {
                 log += stringify(" time-diff %3.f [msec] abs time-diff %3.f [msec]",
@@ -1795,32 +1795,41 @@ HypoDD::evalXCorr()
     const double EV_DIST_STEP = 0.1; // km
     const double STA_DIST_STEP = 3; // km
 
-    auto printStats = [&](bool theoretical)
+    auto printStats = [&](string title, bool theoretical)
     {
-        SEISCOMP_WARNING("Cumulative stats: %s", totalStats.describe(theoretical).c_str());
+        string log = title + "\n";
+        log += stringify("Cumulative stats: %s\n", totalStats.describe(theoretical).c_str());
 
-        SEISCOMP_WARNING("Stats by inter-event distance in %.2f km step", EV_DIST_STEP);
+        log += stringify("Stats by inter-event distance in %.2f km step\n", EV_DIST_STEP);
         for ( const auto& kv : statsByInterEvDistance)
         {
-            SEISCOMP_WARNING("Inter-event dist %.2f-%-.2f [km]: %s", kv.first*EV_DIST_STEP,
-                             (kv.first+1)*EV_DIST_STEP,
-                             kv.second.describe(theoretical).c_str());
+            XCorrEvalStats tmp = kv.second;
+            tmp.normalize();
+            log += stringify("Inter-event dist %.2f-%-.2f [km]: ",
+                              kv.first*EV_DIST_STEP, (kv.first+1)*EV_DIST_STEP);
+            log += stringify("#CC %6d good CC %3.f%% avg coeff %.2f avg #matches/ev %2d\n",
+                              tmp.total, (tmp.goodCC * 100. / tmp.total),
+                              tmp.meanCoeff, tmp.meanCount);
+            if ( theoretical )
+                log += stringify(" time-diff %3.f [msec] abs time-diff %3.f [msec]",
+                                 tmp.deviation*1000, tmp.absDeviation*1000);
         }
 
-        SEISCOMP_WARNING("Stats by event to station distance in %.2f km step", STA_DIST_STEP);
+        log += stringify("Stats by event to station distance in %.2f km step\n", STA_DIST_STEP);
         for ( const auto& kv : statsByStaDistance)
         {
-            SEISCOMP_WARNING("Station dist %3d-%-3d [km]: %s", int(kv.first*STA_DIST_STEP),
+            log += stringify("Station dist %3d-%-3d [km]: %s\n", int(kv.first*STA_DIST_STEP),
                             int((kv.first+1)*STA_DIST_STEP),
                             kv.second.describe(theoretical).c_str());
         }
 
-        SEISCOMP_WARNING("Stats by station");
+        log += stringify("Stats by station\n");
         for ( const auto& kv : statsByStation)
         {
-            SEISCOMP_WARNING("%-12s: %s", kv.first.c_str(),
+            log += stringify("%-12s: %s\n", kv.first.c_str(),
                              kv.second.describe(theoretical).c_str());
         }
+        SEISCOMP_WARNING("%s", log.c_str() );
     };
 
     _counters = {0};
@@ -1873,6 +1882,8 @@ HypoDD::evalXCorr()
         // Compare the detected phases with the actual event phases (manual or automatic)
         //
         XCorrEvalStats evStats;
+        map<unsigned,XCorrEvalStats> statsByNeighbour; // key neighbour id
+
         for ( const auto& kv : neighbours->allPhases() )
             for ( Phase::Type phaseType : kv.second )
         {
@@ -1886,7 +1897,7 @@ HypoDD::evalXCorr()
             {
                 const Phase& detectedPhase = catalog->searchPhase(event.id, stationId,
                                                                   phaseType)->second;
-                phStaStats.detected = 1;
+                phStaStats.goodCC = 1;
                 double deviation = (catalogPhase.time - detectedPhase.time).length();
                 phStaStats.deviation = deviation;
                 phStaStats.absDeviation = std::abs(deviation);
@@ -1903,44 +1914,53 @@ HypoDD::evalXCorr()
             statsByStaDistance[ int(stationDistance/STA_DIST_STEP) ] += phStaStats;
 
             //
-            //  collect stats by inter event distance
+            //  collect stats by neighbour
             //
             for ( unsigned neighEvId : neighbours->ids )
             {
                 if ( neighbours->has(neighEvId, stationId, phaseType) )
                 {
-                    XCorrEvalStats tmpStats;
-                    tmpStats.total = 1;
+                    XCorrEvalStats& neighStats = statsByNeighbour[neighEvId];
+                    neighStats.total++;
                     if ( xcorr.has(event.id, neighEvId, stationId, phaseType) )
                     {
-                        tmpStats.detected = 1;
-                        tmpStats.meanCount = 1;
                         const auto& pdata = xcorr.get(event.id, neighEvId, stationId, phaseType);
-                        tmpStats.meanCoeff = pdata.coeff;
-                        tmpStats.deviation = phStaStats.deviation;
-                        tmpStats.deviation -= xcorr.get(event.id, stationId, phaseType).mean_lag - pdata.lag; 
-                        tmpStats.absDeviation = std::abs(tmpStats.deviation);
+                        neighStats.goodCC++;
+                        neighStats.meanCount++;
+                        neighStats.meanCoeff += pdata.coeff;
+                        double deviation = phStaStats.deviation;
+                        deviation -= xcorr.get(event.id, stationId, phaseType).mean_lag - pdata.lag;
+                        neighStats.deviation += deviation;
+                        neighStats.absDeviation += std::abs(deviation);
                     }
-                    const Event& neighbEv = catalog->getEvents().at(neighEvId);
-                    double interEvDistance = computeDistance(event, neighbEv); 
-                    statsByInterEvDistance[ int(interEvDistance/EV_DIST_STEP) ] += tmpStats;
                 }
             }
         }
 
+        //
+        //  collect stats by inter event distance
+        //
+        for ( auto& kv : statsByNeighbour )
+        {
+            const Event& neighbEv = catalog->getEvents().at(kv.first);
+            XCorrEvalStats& neighStats = kv.second;
+            neighStats.meanCount *= neighStats.meanCount;
+            double interEvDistance = computeDistance(event, neighbEv); 
+            statsByInterEvDistance[ int(interEvDistance/EV_DIST_STEP) ] += neighStats;
+        }
+
+        // total stats
         totalStats += evStats;
         SEISCOMP_WARNING("Event %-5s mag %3.1f %s", string(event).c_str(), event.magnitude,
                          evStats.describe(theoretical).c_str());
 
         if ( ++loop % 50 == 0 )
         {
-            SEISCOMP_WARNING("<<<Progressive stats>>>");
-            printStats(theoretical);
+            printStats("<<<Progressive stats>>>", theoretical);
         }
     }
 
-    SEISCOMP_WARNING("<<<Final stats>>>");
-    printStats(theoretical);
+    printStats("<<<Final stats>>>", theoretical);
     printCounters();
 
 }
