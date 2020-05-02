@@ -1,7 +1,7 @@
 SET(RTDD_TARGET scrtdd)
 
 SET(RTDD_SOURCES
-		hdd/distance.cpp
+		hdd/utils.cpp
 		hdd/lsmr.cpp
 		hdd/lsqr.cpp
 		hdd/solver.cpp

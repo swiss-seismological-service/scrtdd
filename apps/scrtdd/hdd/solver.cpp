@@ -16,7 +16,7 @@
  ***************************************************************************/
 
 #include "solver.h"
-#include "distance.h"
+#include "utils.h"
 
 #include <stdexcept>
 #include <sstream>
@@ -542,29 +542,8 @@ Solver::computeResidualWeights(vector<double> residuals, const double alpha)
     //
     // Find the median absolute deviation of residuals (MAD)
     // 
-    auto computeMedian = [](vector<double> values) -> double
-    {
-        vector<double> tmp(values);
-        const auto middleItr = tmp.begin() + tmp.size() / 2;
-        std::nth_element(tmp.begin(), middleItr, tmp.end());
-        double median = *middleItr;
-        if (tmp.size() % 2 == 0)
-        {
-            const auto leftMiddleItr = std::max_element(tmp.begin(), middleItr);
-            median = (*leftMiddleItr + *middleItr) / 2;
-        }
-        return median;
-    };
-
     const double median = computeMedian(residuals);
-
-    vector<double> resAbsoluteDeviation(_dd->nObs);
-    for ( unsigned i = 0; i < residuals.size(); i++ )
-    {
-        resAbsoluteDeviation[i] = std::abs(residuals[i] - median);
-    }
-
-    const double MAD = computeMedian(resAbsoluteDeviation);
+    const double MAD = computeMedianAbsoluteDeviation(residuals, median);
 
     SEISCOMP_INFO("Solver: residual median %.4f [msec] MedianAbsoluteDeviation %.4f [msec]",
                   median*1000, MAD*1000);

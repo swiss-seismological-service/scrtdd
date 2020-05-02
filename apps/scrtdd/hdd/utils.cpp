@@ -15,9 +15,11 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#include "distance.h"
+#include "utils.h"
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/math/math.h>
+
+using namespace std;
 
 namespace Seiscomp {
 namespace HDD {
@@ -61,6 +63,53 @@ double computeDistance(const Catalog::Event& event, const Catalog::Station& stat
                            station.latitude, station.longitude, -(station.elevation/1000.),
                            azimuth, backAzimuth);
 }
+
+
+double computeMedian(const std::vector<double>& values)
+{
+    if (values.size() == 0) return 0;
+
+    vector<double> tmp(values);
+    const auto middleItr = tmp.begin() + tmp.size() / 2;
+    std::nth_element(tmp.begin(), middleItr, tmp.end());
+    double median = *middleItr;
+    if (tmp.size() % 2 == 0)
+    {
+        const auto leftMiddleItr = std::max_element(tmp.begin(), middleItr);
+        median = (*leftMiddleItr + *middleItr) / 2;
+    }
+    return median;
+}
+
+
+double computeMedianAbsoluteDeviation(const std::vector<double>& values, const double median)
+{
+    vector<double> absoluteDeviations( values.size() );
+    for ( unsigned i = 0; i < values.size(); i++ )
+    {
+        absoluteDeviations[i] = std::abs(values[i] - median);
+    }
+    return computeMedian(absoluteDeviations);
+}
+
+
+double computeMean(const vector<double>& values)
+{
+    if (values.size() == 0) return 0;
+    return std::accumulate( values.begin(), values.end(), 0.0) / values.size();
+}
+
+
+double computeMeanAbsoluteDeviation(const std::vector<double>& values, const double mean)
+{
+    vector<double> absoluteDeviations( values.size() );
+    for ( unsigned i = 0; i < values.size(); i++ )
+    {
+        absoluteDeviations[i] = std::abs(values[i] - mean);
+    }
+    return computeMean(absoluteDeviations);
+}
+
 
 }
 }

@@ -20,7 +20,8 @@
 
 #include "catalog.h"
 #include <seiscomp3/core/strings.h>
-#include <unordered_map>
+#include <vector>
+#include <random>
 
 namespace Seiscomp {
 namespace HDD { 
@@ -35,52 +36,41 @@ double computeDistance(const Catalog::Event& ev1, const Catalog::Event& ev2,
 double computeDistance(const Catalog::Event& event, const Catalog::Station& station,
                        double *azimuth = nullptr, double *backAzimuth = nullptr);
 
-class DistanceCache
-{
+
+double computeMedian(const std::vector<double>& values);
+
+double computeMedianAbsoluteDeviation(const std::vector<double>& values, const double median);
+
+double computeMean(const std::vector<double>& values);
+
+double computeMeanAbsoluteDeviation(const std::vector<double>& values, const double mean);
+
+
+class Randomer {
 
 public:
 
-    double compute(double lat1, double lon1, double depth1,
-                   double lat2, double lon2, double depth2,
-                   double *azimuth = nullptr, double *backAzimuth = nullptr)
+    Randomer(size_t min, size_t max, unsigned int seed = std::random_device{}())
+        : gen_{seed}, dist_{min, max}
+    { }
+
+    // if you want predictable numbers
+    void setSeed(unsigned int seed)
     {
-        double distance, _azimuth, _backAzimuth;
-
-        std::string key;
-
-        key = Seiscomp::Core::stringify("%.6f-%.6f-%.6f-%.6f-%.6f-%.6f",
-                                        lat1, lon1, depth1, lat2, lon2, depth2);
-
-        if ( _cache.find(key) == _cache.end() )
-        {
-            distance = computeDistance(lat1, lon1, depth1, lat2, lon2, depth2,
-                                       &_azimuth, &_backAzimuth);
-            _cache[key] = Entry( {distance, _azimuth, _backAzimuth} );
-        }
-        else
-        {
-            const Entry& entry = _cache.at(key);
-            distance = entry.distance;
-            _azimuth = entry.azimuth;
-            _backAzimuth = entry.backAzimuth;
-        }
-
-        if (azimuth) *azimuth = _azimuth;
-        if (backAzimuth) *backAzimuth = _backAzimuth;
-
-        return distance;
+        gen_.seed(seed);
     }
 
-    void clear() { _cache.clear(); }
+    size_t next()
+    {
+        return dist_(gen_);
+    }
 
 private:
 
-    struct Entry {
-        double distance, azimuth, backAzimuth;
-    };
-    std::unordered_map<std::string,Entry> _cache;
-
-};
+    // random seed by default
+    std::mt19937 gen_;
+    std::uniform_int_distribution<size_t> dist_;
+}; 
 
 }
 }
