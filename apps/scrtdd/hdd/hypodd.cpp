@@ -290,7 +290,7 @@ CatalogPtr HypoDD::relocateCatalog()
 
     // Perform cross correlation, which also detects picks around theoretical
     // arrival times. The catalog will be updated with those theoretical phases 
-    const XCorrCache xcorr = buildXCorrCache(catToReloc, neighbourCats, _cfg.artificialPhases.enable);
+    const XCorrCache xcorr = buildXCorrCache(catToReloc, neighbourCats, _useArtificialPhases);
 
     // The actual relocation
     CatalogPtr relocatedCatalog = relocate(catToReloc, neighbourCats, false, xcorr);
@@ -369,7 +369,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     eventWorkingDir = (boost::filesystem::path(subFolder)/"step2").string();
 
     CatalogPtr relocatedEvWithXcorr = relocateEventSingleStep(
-            evToRelocateCat, eventWorkingDir, true, _cfg.artificialPhases.enable,
+            evToRelocateCat, eventWorkingDir, true, _useArtificialPhases,
             _cfg.ddObservations2.minWeight, _cfg.ddObservations2.minESdist,
             _cfg.ddObservations2.maxESdist, _cfg.ddObservations2.minEStoIEratio,
             _cfg.ddObservations2.minDTperEvt, _cfg.ddObservations2.maxDTperEvt,
@@ -584,13 +584,15 @@ string HypoDD::relocationReport(const CatalogCPtr& relocatedEv)
     if ( ! event.relocInfo.isRelocated )
         return "Event not relocated";
 
-    return stringify("Neighboring events %d. Cross-correlated P phases %d, S phases %d. "
-                     "Catalog P phases %d, S phases %d. Rms residual %.2f [sec]. Rms %.4f.",
-                      event.relocInfo.numNeighbours,
+    return stringify("Rms residual %.3f [sec]. Neighboring events %u "
+                     "Num observations: initial %u (avg. weight %.2f) final %u (avg. weight %.2f). "
+                     "Num cross-correlated observations: P phases %u S phases %u. "
+                     "Num absolute TT diff observations: P phases %u S phases %u",
+                      event.rms, event.relocInfo.numNeighbours,
+                      event.relocInfo.numObservs, event.relocInfo.meanObsWeight,
+                      event.relocInfo.numFinalObservs, event.relocInfo.meanFinalObsWeight,
                       event.relocInfo.numCCp, event.relocInfo.numCCs,
-                      event.relocInfo.numCTp, event.relocInfo.numCTs, 
-                      event.rms);
- 
+                      event.relocInfo.numCTp, event.relocInfo.numCTs);
 }
 
 

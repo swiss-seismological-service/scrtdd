@@ -174,6 +174,8 @@ class RTDD : public Application {
             std::string phaFile;
             RegionPtr   region;
             HDD::Config ddcfg;
+            bool useTheoreticalAuto;
+            bool useTheoreticalManual;
 
             private:
             bool loaded;

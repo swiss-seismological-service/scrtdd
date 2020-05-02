@@ -91,11 +91,6 @@ struct Config {
         {Catalog::Phase::Type::S, {}}
     };
 
-    // artificial phases
-    struct {
-        bool enable           = true;
-    } artificialPhases;
-
     struct {
         std::string filterStr = "";
         double resampleFreq = 0;
@@ -152,16 +147,20 @@ class HypoDD : public Core::BaseObject {
         void evalXCorr();
 
         void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
-        bool workingDirCleanup() { return _workingDirCleanup; }
+        bool workingDirCleanup() const { return _workingDirCleanup; }
 
         void setUseCatalogDiskCache(bool cache) { _useCatalogDiskCache = cache; }
-        bool useCatalogDiskCache() { return _useCatalogDiskCache; }
+        bool useCatalogDiskCache() const { return _useCatalogDiskCache; }
 
         void setWaveformCacheAll(bool all) { _waveformCacheAll = all; }
-        bool waveformCacheAll() { return _waveformCacheAll; }
+        bool waveformCacheAll() const { return _waveformCacheAll; }
 
         void setWaveformDebug(bool debug);
-        bool waveformDebug() { return _waveformDebug; }
+        bool waveformDebug() const { return _waveformDebug; }
+
+        void setUseArtificialPhases(bool use) { _useArtificialPhases = use; }
+        bool useArtificialPhases() const { return _useArtificialPhases;}
+
 
         static std::string relocationReport(const CatalogCPtr& relocatedEv);
 
@@ -280,9 +279,11 @@ class HypoDD : public Core::BaseObject {
 
         WfMngrPtr  _wf;
         WfMngr::WfCache _wfCache;
-        bool _useCatalogDiskCache;
-        bool _waveformCacheAll;
-        bool _waveformDebug;
+        bool _useCatalogDiskCache = true;
+        bool _waveformCacheAll = false;
+        bool _waveformDebug = false;
+
+        bool _useArtificialPhases = true;
 
         TravelTimeTableInterfacePtr _ttt;
 
