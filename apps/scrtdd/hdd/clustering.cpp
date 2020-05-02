@@ -16,7 +16,7 @@
  ***************************************************************************/
 
 #include "clustering.h"
-#include "distance.h"
+#include "utils.h"
 #include "ellipsoid.ipp"
 
 #include <seiscomp3/core/strings.h>

@@ -16,13 +16,12 @@
  ***************************************************************************/
 
 #include "hypodd.h"
-#include "distance.h"
+#include "utils.h"
 
 #include <seiscomp3/core/datetime.h>
 #include <seiscomp3/core/strings.h>
 #include <seiscomp3/core/typedarray.h>
 #include <seiscomp3/io/recordinput.h>
-#include <seiscomp3/math/geo.h>
 #include <seiscomp3/client/inventory.h>
 #include <seiscomp3/utils/files.h>
 #include <stdexcept>
@@ -30,13 +29,9 @@
 #include <fstream>
 #include <iomanip>
 #include <cmath>
-#include <random>
-#include <regex>
 #include <boost/filesystem.hpp>
 #include <boost/bind.hpp>
 #include <boost/range/iterator_range_core.hpp>
-#include <sys/wait.h>
-#include <unistd.h>
 
 #define SEISCOMP_COMPONENT RTDD
 #include <seiscomp3/logging/log.h>
@@ -49,36 +44,6 @@ using Event = HDD::Catalog::Event;
 using Phase = HDD::Catalog::Phase;
 using Station = HDD::Catalog::Station;
 using CacheType = HDD::WfMngr::CacheType;
-
-namespace {
-
-class Randomer {
-
-public:
-
-    Randomer(size_t min, size_t max, unsigned int seed = std::random_device{}())
-        : gen_{seed}, dist_{min, max}
-    { }
-
-    // if you want predictable numbers
-    void setSeed(unsigned int seed)
-    {
-        gen_.seed(seed);
-    }
-
-    size_t next()
-    {
-        return dist_(gen_);
-    }
-
-private:
-
-    // random seed by default
-    std::mt19937 gen_;
-    std::uniform_int_distribution<size_t> dist_;
-};
-
-}
 
 
 namespace Seiscomp {
@@ -544,23 +509,21 @@ HypoDD::relocate(CatalogPtr& catalog,
         // update event parameters
         catalog = updateRelocatedEvents(solver, catalog, neighbourCats, obsparams);
 
-        unsigned rmsCount = 0;
-        double rms = 0;
+        vector<double> rms;
         for (const NeighboursPtr& neighbours : neighbourCats)
         {
             const Event& ev = catalog->getEvents().at(neighbours->refEvId);
-            if ( ev.relocInfo.isRelocated )
-            {
-                rms += catalog->getEvents().at(ev.id).rms;
-                ++rmsCount;
-            }
+            if ( ev.relocInfo.isRelocated ) rms.push_back(ev.rms);
         }
         SEISCOMP_INFO("Iteration %u dampingFactor %.2f downWeightingByResidual %.2f "
-                      "meanShiftConstrainWeight %.2f,%.2f,%.2f,%.2f avg rms %f", 
+                      "meanShiftConstrainWeight %.2f,%.2f,%.2f,%.2f", 
                          iteration, dampingFactor, downWeightingByResidual,
                          meanLonShiftConstraint, meanLatShiftConstraint,
-                         meanDepthShiftConstraint, meanTTShiftConstraint,
-                         ( rmsCount > 0 ? (rms / rmsCount) : 0.) );
+                         meanDepthShiftConstraint, meanTTShiftConstraint);
+        const double median = computeMedian(rms);
+        const double MAD = computeMedianAbsoluteDeviation(rms, median);
+        SEISCOMP_INFO("Events Rms: median %.4f median absolute deviation %.4f",
+                       median*1000, MAD*1000);
     }
 
     // build the relocated catalog from the results of relocations
@@ -639,7 +602,7 @@ HypoDD::addObservations(Solver& solver, const CatalogCPtr& catalog, const Neighb
             //
             // compute travel times for both event and refEvent
             //
-            double ref_travel_time = refPhase.time - refEv.time;
+            double ref_travel_time = (refPhase.time - refEv.time).length();
             if (ref_travel_time < 0)
             {
                 SEISCOMP_DEBUG("Ignoring phase %s with negative travel time",
@@ -647,7 +610,7 @@ HypoDD::addObservations(Solver& solver, const CatalogCPtr& catalog, const Neighb
                 continue;
             }
 
-            double travel_time = phase.time - event.time;
+            double travel_time = (phase.time - event.time).length();
             if (travel_time < 0)
             {
                 SEISCOMP_DEBUG("Ignoring phase %s with negative travel time",
@@ -816,7 +779,7 @@ HypoDD::updateRelocatedEvents(const Solver& solver,
             }
 
             double travelTime = obsparams.get(event.id, station.id, phaseTypeAsChar).travelTime;
-            phase.relocInfo.residual = travelTime - (phase.time - event.time);
+            phase.relocInfo.residual = travelTime - (phase.time - event.time).length();
 
             event.rms += (phase.relocInfo.residual * phase.relocInfo.residual);
             event.relocInfo.numObservs         += phase.relocInfo.numObservs;

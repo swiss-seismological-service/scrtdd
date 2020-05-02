@@ -18,6 +18,7 @@
 #ifndef __RTDD_APPLICATIONS_ELLIPSOID_H__
 #define __RTDD_APPLICATIONS_ELLIPSOID_H__
 
+#include "utils.h"
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/math/math.h>
 #include <set>
@@ -35,11 +36,8 @@ struct Ellipsoid
 {
     bool isInside(double lat, double lon, double depth) const
     {
-        double distance, az, baz;
-        Math::Geo::delazi(lat, lon, this->lat, this->lon, &distance, &az, &baz);
-
-        distance = Math::Geo::deg2km(distance); // distance to km
-        az += orientation; // correct azimuth by the orientation of a and b axes
+        double distance, az;
+        distance = computeDistance(lat, lon, 0, this->lat, this->lon, 0, &az);
         az = deg2rad(az);
 
         double dist_x = distance * std::sin(az);
@@ -54,7 +52,6 @@ struct Ellipsoid
 
     double axis_a=0, axis_b=0, axis_c=0; // axis in km
     double lat=0, lon=0, depth=0;        // origin
-    double orientation = 0;              // degree: when 0 -> axis_a is East-West and axis_b is North-South
 };
 
 DEFINE_SMARTPOINTER(Ellipsoid);
