@@ -465,8 +465,7 @@ HypoDD::relocate(CatalogPtr& catalog,
         //
         for (const NeighboursPtr& neighbours : neighbourCats)
         {
-            catalog = addObservations(solver, catalog, neighbours, keepNeighboursFixed,
-                                      xcorr, obsparams);
+            addObservations(solver, catalog, neighbours, keepNeighboursFixed, xcorr, obsparams);
         }
         obsparams.addToSolver(solver);
 
@@ -493,6 +492,12 @@ HypoDD::relocate(CatalogPtr& catalog,
         //
         // solve the system
         //
+        SEISCOMP_INFO("Solving iteration %lu num events %u (dampingFactor %.2f "
+              "downWeightingByResidual %.2f meanShiftConstrainWeight %.2f,%.2f,%.2f,%.2f)",
+              iteration, neighbourCats.size(), dampingFactor, downWeightingByResidual,
+              meanLonShiftConstraint, meanLatShiftConstraint,
+              meanDepthShiftConstraint, meanTTShiftConstraint);
+
         try {
             solver.solve(_cfg.solver.solverIterations, dampingFactor,
                          downWeightingByResidual, meanLonShiftConstraint,
@@ -508,22 +513,6 @@ HypoDD::relocate(CatalogPtr& catalog,
 
         // update event parameters
         catalog = updateRelocatedEvents(solver, catalog, neighbourCats, obsparams);
-
-        vector<double> rms;
-        for (const NeighboursPtr& neighbours : neighbourCats)
-        {
-            const Event& ev = catalog->getEvents().at(neighbours->refEvId);
-            if ( ev.relocInfo.isRelocated ) rms.push_back(ev.rms);
-        }
-        SEISCOMP_INFO("Iteration %u dampingFactor %.2f downWeightingByResidual %.2f "
-                      "meanShiftConstrainWeight %.2f,%.2f,%.2f,%.2f", 
-                         iteration, dampingFactor, downWeightingByResidual,
-                         meanLonShiftConstraint, meanLatShiftConstraint,
-                         meanDepthShiftConstraint, meanTTShiftConstraint);
-        const double median = computeMedian(rms);
-        const double MAD = computeMedianAbsoluteDeviation(rms, median);
-        SEISCOMP_INFO("Events Rms: median %.4f median absolute deviation %.4f",
-                       median*1000, MAD*1000);
     }
 
     // build the relocated catalog from the results of relocations
@@ -547,13 +536,15 @@ string HypoDD::relocationReport(const CatalogCPtr& relocatedEv)
     if ( ! event.relocInfo.isRelocated )
         return "Event not relocated";
 
-    return stringify("Rms residual %.3f [sec]. Neighboring events %u "
-                     "Num observations: initial %u (avg. weight %.2f) final %u (avg. weight %.2f). "
-                     "Num cross-correlated observations: P phases %u S phases %u. "
+    return stringify("Rms residual %.3f [sec]. Neighboring events %u used P %u used S %u."
+                     "Num observations: %u (avg. a priory weight %.2f final weight %.2f). "
+                     "Num xcross observations: P phases %u S phases %u. "
                      "Num absolute TT diff observations: P phases %u S phases %u",
-                      event.rms, event.relocInfo.numNeighbours,
-                      event.relocInfo.numObservs, event.relocInfo.meanObsWeight,
-                      event.relocInfo.numFinalObservs, event.relocInfo.meanFinalObsWeight,
+                      event.rms, event.relocInfo.numNeighbours, 
+                      event.relocInfo.usedP, event.relocInfo.usedS,
+                      (event.relocInfo.numCCp+event.relocInfo.numCCs+
+                      event.relocInfo.numCTp+event.relocInfo.numCTs),
+                      event.relocInfo.meanObsWeight, event.relocInfo.meanFinalObsWeight,
                       event.relocInfo.numCCp, event.relocInfo.numCCs,
                       event.relocInfo.numCTp, event.relocInfo.numCTs);
 }
@@ -564,17 +555,13 @@ string HypoDD::relocationReport(const CatalogCPtr& relocatedEv)
  * differential travel times from cross correlation for pairs of
  * earthquakes
  */ 
-CatalogPtr
+void
 HypoDD::addObservations(Solver& solver, const CatalogCPtr& catalog, const NeighboursPtr& neighbours,
                         bool keepNeighboursFixed, const XCorrCache& xcorr,
                         ObservationParams& obsparams ) const
 {
     // copy event because we'll update it
-    Event refEv = catalog->getEvents().at(neighbours->refEvId);
-    refEv.relocInfo.numCCp = 0;
-    refEv.relocInfo.numCCs = 0;
-    refEv.relocInfo.numCTp = 0;
-    refEv.relocInfo.numCTs = 0;
+    const Event& refEv = catalog->getEvents().at(neighbours->refEvId);
 
     //
     // loop through reference event phases
@@ -634,6 +621,7 @@ HypoDD::addObservations(Solver& solver, const CatalogCPtr& catalog, const Neighb
             double weight   =  _cfg.solver.usePickUncertainty
                             ? (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0
                             : 1.0;
+            bool isXcorr = false;
             //
             // Check if we have xcorr results for current event/refEvent pair at station/phase
             // and use those instead
@@ -644,25 +632,17 @@ HypoDD::addObservations(Solver& solver, const CatalogCPtr& catalog, const Neighb
                 const auto& xcdata = xcorr.get(refEv.id, event.id, refPhase.stationId, refPhase.procInfo.type);
                 diffTime -= xcdata.lag;
                 weight *= _cfg.solver.xcorrObsWeight;
-                if (refPhase.procInfo.type == Phase::Type::P) refEv.relocInfo.numCCp++;
-                if (refPhase.procInfo.type == Phase::Type::S) refEv.relocInfo.numCCs++;
+                isXcorr = true;
             }
             else
             {
                 weight *= _cfg.solver.absTTDiffObsWeight;
-                if (refPhase.procInfo.type == Phase::Type::P) refEv.relocInfo.numCTp++;
-                if (refPhase.procInfo.type == Phase::Type::S) refEv.relocInfo.numCTs++;
             } 
 
             solver.addObservation(refEv.id, event.id, refPhase.stationId,  phaseTypeAsChar,
-                                  diffTime, weight, true, !keepNeighboursFixed);
+                                  diffTime, weight, true, !keepNeighboursFixed, isXcorr);
         }
     }
-
-    // save back the computed refEv.relocInfo.numCC/CT P/S information
-    CatalogPtr returnCat(new Catalog(*catalog) );
-    returnCat->updateEvent(refEv);
-    return returnCat;
 }
 
 void
@@ -710,6 +690,7 @@ HypoDD::updateRelocatedEvents(const Solver& solver,
     unordered_map<string,Station> stations = catalog->getStations();
     map<unsigned,Event> events = catalog->getEvents();
     unordered_multimap<unsigned,Phase> phases = catalog->getPhases();
+    unsigned relocatedEvs = 0;
 
     for (const NeighboursPtr& neighbours : neighbourCats)
     {
@@ -728,6 +709,8 @@ HypoDD::updateRelocatedEvents(const Solver& solver,
             continue;
         }
 
+        relocatedEvs++;
+
         event.latitude  += deltaLat;
         event.longitude += deltaLon;
         event.depth     += deltaDepth;
@@ -735,12 +718,17 @@ HypoDD::updateRelocatedEvents(const Solver& solver,
         event.relocInfo.isRelocated = true;
         event.relocInfo.numNeighbours = neighbours->numNeighbours;
 
-        event.rms = 0.;
-        event.relocInfo.numObservs = 0;
-        event.relocInfo.numFinalObservs = 0;
+        event.relocInfo.usedP = 0;
+        event.relocInfo.usedS = 0;
+        event.relocInfo.numCCp = 0;
+        event.relocInfo.numCCs = 0;
+        event.relocInfo.numCTp = 0;
+        event.relocInfo.numCTs = 0; 
         event.relocInfo.meanObsWeight = 0;
         event.relocInfo.meanFinalObsWeight = 0;
+        event.rms = 0.;
 
+        unsigned rmsCount = 0;
         unsigned pCount = 0;
         auto eqlrng = phases.equal_range(event.id);
         for (auto it = eqlrng.first; it != eqlrng.second; ++it) 
@@ -751,51 +739,63 @@ HypoDD::updateRelocatedEvents(const Solver& solver,
 
             phase.relocInfo.isRelocated = false;
 
-            unsigned startingObservations, finalObservations;
-            double totalAPrioriWeight, totalFinalWeight;
+            unsigned startingObservations, startingXcorrObservations, totalFinalObservations;
+            double meanAPrioriWeight, meanFinalWeight;
             if ( ! solver.getObservationParamsChanges(event.id, station.id, phaseTypeAsChar,
-                                                      startingObservations, finalObservations,
-                                                      totalAPrioriWeight, totalFinalWeight) )
+                                                      startingObservations, 
+                                                      startingXcorrObservations,
+                                                      totalFinalObservations,
+                                                      meanAPrioriWeight,
+                                                      meanFinalWeight) )
             {
                 continue;
             }
 
-            if (  finalObservations == 0 )
-              continue;
+            event.relocInfo.meanObsWeight      += meanAPrioriWeight;
+            event.relocInfo.meanFinalObsWeight += meanFinalWeight;
+            ++pCount;
+
+            if (  meanFinalWeight == 0 || totalFinalObservations == 0 )
+                continue;
 
             phase.relocInfo.isRelocated = true;
-            phase.relocInfo.finalWeight = phase.procInfo.weight * totalFinalWeight / totalAPrioriWeight;
-            phase.relocInfo.numObservs         = startingObservations;
-            phase.relocInfo.numFinalObservs    = finalObservations;
-            phase.relocInfo.meanObsWeight      = totalAPrioriWeight / startingObservations;
-            phase.relocInfo.meanFinalObsWeight = totalFinalWeight / finalObservations;
+            phase.relocInfo.finalWeight = phase.procInfo.weight * meanFinalWeight / meanAPrioriWeight;
+            phase.relocInfo.numObservs           = startingObservations;
+            phase.relocInfo.numXcorrObservs      = startingXcorrObservations;
+            phase.relocInfo.meanObsWeight        = meanAPrioriWeight;
+            phase.relocInfo.meanFinalObsWeight   = meanFinalWeight;
 
             try {
                 obsparams.add(_ttt, event, station, phaseTypeAsChar);
-            } catch ( exception &e ) {
-                SEISCOMP_DEBUG("Skipping observation parameter (ev %u sta %s phase %c): %s",
-                                  event.id, station.id.c_str(), phaseTypeAsChar, e.what()); 
-                continue;
-            }
-
-            double travelTime = obsparams.get(event.id, station.id, phaseTypeAsChar).travelTime;
-            phase.relocInfo.residual = travelTime - (phase.time - event.time).length();
+                double travelTime = obsparams.get(event.id, station.id, phaseTypeAsChar).travelTime;
+                phase.relocInfo.residual = travelTime - (phase.time - event.time).length();
+                rmsCount++;
+            } catch ( exception &e ) { }
 
             event.rms += (phase.relocInfo.residual * phase.relocInfo.residual);
-            event.relocInfo.numObservs         += phase.relocInfo.numObservs;
-            event.relocInfo.numFinalObservs    += phase.relocInfo.numFinalObservs;
-            event.relocInfo.meanObsWeight      += phase.relocInfo.meanObsWeight;
-            event.relocInfo.meanFinalObsWeight += phase.relocInfo.meanFinalObsWeight;
-            ++pCount;
+            if ( phase.procInfo.type == Phase::Type::P ) 
+            {
+                event.relocInfo.usedP++;
+                event.relocInfo.numCCp        += phase.relocInfo.numXcorrObservs;
+                event.relocInfo.numCTp        += phase.relocInfo.numObservs;
+            }
+            if ( phase.procInfo.type == Phase::Type::S )
+            {
+                event.relocInfo.usedS++;
+                event.relocInfo.numCCs        += phase.relocInfo.numXcorrObservs;
+                event.relocInfo.numCTs        += phase.relocInfo.numObservs;
+            }
         }
 
+        if ( rmsCount > 0 ) event.rms = std::sqrt(event.rms / rmsCount);
         if ( pCount > 0 )
         {
-            event.rms = std::sqrt(event.rms / pCount);
             event.relocInfo.meanObsWeight      /= pCount;
             event.relocInfo.meanFinalObsWeight /= pCount;
         }
     }
+
+    SEISCOMP_INFO("Successfully relocated %u events", relocatedEvs);
 
     return new Catalog(stations, events, phases);
 }

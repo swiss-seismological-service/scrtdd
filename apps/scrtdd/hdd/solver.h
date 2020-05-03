@@ -119,7 +119,7 @@ public:
 
     void addObservation(unsigned evId1, unsigned evId2, const std::string& staId, char phase,
                         double diffTime, double aPrioriWeight,
-                        bool computeEv1Changes, bool computeEv2Changes);
+                        bool computeEv1Changes, bool computeEv2Changes, bool isXcorr);
 
     void addObservationParams(unsigned evId, const std::string& staId, char phase,
                               double evLat, double evLon, double evDepth,
@@ -139,8 +139,11 @@ public:
                          double &deltaDepth, double &deltaTT) const;
 
     bool getObservationParamsChanges(unsigned evId, const std::string& staId, char phase,
-                                     unsigned &startingObservations, unsigned &finalObservations,
-                                     double &totalAPrioriWeight, double &totalFinalWeight) const;
+                                     unsigned &startingObservations, 
+                                     unsigned &startingXcorrObservations,
+                                     unsigned &totalFinalObservations, 
+                                     double &meanAPrioriWeight,
+                                     double &meanFinalWeight) const;
 
 private:
 
@@ -204,6 +207,7 @@ private:
         bool computeEv2Changes;
         double observedDiffTime;
         double aPrioriWeight;
+        bool isXcorr;
     };
     std::unordered_map<unsigned,Observation> _observations; // key = obsIdx
 
@@ -231,7 +235,8 @@ private:
 
     struct ParamStats {
         unsigned startingObservations = 0;
-        unsigned finalObservations = 0;
+        unsigned startingXcorrObservations = 0;
+        unsigned totalFinalObservations = 0;
         double totalAPrioriWeight = 0;
         double totalFinalWeight = 0;
     };

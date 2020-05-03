@@ -192,10 +192,10 @@ class HypoDD : public Core::BaseObject {
             std::unordered_map<std::string,Entry> _entries;
         }; 
 
-        CatalogPtr addObservations(Solver& solver, const CatalogCPtr& catalog,
-                                   const NeighboursPtr& neighbours,
-                                   bool keepNeighboursFixed, const XCorrCache& xcorr,
-                                   ObservationParams& obsparams ) const;
+        void addObservations(Solver& solver, const CatalogCPtr& catalog,
+                             const NeighboursPtr& neighbours,
+                             bool keepNeighboursFixed, const XCorrCache& xcorr,
+                             ObservationParams& obsparams ) const;
 
         CatalogPtr updateRelocatedEvents(const Solver& solver,
                                          const CatalogCPtr& catalog,
