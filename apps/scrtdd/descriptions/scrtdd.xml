@@ -602,13 +602,13 @@
                                 based on Paige and Saunders algorithm from 1982
                             </description>
                        </parameter>
-                       <parameter name="solverIterations" type="int" >
-                            <description>
-                                By default is defined as 2 times the number of events
-                            </description>
-                        </parameter>
                         <parameter name="algoIterations" type="int" default="20">
                             <description>
+                                The solver finds the solution to the double-differnce system
+                                starting from the initial origins locations and then it iterates
+                                the process multiple times updating the observations based on the
+                                origins new locations and reweighting the observations depending on
+                                their residuals (see downWeightingByResidual)
                             </description>
                         </parameter> 
                         <group name="downWeightingByResidual">
