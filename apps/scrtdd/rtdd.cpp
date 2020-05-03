@@ -542,10 +542,10 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.ddObservations2.xcorrMaxInterEvDist = 3; }
 
         try {
-            prof->useTheoreticalAuto = configGetDouble(prefix + "theoreticalPhaseAutoOrigin");
+            prof->useTheoreticalAuto = configGetBool(prefix + "theoreticalPhaseAutoOrigin");
         } catch ( ... ) { prof->useTheoreticalAuto = true; }
         try {
-            prof->useTheoreticalManual = configGetDouble(prefix + "theoreticalPhaseManualOrigin");
+            prof->useTheoreticalManual = configGetBool(prefix + "theoreticalPhaseManualOrigin");
         } catch ( ... ) { prof->useTheoreticalManual = false; }
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservations.waveformFiltering.";
