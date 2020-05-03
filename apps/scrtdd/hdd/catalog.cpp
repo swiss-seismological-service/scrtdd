@@ -306,12 +306,12 @@ Catalog::Catalog(const string& stationFile,
         {
             ev.relocInfo.isRelocated = true;
             ev.relocInfo.numNeighbours    = std::stoul(row.at("numNeighbours"));
+            ev.relocInfo.usedP            = std::stoul(row.at("usedP"));
+            ev.relocInfo.usedS            = std::stoul(row.at("usedS"));
             ev.relocInfo.numCCp           = std::stoul(row.at("numCCp"));
             ev.relocInfo.numCCs           = std::stoul(row.at("numCCs"));
             ev.relocInfo.numCTp           = std::stoul(row.at("numCTp"));
             ev.relocInfo.numCTs           = std::stoul(row.at("numCTs"));
-            ev.relocInfo.numObservs       = std::stoul(row.at("numObservs"));
-            ev.relocInfo.numFinalObservs  = std::stoul(row.at("numFinalObservs"));
             ev.relocInfo.meanObsWeight      = std::stod(row.at("meanObsWeight"));
             ev.relocInfo.meanFinalObsWeight = std::stod(row.at("meanFinalObsWeight")); 
         }
@@ -342,7 +342,7 @@ Catalog::Catalog(const string& stationFile,
             ph.relocInfo.finalWeight     = std::stod(row.at("finalWeight"));
             ph.relocInfo.residual        = std::stod(row.at("residual"));
             ph.relocInfo.numObservs      = std::stoul(row.at("numObservs"));
-            ph.relocInfo.numFinalObservs = std::stoul(row.at("numFinalObservs")); 
+            ph.relocInfo.numXcorrObservs = std::stoul(row.at("numXcorrObservs")); 
             ph.relocInfo.meanObsWeight      = std::stod(row.at("meanObsWeight"));
             ph.relocInfo.meanFinalObsWeight = std::stod(row.at("meanFinalObsWeight"));
         }
@@ -754,7 +754,7 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
     stringstream evStreamReloc;
 
     evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude,rms"; 
-    evStreamReloc << evStreamNoReloc.str() << ",relocated,numNeighbours,numCCp,numCCs,numCTp,numCTs,numObservs,numFinalObservs,meanObsWeight,meanFinalObsWeight" << endl;
+    evStreamReloc << evStreamNoReloc.str() << ",relocated,numNeighbours,numPhaseP,numPhaseS,numCCp,numCCs,numCTp,numCTs,meanObsWeight,meanFinalObsWeight" << endl;
     evStreamNoReloc << endl;
 
     bool relocInfo = false;
@@ -779,9 +779,9 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
             relocInfo = true;
             evStreamReloc <<  stringify(",true,%u,%u,%u,%u,%u,%u,%u,%.2f,%.2f",
                                   ev.relocInfo.numNeighbours,
+                                  ev.relocInfo.usedP, ev.relocInfo.usedS,
                                   ev.relocInfo.numCCp, ev.relocInfo.numCCs,
                                   ev.relocInfo.numCTp, ev.relocInfo.numCTs,
-                                  ev.relocInfo.numObservs, ev.relocInfo.numFinalObservs,
                                   ev.relocInfo.meanObsWeight, ev.relocInfo.meanFinalObsWeight);
         }
         evStreamReloc << endl;
@@ -798,7 +798,7 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
     phStream << "eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode,evalMode";
     if (relocInfo)
     {
-        phStream << ",usedInReloc,residual,initialWeight,finalWeight,numObservs,numFinalObservs,meanObsWeight,meanFinalObsWeight";
+        phStream << ",usedInReloc,residual,initialWeight,finalWeight,numObservs,numXcorrObservs,meanObsWeight,meanFinalObsWeight";
     }
     phStream << endl;
 
@@ -824,7 +824,7 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
                 phStream << stringify(",true,%.3f,%.2f,%.2f,%u,%u,%.2f,%.2f",
                                       ph.relocInfo.residual,
                                       ph.procInfo.weight, ph.relocInfo.finalWeight,
-                                      ph.relocInfo.numObservs,  ph.relocInfo.numFinalObservs,
+                                      ph.relocInfo.numObservs,  ph.relocInfo.numXcorrObservs,
                                       ph.relocInfo.meanObsWeight, ph.relocInfo.meanFinalObsWeight);
             }
         }

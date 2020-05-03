@@ -80,12 +80,12 @@ class Catalog : public Core::BaseObject {
             struct {
                 bool isRelocated = false;
                 unsigned numNeighbours;
+                unsigned usedP;
+                unsigned usedS;
                 unsigned numCCp;
                 unsigned numCCs;
                 unsigned numCTp;
                 unsigned numCTs;
-                unsigned numObservs;
-                unsigned numFinalObservs;
                 double meanObsWeight;
                 double meanFinalObsWeight;
             } relocInfo;
@@ -138,7 +138,7 @@ class Catalog : public Core::BaseObject {
                 double residual;
                 double finalWeight;
                 unsigned numObservs;
-                unsigned numFinalObservs;
+                unsigned numXcorrObservs;
                 double meanObsWeight;
                 double meanFinalObsWeight;
             } relocInfo;

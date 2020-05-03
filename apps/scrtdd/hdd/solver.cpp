@@ -269,7 +269,7 @@ namespace HDD {
 void
 Solver::addObservation(unsigned evId1, unsigned evId2, const std::string& staId, char phase,
                        double observedDiffTime, double aPrioriWeight,
-                       bool computeEv1Changes, bool computeEv2Changes)
+                       bool computeEv1Changes, bool computeEv2Changes, bool isXcorr)
 {
     string phStaId = string(1,phase) + "@" + staId;
     string obsId = to_string(evId1) + "+" + to_string(evId2) + "_" + phStaId;
@@ -278,7 +278,7 @@ Solver::addObservation(unsigned evId1, unsigned evId2, const std::string& staId,
     unsigned phStaIdx = _phStaIdConverter.convert(phStaId);
     unsigned obsIdx = _obsIdConverter.convert(obsId);
     _observations[obsIdx] = Observation( {evIdx1, evIdx2, phStaIdx, computeEv1Changes,
-            computeEv2Changes, observedDiffTime, aPrioriWeight});
+            computeEv2Changes, observedDiffTime, aPrioriWeight, isXcorr});
 }
 
 
@@ -319,8 +319,11 @@ Solver::getEventChanges(unsigned evId, double &deltaLat, double &deltaLon, doubl
 
 bool
 Solver::getObservationParamsChanges(unsigned evId, const std::string& staId, char phase,
-                                    unsigned &startingObservations, unsigned &finalObservations,
-                                    double &totalAPrioriWeight, double &totalFinalWeight) const
+                                    unsigned &startingObservations, 
+                                    unsigned &startingXcorrObservations,
+                                    unsigned &totalFinalObservations, 
+                                    double &meanAPrioriWeight,
+                                    double &meanFinalWeight) const
 {
     if ( ! _eventIdConverter.hasId(evId) )
         return false;
@@ -343,9 +346,12 @@ Solver::getObservationParamsChanges(unsigned evId, const std::string& staId, cha
     const ParamStats& prmSts = it2->second;
 
     startingObservations = prmSts.startingObservations;
-    finalObservations    = prmSts.finalObservations;
-    totalAPrioriWeight   = prmSts.totalAPrioriWeight;
-    totalFinalWeight     = prmSts.totalFinalWeight;
+    startingXcorrObservations = prmSts.startingXcorrObservations;
+    totalFinalObservations    = prmSts.totalFinalObservations;
+    meanAPrioriWeight = 0;
+    if ( (startingObservations + startingXcorrObservations) > 0 )
+        meanAPrioriWeight = prmSts.totalAPrioriWeight / (startingObservations + startingXcorrObservations);
+    meanFinalWeight = totalFinalObservations ? (prmSts.totalFinalWeight / totalFinalObservations) : 0;
     return true;
 }
 
@@ -401,7 +407,7 @@ Solver::loadSolutions()
         if ( evIdx1 >= 0 )
         {
             ParamStats& prmSts = _paramStats.at(evIdx1).at(phStaIdx);
-            prmSts.finalObservations++;
+            prmSts.totalFinalObservations++;
             prmSts.totalFinalWeight += observationWeight;
         }
 
@@ -409,14 +415,14 @@ Solver::loadSolutions()
         if ( evIdx2 >= 0 )
         {
             ParamStats& prmSts = _paramStats.at(evIdx2).at(phStaIdx);
-            prmSts.finalObservations++;
+            prmSts.totalFinalObservations++;
             prmSts.totalFinalWeight += observationWeight;
         }
     }
 
     //
     // Now build a map of events that have at least one observation whose weight is non zero
-    // (that is discard events that lost all their observations due to downweighting )
+    // (i.e. discard events that lost all their observations due to downweighting )
     //
     for ( const auto& kv1 : _paramStats )
     {
@@ -426,7 +432,7 @@ Solver::loadSolutions()
         for ( const auto& kv2 : kv1.second )
         {
             const ParamStats& pweight = kv2.second;
-            if ( pweight.finalObservations > 0 )
+            if ( pweight.totalFinalWeight > 0 )
             {
                 allZero = false;
                 break;
@@ -545,8 +551,8 @@ Solver::computeResidualWeights(vector<double> residuals, const double alpha)
     const double median = computeMedian(residuals);
     const double MAD = computeMedianAbsoluteDeviation(residuals, median);
 
-    SEISCOMP_INFO("Solver: residual median %.4f [msec] MedianAbsoluteDeviation %.4f [msec]",
-                  median*1000, MAD*1000);
+    SEISCOMP_INFO("Solver: #observations %lu residual median %.4f [msec] MedianAbsoluteDeviation %.4f [msec]",
+                  _observations.size(), median*1000, MAD*1000);
 
     //
     // Compute weights
@@ -618,14 +624,16 @@ Solver::prepareDDSystem(array<double,4> meanShiftConstraint, double residualDown
         if ( obsrv.computeEv1Changes )
         {
             ParamStats& prmSts = _paramStats[obsrv.ev1Idx][obsrv.phStaIdx];
-            prmSts.startingObservations++;
+            if ( obsrv.isXcorr ) prmSts.startingXcorrObservations++;
+            else prmSts.startingObservations++;
             prmSts.totalAPrioriWeight += _dd->W[obIdx];
         }
 
         if ( obsrv.computeEv2Changes )
         {
             ParamStats& prmSts = _paramStats[obsrv.ev2Idx][obsrv.phStaIdx];
-            prmSts.startingObservations++;
+            if ( obsrv.isXcorr ) prmSts.startingXcorrObservations++;
+            else prmSts.startingObservations++;
             prmSts.totalAPrioriWeight += _dd->W[obIdx]; 
         }
     }
