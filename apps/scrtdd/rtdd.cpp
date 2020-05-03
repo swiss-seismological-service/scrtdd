@@ -585,9 +585,6 @@ bool RTDD::validateParameters()
             prof->ddcfg.solver.type = configGetString(prefix + "solverType");
         } catch ( ... ) { prof->ddcfg.solver.type = "LSMR"; }
         try {
-            prof->ddcfg.solver.solverIterations = configGetInt(prefix + "solverIterations");
-        } catch ( ... ) { prof->ddcfg.solver.solverIterations = 0; }
-        try {
             prof->ddcfg.solver.algoIterations = configGetInt(prefix + "algoIterations");
         } catch ( ... ) { prof->ddcfg.solver.algoIterations = 20; } 
         try {
@@ -632,6 +629,7 @@ bool RTDD::validateParameters()
         prof->ddcfg.ddObservations1.minWeight = 0;
         prof->ddcfg.ddObservations2.minWeight = 0;
         prof->ddcfg.solver.L2normalization = true;
+        prof->ddcfg.solver.solverIterations = 0;
 
         _profiles.push_back(prof);
     }
