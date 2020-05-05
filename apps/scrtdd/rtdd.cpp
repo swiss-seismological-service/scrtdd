@@ -438,13 +438,13 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.ddObservations1.minNumNeigh = 1; }
         try {
             prof->ddcfg.ddObservations1.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
-        } catch ( ... ) { prof->ddcfg.ddObservations1.maxNumNeigh = -1; }
+        } catch ( ... ) { prof->ddcfg.ddObservations1.maxNumNeigh = 0; }
         try {
             prof->ddcfg.ddObservations1.minDTperEvt = configGetInt(prefix + "minObservationPerEvtPair");
         } catch ( ... ) { prof->ddcfg.ddObservations1.minDTperEvt = 1; }
         try {
             prof->ddcfg.ddObservations1.maxDTperEvt = configGetInt(prefix + "maxObservationPerEvtPair");
-        } catch ( ... ) { prof->ddcfg.ddObservations1.maxDTperEvt = -1; }
+        } catch ( ... ) { prof->ddcfg.ddObservations1.maxDTperEvt = 0; }
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservationsNoXcorr.clustering.neighboringEventSelection.";
         try {
@@ -472,13 +472,13 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.ddObservations2.minNumNeigh = 1; }
         try {
             prof->ddcfg.ddObservations2.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
-        } catch ( ... ) { prof->ddcfg.ddObservations2.maxNumNeigh = -1; }
+        } catch ( ... ) { prof->ddcfg.ddObservations2.maxNumNeigh = 0; }
         try {
             prof->ddcfg.ddObservations2.minDTperEvt = configGetInt(prefix + "minObservationPerEvtPair");
         } catch ( ... ) { prof->ddcfg.ddObservations2.minDTperEvt = 1; }
         try {
             prof->ddcfg.ddObservations2.maxDTperEvt = configGetInt(prefix + "maxObservationPerEvtPair");
-        } catch ( ... ) { prof->ddcfg.ddObservations2.maxDTperEvt = -1; }
+        } catch ( ... ) { prof->ddcfg.ddObservations2.maxDTperEvt = 0; }
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservations.clustering.neighboringEventSelection.";
         try {

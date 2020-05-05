@@ -96,11 +96,11 @@ selectNeighbouringEvents(const CatalogCPtr& catalog,
                          double minESdis=0,
                          double maxESdis=-1,
                          double minEStoIEratio=0,
-                         int minDTperEvt=1,
-                         int maxDTperEvt=-1,
-                         int minNumNeigh=1,
-                         int maxNumNeigh=-1,
-                         int numEllipsoids=5,
+                         unsigned minDTperEvt=1,
+                         unsigned maxDTperEvt=0,// 0 = no limits
+                         unsigned minNumNeigh=1,
+                         unsigned maxNumNeigh=0, // 0 = no limits
+                         unsigned numEllipsoids=5,
                          double maxEllipsoidSize=10,
                          bool keepUnmatched=false);
 
@@ -110,11 +110,11 @@ selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                                 double minESdis,
                                 double maxESdis,
                                 double minEStoIEratio,
-                                int minDTperEvt,
-                                int maxDTperEvt,
-                                int minNumNeigh,
-                                int maxNumNeigh,
-                                int numEllipsoids,
+                                unsigned minDTperEvt,
+                                unsigned maxDTperEvt,
+                                unsigned minNumNeigh,
+                                unsigned maxNumNeigh,
+                                unsigned numEllipsoids,
                                 double maxEllipsoidSize,
                                 bool keepUnmatched);
 

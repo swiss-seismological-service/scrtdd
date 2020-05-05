@@ -43,11 +43,11 @@ selectNeighbouringEvents(const CatalogCPtr& catalog,
                          double minESdist,
                          double maxESdist,
                          double minEStoIEratio,
-                         int minDTperEvt,
-                         int maxDTperEvt,
-                         int minNumNeigh,
-                         int maxNumNeigh,
-                         int numEllipsoids,
+                         unsigned minDTperEvt,
+                         unsigned maxDTperEvt,
+                         unsigned minNumNeigh, 
+                         unsigned maxNumNeigh,
+                         unsigned numEllipsoids,
                          double maxEllipsoidSize,
                          bool keepUnmatched)
 {
@@ -71,7 +71,7 @@ selectNeighbouringEvents(const CatalogCPtr& catalog,
      */
     vector<HddEllipsoidPtr> ellipsoids;
     double verticalSize = maxEllipsoidSize * 2; // horizontal to vertical axis length 
-    for (int i = 0; i < (numEllipsoids-1); i++)
+    for ( unsigned i = 0; i < (numEllipsoids-1); i++ )
     {
         ellipsoids.push_back( new HddEllipsoid(verticalSize, refEv.latitude, refEv.longitude, refEv.depth) );
         verticalSize /= 2;
@@ -210,7 +210,7 @@ selectNeighbouringEvents(const CatalogCPtr& catalog,
             continue;
         }
 
-        int numObservations = 0;
+        unsigned numObservations = 0;
 
         // Since the constraints are met evSelEntry will be added to selectedEvents
         SelectedEventEntry evSelEntry;
@@ -353,11 +353,11 @@ selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                                 double minESdist,
                                 double maxESdist,
                                 double minEStoIEratio,
-                                int minDTperEvt,
-                                int maxDTperEvt,
-                                int minNumNeigh,
-                                int maxNumNeigh,
-                                int numEllipsoids,
+                                unsigned minDTperEvt,
+                                unsigned maxDTperEvt,
+                                unsigned minNumNeigh,
+                                unsigned maxNumNeigh,
+                                unsigned numEllipsoids,
                                 double maxEllipsoidSize,
                                 bool keepUnmatched)
 {

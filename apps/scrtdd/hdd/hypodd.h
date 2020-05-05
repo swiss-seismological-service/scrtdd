@@ -46,14 +46,14 @@ struct Config {
         double minEStoIEratio = 0;  // Min epi-sta to  interevent distance ration required
         double minESdist      = 0;  // Min epi-sta distance required
         double maxESdist      =-1;  // Max epi-sta distance allowed
-        int minNumNeigh       = 1;  // Min neighbors required
-        int maxNumNeigh       =-1;  // Max neighbors allowed (furthest events are discarded)
-        int minDTperEvt       = 1;  // Min differential times per event pair required (Including P+S)
-        int maxDTperEvt       =-1;  // Max differential times per event pair required (Including P+S)
+        unsigned minNumNeigh  = 1;  // Min neighbors required
+        unsigned maxNumNeigh  = 0;  // Max neighbors allowed (furthest events are discarded)
+        unsigned minDTperEvt  = 1;  // Min differential times per event pair required (Including P+S)
+        unsigned maxDTperEvt  = 0;  // Max differential times per event pair required (Including P+S)
         // From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
         // events are selected within each of five concentric, vertically longated
         // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
-        int numEllipsoids       = 5;
+        unsigned numEllipsoids  = 5;
         double maxEllipsoidSize = 10; // km
     } ddObservations1;
 
@@ -63,14 +63,14 @@ struct Config {
         double minEStoIEratio = 0;  // Min epi-sta to  interevent distance ration required
         double minESdist      = 0;  // Min epi-sta distance required
         double maxESdist      =-1;  // Max epi-sta distance allowed
-        int minNumNeigh       = 1;  // Min neighbors required
-        int maxNumNeigh       =-1;  // Max neighbors allowed (furthest events are discarded)
-        int minDTperEvt       = 1;  // Min differential times per event pair required (Including P+S)
-        int maxDTperEvt       =-1;  // Max differential times per event pair required (Including P+S)
+        unsigned minNumNeigh  = 1;  // Min neighbors required
+        unsigned maxNumNeigh  = 0;  // Max neighbors allowed (furthest events are discarded)
+        unsigned minDTperEvt  = 1;  // Min differential times per event pair required (Including P+S)
+        unsigned maxDTperEvt  = 0;  // Max differential times per event pair required (Including P+S)
         // From Waldhauser 2009: to assure a spatially homogeneous subsampling, reference
         // events are selected within each of five concentric, vertically longated
         // ellipsoidal layers of increasing thickness. Each layer has 8 quadrants.
-        int numEllipsoids       = 5;
+        unsigned numEllipsoids  = 5;
         double maxEllipsoidSize = 10; // km
 
         //  cross-correlation specific
@@ -116,8 +116,8 @@ struct Config {
         unsigned algoIterations = 20; 
         double dampingFactorStart = 0.;
         double dampingFactorEnd = 0.;
-        std::array<double,4> meanShiftConstraintStart = {0.}; // lon, lat, depth, time
-        std::array<double,4> meanShiftConstraintEnd = {0.}; // lon, lat, depth, time
+        std::array<double,4> meanShiftConstraintStart = {{0.,0.,0.,0.}}; // lon, lat, depth, time
+        std::array<double,4> meanShiftConstraintEnd = {{0.,0.,0.,0.}}; // lon, lat, depth, time
         double downWeightingByResidualStart = 0.;
         double downWeightingByResidualEnd = 0.;
         bool usePickUncertainty = false;
