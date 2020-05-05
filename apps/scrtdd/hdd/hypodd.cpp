@@ -492,7 +492,7 @@ HypoDD::relocate(CatalogPtr& catalog,
         //
         // solve the system
         //
-        SEISCOMP_INFO("Solving iteration %lu num events %u (dampingFactor %.2f "
+        SEISCOMP_INFO("Solving iteration %u num events %lu (dampingFactor %.2f "
               "downWeightingByResidual %.2f meanShiftConstrainWeight %.2f,%.2f,%.2f,%.2f)",
               iteration, neighbourCats.size(), dampingFactor, downWeightingByResidual,
               meanLonShiftConstraint, meanLatShiftConstraint,

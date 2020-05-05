@@ -738,8 +738,8 @@ void Solver::_solve(unsigned numIterations,
 
     //SEISCOMP_DEBUG("%s", solverLogs.str().c_str() );
 
-    SEISCOMP_INFO("Stopped because %u : %s", solver.GetStoppingReason(), solver.GetStoppingReasonMessage().c_str());
-    SEISCOMP_INFO("Used %u Iterations", solver.GetNumberOfIterationsPerformed());
+    SEISCOMP_INFO("Stopped because %u : %s (used %u Iterations)", solver.GetStoppingReason(),
+          solver.GetStoppingReasonMessage().c_str(), solver.GetNumberOfIterationsPerformed());
 
     if ( solver.GetStoppingReason() == 4 )
     {
