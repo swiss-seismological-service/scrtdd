@@ -638,16 +638,24 @@
                                 initial absolute locations.
                                 4 weight values are required: longitude, latitude, depth and time
                                 constraint weights. A weight of zero means no constraint.
+                                Since 'meanShiftconstraintWeight' and 'dampingFactor' options interfere with
+                                each other, it is advised to experiment with them independently (disable one
+                                of the two) before mixing them together.
                             </description> 
                             <parameter name="startingValue" type="double" default="0.9,0.9,1.0,0.9"></parameter>
                             <parameter name="finalValue"    type="double" default="0.6,0.6,1.0,0.6"></parameter> 
                         </group>   
                         <group name="dampingFactor">
                             <description>
-                                Regularizer for moderately or severely ill-conditioned systems.
-                                These values constrain the changes in earthquakes parameters
+                                Regularizer for moderately or severely ill-conditioned systems. Setting a value
+                                different than 0 enables the solver to use a damped least squares system instead
+                                of a standard linear least squares.
+                                The damping factor value constrains the changes in earthquakes parameters
                                 to avoid that bad observations result in huge earthquakes parameters
-                                changes
+                                changes.
+                                Since 'dampingFactor' and 'meanShiftconstraintWeight' options interfere with
+                                each other, it is advised to experiment with them independently (disable one
+                                of the two) before mixing them together.
                             </description> 
                             <parameter name="startingValue" type="double"></parameter>
                             <parameter name="finalValue"    type="double"></parameter> 
