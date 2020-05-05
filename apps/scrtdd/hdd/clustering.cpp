@@ -71,7 +71,7 @@ selectNeighbouringEvents(const CatalogCPtr& catalog,
      */
     vector<HddEllipsoidPtr> ellipsoids;
     double verticalSize = maxEllipsoidSize * 2; // horizontal to vertical axis length 
-    for ( unsigned i = 0; i < (numEllipsoids-1); i++ )
+    for ( unsigned i = 1; i < numEllipsoids; i++ )
     {
         ellipsoids.push_back( new HddEllipsoid(verticalSize, refEv.latitude, refEv.longitude, refEv.depth) );
         verticalSize /= 2;
