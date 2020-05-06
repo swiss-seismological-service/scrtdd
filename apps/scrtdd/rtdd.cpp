@@ -589,20 +589,20 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.solver.algoIterations = 20; } 
         try {
             prof->ddcfg.solver.dampingFactorStart = configGetDouble(prefix + "dampingFactor.startingValue");
-        } catch ( ... ) { prof->ddcfg.solver.dampingFactorStart = 0.; } 
+        } catch ( ... ) { prof->ddcfg.solver.dampingFactorStart = 0.3; } 
         try {
             prof->ddcfg.solver.dampingFactorEnd = configGetDouble(prefix + "dampingFactor.finalValue");
-        } catch ( ... ) { prof->ddcfg.solver.dampingFactorEnd = 0.; }
+        } catch ( ... ) { prof->ddcfg.solver.dampingFactorEnd = 0.6; }
         vector<double> cs, ce;
         if ( configGetTypedList(this, prefix + "meanShiftconstraintWeight.startingValue", cs, 4, true) &&
              configGetTypedList(this, prefix + "meanShiftconstraintWeight.finalValue", ce, 4, true) ) 
         {
             if ( cs.empty() )
-                prof->ddcfg.solver.meanShiftConstraintStart = {0.9, 0.9, 1.0, 0.9};
+                prof->ddcfg.solver.meanShiftConstraintStart = {0., 0., 0., 0.};
             else
                 prof->ddcfg.solver.meanShiftConstraintStart = {cs[0], cs[1], cs[2], cs[3]};
             if ( ce.empty() ) 
-                prof->ddcfg.solver.meanShiftConstraintEnd = {0.6, 0.6, 1.0, 0.6};
+                prof->ddcfg.solver.meanShiftConstraintEnd = {0., 0., 0., 0.};
             else
                 prof->ddcfg.solver.meanShiftConstraintEnd = {ce[0], ce[1], ce[2], ce[3]};
         } else {
