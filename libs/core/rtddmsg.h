@@ -18,8 +18,8 @@
 #ifndef __RTDD_CORE_RTDDMSG_H__
 #define __RTDD_CORE_RTDDMSG_H__
 
+#include <seiscomp/client.h>
 #include <seiscomp3/io/archive/xmlarchive.h>
-#include <seiscomp3/communication/systemmessages.h>
 #include <seiscomp3/core/genericmessage.h>
 #include <seiscomp3/datamodel/origin.h>
 

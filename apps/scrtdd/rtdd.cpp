@@ -993,7 +993,7 @@ void RTDD::handleMessage(Core::Message *msg)
         // Inform scolv we are going to relocate this origin or not
         reloc_resp.setRequestAccepted( ! reloc_resp.hasError() );
 
-        if ( !connection()->send("SERVICE_REQUEST", &reloc_resp) )
+        if ( !connection()->send("SERVICE_PROVIDE", &reloc_resp) )
             SEISCOMP_ERROR("Failed sending relocation response");
 
         if ( !  reloc_resp.hasError() )
@@ -1016,7 +1016,7 @@ void RTDD::handleMessage(Core::Message *msg)
             SEISCOMP_DEBUG("Sending relocation response (%s)", 
                            (reloc_resp.hasError() ? reloc_resp.getError() : "no relocation errors").c_str() );
 
-            if ( !connection()->send("SERVICE_REQUEST", &reloc_resp) )
+            if ( !connection()->send("SERVICE_PROVIDE", &reloc_resp) )
                 SEISCOMP_ERROR("Failed sending relocation response");
         }
     }

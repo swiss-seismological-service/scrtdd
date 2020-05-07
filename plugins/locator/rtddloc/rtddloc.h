@@ -20,7 +20,7 @@
 
 #include <seiscomp3/core/plugin.h>
 #include <seiscomp3/seismology/locatorinterface.h>
-#include <seiscomp3/communication/connection.h>
+#include <seiscomp3/messaging/connection.h>
 #include <string>
 
 
@@ -84,7 +84,7 @@ class RTDDLocator : public Seiscomp::Seismology::LocatorInterface {
     // ----------------------------------------------------------------------
     private:
     
-        Communication::ConnectionPtr createConnection();
+        Client::ConnectionPtr createConnection();
     
         ParameterMap  _parameters;
         IDList        _profileNames;
