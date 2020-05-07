@@ -18,8 +18,8 @@
 #ifndef __RTDD_PLUGIN_RTDDLOC_H__
 #define __RTDD_PLUGIN_RTDDLOC_H__
 
-#include <seiscomp3/communication/connection.h>
 #include <seiscomp3/core/plugin.h>
+#include <seiscomp3/messaging/connection.h>
 #include <seiscomp3/seismology/locatorinterface.h>
 #include <string>
 
@@ -86,7 +86,7 @@ public:
   //  Private members
   // ----------------------------------------------------------------------
 private:
-  Communication::ConnectionPtr createConnection();
+  Client::ConnectionPtr createConnection();
 
   ParameterMap _parameters;
   IDList _profileNames;
