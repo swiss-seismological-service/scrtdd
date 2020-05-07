@@ -192,8 +192,8 @@ class HypoDD : public Core::BaseObject {
             std::unordered_map<std::string,Entry> _entries;
         }; 
 
-        void addObservations(Solver& solver, const CatalogCPtr& catalog,
-                             const NeighboursPtr& neighbours,
+        void addObservations(Solver& solver, double absTTDiffObsWeight, double xcorrObsWeight,
+                             const CatalogCPtr& catalog, const NeighboursPtr& neighbours,
                              bool keepNeighboursFixed, const XCorrCache& xcorr,
                              ObservationParams& obsparams ) const;
 

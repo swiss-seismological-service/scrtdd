@@ -458,17 +458,6 @@ HypoDD::relocate(CatalogPtr& catalog,
 
     for ( unsigned iteration=0; iteration < _cfg.solver.algoIterations; iteration++ )
     {
-        solver.reset();
-
-        //
-        // Add absolute travel time/xcorr differences to the solver (the observations)
-        //
-        for (const NeighboursPtr& neighbours : neighbourCats)
-        {
-            addObservations(solver, catalog, neighbours, keepNeighboursFixed, xcorr, obsparams);
-        }
-        obsparams.addToSolver(solver);
-
         //
         // compute parameters for this loop iteration
         //
@@ -477,6 +466,7 @@ HypoDD::relocate(CatalogPtr& catalog,
             if ( _cfg.solver.algoIterations < 2 ) return (start + end) / 2;
             return start + (end - start) * iteration / (_cfg.solver.algoIterations-1);
         };
+
         double dampingFactor = interpolate(_cfg.solver.dampingFactorStart,
                                            _cfg.solver.dampingFactorEnd);
         double downWeightingByResidual = interpolate(_cfg.solver.downWeightingByResidualStart,
@@ -489,15 +479,34 @@ HypoDD::relocate(CatalogPtr& catalog,
                                                       _cfg.solver.meanShiftConstraintEnd[2]); 
         double meanTTShiftConstraint = interpolate(_cfg.solver.meanShiftConstraintStart[3],
                                                     _cfg.solver.meanShiftConstraintEnd[3]);
+        double absTTDiffObsWeight = interpolate(1.0, _cfg.solver.absTTDiffObsWeight);
+        double xcorrObsWeight     = interpolate(1.0, _cfg.solver.xcorrObsWeight);
+
+        SEISCOMP_INFO("Solving iteration %u num events %lu (observ. weight TTdiff %.2f xcorr %.2f "
+                      "dampingFactor %.2f downWeightingByResidual %.2f "
+                      "meanShiftConstrainWeight %.2f,%.2f,%.2f,%.2f)",
+                      iteration, neighbourCats.size(), absTTDiffObsWeight, xcorrObsWeight,
+                      dampingFactor, downWeightingByResidual,
+                      meanLonShiftConstraint, meanLatShiftConstraint,
+                      meanDepthShiftConstraint, meanTTShiftConstraint); 
+
+
+        solver.reset();
+
+        //
+        // Add absolute travel time/xcorr differences to the solver (the observations)
+        //
+        for (const NeighboursPtr& neighbours : neighbourCats)
+        {
+            addObservations(solver, absTTDiffObsWeight, xcorrObsWeight, catalog,
+                            neighbours, keepNeighboursFixed, xcorr, obsparams);
+        }
+        obsparams.addToSolver(solver);
+
+
         //
         // solve the system
         //
-        SEISCOMP_INFO("Solving iteration %u num events %lu (dampingFactor %.2f "
-              "downWeightingByResidual %.2f meanShiftConstrainWeight %.2f,%.2f,%.2f,%.2f)",
-              iteration, neighbourCats.size(), dampingFactor, downWeightingByResidual,
-              meanLonShiftConstraint, meanLatShiftConstraint,
-              meanDepthShiftConstraint, meanTTShiftConstraint);
-
         try {
             solver.solve(_cfg.solver.solverIterations, dampingFactor,
                          downWeightingByResidual, meanLonShiftConstraint,
@@ -556,7 +565,8 @@ string HypoDD::relocationReport(const CatalogCPtr& relocatedEv)
  * earthquakes
  */ 
 void
-HypoDD::addObservations(Solver& solver, const CatalogCPtr& catalog, const NeighboursPtr& neighbours,
+HypoDD::addObservations(Solver& solver, double absTTDiffObsWeight, double xcorrObsWeight,
+                        const CatalogCPtr& catalog, const NeighboursPtr& neighbours,
                         bool keepNeighboursFixed, const XCorrCache& xcorr,
                         ObservationParams& obsparams ) const
 {
@@ -622,6 +632,7 @@ HypoDD::addObservations(Solver& solver, const CatalogCPtr& catalog, const Neighb
                             ? (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0
                             : 1.0;
             bool isXcorr = false;
+
             //
             // Check if we have xcorr results for current event/refEvent pair at station/phase
             // and use those instead
@@ -631,12 +642,12 @@ HypoDD::addObservations(Solver& solver, const CatalogCPtr& catalog, const Neighb
 
                 const auto& xcdata = xcorr.get(refEv.id, event.id, refPhase.stationId, refPhase.procInfo.type);
                 diffTime -= xcdata.lag;
-                weight *= _cfg.solver.xcorrObsWeight;
+                weight *= xcorrObsWeight;
                 isXcorr = true;
             }
             else
             {
-                weight *= _cfg.solver.absTTDiffObsWeight;
+                weight *= absTTDiffObsWeight;
             } 
 
             solver.addObservation(refEv.id, event.id, refPhase.stationId,  phaseTypeAsChar,

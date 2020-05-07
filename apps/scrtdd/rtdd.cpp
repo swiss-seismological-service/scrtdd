@@ -592,7 +592,7 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.solver.dampingFactorStart = 0.3; } 
         try {
             prof->ddcfg.solver.dampingFactorEnd = configGetDouble(prefix + "dampingFactor.finalValue");
-        } catch ( ... ) { prof->ddcfg.solver.dampingFactorEnd = 0.6; }
+        } catch ( ... ) { prof->ddcfg.solver.dampingFactorEnd = 0.3; }
         vector<double> cs, ce;
         if ( configGetTypedList(this, prefix + "meanShiftconstraintWeight.startingValue", cs, 4, true) &&
              configGetTypedList(this, prefix + "meanShiftconstraintWeight.finalValue", ce, 4, true) ) 

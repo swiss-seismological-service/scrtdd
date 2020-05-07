@@ -592,7 +592,7 @@
 
                     <group name="solver">
                         <description>
-                            Configuration for the double-difference equations system solver
+                            Configuration for the double-difference equations system solver.
                         </description>
                         <parameter name="solverType" type="string" default="LSMR" >
                             <description>
@@ -613,18 +613,19 @@
                         </parameter> 
                         <group name="downWeightingByResidual">
                             <description>
-                                This is the most important parameter to configure. When the doubble
-                                difference system is created all observations have weight 1.0 (unless
-                                a priori weights options is used). Then in subsequent iterations 
-                                each observation is downweighted accordingly to its residuals.
-                                This allows to eventualy get rid of bad observations (wrong data
-                                possibly coming from automatick picks for example) and also to
-                                scale observation wights accordingly to their quality and resolution
-                                (e.g. absolute travel time differences vs cross-correlation ones).
-                                The values are the standard deviations of the double-difference
-                                residuals beyond which the observations are dropped (thier weight
-                                becomes 0).
-                                Set it to 0 to disable downweighting
+                                When the double difference system is created all observations have 
+                                weight 1.0 (unless a priori weights options is used). In subsequent 
+                                iterations each observation is downweighted accordingly to its 
+                                residuals, which allows to eventualy get rid of bad observations 
+                                and also to scale observation wights accordingly to their quality 
+                                and resolution (e.g. absolute travel time differences vs 
+                                cross-correlation ones).
+                                The values to be configured here express the standard deviations of 
+                                the double-difference observation residuals beyond which the
+                                observations are dropped (their weight becomes 0). Values lower
+                                that the configured threshold are donweighted accordingly to their
+                                residual value (see Waldhauser/Ellsworth paper)
+                                A value of 0 disables downweighting
                             </description> 
                             <parameter name="startingValue" type="double" default="10"></parameter>
                             <parameter name="finalValue"    type="double" default="3"></parameter> 
@@ -637,13 +638,16 @@
                                 The damping factor value constrains the changes in earthquakes parameters
                                 to avoid that bad observations result in huge earthquakes parameters
                                 changes. This also has the benefit of constraining the mean shift of 
-                                clusters during relocation, meaning that the 'meanShiftconstraintWeight' 
+                                clusters during relocation, meaning that 'meanShiftconstraintWeight' 
                                 option might not be needed. For this reason it is advised to 
                                 experiment with the two options independently (disable one of the 
                                 two) before mixing them together.
+                                The units used in the double-difference sytem are km and seconds,
+                                so a dampingFactor value of 1 weighs as much as 1 km on changes
+                                to lat/lon/depth and 1 second to changes in origin time
                             </description> 
                             <parameter name="startingValue" type="double" default="0.3"></parameter>
-                            <parameter name="finalValue"    type="double" default="0.6"></parameter> 
+                            <parameter name="finalValue"    type="double" default="0.3"></parameter> 
                         </group>
                         <group name="meanShiftconstraintWeight">
                             <description>
