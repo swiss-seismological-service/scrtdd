@@ -55,7 +55,7 @@ bool RTDDLocator::init(const Config::Config &config)
     _allowedParameters.push_back("RELOC_TIMEOUT");
   }
   // Set defaults value
-  _parameters["RTDD_HOST"]     = "localhost";
+  _parameters["RTDD_HOST"]     = "localhost/production";
   _parameters["RELOC_TIMEOUT"] = "300"; // seconds
 
   //
@@ -102,22 +102,29 @@ bool RTDDLocator::setParameter(const string &name, const string &value)
   return true;
 }
 
-Communication::ConnectionPtr RTDDLocator::createConnection()
+Client::ConnectionPtr RTDDLocator::createConnection()
 {
-  Communication::ConnectionPtr connection;
+  Client::ConnectionPtr connection(new Client::Connection());
 
-  connection = Communication::Connection::Create(_parameters["RTDD_HOST"], "",
-                                                 "SERVICE_REQUEST");
-  if (!connection)
+  if (!_parameters["RTDD_HOST"].empty())
+  {
+    if (!connection->setSource(_parameters["RTDD_HOST"]))
+    {
+      throw GeneralException(stringify("Failed to create connection to '%s'",
+                                       _parameters["RTDD_HOST"].c_str()));
+    }
+  }
+
+  if (connection->connect("", "SERVICE_REQUEST", 5) != Client::OK)
   {
     throw GeneralException(stringify("Failed to create connection to '%s'",
                                      _parameters["RTDD_HOST"].c_str()));
   }
 
-  if (connection->subscribe("SERVICE_REQUEST") != Status::SEISCOMP_SUCCESS)
+  if (connection->subscribe("SERVICE_PROVIDE") != Client::OK)
   {
-    connection.reset();
-    throw GeneralException("Failed to subscribe to SERVICE_REQUEST");
+    connection->disconnect();
+    throw GeneralException("Failed to subscribe to SERVICE_PROVIDE");
   }
 
   return connection;
@@ -133,8 +140,10 @@ Origin *RTDDLocator::relocate(const Origin *origin)
   //
   // prepare the connection to the messaging
   //
-  double msgWaitTimeout = std::stod(_parameters["RELOC_TIMEOUT"]);
-  Communication::ConnectionPtr connection = createConnection();
+  double msgWaitTimeout            = std::stod(_parameters["RELOC_TIMEOUT"]);
+  Client::ConnectionPtr connection = createConnection();
+  // set receiving messages timeout to 100 milli sec
+  connection->setTimeout(100);
 
   //
   // send relocation request
@@ -145,7 +154,12 @@ Origin *RTDDLocator::relocate(const Origin *origin)
     nonConstOrg->add(DataModel::Arrival::Cast(origin->arrival(i)->clone()));
   msg.setOrigin(nonConstOrg);
   msg.setProfile(_currentProfile);
-  connection->send(&msg);
+  if (!connection->send(&msg))
+  {
+    throw LocatorException(
+        string("Error while seinding relocatio request message to scrtdd: ") +
+        connection->lastError().toString());
+  }
 
   //
   // wait 1 second for a request accepted response
@@ -155,9 +169,7 @@ Origin *RTDDLocator::relocate(const Origin *origin)
   Core::Time started   = Core::Time::GMT();
   while ((Core::Time::GMT() - started).length() < 1)
   {
-    int error;
-    Message *msg = connection->readMessage(
-        false, Communication::Connection::READ_ALL, NULL, &error);
+    Message *msg = connection->recv();
     RTDDRelocateResponseMessage *relocMsg =
         RTDDRelocateResponseMessage::Cast(msg);
     if (relocMsg)
@@ -174,7 +186,6 @@ Origin *RTDDLocator::relocate(const Origin *origin)
         break;
       }
     }
-    Core::msleep(0.1);
   }
 
   //
@@ -195,9 +206,7 @@ Origin *RTDDLocator::relocate(const Origin *origin)
   started = Core::Time::GMT();
   while ((Core::Time::GMT() - started).length() < msgWaitTimeout)
   {
-    int error;
-    Message *msg = connection->readMessage(
-        false, Communication::Connection::READ_ALL, NULL, &error);
+    Message *msg = connection->recv();
     RTDDRelocateResponseMessage *relocMsg =
         RTDDRelocateResponseMessage::Cast(msg);
     if (relocMsg)
@@ -206,7 +215,6 @@ Origin *RTDDLocator::relocate(const Origin *origin)
       if (relocMsg->hasError()) throw LocatorException(relocMsg->getError());
       return relocMsg->getOrigin().get();
     }
-    Core::msleep(0.1);
   }
 
   throw LocatorException(
