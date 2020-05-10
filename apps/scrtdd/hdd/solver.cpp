@@ -537,8 +537,57 @@ Solver::computePartialDerivatives()
     }
 }
 
+
+multimap<double,unsigned>
+Solver::computeInterEventDistance() const
+{
+    if ( _observations.size() < 1 )
+    {
+        return multimap<double,unsigned>();
+    }
+
+    map<string, double> distCache;
+    multimap<double,unsigned> dists;
+
+    for ( const auto& kw: _observations )
+    {
+        unsigned obIdx = kw.first;
+        const Observation& obsrv = kw.second;
+
+        double interEvDistance;
+
+        string key =  obsrv.ev1Idx < obsrv.ev2Idx
+                   ? to_string(obsrv.ev1Idx) + "-" + to_string(obsrv.ev2Idx)
+                   : to_string(obsrv.ev2Idx) + "-" + to_string(obsrv.ev1Idx);
+
+        auto it = distCache.find(key);
+        if ( it != distCache.end() )
+        {
+            interEvDistance = it->second;
+        }
+        else
+        {
+            const EventParams& ev1Prm = _eventParams.at(obsrv.ev1Idx);
+            const EventParams& ev2Prm = _eventParams.at(obsrv.ev2Idx);
+            interEvDistance = computeDistance(ev1Prm.lat, ev1Prm.lon, ev1Prm.depth,
+                                              ev2Prm.lat, ev2Prm.lon, ev2Prm.depth);
+        }
+
+        dists.emplace(interEvDistance, obIdx);
+    }
+
+    return dists;
+}
+
+
+/*
+ * From Waldhauser's:
+ *
+ * W = max^2 ( 0, 1 - ( res / (alpha*resMAD/0.67449) )^2 )
+ *
+ */
 vector<double>
-Solver::computeResidualWeights(vector<double> residuals, const double alpha)
+Solver::computeResidualWeights(const vector<double>& residuals, const double alpha) const
 {
     if ( residuals.size() < 1 )
     {
@@ -551,7 +600,7 @@ Solver::computeResidualWeights(vector<double> residuals, const double alpha)
     const double median = computeMedian(residuals);
     const double MAD = computeMedianAbsoluteDeviation(residuals, median);
 
-    SEISCOMP_INFO("Solver: #observations %lu residual median %.4f [msec] MedianAbsoluteDeviation %.4f [msec]",
+    SEISCOMP_INFO("Solver: #observations %lu residual median %.1f [msec] MedianAbsoluteDeviation %.1f [msec]",
                   _observations.size(), median*1000, MAD*1000);
 
     //
@@ -562,8 +611,7 @@ Solver::computeResidualWeights(vector<double> residuals, const double alpha)
     const double MAD_gn = 0.67449; // MAD for gaussian noise
     for ( unsigned i = 0; i < residuals.size(); i++ )
     {
-        double weight;
-        weight = 1. - std::pow( residuals[i]/(alpha*MAD/MAD_gn), 2);
+        double weight = 1. - std::pow( residuals.at(i)/(alpha*MAD/MAD_gn), 2);
         weight = std::max(weight, 0.);
         weight = std::pow(weight, 2);
 
@@ -649,15 +697,42 @@ Solver::prepareDDSystem(array<double,4> meanShiftConstraint, double residualDown
     _dd->W[_dd->nObs+3] = meanShiftConstraint[3];
 
     // downweight observations by residuals
+    vector<double> residuals(_dd->d, _dd->d+_dd->nObs);
     if ( residualDownWeight > 0 )
     {
-        vector<double> residuals(_dd->d, _dd->d+_dd->nObs);
         vector<double> resWeights = computeResidualWeights(residuals, residualDownWeight);
         for ( unsigned obIdx = 0; obIdx < _dd->nObs; obIdx++ )
         {
             _dd->W[obIdx] *= resWeights[obIdx];
             _dd->d[obIdx] *= resWeights[obIdx]; 
         }
+    }
+
+    // Print residual by inter-event distance information
+    multimap<double,unsigned> obByDist = computeInterEventDistance();
+    auto obByDistIt = obByDist.begin();
+    while ( obByDistIt != obByDist.end() )
+    {
+        unsigned decileSize = (obByDist.size() / 10) + 1;
+        vector<double> decileRes;
+        decileRes.reserve( decileSize );
+
+        double startingDist = obByDistIt->first;
+        double finalDist    = obByDistIt->first;
+        while ( obByDistIt != obByDist.end() && decileRes.size() < decileSize )
+        {
+            unsigned obIdx = obByDistIt->second;
+            decileRes.push_back( residuals.at(obIdx) );
+            finalDist    = obByDistIt->first;
+            obByDistIt++;
+        }
+
+        const double median = computeMedian(decileRes);
+        const double MAD = computeMedianAbsoluteDeviation(decileRes, median);
+
+        SEISCOMP_INFO("Solver: Inter-event dist %.2f-%-.2f [km] #observations %lu residual median %4.1f [msec] MedianAbsoluteDeviation %4.1f [msec]", 
+                startingDist, finalDist, decileRes.size(), median*1000, MAD*1000); 
+
     }
 
     // free some memory 

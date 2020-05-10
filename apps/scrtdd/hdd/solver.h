@@ -149,7 +149,10 @@ private:
 
     void computePartialDerivatives();
 
-    std::vector<double> computeResidualWeights(std::vector<double> residuals, const double alpha);
+    std::multimap<double,unsigned> computeInterEventDistance() const;
+
+    std::vector<double> 
+    computeResidualWeights(const std::vector<double>& residuals, const double alpha) const;
 
     void prepareDDSystem(std::array<double,4> meanShiftConstraint, double residualDownWeight);
 
