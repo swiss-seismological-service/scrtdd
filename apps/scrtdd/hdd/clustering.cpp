@@ -346,8 +346,7 @@ selectNeighbouringEvents(const CatalogCPtr& catalog,
 }
 
 
-
-std::list<NeighboursPtr>
+deque< list<NeighboursPtr> >
 selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                                 double minPhaseWeight,
                                 double minESdist,
@@ -364,7 +363,7 @@ selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
     SEISCOMP_INFO("Selecting Catalog Neighbouring Events ");
 
     // neighbours for each event
-    list<NeighboursPtr> neighboursByEvent;
+    list<NeighboursPtr> neighboursList;
 
     // for each event find the neighbours
     CatalogPtr validCatalog = new Catalog(*catalog);
@@ -408,7 +407,7 @@ selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
         // add newly computed neighbors catalogs to previous ones
         for ( NeighboursPtr& neighbours : newNeighbourCats )
         {
-            neighboursByEvent.push_back( neighbours );
+            neighboursList.push_back( neighbours );
             // make sure we won't recompute what has been already done
             todoEvents.remove( neighbours->refEvId );
         }
@@ -420,7 +419,7 @@ selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
             redo = false;
             list<NeighboursPtr> validNeighbourCats;
 
-            for ( NeighboursPtr& neighbours : neighboursByEvent )
+            for ( NeighboursPtr& neighbours : neighboursList )
             {
                 bool currCatInvalid = false;
                 for (unsigned removedEventId : removedEvents)
@@ -442,38 +441,107 @@ selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                 validNeighbourCats.push_back( neighbours );
             }
 
-            neighboursByEvent.clear();
-            neighboursByEvent = validNeighbourCats;
+            neighboursList.clear();
+            neighboursList = validNeighbourCats;
 
         } while( redo );
     }
 
-    // We don't want to report the same pairs multiple times
-    // when creating double-difference observations. So we'll
-    // remove the pairs that appeared in previous catalogs from
-    // the following catalogs
-    std::unordered_multimap<unsigned,unsigned> existingPairs;
+    return clusterizeNeighbouringEvents(neighboursList);
+}
 
-    for ( NeighboursPtr& neighbours : neighboursByEvent )
+
+/*
+ * Organize the neighbours by not connected clusters
+ * Also, we don't want to report the same pair multiple times
+ * (e.g. ev1-ev2 and ev2-ev1) since we only want one observation
+ * for pair when creating the double-difference observations
+ * system
+ */
+deque< list<NeighboursPtr> >
+clusterizeNeighbouringEvents(const list<NeighboursPtr>& neighboursList)
+{
+    map<unsigned, list<NeighboursPtr> > clusters;
+
+    unordered_map<unsigned, unsigned> clusterIdByEvent; // event id, cluster id
+
+    unordered_map<unsigned, NeighboursPtr> neighboursByEvent; // key event id
+    for ( const NeighboursPtr& neighbours : neighboursList )
+        neighboursByEvent[ neighbours->refEvId ] = neighbours;
+
+    while ( ! neighboursByEvent.empty() )
     {
-        unsigned currEventId = neighbours->refEvId;
+        // keep track of event pairs found (for dropping identical pairs)
+        unordered_multimap<unsigned,unsigned> discoveredPairs;
 
-        // remove from currrent catalog the existing pairs
-        auto eqlrng = existingPairs.equal_range(currEventId );
-        for (auto existingPair = eqlrng.first; existingPair != eqlrng.second; existingPair++)
+        // start traversal with first unseen event neighbours
+        unordered_set<unsigned> clusterEvs( { neighboursByEvent.begin()->first } );
+
+        list<NeighboursPtr> currentCluster;
+        unordered_set<unsigned> connectedClusters;
+
+        while ( ! clusterEvs.empty() ) // when empty the cluster is fully built
         {
-            neighbours->ids.erase( existingPair->second );
-            neighbours->phases.erase( existingPair->second );
+            unsigned currentEv = *clusterEvs.begin();
+            clusterEvs.erase(currentEv);
+
+            // keep track of clusters connected to the current one
+            if ( clusterIdByEvent.find(currentEv) != clusterIdByEvent.end() )
+                connectedClusters.insert( clusterIdByEvent.at(currentEv) );
+
+            const auto& neighboursByEventIt = neighboursByEvent.find( currentEv );
+
+            // skip already processed events
+            if ( neighboursByEventIt == neighboursByEvent.end() )
+                continue;
+
+            NeighboursPtr neighbours = neighboursByEventIt->second;
+            neighboursByEvent.erase( neighbours->refEvId );
+
+            // update the set for the traversal of this cluster
+            for ( unsigned neighEvId : neighbours->ids )
+                clusterEvs.insert( neighEvId );
+
+            // remove from current neighbours the pairs that appeared previously
+            // in this cluster
+            auto eqlrng = discoveredPairs.equal_range( neighbours->refEvId );
+            for (auto existingPair = eqlrng.first; existingPair != eqlrng.second; existingPair++)
+            {
+                neighbours->ids.erase( existingPair->second );
+                neighbours->phases.erase( existingPair->second );
+            }
+
+            // keep track of new event pairs for following iterations and
+            // update the queue for the breadth-first traversal
+            for ( unsigned neighEvId : neighbours->ids )
+                discoveredPairs.emplace(neighEvId, neighbours->refEvId);
+
+            // populate current cluster
+            currentCluster.push_back( neighbours );
         }
 
-        // remove current pairs from following catalogs
-        for ( unsigned neighEvId : neighbours->ids )
+        if ( ! connectedClusters.empty() )
         {
-            existingPairs.emplace(neighEvId, currEventId);
+            // merge all connected clusters to the current one
+            for ( unsigned clusterId : connectedClusters )
+            {
+                currentCluster.splice(currentCluster.end(), clusters[clusterId] );
+                clusters.erase(clusterId);
+            }
         }
+
+        unsigned maxKey = clusters.empty() ? 0 : clusters.rbegin()->first;
+        unsigned newClusterId = maxKey + 1;
+
+        clusters[newClusterId] = currentCluster;
+
+        for ( const NeighboursPtr& n : currentCluster )
+            clusterIdByEvent[ n->refEvId ] = newClusterId;
     }
 
-    return neighboursByEvent;
+    deque< list<NeighboursPtr> > returnClusters;
+    for (auto& kv : clusters ) returnClusters.push_back(kv.second);
+    return returnClusters;
 }
 
 

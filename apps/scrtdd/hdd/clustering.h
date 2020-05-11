@@ -23,6 +23,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <set>
+#include <list>
+#include <deque>
 
 
 namespace Seiscomp {
@@ -104,7 +106,7 @@ selectNeighbouringEvents(const CatalogCPtr& catalog,
                          double maxEllipsoidSize=10,
                          bool keepUnmatched=false);
 
-std::list<NeighboursPtr>
+std::deque< std::list<NeighboursPtr> >
 selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                                 double minPhaseWeight,
                                 double minESdis,
@@ -117,6 +119,9 @@ selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                                 unsigned numEllipsoids,
                                 double maxEllipsoidSize,
                                 bool keepUnmatched);
+
+std::deque< std::list<NeighboursPtr> >
+clusterizeNeighbouringEvents(const std::list<NeighboursPtr>& neighboursList);
 
 }
 }
