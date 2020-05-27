@@ -809,7 +809,7 @@ HypoDD::updateRelocatedEvents(const Solver& solver,
                 double travelTime = obsparams.get(event.id, station.id, phaseTypeAsChar).travelTime;
                 phase.relocInfo.residual = travelTime - (phase.time - event.time).length();
                 rmsCount++;
-            } catch ( exception &e ) { }
+            } catch ( exception &e ) { phase.relocInfo.residual = 0; }
 
             event.rms += (phase.relocInfo.residual * phase.relocInfo.residual);
             if ( phase.procInfo.type == Phase::Type::P ) 
