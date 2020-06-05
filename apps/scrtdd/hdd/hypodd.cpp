@@ -35,7 +35,8 @@
 
 #define SEISCOMP_COMPONENT RTDD
 #include <seiscomp3/logging/log.h>
- 
+#include <seiscomp3/logging/file.h>
+
 using namespace std;
 using namespace Seiscomp;
 using Seiscomp::Core::stringify;
@@ -216,15 +217,26 @@ CatalogPtr HypoDD::relocateCatalog()
 
     CatalogPtr catToReloc( new Catalog(*_ddbgc) );
 
-    // Create working directory 
-    string catalogWorkingDir = (boost::filesystem::path(_workingDir)/"catalog").string(); 
-    if ( !Util::pathExists(catalogWorkingDir) )
+    // Create working directory (used to be a working directory, now it's just logs/debug)
+    string catalogWorkingDir = (boost::filesystem::path(_workingDir)/"catalog").string();
+    if ( ! Util::pathExists(catalogWorkingDir) )
     {
         if ( !Util::createPath(catalogWorkingDir) )
         {
             string msg = "Unable to create working directory: " + catalogWorkingDir;
             throw runtime_error(msg);
         }
+    }
+
+    // prepare file logger
+    std::shared_ptr<Logging::Output> processingInfoOutput;
+    if ( ! _workingDirCleanup )
+    {
+        processingInfoOutput = std::shared_ptr<Logging::Output>(new Logging::FileOutput(
+            (boost::filesystem::path(catalogWorkingDir)/"info.log").string().c_str()));
+        processingInfoOutput->subscribe(Seiscomp::Logging::_SCInfoChannel);
+        processingInfoOutput->subscribe(Seiscomp::Logging::_SCWarningChannel);
+        processingInfoOutput->subscribe(Seiscomp::Logging::_SCErrorChannel);
     }
 
     // Find Neighbouring Events in the catalog
@@ -315,12 +327,27 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     SEISCOMP_INFO("Starting HypoDD relocator in single event mode: event %s (%ld phases)",
                   string(evToRelocate).c_str(), std::distance(evToRelocatePhases.first, evToRelocatePhases.second));
 
-    // Create working directory
+    // Create working directory (used to be a working directory, now it's just logs/debug)
     string subFolder = generateWorkingSubDir(evToRelocate);
     subFolder = (boost::filesystem::path(_workingDir)/subFolder).string();
-    if ( Util::pathExists(subFolder) )
+    if ( ! Util::pathExists(subFolder) )
     {
-        boost::filesystem::remove_all(subFolder);
+        if ( ! Util::createPath(subFolder) )
+        {
+            string msg = "Unable to create working directory: " + subFolder;
+            throw runtime_error(msg);
+        }
+    }
+
+    // prepare file logger
+    std::shared_ptr<Logging::Output> processingInfoOutput;
+    if ( ! _workingDirCleanup )
+    {
+        processingInfoOutput = std::shared_ptr<Logging::Output>(new Logging::FileOutput(
+            (boost::filesystem::path(subFolder)/"info.log").string().c_str()));
+        processingInfoOutput->subscribe(Seiscomp::Logging::_SCInfoChannel);
+        processingInfoOutput->subscribe(Seiscomp::Logging::_SCWarningChannel);
+        processingInfoOutput->subscribe(Seiscomp::Logging::_SCErrorChannel);
     }
 
     //
@@ -408,7 +435,7 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
                                 int numEllipsoids,
                                 double maxEllipsoidSize)
 {
-    if ( !Util::createPath(workingDir) )
+    if ( ! Util::createPath(workingDir) )
     {
         string msg = "Unable to create working directory: " + workingDir;
         throw runtime_error(msg);
