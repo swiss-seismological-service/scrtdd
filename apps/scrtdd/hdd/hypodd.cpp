@@ -1761,50 +1761,52 @@ namespace {
     struct XCorrEvalStats {
         unsigned total = 0;
         unsigned goodCC = 0;
-        double deviation = 0;
-        double absDeviation = 0;
-        double meanCoeff = 0;
-        unsigned meanCount = 0;
+        vector<double> ccCoeff;
+        vector<double> ccCount;
+        vector<double> deviation;
+
+        void addBadCC()
+        {
+            total++;
+        }
+
+        void addGoodCC(double ccCoeff, unsigned ccCount, double deviation)
+        {
+            this->total++;
+            this->goodCC++;
+            this->ccCoeff.push_back(ccCoeff);
+            this->ccCount.push_back(ccCount);
+            this->deviation.push_back(deviation);
+        }
 
         XCorrEvalStats& operator+=(XCorrEvalStats const& rhs)&
         {
-          total += rhs.total;
-          goodCC += rhs.goodCC;
-          deviation += rhs.deviation;
-          absDeviation += rhs.absDeviation;
-          meanCoeff += rhs.meanCoeff;
-          meanCount += rhs.meanCount;
-          return *this;
+            total += rhs.total;
+            goodCC += rhs.goodCC;
+            ccCoeff.insert( ccCoeff.end(), rhs.ccCoeff.begin(), rhs.ccCoeff.end() );
+            ccCount.insert( ccCount.end(), rhs.ccCount.begin(), rhs.ccCount.end() );
+            deviation.insert( deviation.end(), rhs.deviation.begin(), rhs.deviation.end() );
+            return *this;
         }
 
         friend XCorrEvalStats operator+(XCorrEvalStats lhs, XCorrEvalStats const& rhs)
         {
-          lhs+=rhs;
-          return lhs;
-        }
-
-        void normalize()
-        {
-            if ( goodCC != 0 )
-            {
-              deviation    /= goodCC;
-              absDeviation /= goodCC;
-              meanCoeff    /= goodCC;
-              meanCount    /= goodCC;
-            }
+            lhs+=rhs;
+            return lhs;
         }
 
         string describe(bool theoretical) const
         {
-            XCorrEvalStats tmp = *this;
-            tmp.normalize();
-            string log = stringify("#pha %6d pha good CC %3.f%% avg coeff %.2f avg #matches/ph %2d",
-                              tmp.total, (tmp.goodCC * 100. / tmp.total),
-                              tmp.meanCoeff, tmp.meanCount); 
+            double meanCoeff = computeMean(ccCoeff);
+            double meanCount = computeMean(ccCount);
+            string log = stringify("#pha %6d pha good CC %3.f%% avg coeff %.2f avg #matches/ph %4.1f",
+                              total, (goodCC * 100. / total), meanCoeff, meanCount);
             if ( theoretical )
             {
-                log += stringify(" time-diff %3.f [msec] abs time-diff %3.f [msec]",
-                                 tmp.deviation*1000, tmp.absDeviation*1000);
+                double meanDev = computeMean(deviation);
+                double meanAbsDev = computeMeanAbsoluteDeviation(deviation, meanDev);
+                log += stringify(" time-diff %3.f [msec] mean abs deviation %3.f [msec]",
+                                 meanDev*1000, meanAbsDev*1000);
             }
             return log;
         }
@@ -1832,16 +1834,21 @@ HypoDD::evalXCorr()
         log += stringify("Stats by inter-event distance in %.2f km step\n", EV_DIST_STEP);
         for ( const auto& kv : statsByInterEvDistance)
         {
-            XCorrEvalStats tmp = kv.second;
-            tmp.normalize();
+            const XCorrEvalStats& tmp = kv.second;
+            double meanCoeff = computeMean(tmp.ccCoeff);
+            double meanCount = computeMean(tmp.ccCount);
             log += stringify("Inter-event dist %.2f-%-.2f [km]: ",
                               kv.first*EV_DIST_STEP, (kv.first+1)*EV_DIST_STEP);
-            log += stringify("#CC %6d good CC %3.f%% avg coeff %.2f avg #matches/ev %2d\n",
+            log += stringify("#CC %6d good CC %3.f%% avg coeff %.2f avg #matches/ev %4.1f\n",
                               tmp.total, (tmp.goodCC * 100. / tmp.total),
-                              tmp.meanCoeff, tmp.meanCount);
+                              meanCoeff, meanCount);
             if ( theoretical )
-                log += stringify(" time-diff %3.f [msec] abs time-diff %3.f [msec]",
-                                 tmp.deviation*1000, tmp.absDeviation*1000);
+            {
+                double meanDev = computeMean(tmp.deviation);
+                double meanAbsDev = computeMeanAbsoluteDeviation(tmp.deviation, meanDev);
+                log += stringify(" time-diff %3.f [msec] mean abs deviation %3.f [msec]",
+                                 meanDev*1000, meanAbsDev*1000);
+            }
         }
 
         log += stringify("Stats by event to station distance in %.2f km step\n", STA_DIST_STEP);
@@ -1916,23 +1923,25 @@ HypoDD::evalXCorr()
         for ( const auto& kv : neighbours->allPhases() )
             for ( Phase::Type phaseType : kv.second )
         {
+            //
+            //  collect stats by event, station, station distance
+            //
             const string stationId = kv.first;
             const Phase& catalogPhase = _ddbgc->searchPhase(event.id, stationId, phaseType)->second;
 
             XCorrEvalStats phStaStats;
-            phStaStats.total = 1;
 
             if ( xcorr.has(event.id, stationId, phaseType) )
             {
                 const Phase& detectedPhase = catalog->searchPhase(event.id, stationId,
                                                                   phaseType)->second;
-                phStaStats.goodCC = 1;
                 double deviation = (catalogPhase.time - detectedPhase.time).length();
-                phStaStats.deviation = deviation;
-                phStaStats.absDeviation = std::abs(deviation);
                 auto& pdata = xcorr.get(event.id, stationId, phaseType);
-                phStaStats.meanCoeff = pdata.mean_coeff;
-                phStaStats.meanCount = pdata.ccCount;
+                phStaStats.addGoodCC(pdata.mean_coeff, pdata.ccCount, deviation);
+            }
+            else
+            {
+                phStaStats.addBadCC();
             }
 
             evStats += phStaStats;
@@ -1943,37 +1952,38 @@ HypoDD::evalXCorr()
             statsByStaDistance[ int(stationDistance/STA_DIST_STEP) ] += phStaStats;
 
             //
-            //  collect stats by neighbour
+            //  collect stats by neighbour to build later stats by inter-event dist
             //
             for ( unsigned neighEvId : neighbours->ids )
             {
                 if ( neighbours->has(neighEvId, stationId, phaseType) )
                 {
                     XCorrEvalStats& neighStats = statsByNeighbour[neighEvId];
-                    neighStats.total++;
                     if ( xcorr.has(event.id, neighEvId, stationId, phaseType) )
                     {
                         const auto& pdata = xcorr.get(event.id, neighEvId, stationId, phaseType);
-                        neighStats.goodCC++;
-                        neighStats.meanCount++;
-                        neighStats.meanCoeff += pdata.coeff;
-                        double deviation = phStaStats.deviation;
-                        deviation -= xcorr.get(event.id, stationId, phaseType).mean_lag - pdata.lag;
-                        neighStats.deviation += deviation;
-                        neighStats.absDeviation += std::abs(deviation);
+                        double deviation = 0;//phStaStats.deviation;
+                        //deviation -= xcorr.get(event.id, stationId, phaseType).mean_lag - pdata.lag;
+                        neighStats.addGoodCC(pdata.coeff, 1, deviation);
                     }
+                    else
+                    {
+                        neighStats.addBadCC();
+                    } 
                 }
             }
         }
 
         //
-        //  collect stats by inter event distance
+        //  use stats by neighbour to update stats by inter event distance
         //
         for ( auto& kv : statsByNeighbour )
         {
             const Event& neighbEv = catalog->getEvents().at(kv.first);
             XCorrEvalStats& neighStats = kv.second;
-            neighStats.meanCount *= neighStats.meanCount;
+            // we want ccCount to be the number of good CC for this event
+            neighStats.ccCount.clear();
+            neighStats.ccCount.push_back( neighStats.goodCC );
             double interEvDistance = computeDistance(event, neighbEv); 
             statsByInterEvDistance[ int(interEvDistance/EV_DIST_STEP) ] += neighStats;
         }
@@ -1983,7 +1993,7 @@ HypoDD::evalXCorr()
         SEISCOMP_WARNING("Event %-5s mag %3.1f %s", string(event).c_str(), event.magnitude,
                          evStats.describe(theoretical).c_str());
 
-        if ( ++loop % 50 == 0 )
+        if ( ++loop % 100 == 0 )
         {
             printStats("<<<Progressive stats>>>", theoretical);
         }
