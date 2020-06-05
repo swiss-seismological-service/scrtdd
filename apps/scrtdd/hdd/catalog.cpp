@@ -772,7 +772,7 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
 
         if ( ! ev.relocInfo.isRelocated )
         {
-            evStreamReloc << ",false,,,,,,,,,,";
+            evStreamReloc << ",false,,,,,,,,,";
         }
         else
         {
@@ -817,7 +817,7 @@ void Catalog::writeToFile(string eventFile, string phaseFile, string stationFile
         {
             if ( ! ph.relocInfo.isRelocated )
             {
-                phStream << ",false,,,";
+                phStream << ",false,,,,,,,";
             }
             else
             {

@@ -121,7 +121,7 @@ vector< unordered_map<string,string> > format(const vector<string>& header,
         unordered_map<string,string> row;
         for (size_t i = 0; i < header.size(); ++i)
         {
-            row[ header[i] ] = columns[i];
+            row[ header[i] ] = i < columns.size() ? columns[i] : "";
         }
         rows.push_back(row);
     }

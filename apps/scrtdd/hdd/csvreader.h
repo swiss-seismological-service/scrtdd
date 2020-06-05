@@ -48,8 +48,8 @@ namespace CSV {
 
  * Optionally a header, the first line, can be present. If not present you
  * can pass the header format to the function.
- * Each line has to have the same number of fields of the header, additional
- * columns will be disregarded
+ * If a line has more fields than the header,those will be discarded
+ * If a line has less fields than the header,the missing ones will be set to empty string
 
  header1,header2,header3,header4
  val1,val2,val3,val4
