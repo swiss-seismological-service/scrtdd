@@ -317,7 +317,7 @@
                                         Set it to -1 to remove limits
                                     </description>
                                 </parameter>
-                                <parameter name="minStationToEventPairDistRatio" type="double" default="5">
+                                <parameter name="minStationToEventPairDistRatio" type="double" default="0">
                                     <description>
                                         Min ratio between event-station distance and pair inter-event-pair distance. Phases
                                         belonging to stations not satisfyig this condition will not be used.

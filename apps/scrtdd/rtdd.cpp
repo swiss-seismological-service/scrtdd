@@ -463,7 +463,7 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.ddObservations1.maxESdist = 150; }
         try {
             prof->ddcfg.ddObservations1.minEStoIEratio = configGetDouble(prefix + "minStationToEventPairDistRatio");
-        } catch ( ... ) { prof->ddcfg.ddObservations1.minEStoIEratio = 5; } 
+        } catch ( ... ) { prof->ddcfg.ddObservations1.minEStoIEratio = 0; } 
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservations.clustering.";
         prof->ddcfg.ddObservations2.recordStreamURL = recordStreamURL();
