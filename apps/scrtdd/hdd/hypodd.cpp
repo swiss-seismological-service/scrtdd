@@ -1795,18 +1795,35 @@ namespace {
             return lhs;
         }
 
-        string describe(bool theoretical) const
+        string describeShort(bool theoretical) const
         {
             double meanCoeff = computeMean(ccCoeff);
             double meanCount = computeMean(ccCount);
-            string log = stringify("#pha %6d pha good CC %3.f%% avg coeff %.2f avg #matches/ph %4.1f",
+            string log = stringify("#pha %6d pha good CC %3.f%% avg coeff %.2f avg goodCC/ph %4.1f",
                               total, (goodCC * 100. / total), meanCoeff, meanCount);
             if ( theoretical )
             {
                 double meanDev = computeMean(deviation);
-                double meanAbsDev = computeMeanAbsoluteDeviation(deviation, meanDev);
-                log += stringify(" time-diff %3.f [msec] mean abs deviation %3.f [msec]",
-                                 meanDev*1000, meanAbsDev*1000);
+                double meanDevMAD = computeMeanAbsoluteDeviation(deviation, meanDev);
+                log += stringify(" time-diff [msec] %3.f MeanAbsDev %3.f", meanDev*1000, meanDevMAD*1000);
+            } 
+            return log;
+        }
+
+        string describe(bool theoretical) const
+        {
+            double meanCoeff = computeMean(ccCoeff);
+            double meanCoeffMAD = computeMeanAbsoluteDeviation(ccCoeff, meanCoeff);
+            double meanCount = computeMean(ccCount);
+            double meanCountMAD = computeMeanAbsoluteDeviation(ccCount, meanCount);
+            string log = stringify("%9d %5.f%% % 4.2f (%4.2f)   %4.1f (%4.1f)",
+                              total, (goodCC * 100. / total),
+                              meanCoeff, meanCoeffMAD, meanCount, meanCountMAD);
+            if ( theoretical )
+            {
+                double meanDev = computeMean(deviation);
+                double meanDevMAD = computeMeanAbsoluteDeviation(deviation, meanDev);
+                log += stringify("%8.f (%3.f)", meanDev*1000, meanDevMAD*1000);
             }
             return log;
         }
@@ -1817,7 +1834,7 @@ namespace {
 void
 HypoDD::evalXCorr()
 {
-    bool theoretical = false; // this is useful for testing the ability of detecting phases
+    bool theoretical = false; // this is useful for testing theoretical phase detection
 
     XCorrEvalStats totalStats;
     map<string,XCorrEvalStats> statsByStation; // key station id
@@ -1829,40 +1846,34 @@ HypoDD::evalXCorr()
     auto printStats = [&](string title, bool theoretical)
     {
         string log = title + "\n";
-        log += stringify("Cumulative stats: %s\n", totalStats.describe(theoretical).c_str());
+        log += stringify("Cumulative stats: %s\n", totalStats.describeShort(theoretical).c_str());
 
-        log += stringify("Stats by inter-event distance in %.2f km step\n", EV_DIST_STEP);
+        log += stringify("Cross-correlations by inter-event distance in %.2f km step\n", EV_DIST_STEP);
+        log += stringify(" EvDist [km]      #CC GoodCC AvgCoeff(MAD) GoodCC/Ev(MAD) %s\n",
+                        ( theoretical ? "time-diff[msec] (MAD)" : "") ); 
         for ( const auto& kv : statsByInterEvDistance)
         {
-            const XCorrEvalStats& tmp = kv.second;
-            double meanCoeff = computeMean(tmp.ccCoeff);
-            double meanCount = computeMean(tmp.ccCount);
-            log += stringify("Inter-event dist %.2f-%-.2f [km]: ",
-                              kv.first*EV_DIST_STEP, (kv.first+1)*EV_DIST_STEP);
-            log += stringify("#CC %6d good CC %3.f%% avg coeff %.2f avg #matches/ev %4.1f\n",
-                              tmp.total, (tmp.goodCC * 100. / tmp.total),
-                              meanCoeff, meanCount);
-            if ( theoretical )
-            {
-                double meanDev = computeMean(tmp.deviation);
-                double meanAbsDev = computeMeanAbsoluteDeviation(tmp.deviation, meanDev);
-                log += stringify(" time-diff %3.f [msec] mean abs deviation %3.f [msec]",
-                                 meanDev*1000, meanAbsDev*1000);
-            }
+            log += stringify("%5.2f-%-5.2f %s\n",
+                             kv.first*EV_DIST_STEP, (kv.first+1)*EV_DIST_STEP,
+                             kv.second.describe(theoretical).c_str());
         }
 
-        log += stringify("Stats by event to station distance in %.2f km step\n", STA_DIST_STEP);
+        log += stringify("Phases cross-correlated by event to station distance in %.2f km step\n", STA_DIST_STEP);
+        log += stringify("StaDist [km]  #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) %s\n",
+                        ( theoretical ? "time-diff[msec] (MAD)" : "") ); 
         for ( const auto& kv : statsByStaDistance)
         {
-            log += stringify("Station dist %3d-%-3d [km]: %s\n", int(kv.first*STA_DIST_STEP),
+            log += stringify("%3d-%-3d     %s\n", int(kv.first*STA_DIST_STEP),
                             int((kv.first+1)*STA_DIST_STEP),
                             kv.second.describe(theoretical).c_str());
         }
 
-        log += stringify("Stats by station\n");
+        log += stringify("Cross-correlations by station\n");
+        log += stringify("Station       #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) %s\n",
+                        ( theoretical ? "time-diff[msec] (MAD)" : "") ); 
         for ( const auto& kv : statsByStation)
         {
-            log += stringify("%-12s: %s\n", kv.first.c_str(),
+            log += stringify("%-12s %s\n", kv.first.c_str(),
                              kv.second.describe(theoretical).c_str());
         }
         SEISCOMP_WARNING("%s", log.c_str() );
@@ -1930,14 +1941,15 @@ HypoDD::evalXCorr()
             const Phase& catalogPhase = _ddbgc->searchPhase(event.id, stationId, phaseType)->second;
 
             XCorrEvalStats phStaStats;
+            double detectedPhaseDeviation = 0;
 
             if ( xcorr.has(event.id, stationId, phaseType) )
             {
                 const Phase& detectedPhase = catalog->searchPhase(event.id, stationId,
                                                                   phaseType)->second;
-                double deviation = (catalogPhase.time - detectedPhase.time).length();
-                auto& pdata = xcorr.get(event.id, stationId, phaseType);
-                phStaStats.addGoodCC(pdata.mean_coeff, pdata.ccCount, deviation);
+                detectedPhaseDeviation = (catalogPhase.time - detectedPhase.time).length();
+                const auto& xentry = xcorr.get(event.id, stationId, phaseType);
+                phStaStats.addGoodCC(xentry.mean_coeff, xentry.ccCount, detectedPhaseDeviation);
             }
             else
             {
@@ -1961,10 +1973,10 @@ HypoDD::evalXCorr()
                     XCorrEvalStats& neighStats = statsByNeighbour[neighEvId];
                     if ( xcorr.has(event.id, neighEvId, stationId, phaseType) )
                     {
-                        const auto& pdata = xcorr.get(event.id, neighEvId, stationId, phaseType);
-                        double deviation = 0;//phStaStats.deviation;
-                        //deviation -= xcorr.get(event.id, stationId, phaseType).mean_lag - pdata.lag;
-                        neighStats.addGoodCC(pdata.coeff, 1, deviation);
+                        const auto& xe = xcorr.get(event.id, stationId, phaseType);
+                        const auto& xpi = xcorr.get(event.id, neighEvId, stationId, phaseType);
+                        double deviation = detectedPhaseDeviation - (xe.mean_lag - xpi.lag);
+                        neighStats.addGoodCC(xpi.coeff, 1, deviation);
                     }
                     else
                     {
@@ -1991,7 +2003,7 @@ HypoDD::evalXCorr()
         // total stats
         totalStats += evStats;
         SEISCOMP_WARNING("Event %-5s mag %3.1f %s", string(event).c_str(), event.magnitude,
-                         evStats.describe(theoretical).c_str());
+                         evStats.describeShort(theoretical).c_str());
 
         if ( ++loop % 100 == 0 )
         {
