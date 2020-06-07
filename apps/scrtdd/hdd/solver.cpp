@@ -510,7 +510,7 @@ Solver::computePartialDerivatives()
     }
 
     //
-    // compute derivatives
+    // compute derivatives (Straight ray path)
     //
     for ( auto& kv1 : _obsParams )
     {
@@ -525,13 +525,14 @@ Solver::computePartialDerivatives()
 
             double distance = computeDistance(evprm.lat, evprm.lon, evprm.depth,
                                                staprm.lat, staprm.lon, -staprm.elevation/1000.);
+            double VertDist = evprm.depth + staprm.elevation/1000.;
 
-            double angle   = std::atan2( evprm.y - staprm.y, evprm.x - staprm.x);
-            double takeOff = std::atan2( evprm.z - staprm.z, evprm.x - staprm.x);
+            double takeOff = std::asin(VertDist / distance);
+            double xyAngle = std::atan2( evprm.y - staprm.y, evprm.x - staprm.x);
 
             obsprm.slowness = obsprm.travelTime / distance;
-            obsprm.dx = obsprm.slowness * std::cos(angle);
-            obsprm.dy = obsprm.slowness * std::sin(angle);
+            obsprm.dx = obsprm.slowness * std::cos(takeOff) * std::cos(xyAngle);
+            obsprm.dy = obsprm.slowness * std::cos(takeOff) * std::sin(xyAngle);
             obsprm.dz = obsprm.slowness * std::sin(takeOff);
         }
     }
