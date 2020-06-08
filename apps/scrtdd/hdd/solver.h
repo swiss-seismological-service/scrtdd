@@ -124,7 +124,7 @@ public:
     void addObservationParams(unsigned evId, const std::string& staId, char phase,
                               double evLat, double evLon, double evDepth,
                               double staLat, double staLon, double staElevation,
-                              double travelTime);
+                              double travelTime, double takeOffAngle=0, double velocityAtSrc=0);
 
     void solve(unsigned numIterations=0,
                double dampingFactor=0,
@@ -228,7 +228,8 @@ private:
 
     struct ObservationParams {
         double travelTime;
-        double slowness;
+        double takeOffAngle;
+        double velocityAtSrc;
         double dx;
         double dy;
         double dz;

@@ -183,6 +183,8 @@ class HypoDD : public Core::BaseObject {
                 Catalog::Station station;
                 char phaseType;
                 double travelTime;
+                double takeOffAngle;
+                double velocityAtSrc;
             };
             void add(TravelTimeTableInterfacePtr ttt, const Catalog::Event& event,
                      const Catalog::Station& station, char phaseType);

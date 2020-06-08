@@ -721,7 +721,9 @@ HypoDD::ObservationParams::add(TravelTimeTableInterfacePtr ttt, const Event& eve
         TravelTime tt = ttt->compute(string(1, phaseType).c_str(),
                                      event.latitude, event.longitude, event.depth, 
                                      station.latitude, station.longitude, station.elevation);
-        _entries[key] = Entry( {event, station, phaseType, tt.time} );
+        // when takeOffAngle/velocityAtSrc are not provided by the ttt then 
+        // the solver will use straight ray path approximation
+        _entries[key] = Entry( {event, station, phaseType, tt.time, 0, 0} );
     }
 }
 
@@ -742,7 +744,7 @@ HypoDD::ObservationParams::addToSolver(Solver& solver) const
         solver.addObservationParams(e.event.id, e.station.id, e.phaseType,
                                     e.event.latitude, e.event.longitude, e.event.depth,
                                     e.station.latitude, e.station.longitude, e.station.elevation,
-                                    e.travelTime);
+                                    e.travelTime, e.takeOffAngle, e.velocityAtSrc);
     }
 }
 
