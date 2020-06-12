@@ -577,7 +577,7 @@ bool RTDD::validateParameters()
         prefix = string("profile.") + *it + ".solver.";
         try {
             prof->ddcfg.ttt.type = configGetString(prefix + "travelTimeTable.tableType");
-        } catch ( ... ) { prof->ddcfg.ttt.type = "LOCSAT"; }
+        } catch ( ... ) { prof->ddcfg.ttt.type = "libtau"; }
         try {
             prof->ddcfg.ttt.model = configGetString(prefix + "travelTimeTable.tableModel");
         } catch ( ... ) { prof->ddcfg.ttt.model = "iasp91"; } 

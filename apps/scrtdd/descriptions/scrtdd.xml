@@ -697,10 +697,10 @@
                         </group>
                         <group name="travelTimeTable">
                             <description>
-                                Traveltime table used by the solver (e.g. LOCSAT or taup). This
+                                Traveltime table used by the solver (LOCSAT or libtau). This
                                 can be a system default or a user custom travel time table.
                             </description> 
-                            <parameter name="tableType" type="string" default="LOCSAT">
+                            <parameter name="tableType" type="string" default="libtau">
                             </parameter>
                             <parameter name="tableModel" type="string" default="iasp91">
                             </parameter> 
