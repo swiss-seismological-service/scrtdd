@@ -167,7 +167,8 @@ class HypoDD : public Core::BaseObject {
     private:
         std::string generateWorkingSubDir(const Catalog::Event& ev) const;
 
-        CatalogPtr relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
+        CatalogPtr relocateEventSingleStep( const CatalogCPtr bgCat,
+                                const CatalogCPtr& evToRelocateCat,
                                 const std::string& workingDir, bool doXcorr, 
                                 bool computeTheoreticalPhases, double minPhaseWeight,
                                 double minESdist, double maxESdist, double minEStoIEratio,

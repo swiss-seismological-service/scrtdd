@@ -320,6 +320,8 @@ CatalogPtr HypoDD::relocateCatalog()
 
 CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 {
+    const CatalogCPtr bgCat = _ddbgc;
+
     // there must be only one event in the catalog, the origin to relocate
     Event evToRelocate = singleEvent->getEvents().begin()->second;
     const auto& evToRelocatePhases = singleEvent->getPhases().equal_range(evToRelocate.id);
@@ -362,7 +364,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
                                                                     _cfg.validPphases,
                                                                     _cfg.validSphases);
 
-    CatalogPtr relocatedEvCat = relocateEventSingleStep(
+    CatalogPtr relocatedEvCat = relocateEventSingleStep(bgCat,
             evToRelocateCat, eventWorkingDir, false, false, _cfg.ddObservations1.minWeight,
             _cfg.ddObservations1.minESdist, _cfg.ddObservations1.maxESdist, 
             _cfg.ddObservations1.minEStoIEratio, _cfg.ddObservations1.minDTperEvt, 
@@ -390,7 +392,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
     eventWorkingDir = (boost::filesystem::path(subFolder)/"step2").string();
 
-    CatalogPtr relocatedEvWithXcorr = relocateEventSingleStep(
+    CatalogPtr relocatedEvWithXcorr = relocateEventSingleStep(bgCat,
             evToRelocateCat, eventWorkingDir, true, _useArtificialPhases,
             _cfg.ddObservations2.minWeight, _cfg.ddObservations2.minESdist,
             _cfg.ddObservations2.maxESdist, _cfg.ddObservations2.minEStoIEratio,
@@ -420,7 +422,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
 
 CatalogPtr 
-HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
+HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
+                                const CatalogCPtr& evToRelocateCat,
                                 const string& workingDir,
                                 bool doXcorr,
                                 bool computeTheoreticalPhases,
@@ -454,7 +457,7 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
         bool keepUnmatchedPhases = doXcorr; //useful for detecting missed picks
 
         NeighboursPtr neighbours = selectNeighbouringEvents(
-            _ddbgc, evToRelocate, evToRelocateCat, minPhaseWeight, minESdist,  maxESdist,
+            bgCat, evToRelocate, evToRelocateCat, minPhaseWeight, minESdist,  maxESdist,
             minEStoIEratio, minDTperEvt,  maxDTperEvt, minNumNeigh, maxNumNeigh,
             numEllipsoids, maxEllipsoidSize, keepUnmatchedPhases
         );
@@ -462,7 +465,7 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr& evToRelocateCat,
         //
         // Prepare catalog to relocate
         //
-        CatalogPtr catalog = neighbours->fromNeighbours(_ddbgc);
+        CatalogPtr catalog = neighbours->fromNeighbours(bgCat);
         unsigned evToRelocateNewId = catalog->add(evToRelocate.id, *evToRelocateCat, false);
         neighbours->refEvId = evToRelocateNewId;
 
@@ -723,6 +726,7 @@ HypoDD::ObservationParams::add(TravelTimeTableInterfacePtr ttt, const Event& eve
                                      station.latitude, station.longitude, station.elevation);
         // when takeOffAngle/velocityAtSrc are not provided by the ttt then 
         // the solver will use straight ray path approximation
+        // deg2rad(tt.takeoff) doesn't seem to be correct
         _entries[key] = Entry( {event, station, phaseType, tt.time, 0, 0} );
     }
 }
