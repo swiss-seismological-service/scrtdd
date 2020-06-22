@@ -306,8 +306,8 @@ Catalog::Catalog(const string& stationFile,
         {
             ev.relocInfo.isRelocated = true;
             ev.relocInfo.numNeighbours    = std::stoul(row.at("numNeighbours"));
-            ev.relocInfo.usedP            = std::stoul(row.at("usedP"));
-            ev.relocInfo.usedS            = std::stoul(row.at("usedS"));
+            ev.relocInfo.usedP            = std::stoul(row.at("numPhaseP"));
+            ev.relocInfo.usedS            = std::stoul(row.at("numPhaseS"));
             ev.relocInfo.numCCp           = std::stoul(row.at("numCCp"));
             ev.relocInfo.numCCs           = std::stoul(row.at("numCCs"));
             ev.relocInfo.numCTp           = std::stoul(row.at("numCTp"));
