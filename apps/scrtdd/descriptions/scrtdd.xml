@@ -233,30 +233,34 @@
                             </description>
                             <parameter name="minNumNeigh" type="int">
                                 <description>
-                                    Min number of neighboring events required to relocate an event. Disabled by
-                                    default.
-                                    This is useful to avoid including solutions that are poorly constrained.
+                                    Minimum number of neighboring events required to relocate an event.
+                                    This is useful to avoid including solutions that are poorly 
+                                    constrained. Leave it empty to disable the constraint.
                                 </description>
                             </parameter>
                             <parameter name="maxNumNeigh" type="int">
                                 <description>
-                                    Max number of neighbors per event. No limit by default. When setting this
+                                    Maximum number of neighbors per event, leave it empty or set to it
+                                    to 0 to disable the limit. When setting this
                                     value make it consistent with numEllipsoids parameter (that is 
                                     numEllipsoids * 8) if numEllipsoids is not 0
                                 </description>
                             </parameter>
                             <parameter name="minObservationPerEvtPair" type="int" >
                                 <description>
-                                    Min number of differential travel times (Including P+S) per event pair required.
+                                    Minimum number of differential travel times (Including P+S) per
+                                    event pair required.
                                     Event pairs not satisfying this condition will not be used.
-                                    Check disabled by default.
+                                    Leave it empty to disable the constraint.
                                 </description>
                             </parameter>
                             <parameter name="maxObservationPerEvtPair" type="int" >
                                 <description>
-                                    Max number of differential travel times (Including P+S) per event pair used.
-                                    If this value is set, closer stations will have higher precedence over further
-                                    ones. No limit by default.
+                                    Maximum number of differential travel times (Including P+S) per 
+                                    event pair used.
+                                    If this value is set, closer stations will have higher 
+                                    precedence over further ones.
+                                    Leave it empty or set to it to 0 to disable the limit.
                                 </description>
                             </parameter>
                             <group name="neighboringEventSelection">
@@ -305,23 +309,28 @@
                                 </description>
                                 <parameter name="minStationDistance" type="double">
                                     <description>
-                                        Min distance (km) between event pair and station required. Phases belonging
-                                        to stations not satisfyig this condition will not be used.
-                                        Leave it empty to remove limits
+                                        Minimum distance (km) between event pair and station required
+                                        to use a phase in the double-difference observations. 
+                                        Phases belonging to stations not satisfyig this condition 
+                                        will not be used.
+                                        Leave it empty to disable the constraint.
                                     </description>
                                 </parameter>
-                                <parameter name="maxStationDistance" type="double" default="150">
+                                <parameter name="maxStationDistance" type="double">
                                     <description>
-                                        Max distance (km) between event pair and station allowed. Phases belonging
-                                        to stations not satisfyig this condition will not be used.
-                                        Set it to -1 to remove limits
+                                        Max distance (km) between event pair and station allowed
+                                        to use a phase in the double-difference observations.
+                                        Phases belonging to stations not satisfyig this condition 
+                                        will not be used.
+                                        Leave it empty or set to it to 0 to disable the limit.
                                     </description>
                                 </parameter>
-                                <parameter name="minStationToEventPairDistRatio" type="double" default="0">
+                                <parameter name="minStationToEventPairDistRatio" type="double">
                                     <description>
-                                        Min ratio between event-station distance and pair inter-event-pair distance. Phases
-                                        belonging to stations not satisfyig this condition will not be used.
-                                        Set it to 0 to remove limits
+                                        Minimum ratio between event-station distance and pair 
+                                        inter-event-pair distance. Phases belonging to stations 
+                                        not satisfyig this condition will not be used.
+                                        Leave it empty to disable the constraint.
                                     </description>
                                 </parameter>  
                             </group> 
@@ -358,30 +367,35 @@
                             </description>
                             <parameter name="minNumNeigh" type="int">
                                 <description>
-                                    Min number of neighboring events required to relocate an event. Disabled by
-                                    default.
-                                    This is useful to avoid including solutions that are poorly constrained.
+                                    Minimum number of neighboring events required to relocate an event.
+                                    This is useful to avoid including solutions that are poorly 
+                                    constrained. Leave it empty to disable the constraint.
+
                                 </description>
                             </parameter>
                             <parameter name="maxNumNeigh" type="int">
                                 <description>
-                                    Max number of neighbors per event. No limit by default. When setting this
+                                    Maximum number of neighbors per event, leave it empty or set to it
+                                    to 0 to disable the limit. When setting this
                                     value make it consistent with numEllipsoids parameter (that is 
-                                    numEllipsoids * 8) if numEllipsoids is not 0
+                                    numEllipsoids * 8) if numEllipsoids is not 0 
                                 </description>
                             </parameter>
                             <parameter name="minObservationPerEvtPair" type="int" >
                                 <description>
-                                    Min number of differential travel times (Including P+S) per event pair required.
+                                    Minimum number of differential travel times (Including P+S) per
+                                    event pair required.
                                     Event pairs not satisfying this condition will not be used.
-                                    Check disabled by default.
+                                    Leave it empty to disable the constraint.
                                 </description>
                             </parameter>
                             <parameter name="maxObservationPerEvtPair" type="int" >
                                 <description>
-                                    Max number of differential travel times (Including P+S) per event pair used.
-                                    If this value is set, closer stations will have higher precedence over further
-                                    ones. No limit by default.
+                                    Maximum number of differential travel times (Including P+S) per 
+                                    event pair used.
+                                    If this value is set, closer stations will have higher 
+                                    precedence over further ones.
+                                    Leave it empty or set to it to 0 to disable the limit.
                                 </description>
                             </parameter>
                             <group name="neighboringEventSelection">
@@ -429,23 +443,28 @@
                                 </description>
                                 <parameter name="minStationDistance" type="double">
                                     <description>
-                                        Min distance (km) between event pair and station required. Phases belonging
-                                        to stations not satisfyig this condition will not be used.
-                                        Leave it empty to remove limits
+                                        Minimum distance (km) between event pair and station required
+                                        to use a phase in the double-difference observations. 
+                                        Phases belonging to stations not satisfyig this condition 
+                                        will not be used.
+                                        Leave it empty to disable the constraint.
                                     </description>
                                 </parameter>
                                 <parameter name="maxStationDistance" type="double" default="150">
                                     <description>
-                                        Max distance (km) between event pair and station allowed. Phases belonging
-                                        to stations not satisfyig this condition will not be used.
-                                        Set it to -1 to remove limits
+                                        Max distance (km) between event pair and station allowed
+                                        to use a phase in the double-difference observations.
+                                        Phases belonging to stations not satisfyig this condition 
+                                        will not be used.
+                                        Leave it empty or set to it to 0 to disable the limit.
                                     </description>
                                 </parameter>
                                 <parameter name="minStationToEventPairDistRatio" type="double" default="5">
                                     <description>
-                                        Min ratio between event-station distance and pair inter-event-pair distance. Phases
-                                        belonging to stations not satisfyig this condition will not be used.
-                                        Set it to 0 to remove limits
+                                        Minimum ratio between event-station distance and pair 
+                                        inter-event-pair distance. Phases belonging to stations 
+                                        not satisfyig this condition will not be used.
+                                        Leave it empty to disable the constraint.
                                     </description>
                                 </parameter> 
                             </group>

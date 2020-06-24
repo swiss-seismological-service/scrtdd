@@ -460,7 +460,7 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.ddObservations1.minESdist = 0; }
         try {
             prof->ddcfg.ddObservations1.maxESdist = configGetDouble(prefix + "maxStationDistance");
-        } catch ( ... ) { prof->ddcfg.ddObservations1.maxESdist = 150; }
+        } catch ( ... ) { prof->ddcfg.ddObservations1.maxESdist = 0; }
         try {
             prof->ddcfg.ddObservations1.minEStoIEratio = configGetDouble(prefix + "minStationToEventPairDistRatio");
         } catch ( ... ) { prof->ddcfg.ddObservations1.minEStoIEratio = 0; } 
