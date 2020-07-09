@@ -19,7 +19,7 @@
 </pre>
 # Description
 
-The SCRTDD is a [Seiscomp3](<https://github.com/SeisComP3/seiscomp3>) extension module that implements both Real-Time Double-Difference Event relocation and classic offline multi-event (catalog) Double-Difference relocation.
+The SCRTDD is a [SeisComP](<https://github.com/SeisComP>) extension module that implements both Real-Time Double-Difference Event relocation and classic offline Multi-Event Double-Difference relocation. The module allows to relocate an existing cluster of events (any set of events stored in the SeisComP database) in offline mode and optionally store the relocated events back in the database or simply keep the results as plain text files for external use. Also the software allows to perform Real-Time Double-Difference relocation of new events as they become available through SeisComP. The real-time relocation follows the standard SeisComP processing and the relocated origins become available for further processing and to the GUIs (e.g. scolv) and they are stored in the database.
 
 The actual methods are based on the paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser and "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Waldhauser & Ellsworth.
 
@@ -54,9 +54,11 @@ For compiling SeisComP, please refer to https://github.com/SeisComP/seiscomp#bui
 
 # Getting Started
 
-## 1. Defining a background catalog for real time relocations
+## 1. Multi-event relocation
 
-New origins will be relocated in real time against a background catalog of high quality locations. Those high quality events that form the background catalog can be already present in seiscompo database or not. In the latter case the background catalog has to be generated. Either way, the catalog has to be specified in scrtdd when configuring it.
+In this section we will explain how to relocate a set of existing events in offline mode: no interaction with the running system or database will take place. The relocated events will be stored in plain text files and can be used externaly to seiscomp but it is also possible to import them in the database.
+
+The multi-event relocation is not only useful for offline analysis of event clusters, but it is also a necessary for real-time processing. New origins detected by SeisComP will be relocated in real time by scrtdd against a background catalog of high quality locations. Those high quality events that form the background catalog can be already present in the seiscompo database or not. In the latter case the background catalog has to be generated via multi-event relocation.
 
 ### 1.1. Using origins from seiscomp database as background catalog
 
@@ -84,7 +86,7 @@ In the more general case in which we don't already have a background catalog, we
 Once the candidate origins have been selected, we write their seiscomp id in a file using the same format as the example above (myCatalog.csv). Once that's done, we run the command:
 
 ```
-scrtdd --dump-catalog myCatalog.csv [db and log options]
+scrtdd --dump-catalog myCatalog.csv --verbosity=3 --console=1 [db options]
 ```
 
 The above command will generate three files (event.csv, phase.csv and stations.csv) which contain the information needed by scrtdd to relocate the selected events. 
@@ -127,15 +129,15 @@ Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might
  
 See also the `Troubleshooting` paragraph for details on how to specify a database connection via command line and for printing the logs on the console for easy debugging.
 
-Also it is useful the `--dump-catalog-options` option, which allows to use event id instead of origin id in myCatalog.csv. For example we can list all events between two dates and then ask scrtdd to extract the preferred manual origins within our profile region (our catalog):
+It might be useful the `--dump-catalog-options` option too, which allows to use event id instead of origin id in myCatalog.csv. For example we can list all events between two dates and then ask scrtdd to extract the preferred manual origins within our profile region (our catalog):
 
 ```
 # prepare myCatalog.csv
 echo seiscompId > myCatalog.csv
 # save all events ids between 2018-11-27 and 2018-12-14 in myCatalog.csv
-scevtls [db and log options] --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" >> myCatalog.csv
+scevtls --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --verbosity=3 --console=1 [db options] >> myCatalog.csv
 # create the catalog using only manually reviewed preferred origins within the region defined in myProfile
-scrtdd --dump-catalog myCatalog.csv --dump-catalog-options 'preferred,onlyManual,any,none,myProfile' [db and log options]
+scrtdd --dump-catalog myCatalog.csv --dump-catalog-options 'preferred,onlyManual,any,none,myProfile' --verbosity=3 --console=1 [db options]
 ```
 
 Note: event.csv, phase.csv and stations.csv files are the extended catalog format, useful when the catalog information is fully contained in those files. Compare to the paragraph 2.1 example format (list of origin ids) the extended format doesn't require the catalog to be present on the seiscomp database. This might come in handy when using events coming from a different seiscomp installation e.g the events can be dumped (--dump-catalog) and used in another machine. Also those file can be easily generated from another source.
@@ -153,12 +155,10 @@ At this point we have to configure the other profile options that control the re
 
 Then it is time to set the cross-correlation parameters, which require a more careful selection and it is covered in the next paragraph.
 
-In the ```data``` folder of this project there are some hypoDD 1.3 and 2.1b configuration example files that have to be adapted to reflect your specific use case, especially the velocity model. We do not reccomend using those example files blindly, a good understanding of HypoDD software is required to obtain good results.
-
 Finally, when the configuration is ready, we can relocate the catalog with the command:
 
 ```
-scrtdd --reloc-profile profileName [db and log options] 
+scrtdd --reloc-profile profileName --verbosity=3 --console=1 [db options] 
 ```
 
 scrtdd will relocated the catalog and will generate another set of files reloc-event.csv reloc-phase.csv and reloc-stations.csv, which together define a new catalog with relocated origins. 
@@ -390,7 +390,7 @@ You can see below the most important parameters we want to configure. We enable 
 ![Relocation options](/data/step1options.png?raw=true "Relocation options")
 ![Relocation options](/data/step2options.png?raw=true "Relocation options")
 
-You might consider testing the configuration on some existing events to make sure the parameters are suitable for real time relocation. To test the real time relocation there are two command line options which relocate existing origins:
+You might consider testing the configuration relocating some existing events to make sure the parameters are suitable for your use case. To test the real time relocation there are two command line options which relocate existing origins:
 
 ```
 scrtdd --help
@@ -417,28 +417,48 @@ SingleEvent:
                                         initial origin location
 ```
 
+#### 3.1.1 Relocate origin ID and send the relocation to messaging system for further processing
+
 If we want to process an origin we can run the following command and then check on scolv the relocated origin (the messaging system must be active). This is mostly useful when we want to relocate an origin on a running system and keep the relocation:
 
 ```
-scrtdd --origin-id someOriginId [db and log options] 
+scrtdd --origin-id someOriginId --verbosity=3 --console=1 [db options] 
 ```
 
-For testing purpose we are more likely interested in not interfere with database and messaging system so we can use the `--ep` option and the relocated origin will be sent to the output as xml file. We can finally open the xml file with scolv for inspection:
+#### 3.1.2 Relocate origin ID but do not send the relocation (debug)
+
+As above but add `--test`
 
 ```
-scrtdd --origin-id someOriginId --ep - [db and log options] >  relocated-origin.xml
+scrtdd --origin-id someOriginId --test --verbosity=3 --console=1 [db options]
+``` 
+
+#### 3.1.3 Relocate origin ID and store the result to XML file
+
+For testing purpose we are more likely interested in not interfering with the database and the messaging system so we can use the `--ep` option and the relocated origin will be saved as a xml file. We can finally open the xml file with scolv for inspection:
+
 ```
+scrtdd --origin-id someOriginId --ep - --verbosity=3 --console=1 [db options] >  relocated-origin.xml
+```
+
+#### 3.1.4 Relocate XML file and store the result to XML file
 
 Alternatively the `--ep` option (without `-O`) can process all origins contained in the input XML file:
 
 ```
-# dump origin
-scxmldump -fPAMF -p -O originId -o origin.xml --verbosity=3  --console=1
-# relocate
-scrtdd --ep origin.xml [db and log options] > relocated-origin.xml
+scrtdd --ep origin.xml --verbosity=3 --console=1 [db options] > relocated-origin.xml
 ```
 
-Also, as explained in the cross-correlation settings paragraph, we can use the ```--debug-wf``` option to help debugging.
+And we can use the scxmldump to dump and existing origin id to file:
+
+```
+# dump origin
+scxmldump -fPAMF -p -O originId -o origin.xml --verbosity=3  --console=1
+```
+
+#### 3.1.5 Notes
+
+Also, as explained in the cross-correlation settings paragraph, we can add the ```--debug-wf``` option to the above commands to dump and instepct the waveforms used during cross-correlation.
 
 As an example you can see below the single event relocation of several manually reviewed origins (when relocating automatic origins the quality and number of relocated origins is certainly lower).
 
