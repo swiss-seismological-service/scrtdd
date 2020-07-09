@@ -1488,6 +1488,14 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     if ( org )
     {
         //
+        // store source origin id as comment
+        //
+        DataModel::Comment *comment = new DataModel::Comment();
+        comment->setId("scrtddSourceOrigin");
+        comment->setText(org->publicID());
+        newOrg->add(comment);
+
+        //
         // Copy magnitude from org if that is Manual
         //
         if ( org->evaluationMode() == DataModel::MANUAL )
