@@ -512,6 +512,8 @@ HypoDD::relocate(CatalogPtr& catalog,
                  bool keepNeighboursFixed,
                  const XCorrCache& xcorr) const
 {
+    SEISCOMP_INFO("Building and solving double-difference system...");
+
     ObservationParams obsparams;
 
     for ( unsigned iteration=0; iteration < _cfg.solver.algoIterations; iteration++ )

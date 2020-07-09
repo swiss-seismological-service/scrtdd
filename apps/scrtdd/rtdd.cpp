@@ -701,16 +701,22 @@ bool RTDD::init() {
 bool RTDD::run()
 {
     // if xml file provided load it into _eventParameters
-    // if file doesn't exists will be used for output only (-O option)
-    if ( !_config.eventXML.empty() && Util::fileExists(_config.eventXML) )
+    if ( !_config.eventXML.empty() )
     {
-        IO::XMLArchive ar;
-        if ( ! ar.open(_config.eventXML.c_str()) ) {
-            SEISCOMP_ERROR("Unable to open %s", _config.eventXML.c_str());
-            return false;
+        if ( Util::fileExists(_config.eventXML) )
+        {
+            IO::XMLArchive ar;
+            if ( ! ar.open(_config.eventXML.c_str()) ) {
+                SEISCOMP_ERROR("Unable to open %s", _config.eventXML.c_str());
+                return false;
+            }
+            ar >> _eventParameters;
+            ar.close();
         }
-        ar >> _eventParameters;
-        ar.close();
+        else // if file doesn't exists then XML output only (-O and --ep options together)
+        {
+            _eventParameters = new DataModel::EventParameters();
+        }
     }
 
     // evaluate cross-correlation settings and exit
