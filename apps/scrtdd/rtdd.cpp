@@ -235,7 +235,6 @@ double normalizeLon(double lon)
 
 RTDD::Config::Config()
 {
-    publicIDPattern = "RTDD.@time/%Y%m%d%H%M%S.%f@.@id@";
     workingDirectory = "/tmp/rtdd";
     keepWorkingFiles = false;
     onlyPreferredOrigin = false;
@@ -276,7 +275,6 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 
     _cache.setPopCallback(boost::bind(&RTDD::removedFromCache, this, _1));
 
-    NEW_OPT(_config.publicIDPattern, "publicIDpattern");
     NEW_OPT(_config.keepWorkingFiles, "keepWorkingFiles");
     NEW_OPT(_config.onlyPreferredOrigin, "onlyPreferredOrigins");
     NEW_OPT(_config.allowManualOrigin, "manualOrigins");
@@ -1445,13 +1443,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     // there must be only one event in the catalog, the relocated origin
     const HDD::Catalog::Event& event = relocatedOrg->getEvents().begin()->second;
 
-    if ( !_config.publicIDPattern.empty() )
-    {
-        newOrg = Origin::Create("");
-        PublicObject::GenerateId(&*newOrg, _config.publicIDPattern);
-    }
-    else
-        newOrg = Origin::Create();
+    newOrg = Origin::Create();
 
     DataModel::CreationInfo ci;
     ci.setAgencyID(agencyID());

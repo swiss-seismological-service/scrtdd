@@ -115,7 +115,6 @@ class RTDD : public Application {
         struct Config {
             Config();
 
-            std::string publicIDPattern;
             std::vector<std::string> activeProfiles;
             std::string workingDirectory;
             bool        keepWorkingFiles;

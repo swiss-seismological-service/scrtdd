@@ -4,12 +4,6 @@
         <description>Double-Difference relocation module for real-time and catalogs relocation</description>
         <configuration>
 
-            <parameter name="publicIDpattern" type="string" default="RTDD.@time/%Y%m%d%H%M%S.%f@.@id@">
-                <description>
-                    PublicID creation pattern for an origin created by RTDD.
-                </description>
-            </parameter>
-
             <parameter name="onlyPreferredOrigins" type="boolean" default="true">
                 <description>
                     Relocate only preferred origins. Without this option scrtdd listens to LOCATION and
