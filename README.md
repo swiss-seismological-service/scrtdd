@@ -60,7 +60,7 @@ In this section we will explain how to relocate a set of existing events in offl
 
 The multi-event relocation is not only useful for offline analysis of event clusters, but it is also  necessary for real-time processing. This is because scrtdd relocates new origins detected by SeisComP in real-time using a background catalog of high quality events. Those high quality events can be already present in the seiscomp database or not. In the latter case the background catalog has to be generated via multi-event relocation.
 
-#### 1.1 Dumping the candidate events to files
+### 1.1 Dumping the candidate events to files
 
 The multi-event relocation involves two steps: first we select the existing candidate origins and then we use scrtdd to relocated those. The selection of the origins is a user decision but what is important is that those origins exists in the seiscomp database and that we keep notes of their ID since scrtdd will us the ID to fetch all necessary information.
 
@@ -135,14 +135,14 @@ scevtls --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --verbosity=3 
 # create the catalog using only manually reviewed preferred origins within the region defined in myProfile
 scrtdd --dump-catalog myCatalog.csv --dump-catalog-options 'preferred,onlyManual,any,none,myProfile' --verbosity=3 --console=1 [db options]
 ```
-#### 1.2 Avoid events dumping to flat files
+### 1.2 Avoid events dumping to flat files
 
 event.csv, phase.csv and stations.csv files are the extended catalog format, useful when the catalog information is fully contained in those files and it doesn't require the catalog to be present on the seiscomp database. This might come in handy when using events coming from a different seiscomp installation. However It is possible to totally skip the dumping of events to files and select the catalog as a single file containing the origin ids like the following:
 
 ![Catalog selection option](/data/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
 
 
-#### 1.3 Relocating the candidate events
+### 1.3 Relocating the candidate events
 
 At this point we have to configure the other profile options that control the relocation process: `doubleDifferenceObservations`, which control the creation of catalog absolute travel time entries (dt.ct file in HypoDD terminology) and cross correlated differential travel times for pairs of events (dt.cc file in HypoDD terminology). The clustering options should work just fine with the default values, however some adjustments are worth it. For example we force to have only well connected events (`minNumNeigh` and `minObservationPerEvPair`), which helps in avoiding ill-defined double difference system that can be hard to solve. Then we minimize `maxNumNeigh` to reduce computation time (we can get very good results without using all the possible neighbours for every event). Finallly we like to disable the ellipsoid algorithms (`numEllipsoids=0`) since that is mostly useful in single event relocation.
 
@@ -266,45 +266,93 @@ Example output:
 [warning] <<<Progressive stats>>>
 [...]
 [warning] <<<Final stats>>>
-Cumulative stats: #pha   8882 pha good CC  73% avg coeff 0.81 avg #matches/ph 13
-Stats by inter-event distance in 0.10 km step
-Inter-event dist 0.00-0.10 [km]: #CC  83750 good CC  28% avg coeff 0.85 avg #matches/ev 10
-Inter-event dist 0.10-0.20 [km]: #CC 110997 good CC  24% avg coeff 0.83 avg #matches/ev  9
-Inter-event dist 0.20-0.30 [km]: #CC  47531 good CC  21% avg coeff 0.82 avg #matches/ev  8
-Inter-event dist 0.30-0.40 [km]: #CC  29676 good CC  22% avg coeff 0.82 avg #matches/ev  8
-Inter-event dist 0.40-0.50 [km]: #CC  20583 good CC  16% avg coeff 0.82 avg #matches/ev  6
-Inter-event dist 0.50-0.60 [km]: #CC  26951 good CC  15% avg coeff 0.81 avg #matches/ev  6
-Inter-event dist 0.60-0.70 [km]: #CC  32748 good CC  17% avg coeff 0.82 avg #matches/ev  6
-Inter-event dist 0.70-0.80 [km]: #CC  10117 good CC  15% avg coeff 0.81 avg #matches/ev  5
-Inter-event dist 0.80-0.90 [km]: #CC   2949 good CC  14% avg coeff 0.82 avg #matches/ev  4
-Inter-event dist 0.90-1.00 [km]: #CC   1409 good CC  14% avg coeff 0.82 avg #matches/ev  3
-Inter-event dist 1.00-1.10 [km]: #CC   7467 good CC  11% avg coeff 0.81 avg #matches/ev  3
+Cumulative stats: #pha   8930 pha good CC  74% avg coeff 0.81 avg goodCC/ph 13.6
+Cumulative stats P ph: #pha   4654 pha good CC  68% avg coeff 0.79 avg goodCC/ph 15.1
+Cumulative stats S ph: #pha   4276 pha good CC  81% avg coeff 0.83 avg goodCC/ph 12.2
+
+Cross-correlations by inter-event distance in 0.10 km step
+ EvDist [km]  #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD)
+ 0.00-0.10       5201    56%  0.87 (0.06)    1.8 ( 0.9)
+ 0.10-0.20       7886    60%  0.83 (0.05)    3.4 ( 2.1)
+ 0.20-0.30       8220    57%  0.82 (0.05)    4.0 ( 2.7)
+ 0.30-0.40       8319    51%  0.81 (0.04)    3.5 ( 2.4)
+ 0.40-0.50       8237    45%  0.81 (0.04)    3.0 ( 1.9)
+ 0.50-0.60       6919    33%  0.81 (0.04)    2.2 ( 1.4)
+ 0.60-0.70       7569    32%  0.81 (0.04)    2.5 ( 1.6)
+ 0.70-0.80       7735    31%  0.80 (0.04)    2.4 ( 1.5)
+ 0.80-0.90       5587    22%  0.81 (0.05)    1.8 ( 0.9)
+ 0.90-1.00       3825    19%  0.81 (0.05)    1.6 ( 0.8)
+ 1.00-1.10       2297    17%  0.82 (0.05)    1.6 ( 0.8)
+ 1.10-1.20       2000    14%  0.81 (0.05)    1.6 ( 0.8)
+ 1.20-1.30       3389    16%  0.80 (0.05)    1.5 ( 0.7)
+ 1.30-1.40       4200    15%  0.81 (0.05)    2.0 ( 1.3)
+ 1.40-1.50       2708    15%  0.81 (0.05)    1.4 ( 0.7)
+ 1.50-1.60       1477    12%  0.81 (0.05)    1.4 ( 0.6)
+ 1.60-1.70        488    12%  0.82 (0.05)    1.2 ( 0.4)
+ 1.70-1.80        122     3%  0.83 (0.03)    1.2 ( 0.4)
+ 1.80-1.90         64     8%  0.79 (0.04)    1.0 ( 0.0)
+ 1.90-2.00         19     5%  0.81 (0.00)    1.0 ( 0.0)
 [...]
-Stats by event to station distance in 3.00 km step
-Station dist   3-6   [km]: #pha     40 pha good CC  95% avg coeff 0.81 avg #matches/ph 29
-Station dist   6-9   [km]: #pha   1704 pha good CC  84% avg coeff 0.81 avg #matches/ph 24
-Station dist   9-12  [km]: #pha   1040 pha good CC  68% avg coeff 0.81 avg #matches/ph  9
-Station dist  12-15  [km]: #pha   1278 pha good CC  76% avg coeff 0.80 avg #matches/ph  8
-Station dist  15-18  [km]: #pha    412 pha good CC  64% avg coeff 0.81 avg #matches/ph  5
-Station dist  18-21  [km]: #pha    438 pha good CC  70% avg coeff 0.81 avg #matches/ph 14
-Station dist  21-24  [km]: #pha    612 pha good CC  77% avg coeff 0.81 avg #matches/ph 11
-Station dist  24-27  [km]: #pha    552 pha good CC  68% avg coeff 0.80 avg #matches/ph  7
-Station dist  27-30  [km]: #pha    713 pha good CC  74% avg coeff 0.81 avg #matches/ph 11
-Station dist  30-33  [km]: #pha    185 pha good CC  61% avg coeff 0.80 avg #matches/ph  3
-Station dist  33-36  [km]: #pha    858 pha good CC  79% avg coeff 0.83 avg #matches/ph 15
-Station dist  36-39  [km]: #pha    217 pha good CC  62% avg coeff 0.81 avg #matches/ph  5
-Station dist  39-42  [km]: #pha    126 pha good CC  58% avg coeff 0.82 avg #matches/ph  6
+Phases cross-correlated by event to station distance in 3.00 km step
+StaDist [km]  #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD)
+  6-9            1371    84%  0.81 (0.04)   22.9 (17.5)
+  9-12           1379    73%  0.81 (0.04)   16.5 (15.5)
+ 12-15           1299    76%  0.80 (0.04)    9.7 ( 7.5)
+ 15-18            425    64%  0.81 (0.03)    6.5 ( 3.8)
+ 18-21            396    69%  0.80 (0.03)   15.9 (11.0)
+ 21-24            612    78%  0.81 (0.03)   11.9 ( 8.2)
+ 24-27            594    70%  0.81 (0.03)    9.1 ( 6.9)
+ 27-30            704    74%  0.81 (0.03)   13.2 ( 8.4)
+ 30-33            186    60%  0.80 (0.03)    4.0 ( 2.5)
+ 33-36            853    79%  0.83 (0.04)   16.4 (11.6)
+ 36-39            224    63%  0.81 (0.03)    5.8 ( 3.8)
+ 39-42            136    57%  0.82 (0.03)    7.4 ( 4.6)
+ 42-45             84    56%  0.82 (0.04)    3.9 ( 1.9)
+ 45-48            242    85%  0.81 (0.04)    6.5 ( 3.6)
+ 48-51             19    37%  0.82 (0.02)    1.7 ( 0.4)
+ 51-54             50    88%  0.81 (0.05)    3.5 ( 1.5)
+ 54-57             68    74%  0.83 (0.04)    2.8 ( 1.7)
+ 57-60             74    54%  0.81 (0.06)    2.2 ( 0.9)
+ 60-63             40    38%  0.87 (0.04)    3.1 ( 1.5)
+ 63-66             30    80%  0.82 (0.04)    2.9 ( 1.3)
+ 66-69              4    75%  0.83 (0.03)    2.7 ( 1.6)
+ 75-78              3     0%  0.00 (0.00)    0.0 ( 0.0)
+ 78-81             22    64%  0.83 (0.04)    1.2 ( 0.3)
+ 81-84              6    33%  0.82 (0.07)    1.0 ( 0.0)
+ 84-87             12   100%  0.87 (0.06)    1.1 ( 0.2)
+ 87-90              8   100%  0.91 (0.04)    2.0 ( 0.8)
+ 90-93              5   100%  0.80 (0.06)    1.4 ( 0.5)
+ 93-96              8    88%  0.90 (0.03)    1.9 ( 0.7)
+ 96-99             13    92%  0.86 (0.05)    1.7 ( 0.7)
+ 99-102            12    75%  0.89 (0.04)    1.3 ( 0.5)
+102-105             4    75%  0.84 (0.02)    1.7 ( 0.4)
+108-111             3    33%  0.90 (0.00)    1.0 ( 0.0)
+111-114             6    67%  0.85 (0.06)    1.0 ( 0.0)
+114-117             5    20%  0.96 (0.00)    1.0 ( 0.0)
+117-120             7    29%  0.82 (0.01)    1.5 ( 0.5)
+120-123             2     0%  0.00 (0.00)    0.0 ( 0.0)
 [...]
-Stats by station
-4D.MH36.A   : #pha     37 pha good CC  81% avg coeff 0.79 avg #matches/ph  4
-4D.MH44.A   : #pha     38 pha good CC  92% avg coeff 0.82 avg #matches/ph  5
-4D.MH48.A   : #pha     27 pha good CC  85% avg coeff 0.81 avg #matches/ph  4
-4D.MH54.A   : #pha     25 pha good CC  92% avg coeff 0.83 avg #matches/ph  2
-4D.RA43.    : #pha      5 pha good CC   0% avg coeff 0.00 avg #matches/ph  0
-8D.AMIDI.   : #pha     14 pha good CC  93% avg coeff 0.84 avg #matches/ph  3
-8D.BTAO.    : #pha      5 pha good CC   0% avg coeff 0.00 avg #matches/ph  0
-8D.BTNF.    : #pha      6 pha good CC   0% avg coeff 0.00 avg #matches/ph  0
-8D.GSF03.   : #pha      7 pha good CC   0% avg coeff 0.00 avg #matches/ph  0
+Cross-correlations by station
+Station       #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) 
+4D.MH36.A           37    84%  0.79 (0.03)    4.4 ( 2.0)
+4D.MH44.A           39    90%  0.82 (0.04)    5.5 ( 2.2)
+4D.MH48.A           27    81%  0.81 (0.03)    4.5 ( 2.0)
+4D.MH54.A           24    96%  0.82 (0.05)    2.7 ( 1.1)
+4D.RA43.             5    80%  0.86 (0.03)    1.0 ( 0.0)
+8D.AMIDI.           14    93%  0.84 (0.04)    3.4 ( 1.1)
+8D.BTAO.             5    80%  0.87 (0.09)    1.2 ( 0.4)
+8D.BTNF.             8    62%  0.83 (0.04)    1.0 ( 0.0)
+8D.GSF03.            7    86%  0.88 (0.08)    1.2 ( 0.3)
+8D.LULY2.            1     0%  0.00 (0.00)    0.0 ( 0.0)
+8D.LULY3.            1   100%  0.87 (0.00)    1.0 ( 0.0)
+8D.MFERR.          102    88%  0.82 (0.04)    9.3 ( 3.6)
+8D.NVL3.             8    88%  0.83 (0.02)    3.4 ( 0.9)
+8D.RAW1.           510    91%  0.81 (0.04)   14.8 ( 9.9)
+8D.RAW2.           531    97%  0.82 (0.04)   28.6 (13.4)
+8D.RAW4.           271    68%  0.80 (0.03)   20.5 (10.8)
+C4.CERNS.            2   100%  0.89 (0.01)    1.5 ( 0.5)
+CH.AIGLE.           88    64%  0.81 (0.03)    3.6 ( 1.6)
+CH.BALST.            3    33%  0.96 (0.00)    1.0 ( 0.0)
 [...]
 ```
 
