@@ -1844,7 +1844,7 @@ HypoDD::evalXCorr()
 {
     bool theoretical = false; // this is useful for testing theoretical phase detection
 
-    XCorrEvalStats totalStats;
+    XCorrEvalStats totalStats, pPhaseStats, sPhaseStats;
     map<string,XCorrEvalStats> statsByStation; // key station id
     map<int,XCorrEvalStats> statsByInterEvDistance; // key distance
     map<int,XCorrEvalStats> statsByStaDistance; // key distance
@@ -1855,10 +1855,12 @@ HypoDD::evalXCorr()
     {
         string log = title + "\n";
         log += stringify("Cumulative stats: %s\n", totalStats.describeShort(theoretical).c_str());
+        log += stringify("Cumulative stats P ph: %s\n", pPhaseStats.describeShort(theoretical).c_str());
+        log += stringify("Cumulative stats S ph: %s\n", sPhaseStats.describeShort(theoretical).c_str());
 
         log += stringify("Cross-correlations by inter-event distance in %.2f km step\n", EV_DIST_STEP);
-        log += stringify(" EvDist [km]      #CC GoodCC AvgCoeff(MAD) GoodCC/Ev(MAD) %s\n",
-                        ( theoretical ? "time-diff[msec] (MAD)" : "") ); 
+        log += stringify(" EvDist [km]  #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) %s\n",
+                        ( theoretical ? "time-diff[msec] (MAD)" : "") );
         for ( const auto& kv : statsByInterEvDistance)
         {
             log += stringify("%5.2f-%-5.2f %s\n",
@@ -1937,7 +1939,6 @@ HypoDD::evalXCorr()
         // Compare the detected phases with the actual event phases (manual or automatic)
         //
         XCorrEvalStats evStats;
-        map<unsigned,XCorrEvalStats> statsByNeighbour; // key neighbour id
 
         for ( const auto& kv : neighbours->allPhases() )
             for ( Phase::Type phaseType : kv.second )
@@ -1965,6 +1966,9 @@ HypoDD::evalXCorr()
             }
 
             evStats += phStaStats;
+            totalStats += phStaStats;
+            if ( phaseType == Phase::Type::P ) pPhaseStats += phStaStats;
+            if ( phaseType == Phase::Type::S ) sPhaseStats += phStaStats;
             statsByStation[catalogPhase.stationId] += phStaStats;
 
             const Station& station = _ddbgc->getStations().at(catalogPhase.stationId);
@@ -1972,44 +1976,48 @@ HypoDD::evalXCorr()
             statsByStaDistance[ int(stationDistance/STA_DIST_STEP) ] += phStaStats;
 
             //
-            //  collect stats by neighbour to build later stats by inter-event dist
+            //  collect stats by inter event distance
             //
+            map<unsigned,XCorrEvalStats> tmpStatsByInterEvDistance;
+
             for ( unsigned neighEvId : neighbours->ids )
             {
                 if ( neighbours->has(neighEvId, stationId, phaseType) )
                 {
-                    XCorrEvalStats& neighStats = statsByNeighbour[neighEvId];
+                    const Event& neighbEv = catalog->getEvents().at(neighEvId);
+                    double interEvDistance = computeDistance(event, neighbEv); 
+                    XCorrEvalStats& interEvDistStats = tmpStatsByInterEvDistance[int(interEvDistance/EV_DIST_STEP)];
+                    interEvDistStats.total = 1;
                     if ( xcorr.has(event.id, neighEvId, stationId, phaseType) )
                     {
                         const auto& xe = xcorr.get(event.id, stationId, phaseType);
                         const auto& xpi = xcorr.get(event.id, neighEvId, stationId, phaseType);
                         double deviation = detectedPhaseDeviation - (xe.mean_lag - xpi.lag);
-                        neighStats.addGoodCC(xpi.coeff, 1, deviation);
+                        interEvDistStats.goodCC = 1;
+                        interEvDistStats.ccCount.push_back(1);
+                        interEvDistStats.ccCoeff.push_back(xpi.coeff);
+                        interEvDistStats.deviation.push_back(deviation);
                     }
-                    else
-                    {
-                        neighStats.addBadCC();
-                    } 
+                }
+            }
+
+            for ( const auto& kv : tmpStatsByInterEvDistance )
+            {
+                const double interEvDistanceBucket = kv.first;
+                const XCorrEvalStats& newStats = kv.second;
+                XCorrEvalStats& interEvDistStats = statsByInterEvDistance[ interEvDistanceBucket ];
+                interEvDistStats.total += newStats.total;
+                if ( newStats.goodCC > 0 )
+                {
+                    interEvDistStats.goodCC += newStats.goodCC;
+                    interEvDistStats.ccCount.push_back( 
+                            std::accumulate(newStats.ccCount.begin(), newStats.ccCount.end(), 0) );
+                    interEvDistStats.ccCoeff.push_back( computeMean(newStats.ccCoeff) );
+                    interEvDistStats.deviation.push_back( computeMean(newStats.deviation) );
                 }
             }
         }
 
-        //
-        //  use stats by neighbour to update stats by inter event distance
-        //
-        for ( auto& kv : statsByNeighbour )
-        {
-            const Event& neighbEv = catalog->getEvents().at(kv.first);
-            XCorrEvalStats& neighStats = kv.second;
-            // we want ccCount to be the number of good CC for this event
-            neighStats.ccCount.clear();
-            neighStats.ccCount.push_back( neighStats.goodCC );
-            double interEvDistance = computeDistance(event, neighbEv); 
-            statsByInterEvDistance[ int(interEvDistance/EV_DIST_STEP) ] += neighStats;
-        }
-
-        // total stats
-        totalStats += evStats;
         SEISCOMP_WARNING("Event %-5s mag %3.1f %s", string(event).c_str(), event.magnitude,
                          evStats.describeShort(theoretical).c_str());
 
