@@ -356,7 +356,7 @@ CH.BALST.            3    33%  0.96 (0.00)    1.0 ( 0.0)
 [...]
 ```
 
-It is especially interesting to compare the results after the catalog has been relocated and loaded back to the profile. The new statistics should see how number of detected phases, quality of correlation coefficient decrease with increasing inter-event distance (if the relocation is good).
+It is especially interesting to compare the results after the catalog has been relocated and loaded back to the profile. The new statistics should show better performance for events close to each others and that should worsen with increasing inter-event distance. This is useful to evaluate the quality of relocation as explained in Waldhauser & Ellsworth's paper.
 
 ### 2.3 Waveforms inspection
 
