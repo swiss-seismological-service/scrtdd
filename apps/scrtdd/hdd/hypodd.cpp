@@ -1224,6 +1224,7 @@ HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                     Phase tmpPh = refPhase;
                     tmpPh.time  -= Core::TimeSpan(entry.mean_lag);
                     tmpPh.channelCode = WfMngr::getBandAndInstrumentCodes(tmpPh.channelCode) + component;
+                    // WfMngr::getWaveform  fails if SNR too low
                     trace = _wf->getWaveform(tw, refEv, tmpPh, nullptr, tempCache, true);
                     if ( trace ) break;
                 }
@@ -1287,6 +1288,7 @@ void HypoDD::fixPhases(CatalogPtr& catalog,
                        const Event& refEv,
                        XCorrCache& xcorr)
 {
+    unsigned totP = 0, totS = 0;
     unsigned newP = 0, newS = 0;
 
     std::vector<Phase> phasesToBeRemoved;
@@ -1297,6 +1299,9 @@ void HypoDD::fixPhases(CatalogPtr& catalog,
     {
         const Phase& phase = it->second;
         bool goodXcorr = xcorr.has(refEv.id, phase.stationId, phase.procInfo.type);
+
+        if ( phase.procInfo.type == Phase::Type::P ) totP++;
+        if ( phase.procInfo.type == Phase::Type::S ) totS++;
 
         // nothing to do if we dont't have good xcorr results of if the phase is manual or from catalog
         if ( ! goodXcorr || phase.isManual || (phase.procInfo.source == Phase::Source::CATALOG) )
@@ -1322,8 +1327,8 @@ void HypoDD::fixPhases(CatalogPtr& catalog,
 
         if ( phase.procInfo.source == Phase::Source::THEORETICAL )
         {
-            newP += newPhase.procInfo.type == Phase::Type::P ? 1 : 0;
-            newS += newPhase.procInfo.type == Phase::Type::S ? 1 : 0; 
+            if ( newPhase.procInfo.type == Phase::Type::P ) newP++;
+            if ( newPhase.procInfo.type == Phase::Type::S ) newS++;
         }
 
         newPhases.push_back(newPhase);
@@ -1334,6 +1339,8 @@ void HypoDD::fixPhases(CatalogPtr& catalog,
     //
     for (const Phase& ph : phasesToBeRemoved)
     {
+        if ( ph.procInfo.type == Phase::Type::P ) totP--;
+        if ( ph.procInfo.type == Phase::Type::S ) totS--;
         catalog->removePhase(ph.eventId, ph.stationId, ph.procInfo.type);
     }
 
@@ -1342,10 +1349,8 @@ void HypoDD::fixPhases(CatalogPtr& catalog,
         catalog->updatePhase(ph, true);
     }
 
-    const auto& refEvPhases = catalog->getPhases().equal_range(refEv.id);
-    SEISCOMP_INFO("Event %s total phases %lu: created %u (%u P and %u S) from theoretical picks",
-                   string(refEv).c_str(), std::distance(refEvPhases.first, refEvPhases.second),
-                   (newP+newS), newP, newS );
+    SEISCOMP_INFO("Event %s total phases %u (%u P and %u S): created %u (%u P and %u S) from theoretical picks",
+                   string(refEv).c_str(), (totP+totS), totP, totS, (newP+newS), newP, newS );
 }
 
 
