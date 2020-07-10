@@ -1858,7 +1858,7 @@ HypoDD::evalXCorr()
         log += stringify("Cumulative stats P ph: %s\n", pPhaseStats.describeShort(theoretical).c_str());
         log += stringify("Cumulative stats S ph: %s\n", sPhaseStats.describeShort(theoretical).c_str());
 
-        log += stringify("Cross-correlations by inter-event distance in %.2f km step\n", EV_DIST_STEP);
+        log += stringify("Cross-correlated Phases by inter-event distance in %.2f km step\n", EV_DIST_STEP);
         log += stringify(" EvDist [km]  #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) %s\n",
                         ( theoretical ? "time-diff[msec] (MAD)" : "") );
         for ( const auto& kv : statsByInterEvDistance)
@@ -1868,7 +1868,7 @@ HypoDD::evalXCorr()
                              kv.second.describe(theoretical).c_str());
         }
 
-        log += stringify("Phases cross-correlated by event to station distance in %.2f km step\n", STA_DIST_STEP);
+        log += stringify("Cross-correlated Phases by event to station distance in %.2f km step\n", STA_DIST_STEP);
         log += stringify("StaDist [km]  #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) %s\n",
                         ( theoretical ? "time-diff[msec] (MAD)" : "") ); 
         for ( const auto& kv : statsByStaDistance)
@@ -2001,20 +2001,17 @@ HypoDD::evalXCorr()
                 }
             }
 
-            for ( const auto& kv : tmpStatsByInterEvDistance )
+            for ( auto& kv : tmpStatsByInterEvDistance )
             {
                 const double interEvDistanceBucket = kv.first;
-                const XCorrEvalStats& newStats = kv.second;
-                XCorrEvalStats& interEvDistStats = statsByInterEvDistance[ interEvDistanceBucket ];
-                interEvDistStats.total += newStats.total;
+                XCorrEvalStats& newStats = kv.second;
                 if ( newStats.goodCC > 0 )
                 {
-                    interEvDistStats.goodCC += newStats.goodCC;
-                    interEvDistStats.ccCount.push_back( 
-                            std::accumulate(newStats.ccCount.begin(), newStats.ccCount.end(), 0) );
-                    interEvDistStats.ccCoeff.push_back( computeMean(newStats.ccCoeff) );
-                    interEvDistStats.deviation.push_back( computeMean(newStats.deviation) );
+                    newStats.ccCount = { std::accumulate(newStats.ccCount.begin(), newStats.ccCount.end(), 0.) };
+                    newStats.ccCoeff = { computeMean(newStats.ccCoeff) };
+                    newStats.deviation = { computeMean(newStats.deviation) };
                 }
+                statsByInterEvDistance[ interEvDistanceBucket ] += newStats;
             }
         }
 
