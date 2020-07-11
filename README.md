@@ -184,7 +184,7 @@ In addition to the options we have already seen, there are also some other inter
 
 E.g.
 ```
-scrtdd --dump-catalog-xml phase.csv,station.csv,event.csv
+scrtdd --dump-catalog-xml station.csv,event.csv,phase.csv
 ```
 or
 ```
@@ -194,7 +194,7 @@ scrtdd --dump-catalog-xml myCatalog.csv
 `--merge-catalogs` and `--merge-catalogs-keepid` are useful to merge several catalogs in a single one. The difference between the two is that "keepid" properly handle repeted events. e.g.
 
 ```
-scrtdd --merge-catalogs phase1.csv,station1.csv,event1.csv,phase2.csv,station2.csv,event2.csv
+scrtdd --merge-catalogs station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,phase2.csv
 ```
 
 Here is a list of all the options we have seen so far:
@@ -425,7 +425,7 @@ We can see that the statistics are broken down in actual picks and theoretical p
 
 ### 3.2 Eval-xcorr command
 
-A more sophisticated method for evaluating the settings is the `--eval-xcorr` command (here we use `--verbosity=2` because the statistics are printed at this log level, useful to skip other information):
+A more sophisticated method for evaluating the settings is the `--eval-xcorr` command (here we use `--verbosity=2` because the statistics are printed at this log level, useful to avoid being overwhelmed by too much information):
 
 ```
 scrtdd --eval-xcorr profileName --verbosity=2 --console=1
@@ -541,7 +541,7 @@ Station       #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD)
 [...]
 ```
 
-It is especially interesting to compare the results after the catalog has been relocated and loaded back to the profile. The new statistics should show better performance for events close to each others and that should worsen with increasing inter-event distance. This is useful to evaluate the quality of relocation as explained in Waldhauser & Ellsworth's paper.
+It is especially interesting to compare the results before/after the catalog has been relocated. The new statistics should show better performance for events close to each others and gradually worsen with increasing inter-event distance. That is an indirect measure of the quality of the relocation as explained in Waldhauser & Ellsworth's paper.
 
 ### 3.3 Waveforms inspection
 
