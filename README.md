@@ -369,11 +369,13 @@ Once we are happy with the configuration we can simply enable and start scrtdd a
 
 ### 2.4 Phase update
 
-During real-time relocations, once cross-correlation is completed, scrtdd updates automatic phase pick time and uncertainties of the origin is going to relocate. The pick time is updated accordingly to the average lag detected by all the good (above configured threshold) cross-correlation results. Since the real-time events are cross-correlated against catalog events, which have good manual picks, the new pick time is expected to improve pick accuracy. Also the pick uncertainty is derived from the uncertainties of catalog-events. If there is no cross-correlations result above the configured threshold, the pick time is kept untouched.
+scrtdd uses cross-correlation to detect phases at stations with no associated picks and to fix the pick time and uncertainty of automatic picks. Those features are especially useful in real-time to increase the quality and number of double-difference observations when automatic origins have only few picks/phases.
 
-The same process is applied to theoretical phases, which are computed by scrtdd for each station that has no pick.Every theoretical phase that has at least one good cross-correlation result is added to the relocated origin, with pick time and uncertainties derived from catalog phases. Theoretical phases that have no good cross-correlation results never end up in the relocated origin.
+For automatic picks, the pick time is updated accordingly to the average lag detected by all the good (above configured threshold) cross-correlation results. Since the real-time events are cross-correlated against catalog events, which have good manual picks, the updated pick time is expected to improve. The pick uncertainty is derived from the uncertainties of catalog-events. If no cross-correlations above the configured threshold are found, the pick is kept untouched.
 
-Picks that have been updated are identifiable by a `x` suffix.
+For stations with no associated phases, scrtdd computes theoretical picks. Those are then cross-correlated against the catalog event ones. Every theoretical pick that has at least one good cross-correlation result is added to the relocated origin, with pick time and uncertainties derived from catalog phases (similarly to what is done for automatic picks). Those "good" theoretical picks and thus used in the double-difference system inversion. Theoretical picks that have no good cross-correlation results are simply discarded.
+
+Picks that have been updated or created by scrtdd are identifiable by a `x` suffix (Px, Sx).
 
 Manual picks are never modified.
 
@@ -400,18 +402,18 @@ Also we use `cron.delayTimes` option to re-perform the relocation some minutes l
 
 ## 3. Cross-correlation, waveform filtering and signal to noise ratio options
 
-Good cross-correlation results are needed to achieve high resolution travel time differences between event phases at common stations. Those high resolution differences result in high quality relocations.
+Good cross-correlation results are needed to achieve high resolution double-difference observations, which in turn results in high quality relocations.
 
-Also, good cross-correlation results are very useful since scrtdd uses cross-correlation to detect phases for station that have no associated picks. This is especially useful when relocating automatic origins and only few picks are available.
+The configuration of cross-correlation parameters require some trial and error, but once they are properly tuned for the multi-event scenario they can be kept identical in the single-event relocation, except for the parameter ```maxDelay``` that should be increased in real-time relocation to accomodate the larger uncertainty of automatic picks (unless scrtdd is used to only relocate manually reviewed origins). 
 
-This set of configuration parameters require some trial and error to be correctly set, but once they are tuned they can be kept identical for both multi event and single event relocation without any major changes, except for the parameter ```maxDelay``` that should be increased in real-time relocation to accomodate the larger uncertainty of automatic picks (unless scrtdd is used to only relocate manually reviewed origins). Here is an example configuration:
+Here is an example configuration:
 
 ![Relocation options](/data/xcorr.png?raw=true "Relocation options")
 
 
 ### 3.1 Logs
 
-To help figuring out the right values for cross-correlation the log file (or console output with ```--console=1 --verbosity=3```) come in handy:
+Some cross-correlation statistics are printed in both multi-event and single-event mode. Those can be seen in the log file or in the console output if ```--console=1 --verbosity=3```) is used.
 
 ```
 [info] Cross-correlation statistics: performed 40361, waveforms with Signal to Noise ratio too low 2435, waveforms not available 98
@@ -420,7 +422,7 @@ To help figuring out the right values for cross-correlation the log file (or con
 [info] xcorr on theoretical picks 15577/40361 (P 58%, S 42%) success 15% (2313/15577). Successful P 7% (671/9083). Successful S 25% (1642/6494)
 ```
 
-We can see that the statistics are broken down in actual picks and theoretical picks. This is because scrtdd computes theoretical picks so that they can be used in cross-correlation. If the resulting correlation coefficient is good enough the result is used in the double-difference system inversion. This is especially useful to increase the number of observations in real-time when automatic origins have only few automatic picks/phases. A new pick is also created and added to the relocated origin when the cross-correlation results are good enough.
+The statistics are broken down in actual picks and theoretical picks. This is because scrtdd computes theoretical picks that are cross-correlated together with detected picks. This is useful to increase the number of double-difference observations.  See "Phase update" paragraph for details.
 
 
 ### 3.2 Eval-xcorr command
