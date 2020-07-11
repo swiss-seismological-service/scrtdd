@@ -391,7 +391,7 @@ void Catalog::add(const std::vector<DataModel::OriginPtr>& origins,
         }
         else
         {
-            SEISCOMP_WARNING("Origin %s: cannot load preferred magnitude from parent event, set it to 0",
+            SEISCOMP_DEBUG("Origin %s: cannot load preferred magnitude from parent event, set it to 0",
                              org->publicID().c_str());
             ev.magnitude = 0.;
         }

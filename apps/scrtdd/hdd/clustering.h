@@ -78,7 +78,7 @@ struct Neighbours : public Core::BaseObject
         return false;
     } 
 
-    CatalogPtr fromNeighbours(const CatalogCPtr& catalog, bool includeRefEv=false) const
+    CatalogPtr toCatalog(const CatalogCPtr& catalog, bool includeRefEv=false) const
     {
         CatalogPtr returnCat( new Catalog() );
         for (unsigned neighbourId : ids)

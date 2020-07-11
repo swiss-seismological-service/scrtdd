@@ -465,7 +465,7 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
         //
         // Prepare catalog to relocate
         //
-        CatalogPtr catalog = neighbours->fromNeighbours(bgCat);
+        CatalogPtr catalog = neighbours->toCatalog(bgCat);
         unsigned evToRelocateNewId = catalog->add(evToRelocate.id, *evToRelocateCat, false);
         neighbours->refEvId = evToRelocateNewId;
 
@@ -1205,9 +1205,9 @@ HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             }
         }
 
+        // finalize statistics
         if ( xcorr.has(refEv.id, refPhase.stationId, refPhase.procInfo.type) )
         {
-            // finalize statistics
             auto& entry = xcorr.getForUpdate(refEv.id, refPhase.stationId, refPhase.procInfo.type);
             entry.computeStats();
 
@@ -1514,7 +1514,7 @@ HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phC
 
         goodCoeff = ( performed && coeffOut >= xcorrCfg.minCoef );
 
-        // if the xcorr was successfull and the coeffiecnt is good then stopi here
+        // if the xcorr was successfull and the coeffiecnt is good then stop here
         if ( goodCoeff )
         {
             break;
@@ -1776,20 +1776,20 @@ namespace {
         unsigned goodCC = 0;
         vector<double> ccCoeff;
         vector<double> ccCount;
-        vector<double> deviation;
+        vector<double> timeDiff;
 
         void addBadCC()
         {
             total++;
         }
 
-        void addGoodCC(double ccCoeff, unsigned ccCount, double deviation)
+        void addGoodCC(double ccCoeff, unsigned ccCount, double timeDiff)
         {
             this->total++;
             this->goodCC++;
             this->ccCoeff.push_back(ccCoeff);
             this->ccCount.push_back(ccCount);
-            this->deviation.push_back(deviation);
+            this->timeDiff.push_back(timeDiff);
         }
 
         XCorrEvalStats& operator+=(XCorrEvalStats const& rhs)&
@@ -1798,7 +1798,7 @@ namespace {
             goodCC += rhs.goodCC;
             ccCoeff.insert( ccCoeff.end(), rhs.ccCoeff.begin(), rhs.ccCoeff.end() );
             ccCount.insert( ccCount.end(), rhs.ccCount.begin(), rhs.ccCount.end() );
-            deviation.insert( deviation.end(), rhs.deviation.begin(), rhs.deviation.end() );
+            timeDiff.insert( timeDiff.end(), rhs.timeDiff.begin(), rhs.timeDiff.end() );
             return *this;
         }
 
@@ -1808,22 +1808,19 @@ namespace {
             return lhs;
         }
 
-        string describeShort(bool theoretical) const
+        string describeShort() const
         {
             double meanCoeff = computeMean(ccCoeff);
             double meanCount = computeMean(ccCount);
-            string log = stringify("#pha %6d pha good CC %3.f%% avg coeff %.2f avg goodCC/ph %4.1f",
+            string log = stringify("#pha %6d pha good CC %3.f%% coeff %.2f goodCC/ph %4.1f",
                               total, (goodCC * 100. / total), meanCoeff, meanCount);
-            if ( theoretical )
-            {
-                double meanDev = computeMean(deviation);
-                double meanDevMAD = computeMeanAbsoluteDeviation(deviation, meanDev);
-                log += stringify(" time-diff [msec] %3.f MeanAbsDev %3.f", meanDev*1000, meanDevMAD*1000);
-            } 
+            double meanDev = computeMean(timeDiff);
+            double meanDevMAD = computeMeanAbsoluteDeviation(timeDiff, meanDev);
+            log += stringify(" time-diff [msec] %3.f (MeanAbsDev %3.f)", meanDev*1000, meanDevMAD*1000);
             return log;
         }
 
-        string describe(bool theoretical) const
+        string describe() const
         {
             double meanCoeff = computeMean(ccCoeff);
             double meanCoeffMAD = computeMeanAbsoluteDeviation(ccCoeff, meanCoeff);
@@ -1832,12 +1829,9 @@ namespace {
             string log = stringify("%9d %5.f%% % 4.2f (%4.2f)   %4.1f (%4.1f)",
                               total, (goodCC * 100. / total),
                               meanCoeff, meanCoeffMAD, meanCount, meanCountMAD);
-            if ( theoretical )
-            {
-                double meanDev = computeMean(deviation);
-                double meanDevMAD = computeMeanAbsoluteDeviation(deviation, meanDev);
-                log += stringify("%8.f (%3.f)", meanDev*1000, meanDevMAD*1000);
-            }
+            double meanDev = computeMean(timeDiff);
+            double meanDevMAD = computeMeanAbsoluteDeviation(timeDiff, meanDev);
+            log += stringify("%8.f (%3.f)", meanDev*1000, meanDevMAD*1000);
             return log;
         }
     };
@@ -1856,40 +1850,37 @@ HypoDD::evalXCorr()
     const double EV_DIST_STEP = 0.1; // km
     const double STA_DIST_STEP = 3; // km
 
-    auto printStats = [&](string title, bool theoretical)
+    auto printStats = [&](string title)
     {
         string log = title + "\n";
-        log += stringify("Cumulative stats: %s\n", totalStats.describeShort(theoretical).c_str());
-        log += stringify("Cumulative stats P ph: %s\n", pPhaseStats.describeShort(theoretical).c_str());
-        log += stringify("Cumulative stats S ph: %s\n", sPhaseStats.describeShort(theoretical).c_str());
+        log += stringify("Cumulative stats: %s\n", totalStats.describeShort().c_str());
+        log += stringify("Cumulative stats P ph: %s\n", pPhaseStats.describeShort().c_str());
+        log += stringify("Cumulative stats S ph: %s\n", sPhaseStats.describeShort().c_str());
 
         log += stringify("Cross-correlated Phases by inter-event distance in %.2f km step\n", EV_DIST_STEP);
-        log += stringify(" EvDist [km]  #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) %s\n",
-                        ( theoretical ? "time-diff[msec] (MAD)" : "") );
+        log += stringify(" EvDist [km]  #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) time-diff[msec] (MAD)\n");
         for ( const auto& kv : statsByInterEvDistance)
         {
             log += stringify("%5.2f-%-5.2f %s\n",
                              kv.first*EV_DIST_STEP, (kv.first+1)*EV_DIST_STEP,
-                             kv.second.describe(theoretical).c_str());
+                             kv.second.describe().c_str());
         }
 
         log += stringify("Cross-correlated Phases by event to station distance in %.2f km step\n", STA_DIST_STEP);
-        log += stringify("StaDist [km]  #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) %s\n",
-                        ( theoretical ? "time-diff[msec] (MAD)" : "") ); 
+        log += stringify("StaDist [km]  #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) time-diff[msec] (MAD)\n");
         for ( const auto& kv : statsByStaDistance)
         {
             log += stringify("%3d-%-3d     %s\n", int(kv.first*STA_DIST_STEP),
                             int((kv.first+1)*STA_DIST_STEP),
-                            kv.second.describe(theoretical).c_str());
+                            kv.second.describe().c_str());
         }
 
         log += stringify("Cross-correlations by station\n");
-        log += stringify("Station       #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) %s\n",
-                        ( theoretical ? "time-diff[msec] (MAD)" : "") ); 
+        log += stringify("Station       #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) time-diff[msec] (MAD)\n");
         for ( const auto& kv : statsByStation)
         {
             log += stringify("%-12s %s\n", kv.first.c_str(),
-                             kv.second.describe(theoretical).c_str());
+                             kv.second.describe().c_str());
         }
         SEISCOMP_WARNING("%s", log.c_str() );
     };
@@ -1918,16 +1909,14 @@ HypoDD::evalXCorr()
 
         if ( theoretical )
         {
-            catalog = neighbours->fromNeighbours(_ddbgc, false);
- 
-            // create theoretical phases for this event
-            // beware: no event phases are present in catalog so the event
-            // will end up with only theoretical phases
+            // create theoretical phases for this event instead of
+            // fetching its phases from the catalog
+            catalog = neighbours->toCatalog(_ddbgc, false);
             addMissingEventPhases(event, catalog, _ddbgc, neighbours);
         }
         else
         {
-            catalog = neighbours->fromNeighbours(_ddbgc, true);
+            catalog = neighbours->toCatalog(_ddbgc, true);
         }
 
         // cross correlate every neighbour phase with corresponding event theoretical phase
@@ -1938,7 +1927,9 @@ HypoDD::evalXCorr()
         // cross-correlation results
         // Also drop theoretical phases wihout any good cross correlation result
         if ( theoretical )
+        {
             fixPhases(catalog, event, xcorr);
+        }
 
         //
         // Compare the detected phases with the actual event phases (manual or automatic)
@@ -1955,15 +1946,22 @@ HypoDD::evalXCorr()
             const Phase& catalogPhase = _ddbgc->searchPhase(event.id, stationId, phaseType)->second;
 
             XCorrEvalStats phStaStats;
-            double detectedPhaseDeviation = 0;
+            double phaseTimeDiff = 0;
 
             if ( xcorr.has(event.id, stationId, phaseType) )
             {
-                const Phase& detectedPhase = catalog->searchPhase(event.id, stationId,
-                                                                  phaseType)->second;
-                detectedPhaseDeviation = (catalogPhase.time - detectedPhase.time).length();
                 const auto& xentry = xcorr.get(event.id, stationId, phaseType);
-                phStaStats.addGoodCC(xentry.mean_coeff, xentry.ccCount, detectedPhaseDeviation);
+                if ( theoretical )
+                {
+                    const Phase& detectedPhase = catalog->searchPhase(event.id, stationId,
+                                                                      phaseType)->second;
+                    phaseTimeDiff = (catalogPhase.time - detectedPhase.time).length();
+                }
+                else
+                {
+                    phaseTimeDiff = xentry.mean_lag;
+                }
+                phStaStats.addGoodCC(xentry.mean_coeff, xentry.ccCount, phaseTimeDiff);
             }
             else
             {
@@ -1995,13 +1993,20 @@ HypoDD::evalXCorr()
                     interEvDistStats.total = 1;
                     if ( xcorr.has(event.id, neighEvId, stationId, phaseType) )
                     {
-                        const auto& xe = xcorr.get(event.id, stationId, phaseType);
                         const auto& xpi = xcorr.get(event.id, neighEvId, stationId, phaseType);
-                        double deviation = detectedPhaseDeviation - (xe.mean_lag - xpi.lag);
                         interEvDistStats.goodCC = 1;
                         interEvDistStats.ccCount.push_back(1);
                         interEvDistStats.ccCoeff.push_back(xpi.coeff);
-                        interEvDistStats.deviation.push_back(deviation);
+                        if ( theoretical )
+                        {
+                            const auto& xentry = xcorr.get(event.id, stationId, phaseType);
+                            double timeDiff = phaseTimeDiff - (xentry.mean_lag - xpi.lag);
+                            interEvDistStats.timeDiff.push_back(timeDiff);
+                        }
+                        else
+                        {
+                            interEvDistStats.timeDiff.push_back(xpi.lag);
+                        }
                     }
                 }
             }
@@ -2014,22 +2019,22 @@ HypoDD::evalXCorr()
                 {
                     newStats.ccCount = { std::accumulate(newStats.ccCount.begin(), newStats.ccCount.end(), 0.) };
                     newStats.ccCoeff = { computeMean(newStats.ccCoeff) };
-                    newStats.deviation = { computeMean(newStats.deviation) };
+                    newStats.timeDiff = { computeMean(newStats.timeDiff) };
                 }
                 statsByInterEvDistance[ interEvDistanceBucket ] += newStats;
             }
         }
 
         SEISCOMP_WARNING("Event %-5s mag %3.1f %s", string(event).c_str(), event.magnitude,
-                         evStats.describeShort(theoretical).c_str());
+                         evStats.describeShort().c_str());
 
         if ( ++loop % 100 == 0 )
         {
-            printStats("<<<Progressive stats>>>", theoretical);
+            printStats("<PROGRESSIVE STATS>");
         }
     }
 
-    printStats("<<<Final stats>>>", theoretical);
+    printStats("<FINAL STATS>");
     printCounters();
 
 }

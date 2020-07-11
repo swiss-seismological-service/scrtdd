@@ -373,7 +373,7 @@ scrtdd uses cross-correlation to detect phases at stations with no associated pi
 
 For automatic picks, the pick time is updated accordingly to the average lag detected by all the good (above configured threshold) cross-correlation results. Since the real-time events are cross-correlated against catalog events, which have good manual picks, the updated pick time is expected to improve. The pick uncertainty is derived from the uncertainties of catalog-events. If no cross-correlations above the configured threshold are found, the pick is kept untouched.
 
-For stations with no associated phases, scrtdd computes theoretical picks. Those are then cross-correlated against the catalog event ones. Every theoretical pick that has at least one good cross-correlation result is added to the relocated origin, with pick time and uncertainties derived from catalog phases (similarly to what is done for automatic picks). Those "good" theoretical picks and thus used in the double-difference system inversion. Theoretical picks that have no good cross-correlation results are simply discarded.
+For stations with no associated phases, scrtdd computes theoretical picks. Those are then cross-correlated against the catalog event ones. Every theoretical pick that has at least one good cross-correlation result is added to the relocated origin, with pick time and uncertainties derived from catalog phases (similarly to what is done for automatic picks). Those "good" theoretical picks are thus used in the double-difference system inversion. Theoretical picks that have no good cross-correlation results are simply discarded.
 
 Picks that have been updated or created by scrtdd are identifiable by a `x` suffix (Px, Sx).
 
