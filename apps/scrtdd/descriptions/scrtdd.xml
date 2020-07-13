@@ -616,10 +616,14 @@
                         <parameter name="algoIterations" type="int" default="20">
                             <description>
                                 The solver finds the solution to the double-differnce system
-                                starting from the initial origins locations and then it iterates
-                                the process multiple times updating the observations based on the
-                                origins new locations and reweighting the observations depending on
-                                their residuals (see downWeightingByResidual)
+                                starting from the initial origins locations, then it iterates
+                                the process multiple times updating the double-difference observations
+                                based on the origin newly found locations (the observations weights are
+                                also updated, see downWeightingByResidual). This parameter control
+                                how many times the process is performed. The logs of the relocation 
+                                contain information on the residuals of the double-difference system 
+                                at the end of each iteration. That information should be used to
+                                evaluate when it is worth increasing the number of interations.
                             </description>
                         </parameter> 
                         <group name="downWeightingByResidual">
@@ -643,16 +647,10 @@
                         </group> 
                         <group name="dampingFactor">
                             <description>
-                                Regularizer for moderately or severely ill-conditioned systems. Setting a value
-                                different than 0 enables the solver to use a damped least squares system instead
-                                of a standard linear least squares.
+                                Setting a value different than 0 enables the solver to use a damped least 
+                                squares system instead of a standard linear least squares.
                                 The damping factor value constrains the changes in earthquakes parameters
-                                to avoid that bad observations result in huge earthquakes parameters
-                                changes. This also has the benefit of constraining the mean shift of 
-                                clusters during relocation, meaning that 'meanShiftconstraintWeight' 
-                                option might not be needed. For this reason it is advised to 
-                                experiment with the two options independently (disable one of the 
-                                two) before mixing them together.
+                                (location and time) to avoid huge earthquakes shift during relocation.
                                 The units used in the double-difference sytem are km and seconds,
                                 so a dampingFactor value of 1 weighs as much as 1 km on changes
                                 to lat/lon/depth and 1 second to changes in origin time
@@ -663,10 +661,10 @@
                         <group name="meanShiftconstraintWeight">
                             <description>
                                 Constrain the mean shift of all earthquakes during relocation to zero.
-                                This is useful to avoid the shifting of the full cluster as the
-                                result of the relocation. However a small shift of the cluster
-                                centroid can be allowed to correct for possible errors in the
-                                initial absolute locations.
+                                This is a more "crude" way than 'dampingFactor' option to avoid
+                                the shifting of the full cluster as the result of the relocation.
+                                This paramenter should not be mixed with 'dampingFactor' and one of
+                                the two should be set to 0.
                                 4 weight values are required: longitude, latitude, depth and time
                                 constraint weights. A weight of zero means no constraint.
                             </description> 
