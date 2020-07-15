@@ -111,10 +111,25 @@ WfMngr::waveformId(const string& networkCode, const string& stationCode,
 
 
 Core::TimeWindow
-WfMngr::traceTimeWindowToLoad(const Catalog::Phase& ph,
+WfMngr::SNRTimeWindow(const Core::Time& pickTime) const
+{
+    Core::Time winStart = std::min( {
+          pickTime + Core::TimeSpan(_snr.noiseStart),
+          pickTime + Core::TimeSpan(_snr.signalStart)
+    });
+    Core::Time winEnd = std::max( {
+            pickTime + Core::TimeSpan(_snr.noiseEnd),
+            pickTime + Core::TimeSpan(_snr.signalEnd)
+    });
+    return Core::TimeWindow(winStart, winEnd);
+}
+
+
+Core::TimeWindow
+WfMngr::traceTimeWindowToLoad(const Core::Time& pickTime,
                               const Core::TimeWindow& neededTW,
-                              bool useDiskCache,
-                              bool performSnrCheck) const
+                              bool performSnrCheck,
+                              double minimumLength) const
 {
     Core::TimeWindow twToLoad = neededTW;
 
@@ -122,31 +137,20 @@ WfMngr::traceTimeWindowToLoad(const Catalog::Phase& ph,
     // the waveform time window 
     if ( performSnrCheck && _snr.minSnr > 0 )
     {
-        Core::Time winStart = std::min( {
-              neededTW.startTime(),
-              ph.time + Core::TimeSpan(_snr.noiseStart),
-              ph.time + Core::TimeSpan(_snr.signalStart)
-        });
-        Core::Time winEnd = std::max( {
-                neededTW.endTime(),
-                ph.time + Core::TimeSpan(_snr.noiseEnd),
-                ph.time + Core::TimeSpan(_snr.signalEnd)
-        });
-        twToLoad = Core::TimeWindow(winStart, winEnd);
+        Core::TimeWindow snrWin = SNRTimeWindow(pickTime);
+        twToLoad = twToLoad | snrWin;
     }
 
-    // Make sure to load at least 10 seconds of waveform. This avoid
-    // re-loading waveforms for small changes in the settings, which
-    // is frequent when the user is looking for the optimal configuration
-    if ( useDiskCache )
+    // Make sure to load at least minimumLength seconds of waveform
+    if ( minimumLength > 0 )
     {
-        const Core::TimeSpan additionalTime(5.);
+        const Core::TimeSpan additionalTime( minimumLength / 2 );
 
-        if ( twToLoad.startTime() > ph.time - additionalTime )
-            twToLoad.setStartTime( ph.time - additionalTime );
+        if ( twToLoad.startTime() > pickTime - additionalTime )
+            twToLoad.setStartTime( pickTime - additionalTime );
 
-        if ( twToLoad.endTime() < ph.time + additionalTime )
-            twToLoad.setEndTime( ph.time + additionalTime );
+        if ( twToLoad.endTime() < pickTime + additionalTime )
+            twToLoad.setEndTime( pickTime + additionalTime );
     }
 
     return twToLoad;
@@ -167,11 +171,9 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
     string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
                               string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
 
-    bool useDiskCache = false;
     string cacheDir;
     if ( cacheType != CacheType::NONE )
     {
-        useDiskCache = true;
         cacheDir = cacheType == CacheType::PERMANENT ? _cacheDir : _tmpCacheDir;
     }
 
@@ -238,9 +240,15 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
         }
     }
 
-    // if the SNR window is bigger than the xcorr window, than extend
-    // the waveform time window
-    const Core::TimeWindow twToLoad = traceTimeWindowToLoad(ph, tw, useDiskCache, doSnrCheck);
+    // Compute the length of the waveform window to load:
+    // - if the SNR window is bigger than the xcorr window, than extend
+    //   the waveform time window
+    // - also make sure to load at least 10 seconds of waveform when the
+    //   waveform is stored to disk. This avoid re-loading waveforms every time
+    //   scrtdd is restarted because the user is experimenting with the configuration
+    //   This is a little overhead for the disk space but saves lot of precious user time
+    double minimumLength = (cacheType == CacheType::NONE ? 0 : DISK_TRACE_MIN_LEN);
+    const Core::TimeWindow twToLoad = traceTimeWindowToLoad(ph.time, tw, doSnrCheck, minimumLength);
 
     // Load waveform:
     // - if no projection required, just load the requested component
@@ -278,14 +286,13 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
     // check SNR threshold
     if ( doSnrCheck  )
     {
-        double snr = S2Nratio(trace, ph.time, _snr.noiseStart, _snr.noiseEnd, _snr.signalStart, _snr.signalEnd);
-        if ( snr < _snr.minSnr ) 
+        if ( goodS2Nratio(trace, ph.time) )
         {
-            _snrExcludedWfs.insert(wfId);
+            _snrGoodWfs.insert(wfId);
         }
         else
         {
-            _snrGoodWfs.insert(wfId);
+            _snrExcludedWfs.insert(wfId);
         }
     }
 
@@ -819,6 +826,14 @@ void WfMngr::resample(GenericRecord &trace, double sf, bool average)
     }
     trace.setSamplingFrequency((double)sf);
     trace.dataUpdated();
+}
+
+
+bool WfMngr::goodS2Nratio(const GenericRecordCPtr& trace, const Core::Time& guidingPickTime)
+{
+    double snr = S2Nratio(trace, guidingPickTime, _snr.noiseStart, _snr.noiseEnd, 
+                          _snr.signalStart, _snr.signalEnd);
+    return snr >= _snr.minSnr;
 }
 
 

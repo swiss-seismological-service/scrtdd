@@ -82,6 +82,16 @@ class WfMngr : public Core::BaseObject {
                                      std::unordered_map<std::string,GenericRecordCPtr>* memCache,
                                      CacheType cacheType,
                                      bool allowSnrCheck);
+
+        Core::TimeWindow SNRTimeWindow(const Core::Time& pickTime) const;
+
+        Core::TimeWindow traceTimeWindowToLoad(const Core::Time& pickTime,
+                                               const Core::TimeWindow& neededTW,
+                                               bool performSnrCheck,
+                                               double minimumLength=0) const;
+
+        bool goodS2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime);
+
         //
         //  static: utility functions
         //
@@ -106,6 +116,16 @@ class WfMngr : public Core::BaseObject {
         static double S2Nratio(const GenericRecordCPtr& tr, const Core::Time& guidingPickTime,
                               double noiseOffsetStart, double noiseOffsetEnd,
                               double signalOffsetStart, double signalOffsetEnd);
+
+        // For waveforms that are cached to disk store at least DISK_TRACE_MIN_LEN
+        // secs of data (centered at pick time)
+        // This is to avoid re-downloading waveforms every time scrtdd is restarted
+        // with a minimum change of the xcorr configuration, which happens when 
+        // the user is experimenting with the configuration optiobns.
+        // This is a little overhead for the disk space but saves lot of precious user time
+        static constexpr const double DISK_TRACE_MIN_LEN = 10;
+
+
     private:
 
         GenericRecordPtr loadWaveform(const Core::TimeWindow& tw,
@@ -131,11 +151,6 @@ class WfMngr : public Core::BaseObject {
 
         std::string waveformDebugPath(const Catalog::Event& ev, const Catalog::Phase& ph,
                                       const std::string& ext) const;
-
-        Core::TimeWindow traceTimeWindowToLoad(const Catalog::Phase& ph,
-                                               const Core::TimeWindow& neededTW,
-                                               bool useDiskCache,
-                                               bool performSnrCheck) const;
 
         static std::string waveformId(const Catalog::Phase& ph, const Core::TimeWindow& tw);
         static std::string waveformId(const std::string& networkCode, const std::string& stationCode,

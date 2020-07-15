@@ -1134,7 +1134,7 @@ HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
         {Phase::Source::THEORETICAL,  {tempCache, &wfTmpCache,}}
     };
 
-    // keep track of refEv distant to stations
+    // keep track of refEv distance to stations
     multimap<double,string> stationByDistance; // <distance, stationid>
     unordered_set<string> computedStations;
 
@@ -1175,25 +1175,70 @@ HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                 const Phase& phase = catalog->searchPhase(event.id, refPhase.stationId,
                                                           refPhase.procInfo.type)->second;
 
-                // for non-manual phases the SNR is checked later, once the pick time
-                // has been fixed using xcorr results (we also trust pick times for all
-                // catalog phases)
+                // for "untrusted" phases (non-manual or not coming from the catalog) the
+                // SNR is checked after loading the waveform, once the pick time has been 
+                // adjusted using the lag computed by the cross-corr against a "trusted" 
+                // phase (manual or catalog)
                 PhaseXCorrCfg refPhCfg = phCfgs.at(refPhase.procInfo.source);
                 refPhCfg.allowSnrCheck = refPhase.isManual || 
                                          (refPhase.procInfo.source == Phase::Source::CATALOG);
 
-                // Catalog phases always allow SNR check, since will not fix those
+                // The 'phase' is always from catalog: in single-event mode 'refPhase' is
+                // real-time and 'phase' is from catalog. In multi-event mode both are from
+                // catalog.
+                if ( phase.procInfo.source != Phase::Source::CATALOG )
+                {
+                    throw runtime_error("Internal logic error: phase is not from catalog");
+                }
+                // For catalog phases we always allow SNR check, because the pick time is
+                // not going to change (the catalog phases are the "trusted" phases)
                 PhaseXCorrCfg phaseCfg = phCfgs.at(phase.procInfo.source);
                 phaseCfg.allowSnrCheck = true;
 
                 double coeff, lag;
                 if ( xcorrPhases(refEv, refPhase, refPhCfg, event, phase, phaseCfg, coeff, lag) )
                 {
-                    //
+                    bool goodSNR = true;
+
+                    // for phases that have not had their SNR checked already, do it now
+                    // using the pick time adjusted by xcorr detected lag
+                    if ( _cfg.snr.minSnr > 0 && ! refPhCfg.allowSnrCheck )
+                    {
+                        const auto xcorrCfg = _cfg.xcorr.at(refPhase.procInfo.type);
+
+                        // Compute the length of the waveform window: the pick time (and
+                        // so the SNR window) chages at every iteration and and we don't 
+                        // want to re-laod the waveform every time
+                        const Core::TimeWindow snrWin = 
+                            _wf->SNRTimeWindow(refPhase.time - Core::TimeSpan(xcorrCfg.maxDelay)) |
+                            _wf->SNRTimeWindow(refPhase.time + Core::TimeSpan(xcorrCfg.maxDelay));
+                        double minimumLength = 
+                            refPhCfg.type == CacheType::NONE ? 0 : WfMngr::DISK_TRACE_MIN_LEN;
+                        const Core::TimeWindow twToLoad = 
+                            _wf->traceTimeWindowToLoad(refPhase.time, snrWin, true, minimumLength);
+
+                        // check that at least one of the components allowed for this phase type
+                        // has a good SNR
+                        goodSNR = false;
+                        for ( const string& component : xcorrCfg.components )
+                        {
+                            Phase tmpPh = refPhase;
+                            tmpPh.channelCode = WfMngr::getBandAndInstrumentCodes(tmpPh.channelCode) + component;
+                            GenericRecordCPtr trace = _wf->getWaveform(twToLoad, refEv, tmpPh, refPhCfg.cache, refPhCfg.type, false);
+                            if ( trace && _wf->goodS2Nratio(trace, tmpPh.time - Core::TimeSpan(lag))  )
+                            {
+                                goodSNR = true;
+                                break;
+                            }
+                        }
+                    }
+
                     // Store good xcorr results
-                    //
-                    auto& entry = xcorr.getForUpdate(refEv.id, refPhase.stationId, refPhase.procInfo.type);
-                    entry.update(event, phase, coeff, lag);
+                    if ( goodSNR )
+                    {
+                        auto& entry = xcorr.getForUpdate(refEv.id, refPhase.stationId, refPhase.procInfo.type);
+                        entry.update(event, phase, coeff, lag);
+                    }
                 }
 
                 // keep trace of  events/station distance for every xcorr performed
@@ -1210,30 +1255,6 @@ HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
         {
             auto& entry = xcorr.getForUpdate(refEv.id, refPhase.stationId, refPhase.procInfo.type);
             entry.computeStats();
-
-            // discard phases with low SNR (if not already done at the previous step)
-            if ( _cfg.snr.minSnr > 0 && ! refPhase.isManual && 
-                (refPhase.procInfo.source != Phase::Source::CATALOG) )
-            {
-                const auto xcorrCfg = _cfg.xcorr.at(refPhase.procInfo.type);
-                Core::TimeWindow tw = xcorrTimeWindowShort(refPhase);
-
-                GenericRecordCPtr trace;
-                for (const string& component : xcorrCfg.components )
-                {
-                    Phase tmpPh = refPhase;
-                    tmpPh.time  -= Core::TimeSpan(entry.mean_lag);
-                    tmpPh.channelCode = WfMngr::getBandAndInstrumentCodes(tmpPh.channelCode) + component;
-                    // WfMngr::getWaveform  fails if SNR too low
-                    trace = _wf->getWaveform(tw, refEv, tmpPh, nullptr, tempCache, true);
-                    if ( trace ) break;
-                }
-
-                if ( ! trace )
-                {
-                    xcorr.remove(refEv.id, refPhase.stationId, refPhase.procInfo.type);
-                }
-            }
         }
     }
 
