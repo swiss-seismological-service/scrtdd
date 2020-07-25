@@ -61,7 +61,7 @@ class RTDD : public Application {
         };
         DEFINE_SMARTPOINTER(Region);
 
-        virtual const char *version() { return "1.1.0"; }
+        virtual const char *version() { return "1.1.0+"; }
 
     protected:
         void createCommandLineDescription();
