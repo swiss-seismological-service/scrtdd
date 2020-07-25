@@ -1236,8 +1236,10 @@ HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                     // Store good xcorr results
                     if ( goodSNR )
                     {
-                        auto& entry = xcorr.getForUpdate(refEv.id, refPhase.stationId, refPhase.procInfo.type);
-                        entry.update(event, phase, coeff, lag);
+                        auto& entry1 = xcorr.getForUpdate(refEv.id, refPhase.stationId, refPhase.procInfo.type);
+                        entry1.update(event, phase, coeff, lag);
+                        auto& entry2 = xcorr.getForUpdate(event.id, phase.stationId, phase.procInfo.type);
+                        entry2.update(refEv, refPhase, coeff, lag);
                     }
                 }
 
