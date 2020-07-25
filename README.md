@@ -427,7 +427,11 @@ The statistics are broken down in actual picks and theoretical picks. This is be
 
 ### 3.2 Eval-xcorr command
 
-A more sophisticated method for evaluating the settings is the `--eval-xcorr` command (here we use `--verbosity=2` because the statistics are printed at this log level, useful to avoid being overwhelmed by too much information):
+A more sophisticated method for evaluating the settings is the `--eval-xcorr` command (here we use `--verbosity=2` because the statistics are printed at this log level, useful to avoid being overwhelmed by too much information).
+
+`--eval-xcorr` allows to see how many phases have been cross-correlated (`#pha`), how many succeffully (`pha good CC`,  correlation coefficient above the configured threshold), the average correlation coefficient (`coeff`), the average number of good matches per phases (`goodCC/ph`) and the average pick time difference detected by the cross-correlation (`time-diff`). Whenever sensible it is also indicated the Mean Absolte Deviation of the value (`+/-`).
+
+It is especially interesting to compare the results before/after the catalog has been relocated. The new statistics should show better performance for events close to each others and gradually worsen with increasing inter-event distance. That is an indirect measure of the quality of the relocation as explained in Waldhauser & Ellsworth's paper.
 
 ```
 scrtdd --eval-xcorr profileName --verbosity=2 --console=1
@@ -437,115 +441,79 @@ Example output:
 
 ```
 [...]
-[warning] <<<Final stats>>>
-Cumulative stats: #pha  29622 pha good CC  57% avg coeff 0.83 avg goodCC/ph  4.8
-Cumulative stats P ph: #pha  16382 pha good CC  54% avg coeff 0.81 avg goodCC/ph  5.1
-Cumulative stats S ph: #pha  13240 pha good CC  62% avg coeff 0.86 avg goodCC/ph  4.4
+13:13:17 [warning] <FINAL STATS>
+Cumulative stats: #pha 196006 pha good CC  72% coeff 0.72 (+/-0.09) goodCC/ph  9.9 (+/-4.2) time-diff [msec]  -0 (+/-52)
+Cumulative stats P ph: #pha 118343 pha good CC  68% coeff 0.72 (+/-0.10) goodCC/ph  9.7 (+/-4.5) time-diff [msec]   0 (+/-52)
+Cumulative stats S ph: #pha  77663 pha good CC  76% coeff 0.72 (+/-0.08) goodCC/ph 10.3 (+/-4.1) time-diff [msec]  -1 (+/-52)
 
 Cross-correlated Phases by inter-event distance in 0.10 km step
- EvDist [km]  #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) 
- 0.00-0.10      14159    65%  0.88 (0.06)    2.3 ( 1.3)
- 0.10-0.20      16015    55%  0.85 (0.06)    2.0 ( 1.0)
- 0.20-0.30      11161    41%  0.84 (0.06)    1.5 ( 0.7)
- 0.30-0.40       6744    33%  0.83 (0.06)    1.4 ( 0.6)
- 0.40-0.50      10579    27%  0.82 (0.05)    1.4 ( 0.6)
- 0.50-0.60      13046    30%  0.81 (0.05)    1.6 ( 0.7)
- 0.60-0.70       7672    23%  0.81 (0.05)    1.3 ( 0.5)
- 0.70-0.80       4994    19%  0.81 (0.05)    1.2 ( 0.3)
- 0.80-0.90       4204    18%  0.81 (0.05)    1.1 ( 0.2)
- 0.90-1.00      11315    21%  0.81 (0.05)    1.3 ( 0.5)
- 1.00-1.10       9150    17%  0.80 (0.05)    1.3 ( 0.5)
- 1.10-1.20       6253    16%  0.81 (0.05)    1.2 ( 0.4)
- 1.20-1.30       4900    14%  0.80 (0.05)    1.2 ( 0.3)
- 1.30-1.40       3732    13%  0.80 (0.05)    1.1 ( 0.2)
- 1.40-1.50       2848    14%  0.80 (0.05)    1.1 ( 0.2)
- 1.50-1.60       1961    12%  0.79 (0.05)    1.1 ( 0.1)
- 1.60-1.70       1403    13%  0.79 (0.05)    1.1 ( 0.2)
- 1.70-1.80       1602    12%  0.80 (0.06)    1.0 ( 0.1)
- 1.80-1.90       3218    14%  0.80 (0.05)    1.1 ( 0.2)
- 1.90-2.00       7937    12%  0.79 (0.05)    1.3 ( 0.4)
- 2.00-2.10       6294    11%  0.80 (0.05)    1.2 ( 0.3)
- 2.10-2.20       5010    11%  0.80 (0.05)    1.2 ( 0.3)
- 2.20-2.30       3465     8%  0.78 (0.04)    1.0 ( 0.1)
- 2.30-2.40       3054     9%  0.79 (0.05)    1.1 ( 0.2)
- 2.40-2.50       2811     8%  0.79 (0.05)    1.1 ( 0.1)
- 2.50-2.60       2393     7%  0.78 (0.05)    1.1 ( 0.1)
- 2.60-2.70       2778     7%  0.79 (0.05)    1.1 ( 0.1)
+ EvDist [km]  #Phases GoodCC AvgCoeff(+/-) GoodCC/Ph(+/-) time-diff[msec] (+/-)
+ 0.00-0.10      72667    73%  0.85 (0.09)    3.2 ( 2.2)       0 ( 29)
+ 0.10-0.20      85191    69%  0.81 (0.09)    2.7 ( 1.6)       0 ( 35)
+ 0.20-0.30      63659    61%  0.79 (0.09)    1.8 ( 0.9)       0 ( 41)
+ 0.30-0.40      46852    56%  0.77 (0.10)    1.6 ( 0.7)      -0 ( 44)
+ 0.40-0.50      54217    53%  0.76 (0.10)    1.5 ( 0.7)       2 ( 47)
+ 0.50-0.60      67184    55%  0.74 (0.09)    1.9 ( 0.9)       2 ( 46)
+ 0.60-0.70      51496    49%  0.74 (0.09)    1.5 ( 0.7)      -1 ( 48)
+ 0.70-0.80      36620    46%  0.73 (0.09)    1.3 ( 0.5)      -0 ( 51)
+ 0.80-0.90      30600    43%  0.73 (0.09)    1.2 ( 0.4)       0 ( 52)
+ 0.90-1.00      45866    45%  0.72 (0.09)    1.4 ( 0.6)       1 ( 53)
+ 1.00-1.10      44881    42%  0.72 (0.09)    1.4 ( 0.6)      -0 ( 53)
+ 1.10-1.20      34038    40%  0.72 (0.09)    1.3 ( 0.4)       1 ( 55)
+ 1.20-1.30      29119    38%  0.72 (0.09)    1.2 ( 0.4)       0 ( 57)
 [...]
-
 Cross-correlated Phases by event to station distance in 3.00 km step
-StaDist [km]  #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) 
-  0-3               9    44%  0.74 (0.03)    2.0 ( 1.0)
-  3-6             395    55%  0.81 (0.05)    3.3 ( 2.0)
-  6-9            2827    75%  0.83 (0.05)    7.5 ( 5.5)
-  9-12           3477    69%  0.84 (0.05)    6.0 ( 4.6)
- 12-15           3216    65%  0.83 (0.05)    4.1 ( 2.7)
- 15-18           1619    56%  0.84 (0.05)    4.1 ( 2.9)
- 18-21           1367    52%  0.83 (0.05)    4.5 ( 3.1)
- 21-24           1888    61%  0.83 (0.05)    4.5 ( 2.9)
- 24-27           1857    55%  0.84 (0.05)    4.2 ( 2.8)
- 27-30           2082    62%  0.84 (0.05)    5.1 ( 3.4)
- 30-33           1213    53%  0.84 (0.05)    5.0 ( 3.8)
- 33-36           1935    59%  0.84 (0.05)    5.4 ( 3.8)
- 36-39           1361    49%  0.83 (0.05)    3.5 ( 2.2)
- 39-42            871    44%  0.83 (0.05)    3.6 ( 2.4)
- 42-45            774    46%  0.84 (0.06)    3.7 ( 2.8)
- 45-48            933    54%  0.84 (0.06)    2.8 ( 1.7)
- 48-51            452    43%  0.85 (0.06)    3.1 ( 2.0)
- 51-54            431    50%  0.85 (0.06)    2.6 ( 1.5)
- 54-57            376    48%  0.85 (0.05)    3.1 ( 2.1)
- 57-60            420    41%  0.86 (0.06)    2.3 ( 1.3)
- 60-63            311    45%  0.86 (0.06)    2.7 ( 1.9)
- 63-66            233    42%  0.86 (0.06)    1.9 ( 1.1)
- 66-69            182    41%  0.85 (0.06)    1.9 ( 1.1)
- 69-72            141    53%  0.86 (0.07)    1.9 ( 1.2)
- 72-75            122    35%  0.85 (0.05)    1.6 ( 0.9)
- 75-78            123    46%  0.87 (0.06)    1.5 ( 0.7)
- 78-81            124    39%  0.86 (0.05)    2.2 ( 1.6)
- 81-84             97    46%  0.84 (0.06)    1.3 ( 0.5)
- 84-87             89    25%  0.88 (0.06)    1.5 ( 0.7)
- 87-90             85     0%  0.00 (0.00)    0.0 ( 0.0)
+StaDist [km]  #Phases GoodCC AvgCoeff(+/-) GoodCC/Ph(+/-) time-diff[msec] (+/-)
+  0-3             134    84%  0.67 (0.06)    4.7 ( 3.0)      -6 ( 95)
+  3-6            4616    87%  0.71 (0.07)   12.5 ( 8.1)      -0 ( 40)
+  6-9           13307    84%  0.71 (0.07)   11.9 ( 7.2)       0 ( 35)
+  9-12          16138    82%  0.71 (0.07)   12.5 ( 8.2)       1 ( 38)
+ 12-15          15743    81%  0.71 (0.07)   11.1 ( 6.9)      -1 ( 40)
+ 15-18          11340    78%  0.72 (0.08)   12.4 ( 8.2)      -0 ( 47)
+ 18-21           9874    75%  0.71 (0.07)   10.9 ( 7.1)      -0 ( 51)
+ 21-24          12193    74%  0.71 (0.07)   11.3 ( 7.1)      -0 ( 49)
+ 24-27          10537    73%  0.72 (0.08)   10.3 ( 6.6)      -1 ( 54)
+ 27-30          11503    75%  0.71 (0.07)   10.8 ( 6.6)      -3 ( 51)
 [...]
-
 Cross-correlations by station
-Station       #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) 
-4D.MH36.A          145    52%  0.85 (0.07)    2.4 ( 1.2)
-4D.MH44.A          179    56%  0.86 (0.05)    2.5 ( 1.5)
-4D.MH48.A          126    56%  0.86 (0.07)    2.1 ( 1.1)
-4D.MH54.A           56    57%  0.86 (0.07)    1.5 ( 0.6)
-4D.RA41.            42    60%  0.90 (0.04)    3.8 ( 1.8)
-4D.RA42.             3    67%  0.85 (0.00)    1.0 ( 0.0)
-4D.RA43.            55    64%  0.90 (0.06)    3.0 ( 2.1)
-8C.CI18.00         102    25%  0.85 (0.05)    1.8 ( 0.8)
-8C.CI19.00         128    48%  0.87 (0.05)    2.3 ( 1.2)
-8C.CI20.00          69    54%  0.90 (0.06)    3.0 ( 1.2)
-8D.AMID2.          117    43%  0.86 (0.07)    1.4 ( 0.5)
-8D.AMIDI.           79    78%  0.84 (0.05)    6.0 ( 4.8)
-8D.BT050.           39    51%  0.85 (0.05)    2.5 ( 1.4)
-8D.BT175.           41    46%  0.84 (0.03)    2.2 ( 0.9)
-8D.BT225.           36    50%  0.89 (0.04)    3.8 ( 1.9)
-8D.BTAO.            64    55%  0.85 (0.06)    2.8 ( 1.3)
-8D.BTNF.           106    49%  0.86 (0.06)    4.9 ( 3.5)
-8D.CHBM.            27    59%  0.85 (0.02)    3.8 ( 1.1)
-8D.ELM0.            46    83%  0.84 (0.05)    3.6 ( 1.6)
-8D.ELM1.            36    86%  0.84 (0.06)    4.9 ( 1.9)
-8D.GSF03.          132    52%  0.88 (0.06)    8.0 ( 5.6)
-8D.LULY1.            4    50%  0.97 (0.00)    1.0 ( 0.0)
-8D.LULY2.            2   100%  0.87 (0.00)    1.0 ( 0.0)
-8D.LULY3.            1     0%  0.00 (0.00)    0.0 ( 0.0)
-8D.MFERR.          534    68%  0.84 (0.05)    5.0 ( 3.5)
-8D.NDBB1.            7     0%  0.00 (0.00)    0.0 ( 0.0)
-8D.NDBU.             3    33%  0.87 (0.00)    8.0 ( 0.0)
-8D.NDMT1.            5    80%  0.82 (0.11)    1.0 ( 0.0)
-8D.NDTR1.           37    49%  0.87 (0.07)    6.8 ( 7.0)
-8D.NNFS.            30    57%  0.87 (0.08)    2.4 ( 1.6)
-8D.NNFT.            78    22%  0.88 (0.07)    4.4 ( 4.7)
+Station       #Phases GoodCC AvgCoeff(+/-) GoodCC/Ph(+/-) time-diff[msec] (+/-)
+4D.AG01.             2     0%  0.00 (0.00)    0.0 ( 0.0)       0 (  0)
+4D.GDA01.           80    60%  0.80 (0.10)    2.8 ( 1.4)      -7 ( 27)
+4D.GDA02.           34    94%  0.87 (0.07)    3.0 ( 0.9)       0 ( 27)
+4D.GDA03.           70    80%  0.82 (0.11)    3.2 ( 1.2)      -1 ( 17)
+4D.MH36.A          232    63%  0.76 (0.09)    3.3 ( 1.8)       8 ( 55)
+4D.MH38.A            6    33%  0.67 (0.00)    1.0 ( 0.0)       0 (162)
+4D.MH44.A          264    77%  0.77 (0.08)    3.1 ( 1.8)       9 ( 77)
+4D.MH48.A          168    71%  0.78 (0.09)    2.9 ( 1.6)       1 ( 58)
+4D.MH52.A           29    59%  0.84 (0.06)    2.4 ( 0.8)       2 ( 31)
+4D.MH54.A           81    62%  0.79 (0.11)    1.7 ( 0.7)      -1 ( 44)
+4D.RA41.            71    58%  0.81 (0.11)    3.0 ( 1.8)      -3 ( 42)
+4D.RA42.             5    20%  0.64 (0.00)    1.0 ( 0.0)       2 (  0)
+4D.RA43.            94    47%  0.83 (0.09)    3.2 ( 2.4)      -2 ( 43)
 [...]
 ```
 
-It is especially interesting to compare the results before/after the catalog has been relocated. The new statistics should show better performance for events close to each others and gradually worsen with increasing inter-event distance. That is an indirect measure of the quality of the relocation as explained in Waldhauser & Ellsworth's paper.
 
-### 3.3 Waveforms inspection
+
+### 3.3 Cross-correlation parameters optimization
+
+The `--eval-xcorr` option should be used to properly configure the cross-correlation parameters. The optimization process involve running `--eval-xcorr` with different configuration and analyze the results.The goal is to have as many matches as possible (high `GoodCC`) but to avoid wrong/bad matches (low `time-diff` mean absolute deviation: `+/-`): but this is a trade-off.
+
+The configuration parameters that are relevant for this analysis are:
+* Cross Correlation coefficient threshold for P and S
+* Cross Correlation window length for P and S
+* Cross Correlation lag/delay for P and S
+* Singnal to Noise ratio configuration
+* Waveform filter
+* Clustering: number of neighbours
+
+There are also few more parameters that are less relevant but that might become important when relocating automatic origins (the automatic location might be very far from the final solution):
+* Cross Correlation maximum station distance
+* Cross Correlation maximum inter-event distance
+* Clustering: maximum inter-event distance
+* Clustering: station to inter-event distance ratio
+
+### 3.4 Waveforms inspection
 
 A more in-depth source of information for waveform filtering and signal to noise ratio options comes from this option:
 
@@ -615,18 +583,16 @@ For comparison we can always find the raw waveforms (not processed) fetched from
 * `NET.ST.LOC.CH.startime-endtime.mseed`
 
 
-## 4. Performance and waveforms data
+## 4. Waveforms data caching
 
-scrtdd spends most of the relocation time downloading waveforms (unless the recordstream points to a local disk storage) and the rest is shared betweeen cross-correlation and double difference system inversion. For this reason the waveforms are cached to disk after being downloaded so that there is no need to download them again. This is obviously true for catalog phases waveforms that are re-used over and over, but that's not true for real-time events waveforms and also for some temporary waveforms (e.g. theoretical phases) that are never saved. The cache folder is `workingDirectory/profileName/wfcache/` (e.g. /installation/path/seiscomp3/var/lib/rtdd/myProfile/wfcache/). 
+scrtdd spends most of the relocation time downloading waveforms (unless the recordstream points to a local disk storage) and the rest is shared betweeen cross-correlation and double difference system inversion. For this reason the waveforms are cached to disk after being downloaded so that there is no need to download them again. This is obviously true for catalog phase waveforms that are re-used over and over again in real-time, but that's not true for real-time events waveforms (and also for some temporary waveforms like theoretical phases) that are never saved. The cache folder is `workingDirectory/profileName/wfcache/` (e.g. /installation/path/seiscomp3/var/lib/rtdd/myProfile/wfcache/). 
 
-However, during the parameters tuning phase, the user performs relocations (both single-event and multi-event) from the command line several times to find the best configuration. For those speacial cases even the temporary waveforms are saved to make the process much faster. A different folder is used: `workingDirectory/profileName/tmpcache/` which can be deleted after the parameter tuning phase. The commands that store temporary waveforms are: `--reloc-profile`, `--ep`, `-O`, `--origin-id`.
-
-Due to the time required to download waveforms, when relocating events in real-time, two configuration options have a huge impact on the performance: `doubleDifferenceObservations.clustering` and `crosscorrelation.s-phase.components`. `doubleDifferenceObservations.clustering` is relevant because we can specify how many neighbouring events and how many phases we want to use, which consequently determines the number of cross-correlations to perform, the waveforms to download and the size of the input for the double difference inversion. `crosscorrelation.s-phase.components` defines the components we want to use in the cross-correlation of the `S` phases. Usign the `T` components means scrtdd has to download the additional two components to perform the projection to ZRT, which might be more accurate than 'Z' only.
+However, during the parameters tuning phase the user performs relocations (both single-event and multi-event) from the command line several times to find the best configuration. For those special cases even the temporary waveforms are saved to disk. For those cases a different folder is used: `workingDirectory/profileName/tmpcache/` which can be deleted after the parameter tuning phase. The commands that store the temporary waveforms are: `--reloc-profile`, `--ep`, `-O`, `--origin-id`.
 
 
 ### 4.1 Catalog waveforms preloading
 
-When scrtdd starts for the first time it loads all the catalog waveforms and store them to disk (once the waveforms are downloaded they will not be downloaded again unless the files are deleted from disks). In this way the waveforms become quickly available in real-time without the need to access the recordstream (which takes a long time!). However if the option `performance.profileTimeAlive` is greater than 0, the catalog waveforms will be loaded on demand and not when scrtdd starts. In this case we might decide to pre-download all waveforms anyway, before starting the module, using the following option:
+When scrtdd starts for the first time it loads all the catalog waveforms and store them to disk. In this way the waveforms become quickly available in real-time without the need to access the recordstream. However if the option `performance.profileTimeAlive` is greater than 0, the catalog waveforms will be loaded only when needed (on a new origin arrival) and and not when scrtdd starts. In this case we might decide to pre-download all waveforms anyway, before starting the module, using the following option:
 
 ```
 scrtdd --help
