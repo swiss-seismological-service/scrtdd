@@ -443,7 +443,7 @@
                                         will not be used
                                     </description>
                                 </parameter>
-                                <parameter name="maxStationDistance" type="double" default="150">
+                                <parameter name="maxStationDistance" type="double">
                                     <description>
                                         Max distance (km) between event pair and station allowed
                                         to use a phase in the double-difference observations.
@@ -452,7 +452,7 @@
                                         A value of 0 or less disables this limit
                                     </description>
                                 </parameter>
-                                <parameter name="minStationToEventPairDistRatio" type="double" default="5">
+                                <parameter name="minStationToEventPairDistRatio" type="double">
                                     <description>
                                         Minimum ratio between event-station distance and pair 
                                         inter-event-pair distance. Phases belonging to stations 
@@ -464,7 +464,7 @@
 
                         <group name="crosscorrelation">
                             <group name="p-phase">
-                                <parameter name="minCCCoef" type="double" default="0.70">
+                                <parameter name="minCCCoef" type="double" default="0.50">
                                     <description>
                                         Min crosscorrelation coefficient accepted to use a differential travel time
                                     </description>
@@ -479,7 +479,7 @@
                                         End of data window to cross correlate with respect to pick time (+/- secs)
                                     </description>
                                 </parameter>
-                                <parameter name="maxDelay" type="double" default="0.250">
+                                <parameter name="maxDelay" type="double" default="0.350">
                                     <description>Maximum data windows lag accepted (secs)</description>
                                 </parameter>
                                 <parameter name="components" type="list:string" default="Z">
@@ -491,7 +491,7 @@
                                 </parameter>
                             </group>
                             <group name="s-phase">
-                                <parameter name="minCCCoef" type="double" default="0.75">
+                                <parameter name="minCCCoef" type="double" default="0.50">
                                     <description>
                                         Min crosscorrelation coefficient accepted to use a differential travel time
                                     </description>
@@ -506,7 +506,7 @@
                                         End of data window to cross correlate with respect to pick time (+/- secs)
                                     </description>
                                 </parameter>
-                                <parameter name="maxDelay" type="double" default="0.400">
+                                <parameter name="maxDelay" type="double" default="0.350">
                                     <description>Maximum data windows lag accepted (secs)</description>
                                 </parameter>
                                 <parameter name="components" type="list:string" default="T,Z">
@@ -518,14 +518,14 @@
                                 </parameter>
                             </group>
                             <group name="options">
-                                <parameter name="maxStationDistance" type="double" default="70">
+                                <parameter name="maxStationDistance" type="double" default="85">
                                     <description>
                                         Max distance (km) between event and station allowed.
                                         Phases belonging to furhter stations will not be used
                                         in cross-correlation. Set it to -1 to remove limits
                                     </description>
                                 </parameter> 
-                                <parameter name="maxInterEventDistance" type="double" default="3">
+                                <parameter name="maxInterEventDistance" type="double" default="-1">
                                     <description>
                                         Max distance (km) between events allowed.
                                         Event pairs whose inter-event distance if further than 
@@ -580,22 +580,22 @@
                                Exclude phases from cross correlation when Signal to Noise Ratio is below
                                a configured threshold.
                            </description>
-                           <parameter name="minSnr" type="double">
+                           <parameter name="minSnr" type="double" default="2">
                                 <description>
                                     Minimum Signal to Noise Ratio value required to use a Pick in cross correlation.
                                     If minSnr is used, then the noise and signal windows must be defined too.
                                 </description>
                             </parameter>
-                            <parameter name="noiseStart" type="double">
+                            <parameter name="noiseStart" type="double" default="-3">
                                 <description>Start of noise  window with respect to pick time (+/- secs)</description>
                             </parameter>
-                            <parameter name="noiseEnd" type="double">
+                            <parameter name="noiseEnd" type="double" default="-0.350">
                                 <description>End of noise  window with respect to pick time (+/- secs)</description>
                             </parameter>
-                            <parameter name="signalStart" type="double">
+                            <parameter name="signalStart" type="double" default="-0.350">
                                 <description>Start of signal window with respect to pick time (+/- secs)</description>
                             </parameter>
-                            <parameter name="signalEnd" type="double">
+                            <parameter name="signalEnd" type="double" default="0.350">
                                 <description>End of signal window with respect to pick time (+/- secs)</description>
                             </parameter> 
                         </group>

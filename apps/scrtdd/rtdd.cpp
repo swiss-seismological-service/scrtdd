@@ -492,10 +492,10 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.ddObservations2.minESdist = 0; }
         try {
             prof->ddcfg.ddObservations2.maxESdist = configGetDouble(prefix + "maxStationDistance");
-        } catch ( ... ) { prof->ddcfg.ddObservations2.maxESdist = 150; }
+        } catch ( ... ) { prof->ddcfg.ddObservations2.maxESdist = 0; }
         try {
             prof->ddcfg.ddObservations2.minEStoIEratio = configGetDouble(prefix + "minStationToEventPairDistRatio");
-        } catch ( ... ) { prof->ddcfg.ddObservations2.minEStoIEratio = 5; } 
+        } catch ( ... ) { prof->ddcfg.ddObservations2.minEStoIEratio = 0; } 
 
         prefix = string("profile.") + *it + ".doubleDifferenceObservations.crosscorrelation.p-phase.";
         try {
@@ -506,10 +506,10 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::P].endOffset = 0.50; }
         try {
             prof->ddcfg.xcorr[PhaseType::P].maxDelay = configGetDouble(prefix + "maxDelay");
-        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::P].maxDelay = 0.250; }
+        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::P].maxDelay = 0.350; }
         try {
             prof->ddcfg.xcorr[PhaseType::P].minCoef = configGetDouble(prefix + "minCCCoef");
-        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::P].minCoef = 0.70; }
+        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::P].minCoef = 0.50; }
         try {
             prof->ddcfg.xcorr[PhaseType::P].components = configGetStrings(prefix + "components");
         } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::P].components = {"Z"}; }
@@ -523,10 +523,10 @@ bool RTDD::validateParameters()
         } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::S].endOffset = 0.75; }
         try {
             prof->ddcfg.xcorr[PhaseType::S].maxDelay = configGetDouble(prefix + "maxDelay");
-        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::S].maxDelay = 0.400; }
+        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::S].maxDelay = 0.350; }
         try {
             prof->ddcfg.xcorr[PhaseType::S].minCoef = configGetDouble(prefix + "minCCCoef");
-        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::S].minCoef = 0.75; }
+        } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::S].minCoef = 0.50; }
         try {
             prof->ddcfg.xcorr[PhaseType::S].components = configGetStrings(prefix + "components");
         } catch ( ... ) { prof->ddcfg.xcorr[PhaseType::S].components = {"T","Z"}; }
@@ -534,10 +534,10 @@ bool RTDD::validateParameters()
         prefix = string("profile.") + *it + ".doubleDifferenceObservations.crosscorrelation.options.";
         try {
             prof->ddcfg.ddObservations2.xcorrMaxEvStaDist = configGetDouble(prefix + "maxStationDistance");
-        } catch ( ... ) { prof->ddcfg.ddObservations2.xcorrMaxEvStaDist = 70; }
+        } catch ( ... ) { prof->ddcfg.ddObservations2.xcorrMaxEvStaDist = 85; }
         try {
             prof->ddcfg.ddObservations2.xcorrMaxInterEvDist = configGetDouble(prefix + "maxInterEventDistance");
-        } catch ( ... ) { prof->ddcfg.ddObservations2.xcorrMaxInterEvDist = 3; }
+        } catch ( ... ) { prof->ddcfg.ddObservations2.xcorrMaxInterEvDist = -1; }
 
         try {
             prof->useTheoreticalAuto = configGetBool(prefix + "theoreticalPhaseAutoOrigin");
@@ -557,20 +557,19 @@ bool RTDD::validateParameters()
         prefix = string("profile.") + *it + ".doubleDifferenceObservations.snr.";
         try {
             prof->ddcfg.snr.minSnr = configGetDouble(prefix + "minSnr");
-        } catch ( ... ) { prof->ddcfg.snr.minSnr = 0.; }
+        } catch ( ... ) { prof->ddcfg.snr.minSnr = 2.; }
         try {
             prof->ddcfg.snr.noiseStart = configGetDouble(prefix + "noiseStart");
+        } catch ( ... ) { prof->ddcfg.snr.noiseStart = -3.0; }
+        try {
             prof->ddcfg.snr.noiseEnd = configGetDouble(prefix + "noiseEnd");
+        } catch ( ... ) { prof->ddcfg.snr.noiseEnd = -0.350; }
+        try {
             prof->ddcfg.snr.signalStart = configGetDouble(prefix + "signalStart");
+        } catch ( ... ) { prof->ddcfg.snr.signalStart = -0.350; }
+        try {
             prof->ddcfg.snr.signalEnd = configGetDouble(prefix + "signalEnd");
-        } catch ( ... ) {
-            if ( prof->ddcfg.snr.minSnr > 0. )
-            {
-                SEISCOMP_ERROR("profile.%s: invalid or missing snr parameters", it->c_str());
-                profilesOK = false;
-                continue;
-            }
-        }
+        } catch ( ... ) { prof->ddcfg.snr.signalEnd = 0.350; }
 
         prefix = string("profile.") + *it + ".solver.";
         try {
