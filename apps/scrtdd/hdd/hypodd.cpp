@@ -1832,12 +1832,14 @@ namespace {
         string describeShort() const
         {
             double meanCoeff = computeMean(ccCoeff);
+            double meanCoeffMAD = computeMeanAbsoluteDeviation(ccCoeff, meanCoeff);
             double meanCount = computeMean(ccCount);
-            string log = stringify("#pha %6d pha good CC %3.f%% coeff %.2f goodCC/ph %4.1f",
-                              total, (goodCC * 100. / total), meanCoeff, meanCount);
+            double meanCountMAD = computeMeanAbsoluteDeviation(ccCount, meanCount);
+            string log = stringify("#pha %6d pha good CC %3.f%% coeff %.2f (+/-%.2f) goodCC/ph %4.1f (+/-%.1f)",
+                              total, (goodCC * 100. / total), meanCoeff, meanCoeffMAD, meanCount, meanCountMAD);
             double meanDev = computeMean(timeDiff);
             double meanDevMAD = computeMeanAbsoluteDeviation(timeDiff, meanDev);
-            log += stringify(" time-diff [msec] %3.f (MeanAbsDev %3.f)", meanDev*1000, meanDevMAD*1000);
+            log += stringify(" time-diff [msec] %3.f (+/-%.f)", meanDev*1000, meanDevMAD*1000);
             return log;
         }
 
@@ -1879,7 +1881,7 @@ HypoDD::evalXCorr()
         log += stringify("Cumulative stats S ph: %s\n", sPhaseStats.describeShort().c_str());
 
         log += stringify("Cross-correlated Phases by inter-event distance in %.2f km step\n", EV_DIST_STEP);
-        log += stringify(" EvDist [km]  #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) time-diff[msec] (MAD)\n");
+        log += stringify(" EvDist [km]  #Phases GoodCC AvgCoeff(+/-) GoodCC/Ph(+/-) time-diff[msec] (+/-)\n");
         for ( const auto& kv : statsByInterEvDistance)
         {
             log += stringify("%5.2f-%-5.2f %s\n",
@@ -1888,7 +1890,7 @@ HypoDD::evalXCorr()
         }
 
         log += stringify("Cross-correlated Phases by event to station distance in %.2f km step\n", STA_DIST_STEP);
-        log += stringify("StaDist [km]  #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) time-diff[msec] (MAD)\n");
+        log += stringify("StaDist [km]  #Phases GoodCC AvgCoeff(+/-) GoodCC/Ph(+/-) time-diff[msec] (+/-)\n");
         for ( const auto& kv : statsByStaDistance)
         {
             log += stringify("%3d-%-3d     %s\n", int(kv.first*STA_DIST_STEP),
@@ -1897,7 +1899,7 @@ HypoDD::evalXCorr()
         }
 
         log += stringify("Cross-correlations by station\n");
-        log += stringify("Station       #Phases GoodCC AvgCoeff(MAD) GoodCC/Ph(MAD) time-diff[msec] (MAD)\n");
+        log += stringify("Station       #Phases GoodCC AvgCoeff(+/-) GoodCC/Ph(+/-) time-diff[msec] (+/-)\n");
         for ( const auto& kv : statsByStation)
         {
             log += stringify("%-12s %s\n", kv.first.c_str(),
