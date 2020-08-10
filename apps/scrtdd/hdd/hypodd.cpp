@@ -444,6 +444,14 @@ HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
         throw runtime_error(msg);
     }
 
+    if ( ! _workingDirCleanup )
+    {
+        evToRelocateCat->writeToFile(
+            (boost::filesystem::path(workingDir)/"single-event.csv").string(),
+            (boost::filesystem::path(workingDir)/"single-event-phase.csv").string(),
+            (boost::filesystem::path(workingDir)/"single-event-station.csv").string());
+    }
+
     CatalogPtr relocatedEvCat;
 
     try
