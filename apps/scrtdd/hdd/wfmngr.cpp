@@ -280,7 +280,7 @@ WfMngr::getWaveform(const Core::TimeWindow& tw,
         return nullptr;
     }
 
-    // fitler waveform
+    // filter waveform
     filter(*trace, true, _wfFilter.filterStr, _wfFilter.resampleFreq);
 
     // check SNR threshold
