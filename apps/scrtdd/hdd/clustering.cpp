@@ -172,12 +172,12 @@ selectNeighbouringEvents(const CatalogCPtr& catalog,
             } 
 
             // check this station distance to current event is ok
-            if ( maxESdist > 0 )
+            if ( maxESdist > 0 || minESdist > 0 || minEStoIEratio > 0)
             {
                 // compute distance between current event and station
                 double stationDistance = computeDistance(event, station);
 
-                if ( ( stationDistance > maxESdist )                 ||      // too far away ?
+                if ( ( maxESdist > 0 && stationDistance > maxESdist )||      // too far away ?
                      ( stationDistance < minESdist )                 ||       // too close ?
                      ( (stationDistance / eventDistance) < minEStoIEratio ) ) // ratio too small ?
                 {
