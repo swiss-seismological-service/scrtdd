@@ -743,8 +743,9 @@ HypoDD::ObservationParams::add(TravelTimeTableInterfacePtr ttt, const Event& eve
     const std::string key = std::to_string(event.id) + "@" + station.id + ":" + phaseType;
     if ( _entries.find(key) == _entries.end() )
     {
+        double depth = event.depth > 0 ? event.depth : 0;
         TravelTime tt = ttt->compute(string(1, phaseType).c_str(),
-                                     event.latitude, event.longitude, event.depth, 
+                                     event.latitude, event.longitude, depth,
                                      station.latitude, station.longitude, station.elevation);
         // when takeOffAngle/velocityAtSrc are not provided by the ttt then 
         // the solver will use straight ray path approximation
