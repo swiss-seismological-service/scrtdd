@@ -790,15 +790,15 @@ HypoDD::updateRelocatedEvents(const Solver& solver,
     for (const NeighboursPtr& neighbours : neighCluster)
     {
         Event& event = events.at(neighbours->refEvId);
-        event.relocInfo.isRelocated = false;
 
         double deltaLat, deltaLon, deltaDepth, deltaTT;
         if ( ! solver.getEventChanges(event.id, deltaLat, deltaLon, deltaDepth, deltaTT) )
         {
+            event.relocInfo.isRelocated = false;
             continue;
         }
 
-        if ( event.depth + deltaDepth < 0 )
+        if ( event.depth >= 0 && event.depth + deltaDepth < 0 )
         {
             SEISCOMP_DEBUG("Ignoring airquake event %s", string(event).c_str());
             continue;
