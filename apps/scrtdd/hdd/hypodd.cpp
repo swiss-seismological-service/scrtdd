@@ -323,11 +323,13 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
     const CatalogCPtr bgCat = _ddbgc;
 
     // there must be only one event in the catalog, the origin to relocate
-    Event evToRelocate = singleEvent->getEvents().begin()->second;
+    const Event& evToRelocate = singleEvent->getEvents().begin()->second;
     const auto& evToRelocatePhases = singleEvent->getPhases().equal_range(evToRelocate.id);
 
-    SEISCOMP_INFO("Starting HypoDD relocator in single event mode: event %s (%ld phases)",
-                  string(evToRelocate).c_str(), std::distance(evToRelocatePhases.first, evToRelocatePhases.second));
+    SEISCOMP_INFO("Starting HypoDD relocator in single event mode: event %s lat %.6f lon %.6f depth %.4f mag %.2f time %s #phases %ld",
+                  string(evToRelocate).c_str(), evToRelocate.latitude, evToRelocate.longitude,
+                  evToRelocate.depth, evToRelocate.magnitude, evToRelocate.time.iso().c_str(),
+                  std::distance(evToRelocatePhases.first, evToRelocatePhases.second) );
 
     // Create working directory (used to be a working directory, now it's just logs/debug)
     string subFolder = generateWorkingSubDir(evToRelocate);
@@ -375,7 +377,12 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
     if ( relocatedEvCat )
     {
-        SEISCOMP_INFO("Step 1 relocation successful");
+        const Event& ev = relocatedEvCat->getEvents().begin()->second;
+        SEISCOMP_INFO("Step 1 relocation successful, new location: "
+                      "lat %.6f (delta %.6f) lon %.6f (delta %.6f) depth %.4f (delta %.4f)",
+                      ev.latitude,  ev.latitude - evToRelocate.latitude,
+                      ev.longitude, ev.longitude - evToRelocate.longitude,
+                      ev.depth, ev.depth - evToRelocate.depth );
         SEISCOMP_INFO("%s", relocationReport(relocatedEvCat).c_str() );
 
         evToRelocateCat = relocatedEvCat;
@@ -403,7 +410,12 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 
     if ( relocatedEvWithXcorr )
     {
-        SEISCOMP_INFO("Step 2 relocation successful");
+        const Event& ev = relocatedEvWithXcorr->getEvents().begin()->second;
+        SEISCOMP_INFO("Step 2 relocation successful, new location: "
+                      "lat %.6f (delta %.6f) lon %.6f (delta %.6f) depth %.4f (delta %.4f)",
+                      ev.latitude,  ev.latitude - evToRelocate.latitude,
+                      ev.longitude, ev.longitude - evToRelocate.longitude,
+                      ev.depth, ev.depth - evToRelocate.depth );
         SEISCOMP_INFO("%s", relocationReport(relocatedEvWithXcorr).c_str() );
     }
     else
@@ -609,7 +621,7 @@ HypoDD::relocate(CatalogPtr& catalog,
 
 string HypoDD::relocationReport(const CatalogCPtr& relocatedEv)
 {
-    Event event = relocatedEv->getEvents().begin()->second;
+    const Event& event = relocatedEv->getEvents().begin()->second;
     if ( ! event.relocInfo.isRelocated )
         return "Event not relocated";
 
@@ -617,7 +629,7 @@ string HypoDD::relocationReport(const CatalogCPtr& relocatedEv)
                      "Num observations: %u (avg. a priory weight %.2f final weight %.2f). "
                      "Num xcross observations: P phases %u S phases %u. "
                      "Num absolute TT diff observations: P phases %u S phases %u",
-                      event.rms, event.relocInfo.numNeighbours, 
+                      event.rms, event.relocInfo.numNeighbours,
                       event.relocInfo.usedP, event.relocInfo.usedS,
                       (event.relocInfo.numCCp+event.relocInfo.numCCs+
                       event.relocInfo.numCTp+event.relocInfo.numCTs),

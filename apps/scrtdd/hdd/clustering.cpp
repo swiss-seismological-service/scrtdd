@@ -51,9 +51,8 @@ selectNeighbouringEvents(const CatalogCPtr& catalog,
                          double maxEllipsoidSize,
                          bool keepUnmatched)
 {
-    SEISCOMP_INFO("Selecting Neighbouring Events for event %s lat %.6f lon %.6f depth %.4f mag %.2f time %s",
-                   string(refEv).c_str(), refEv.latitude, refEv.longitude, refEv.depth,
-                   refEv.magnitude, refEv.time.iso().c_str());
+    SEISCOMP_INFO("Selecting Neighbouring Events for event %s lat %.6f lon %.6f depth %.4f",
+                   string(refEv).c_str(), refEv.latitude, refEv.longitude, refEv.depth);
 
     // Optimization: make code faster but the result will be the same
     if ( maxNumNeigh <= 0 )
