@@ -1459,7 +1459,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr& relocatedOrg,
     newOrg->setEarthModelID(profile ? profile->earthModelID : "");
     newOrg->setMethodID(profile ? profile->methodID : "RTDD");
     newOrg->setEvaluationMode(EvaluationMode(AUTOMATIC));
-    newOrg->setEpicenterFixed(true);
+    newOrg->setEpicenterFixed(false);
 
     newOrg->setTime(DataModel::TimeQuantity(event.time));
 
