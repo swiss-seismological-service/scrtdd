@@ -502,10 +502,21 @@ The `--eval-xcorr` option should be used to properly configure the cross-correla
 The configuration parameters that are relevant for this analysis are:
 * Cross Correlation coefficient threshold for P and S
 * Cross Correlation window length for P and S
-* Cross Correlation lag/delay for P and S
-* Singnal to Noise ratio configuration
-* Waveform filter
+* Cross Correlation maximum lag/delay for P and S
+* Signal to Noise ratio configuration
+* Waveform filter (and resampling)
 * Clustering: number of neighbours
+
+The Signal to Noise ratio is particularly important because scrtdd uses that to reject a pick derived via cross-correlation when the threshold is not reached. In general we have to configure the SNR noise/signal windows so that it can give sensible values in 5 scenarios:
+
+* pick time too early (we want low SNR)
+* pick time too late (we want low SNR)
+* pick time perfect  (we want high SNR)
+* pick time is early but acceptable (we want high SNR)
+* pick time is late but acceptable (we want high SNR)
+
+Given a user defined acceptable pick time error, the SNR signal/noise windows should be chosen so that satifly all the above scenarios.
+
 
 There are also few more parameters that are less relevant but that might become important when relocating automatic origins (the automatic location might be very far from the final solution):
 * Cross Correlation maximum station distance
