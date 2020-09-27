@@ -798,10 +798,17 @@ HypoDD::updateRelocatedEvents(const Solver& solver,
             continue;
         }
 
-        if ( event.depth >= 0 && event.depth + deltaDepth < 0 )
+        // check for airquakes (can we trust ttt/vel.model above surface?)
+        if ( event.depth + deltaDepth < 0 )
         {
-            SEISCOMP_DEBUG("Ignoring airquake event %s", string(event).c_str());
-            continue;
+            // allow 100 meters change
+            if ( deltaDepth > 0.100 )
+            {
+                SEISCOMP_DEBUG("Ignoring airquake event %s", string(event).c_str());
+                continue;
+            }
+            // do not move the depth in this case
+            deltaDepth = 0;
         }
 
         relocatedEvs++;
