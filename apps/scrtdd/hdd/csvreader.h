@@ -16,8 +16,8 @@
  ***************************************************************************/
 
 
-#ifndef __RTDD_APPLICATIONS_CSVREADER_H__
-#define __RTDD_APPLICATIONS_CSVREADER_H__
+#ifndef __HDD_CSVREADER_H__
+#define __HDD_CSVREADER_H__
 
 #include <unordered_map>
 

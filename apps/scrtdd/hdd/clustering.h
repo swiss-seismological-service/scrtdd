@@ -15,8 +15,8 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/ 
 
-#ifndef __RTDD_APPLICATIONS_CLUSTERING_H__
-#define __RTDD_APPLICATIONS_CLUSTERING_H__
+#ifndef __HDD_CLUSTERING_H__
+#define __HDD_CLUSTERING_H__
 
 #include "catalog.h"
 #include <seiscomp3/core/baseobject.h>

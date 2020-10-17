@@ -8,7 +8,7 @@ SET(RTDD_SOURCES
 		hdd/csvreader.cpp
 		hdd/datasrc.cpp
 		hdd/catalog.cpp
-		hdd/wfmngr.cpp
+		hdd/waveform.cpp
 		hdd/clustering.cpp
 		hdd/hypodd.cpp
 		app.cpp

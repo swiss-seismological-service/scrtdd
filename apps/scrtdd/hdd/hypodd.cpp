@@ -30,7 +30,6 @@
 #include <iomanip>
 #include <cmath>
 #include <boost/filesystem.hpp>
-#include <boost/bind.hpp>
 #include <boost/range/iterator_range_core.hpp>
 
 #define SEISCOMP_COMPONENT RTDD
@@ -40,12 +39,10 @@
 using namespace std;
 using namespace Seiscomp;
 using Seiscomp::Core::stringify;
-using DataModel::ThreeComponents;
 using Event = HDD::Catalog::Event;
 using Phase = HDD::Catalog::Phase;
 using Station = HDD::Catalog::Station;
-using CacheType = HDD::WfMngr::CacheType;
-
+using HDD::Waveform::getBandAndInstrumentCodes;
 
 namespace Seiscomp {
 namespace HDD {
@@ -87,11 +84,7 @@ HypoDD::HypoDD(const CatalogCPtr& catalog, const Config& cfg, const string& work
 
     _wfDebugDir = (boost::filesystem::path(_workingDir)/"wfdebug").string();
 
-    _wf = new WfMngr(_cfg.ddObservations2.recordStreamURL, _cacheDir, _tmpCacheDir, _wfDebugDir);
-    _wf->setProcessing(_cfg.wfFilter.filterStr, _cfg.wfFilter.resampleFreq);
-    _wf->setSnr(_cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd);
-
-    setUseCatalogDiskCache(true);
+    setUseCatalogWaveformDiskCache(true);
     setWaveformCacheAll(false);
     setWaveformDebug(false);
 
@@ -121,12 +114,64 @@ HypoDD::~HypoDD()
 }
 
 
-
 void HypoDD::setCatalog(const CatalogCPtr& catalog)
 {
     _srcCat = catalog;
-    _ddbgc = Catalog::filterPhasesAndSetWeights(_srcCat, Phase::Source::CATALOG,
+    _bgCat = Catalog::filterPhasesAndSetWeights(_srcCat, Phase::Source::CATALOG,
                                                 _cfg.validPphases, _cfg.validSphases);
+}
+
+
+void HypoDD::setUseCatalogWaveformDiskCache(bool cache)
+{
+    _useCatalogWaveformDiskCache = cache;
+    createWaveformCache();
+}
+
+
+void HypoDD::createWaveformCache()
+{
+    _wfDiskCache = nullptr;
+    _wfSnrFilter = nullptr;
+    _wfMemCache = nullptr;
+
+    if ( _useCatalogWaveformDiskCache )
+    {
+        _wfDiskCache = new Waveform::DiskCachedLoader(_cfg.ddObservations2.recordStreamURL,
+                                                      false, _cacheDir);
+        Waveform::ExtraLenLoaderPtr extLen = 
+            new Waveform::ExtraLenLoader(_wfDiskCache, DISK_TRACE_MIN_LEN);
+
+        if ( _cfg.snr.minSnr > 0 )
+        {
+            _wfSnrFilter = new Waveform::SnrFilteredLoader(
+                    extLen, _cfg.snr.minSnr,
+                    _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
+                    _cfg.snr.signalStart, _cfg.snr.signalEnd
+            );
+            _wfMemCache = new Waveform::MemCachedLoader(_wfSnrFilter, true);
+        }
+        else
+        {
+            _wfMemCache = new Waveform::MemCachedLoader(extLen, true);
+        }
+    }
+    else
+    {
+        if ( _cfg.snr.minSnr > 0 )
+        {
+            _wfSnrFilter = new Waveform::SnrFilteredLoader(
+                    _cfg.ddObservations2.recordStreamURL, _cfg.snr.minSnr,
+                    _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
+                    _cfg.snr.signalStart, _cfg.snr.signalEnd
+            );
+            _wfMemCache = new Waveform::MemCachedLoader(_wfSnrFilter, true);
+        }
+        else
+        {
+            _wfMemCache = new Waveform::MemCachedLoader(_cfg.ddObservations2.recordStreamURL, true);
+        }
+    }
 }
 
 
@@ -145,7 +190,8 @@ void HypoDD::setWaveformDebug(bool debug)
         }
     }
 
-    _wf->setWaveformDebug(_waveformDebug);
+    if ( _wfSnrFilter ) _wfSnrFilter->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
+    _wfMemCache->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
 }
 
 
@@ -169,17 +215,17 @@ string HypoDD::generateWorkingSubDir(const Event& ev) const
 
 void HypoDD::preloadData()
 {
-    _wf->resetCounters();
+    resetCounters();
 
     unsigned numPhases = 0, numSPhases = 0;
 
     //
     // Preload waveforms on disk and cache them in memory (pre-processed)
     //
-    for (const auto& kv : _ddbgc->getEvents() )
+    for (const auto& kv : _bgCat->getEvents() )
     {
         const Event& event = kv.second;
-        auto eqlrng = _ddbgc->getPhases().equal_range(event.id);
+        auto eqlrng = _bgCat->getPhases().equal_range(event.id);
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
             const Phase& phase = it->second;
@@ -189,8 +235,8 @@ void HypoDD::preloadData()
             for (string component : xcorrCfg.components )
             {
                 Phase tmpPh = phase;
-                tmpPh.channelCode = WfMngr::getBandAndInstrumentCodes(tmpPh.channelCode) + component;
-                _wf->getWaveform(tw, event, tmpPh, &_wfCache, CacheType::PERMANENT, true);
+                tmpPh.channelCode = getBandAndInstrumentCodes(tmpPh.channelCode) + component;
+                getWaveform(tw, event, tmpPh, _wfMemCache);
             }
 
             numPhases++;
@@ -198,16 +244,16 @@ void HypoDD::preloadData()
         }
     }
 
-    unsigned snr_low, wf_no_avail, wf_cached, wf_downloaded;
-    _wf->getCounters(snr_low, wf_no_avail, wf_cached, wf_downloaded);
-
+    updateCounters();
     SEISCOMP_INFO("Finished preloading catalog waveform data: total phases %u (P %.f%%, S %.f%%) "
                   "phases with Signal to Noise ratio too low %u (%.f%%), "
                   "phases data not available %u (%.f%%), "
                   "(waveforms downloaded %u, waveforms loaded from disk cache %u)",
                   numPhases, ((numPhases-numSPhases)* 100. / numPhases), 
-                  (numSPhases* 100. / numPhases), snr_low, (snr_low * 100. / numPhases),
-                  wf_no_avail, (wf_no_avail * 100. / numPhases), wf_downloaded, wf_cached);
+                  (numSPhases* 100. / numPhases), _counters.wf_snr_low, 
+                  (_counters.wf_snr_low * 100. / numPhases),
+                  _counters.wf_no_avail, (_counters.wf_no_avail * 100. / numPhases), 
+                  _counters.wf_downloaded, _counters.wf_disk_cached);
 }
 
 
@@ -215,7 +261,7 @@ CatalogPtr HypoDD::relocateCatalog()
 {
     SEISCOMP_INFO("Starting HypoDD relocator in multiple events mode");
 
-    CatalogPtr catToReloc( new Catalog(*_ddbgc) );
+    CatalogPtr catToReloc( new Catalog(*_bgCat) );
 
     // Create working directory (used to be a working directory, now it's just logs/debug)
     string catalogWorkingDir = (boost::filesystem::path(_workingDir)/"catalog").string();
@@ -320,7 +366,7 @@ CatalogPtr HypoDD::relocateCatalog()
 
 CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr& singleEvent)
 {
-    const CatalogCPtr bgCat = _ddbgc;
+    const CatalogCPtr bgCat = _bgCat;
 
     // there must be only one event in the catalog, the origin to relocate
     const Event& evToRelocate = singleEvent->getEvents().begin()->second;
@@ -1085,7 +1131,7 @@ HypoDD::createThoreticalPhase(const Station& station,
     refEvNewPhase.networkCode  = station.networkCode;
     refEvNewPhase.stationCode  = station.stationCode;
     refEvNewPhase.locationCode = station.locationCode;
-    refEvNewPhase.channelCode  = WfMngr::getBandAndInstrumentCodes(streamInfo.channelCode) + xcorrCfg.components[0];
+    refEvNewPhase.channelCode  = getBandAndInstrumentCodes(streamInfo.channelCode) + xcorrCfg.components[0];
     refEvNewPhase.isManual     = false;
     refEvNewPhase.procInfo.type = phaseType;
 
@@ -1109,8 +1155,7 @@ HypoDD::buildXCorrCache(CatalogPtr& catalog,
                         bool computeTheoreticalPhases)
 {
     XCorrCache xcorr;
-    _counters = {0};
-    _wf->resetCounters();
+    resetCounters();
 
     for (const NeighboursPtr& neighbours : neighCluster)
     {
@@ -1150,17 +1195,24 @@ HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
     SEISCOMP_INFO("Computing cross-correlation differential travel times for event %s",
                   string(refEv).c_str() );
 
-    WfMngr::WfCache wfTmpCache;
+    //
+    // Prepare the waveform loaders for temporary waveforms
+    //
+    Waveform::LoaderPtr diskLdr = new Waveform::DiskCachedLoader(
+            _cfg.ddObservations2.recordStreamURL, false, _tmpCacheDir
+    );
+    diskLdr = new Waveform::ExtraLenLoader(diskLdr, DISK_TRACE_MIN_LEN);
 
-    CacheType permCache = _useCatalogDiskCache ? CacheType::PERMANENT : CacheType::NONE;
-    CacheType tempCache = (_useCatalogDiskCache && _waveformCacheAll) ? CacheType::TEMP : CacheType::NONE; 
+    Waveform::LoaderPtr memLdr = ( _useCatalogWaveformDiskCache && _waveformCacheAll )
+        ? new Waveform::MemCachedLoader(diskLdr, true)
+        : new Waveform::MemCachedLoader(_cfg.ddObservations2.recordStreamURL, true);
 
-    // xcorr settings depending on the phase type
-    map<Phase::Source, PhaseXCorrCfg> phCfgs = {
-        {Phase::Source::CATALOG,      {permCache, &_wfCache,}},
-        {Phase::Source::RT_EVENT,     {tempCache, &wfTmpCache,}},
-        {Phase::Source::THEORETICAL,  {tempCache, &wfTmpCache,}}
-    };
+    Waveform::SnrFilteredLoaderPtr actualSnrLdr = ( _useCatalogWaveformDiskCache && _waveformCacheAll )
+        ? new Waveform::SnrFilteredLoader(diskLdr, _cfg.snr.minSnr, _cfg.snr.noiseStart,
+                _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd)
+        : new Waveform::SnrFilteredLoader(_cfg.ddObservations2.recordStreamURL, _cfg.snr.minSnr, 
+                _cfg.snr.noiseStart, _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd);
+    Waveform::LoaderPtr snrLdr = new Waveform::MemCachedLoader(actualSnrLdr, true);
 
     // keep track of refEv distance to stations
     multimap<double,string> stationByDistance; // <distance, stationid>
@@ -1183,8 +1235,30 @@ HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
              _cfg.ddObservations2.xcorrMaxEvStaDist >= 0 )
             continue;
 
+        // select appropriate waveform loader for refPhase
+        Waveform::LoaderPtr refLdr;
+        Core::TimeWindow snrWin;
+        if (refPhase.procInfo.source == Phase::Source::CATALOG) refLdr = _wfMemCache;
+        else if ( _cfg.snr.minSnr <= 0 )                        refLdr = memLdr;
+        else if ( refPhase.isManual )                           refLdr = snrLdr;
+        else // not from catalog, not manual, and _cfg.snr.minSnr > 0
+        {
+            // for "untrusted" phases (non-manual or not coming from the catalog) the
+            // SNR is checked AFTER loading the cross-correlation, once the pick time
+            // has been adjusted using the lag computed by the cross-corr against a
+            //  "trusted"  phase (manual or catalog)
+            // Also compute a large enough waveform to avoid reloading refPhase at
+            // every new neighbour, since the pick time (and thus the SNR window) 
+            // chages at every iteration cross-correlation
+            const auto xcorrCfg = _cfg.xcorr.at(refPhase.procInfo.type);
+            snrWin = 
+                _wfSnrFilter->snrTimeWindow(refPhase.time - Core::TimeSpan(xcorrCfg.maxDelay)) |
+                _wfSnrFilter->snrTimeWindow(refPhase.time + Core::TimeSpan(xcorrCfg.maxDelay));
+            refLdr = new Waveform::ExtraLenLoader(memLdr, snrWin.length());
+        }
+
         //
-        // loop through neighbouring events and cross correlate phase pairs
+        // loop through neighbouring events and cross correlate with refPhase
         //
         for ( unsigned neighEvId : neighbours->ids )
         {
@@ -1203,57 +1277,36 @@ HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
                 const Phase& phase = catalog->searchPhase(event.id, refPhase.stationId,
                                                           refPhase.procInfo.type)->second;
 
-                // for "untrusted" phases (non-manual or not coming from the catalog) the
-                // SNR is checked after loading the waveform, once the pick time has been 
-                // adjusted using the lag computed by the cross-corr against a "trusted" 
-                // phase (manual or catalog)
-                PhaseXCorrCfg refPhCfg = phCfgs.at(refPhase.procInfo.source);
-                refPhCfg.allowSnrCheck = refPhase.isManual || 
-                                         (refPhase.procInfo.source == Phase::Source::CATALOG);
-
-                // The 'phase' is always from catalog: in single-event mode 'refPhase' is
-                // real-time and 'phase' is from catalog. In multi-event mode both are from
-                // catalog.
+                // 'phase' is always from catalog: in single-event mode 'refPhase' is 
+                // real-time and 'phase' is from catalog. In multi-event mode both are catalog
                 if ( phase.procInfo.source != Phase::Source::CATALOG )
-                {
                     throw runtime_error("Internal logic error: phase is not from catalog");
-                }
-                // For catalog phases we always allow SNR check, because the pick time is
-                // not going to change (the catalog phases are the "trusted" phases)
-                PhaseXCorrCfg phaseCfg = phCfgs.at(phase.procInfo.source);
-                phaseCfg.allowSnrCheck = true;
 
                 double coeff, lag;
-                if ( xcorrPhases(refEv, refPhase, refPhCfg, event, phase, phaseCfg, coeff, lag) )
+                if ( xcorrPhases(refEv, refPhase, refLdr, event, phase, _wfMemCache, coeff, lag) )
                 {
                     bool goodSNR = true;
 
                     // for phases that have not had their SNR checked already, do it now
                     // using the pick time adjusted by xcorr detected lag
-                    if ( _cfg.snr.minSnr > 0 && ! refPhCfg.allowSnrCheck )
+                    if ( _cfg.snr.minSnr > 0 && !refPhase.isManual && 
+                         refPhase.procInfo.source != Phase::Source::CATALOG )
                     {
                         const auto xcorrCfg = _cfg.xcorr.at(refPhase.procInfo.type);
-
-                        // Compute the length of the waveform window: the pick time (and
-                        // so the SNR window) chages at every iteration and and we don't 
-                        // want to re-laod the waveform every time
-                        const Core::TimeWindow snrWin = 
-                            _wf->SNRTimeWindow(refPhase.time - Core::TimeSpan(xcorrCfg.maxDelay)) |
-                            _wf->SNRTimeWindow(refPhase.time + Core::TimeSpan(xcorrCfg.maxDelay));
-                        double minimumLength = 
-                            refPhCfg.type == CacheType::NONE ? 0 : WfMngr::DISK_TRACE_MIN_LEN;
-                        const Core::TimeWindow twToLoad = 
-                            _wf->traceTimeWindowToLoad(refPhase.time, snrWin, true, minimumLength);
-
-                        // check that at least one of the components allowed for this phase type
-                        // has a good SNR
+                        // check that at least one of the components allowed for this
+                        // phase type has a good SNR
                         goodSNR = false;
                         for ( const string& component : xcorrCfg.components )
                         {
                             Phase tmpPh = refPhase;
-                            tmpPh.channelCode = WfMngr::getBandAndInstrumentCodes(tmpPh.channelCode) + component;
-                            GenericRecordCPtr trace = _wf->getWaveform(twToLoad, refEv, tmpPh, refPhCfg.cache, refPhCfg.type, false);
-                            if ( trace && _wf->goodS2Nratio(trace, tmpPh.time - Core::TimeSpan(lag))  )
+                            tmpPh.channelCode = 
+                                getBandAndInstrumentCodes(tmpPh.channelCode) + component;
+                            GenericRecordCPtr trace = refLdr->get(
+                                snrWin, tmpPh, refEv, true, _cfg.wfFilter.filterStr,
+                                _cfg.wfFilter.resampleFreq
+                            );
+                            Core::Time adjustedPickTime = tmpPh.time - Core::TimeSpan(lag);
+                            if ( trace && _wfSnrFilter->goodSnr(trace, adjustedPickTime)  )
                             {
                                 goodSNR = true;
                                 break;
@@ -1287,6 +1340,9 @@ HypoDD::buildXcorrDiffTTimePairs(CatalogPtr& catalog,
             entry.computeStats();
         }
     }
+
+    // keep track of couters
+    updateCounters(diskLdr, actualSnrLdr, memLdr);
 
     // Print some useful information
     for (const auto& kv : stationByDistance)
@@ -1405,7 +1461,52 @@ void HypoDD::fixPhases(CatalogPtr& catalog,
 }
 
 
-void HypoDD::printCounters()
+void HypoDD::resetCounters()
+{
+    _counters = {0};
+    if ( _wfDiskCache ) 
+    {
+        _wfDiskCache->_counters_wf_no_avail = 0;
+        _wfDiskCache->_counters_wf_cached = 0;
+        _wfDiskCache->_counters_wf_downloaded = 0;
+    }
+    if ( _wfSnrFilter  )
+    {
+        _wfSnrFilter->_counters_wf_no_avail = 0;
+        _wfSnrFilter->_counters_wf_cached = 0;
+        _wfSnrFilter->_counters_wf_downloaded = 0;
+        _wfSnrFilter->_counters_wf_snr_low = 0; //! do not forget this
+    }
+    _wfMemCache->_counters_wf_no_avail = 0;
+    _wfMemCache->_counters_wf_cached = 0;
+    _wfMemCache->_counters_wf_downloaded = 0;
+}
+
+void HypoDD::updateCounters(Waveform::LoaderPtr diskCache,
+                            Waveform::SnrFilteredLoaderPtr snrFilter,
+                            Waveform::LoaderPtr memCache) const
+{
+    if ( _wfSnrFilter ) _counters.wf_snr_low += _wfSnrFilter->_counters_wf_snr_low;
+    if ( _wfDiskCache ) 
+    {
+        _counters.wf_downloaded  += diskCache->_counters_wf_downloaded;
+        _counters.wf_no_avail    += diskCache->_counters_wf_no_avail;
+        _counters.wf_disk_cached += diskCache->_counters_wf_cached;
+    }
+    else if ( _wfSnrFilter  ) 
+    {
+        _counters.wf_downloaded += snrFilter->_counters_wf_downloaded;
+        _counters.wf_no_avail   += snrFilter->_counters_wf_no_avail;
+    }
+    else if ( _wfMemCache  )
+    {
+        _counters.wf_downloaded += memCache->_counters_wf_downloaded;
+        _counters.wf_no_avail   += memCache->_counters_wf_no_avail;
+    }
+}
+
+
+void HypoDD::printCounters() const
 {
     unsigned performed        = _counters.xcorr_performed,
              performed_s      = _counters.xcorr_performed_s,
@@ -1420,14 +1521,17 @@ void HypoDD::printCounters()
              good_cc_s_theo   = _counters.xcorr_good_cc_s_theo,
              good_cc_p_theo   = good_cc_theo - good_cc_s_theo;
 
-    unsigned snr_low, wf_no_avail, wf_cached, wf_downloaded;
-    _wf->getCounters(snr_low, wf_no_avail, wf_cached, wf_downloaded);
+    updateCounters();
+    unsigned snr_low = _counters.wf_snr_low,
+             wf_no_avail = _counters.wf_no_avail,
+             wf_disk_cached = _counters.wf_disk_cached,
+             wf_downloaded = _counters.wf_downloaded;
 
     SEISCOMP_INFO("Cross correlation performed %u, "
                   "phases with Signal to Noise ratio too low %u, "
                   "phases not available %u (waveforms downloaded %u, "
                   "waveforms loaded from disk cache %u)",
-                  performed, snr_low, wf_no_avail, wf_downloaded, wf_cached);
+                  performed, snr_low, wf_no_avail, wf_downloaded, wf_disk_cached);
 
     SEISCOMP_INFO("Total xcorr %u (P %.f%%, S %.f%%) success %.f%% (%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
                   performed, (performed_p*100./performed), (performed_s*100./performed),
@@ -1481,8 +1585,10 @@ HypoDD::xcorrTimeWindowShort(const Phase& phase) const
 
 
 bool
-HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phCfg1,
-                    const Event& event2, const Phase& phase2, PhaseXCorrCfg& phCfg2,
+HypoDD::xcorrPhases(const Event& event1, const Phase& phase1,
+                    Waveform::LoaderPtr ph1Cache,
+                    const Event& event2, const Phase& phase2,
+                    Waveform::LoaderPtr ph2Cache,
                     double& coeffOut, double& lagOut)
 {
     if ( phase1.procInfo.type != phase2.procInfo.type )
@@ -1500,8 +1606,8 @@ HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phC
     // Try to use the same channels in cross correlation, in case the two phases differ
     // but do not change the catalog phase channels
     //
-    const string channelCodeRoot1 = WfMngr::getBandAndInstrumentCodes(phase1.channelCode);
-    const string channelCodeRoot2 = WfMngr::getBandAndInstrumentCodes(phase2.channelCode);
+    const string channelCodeRoot1 = getBandAndInstrumentCodes(phase1.channelCode);
+    const string channelCodeRoot2 = getBandAndInstrumentCodes(phase2.channelCode);
 
     string commonChRoot;
 
@@ -1559,7 +1665,9 @@ HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phC
             tmpPh2.channelCode = commonChRoot + component;
         }
 
-        performed = _xcorrPhases(event1, tmpPh1, phCfg1, event2, tmpPh2, phCfg2, coeffOut, lagOut);
+        performed = _xcorrPhases(
+            event1, tmpPh1, ph1Cache, event2, tmpPh2, ph2Cache, coeffOut, lagOut
+        );
 
         coeffOut = std::abs(coeffOut);
 
@@ -1608,8 +1716,10 @@ HypoDD::xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phC
 
 
 bool
-HypoDD::_xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& phCfg1,
-                     const Event& event2, const Phase& phase2, PhaseXCorrCfg& phCfg2,
+HypoDD::_xcorrPhases(const Event& event1, const Phase& phase1,
+                     Waveform::LoaderPtr ph1Cache,
+                     const Event& event2, const Phase& phase2,
+                     Waveform::LoaderPtr ph2Cache,
                      double& coeffOut, double& lagOut)
 {
     coeffOut = lagOut = 0;
@@ -1620,14 +1730,14 @@ HypoDD::_xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& ph
     Core::TimeWindow tw2 = xcorrTimeWindowLong(phase2);
 
     // load the long trace 1, because we want to cache the long version. Then we'll trim it.
-    GenericRecordCPtr tr1 = _wf->getWaveform(tw1, event1, phase1, phCfg1.cache, phCfg1.type, phCfg1.allowSnrCheck);
+    GenericRecordCPtr tr1 = getWaveform(tw1, event1, phase1, ph1Cache);
     if ( !tr1 )
     {
         return false;
     }
 
     // load the long trace 2, because we want to cache the long version. Then we'll trim it
-    GenericRecordCPtr tr2 = _wf->getWaveform(tw2, event2, phase2, phCfg2.cache, phCfg2.type, phCfg2.allowSnrCheck);
+    GenericRecordCPtr tr2 = getWaveform(tw2, event2, phase2, ph2Cache);
     if ( !tr2 )
     {
         return false;
@@ -1642,7 +1752,7 @@ HypoDD::_xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& ph
         // trim tr2 to shorter length, we want to cross correlate the short with the long one
         GenericRecordPtr tr2Short = new GenericRecord(*tr2);
         Core::TimeWindow tw2Short = xcorrTimeWindowShort(phase2);
-        if ( ! WfMngr::trim(*tr2Short, tw2Short) )
+        if ( ! Waveform::trim(*tr2Short, tw2Short) )
         {
             SEISCOMP_DEBUG("Cannot trim phase2 waveform, skipping cross correlation "
                              "for phase pair phase1='%s', phase2='%s'",
@@ -1650,7 +1760,7 @@ HypoDD::_xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& ph
             return false;
         }
 
-        if ( ! xcorr(tr1, tr2Short, xcorrCfg.maxDelay, true, xcorr_lag, xcorr_coeff) )
+        if ( ! Waveform::xcorr(tr1, tr2Short, xcorrCfg.maxDelay, true, xcorr_lag, xcorr_coeff) )
         {
             return false;
         }
@@ -1665,7 +1775,7 @@ HypoDD::_xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& ph
         // trim tr1 to shorter length, we want to cross correlate the short with the long one
         GenericRecordPtr tr1Short = new GenericRecord(*tr1);
         Core::TimeWindow tw1Short = xcorrTimeWindowShort(phase1);
-        if ( ! WfMngr::trim(*tr1Short, tw1Short) )
+        if ( ! Waveform::trim(*tr1Short, tw1Short) )
         {
             SEISCOMP_DEBUG("Cannot trim phase1 waveform, skipping cross correlation "
                              "for phase pair phase1='%s', phase2='%s'",
@@ -1673,7 +1783,7 @@ HypoDD::_xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& ph
             return false;
         }
 
-        if ( ! xcorr(tr1Short, tr2, xcorrCfg.maxDelay, true, xcorr_lag2, xcorr_coeff2) )
+        if ( ! Waveform::xcorr(tr1Short, tr2, xcorrCfg.maxDelay, true, xcorr_lag2, xcorr_coeff2) )
         {
             return false;
         }
@@ -1693,130 +1803,35 @@ HypoDD::_xcorrPhases(const Event& event1, const Phase& phase1, PhaseXCorrCfg& ph
 }
 
 
-/*
- * Calculate the correlation series (tr1 and tr2 are already demeaned)
- *
- * delayOut is the shift in seconds (positive or negative) between tr1 and tr2 middle points
- * to get the highest correlation coefficient (coeffOut) between the 2 traces
- * A delayOut of 0 is when tr1 and tr2 middle points are aligned
- */
-bool
-HypoDD::xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
-              bool qualityCheck, double& delayOut, double& coeffOut) const
+GenericRecordCPtr
+HypoDD::getWaveform(const Core::TimeWindow& tw,
+                    const Catalog::Event& ev,
+                    const Catalog::Phase& ph,
+                    Waveform::LoaderPtr wfLoader)
 {
-    coeffOut = std::nan("");
+    string wfDesc = stringify("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
+                              string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
 
-    if (tr1->samplingFrequency() != tr2->samplingFrequency())
+    const string wfId = Waveform::waveformId(ph, tw);
+
+    // Check if we have already excluded the trace because we couldn't load it (save time)
+    if ( _unloadableWfs.count(wfId) != 0 )
     {
-        SEISCOMP_INFO("Cannot cross correlate traces with different sampling freq (%f!=%f)",
-                      tr1->samplingFrequency(), tr2->samplingFrequency());
-        return false;
+        return nullptr;
     }
 
-    const double freq = tr1->samplingFrequency();
-    const int maxDelaySmps = maxDelay * freq; // secs to samples
+    // try to load the waveform
+    GenericRecordCPtr trace = wfLoader->get(
+        tw, ph, ev, true, _cfg.wfFilter.filterStr, _cfg.wfFilter.resampleFreq
+    );
 
-    // check longest/shortest trace
-    const bool swap = tr1->data()->size() > tr2->data()->size();
-    GenericRecordCPtr trShorter = swap ? tr2 : tr1;
-    GenericRecordCPtr trLonger  = swap ? tr1 : tr2; 
-
-    const double *smpsS = DoubleArray::ConstCast(trShorter->data())->typedData();
-    const double *smpsL = DoubleArray::ConstCast(trLonger->data())->typedData();
-    const int smpsSsize = trShorter->data()->size();
-    const int smpsLsize = trLonger->data()->size();
-
-    //
-    // for later quality check: save local maxima/minima
-    //
-    struct LocalMaxima {
-        bool notDecreasing = false;
-        double prevCoeff = -1;
-        vector<double> values;
-        void update(double coeff)
-        {
-            if ( ! std::isfinite(coeff) )
-                return;
-            if ( coeff < prevCoeff && notDecreasing )
-                values.push_back(prevCoeff);
-            notDecreasing = coeff >= prevCoeff;
-            prevCoeff = coeff;
-        }
-    };
-    LocalMaxima localMaxs, localMins;
-
-    for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
+    if ( ! trace )
     {
-        double numer = 0, denomL = 0, denomS = 0;
-        for (int idxS = 0; idxS < smpsSsize; idxS++)
-        {
-            denomS += smpsS[idxS] * smpsS[idxS];
-
-            int idxL = idxS + (smpsLsize-smpsSsize)/2 + delay;
-            if (idxL < 0 || idxL >= smpsLsize)
-                continue;
-
-            numer  += smpsS[idxS] * smpsL[idxL];
-            denomL += smpsL[idxL] * smpsL[idxL];
-        }
-
-        const double denom =  std::sqrt(denomS * denomL);
-        const double coeff = numer / denom;
-
-        if ( std::abs(coeff) > std::abs(coeffOut) || ! std::isfinite(coeffOut) )
-        {
-            coeffOut = coeff;
-            delayOut = delay / freq; // samples to secs
-        }
-
-        // for later quality check
-        localMaxs.update(coeff);
-        localMins.update(-coeff);
+        _unloadableWfs.insert(wfId);
+        return nullptr;
     }
 
-    if ( swap )
-    {
-        delayOut = -delayOut;
-    }
-
-    /*
-     * To avoid errors introduced by cycle skipping the differential time measurement is
-     * only accepted, if all side lobe maxima CCslm of the cross-correlation function 
-     * fulfill the following condition:
-     *
-     *                CCslm < CCmax - ( (1.0-CCmax) / 2.0 )
-     *
-     * where CCmax corresponds to the global maximum of the cross-correlation function.
-     * By discarding measurements with local maxima CCslm close to the global maximum CC,
-     * the number of potential blunders due to cycle skipping is significantly reduced.
-     *
-     * See Diehl et al. (2017): The induced earthquake sequence related to the St. Gallen
-     * deep geothermal project: Fault reactivation and fluid interactions imaged by
-     * microseismicity
-     * */
-    if ( qualityCheck && std::isfinite(coeffOut))
-    {
-        double threshold = std::abs(coeffOut) - ( (1.0 - std::abs(coeffOut)) / 2.0 );
-        int numMax = 0;
-        vector<double> localMs = coeffOut > 0 ? localMaxs.values : localMins.values;
-        for (double CCslm : localMs)
-        {
-            if (std::isfinite(CCslm) && CCslm >= threshold) numMax++;
-            if (numMax > 1)
-            {
-                coeffOut = std::nan("");
-                break;
-            }
-        }
-    }
-
-    if ( ! std::isfinite(coeffOut) )
-    {
-        coeffOut = 0;
-        delayOut = 0.;
-    }
-
-    return true;
+    return trace;
 }
 
 
@@ -1938,11 +1953,10 @@ HypoDD::evalXCorr()
         SEISCOMP_WARNING("%s", log.c_str() );
     };
 
-    _counters = {0};
-    _wf->resetCounters(); 
+    resetCounters();
     int loop = 0;
 
-    for (const auto& kv : _ddbgc->getEvents() )
+    for (const auto& kv : _bgCat->getEvents() )
     {
         const Event& event = kv.second;
 
@@ -1950,7 +1964,7 @@ HypoDD::evalXCorr()
         NeighboursPtr neighbours;
         try {
             neighbours = selectNeighbouringEvents(
-                _ddbgc, event, _ddbgc, _cfg.ddObservations2.minWeight,
+                _bgCat, event, _bgCat, _cfg.ddObservations2.minWeight,
                 _cfg.ddObservations2.minESdist, _cfg.ddObservations2.maxESdist,
                 _cfg.ddObservations2.minEStoIEratio, _cfg.ddObservations2.minDTperEvt,
                 _cfg.ddObservations2.maxDTperEvt, _cfg.ddObservations2.minNumNeigh,
@@ -1964,12 +1978,12 @@ HypoDD::evalXCorr()
         {
             // create theoretical phases for this event instead of
             // fetching its phases from the catalog
-            catalog = neighbours->toCatalog(_ddbgc, false);
-            addMissingEventPhases(event, catalog, _ddbgc, neighbours);
+            catalog = neighbours->toCatalog(_bgCat, false);
+            addMissingEventPhases(event, catalog, _bgCat, neighbours);
         }
         else
         {
-            catalog = neighbours->toCatalog(_ddbgc, true);
+            catalog = neighbours->toCatalog(_bgCat, true);
         }
 
         // cross correlate every neighbour phase with corresponding event theoretical phase
@@ -1996,7 +2010,7 @@ HypoDD::evalXCorr()
             //  collect stats by event, station, station distance
             //
             const string stationId = kv.first;
-            const Phase& catalogPhase = _ddbgc->searchPhase(event.id, stationId, phaseType)->second;
+            const Phase& catalogPhase = _bgCat->searchPhase(event.id, stationId, phaseType)->second;
 
             XCorrEvalStats phStaStats;
             double phaseTimeDiff = 0;
@@ -2027,7 +2041,7 @@ HypoDD::evalXCorr()
             if ( phaseType == Phase::Type::S ) sPhaseStats += phStaStats;
             statsByStation[catalogPhase.stationId] += phStaStats;
 
-            const Station& station = _ddbgc->getStations().at(catalogPhase.stationId);
+            const Station& station = _bgCat->getStations().at(catalogPhase.stationId);
             double stationDistance = computeDistance(event, station);
             statsByStaDistance[ int(stationDistance/STA_DIST_STEP) ] += phStaStats;
 

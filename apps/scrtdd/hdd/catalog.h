@@ -15,8 +15,8 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#ifndef __RTDD_APPLICATIONS_CATALOG_H__
-#define __RTDD_APPLICATIONS_CATALOG_H__
+#ifndef __HDD_CATALOG_H__
+#define __HDD_CATALOG_H__
 
 #include "datasrc.h"
 
@@ -172,13 +172,13 @@ class Catalog : public Core::BaseObject {
         Catalog();
         virtual ~Catalog() { }
 
-        // copy constructor / assignment operator
-        Catalog(const Catalog& other);
-        Catalog& operator=(const Catalog& other);
+        // copy constructor/assignment operator
+        Catalog(const Catalog& other) = default;
+        Catalog& operator=(const Catalog& other) = default;
 
-        // move constructor / assignment operator
-        Catalog(Catalog&& other);
-        Catalog& operator=(Catalog&& other);
+        // move constructor/assignment operator
+        Catalog(Catalog&& other) = default;
+        Catalog& operator=(Catalog&& other) = default;
 
         // custom data format constructors
         Catalog(std::unordered_map<std::string,Station>&& stations,

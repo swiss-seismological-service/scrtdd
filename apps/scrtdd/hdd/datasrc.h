@@ -15,8 +15,8 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#ifndef __RTDD_APPLICATIONS_DATASRC_H__
-#define __RTDD_APPLICATIONS_DATASRC_H__
+#ifndef __HDD_DATASRC_H__
+#define __HDD_DATASRC_H__
 
 #include <seiscomp3/core/baseobject.h>
 #include <seiscomp3/datamodel/eventparameters.h>

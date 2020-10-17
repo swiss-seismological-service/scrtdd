@@ -15,8 +15,8 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#ifndef __RTDD_APPLICATIONS_SOLVER_H__
-#define __RTDD_APPLICATIONS_SOLVER_H__
+#ifndef __HDD_SOLVER_H__
+#define __HDD_SOLVER_H__
 
 #include "lsqr.h"
 #include "lsmr.h"

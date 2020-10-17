@@ -15,11 +15,11 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#ifndef __RTDD_APPLICATIONS_HYPODD_H__
-#define __RTDD_APPLICATIONS_HYPODD_H__
+#ifndef __HDD_HYPODD_H__
+#define __HDD_HYPODD_H__
 
 #include "catalog.h"
-#include "wfmngr.h"
+#include "waveform.h"
 #include "solver.h"
 #include "clustering.h"
 #include "xcorrcache.ipp"
@@ -149,8 +149,8 @@ class HypoDD : public Core::BaseObject {
         void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
         bool workingDirCleanup() const { return _workingDirCleanup; }
 
-        void setUseCatalogDiskCache(bool cache) { _useCatalogDiskCache = cache; }
-        bool useCatalogDiskCache() const { return _useCatalogDiskCache; }
+        void setUseCatalogWaveformDiskCache(bool cache);
+        bool useCatalogWaveformDiskCache() const { return _useCatalogWaveformDiskCache; }
 
         void setWaveformCacheAll(bool all) { _waveformCacheAll = all; }
         bool waveformCacheAll() const { return _waveformCacheAll; }
@@ -165,6 +165,9 @@ class HypoDD : public Core::BaseObject {
         static std::string relocationReport(const CatalogCPtr& relocatedEv);
 
     private:
+
+        void createWaveformCache();
+
         std::string generateWorkingSubDir(const Catalog::Event& ev) const;
 
         CatalogPtr relocateEventSingleStep( const CatalogCPtr bgCat,
@@ -241,32 +244,36 @@ class HypoDD : public Core::BaseObject {
 
         void fixPhases(CatalogPtr& catalog, const Catalog::Event& refEv, XCorrCache& xcorr);
 
-        struct PhaseXCorrCfg {
-            WfMngr::CacheType type;
-            WfMngr::WfCache* cache;
-            bool allowSnrCheck;
-        };
-
-        bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
-                         PhaseXCorrCfg& phCfg1,
-                         const Catalog::Event& event2, const Catalog::Phase& phase2, 
-                         PhaseXCorrCfg& phCfg2,
+        bool xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
+                         Waveform::LoaderPtr ph1Cache,
+                         const Catalog::Event& event2, const Catalog::Phase& phase2,
+                         Waveform::LoaderPtr ph2Cache,
                          double& coeffOut, double& lagOut);
 
-        bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1, 
-                          PhaseXCorrCfg& phCfg1,
+        bool _xcorrPhases(const Catalog::Event& event1, const Catalog::Phase& phase1,
+                          Waveform::LoaderPtr ph1Cache,
                           const Catalog::Event& event2, const Catalog::Phase& phase2,
-                          PhaseXCorrCfg& phCfg2,
+                          Waveform::LoaderPtr ph2Cache,
                           double& coeffOut, double& lagOut);
-
-        bool xcorr(const GenericRecordCPtr& tr1, const GenericRecordCPtr& tr2, double maxDelay,
-                   bool qualityCheck, double& delayOut, double& coeffOut) const;
 
         Core::TimeWindow xcorrTimeWindowLong(const Catalog::Phase& phase) const;
 
         Core::TimeWindow xcorrTimeWindowShort(const Catalog::Phase& phase) const;
 
-        void printCounters();
+        GenericRecordCPtr getWaveform(const Core::TimeWindow& tw,
+                                      const Catalog::Event& ev,
+                                      const Catalog::Phase& ph,
+                                      Waveform::LoaderPtr wfLoader);
+
+        void resetCounters();
+        void printCounters() const;
+        void updateCounters() const
+        {
+            updateCounters(_wfDiskCache, _wfSnrFilter, _wfMemCache);
+        }
+        void updateCounters(Waveform::LoaderPtr diskCache,
+                            Waveform::SnrFilteredLoaderPtr snrFilter,
+                            Waveform::LoaderPtr memCache) const;
 
     private:
         bool _workingDirCleanup = true;
@@ -276,19 +283,23 @@ class HypoDD : public Core::BaseObject {
         std::string _wfDebugDir;
 
         CatalogCPtr _srcCat;
-        CatalogCPtr _ddbgc;
+        CatalogCPtr _bgCat;
 
         const Config _cfg;
 
-        WfMngrPtr  _wf;
-        WfMngr::WfCache _wfCache;
-        bool _useCatalogDiskCache = true;
+        bool _useCatalogWaveformDiskCache = true;
         bool _waveformCacheAll = false;
         bool _waveformDebug = false;
 
         bool _useArtificialPhases = true;
 
         TravelTimeTableInterfacePtr _ttt;
+
+        Waveform::DiskCachedLoaderPtr _wfDiskCache;
+        Waveform::SnrFilteredLoaderPtr _wfSnrFilter;
+        Waveform::MemCachedLoaderPtr  _wfMemCache;
+
+        std::unordered_set<std::string> _unloadableWfs;
 
         struct {
             unsigned xcorr_performed;
@@ -299,7 +310,19 @@ class HypoDD : public Core::BaseObject {
             unsigned xcorr_good_cc_theo;
             unsigned xcorr_good_cc_s;
             unsigned xcorr_good_cc_s_theo;
+            unsigned wf_downloaded;
+            unsigned wf_no_avail;
+            unsigned wf_disk_cached;
+            unsigned wf_snr_low;
         } mutable _counters;
+
+        // For waveforms that are cached to disk store at least DISK_TRACE_MIN_LEN
+        // secs of data (centered at pick time)
+        // This is to avoid re-downloading waveforms every time scrtdd is restarted
+        // with a minimum change of the xcorr configuration, which happens when 
+        // the user is experimenting with the configuration optiobns.
+        // This is a little overhead for the disk space but saves lot of precious user time
+        static constexpr const double DISK_TRACE_MIN_LEN = 10;
 };
 
 }

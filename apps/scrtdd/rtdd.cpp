@@ -1901,7 +1901,7 @@ void RTDD::Profile::load(DatabaseQuery* query,
 
     hypodd = new HDD::HypoDD(ddbgc, ddcfg, pWorkingDir);
     hypodd->setWorkingDirCleanup(cleanupWorkingDir);
-    hypodd->setUseCatalogDiskCache(cacheWaveforms);
+    hypodd->setUseCatalogWaveformDiskCache(cacheWaveforms);
     hypodd->setWaveformCacheAll(cacheAllWaveforms);
     hypodd->setWaveformDebug(debugWaveforms);
     loaded = true;

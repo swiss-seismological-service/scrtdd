@@ -215,42 +215,6 @@ Catalog::Catalog(unordered_map<string,Station>&& stations,
 }
 
 
-
-Catalog::Catalog(const Catalog& other) : Catalog(other._stations,
-                                                 other._events,
-                                                 other._phases)
-{ }
-
-
-
-Catalog::Catalog(Catalog&& other) : Catalog(std::move(other._stations),
-                                            std::move(other._events),
-                                            std::move(other._phases) )
-{ }
-
-
-Catalog& Catalog::operator=(const Catalog& other)
-{
-    if (this == &other) return *this;
-    _stations = other._stations;
-    _events   = other._events;
-    _phases   = other._phases;
-    return *this;
-}
-
-
-
-Catalog& Catalog::operator=(Catalog&& other)
-{
-    if (this == &other) return *this;
-    _stations = std::move(other._stations);
-    _events   = std::move(other._events);
-    _phases   = std::move(other._phases);
-    return *this;
-}
-
-
-
 Catalog::Catalog(const string& stationFile,
                  const string& eventFile,
                  const string& phaFile,
