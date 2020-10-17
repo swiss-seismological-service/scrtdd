@@ -15,22 +15,21 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-
-
 #include "rtdd.h"
 
-int main(int argc, char **argv) {
-    int retCode = EXIT_SUCCESS;
+int main(int argc, char **argv)
+{
+  int retCode = EXIT_SUCCESS;
 
-    // Create an own block to make sure the application object
-    // is destroyed when printing the overall objectcount
-    {
-        Seiscomp::RTDD app(argc, argv);
-        retCode = app.exec();
-    }
+  // Create an own block to make sure the application object
+  // is destroyed when printing the overall objectcount
+  {
+    Seiscomp::RTDD app(argc, argv);
+    retCode = app.exec();
+  }
 
-    SEISCOMP_DEBUG("EXIT(%d), remaining objects: %d",
-                   retCode, Seiscomp::Core::BaseObject::ObjectCount());
+  SEISCOMP_DEBUG("EXIT(%d), remaining objects: %d", retCode,
+                 Seiscomp::Core::BaseObject::ObjectCount());
 
-    return retCode;
+  return retCode;
 }

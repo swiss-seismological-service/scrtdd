@@ -18,11 +18,10 @@
 #ifndef __RTDD_PLUGIN_RTDDLOC_H__
 #define __RTDD_PLUGIN_RTDDLOC_H__
 
+#include <seiscomp3/communication/connection.h>
 #include <seiscomp3/core/plugin.h>
 #include <seiscomp3/seismology/locatorinterface.h>
-#include <seiscomp3/communication/connection.h>
 #include <string>
-
 
 namespace Seiscomp {
 
@@ -30,75 +29,76 @@ namespace Seismology {
 
 namespace Plugins {
 
+class RTDDLocator : public Seiscomp::Seismology::LocatorInterface
+{
 
-class RTDDLocator : public Seiscomp::Seismology::LocatorInterface {
+  // ----------------------------------------------------------------------
+  //  X'truction
+  // ----------------------------------------------------------------------
+public:
+  //! C'tor
+  RTDDLocator() {}
 
-    // ----------------------------------------------------------------------
-    //  X'truction
-    // ----------------------------------------------------------------------
-    public:
-        //! C'tor
-        RTDDLocator() {}
+  //! D'tor
+  ~RTDDLocator() {}
 
-        //! D'tor
-        ~RTDDLocator() {}
+  // ----------------------------------------------------------------------
+  //  Locator interface implementation
+  // ----------------------------------------------------------------------
+public:
+  //! Initializes the locator.
+  virtual bool init(const Config::Config &config);
 
-    // ----------------------------------------------------------------------
-    //  Locator interface implementation
-    // ----------------------------------------------------------------------
-    public:
-        //! Initializes the locator.
-        virtual bool init(const Config::Config &config);
+  //! Returns supported parameters to be changed.
+  virtual IDList parameters() const { return _allowedParameters; }
 
-        //! Returns supported parameters to be changed.
-        virtual IDList parameters() const { return _allowedParameters; }
+  //! Returns the value of a parameter.
+  virtual std::string parameter(const std::string &name) const;
 
-        //! Returns the value of a parameter.
-        virtual std::string parameter(const std::string &name) const;
+  //! Sets the value of a parameter.
+  virtual bool setParameter(const std::string &name, const std::string &value);
 
-        //! Sets the value of a parameter.
-        virtual bool setParameter(const std::string &name,
-                                  const std::string &value);
-                                  
-        //! List available profiles
-        virtual IDList profiles() const { return _profileNames; }
+  //! List available profiles
+  virtual IDList profiles() const { return _profileNames; }
 
-        //! specify the profile to be used
-        virtual void setProfile(const std::string &name);
-        
-        //! Returns the implementations capabilities
-        virtual int capabilities() const { return NoCapability; }
+  //! specify the profile to be used
+  virtual void setProfile(const std::string &name);
 
-        //! not supported, only relocation
-        virtual DataModel::Origin* locate(PickList& pickList) { return NULL; }
-        
-        //! not supported, only relocation
-        virtual DataModel::Origin* locate(PickList& pickList,
-                                          double initLat, double initLon, double initDepth,
-                                          const Core::Time &initTime) { return NULL; } 
-                                          
-        virtual DataModel::Origin* relocate(const DataModel::Origin* origin);
+  //! Returns the implementations capabilities
+  virtual int capabilities() const { return NoCapability; }
 
-    // ----------------------------------------------------------------------
-    //  Private members
-    // ----------------------------------------------------------------------
-    private:
-    
-        Communication::ConnectionPtr createConnection();
-    
-        ParameterMap  _parameters;
-        IDList        _profileNames;
-        std::string   _currentProfile;
-        
-        static IDList _allowedParameters;
+  //! not supported, only relocation
+  virtual DataModel::Origin *locate(PickList &pickList) { return NULL; }
+
+  //! not supported, only relocation
+  virtual DataModel::Origin *locate(PickList &pickList,
+                                    double initLat,
+                                    double initLon,
+                                    double initDepth,
+                                    const Core::Time &initTime)
+  {
+    return NULL;
+  }
+
+  virtual DataModel::Origin *relocate(const DataModel::Origin *origin);
+
+  // ----------------------------------------------------------------------
+  //  Private members
+  // ----------------------------------------------------------------------
+private:
+  Communication::ConnectionPtr createConnection();
+
+  ParameterMap _parameters;
+  IDList _profileNames;
+  std::string _currentProfile;
+
+  static IDList _allowedParameters;
 };
 
+} // namespace Plugins
 
-}
+} // namespace Seismology
 
-}
-
-}
+} // namespace Seiscomp
 
 #endif
-

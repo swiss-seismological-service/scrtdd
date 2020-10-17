@@ -13,101 +13,105 @@
  *                                                                         *
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
- ***************************************************************************/ 
+ ***************************************************************************/
 
 #ifndef __HDD_CLUSTERING_H__
 #define __HDD_CLUSTERING_H__
 
 #include "catalog.h"
+#include <deque>
+#include <list>
 #include <seiscomp3/core/baseobject.h>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
-#include <set>
-#include <list>
-#include <deque>
-
 
 namespace Seiscomp {
-namespace HDD { 
+namespace HDD {
 
 DEFINE_SMARTPOINTER(Neighbours);
 
 // DD background catalog
 struct Neighbours : public Core::BaseObject
 {
-    unsigned refEvId;
+  unsigned refEvId;
 
-    unsigned numNeighbours;
+  unsigned numNeighbours;
 
-    std::unordered_set<unsigned> ids; // neighbouring event id 
+  std::unordered_set<unsigned> ids; // neighbouring event id
 
-    std::unordered_map<unsigned, // indexed by event id
-         std::unordered_map<std::string, // indexed by station id
-                            std::set<Catalog::Phase::Type> > > phases;
+  std::unordered_map<unsigned,                       // indexed by event id
+                     std::unordered_map<std::string, // indexed by station id
+                                        std::set<Catalog::Phase::Type>>>
+      phases;
 
-    std::unordered_map<std::string, std::set<Catalog::Phase::Type> > allPhases() const
+  std::unordered_map<std::string, std::set<Catalog::Phase::Type>>
+  allPhases() const
+  {
+    std::unordered_map<std::string, std::set<Catalog::Phase::Type>> allPhases;
+    for (const auto &kw1 : phases)
+      for (const auto &kw2 : kw1.second)
+        allPhases[kw2.first].insert(kw2.second.begin(), kw2.second.end());
+    return allPhases;
+  }
+
+  bool has(unsigned neighbourId) const
+  {
+    return ids.find(neighbourId) != ids.end();
+  }
+
+  bool has(unsigned neighbourId, const std::string stationId) const
+  {
+    const auto &neighPhases = phases.find(neighbourId);
+    if (neighPhases != phases.end())
+      return neighPhases->second.find(stationId) != neighPhases->second.end();
+    return false;
+  }
+
+  bool has(unsigned neighbourId,
+           const std::string stationId,
+           Catalog::Phase::Type type) const
+  {
+    const auto &neighPhases = phases.find(neighbourId);
+    if (neighPhases != phases.end())
     {
-         std::unordered_map<std::string, std::set<Catalog::Phase::Type> > allPhases;
-         for ( const auto& kw1 : phases )
-            for ( const auto& kw2 : kw1.second )
-                 allPhases[kw2.first].insert(kw2.second.begin(), kw2.second.end());
-         return allPhases;
+      const auto &neighPhaseTypes = neighPhases->second.find(stationId);
+      if (neighPhaseTypes != neighPhases->second.end())
+        return neighPhaseTypes->second.find(type) !=
+               neighPhaseTypes->second.end();
     }
+    return false;
+  }
 
-    bool has(unsigned neighbourId) const
-    {
-        return ids.find(neighbourId) != ids.end();
-    }
-
-    bool has(unsigned neighbourId, const std::string stationId) const
-    {
-        const auto& neighPhases = phases.find(neighbourId);
-        if ( neighPhases != phases.end() )
-            return neighPhases->second.find(stationId) != neighPhases->second.end();
-        return false;
-    }
-
-    bool has(unsigned neighbourId, const std::string stationId, Catalog::Phase::Type type) const
-    {
-        const auto& neighPhases = phases.find(neighbourId);
-        if ( neighPhases != phases.end() ) {
-            const auto& neighPhaseTypes = neighPhases->second.find(stationId);
-            if ( neighPhaseTypes != neighPhases->second.end() )
-                return  neighPhaseTypes->second.find(type) != neighPhaseTypes->second.end();
-        }
-        return false;
-    } 
-
-    CatalogPtr toCatalog(const CatalogCPtr& catalog, bool includeRefEv=false) const
-    {
-        CatalogPtr returnCat( new Catalog() );
-        for (unsigned neighbourId : ids)
-            returnCat->add(neighbourId, *catalog, true);
-        if ( includeRefEv )
-            returnCat->add(refEvId, *catalog, true);
-        return returnCat;
-    }
+  CatalogPtr toCatalog(const CatalogCPtr &catalog,
+                       bool includeRefEv = false) const
+  {
+    CatalogPtr returnCat(new Catalog());
+    for (unsigned neighbourId : ids)
+      returnCat->add(neighbourId, *catalog, true);
+    if (includeRefEv) returnCat->add(refEvId, *catalog, true);
+    return returnCat;
+  }
 };
 
-
 NeighboursPtr
-selectNeighbouringEvents(const CatalogCPtr& catalog,
-                         const Catalog::Event& refEv,
-                         const CatalogCPtr& refEvCatalog,
-                         double minPhaseWeight = 0,
-                         double minESdis=0,
-                         double maxESdis=-1,
-                         double minEStoIEratio=0,
-                         unsigned minDTperEvt=1,
-                         unsigned maxDTperEvt=0,// 0 = no limits
-                         unsigned minNumNeigh=1,
-                         unsigned maxNumNeigh=0, // 0 = no limits
-                         unsigned numEllipsoids=5,
-                         double maxEllipsoidSize=10,
-                         bool keepUnmatched=false);
+selectNeighbouringEvents(const CatalogCPtr &catalog,
+                         const Catalog::Event &refEv,
+                         const CatalogCPtr &refEvCatalog,
+                         double minPhaseWeight   = 0,
+                         double minESdis         = 0,
+                         double maxESdis         = -1,
+                         double minEStoIEratio   = 0,
+                         unsigned minDTperEvt    = 1,
+                         unsigned maxDTperEvt    = 0, // 0 = no limits
+                         unsigned minNumNeigh    = 1,
+                         unsigned maxNumNeigh    = 0, // 0 = no limits
+                         unsigned numEllipsoids  = 5,
+                         double maxEllipsoidSize = 10,
+                         bool keepUnmatched      = false);
 
-std::deque< std::list<NeighboursPtr> >
-selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
+std::deque<std::list<NeighboursPtr>>
+selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
                                 double minPhaseWeight,
                                 double minESdis,
                                 double maxESdis,
@@ -120,11 +124,10 @@ selectNeighbouringEventsCatalog(const CatalogCPtr& catalog,
                                 double maxEllipsoidSize,
                                 bool keepUnmatched);
 
-std::deque< std::list<NeighboursPtr> >
-clusterizeNeighbouringEvents(const std::list<NeighboursPtr>& neighboursList);
+std::deque<std::list<NeighboursPtr>>
+clusterizeNeighbouringEvents(const std::list<NeighboursPtr> &neighboursList);
 
-}
-}
+} // namespace HDD
+} // namespace Seiscomp
 
-#endif 
-
+#endif

@@ -14,37 +14,34 @@
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
- 
+
 #include "rtddmsg.h"
 
 namespace Seiscomp {
 
-
-void RTDDRelocateRequestMessage::serialize(Archive& ar)
+void RTDDRelocateRequestMessage::serialize(Archive &ar)
 {
-    Core::Message::serialize(ar);
-    if ( !ar.success() ) return;
-    ar & NAMED_OBJECT("origin", _origin);
-    ar & NAMED_OBJECT("profile", _profile);
+  Core::Message::serialize(ar);
+  if (!ar.success()) return;
+  ar &NAMED_OBJECT("origin", _origin);
+  ar &NAMED_OBJECT("profile", _profile);
 }
 
-IMPLEMENT_SC_CLASS_DERIVED(
-    RTDDRelocateRequestMessage, Message, "rtdd_relocate_request_message"
-);
+IMPLEMENT_SC_CLASS_DERIVED(RTDDRelocateRequestMessage,
+                           Message,
+                           "rtdd_relocate_request_message");
 
-void RTDDRelocateResponseMessage::serialize(Archive& ar)
+void RTDDRelocateResponseMessage::serialize(Archive &ar)
 {
-    Core::Message::serialize(ar);
-    if ( !ar.success() ) return;
-    ar & NAMED_OBJECT("relocatedOrigin", _relocatedOrigin);
-    ar & NAMED_OBJECT("error", _error);
-    ar & NAMED_OBJECT("requestAccepted", _requestAccepted);
+  Core::Message::serialize(ar);
+  if (!ar.success()) return;
+  ar &NAMED_OBJECT("relocatedOrigin", _relocatedOrigin);
+  ar &NAMED_OBJECT("error", _error);
+  ar &NAMED_OBJECT("requestAccepted", _requestAccepted);
 }
 
-IMPLEMENT_SC_CLASS_DERIVED(
-    RTDDRelocateResponseMessage, Message, "rtdd_relocate_response_message"
-);
-
+IMPLEMENT_SC_CLASS_DERIVED(RTDDRelocateResponseMessage,
+                           Message,
+                           "rtdd_relocate_response_message");
 
 } // namespace Seiscomp
-

@@ -19,53 +19,52 @@
 #define __HDD_DATASRC_H__
 
 #include <seiscomp3/core/baseobject.h>
-#include <seiscomp3/datamodel/eventparameters.h>
-#include <seiscomp3/datamodel/publicobjectcache.h>
 #include <seiscomp3/datamodel/databasequery.h>
+#include <seiscomp3/datamodel/eventparameters.h>
 #include <seiscomp3/datamodel/origin.h>
+#include <seiscomp3/datamodel/publicobjectcache.h>
 
 namespace Seiscomp {
 namespace HDD {
 
+class DataSource
+{
+public:
+  DataSource(DataModel::DatabaseQuery *query,
+             DataModel::PublicObjectTimeSpanBuffer *cache)
+      : _query(query), _cache(cache)
+  {}
 
-class DataSource {
-    public:
+  DataSource(DataModel::EventParameters *eventParameters)
+      : _eventParameters(eventParameters)
+  {}
 
-        DataSource(DataModel::DatabaseQuery* query,
-                   DataModel::PublicObjectTimeSpanBuffer* cache)
-        : _query(query), _cache(cache) {}
+  DataSource(DataModel::DatabaseQuery *query,
+             DataModel::PublicObjectTimeSpanBuffer *cache,
+             DataModel::EventParameters *eventParameters)
+      : _query(query), _cache(cache), _eventParameters(eventParameters)
+  {}
 
-        DataSource(DataModel::EventParameters* eventParameters)
-        : _eventParameters(eventParameters) {}
+  template <typename T>
+  typename Core::SmartPointer<T>::Impl get(const std::string &publicID)
+  {
+    return T::Cast(getObject(T::TypeInfo(), publicID));
+  }
 
-        DataSource(DataModel::DatabaseQuery* query,
-                   DataModel::PublicObjectTimeSpanBuffer* cache,
-                   DataModel::EventParameters* eventParameters)
-        : _query(query), _cache(cache), _eventParameters(eventParameters) {}
+  DataModel::PublicObject *getObject(const Seiscomp::Core::RTTI &classType,
+                                     const std::string &publicID);
 
-        template <typename T>
-        typename Core::SmartPointer<T>::Impl
-        get(const std::string& publicID) {
-            return T::Cast(getObject(T::TypeInfo(), publicID));
-        }
+  void loadArrivals(DataModel::Origin *org);
 
-        DataModel::PublicObject* getObject(const Seiscomp::Core::RTTI& classType,
-                                           const std::string& publicID);
+  DataModel::Event *getParentEvent(const std::string &originID);
 
-        void loadArrivals(DataModel::Origin* org);
-
-        DataModel::Event* getParentEvent(const std::string& originID);
-
-    private:
-        DataModel::DatabaseQuery* _query;
-        DataModel::PublicObjectTimeSpanBuffer* _cache;
-        DataModel::EventParameters* _eventParameters;
+private:
+  DataModel::DatabaseQuery *_query;
+  DataModel::PublicObjectTimeSpanBuffer *_cache;
+  DataModel::EventParameters *_eventParameters;
 };
 
-
-
-}
-}
+} // namespace HDD
+} // namespace Seiscomp
 
 #endif
-

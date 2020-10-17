@@ -13,67 +13,68 @@
  *                                                                         *
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
- ***************************************************************************/ 
+ ***************************************************************************/
 
 #ifndef __HDD_UTILS_H__
 #define __HDD_UTILS_H__
 
 #include "catalog.h"
+#include <random>
 #include <seiscomp3/core/strings.h>
 #include <vector>
-#include <random>
 
 namespace Seiscomp {
-namespace HDD { 
+namespace HDD {
 
-double computeDistance(double lat1, double lon1, double depth1,
-                       double lat2, double lon2, double depth2,
-                      double *azimuth = nullptr, double *backAzimuth = nullptr);
+double computeDistance(double lat1,
+                       double lon1,
+                       double depth1,
+                       double lat2,
+                       double lon2,
+                       double depth2,
+                       double *azimuth     = nullptr,
+                       double *backAzimuth = nullptr);
 
-double computeDistance(const Catalog::Event& ev1, const Catalog::Event& ev2,
-                       double *azimuth = nullptr, double *backAzimuth = nullptr);
+double computeDistance(const Catalog::Event &ev1,
+                       const Catalog::Event &ev2,
+                       double *azimuth     = nullptr,
+                       double *backAzimuth = nullptr);
 
-double computeDistance(const Catalog::Event& event, const Catalog::Station& station,
-                       double *azimuth = nullptr, double *backAzimuth = nullptr);
+double computeDistance(const Catalog::Event &event,
+                       const Catalog::Station &station,
+                       double *azimuth     = nullptr,
+                       double *backAzimuth = nullptr);
 
+double computeMedian(const std::vector<double> &values);
 
-double computeMedian(const std::vector<double>& values);
+double computeMedianAbsoluteDeviation(const std::vector<double> &values,
+                                      const double median);
 
-double computeMedianAbsoluteDeviation(const std::vector<double>& values, const double median);
+double computeMean(const std::vector<double> &values);
 
-double computeMean(const std::vector<double>& values);
+double computeMeanAbsoluteDeviation(const std::vector<double> &values,
+                                    const double mean);
 
-double computeMeanAbsoluteDeviation(const std::vector<double>& values, const double mean);
-
-
-class Randomer {
+class Randomer
+{
 
 public:
+  Randomer(size_t min, size_t max, unsigned int seed = std::random_device{}())
+      : gen_{seed}, dist_{min, max}
+  {}
 
-    Randomer(size_t min, size_t max, unsigned int seed = std::random_device{}())
-        : gen_{seed}, dist_{min, max}
-    { }
+  // if you want predictable numbers
+  void setSeed(unsigned int seed) { gen_.seed(seed); }
 
-    // if you want predictable numbers
-    void setSeed(unsigned int seed)
-    {
-        gen_.seed(seed);
-    }
-
-    size_t next()
-    {
-        return dist_(gen_);
-    }
+  size_t next() { return dist_(gen_); }
 
 private:
+  // random seed by default
+  std::mt19937 gen_;
+  std::uniform_int_distribution<size_t> dist_;
+};
 
-    // random seed by default
-    std::mt19937 gen_;
-    std::uniform_int_distribution<size_t> dist_;
-}; 
+} // namespace HDD
+} // namespace Seiscomp
 
-}
-}
-
-#endif 
-
+#endif

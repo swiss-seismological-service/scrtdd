@@ -15,7 +15,6 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-
 #ifndef __HDD_CSVREADER_H__
 #define __HDD_CSVREADER_H__
 
@@ -49,7 +48,8 @@ namespace CSV {
  * Optionally a header, the first line, can be present. If not present you
  * can pass the header format to the function.
  * If a line has more fields than the header,those will be discarded
- * If a line has less fields than the header,the missing ones will be set to empty string
+ * If a line has less fields than the header,the missing ones will be set to
+ empty string
 
  header1,header2,header3,header4
  val1,val2,val3,val4
@@ -60,30 +60,34 @@ namespace CSV {
  *
  */
 
-
 /*
  * Read file without a header line
  */
-std::vector<std::vector<std::string> > read(std::istream &in);
+std::vector<std::vector<std::string>> read(std::istream &in);
 
-std::vector<std::vector<std::string> > read(const std::string &filename);
+std::vector<std::vector<std::string>> read(const std::string &filename);
 
 /*
  * Read file with a header: the first line must be the header
  */
-std::vector< std::unordered_map<std::string,std::string> > readWithHeader(std::istream &in);
+std::vector<std::unordered_map<std::string, std::string>>
+readWithHeader(std::istream &in);
 
-std::vector< std::unordered_map<std::string,std::string> > readWithHeader(const std::string &filename);
+std::vector<std::unordered_map<std::string, std::string>>
+readWithHeader(const std::string &filename);
 
 /*
  * Read file without a header. The header is passed to the function instead.
  */
-std::vector< std::unordered_map<std::string,std::string> > readWithHeader(std::istream &in, const std::vector<std::string>& header);
+std::vector<std::unordered_map<std::string, std::string>>
+readWithHeader(std::istream &in, const std::vector<std::string> &header);
 
-std::vector< std::unordered_map<std::string,std::string> > readWithHeader(const std::string &filename, const std::vector<std::string>& header);
+std::vector<std::unordered_map<std::string, std::string>>
+readWithHeader(const std::string &filename,
+               const std::vector<std::string> &header);
 
-}
-}
-}
+} // namespace CSV
+} // namespace HDD
+} // namespace Seiscomp
 
 #endif

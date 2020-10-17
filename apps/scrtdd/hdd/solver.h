@@ -18,8 +18,8 @@
 #ifndef __HDD_SOLVER_H__
 #define __HDD_SOLVER_H__
 
-#include "lsqr.h"
 #include "lsmr.h"
+#include "lsqr.h"
 
 #include <seiscomp3/core/baseobject.h>
 #include <unordered_map>
@@ -27,7 +27,6 @@
 
 namespace Seiscomp {
 namespace HDD {
-
 
 /*
  * Store data for a double-difference problem as described in Waldhaused &
@@ -47,58 +46,65 @@ namespace HDD {
  *
  * We take advantage of the sparsness of G matrix, so G is not a full matrix
  */
-struct DDSystem : public Core::BaseObject {
+struct DDSystem : public Core::BaseObject
+{
 
-    // number of observations
-    const unsigned nObs;
-    // number of events
-    const unsigned nEvts;
-    // number of stations
-    const unsigned nPhStas;
-    // W[nObs+4]: weight of each observation + cluster mean shift constraints (x,y,z,time) 
-    double *W;
-    // G[nEvts*nPhStas][4]: 3 partial derivatives for each event/station pair + tt (dx,dy,dz,1)
-    double (*G)[4];
-    // m[nEvts*4]: changes for each event hypocentral parameters we wish to determine (x,y,z,t)
-    double (*m);
-    // d[nObs+4]: double differences, one for each observation + mean shift constraints (x,y,z,time)
-    double *d;
-    // L2NScaler[nEvts*4]: L2 norm scaler for each G column
-    double *L2NScaler;
-    // evByObs[nObs][2]: map of 2 event idx for each observation (index -1 means no parameters)
-    int (*evByObs)[2];
-    // phStaByObs[nObs]: map of station idx for each observation
-    unsigned *phStaByObs;
+  // number of observations
+  const unsigned nObs;
+  // number of events
+  const unsigned nEvts;
+  // number of stations
+  const unsigned nPhStas;
+  // W[nObs+4]: weight of each observation + cluster mean shift constraints
+  // (x,y,z,time)
+  double *W;
+  // G[nEvts*nPhStas][4]: 3 partial derivatives for each event/station pair + tt
+  // (dx,dy,dz,1)
+  double (*G)[4];
+  // m[nEvts*4]: changes for each event hypocentral parameters we wish to
+  // determine (x,y,z,t)
+  double(*m);
+  // d[nObs+4]: double differences, one for each observation + mean shift
+  // constraints (x,y,z,time)
+  double *d;
+  // L2NScaler[nEvts*4]: L2 norm scaler for each G column
+  double *L2NScaler;
+  // evByObs[nObs][2]: map of 2 event idx for each observation (index -1 means
+  // no parameters)
+  int (*evByObs)[2];
+  // phStaByObs[nObs]: map of station idx for each observation
+  unsigned *phStaByObs;
 
-    const unsigned numRowsG;
-    const unsigned numColsG;
+  const unsigned numRowsG;
+  const unsigned numColsG;
 
-    DDSystem(unsigned _nObs, unsigned _nEvts, unsigned _nPhStas)
-        : nObs(_nObs), nEvts(_nEvts), nPhStas(_nPhStas), numRowsG(nObs+4), numColsG(nEvts*4)
-    {
-        W = new double[numRowsG];
-        G = new double[nEvts*nPhStas][4];
-        m = new double[numColsG];
-        d = new double[numRowsG];
-        L2NScaler = new double[numColsG];
-        evByObs = new int[nObs][2];
-        phStaByObs = new unsigned[nObs];
-    }
+  DDSystem(unsigned _nObs, unsigned _nEvts, unsigned _nPhStas)
+      : nObs(_nObs), nEvts(_nEvts), nPhStas(_nPhStas), numRowsG(nObs + 4),
+        numColsG(nEvts * 4)
+  {
+    W          = new double[numRowsG];
+    G          = new double[nEvts * nPhStas][4];
+    m          = new double[numColsG];
+    d          = new double[numRowsG];
+    L2NScaler  = new double[numColsG];
+    evByObs    = new int[nObs][2];
+    phStaByObs = new unsigned[nObs];
+  }
 
-    virtual ~DDSystem()
-    {
-        delete[] phStaByObs;
-        delete[] evByObs;
-        delete[] L2NScaler;
-        delete[] d;
-        delete[] m;
-        delete[] G;
-        delete[] W; 
-    }
+  virtual ~DDSystem()
+  {
+    delete[] phStaByObs;
+    delete[] evByObs;
+    delete[] L2NScaler;
+    delete[] d;
+    delete[] m;
+    delete[] G;
+    delete[] W;
+  }
 
 private:
-    DDSystem( const DDSystem& other ) = delete;
-    DDSystem operator=( const DDSystem& other ) = delete;
+  DDSystem(const DDSystem &other) = delete;
+  DDSystem operator=(const DDSystem &other) = delete;
 };
 
 DEFINE_SMARTPOINTER(DDSystem);
@@ -112,158 +118,186 @@ class Solver : public Core::BaseObject
 {
 
 public:
-    Solver(std::string type) : _type(type) {}
-    virtual ~Solver() {}
+  Solver(std::string type) : _type(type) {}
+  virtual ~Solver() {}
 
-    void reset() { *this = Solver(_type); }
+  void reset() { *this = Solver(_type); }
 
-    void addObservation(unsigned evId1, unsigned evId2, const std::string& staId, char phase,
-                        double diffTime, double aPrioriWeight,
-                        bool computeEv1Changes, bool computeEv2Changes, bool isXcorr);
+  void addObservation(unsigned evId1,
+                      unsigned evId2,
+                      const std::string &staId,
+                      char phase,
+                      double diffTime,
+                      double aPrioriWeight,
+                      bool computeEv1Changes,
+                      bool computeEv2Changes,
+                      bool isXcorr);
 
-    void addObservationParams(unsigned evId, const std::string& staId, char phase,
-                              double evLat, double evLon, double evDepth,
-                              double staLat, double staLon, double staElevation,
-                              double travelTime, double takeOffAngle=0, double velocityAtSrc=0);
+  void addObservationParams(unsigned evId,
+                            const std::string &staId,
+                            char phase,
+                            double evLat,
+                            double evLon,
+                            double evDepth,
+                            double staLat,
+                            double staLon,
+                            double staElevation,
+                            double travelTime,
+                            double takeOffAngle  = 0,
+                            double velocityAtSrc = 0);
 
-    void solve(unsigned numIterations=0,
-               double dampingFactor=0,
-               double residualDownWeight=0,
-               double meanLonShiftConstraint=0,
-               double meanLatShiftConstraint=0,
-               double meanDepthShiftConstraint=0,
-               double meanTTShiftConstraint=0,
-               bool normalizeG=true);
+  void solve(unsigned numIterations          = 0,
+             double dampingFactor            = 0,
+             double residualDownWeight       = 0,
+             double meanLonShiftConstraint   = 0,
+             double meanLatShiftConstraint   = 0,
+             double meanDepthShiftConstraint = 0,
+             double meanTTShiftConstraint    = 0,
+             bool normalizeG                 = true);
 
-    bool getEventChanges(unsigned evId, double &deltaLat, double &deltaLon,
-                         double &deltaDepth, double &deltaTT) const;
+  bool getEventChanges(unsigned evId,
+                       double &deltaLat,
+                       double &deltaLon,
+                       double &deltaDepth,
+                       double &deltaTT) const;
 
-    bool getObservationParamsChanges(unsigned evId, const std::string& staId, char phase,
-                                     unsigned &startingObservations, 
-                                     unsigned &startingXcorrObservations,
-                                     unsigned &totalFinalObservations, 
-                                     double &meanAPrioriWeight,
-                                     double &meanFinalWeight) const;
+  bool getObservationParamsChanges(unsigned evId,
+                                   const std::string &staId,
+                                   char phase,
+                                   unsigned &startingObservations,
+                                   unsigned &startingXcorrObservations,
+                                   unsigned &totalFinalObservations,
+                                   double &meanAPrioriWeight,
+                                   double &meanFinalWeight) const;
 
 private:
+  void computePartialDerivatives();
 
-    void computePartialDerivatives();
+  std::multimap<double, unsigned> computeInterEventDistance() const;
 
-    std::multimap<double,unsigned> computeInterEventDistance() const;
+  std::vector<double>
+  computeResidualWeights(const std::vector<double> &residuals,
+                         const double alpha) const;
 
-    std::vector<double> 
-    computeResidualWeights(const std::vector<double>& residuals, const double alpha) const;
+  void prepareDDSystem(std::array<double, 4> meanShiftConstraint,
+                       double residualDownWeight);
 
-    void prepareDDSystem(std::array<double,4> meanShiftConstraint, double residualDownWeight);
+  template <class T>
+  void _solve(unsigned numIterations,
+              double dampingFactor,
+              double residualDownWeight,
+              std::array<double, 4> meanShiftConstraint,
+              bool normalizeG);
 
-    template <class T>
-    void _solve(unsigned numIterations, double dampingFactor,
-                double residualDownWeight, std::array<double,4> meanShiftConstraint,
-                bool normalizeG);
-
-    void loadSolutions();
+  void loadSolutions();
 
 private:
-
-    /*
-     *  Convert some hashable id of type T (e.g. string) to an alternative 
-     *  rappresentaion as a sequentially growing integer starting from 0 
-     *  (suitable for array index)
-     */
-    template <class T>
-    class IdToIndex
+  /*
+   *  Convert some hashable id of type T (e.g. string) to an alternative
+   *  rappresentaion as a sequentially growing integer starting from 0
+   *  (suitable for array index)
+   */
+  template <class T> class IdToIndex
+  {
+  public:
+    unsigned convert(const T &id)
     {
-      public:
-        unsigned convert(const T& id)
-        {
-            if ( _to.find(id) == _to.end() )
-            {
-                unsigned newIdx = _currentIdx++;
-                _to[id] = newIdx;
-                _from[newIdx] = id;
-            }
-            return _to.at(id);
-        }
+      if (_to.find(id) == _to.end())
+      {
+        unsigned newIdx = _currentIdx++;
+        _to[id]         = newIdx;
+        _from[newIdx]   = id;
+      }
+      return _to.at(id);
+    }
 
-        unsigned toIdx(const T& id) const { return _to.at(id); }
-        T fromIdx(unsigned idx) const { return _from.at(idx); }
+    unsigned toIdx(const T &id) const { return _to.at(id); }
+    T fromIdx(unsigned idx) const { return _from.at(idx); }
 
-        bool hasIdx(unsigned idx) const { return _from.find(idx) != _from.end(); } 
-        bool hasId(const T& id) const { return _to.find(id) != _to.end(); } 
+    bool hasIdx(unsigned idx) const { return _from.find(idx) != _from.end(); }
+    bool hasId(const T &id) const { return _to.find(id) != _to.end(); }
 
-        unsigned size() { return _to.size(); }
+    unsigned size() { return _to.size(); }
 
-      private:
-        unsigned _currentIdx = 0;
-        std::unordered_map<T,unsigned> _to;
-        std::unordered_map<unsigned,T> _from;
-    };
-    IdToIndex<unsigned> _eventIdConverter;
-    IdToIndex<std::string> _phStaIdConverter;
-    IdToIndex<std::string> _obsIdConverter;
+  private:
+    unsigned _currentIdx = 0;
+    std::unordered_map<T, unsigned> _to;
+    std::unordered_map<unsigned, T> _from;
+  };
+  IdToIndex<unsigned> _eventIdConverter;
+  IdToIndex<std::string> _phStaIdConverter;
+  IdToIndex<std::string> _obsIdConverter;
 
-    struct Observation {
-        unsigned ev1Idx;
-        unsigned ev2Idx;
-        unsigned phStaIdx;
-        bool computeEv1Changes;
-        bool computeEv2Changes;
-        double observedDiffTime;
-        double aPrioriWeight;
-        bool isXcorr;
-    };
-    std::unordered_map<unsigned,Observation> _observations; // key = obsIdx
+  struct Observation
+  {
+    unsigned ev1Idx;
+    unsigned ev2Idx;
+    unsigned phStaIdx;
+    bool computeEv1Changes;
+    bool computeEv2Changes;
+    double observedDiffTime;
+    double aPrioriWeight;
+    bool isXcorr;
+  };
+  std::unordered_map<unsigned, Observation> _observations; // key = obsIdx
 
-    struct EventParams {
-        double lat, lon, depth;
-        double x, y, z; // km
-    };
-    std::unordered_map<unsigned,EventParams> _eventParams; // key = evIdx
+  struct EventParams
+  {
+    double lat, lon, depth;
+    double x, y, z; // km
+  };
+  std::unordered_map<unsigned, EventParams> _eventParams; // key = evIdx
 
-    struct StationParams {
-        double lat, lon, elevation;
-        double x, y, z; // km
-    };
-    std::unordered_map<unsigned,StationParams> _stationParams;  // key = phStaIdx
+  struct StationParams
+  {
+    double lat, lon, elevation;
+    double x, y, z; // km
+  };
+  std::unordered_map<unsigned, StationParams> _stationParams; // key = phStaIdx
 
-    struct ObservationParams {
-        double travelTime;
-        double takeOffAngle;
-        double velocityAtSrc;
-        double dx;
-        double dy;
-        double dz;
-    };
-    // key1=evIdx  key2=phStaIdx
-    std::unordered_map<unsigned, std::unordered_map<unsigned,ObservationParams>> _obsParams;
+  struct ObservationParams
+  {
+    double travelTime;
+    double takeOffAngle;
+    double velocityAtSrc;
+    double dx;
+    double dy;
+    double dz;
+  };
+  // key1=evIdx  key2=phStaIdx
+  std::unordered_map<unsigned, std::unordered_map<unsigned, ObservationParams>>
+      _obsParams;
 
-    struct ParamStats {
-        unsigned startingObservations = 0;
-        unsigned startingXcorrObservations = 0;
-        unsigned totalFinalObservations = 0;
-        double totalAPrioriWeight = 0;
-        double totalFinalWeight = 0;
-    };
-    // key1=evIdx  key2=phStaIdx
-    std::unordered_map<unsigned, std::unordered_map<unsigned,ParamStats>> _paramStats;
+  struct ParamStats
+  {
+    unsigned startingObservations      = 0;
+    unsigned startingXcorrObservations = 0;
+    unsigned totalFinalObservations    = 0;
+    double totalAPrioriWeight          = 0;
+    double totalFinalWeight            = 0;
+  };
+  // key1=evIdx  key2=phStaIdx
+  std::unordered_map<unsigned, std::unordered_map<unsigned, ParamStats>>
+      _paramStats;
 
-    struct {
-        double lat, lon, depth;
-    } _centroid;
+  struct
+  {
+    double lat, lon, depth;
+  } _centroid;
 
-    struct EventDeltas {
-        double deltaLat, deltaLon, deltaDepth, deltaTT;
-    };
-    std::unordered_map<unsigned,EventDeltas> _eventDeltas; // key = evIdx
+  struct EventDeltas
+  {
+    double deltaLat, deltaLon, deltaDepth, deltaTT;
+  };
+  std::unordered_map<unsigned, EventDeltas> _eventDeltas; // key = evIdx
 
-    DDSystemPtr _dd;
-    std::string _type;
+  DDSystemPtr _dd;
+  std::string _type;
 };
 
 DEFINE_SMARTPOINTER(Solver);
 
-
-}
-}
+} // namespace HDD
+} // namespace Seiscomp
 
 #endif

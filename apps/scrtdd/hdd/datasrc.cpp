@@ -14,98 +14,82 @@
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
-                                   
 
 #include "datasrc.h"
 
-#include <seiscomp3/datamodel/pick.h>
 #include <seiscomp3/datamodel/amplitude.h>
 #include <seiscomp3/datamodel/event.h>
 #include <seiscomp3/datamodel/origin.h>
+#include <seiscomp3/datamodel/pick.h>
 
 namespace Seiscomp {
 namespace HDD {
 
-DataModel::PublicObject* DataSource::getObject(const Core::RTTI& classType,
-                                                const std::string& publicID)
+DataModel::PublicObject *DataSource::getObject(const Core::RTTI &classType,
+                                               const std::string &publicID)
 {
-    DataModel::PublicObject* ret = nullptr;
+  DataModel::PublicObject *ret = nullptr;
 
-    if ( _eventParameters && ! ret)
-    {
-        if (classType == DataModel::Pick::TypeInfo() )
-            ret = _eventParameters->findPick(publicID);
-        else if (classType == DataModel::Amplitude::TypeInfo() )
-            ret = _eventParameters->findAmplitude(publicID);
-        else if (classType == DataModel::Origin::TypeInfo() )
-            ret = _eventParameters->findOrigin(publicID);
-        else if (classType == DataModel::Event::TypeInfo() )
-            ret = _eventParameters->findEvent(publicID);
-    }
+  if (_eventParameters && !ret)
+  {
+    if (classType == DataModel::Pick::TypeInfo())
+      ret = _eventParameters->findPick(publicID);
+    else if (classType == DataModel::Amplitude::TypeInfo())
+      ret = _eventParameters->findAmplitude(publicID);
+    else if (classType == DataModel::Origin::TypeInfo())
+      ret = _eventParameters->findOrigin(publicID);
+    else if (classType == DataModel::Event::TypeInfo())
+      ret = _eventParameters->findEvent(publicID);
+  }
 
-    if ( _cache && ! ret)
-    {
-        ret = _cache->find(classType, publicID);
-    }
+  if (_cache && !ret) { ret = _cache->find(classType, publicID); }
 
-   return ret;
+  return ret;
 }
 
-
-
-void DataSource::loadArrivals(DataModel::Origin* org)
+void DataSource::loadArrivals(DataModel::Origin *org)
 {
-    bool found = false;
+  bool found = false;
 
-    if ( _eventParameters && ! found)
+  if (_eventParameters && !found)
+  {
+    DataModel::Origin *epOrg = _eventParameters->findOrigin(org->publicID());
+    if (epOrg)
     {
-        DataModel::Origin* epOrg = _eventParameters->findOrigin(org->publicID());
-        if ( epOrg )
-        {
-            found = true;
-            for (size_t i = 0; i < epOrg->arrivalCount(); i++)
-                org->add(DataModel::Arrival::Cast(epOrg->arrival(i)->clone()));
-        }
+      found = true;
+      for (size_t i = 0; i < epOrg->arrivalCount(); i++)
+        org->add(DataModel::Arrival::Cast(epOrg->arrival(i)->clone()));
     }
+  }
 
-    if ( _query && ! found )
-    {
-        found = true;
-        _query->loadArrivals(org);
-    }
+  if (_query && !found)
+  {
+    found = true;
+    _query->loadArrivals(org);
+  }
 }
 
-
-
-DataModel::Event* DataSource::getParentEvent(const std::string& originID)
+DataModel::Event *DataSource::getParentEvent(const std::string &originID)
 {
-    DataModel::Event* ret = nullptr;
+  DataModel::Event *ret = nullptr;
 
-    if ( _eventParameters && ! ret )
+  if (_eventParameters && !ret)
+  {
+    for (size_t i = 0; i < _eventParameters->eventCount() && !ret; i++)
     {
-        for (size_t i = 0; i <  _eventParameters->eventCount() && !ret; i++)
-        {
-            DataModel::Event* ev = _eventParameters->event(i);
-            for (size_t j = 0; j < ev->originReferenceCount() && !ret; j++)
-            {
-                DataModel::OriginReference* orgRef = ev->originReference(j);
-                if (orgRef->originID() == originID)
-                    ret = ev;
-            }
-        }
+      DataModel::Event *ev = _eventParameters->event(i);
+      for (size_t j = 0; j < ev->originReferenceCount() && !ret; j++)
+      {
+        DataModel::OriginReference *orgRef = ev->originReference(j);
+        if (orgRef->originID() == originID) ret = ev;
+      }
     }
+  }
 
-    if ( _query && ! ret)
-    {
-        ret = _query->getEvent(originID);
-    }
+  if (_query && !ret) { ret = _query->getEvent(originID); }
 
-    return ret;
-
+  return ret;
 }
 
-
-
-}
-}
-
+} // namespace HDD
+} // namespace Seiscomp

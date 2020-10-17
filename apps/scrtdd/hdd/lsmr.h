@@ -22,7 +22,7 @@
 
 namespace Seiscomp {
 namespace HDD {
- 
+
 /** \class lsmrBase
  *
  *  \brief LSMR solves Ax = b or min ||Ax - b|| with or without damping,
@@ -290,7 +290,6 @@ namespace HDD {
 class lsmrBase
 {
 public:
-
   lsmrBase();
   virtual ~lsmrBase();
 
@@ -300,7 +299,8 @@ public:
    * The size of the vector x is n.
    * The size of the vector y is m.
    */
-  virtual void Aprod1(unsigned int m, unsigned int n, const double * x, double * y ) const = 0;
+  virtual void
+  Aprod1(unsigned int m, unsigned int n, const double *x, double *y) const = 0;
 
   /**
    * computes x = x + A'*y without altering y,
@@ -308,24 +308,25 @@ public:
    * The size of the vector x is n.
    * The size of the vector y is m.
    */
-  virtual void Aprod2(unsigned int m, unsigned int n, double * x, const double * y ) const = 0;
+  virtual void
+  Aprod2(unsigned int m, unsigned int n, double *x, const double *y) const = 0;
 
   /**
    * returns sqrt( a**2 + b**2 )
    * with precautions to avoid overflow.
    */
-  double D2Norm( double a, double b ) const;
+  double D2Norm(double a, double b) const;
 
   /**
    * returns sqrt( x' * x )
    * with precautions to avoid overflow.
    */
-  double Dnrm2( unsigned int n, const double *x ) const;
+  double Dnrm2(unsigned int n, const double *x) const;
 
   /**
    * Scale a vector by multiplying with a constant
    */
-  void Scale( unsigned int n, double factor, double *x ) const;
+  void Scale(unsigned int n, double factor, double *x) const;
 
   /**  No. of vectors for local reorthogonalization.
    * n=0  No reorthogonalization is performed.
@@ -334,19 +335,19 @@ public:
    *      localSize need not be more than min(m,n).
    *      At most min(m,n) vectors will be allocated.
    */
-  void SetLocalSize( unsigned int n );
+  void SetLocalSize(unsigned int n);
 
   /** An estimate of the relative error in the data
    *  defining the matrix A.  For example, if A is
    *  accurate to about 6 digits, set atol = 1.0e-6.
    */
-  void SetToleranceA( double );
+  void SetToleranceA(double);
 
   /** An estimate of the relative error in the data
    *  defining the rhs b.  For example, if b is
    *  accurate to about 6 digits, set btol = 1.0e-6.
    */
-  void SetToleranceB( double );
+  void SetToleranceB(double);
 
   /** An upper limit on cond(Abar), the apparent
    *  condition number of the matrix Abar.
@@ -370,14 +371,14 @@ public:
    * The effect will be the same as the values eps, eps, 1/eps.
    *
    */
-  void SetUpperLimitOnConditional( double );
+  void SetUpperLimitOnConditional(double);
 
   /**  the relative precision of floating-point arithmetic.
    *   On most machines, eps is about 1.0e-7 and 1.0e-16
    *   in single and double precision respectively.
    *   We expect eps to be about 1e-16 always.
    */
-  void SetEpsilon( double );
+  void SetEpsilon(double);
 
   /**
    *   The damping parameter for problem 3 above.
@@ -393,7 +394,7 @@ public:
    *   by LSMR are the same for all values of damp.
    *
    */
-  void SetDamp( double );
+  void SetDamp(double);
 
   /**  An upper limit on the number of iterations.
    *   Suggested value:
@@ -401,13 +402,13 @@ public:
    *                  with clustered singular values,
    *   itnlim = 4*n   otherwise.
    */
-  void SetMaximumNumberOfIterations( unsigned int );
+  void SetMaximumNumberOfIterations(unsigned int);
 
   /**
    * If provided, a summary will be printed out to this stream during
    * the execution of the Solve function.
    */
-  void SetOutputStream( std::ostream & os );
+  void SetOutputStream(std::ostream &os);
 
   /**
    *   Returns an integer giving the reason for termination:
@@ -437,17 +438,15 @@ public:
    */
   unsigned int GetStoppingReason() const;
 
-  /** 
+  /**
    *   Returns an string giving the reason for termination.
    *   Expands on GetStoppingReason
    *
    */
   std::string GetStoppingReasonMessage() const;
 
-
   /** Returns the actual number of iterations performed. */
   unsigned int GetNumberOfIterationsPerformed() const;
-
 
   /**
    *   An estimate of the Frobenius norm of Abar.
@@ -461,7 +460,6 @@ public:
    */
   double GetFrobeniusNormEstimateOfAbar() const;
 
-
   /**
    *   An estimate of cond(Abar), the condition
    *   number of Abar.  A very high value of Acond
@@ -469,14 +467,12 @@ public:
    */
   double GetConditionNumberEstimateOfAbar() const;
 
-
   /** An estimate of the final value of norm(rbar),
    *  the function being minimized (see notation
    *  above).  This will be small if A*x = b has
    *  a solution.
    */
   double GetFinalEstimateOfNormRbar() const;
-
 
   /** An estimate of the final value of
    *  norm( Abar(transpose)*rbar ), the norm of
@@ -487,12 +483,10 @@ public:
    */
   double GetFinalEstimateOfNormOfResiduals() const;
 
-
   /**
    * An estimate of norm(x) for the final solution x.
    */
   double GetFinalEstimateOfNormOfX() const;
-
 
   /**
    *    Execute the solver
@@ -502,10 +496,9 @@ public:
    *    m is the size of the input  vector b
    *    n is the size of the output vector x
    */
-  void Solve( unsigned int m, unsigned int n, const double * b, double * x );
+  void Solve(unsigned int m, unsigned int n, const double *b, double *x);
 
 private:
-
   void TerminationPrintOut();
 
   double normA;
@@ -522,7 +515,7 @@ private:
 
   double eps;
   double damp;
-  bool   damped;
+  bool damped;
 
   unsigned int itnlim;
   unsigned int itn;
@@ -531,10 +524,10 @@ private:
 
   unsigned int maxdx;
   unsigned int localSize;
-  std::ostream * nout;
+  std::ostream *nout;
 };
 
-}
-}
- 
+} // namespace HDD
+} // namespace Seiscomp
+
 #endif
