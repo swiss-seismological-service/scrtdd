@@ -465,19 +465,34 @@ bool xcorr(const GenericRecordCPtr &tr1,
   };
   LocalMaxima localMaxs, localMins;
 
+  auto sampleAtLong = [&, smpsSsize, smpsLsize, smpsL](int idxS, int delay) {
+    int idxL = idxS + (smpsLsize - smpsSsize) / 2 + delay;
+    return (idxL < 0 || idxL >= smpsLsize) ? 0 : smpsL[idxL];
+  };
+
+  // do as much computation as possible outside the main xcorr loop
+  double denomL = 0, denomS = 0;
+  for (int idxS = 0; idxS < smpsSsize; idxS++)
+  {
+    denomS += smpsS[idxS] * smpsS[idxS];
+    double sampleL = sampleAtLong(idxS, -(maxDelaySmps+1));
+    denomL += sampleL * sampleL;
+  }
+
+  // cross-correlation loop
   for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
   {
-    double numer = 0, denomL = 0, denomS = 0;
+    // remove from denomL the sample that has exited the current xcorr win
+    double lastSampleL = sampleAtLong(-1, delay);
+    denomL -= lastSampleL * lastSampleL;
+    // add to denomL the sample that has just entered the current xcorr win
+    double newSampleL = sampleAtLong(smpsSsize-1, delay);
+    denomL += newSampleL * newSampleL;
+
+    // compute numerator
+    double numer = 0;
     for (int idxS = 0; idxS < smpsSsize; idxS++)
-    {
-      denomS += smpsS[idxS] * smpsS[idxS];
-
-      int idxL = idxS + (smpsLsize - smpsSsize) / 2 + delay;
-      if (idxL < 0 || idxL >= smpsLsize) continue;
-
-      numer += smpsS[idxS] * smpsL[idxL];
-      denomL += smpsL[idxL] * smpsL[idxL];
-    }
+      numer += smpsS[idxS] * sampleAtLong(idxS, delay);
 
     const double denom = std::sqrt(denomS * denomL);
     const double coeff = numer / denom;
