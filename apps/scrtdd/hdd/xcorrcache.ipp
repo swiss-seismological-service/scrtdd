@@ -37,9 +37,9 @@ public:
         double max_lag;
         unsigned ccCount;
 
-        typedef struct {
+        struct PeerInfo {
             double coeff, lag, lowerUncertainty, upperUncertainty;
-        } PeerInfo;
+        };
         std::unordered_map<unsigned,const PeerInfo> peers;
 
         std::string peersStr; // debug

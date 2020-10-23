@@ -248,8 +248,7 @@ void HypoDD::preloadData()
   updateCounters();
   SEISCOMP_INFO(
       "Finished preloading catalog waveform data: total phases %u (P %.f%%, S "
-      "%.f%%) "
-      "phases with Signal to Noise ratio too low %u (%.f%%), "
+      "%.f%%) phases with Signal to Noise ratio too low %u (%.f%%), "
       "phases data not available %u (%.f%%), "
       "(waveforms downloaded %u, waveforms loaded from disk cache %u)",
       numPhases, ((numPhases - numSPhases) * 100. / numPhases),
@@ -456,10 +455,12 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
     const Event &ev = relocatedEvCat->getEvents().begin()->second;
     SEISCOMP_INFO(
         "Step 1 relocation successful, new location: "
-        "lat %.6f (delta %.6f) lon %.6f (delta %.6f) depth %.4f (delta %.4f)",
+        "lat %.6f (diff %.6f) lon %.6f (diff %.6f) depth %.4f (diff %.4f km) "
+        "time %s (diff %.3f sec)",
         ev.latitude, ev.latitude - evToRelocate.latitude, ev.longitude,
         ev.longitude - evToRelocate.longitude, ev.depth,
-        ev.depth - evToRelocate.depth);
+        ev.depth - evToRelocate.depth, ev.time.iso().c_str(),
+        (ev.time - evToRelocate.time).length());
     SEISCOMP_INFO("%s", relocationReport(relocatedEvCat).c_str());
 
     evToRelocateCat = relocatedEvCat;
@@ -490,10 +491,12 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
     const Event &ev = relocatedEvWithXcorr->getEvents().begin()->second;
     SEISCOMP_INFO(
         "Step 2 relocation successful, new location: "
-        "lat %.6f (delta %.6f) lon %.6f (delta %.6f) depth %.4f (delta %.4f)",
-        ev.latitude, ev.latitude - evToRelocate.latitude, ev.longitude,
+        "lat %.6f (diff %.6f) lon %.6f (diff %.6f) depth %.4f (diff %.4f km)"
+        "time %s (diff %.3f sec)", ev.latitude,
+        ev.latitude - evToRelocate.latitude, ev.longitude,
         ev.longitude - evToRelocate.longitude, ev.depth,
-        ev.depth - evToRelocate.depth);
+        ev.depth - evToRelocate.depth, ev.time.iso().c_str(),
+        (ev.time - evToRelocate.time).length());
     SEISCOMP_INFO("%s", relocationReport(relocatedEvWithXcorr).c_str());
   }
   else
