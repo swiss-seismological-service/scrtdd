@@ -92,7 +92,9 @@ double computeMedianAbsoluteDeviation(const std::vector<double> &values,
 {
   vector<double> absoluteDeviations(values.size());
   for (unsigned i = 0; i < values.size(); i++)
-  { absoluteDeviations[i] = std::abs(values[i] - median); }
+  {
+    absoluteDeviations[i] = std::abs(values[i] - median);
+  }
   return computeMedian(absoluteDeviations);
 }
 
@@ -107,7 +109,9 @@ double computeMeanAbsoluteDeviation(const std::vector<double> &values,
 {
   vector<double> absoluteDeviations(values.size());
   for (unsigned i = 0; i < values.size(); i++)
-  { absoluteDeviations[i] = std::abs(values[i] - mean); }
+  {
+    absoluteDeviations[i] = std::abs(values[i] - mean);
+  }
   return computeMean(absoluteDeviations);
 }
 

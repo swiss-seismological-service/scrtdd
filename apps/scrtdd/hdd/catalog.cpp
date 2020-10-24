@@ -347,7 +347,10 @@ void Catalog::add(const std::vector<DataModel::OriginPtr> &origins,
       mag = dataSrc.get<DataModel::Magnitude>(
           parentEvent->preferredMagnitudeID());
     }
-    if (mag) { ev.magnitude = mag->magnitude(); }
+    if (mag)
+    {
+      ev.magnitude = mag->magnitude();
+    }
     else
     {
       SEISCOMP_DEBUG("Origin %s: cannot load preferred magnitude from parent "
@@ -572,7 +575,10 @@ unsigned Catalog::add(unsigned evId, const Catalog &evCat, bool keepEvId)
 void Catalog::removeEvent(unsigned eventId)
 {
   map<unsigned, Catalog::Event>::const_iterator it = _events.find(eventId);
-  if (it != _events.end()) { _events.erase(it); }
+  if (it != _events.end())
+  {
+    _events.erase(it);
+  }
   auto eqlrng = _phases.equal_range(eventId);
   _phases.erase(eqlrng.first, eqlrng.second);
 }
@@ -583,7 +589,10 @@ void Catalog::removePhase(unsigned eventId,
 {
   unordered_map<unsigned, Phase>::const_iterator it =
       searchPhase(eventId, stationId, type);
-  if (it != _phases.end()) { _phases.erase(it); }
+  if (it != _phases.end())
+  {
+    _phases.erase(it);
+  }
 }
 
 bool Catalog::updateStation(const Station &newStation, bool addIfMissing)
@@ -631,7 +640,10 @@ bool Catalog::updatePhase(const Phase &newPh, bool addIfMissing)
     }
   }
 
-  if (addIfMissing) { addPhase(newPh); }
+  if (addIfMissing)
+  {
+    addPhase(newPh);
+  }
   return false;
 }
 
@@ -722,7 +734,10 @@ void Catalog::writeToFile(string eventFile,
     evStreamNoReloc << evStream.str() << endl;
     evStreamReloc << evStream.str();
 
-    if (!ev.relocInfo.isRelocated) { evStreamReloc << ",false,,,,,,,,,"; }
+    if (!ev.relocInfo.isRelocated)
+    {
+      evStreamReloc << ",false,,,,,,,,,";
+    }
     else
     {
       relocInfo = true;
@@ -766,7 +781,10 @@ void Catalog::writeToFile(string eventFile,
 
     if (relocInfo)
     {
-      if (!ph.relocInfo.isRelocated) { phStream << ",false,,,,,,,"; }
+      if (!ph.relocInfo.isRelocated)
+      {
+        phStream << ",false,,,,,,,";
+      }
       else
       {
         phStream << stringify(

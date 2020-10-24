@@ -492,8 +492,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
     SEISCOMP_INFO(
         "Step 2 relocation successful, new location: "
         "lat %.6f (diff %.6f) lon %.6f (diff %.6f) depth %.4f (diff %.4f km)"
-        "time %s (diff %.3f sec)", ev.latitude,
-        ev.latitude - evToRelocate.latitude, ev.longitude,
+        "time %s (diff %.3f sec)",
+        ev.latitude, ev.latitude - evToRelocate.latitude, ev.longitude,
         ev.longitude - evToRelocate.longitude, ev.depth,
         ev.depth - evToRelocate.depth, ev.time.iso().c_str(),
         (ev.time - evToRelocate.time).length());
@@ -705,7 +705,10 @@ CatalogPtr HypoDD::relocate(CatalogPtr &catalog,
   {
     const Event &event = catalog->getEvents().at(neighbours->refEvId);
     if (event.relocInfo.isRelocated)
-    { relocatedCatalog->add(neighbours->refEvId, *catalog, true); } }
+    {
+      relocatedCatalog->add(neighbours->refEvId, *catalog, true);
+    }
+  }
 
   return relocatedCatalog;
 }
@@ -954,7 +957,10 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
               event.id, station.id, phaseTypeAsChar, startingObservations,
               startingXcorrObservations, totalFinalObservations,
               meanAPrioriWeight, meanFinalWeight))
-      { continue; } event.relocInfo.meanObsWeight += meanAPrioriWeight;
+      {
+        continue;
+      }
+      event.relocInfo.meanObsWeight += meanAPrioriWeight;
       event.relocInfo.meanFinalObsWeight += meanFinalWeight;
       ++pCount;
 
@@ -1053,7 +1059,10 @@ HypoDD::findMissingEventPhases(const Event &refEv,
     //
     vector<HypoDD::PhasePeer> peers =
         findPhasePeers(station, phaseType, searchCatalog, neighbours);
-    if (peers.size() <= 0) { continue; }
+    if (peers.size() <= 0)
+    {
+      continue;
+    }
 
     // compute velocity using existing background catalog phases
     double phaseVelocity = 0;
@@ -1146,7 +1155,10 @@ HypoDD::findPhasePeers(const Station &station,
           station.locationCode == phase.locationCode &&
           phaseType == phase.procInfo.type)
       {
-        if (phase.isManual) { phasePeers.push_back(PhasePeer(event, phase)); }
+        if (phase.isManual)
+        {
+          phasePeers.push_back(PhasePeer(event, phase));
+        }
         break;
       }
     }
@@ -1221,7 +1233,9 @@ XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
     // Compute theoretical phases for stations that have no picks. The cross
     // correlation will be used to detect and fix pick time
     if (computeTheoreticalPhases)
-    { addMissingEventPhases(refEv, catalog, catalog, neighbours); }
+    {
+      addMissingEventPhases(refEv, catalog, catalog, neighbours);
+    }
 
     buildXcorrDiffTTimePairs(catalog, neighbours, refEv, xcorr);
 
@@ -1526,7 +1540,10 @@ void HypoDD::fixPhases(CatalogPtr &catalog,
     catalog->removePhase(ph.eventId, ph.stationId, ph.procInfo.type);
   }
 
-  for (Phase &ph : newPhases) { catalog->updatePhase(ph, true); }
+  for (Phase &ph : newPhases)
+  {
+    catalog->updatePhase(ph, true);
+  }
 
   SEISCOMP_INFO("Event %s total phases %u (%u P and %u S): created %u (%u P "
                 "and %u S) from theoretical picks",
@@ -1688,7 +1705,10 @@ bool HypoDD::xcorrPhases(const Event &event1,
 
   string commonChRoot;
 
-  if (channelCodeRoot1 == channelCodeRoot2) { commonChRoot = channelCodeRoot1; }
+  if (channelCodeRoot1 == channelCodeRoot2)
+  {
+    commonChRoot = channelCodeRoot1;
+  }
   else if (phase1.procInfo.source == Phase::Source::CATALOG &&
            phase2.procInfo.source != Phase::Source::CATALOG)
   {
@@ -1755,7 +1775,10 @@ bool HypoDD::xcorrPhases(const Event &event1,
     goodCoeff = (performed && coeffOut >= xcorrCfg.minCoef);
 
     // if the xcorr was successfull and the coeffiecnt is good then stop here
-    if (goodCoeff) { break; }
+    if (goodCoeff)
+    {
+      break;
+    }
   }
 
   //
@@ -1811,12 +1834,18 @@ bool HypoDD::_xcorrPhases(const Event &event1,
   // load the long trace 1, because we want to cache the long version. Then
   // we'll trim it.
   GenericRecordCPtr tr1 = getWaveform(tw1, event1, phase1, ph1Cache);
-  if (!tr1) { return false; }
+  if (!tr1)
+  {
+    return false;
+  }
 
   // load the long trace 2, because we want to cache the long version. Then
   // we'll trim it
   GenericRecordCPtr tr2 = getWaveform(tw2, event2, phase2, ph2Cache);
-  if (!tr2) { return false; }
+  if (!tr2)
+  {
+    return false;
+  }
 
   // trust the manual pick on phase 2: keet trace2 short and xcorr it with
   // a larger trace1 window
@@ -1838,7 +1867,10 @@ bool HypoDD::_xcorrPhases(const Event &event1,
 
     if (!Waveform::xcorr(tr1, tr2Short, xcorrCfg.maxDelay, true, xcorr_lag,
                          xcorr_coeff))
-    { return false; } }
+    {
+      return false;
+    }
+  }
 
   // trust the manual pick on phase 1: keet trace1 short and xcorr it with
   // a larger trace2 window
@@ -1860,7 +1892,10 @@ bool HypoDD::_xcorrPhases(const Event &event1,
 
     if (!Waveform::xcorr(tr1Short, tr2, xcorrCfg.maxDelay, true, xcorr_lag2,
                          xcorr_coeff2))
-    { return false; } }
+    {
+      return false;
+    }
+  }
 
   if (std::abs(xcorr_coeff2) > std::abs(xcorr_coeff))
   {
@@ -1888,7 +1923,10 @@ GenericRecordCPtr HypoDD::getWaveform(const Core::TimeWindow &tw,
 
   // Check if we have already excluded the trace because we couldn't load it
   // (save time)
-  if (_unloadableWfs.count(wfId) != 0) { return nullptr; }
+  if (_unloadableWfs.count(wfId) != 0)
+  {
+    return nullptr;
+  }
 
   // try to load the waveform
   GenericRecordCPtr trace = wfLoader->get(
@@ -2076,7 +2114,10 @@ void HypoDD::evalXCorr()
     // Update theoretical and automatic phase pick time and uncertainties based
     // on cross-correlation results Also drop theoretical phases wihout any good
     // cross correlation result
-    if (theoretical) { fixPhases(catalog, event, xcorr); }
+    if (theoretical)
+    {
+      fixPhases(catalog, event, xcorr);
+    }
 
     //
     // Compare the detected phases with the actual event phases (manual or
@@ -2182,7 +2223,10 @@ void HypoDD::evalXCorr()
     SEISCOMP_WARNING("Event %-5s mag %3.1f %s", string(event).c_str(),
                      event.magnitude, evStats.describeShort().c_str());
 
-    if (++loop % 100 == 0) { printStats("<PROGRESSIVE STATS>"); }
+    if (++loop % 100 == 0)
+    {
+      printStats("<PROGRESSIVE STATS>");
+    }
   }
 
   printStats("<FINAL STATS>");

@@ -30,7 +30,10 @@ namespace HDD {
 inline void daxpy(unsigned int n, double alpha, const double *x, double *y)
 {
   const double *xend = x + n;
-  while (x != xend) { *y++ += alpha * *x++; }
+  while (x != xend)
+  {
+    *y++ += alpha * *x++;
+  }
 }
 
 #define Sqr(x) ((x) * (x))
@@ -132,7 +135,10 @@ double lsmrBase::D2Norm(double a, double b) const
   const double scale = std::abs(a) + std::abs(b);
   const double zero  = 0.0;
 
-  if (scale == zero) { return zero; }
+  if (scale == zero)
+  {
+    return zero;
+  }
 
   const double sa = a / scale;
   const double sb = b / scale;
@@ -144,7 +150,10 @@ double lsmrBase::D2Norm(double a, double b) const
 void lsmrBase::Scale(unsigned int n, double factor, double *x) const
 {
   double *xend = x + n;
-  while (x != xend) { *x++ *= factor; }
+  while (x != xend)
+  {
+    *x++ *= factor;
+  }
 }
 
 double lsmrBase::Dnrm2(unsigned int n, const double *x) const
@@ -306,7 +315,10 @@ void lsmrBase::Solve(unsigned int m, unsigned int n, const double *b, double *x)
   this->istop = 0;
   double ctol = zero;
 
-  if (this->conlim > zero) { ctol = one / this->conlim; }
+  if (this->conlim > zero)
+  {
+    ctol = one / this->conlim;
+  }
   this->normr = beta;
 
   if (this->nout)
@@ -351,7 +363,10 @@ void lsmrBase::Solve(unsigned int m, unsigned int n, const double *b, double *x)
       this->Scale(m, (one / beta), u);
       if (localOrtho)
       {
-        if (localPointer + 1 < localVecs) { localPointer = localPointer + 1; }
+        if (localPointer + 1 < localVecs)
+        {
+          localPointer = localPointer + 1;
+        }
         else
         {
           localPointer    = 0;
@@ -377,7 +392,10 @@ void lsmrBase::Solve(unsigned int m, unsigned int n, const double *b, double *x)
 
       alpha = this->Dnrm2(n, v);
 
-      if (alpha > zero) { this->Scale(n, (one / alpha), v); }
+      if (alpha > zero)
+      {
+        this->Scale(n, (one / alpha), v);
+      }
     }
 
     // At this point, beta = beta_{k+1}, alpha = alpha_{k+1}.
@@ -455,7 +473,10 @@ void lsmrBase::Solve(unsigned int m, unsigned int n, const double *b, double *x)
 
     // Estimate cond(A).
     maxrbar = std::max(maxrbar, rhobarold);
-    if (this->itn > 1) { minrbar = std::min(minrbar, rhobarold); }
+    if (this->itn > 1)
+    {
+      minrbar = std::min(minrbar, rhobarold);
+    }
     this->condA = std::max(maxrbar, rhotemp) / std::min(minrbar, rhotemp);
 
     //----------------------------------------------------------------

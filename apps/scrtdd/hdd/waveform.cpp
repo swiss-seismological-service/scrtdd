@@ -125,7 +125,10 @@ GenericRecordPtr readWaveformFromRecordStream(const string &recordStreamURL,
   IO::RecordInput inp(rs.get(), Array::DOUBLE, Record::DATA_ONLY);
   std::shared_ptr<RecordSequence> seq(new TimeWindowBuffer(tw));
   RecordPtr rec;
-  while (rec = inp.next()) { seq->feed(rec.get()); }
+  while (rec = inp.next())
+  {
+    seq->feed(rec.get());
+  }
   rs->close();
 
   if (seq->empty())
@@ -164,7 +167,10 @@ GenericRecordPtr readWaveformFromRecordStream(const string &recordStreamURL,
 
 bool merge(GenericRecord &trace, const RecordSequence &seq)
 {
-  if (seq.empty()) { return false; }
+  if (seq.empty())
+  {
+    return false;
+  }
 
   RecordCPtr first = seq.front();
   RecordCPtr last;
@@ -276,7 +282,10 @@ void filter(GenericRecord &trace,
     trace.dataUpdated();
   }
 
-  if (resampleFreq > 0) { resample(trace, resampleFreq, true); }
+  if (resampleFreq > 0)
+  {
+    resample(trace, resampleFreq, true);
+  }
 
   if (!filterStr.empty())
   {
@@ -475,7 +484,7 @@ bool xcorr(const GenericRecordCPtr &tr1,
   for (int idxS = 0; idxS < smpsSsize; idxS++)
   {
     denomS += smpsS[idxS] * smpsS[idxS];
-    double sampleL = sampleAtLong(idxS, -(maxDelaySmps+1));
+    double sampleL = sampleAtLong(idxS, -(maxDelaySmps + 1));
     denomL += sampleL * sampleL;
   }
 
@@ -486,7 +495,7 @@ bool xcorr(const GenericRecordCPtr &tr1,
     double lastSampleL = sampleAtLong(-1, delay);
     denomL -= lastSampleL * lastSampleL;
     // add to denomL the sample that has just entered the current xcorr win
-    double newSampleL = sampleAtLong(smpsSsize-1, delay);
+    double newSampleL = sampleAtLong(smpsSsize - 1, delay);
     denomL += newSampleL * newSampleL;
 
     // compute numerator
@@ -508,7 +517,10 @@ bool xcorr(const GenericRecordCPtr &tr1,
     localMins.update(-coeff);
   }
 
-  if (swap) { delayOut = -delayOut; }
+  if (swap)
+  {
+    delayOut = -delayOut;
+  }
 
   /*
    * To avoid errors introduced by cycle skipping the differential time
@@ -584,12 +596,16 @@ double computeSnr(const GenericRecordCPtr &tr,
   // Get maximum (absolute) amplitude in noise window:
   double noiseMax = -1.0;
   for (int i = noiseStart; i < noiseEnd; i++)
-  { noiseMax = std::max(std::abs(data[i]), noiseMax); }
+  {
+    noiseMax = std::max(std::abs(data[i]), noiseMax);
+  }
 
   // Get maximum (absolute) amplitude in signal window:
   double signalMax = -1.0;
   for (int i = signalStart; i < signalEnd; i++)
-  { signalMax = std::max(std::abs(data[i]), signalMax); }
+  {
+    signalMax = std::max(std::abs(data[i]), signalMax);
+  }
 
   return signalMax / noiseMax;
 }
@@ -894,7 +910,10 @@ GenericRecordCPtr Loader::get(const Core::TimeWindow &tw,
     }
   }
 
-  if (!trace) { _counters_wf_no_avail++; }
+  if (!trace)
+  {
+    _counters_wf_no_avail++;
+  }
   else
   {
     // cache unprocessed trace
@@ -1086,7 +1105,10 @@ GenericRecordCPtr SnrFilteredLoader::get(const Core::TimeWindow &tw,
   const string wfId = waveformId(ph, tw);
 
   // Check if we have already excluded the trace SNR
-  if (_snrExcludedWfs.count(wfId) != 0) { return nullptr; }
+  if (_snrExcludedWfs.count(wfId) != 0)
+  {
+    return nullptr;
+  }
 
   const Core::TimeWindow twToLoad = tw | snrTimeWindow(ph.time);
   GenericRecordCPtr trace =

@@ -410,7 +410,10 @@ bool RTDD::validateParameters()
     catch (...)
     {}
     if (!startsWith(prof->methodID, "RTDD", false))
-    { prof->methodID = "RTDD" + prof->methodID; } string regionType;
+    {
+      prof->methodID = "RTDD" + prof->methodID;
+    }
+    string regionType;
     try
     {
       makeUpper(regionType, configGetString(prefix + "regionType"));
@@ -455,7 +458,10 @@ bool RTDD::validateParameters()
       profilesOK = false;
       continue;
     }
-    if (eventIdOnly) { prof->eventIDFile = eventFile; }
+    if (eventIdOnly)
+    {
+      prof->eventIDFile = eventFile;
+    }
     else
     {
       prof->eventFile = eventFile;
@@ -1378,7 +1384,10 @@ void RTDD::handleMessage(Core::Message *msg)
       processOrigin(originToReloc.get(), relocatedOrg, relocatedOrgPicks,
                     currProfile, true, true, false);
 
-      if (relocatedOrg) { reloc_resp.setOrigin(relocatedOrg); }
+      if (relocatedOrg)
+      {
+        reloc_resp.setOrigin(relocatedOrg);
+      }
       else
       {
         reloc_resp.setError(stringify("OriginId %s has not been relocated",
@@ -1938,7 +1947,9 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr &relocatedOrg,
     if ((phase.procInfo.source == PhaseSrc::THEORETICAL ||
          phase.procInfo.source == PhaseSrc::XCORR) &&
         !phaseUsed)
-    { continue; }
+    {
+      continue;
+    }
 
     associatedStations.insert(phase.networkCode + "." + phase.stationCode);
 
@@ -2106,10 +2117,11 @@ std::vector<DataModel::OriginPtr> RTDD::fetchOrigins(const std::string &idFile,
                                                      std::string options)
 {
   if (!Util::fileExists(idFile))
-  { throw runtime_error("File " + idFile + " does not exist"); }
+  {
+    throw runtime_error("File " + idFile + " does not exist");
+  }
 
-  std::vector<std::string>
-      tokens;
+  std::vector<std::string> tokens;
   boost::split(tokens, options, boost::is_any_of(","),
                boost::token_compress_on);
   if ((tokens.size() % 5) != 0)
@@ -2300,7 +2312,10 @@ void RTDD::Profile::load(DatabaseQuery *query,
   loaded    = true;
   lastUsage = Core::Time::GMT();
 
-  if (preloadData) { hypodd->preloadData(); }
+  if (preloadData)
+  {
+    hypodd->preloadData();
+  }
   SEISCOMP_INFO("Profile %s loaded into memory", name.c_str());
 }
 

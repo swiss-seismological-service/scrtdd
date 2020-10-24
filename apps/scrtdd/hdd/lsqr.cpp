@@ -122,7 +122,10 @@ double lsqrBase::D2Norm(double a, double b) const
   const double scale = std::abs(a) + std::abs(b);
   const double zero  = 0.0;
 
-  if (scale == zero) { return zero; }
+  if (scale == zero)
+  {
+    return zero;
+  }
 
   const double sa = a / scale;
   const double sb = b / scale;
@@ -134,7 +137,10 @@ double lsqrBase::D2Norm(double a, double b) const
 void lsqrBase::Scale(unsigned int n, double factor, double *x) const
 {
   double *xend = x + n;
-  while (x != xend) { *x++ *= factor; }
+  while (x != xend)
+  {
+    *x++ *= factor;
+  }
 }
 
 /** Simplified for this use from the BLAS version. */
@@ -200,7 +206,10 @@ void lsqrBase::Solve(unsigned int m, unsigned int n, const double *b, double *x)
   this->maxdx        = 0;
 
   double ctol = zero;
-  if (this->conlim > zero) { ctol = one / this->conlim; }
+  if (this->conlim > zero)
+  {
+    ctol = one / this->conlim;
+  }
 
   this->Anorm = zero;
   this->Acond = zero;
@@ -230,7 +239,10 @@ void lsqrBase::Solve(unsigned int m, unsigned int n, const double *b, double *x)
   std::fill(w, w + n, zero);
   std::fill(x, x + n, zero);
 
-  if (this->wantse) { std::fill(se, se + n, zero); }
+  if (this->wantse)
+  {
+    std::fill(se, se + n, zero);
+  }
 
   double alpha = zero;
 
@@ -344,7 +356,10 @@ void lsqrBase::Solve(unsigned int m, unsigned int n, const double *b, double *x)
 
       alpha = this->Dnrm2(n, v);
 
-      if (alpha > zero) { this->Scale(n, (one / alpha), v); }
+      if (alpha > zero)
+      {
+        this->Scale(n, (one / alpha), v);
+      }
     }
 
     //----------------------------------------------------------------
@@ -522,13 +537,19 @@ void lsqrBase::Solve(unsigned int m, unsigned int n, const double *b, double *x)
     // Suggested value:  nconv = 1, 2  or  3.
     //----------------------------------------------------------------
 
-    if (istop == 0) { nstop = 0; }
+    if (istop == 0)
+    {
+      nstop = 0;
+    }
     else
     {
       const unsigned int nconv = 1;
       nstop                    = nstop + 1;
 
-      if ((nstop < nconv) && (this->itn < this->itnlim)) { istop = 0; }
+      if ((nstop < nconv) && (this->itn < this->itnlim))
+      {
+        istop = 0;
+      }
     }
 
   } while (istop == 0);
@@ -541,13 +562,22 @@ void lsqrBase::Solve(unsigned int m, unsigned int n, const double *b, double *x)
   {                 //  standard error estimates.
     double t = one;
 
-    if (m > n) { t = m - n; }
+    if (m > n)
+    {
+      t = m - n;
+    }
 
-    if (damped) { t = m; }
+    if (damped)
+    {
+      t = m;
+    }
 
     t = this->rnorm / sqrt(t);
 
-    for (unsigned int i = 0; i < n; i++) { se[i] = t * sqrt(se[i]); }
+    for (unsigned int i = 0; i < n; i++)
+    {
+      se[i] = t * sqrt(se[i]);
+    }
   }
 
   this->TerminationPrintOut();
@@ -561,7 +591,10 @@ void lsqrBase::Solve(unsigned int m, unsigned int n, const double *b, double *x)
 void lsqrBase::TerminationPrintOut()
 {
   // Decide if istop = 2 or 3.
-  if (this->damped && this->istop == 2) { this->istop = 3; }
+  if (this->damped && this->istop == 2)
+  {
+    this->istop = 3;
+  }
 
   if (this->nout)
   {

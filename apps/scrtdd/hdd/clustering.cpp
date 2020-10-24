@@ -123,7 +123,10 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
     // check this station distance is ok
     if ((maxESdist <= 0 || staRefEvDistance <= maxESdist) || // too far away ?
         (staRefEvDistance >= minESdist))                     // too close ?
-    { validatedStationDistance[staId] = staRefEvDistance; } }
+    {
+      validatedStationDistance[staId] = staRefEvDistance;
+    }
+  }
 
   //
   // Select from the events within distance the ones who respect the constraints
@@ -170,7 +173,9 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
 
       if ((staRefEvDistance / eventDistance) <
           minEStoIEratio) // ratio too small ?
-      { continue; }       // check this station distance to current event is ok
+      {
+        continue;
+      } // check this station distance to current event is ok
       if (maxESdist > 0 || minESdist > 0 || minEStoIEratio > 0)
       {
         // compute distance between current event and station
@@ -180,7 +185,10 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
             (stationDistance < minESdist) ||                  // too close ?
             ((stationDistance / eventDistance) <
              minEStoIEratio)) // ratio too small ?
-        { continue; } }
+        {
+          continue;
+        }
+      }
 
       // now find corresponding phase in reference event phases
       bool peer_found = false;
@@ -206,7 +214,10 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
     }
 
     // Check enough phases (> minDTperEvt) ? if not skip event
-    if (stationByDistance.size() < minDTperEvt) { continue; }
+    if (stationByDistance.size() < minDTperEvt)
+    {
+      continue;
+    }
 
     unsigned numObservations = 0;
 

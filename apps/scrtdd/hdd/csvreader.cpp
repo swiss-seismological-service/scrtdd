@@ -94,7 +94,10 @@ vector<vector<string>> read(istream &in)
   while (!in.eof())
   {
     getline(in, row);
-    if (in.bad() || in.fail()) { break; }
+    if (in.bad() || in.fail())
+    {
+      break;
+    }
     auto fields = readRow(row);
     table.push_back(fields);
   }
@@ -118,7 +121,9 @@ format(const vector<string> &header,
     const vector<string> columns = *it;
     unordered_map<string, string> row;
     for (size_t i = 0; i < header.size(); ++i)
-    { row[header[i]] = i < columns.size() ? columns[i] : ""; }
+    {
+      row[header[i]] = i < columns.size() ? columns[i] : "";
+    }
     rows.push_back(row);
   }
   return rows;

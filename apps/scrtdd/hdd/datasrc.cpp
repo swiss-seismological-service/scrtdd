@@ -42,7 +42,10 @@ DataModel::PublicObject *DataSource::getObject(const Core::RTTI &classType,
       ret = _eventParameters->findEvent(publicID);
   }
 
-  if (_cache && !ret) { ret = _cache->find(classType, publicID); }
+  if (_cache && !ret)
+  {
+    ret = _cache->find(classType, publicID);
+  }
 
   return ret;
 }
@@ -86,7 +89,10 @@ DataModel::Event *DataSource::getParentEvent(const std::string &originID)
     }
   }
 
-  if (_query && !ret) { ret = _query->getEvent(originID); }
+  if (_query && !ret)
+  {
+    ret = _query->getEvent(originID);
+  }
 
   return ret;
 }

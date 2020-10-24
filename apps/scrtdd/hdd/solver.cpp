@@ -98,7 +98,10 @@ public:
     }
 
     for (unsigned col = 0; col < _dd->numColsG; col++)
-    { _dd->L2NScaler[col] = 1. / std::sqrt(_dd->L2NScaler[col]); } }
+    {
+      _dd->L2NScaler[col] = 1. / std::sqrt(_dd->L2NScaler[col]);
+    }
+  }
 
   /*
    * Rescale m back to the initial scaling
@@ -540,7 +543,10 @@ void Solver::computePartialDerivatives()
             computeDistance(evprm.lat, evprm.lon, evprm.depth, staprm.lat,
                             staprm.lon, -staprm.elevation / 1000.);
         if (velocityAtSrc == 0)
-        { velocityAtSrc = distance / obsprm.travelTime; } if (takeOffAngle == 0)
+        {
+          velocityAtSrc = distance / obsprm.travelTime;
+        }
+        if (takeOffAngle == 0)
         {
           double VertDist = evprm.depth + staprm.elevation / 1000.;
           takeOffAngle    = std::asin(VertDist / distance);
@@ -559,7 +565,10 @@ void Solver::computePartialDerivatives()
 
 multimap<double, unsigned> Solver::computeInterEventDistance() const
 {
-  if (_observations.size() < 1) { return multimap<double, unsigned>(); }
+  if (_observations.size() < 1)
+  {
+    return multimap<double, unsigned>();
+  }
 
   map<string, double> distCache;
   multimap<double, unsigned> dists;
@@ -576,7 +585,10 @@ multimap<double, unsigned> Solver::computeInterEventDistance() const
                      : to_string(obsrv.ev2Idx) + "-" + to_string(obsrv.ev1Idx);
 
     auto it = distCache.find(key);
-    if (it != distCache.end()) { interEvDistance = it->second; }
+    if (it != distCache.end())
+    {
+      interEvDistance = it->second;
+    }
     else
     {
       const EventParams &ev1Prm = _eventParams.at(obsrv.ev1Idx);
@@ -600,7 +612,10 @@ multimap<double, unsigned> Solver::computeInterEventDistance() const
 vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
                                               const double alpha) const
 {
-  if (residuals.size() < 1) { return vector<double>(); }
+  if (residuals.size() < 1)
+  {
+    return vector<double>();
+  }
 
   //
   // Find the median absolute deviation of residuals (MAD)
@@ -769,7 +784,9 @@ void Solver::solve(unsigned numIterations,
                    bool normalizeG)
 {
   if (_observations.size() == 0)
-  { throw runtime_error("Solver: no observations given"); }
+  {
+    throw runtime_error("Solver: no observations given");
+  }
 
   array<double, 4> meanShiftConstraint = {
       meanLonShiftConstraint,
@@ -806,7 +823,10 @@ void Solver::_solve(unsigned numIterations,
 
   Adapter<T> solver;
   solver.setDDSytem(_dd);
-  if (normalizeG) { solver.L2normalize(); }
+  if (normalizeG)
+  {
+    solver.L2normalize();
+  }
 
   solver.SetDamp(dampingFactor);
   solver.SetMaximumNumberOfIterations(numIterations ? numIterations
@@ -838,12 +858,18 @@ void Solver::_solve(unsigned numIterations,
     throw runtime_error(msg.c_str());
   }
 
-  if (normalizeG) { solver.L2DeNormalize(); }
+  if (normalizeG)
+  {
+    solver.L2DeNormalize();
+  }
 
   loadSolutions();
 
   if (_eventDeltas.empty())
-  { throw runtime_error("Solver: no event has been relocated"); } }
+  {
+    throw runtime_error("Solver: no event has been relocated");
+  }
+}
 
 } // namespace HDD
 } // namespace Seiscomp
