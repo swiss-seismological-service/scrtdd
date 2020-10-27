@@ -76,15 +76,45 @@ public:
     struct
     {
       bool isRelocated = false;
-      unsigned numNeighbours;
-      unsigned usedP;
-      unsigned usedS;
-      unsigned numCCp;
-      unsigned numCCs;
-      unsigned numCTp;
-      unsigned numCTs;
-      double meanObsWeight;
-      double meanFinalObsWeight;
+      double startRms;
+      double locChange;
+      double depthChange;
+      double timeChange;
+
+      struct
+      {
+        unsigned amount;
+        double meanLatDistToCentroid;
+        double meanLonDistToCentroid;
+        double meanDepthDistToCentroid;
+        double eventLatDistToCentroid;
+        double eventLonDistToCentroid;
+        double eventDepthDistToCentroid;
+      } neighbours;
+
+      struct
+      {
+        unsigned usedP;
+        unsigned usedS;
+        double meanPNeigh;
+        double meanSNeigh;
+        double stationDistMedian;
+        double stationDistMin;
+        double stationDistMax;
+      } phases;
+
+      struct
+      {
+        unsigned numTTp;
+        unsigned numTTs;
+        unsigned numCCp;
+        unsigned numCCs;
+        double startResidualMedian;
+        double startResidualMAD;
+        double finalResidualMedian;
+        double finalResidualMAD;
+      } ddObs;
+
     } relocInfo;
 
     // search by value when the Id is not known (works between multiple catalogs
@@ -139,14 +169,13 @@ public:
       bool isRelocated = false;
       double residual;
       double finalWeight;
-      unsigned numObservs;
-      unsigned numXcorrObservs;
-      double meanObsWeight;
-      double meanFinalObsWeight;
+      unsigned numTTObs;
+      unsigned numCCObs;
+      double startMeanObsResidual;
+      double finalMeanObsResidual;
     } relocInfo;
 
-    // search by value when the Id is not known (works between multiple catalogs
-    // )
+    // search by value when the Id is not known (works between catalogs )
     bool operator==(const Phase &other) const
     {
       return (time == other.time) &&

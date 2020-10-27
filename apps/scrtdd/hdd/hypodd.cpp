@@ -610,15 +610,18 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
   return relocatedEvCat;
 }
 
-CatalogPtr HypoDD::relocate(CatalogPtr &catalog,
+CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
                             const std::list<NeighboursPtr> &neighCluster,
                             bool keepNeighboursFixed,
                             const XCorrCache &xcorr) const
 {
   SEISCOMP_INFO("Building and solving double-difference system...");
 
+  //
+  // Iterate the solver computation multiple times
+  //
+  CatalogCPtr currCatalog = catalog;
   ObservationParams obsparams;
-
   for (unsigned iteration = 0; iteration < _cfg.solver.algoIterations;
        iteration++)
   {
@@ -652,10 +655,10 @@ CatalogPtr HypoDD::relocate(CatalogPtr &catalog,
         interpolate(1.0, _cfg.solver.absTTDiffObsWeight);
     double xcorrObsWeight = interpolate(1.0, _cfg.solver.xcorrObsWeight);
 
-    SEISCOMP_INFO("Solving iteration %u num events %lu (observ. weight TTdiff "
-                  "%.2f xcorr %.2f "
-                  "dampingFactor %.2f downWeightingByResidual %.2f "
-                  "meanShiftConstrainWeight %.2f,%.2f,%.2f,%.2f)",
+    SEISCOMP_INFO("Solving iteration %u num events %lu. Parameters: "
+                  "observWeight TT/CC=%.2f/%.2f dampingFactor=%.2f "
+                  "downWeightingByResidual=%.2f "
+                  "meanShiftConstrainWeight=%.2f,%.2f,%.2f,%.2f",
                   iteration, neighCluster.size(), absTTDiffObsWeight,
                   xcorrObsWeight, dampingFactor, downWeightingByResidual,
                   meanLonShiftConstraint, meanLatShiftConstraint,
@@ -670,7 +673,7 @@ CatalogPtr HypoDD::relocate(CatalogPtr &catalog,
     //
     for (const NeighboursPtr &neighbours : neighCluster)
     {
-      addObservations(solver, absTTDiffObsWeight, xcorrObsWeight, catalog,
+      addObservations(solver, absTTDiffObsWeight, xcorrObsWeight, currCatalog,
                       neighbours, keepNeighboursFixed, xcorr, obsparams);
     }
     obsparams.addToSolver(solver);
@@ -696,19 +699,23 @@ CatalogPtr HypoDD::relocate(CatalogPtr &catalog,
     obsparams = ObservationParams();
 
     // update event parameters
-    catalog = updateRelocatedEvents(solver, catalog, neighCluster, obsparams);
+    currCatalog =
+        updateRelocatedEvents(solver, currCatalog, neighCluster, obsparams);
   }
 
   // build the relocated catalog from the results of relocations
   CatalogPtr relocatedCatalog(new Catalog());
   for (const NeighboursPtr &neighbours : neighCluster)
   {
-    const Event &event = catalog->getEvents().at(neighbours->refEvId);
+    const Event &event = currCatalog->getEvents().at(neighbours->refEvId);
     if (event.relocInfo.isRelocated)
     {
-      relocatedCatalog->add(neighbours->refEvId, *catalog, true);
+      relocatedCatalog->add(neighbours->refEvId, *currCatalog, true);
     }
   }
+
+  // compute last bit of statistics for this event
+  updateRelocatedEventsFinalStats(catalog, relocatedCatalog, neighCluster);
 
   return relocatedCatalog;
 }
@@ -719,17 +726,36 @@ string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
   if (!event.relocInfo.isRelocated) return "Event not relocated";
 
   return stringify(
-      "Rms residual %.3f [sec]. Neighboring events %u used P %u used S %u."
-      "Num observations: %u (avg. a priory weight %.2f final weight %.2f). "
-      "Num xcross observations: P phases %u S phases %u. "
-      "Num absolute TT diff observations: P phases %u S phases %u",
-      event.rms, event.relocInfo.numNeighbours, event.relocInfo.usedP,
-      event.relocInfo.usedS,
-      (event.relocInfo.numCCp + event.relocInfo.numCCs +
-       event.relocInfo.numCTp + event.relocInfo.numCTs),
-      event.relocInfo.meanObsWeight, event.relocInfo.meanFinalObsWeight,
-      event.relocInfo.numCCp, event.relocInfo.numCCs, event.relocInfo.numCTp,
-      event.relocInfo.numCTs);
+      "Location change: position[km] %.1f depth[km] %.1f time[sec] %.1f\n"
+      "Rms change [sec]: %.3f before/after %.3f/%.3f\n"
+      "Used Phases: P %u S %u\n"
+      "Stations distance [km]: min %.1f median %.1f max %.1f\n"
+      "Neighbours: %u, phase/Neighbour P %.1f S %.1f\n"
+      "Distance to centroid Neighbours/Origin [km]: lat=%.2f/%.2f "
+      "lon=%.2f/%.2f depth=%.2f/%.2f\n"
+      "DD observations: %u (CC P/S %u/%u TT P/S %u/%u)\n",
+      "DD observations residuals [msec]: before %.f+/-%.1f after %.f+/-%.1f\n",
+      event.relocInfo.locChange, event.relocInfo.depthChange,
+      event.relocInfo.timeChange, (event.rms - event.relocInfo.startRms),
+      event.relocInfo.startRms, event.rms, event.relocInfo.phases.usedP,
+      event.relocInfo.phases.usedS, event.relocInfo.phases.stationDistMin,
+      event.relocInfo.phases.stationDistMedian,
+      event.relocInfo.phases.stationDistMax, event.relocInfo.neighbours.amount,
+      event.relocInfo.phases.meanPNeigh, event.relocInfo.phases.meanSNeigh,
+      event.relocInfo.neighbours.meanLatDistToCentroid,
+      event.relocInfo.neighbours.eventLatDistToCentroid,
+      event.relocInfo.neighbours.meanLonDistToCentroid,
+      event.relocInfo.neighbours.eventLonDistToCentroid,
+      event.relocInfo.neighbours.meanDepthDistToCentroid,
+      event.relocInfo.neighbours.eventDepthDistToCentroid,
+      (event.relocInfo.ddObs.numCCp + event.relocInfo.ddObs.numCCs +
+       event.relocInfo.ddObs.numTTp + event.relocInfo.ddObs.numTTs),
+      event.relocInfo.ddObs.numCCp, event.relocInfo.ddObs.numCCs,
+      event.relocInfo.ddObs.numTTp, event.relocInfo.ddObs.numTTs,
+      event.relocInfo.ddObs.startResidualMedian * 1000,
+      event.relocInfo.ddObs.startResidualMAD * 1000,
+      event.relocInfo.ddObs.finalResidualMedian * 1000,
+      event.relocInfo.ddObs.finalResidualMAD * 1000);
 }
 
 /*
@@ -774,7 +800,6 @@ void HypoDD::addObservations(Solver &solver,
                                ->searchPhase(event.id, refPhase.stationId,
                                              refPhase.procInfo.type)
                                ->second;
-
       //
       // compute travel times for both event and refEvent
       //
@@ -858,7 +883,7 @@ void HypoDD::ObservationParams::add(TravelTimeTableInterfacePtr ttt,
                                  station.longitude, station.elevation);
     // when takeOffAngle/velocityAtSrc are not provided by the ttt then
     // the solver will use straight ray path approximation
-    // deg2rad(tt.takeoff) doesn't seem to be correct
+    // Note: deg2rad(tt.takeoff) doesn't seem to be correct
     _entries[key] = Entry({event, station, phaseType, tt.time, 0, 0});
   }
 }
@@ -894,11 +919,16 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
   map<unsigned, Event> events                = catalog->getEvents();
   unordered_multimap<unsigned, Phase> phases = catalog->getPhases();
   unsigned relocatedEvs                      = 0;
+  vector<double> allRms;
 
+  //
+  // loop through each event with its corresponding neighbours cluster
+  //
   for (const NeighboursPtr &neighbours : neighCluster)
   {
     Event &event = events.at(neighbours->refEvId);
 
+    // get relocation changes computed by the solver for the current event
     double deltaLat, deltaLon, deltaDepth, deltaTT;
     if (!solver.getEventChanges(event.id, deltaLat, deltaLon, deltaDepth,
                                 deltaTT))
@@ -920,27 +950,26 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
       deltaDepth = 0;
     }
 
+    //
+    // Update event location/time and compute statistics
+    //
     relocatedEvs++;
+
+    bool isFirstIteration = !event.relocInfo.isRelocated;
 
     event.latitude += deltaLat;
     event.longitude += deltaLon;
     event.depth += deltaDepth;
     event.time += Core::TimeSpan(deltaTT);
-    event.relocInfo.isRelocated   = true;
-    event.relocInfo.numNeighbours = neighbours->numNeighbours;
+    event.rms                         = 0;
+    event.relocInfo.neighbours        = {0};
+    event.relocInfo.phases            = {0};
+    event.relocInfo.ddObs             = {0};
+    event.relocInfo.isRelocated       = true;
+    event.relocInfo.neighbours.amount = neighbours->numNeighbours;
 
-    event.relocInfo.usedP              = 0;
-    event.relocInfo.usedS              = 0;
-    event.relocInfo.numCCp             = 0;
-    event.relocInfo.numCCs             = 0;
-    event.relocInfo.numCTp             = 0;
-    event.relocInfo.numCTs             = 0;
-    event.relocInfo.meanObsWeight      = 0;
-    event.relocInfo.meanFinalObsWeight = 0;
-    event.rms                          = 0.;
-
+    vector<double> obsResiduals;
     unsigned rmsCount = 0;
-    unsigned pCount   = 0;
     auto eqlrng       = phases.equal_range(event.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
@@ -950,29 +979,28 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
 
       phase.relocInfo.isRelocated = false;
 
-      unsigned startingObservations, startingXcorrObservations,
-          totalFinalObservations;
-      double meanAPrioriWeight, meanFinalWeight;
+      unsigned startTTObs, startCCObs, finalTotalObs;
+      double meanObsResidual, meanAPrioriWeight, meanFinalWeight;
+
       if (!solver.getObservationParamsChanges(
-              event.id, station.id, phaseTypeAsChar, startingObservations,
-              startingXcorrObservations, totalFinalObservations,
-              meanAPrioriWeight, meanFinalWeight))
+              event.id, station.id, phaseTypeAsChar, startTTObs, startCCObs,
+              finalTotalObs, meanAPrioriWeight, meanFinalWeight,
+              meanObsResidual))
       {
         continue;
       }
-      event.relocInfo.meanObsWeight += meanAPrioriWeight;
-      event.relocInfo.meanFinalObsWeight += meanFinalWeight;
-      ++pCount;
 
-      if (meanFinalWeight == 0 || totalFinalObservations == 0) continue;
+      if (finalTotalObs == 0) continue;
 
       phase.relocInfo.isRelocated = true;
       phase.relocInfo.finalWeight =
           phase.procInfo.weight * meanFinalWeight / meanAPrioriWeight;
-      phase.relocInfo.numObservs         = startingObservations;
-      phase.relocInfo.numXcorrObservs    = startingXcorrObservations;
-      phase.relocInfo.meanObsWeight      = meanAPrioriWeight;
-      phase.relocInfo.meanFinalObsWeight = meanFinalWeight;
+      phase.relocInfo.numTTObs = startTTObs;
+      phase.relocInfo.numCCObs = startCCObs;
+      if (isFirstIteration)
+        phase.relocInfo.startMeanObsResidual = meanObsResidual;
+      phase.relocInfo.finalMeanObsResidual = meanObsResidual;
+      obsResiduals.push_back(meanObsResidual);
 
       try
       {
@@ -986,34 +1014,178 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
       catch (exception &e)
       {
         phase.relocInfo.residual = 0;
+        SEISCOMP_DEBUG("TTT: %s", e.what());
       }
 
       event.rms += (phase.relocInfo.residual * phase.relocInfo.residual);
       if (phase.procInfo.type == Phase::Type::P)
       {
-        event.relocInfo.usedP++;
-        event.relocInfo.numCCp += phase.relocInfo.numXcorrObservs;
-        event.relocInfo.numCTp += phase.relocInfo.numObservs;
+        event.relocInfo.phases.usedP++;
+        event.relocInfo.ddObs.numCCp += phase.relocInfo.numCCObs;
+        event.relocInfo.ddObs.numTTp += phase.relocInfo.numTTObs;
       }
       if (phase.procInfo.type == Phase::Type::S)
       {
-        event.relocInfo.usedS++;
-        event.relocInfo.numCCs += phase.relocInfo.numXcorrObservs;
-        event.relocInfo.numCTs += phase.relocInfo.numObservs;
+        event.relocInfo.phases.usedS++;
+        event.relocInfo.ddObs.numCCs += phase.relocInfo.numCCObs;
+        event.relocInfo.ddObs.numTTs += phase.relocInfo.numTTObs;
       }
     }
 
-    if (rmsCount > 0) event.rms = std::sqrt(event.rms / rmsCount);
-    if (pCount > 0)
+    if (rmsCount > 0)
     {
-      event.relocInfo.meanObsWeight /= pCount;
-      event.relocInfo.meanFinalObsWeight /= pCount;
+      event.rms = std::sqrt(event.rms / rmsCount);
+      allRms.push_back(event.rms);
+    }
+
+    if (event.relocInfo.neighbours.amount > 0)
+    {
+      event.relocInfo.phases.meanPNeigh =
+          (event.relocInfo.ddObs.numCCp + event.relocInfo.ddObs.numTTp) /
+          event.relocInfo.neighbours.amount;
+      event.relocInfo.phases.meanSNeigh =
+          (event.relocInfo.ddObs.numCCs + event.relocInfo.ddObs.numTTs) /
+          event.relocInfo.neighbours.amount;
+    }
+
+    if (isFirstIteration)
+    {
+      event.relocInfo.ddObs.startResidualMedian = computeMedian(obsResiduals);
+      event.relocInfo.ddObs.startResidualMAD = computeMedianAbsoluteDeviation(
+          obsResiduals, event.relocInfo.ddObs.startResidualMedian);
+    }
+    else
+    {
+      event.relocInfo.ddObs.finalResidualMedian = computeMedian(obsResiduals);
+      event.relocInfo.ddObs.finalResidualMAD = computeMedianAbsoluteDeviation(
+          obsResiduals, event.relocInfo.ddObs.finalResidualMAD);
     }
   }
 
-  SEISCOMP_INFO("Successfully relocated %u events", relocatedEvs);
+  const double allRmsMedian = computeMedian(allRms);
+  const double allRmsMAD = computeMedianAbsoluteDeviation(allRms, allRmsMedian);
+
+  SEISCOMP_INFO(
+      "Successfully relocated %u events. RMS median %.4f [sec] median "
+      "absolute deviation %.4f [sec]",
+      relocatedEvs, allRmsMedian, allRmsMAD);
 
   return new Catalog(stations, events, phases);
+}
+
+void HypoDD::updateRelocatedEventsFinalStats(
+    const CatalogCPtr &startingCatalog,
+    CatalogPtr &finalCatalog,
+    const std::list<NeighboursPtr> &neighCluster) const
+{
+  vector<double> allRms(startingCatalog->getEvents().size());
+  vector<double> stationDist(startingCatalog->getStations().size());
+  for (const NeighboursPtr &neighbours : neighCluster)
+  {
+    const Event &startEvent =
+        startingCatalog->getEvents().at(neighbours->refEvId);
+    Event finalEvent = finalCatalog->getEvents().at(neighbours->refEvId);
+
+    if (!finalEvent.relocInfo.isRelocated) continue;
+
+    // compute location/time change
+    finalEvent.relocInfo.locChange =
+        computeDistance(finalEvent.latitude, finalEvent.longitude,
+                        startEvent.latitude, startEvent.longitude);
+    finalEvent.relocInfo.depthChange = finalEvent.depth - startEvent.depth;
+    finalEvent.relocInfo.timeChange =
+        (finalEvent.time - startEvent.time).length();
+
+    //
+    // Compute event rms and stations distance (to final event)
+    //
+    unsigned rmsCount = 0;
+    stationDist.clear();
+    for (const auto &kv : neighbours->allPhases())
+    {
+      const Station &station = startingCatalog->getStations().at(kv.first);
+      bool eventHasPhase = false;
+
+      for (Phase::Type phaseType : kv.second)
+      {
+        auto it =  startingCatalog->searchPhase(startEvent.id, station.id, phaseType);
+        if (it == startingCatalog->getPhases().end())
+          continue;
+
+        const Phase &phase = it->second;
+        eventHasPhase = true;
+        try
+        {
+          TravelTime tt = _ttt->compute(
+              string(1, static_cast<char>(phaseType)).c_str(),
+              startEvent.latitude, startEvent.longitude,
+              (startEvent.depth > 0 ? startEvent.depth : 0), station.latitude,
+              station.longitude, station.elevation);
+          double residual = tt.time - (phase.time - startEvent.time).length();
+          finalEvent.relocInfo.startRms += residual * residual;
+          rmsCount++;
+        }
+        catch (exception &e) { SEISCOMP_DEBUG("TTT: %s", e.what());  }
+      }
+      if ( eventHasPhase )
+        stationDist.push_back(computeDistance(finalEvent, station));
+    }
+
+    if (rmsCount > 0)
+    {
+      finalEvent.relocInfo.startRms =
+          std::sqrt(finalEvent.relocInfo.startRms / rmsCount);
+      allRms.push_back(finalEvent.relocInfo.startRms);
+    }
+    else
+      finalEvent.relocInfo.startRms = 0;
+
+    finalEvent.relocInfo.phases.stationDistMedian = computeMedian(stationDist);
+    auto min_max = std::minmax_element(stationDist.begin(), stationDist.end());
+    finalEvent.relocInfo.phases.stationDistMin = *min_max.first;
+    finalEvent.relocInfo.phases.stationDistMax = *min_max.second;
+
+    //
+    // compute neighbours distance
+    //
+    vector<double> latDiff, lonDiff, depthDiff;
+    for (unsigned neighEvId : neighbours->ids)
+    {
+      const Event &neighEv = startingCatalog->getEvents().at(neighEvId);
+      latDiff.push_back(computeDistance(startEvent.latitude,
+                                        startEvent.longitude, neighEv.latitude,
+                                        startEvent.longitude));
+      lonDiff.push_back(
+          computeDistance(startEvent.latitude, startEvent.longitude,
+                          startEvent.latitude, neighEv.longitude));
+      depthDiff.push_back(startEvent.depth - neighEv.depth);
+    }
+    finalEvent.relocInfo.neighbours.eventLatDistToCentroid =
+        computeMean(latDiff);
+    finalEvent.relocInfo.neighbours.eventLonDistToCentroid =
+        computeMean(lonDiff);
+    finalEvent.relocInfo.neighbours.eventDepthDistToCentroid =
+        computeMean(depthDiff);
+    finalEvent.relocInfo.neighbours.meanLatDistToCentroid =
+        computeMeanAbsoluteDeviation(
+            latDiff, finalEvent.relocInfo.neighbours.eventLatDistToCentroid);
+    finalEvent.relocInfo.neighbours.meanLonDistToCentroid =
+        computeMeanAbsoluteDeviation(
+            lonDiff, finalEvent.relocInfo.neighbours.eventLonDistToCentroid);
+    finalEvent.relocInfo.neighbours.meanDepthDistToCentroid =
+        computeMeanAbsoluteDeviation(
+            depthDiff,
+            finalEvent.relocInfo.neighbours.eventDepthDistToCentroid);
+
+    finalCatalog->updateEvent(finalEvent);
+  }
+
+  const double allRmsMedian = computeMedian(allRms);
+  const double allRmsMAD = computeMedianAbsoluteDeviation(allRms, allRmsMedian);
+
+  SEISCOMP_INFO("Events Rms Before relocation: median %.4f median absolute "
+                "deviation %.4f",
+                allRmsMedian, allRmsMAD);
 }
 
 void HypoDD::addMissingEventPhases(const Event &refEv,

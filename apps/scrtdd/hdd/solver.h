@@ -164,11 +164,12 @@ public:
   bool getObservationParamsChanges(unsigned evId,
                                    const std::string &staId,
                                    char phase,
-                                   unsigned &startingObservations,
-                                   unsigned &startingXcorrObservations,
-                                   unsigned &totalFinalObservations,
+                                   unsigned &startingTTObs,
+                                   unsigned &startingCCObs,
+                                   unsigned &finalTotalObs,
                                    double &meanAPrioriWeight,
-                                   double &meanFinalWeight) const;
+                                   double &meanFinalWeight,
+                                   double &meanObsResidual) const;
 
 private:
   void computePartialDerivatives();
@@ -270,11 +271,12 @@ private:
 
   struct ParamStats
   {
-    unsigned startingObservations      = 0;
-    unsigned startingXcorrObservations = 0;
-    unsigned totalFinalObservations    = 0;
-    double totalAPrioriWeight          = 0;
-    double totalFinalWeight            = 0;
+    unsigned startingTTObs    = 0;
+    unsigned startingCCObs    = 0;
+    unsigned finalTotalObs    = 0;
+    double totalAPrioriWeight = 0;
+    double totalFinalWeight   = 0;
+    double totalResiduals     = 0;
   };
   // key1=evIdx  key2=phStaIdx
   std::unordered_map<unsigned, std::unordered_map<unsigned, ParamStats>>
@@ -291,6 +293,7 @@ private:
   };
   std::unordered_map<unsigned, EventDeltas> _eventDeltas; // key = evIdx
 
+  std::vector<double> _residuals;
   DDSystemPtr _dd;
   std::string _type;
 };

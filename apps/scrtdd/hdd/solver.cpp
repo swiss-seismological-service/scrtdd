@@ -330,11 +330,12 @@ bool Solver::getEventChanges(unsigned evId,
 bool Solver::getObservationParamsChanges(unsigned evId,
                                          const std::string &staId,
                                          char phase,
-                                         unsigned &startingObservations,
-                                         unsigned &startingXcorrObservations,
-                                         unsigned &totalFinalObservations,
+                                         unsigned &startingTTObs,
+                                         unsigned &startingCCObs,
+                                         unsigned &finalTotalObs,
                                          double &meanAPrioriWeight,
-                                         double &meanFinalWeight) const
+                                         double &meanFinalWeight,
+                                         double &meanObsResiduals) const
 {
   if (!_eventIdConverter.hasId(evId)) return false;
 
@@ -352,16 +353,19 @@ bool Solver::getObservationParamsChanges(unsigned evId,
 
   const ParamStats &prmSts = it2->second;
 
-  startingObservations      = prmSts.startingObservations;
-  startingXcorrObservations = prmSts.startingXcorrObservations;
-  totalFinalObservations    = prmSts.totalFinalObservations;
-  meanAPrioriWeight         = 0;
-  if ((startingObservations + startingXcorrObservations) > 0)
+  meanAPrioriWeight = 0;
+  meanFinalWeight   = 0;
+  meanObsResiduals  = 0;
+  if ((prmSts.startingTTObs + prmSts.startingCCObs) > 0)
+  {
     meanAPrioriWeight = prmSts.totalAPrioriWeight /
-                        (startingObservations + startingXcorrObservations);
-  meanFinalWeight = totalFinalObservations
-                        ? (prmSts.totalFinalWeight / totalFinalObservations)
-                        : 0;
+                        (prmSts.startingTTObs + prmSts.startingCCObs);
+  }
+  if (prmSts.finalTotalObs > 0)
+  {
+    meanFinalWeight  = prmSts.totalFinalWeight / prmSts.finalTotalObs;
+    meanObsResiduals = prmSts.totalResiduals / prmSts.finalTotalObs;
+  }
   return true;
 }
 
@@ -401,31 +405,33 @@ void Solver::loadSolutions()
   // Compute final weghts for each ObservationParams
   // Note: we could have done this even before solving the system
   //       but here is more convenient because we might eventually
-  //       add more information depending on the solution
+  //       add more statitical information that require the solution
   //
-  for (unsigned int ob = 0; ob < _dd->nObs; ob++)
+  for (unsigned int obIdx = 0; obIdx < _dd->nObs; obIdx++)
   {
-    double observationWeight = _dd->W[ob];
+    double observationWeight = _dd->W[obIdx];
 
     if (observationWeight == 0.) continue;
 
     const unsigned phStaIdx =
-        _dd->phStaByObs[ob]; // station for this observation
+        _dd->phStaByObs[obIdx]; // station for this observation
 
-    const int evIdx1 = _dd->evByObs[ob][0]; // event 1 for this observation
+    const int evIdx1 = _dd->evByObs[obIdx][0]; // event 1 for this observation
     if (evIdx1 >= 0)
     {
       ParamStats &prmSts = _paramStats.at(evIdx1).at(phStaIdx);
-      prmSts.totalFinalObservations++;
+      prmSts.finalTotalObs++;
       prmSts.totalFinalWeight += observationWeight;
+      prmSts.totalResiduals += _residuals.at(obIdx);
     }
 
-    const int evIdx2 = _dd->evByObs[ob][1]; // event 2 for this observation
+    const int evIdx2 = _dd->evByObs[obIdx][1]; // event 2 for this observation
     if (evIdx2 >= 0)
     {
       ParamStats &prmSts = _paramStats.at(evIdx2).at(phStaIdx);
-      prmSts.totalFinalObservations++;
+      prmSts.finalTotalObs++;
       prmSts.totalFinalWeight += observationWeight;
+      prmSts.totalResiduals += _residuals.at(obIdx);
     }
   }
 
@@ -465,6 +471,7 @@ void Solver::loadSolutions()
 
   // free some memory
   _eventParams.clear();
+  _residuals.clear();
   _dd = nullptr;
 }
 
@@ -700,9 +707,9 @@ void Solver::prepareDDSystem(array<double, 4> meanShiftConstraint,
     {
       ParamStats &prmSts = _paramStats[obsrv.ev1Idx][obsrv.phStaIdx];
       if (obsrv.isXcorr)
-        prmSts.startingXcorrObservations++;
+        prmSts.startingCCObs++;
       else
-        prmSts.startingObservations++;
+        prmSts.startingTTObs++;
       prmSts.totalAPrioriWeight += _dd->W[obIdx];
     }
 
@@ -710,9 +717,9 @@ void Solver::prepareDDSystem(array<double, 4> meanShiftConstraint,
     {
       ParamStats &prmSts = _paramStats[obsrv.ev2Idx][obsrv.phStaIdx];
       if (obsrv.isXcorr)
-        prmSts.startingXcorrObservations++;
+        prmSts.startingCCObs++;
       else
-        prmSts.startingObservations++;
+        prmSts.startingTTObs++;
       prmSts.totalAPrioriWeight += _dd->W[obIdx];
     }
   }
@@ -728,11 +735,11 @@ void Solver::prepareDDSystem(array<double, 4> meanShiftConstraint,
   _dd->W[_dd->nObs + 3] = meanShiftConstraint[3];
 
   // downweight observations by residuals
-  vector<double> residuals(_dd->d, _dd->d + _dd->nObs);
+  _residuals = vector<double>(_dd->d, _dd->d + _dd->nObs);
   if (residualDownWeight > 0)
   {
     vector<double> resWeights =
-        computeResidualWeights(residuals, residualDownWeight);
+        computeResidualWeights(_residuals, residualDownWeight);
     for (unsigned obIdx = 0; obIdx < _dd->nObs; obIdx++)
     {
       _dd->W[obIdx] *= resWeights[obIdx];
@@ -754,7 +761,7 @@ void Solver::prepareDDSystem(array<double, 4> meanShiftConstraint,
     while (obByDistIt != obByDist.end() && decileRes.size() < decileSize)
     {
       unsigned obIdx = obByDistIt->second;
-      decileRes.push_back(residuals.at(obIdx));
+      decileRes.push_back(_residuals.at(obIdx));
       finalDist = obByDistIt->first;
       obByDistIt++;
     }

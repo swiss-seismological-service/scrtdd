@@ -87,7 +87,7 @@ struct Config
     double maxEllipsoidSize = 10; // km
 
     //  cross-correlation specific
-    double xcorrMaxEvStaDist   = -1; // max event to staion distance
+    double xcorrMaxEvStaDist   = -1; // max event to station distance
     double xcorrMaxInterEvDist = -1; // max inter-event distance
     std::string recordStreamURL;
   } ddObservations2;
@@ -205,7 +205,7 @@ private:
                                      int numEllipsoids,
                                      double maxEllipsoidSize);
 
-  CatalogPtr relocate(CatalogPtr &catalog,
+  CatalogPtr relocate(const CatalogCPtr &catalog,
                       const std::list<NeighboursPtr> &neighbourCats,
                       bool keepNeighboursFixed,
                       const XCorrCache &xcorr) const;
@@ -247,6 +247,11 @@ private:
                         const CatalogCPtr &catalog,
                         const std::list<NeighboursPtr> &neighbourCats,
                         ObservationParams &obsparams) const;
+
+  void updateRelocatedEventsFinalStats(
+      const CatalogCPtr &startingCatalog,
+      CatalogPtr &finalCatalog,
+      const std::list<NeighboursPtr> &neighCluster) const;
 
   void addMissingEventPhases(const Catalog::Event &refEv,
                              CatalogPtr &refEvCatalog,

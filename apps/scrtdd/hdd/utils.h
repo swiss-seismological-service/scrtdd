@@ -35,6 +35,13 @@ double computeDistance(double lat1,
                        double *azimuth     = nullptr,
                        double *backAzimuth = nullptr);
 
+double computeDistance(double lat1,
+                       double lon1,
+                       double lat2,
+                       double lon2,
+                       double *azimuth     = nullptr,
+                       double *backAzimuth = nullptr);
+
 double computeDistance(const Catalog::Event &ev1,
                        const Catalog::Event &ev2,
                        double *azimuth     = nullptr,

@@ -37,12 +37,7 @@ double computeDistance(double lat1,
                        double *azimuth,
                        double *backAzimuth)
 {
-  double Hdist, az, baz;
-  Math::Geo::delazi(lat1, lon1, lat2, lon2, &Hdist, &az, &baz);
-  Hdist = Math::Geo::deg2km(Hdist);
-
-  if (azimuth) *azimuth = az;
-  if (backAzimuth) *backAzimuth = baz;
+  double Hdist = computeDistance(lat1, lon1, lat2, lon2, azimuth, backAzimuth);
 
   if (depth1 == depth2) return Hdist;
 
@@ -50,6 +45,23 @@ double computeDistance(double lat1,
   // and the Earth curvature can be assumed flat
   double Vdist = abs(depth1 - depth2);
   return std::sqrt(std::pow(Hdist, 2) + std::pow(Vdist, 2));
+}
+
+double computeDistance(double lat1,
+                       double lon1,
+                       double lat2,
+                       double lon2,
+                       double *azimuth,
+                       double *backAzimuth)
+{
+  double dist, az, baz;
+  Math::Geo::delazi(lat1, lon1, lat2, lon2, &dist, &az, &baz);
+  dist = Math::Geo::deg2km(dist);
+
+  if (azimuth) *azimuth = az;
+  if (backAzimuth) *backAzimuth = baz;
+
+  return dist;
 }
 
 double computeDistance(const Catalog::Event &ev1,
