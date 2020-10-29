@@ -248,7 +248,7 @@ RTDD::Config::Config()
   dumpWaveforms   = false;
   fExpiry         = 1.0;
 
-  wakeupInterval = 10;
+  wakeupInterval = 1; // sec
   logCrontab     = true;
 }
 
@@ -277,7 +277,6 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
   NEW_OPT(_config.allowManualOrigin, "manualOrigins");
   NEW_OPT(_config.activeProfiles, "activeProfiles");
 
-  NEW_OPT(_config.wakeupInterval, "cron.wakeupInterval");
   NEW_OPT(_config.logCrontab, "cron.logging");
   NEW_OPT(_config.delayTimes, "cron.delayTimes");
 
@@ -1060,7 +1059,7 @@ bool RTDD::init()
   // Enable periodic timer: handleTimeout()
   enableTimer(1);
 
-  // Check each 10 seconds if a new job needs to be started
+  // Check each N seconds if a new job needs to be started
   _cronCounter = _config.wakeupInterval;
 
   return true;
@@ -1324,7 +1323,9 @@ bool RTDD::run()
     return true;
   }
 
-  // real time processing
+  //
+  // real time processing (no other command line options)
+  //
   return Application::run();
 }
 
@@ -1530,8 +1531,12 @@ void RTDD::runNewJobs()
 
     for (ProcessPtr &proc : procToBeRemoved) removeProcess(proc.get());
 
-    // Process event queue
-    while (!_processQueue.empty())
+    //
+    // Process event queue, but one event only! The next ones will be handled
+    // in the next call. This is to avoid being stuck in a long loop where
+    // we might miss updateObject/addObject
+    //
+    if (!_processQueue.empty())
     {
       ProcessPtr proc = _processQueue.front();
       _processQueue.pop_front();

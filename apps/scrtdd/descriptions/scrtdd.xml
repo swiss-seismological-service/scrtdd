@@ -70,13 +70,6 @@
 
             <group name="cron">
 
-                <parameter name="wakeupInterval" type="int" unit="s" default="5">
-                    <description>
-                        Specifies the interval in seconds to check/start scheduled operations.
-                        This is basically the time resolution for delayTimes option.
-                    </description>
-                </parameter>
-
                 <parameter name="delayTimes" type="list:int" default="60,120,300,600,3600">
                     <description>
                     Specifies a delay time in seconds, relative to origin time,
@@ -94,9 +87,8 @@
                     Enables/disables updating of a cron log file. This file will be
                     created at ~/.seiscomp3/log/[appname].sched
                     and contains information about the scheduled events and the
-                    processing queue. The file is updated each n seconds,
-                    where n = rtdd.cron.wakeupInterval.
-                    </description>
+                    processing queue.
+                  </description>
                 </parameter>
 
             </group>
