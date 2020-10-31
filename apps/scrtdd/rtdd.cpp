@@ -235,7 +235,7 @@ double normalizeLon(double lon)
 RTDD::Config::Config()
 {
   workingDirectory    = "/tmp/rtdd";
-  keepWorkingFiles    = false;
+  saveProcessingFiles = false;
   onlyPreferredOrigin = false;
   allowManualOrigin   = false;
   profileTimeAlive    = -1;
@@ -272,7 +272,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 
   _cache.setPopCallback(boost::bind(&RTDD::removedFromCache, this, _1));
 
-  NEW_OPT(_config.keepWorkingFiles, "keepWorkingFiles");
+  NEW_OPT(_config.saveProcessingFiles, "saveProcessingFiles");
   NEW_OPT(_config.onlyPreferredOrigin, "onlyPreferredOrigins");
   NEW_OPT(_config.allowManualOrigin, "manualOrigins");
   NEW_OPT(_config.activeProfiles, "activeProfiles");
@@ -1096,7 +1096,7 @@ bool RTDD::run()
       if (profile->name == _config.evalXCorr)
       {
         profile->load(query(), &_cache, _eventParameters.get(),
-                      _config.workingDirectory, !_config.keepWorkingFiles,
+                      _config.workingDirectory, !_config.saveProcessingFiles,
                       _config.cacheWaveforms, true, _config.dumpWaveforms,
                       false);
         profile->evalXCorr();
@@ -1115,8 +1115,9 @@ bool RTDD::run()
       if (profile->name == _config.loadProfile)
       {
         profile->load(query(), &_cache, _eventParameters.get(),
-                      _config.workingDirectory, !_config.keepWorkingFiles, true,
-                      _config.cacheAllWaveforms, _config.dumpWaveforms, true);
+                      _config.workingDirectory, !_config.saveProcessingFiles,
+                      true, _config.cacheAllWaveforms, _config.dumpWaveforms,
+                      true);
         profile->unload();
         break;
       }
@@ -1227,7 +1228,7 @@ bool RTDD::run()
       if (profile->name == _config.relocateProfile)
       {
         profile->load(query(), &_cache, _eventParameters.get(),
-                      _config.workingDirectory, !_config.keepWorkingFiles,
+                      _config.workingDirectory, !_config.saveProcessingFiles,
                       _config.cacheWaveforms, true, _config.dumpWaveforms,
                       false);
         try
@@ -1465,10 +1466,10 @@ void RTDD::checkProfileStatus()
     {
       if (!currProfile->isLoaded())
       {
-        currProfile->load(query(), &_cache, _eventParameters.get(),
-                          _config.workingDirectory, !_config.keepWorkingFiles,
-                          _config.cacheWaveforms, _config.cacheAllWaveforms,
-                          _config.dumpWaveforms, true);
+        currProfile->load(
+            query(), &_cache, _eventParameters.get(), _config.workingDirectory,
+            !_config.saveProcessingFiles, _config.cacheWaveforms,
+            _config.cacheAllWaveforms, _config.dumpWaveforms, true);
       }
     }
     else // periodic clean up of profiles
@@ -1825,7 +1826,7 @@ void RTDD::relocateOrigin(DataModel::Origin *org,
                           std::vector<DataModel::PickPtr> &newOrgPicks)
 {
   profile->load(query(), &_cache, _eventParameters.get(),
-                _config.workingDirectory, !_config.keepWorkingFiles,
+                _config.workingDirectory, !_config.saveProcessingFiles,
                 _config.cacheWaveforms, _config.cacheAllWaveforms,
                 _config.dumpWaveforms, false);
   HDD::CatalogPtr relocatedOrg = profile->relocateSingleEvent(org);

@@ -25,10 +25,10 @@
                 </description>
             </parameter>
 
-            <parameter name="keepWorkingFiles" type="boolean" default="false">
+            <parameter name="saveProcessingFiles" type="boolean" default="false">
                 <description>
-                    Do not delete temporary processing files from the working directory
-                    after the processing is completed (useful for debugging only).
+                    Store adavanced processing information files in the working directory
+                    (useful for debugging/troubleshooting).
                 </description>
             </parameter>
 
@@ -70,7 +70,7 @@
 
             <group name="cron">
 
-                <parameter name="delayTimes" type="list:int" default="60,120,300,600,3600">
+                <parameter name="delayTimes" type="list:int" default="60,300">
                     <description>
                     Specifies a delay time in seconds, relative to origin time,
                     to trigger the processing. This can be a single value or a list of delay

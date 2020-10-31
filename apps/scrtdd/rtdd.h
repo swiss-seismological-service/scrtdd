@@ -126,7 +126,7 @@ private:
 
     std::vector<std::string> activeProfiles;
     std::string workingDirectory;
-    bool keepWorkingFiles;
+    bool saveProcessingFiles;
     bool onlyPreferredOrigin;
     bool allowManualOrigin;
     int profileTimeAlive; // seconds
