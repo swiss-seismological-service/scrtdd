@@ -96,8 +96,6 @@ public:
       {
         unsigned usedP;
         unsigned usedS;
-        double meanPNeigh;
-        double meanSNeigh;
         double stationDistMedian;
         double stationDistMin;
         double stationDistMax;
@@ -167,7 +165,8 @@ public:
     struct
     {
       bool isRelocated = false;
-      double residual;
+      double startResidual;
+      double finalResidual;
       double finalWeight;
       unsigned numTTObs;
       unsigned numCCObs;

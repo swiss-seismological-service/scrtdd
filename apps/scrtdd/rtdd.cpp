@@ -2010,7 +2010,7 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr &relocatedOrg,
                                                   : 0.);
     newArr->setTimeUsed(phaseUsed);
     newArr->setTimeResidual(
-        phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0.);
+        phase.relocInfo.isRelocated ? phase.relocInfo.finalResidual : 0.);
 
     auto search = relocatedOrg->getStations().find(phase.stationId);
     if (search == relocatedOrg->getStations().end())

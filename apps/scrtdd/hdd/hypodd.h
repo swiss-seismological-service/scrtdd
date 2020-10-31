@@ -248,7 +248,7 @@ private:
                         const std::list<NeighboursPtr> &neighbourCats,
                         ObservationParams &obsparams) const;
 
-  void updateRelocatedEventsFinalStats(
+  CatalogPtr updateRelocatedEventsFinalStats(
       const CatalogCPtr &startingCatalog,
       CatalogPtr &finalCatalog,
       const std::list<NeighboursPtr> &neighCluster) const;

@@ -300,11 +300,11 @@ void Solver::addObservationParams(unsigned evId,
   string phStaId      = string(1, phase) + "@" + staId;
   int evIdx           = _eventIdConverter.convert(evId);
   unsigned phStaIdx   = _phStaIdConverter.convert(phStaId);
-  _eventParams[evIdx] = EventParams({evLat, evLon, evDepth, 0, 0, 0});
+  _eventParams[evIdx] = EventParams{evLat, evLon, evDepth, 0, 0, 0};
   _stationParams[phStaIdx] =
-      StationParams({staLat, staLon, staElevation, 0, 0, 0});
+      StationParams{staLat, staLon, staElevation, 0, 0, 0};
   _obsParams[evIdx][phStaIdx] =
-      ObservationParams({travelTime, takeOffAngle, velocityAtSrc, 0, 0, 0});
+      ObservationParams{travelTime, takeOffAngle, velocityAtSrc, 0, 0, 0};
 }
 
 bool Solver::getEventChanges(unsigned evId,
@@ -353,18 +353,21 @@ bool Solver::getObservationParamsChanges(unsigned evId,
 
   const ParamStats &prmSts = it2->second;
 
+  startingTTObs     = prmSts.startingTTObs;
+  startingCCObs     = prmSts.startingCCObs;
+  finalTotalObs     = prmSts.finalTotalObs;
   meanAPrioriWeight = 0;
   meanFinalWeight   = 0;
   meanObsResiduals  = 0;
-  if ((prmSts.startingTTObs + prmSts.startingCCObs) > 0)
+  if ((startingTTObs + startingCCObs) > 0)
   {
-    meanAPrioriWeight = prmSts.totalAPrioriWeight /
-                        (prmSts.startingTTObs + prmSts.startingCCObs);
+    meanAPrioriWeight =
+        prmSts.totalAPrioriWeight / (startingTTObs + startingCCObs);
   }
-  if (prmSts.finalTotalObs > 0)
+  if (finalTotalObs > 0)
   {
-    meanFinalWeight  = prmSts.totalFinalWeight / prmSts.finalTotalObs;
-    meanObsResiduals = prmSts.totalResiduals / prmSts.finalTotalObs;
+    meanFinalWeight  = prmSts.totalFinalWeight / finalTotalObs;
+    meanObsResiduals = prmSts.totalResiduals / finalTotalObs;
   }
   return true;
 }
