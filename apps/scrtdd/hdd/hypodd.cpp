@@ -89,8 +89,7 @@ HypoDD::HypoDD(const CatalogCPtr &catalog,
   setWaveformCacheAll(false);
   setWaveformDebug(false);
 
-  _ttt = TravelTimeTableInterface::Create(_cfg.ttt.type.c_str());
-  _ttt->setModel(_cfg.ttt.model.c_str());
+  _ttt = new TravelTimeTable(_cfg.ttt.type, _cfg.ttt.model);
 }
 
 HypoDD::~HypoDD()
@@ -868,7 +867,7 @@ void HypoDD::addObservations(Solver &solver,
   }
 }
 
-void HypoDD::ObservationParams::add(TravelTimeTableInterfacePtr ttt,
+void HypoDD::ObservationParams::add(HDD::TravelTimeTablePtr ttt,
                                     const Event &event,
                                     const Station &station,
                                     char phaseType)
@@ -877,14 +876,11 @@ void HypoDD::ObservationParams::add(TravelTimeTableInterfacePtr ttt,
       std::to_string(event.id) + "@" + station.id + ":" + phaseType;
   if (_entries.find(key) == _entries.end())
   {
-    double depth  = event.depth > 0 ? event.depth : 0;
-    TravelTime tt = ttt->compute(string(1, phaseType).c_str(), event.latitude,
-                                 event.longitude, depth, station.latitude,
-                                 station.longitude, station.elevation);
-    // when takeOffAngle/velocityAtSrc are not provided by the ttt then
-    // the solver will use straight ray path approximation
-    // Note: deg2rad(tt.takeoff) doesn't seem to be correct
-    _entries[key] = Entry({event, station, phaseType, tt.time, 0, 0});
+    double travelTime, takeOffAngle, velocityAtSrc;
+    ttt->compute(event, station, string(1, phaseType), travelTime, takeOffAngle,
+                 velocityAtSrc);
+    _entries[key] = Entry{event,      station,      phaseType,
+                          travelTime, takeOffAngle, velocityAtSrc};
   }
 }
 
@@ -1104,30 +1100,33 @@ void HypoDD::updateRelocatedEventsFinalStats(
     for (const auto &kv : neighbours->allPhases())
     {
       const Station &station = startingCatalog->getStations().at(kv.first);
-      bool eventHasPhase = false;
+      bool eventHasPhase     = false;
 
       for (Phase::Type phaseType : kv.second)
       {
-        auto it =  startingCatalog->searchPhase(startEvent.id, station.id, phaseType);
-        if (it == startingCatalog->getPhases().end())
-          continue;
+        auto it =
+            startingCatalog->searchPhase(startEvent.id, station.id, phaseType);
+        if (it == startingCatalog->getPhases().end()) continue;
 
         const Phase &phase = it->second;
-        eventHasPhase = true;
+        eventHasPhase      = true;
         try
         {
-          TravelTime tt = _ttt->compute(
-              string(1, static_cast<char>(phaseType)).c_str(),
-              startEvent.latitude, startEvent.longitude,
-              (startEvent.depth > 0 ? startEvent.depth : 0), station.latitude,
-              station.longitude, station.elevation);
-          double residual = tt.time - (phase.time - startEvent.time).length();
+          double travelTime, takeOffAngle, velocityAtSrc;
+          _ttt->compute(startEvent, station,
+                       string(1, static_cast<char>(phaseType)), travelTime,
+                       takeOffAngle, velocityAtSrc);
+          double residual =
+              travelTime - (phase.time - startEvent.time).length();
           finalEvent.relocInfo.startRms += residual * residual;
           rmsCount++;
         }
-        catch (exception &e) { SEISCOMP_DEBUG("TTT: %s", e.what());  }
+        catch (exception &e)
+        {
+          SEISCOMP_DEBUG("TTT: %s", e.what());
+        }
       }
-      if ( eventHasPhase )
+      if (eventHasPhase)
         stationDist.push_back(computeDistance(finalEvent, station));
     }
 

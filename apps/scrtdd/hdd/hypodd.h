@@ -21,11 +21,11 @@
 #include "catalog.h"
 #include "clustering.h"
 #include "solver.h"
+#include "ttt.h"
 #include "waveform.h"
 #include "xcorrcache.ipp"
 
 #include <seiscomp3/core/baseobject.h>
-#include <seiscomp3/seismology/ttt.h>
 
 #include <map>
 #include <unordered_map>
@@ -221,7 +221,7 @@ private:
       double takeOffAngle;
       double velocityAtSrc;
     };
-    void add(TravelTimeTableInterfacePtr ttt,
+    void add(HDD::TravelTimeTablePtr ttt,
              const Catalog::Event &event,
              const Catalog::Station &station,
              char phaseType);
@@ -352,7 +352,7 @@ private:
 
   bool _useArtificialPhases = true;
 
-  TravelTimeTableInterfacePtr _ttt;
+  HDD::TravelTimeTablePtr _ttt;
 
   Waveform::DiskCachedLoaderPtr _wfDiskCache;
   Waveform::SnrFilteredLoaderPtr _wfSnrFilter;

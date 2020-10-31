@@ -10,6 +10,7 @@ SET(RTDD_SOURCES
 		hdd/catalog.cpp
 		hdd/waveform.cpp
 		hdd/clustering.cpp
+		hdd/ttt.cpp
 		hdd/hypodd.cpp
 		app.cpp
 		rtdd.cpp
