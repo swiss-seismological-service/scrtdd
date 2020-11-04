@@ -460,7 +460,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
         ev.longitude - evToRelocate.longitude, ev.depth,
         ev.depth - evToRelocate.depth, ev.time.iso().c_str(),
         (ev.time - evToRelocate.time).length());
-    SEISCOMP_INFO("%s", relocationReport(relocatedEvCat).c_str());
+    SEISCOMP_INFO("\n%s", relocationReport(relocatedEvCat).c_str());
 
     evToRelocateCat = relocatedEvCat;
   }
@@ -496,7 +496,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
         ev.longitude - evToRelocate.longitude, ev.depth,
         ev.depth - evToRelocate.depth, ev.time.iso().c_str(),
         (ev.time - evToRelocate.time).length());
-    SEISCOMP_INFO("%s", relocationReport(relocatedEvWithXcorr).c_str());
+    SEISCOMP_INFO("\n%s", relocationReport(relocatedEvWithXcorr).c_str());
   }
   else
   {
@@ -726,14 +726,15 @@ string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
   if (!event.relocInfo.isRelocated) return "Event not relocated";
 
   return stringify(
-      "Location change: position[km] %.1f depth[km] %.1f time[sec] %.1f\n"
-      "Rms change [sec]: %.3f before/after %.3f/%.3f\n"
+      "Origin changes: location %.1f[km] depth %.1f[km] time %.3f[sec] RMS "
+      "%.3f[sec]\n"
+      "Rms before/after %.3f/%.3f[sec]\n"
       "Used Phases: P %u S %u\n"
       "Stations distance [km]: min %.1f median %.1f max %.1f\n"
-      "Neighbours: %u, "
-      "Distance to centroid Neighbours/Origin [km]: lat=%.2f/%.2f "
+      "Neighbours: %u\n"
+      "Neighbours/Origin distace to centroid [km]: lat=%.2f/%.2f "
       "lon=%.2f/%.2f depth=%.2f/%.2f\n"
-      "DD observations: %u (CC P/S %u/%u TT P/S %u/%u)\n",
+      "DD observations: %u (CC P/S %u/%u TT P/S %u/%u)\n"
       "DD observations residuals [msec]: before %.f+/-%.1f after %.f+/-%.1f\n",
       event.relocInfo.locChange, event.relocInfo.depthChange,
       event.relocInfo.timeChange, (event.rms - event.relocInfo.startRms),
@@ -1094,13 +1095,14 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
     // Compute starting event rms considering only the phases in the final
     // catalog
     //
-    unsigned rmsCount = 0;
+    unsigned rmsCount             = 0;
     finalEvent.relocInfo.startRms = 0;
-    auto eqlrng       = fPhases.equal_range(finalEvent.id);
+    auto eqlrng                   = fPhases.equal_range(finalEvent.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
-      Phase &finalPhase      = it->second;
-      const Station &station = startCatalog->getStations().at(finalPhase.stationId);
+      Phase &finalPhase = it->second;
+      const Station &station =
+          startCatalog->getStations().at(finalPhase.stationId);
       try
       {
         double travelTime, takeOffAngle, velocityAtSrc;
@@ -1157,22 +1159,21 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
     finalEvent.relocInfo.phases.stationDistMax = *min_max.second;
 
     //
-    // compute neighbours distance to final event (it would be interesting
-    // to have the information from the starting event too)
+    // compute starting neighbours to starting event distance
     //
     vector<double> latDiff, lonDiff, depthDiff;
     for (unsigned neighEvId : neighbours->ids)
     {
-      const Event &neighEv = finalCatalog->getEvents().at(neighEvId);
-      double dist = computeDistance(finalEvent.latitude, finalEvent.longitude,
-                                    neighEv.latitude, finalEvent.longitude);
-      if (finalEvent.latitude < neighEv.latitude) dist = -dist;
+      const Event &neighEv = startCatalog->getEvents().at(neighEvId);
+      double dist = computeDistance(startEvent.latitude, startEvent.longitude,
+                                    neighEv.latitude, startEvent.longitude);
+      if (startEvent.latitude < neighEv.latitude) dist = -dist;
       latDiff.push_back(dist);
-      dist = computeDistance(finalEvent.latitude, finalEvent.longitude,
-                             finalEvent.latitude, neighEv.longitude);
-      if (finalEvent.longitude < neighEv.longitude) dist = -dist;
+      dist = computeDistance(startEvent.latitude, startEvent.longitude,
+                             startEvent.latitude, neighEv.longitude);
+      if (startEvent.longitude < neighEv.longitude) dist = -dist;
       lonDiff.push_back(dist);
-      depthDiff.push_back(finalEvent.depth - neighEv.depth);
+      depthDiff.push_back(startEvent.depth - neighEv.depth);
     }
     finalEvent.relocInfo.neighbours.eventLatDistToCentroid =
         computeMean(latDiff);
@@ -1196,7 +1197,8 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
   const double allRmsMAD = computeMedianAbsoluteDeviation(allRms, allRmsMedian);
 
   SEISCOMP_INFO("Events Rms Before relocation: median %.4f median absolute "
-                "deviation %.4f", allRmsMedian, allRmsMAD);
+                "deviation %.4f",
+                allRmsMedian, allRmsMAD);
 
   return new Catalog(fStations, fEvents, fPhases);
 }
@@ -1449,11 +1451,12 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
       string(refEv).c_str());
 
   //
-  // Prepare the waveform loaders for temporary waveforms
+  // Prepare the waveform loaders for temporary/real-time waveforms
   //
-  Waveform::LoaderPtr diskLdr = new Waveform::DiskCachedLoader(
+  Waveform::LoaderPtr actualDiskLdr = new Waveform::DiskCachedLoader(
       _cfg.ddObservations2.recordStreamURL, false, _tmpCacheDir);
-  diskLdr = new Waveform::ExtraLenLoader(diskLdr, DISK_TRACE_MIN_LEN);
+  Waveform::LoaderPtr diskLdr =
+      new Waveform::ExtraLenLoader(actualDiskLdr, DISK_TRACE_MIN_LEN);
 
   Waveform::LoaderPtr memLdr =
       (_useCatalogWaveformDiskCache && _waveformCacheAll)
@@ -1613,7 +1616,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
   }
 
   // keep track of couters
-  updateCounters(diskLdr, actualSnrLdr, memLdr);
+  updateCounters(actualDiskLdr, actualSnrLdr, memLdr);
 
   // Print some useful information
   for (const auto &kv : stationByDistance)
@@ -1761,19 +1764,19 @@ void HypoDD::updateCounters(Waveform::LoaderPtr diskCache,
                             Waveform::SnrFilteredLoaderPtr snrFilter,
                             Waveform::LoaderPtr memCache) const
 {
-  if (_wfSnrFilter) _counters.wf_snr_low += _wfSnrFilter->_counters_wf_snr_low;
-  if (_wfDiskCache)
+  if (snrFilter) _counters.wf_snr_low += snrFilter->_counters_wf_snr_low;
+  if (diskCache)
   {
     _counters.wf_downloaded += diskCache->_counters_wf_downloaded;
     _counters.wf_no_avail += diskCache->_counters_wf_no_avail;
     _counters.wf_disk_cached += diskCache->_counters_wf_cached;
   }
-  else if (_wfSnrFilter)
+  if (snrFilter)
   {
     _counters.wf_downloaded += snrFilter->_counters_wf_downloaded;
     _counters.wf_no_avail += snrFilter->_counters_wf_no_avail;
   }
-  else if (_wfMemCache)
+  if (memCache)
   {
     _counters.wf_downloaded += memCache->_counters_wf_downloaded;
     _counters.wf_no_avail += memCache->_counters_wf_no_avail;
@@ -1782,29 +1785,32 @@ void HypoDD::updateCounters(Waveform::LoaderPtr diskCache,
 
 void HypoDD::printCounters() const
 {
-  unsigned performed      = _counters.xcorr_performed,
-           performed_s    = _counters.xcorr_performed_s,
-           performed_p    = performed - performed_s,
-           perf_theo      = _counters.xcorr_performed_theo,
-           perf_theo_s    = _counters.xcorr_performed_s_theo,
-           perf_theo_p    = perf_theo - perf_theo_s,
-           good_cc        = _counters.xcorr_good_cc,
-           good_cc_s      = _counters.xcorr_good_cc_s,
-           good_cc_p      = good_cc - good_cc_s,
-           good_cc_theo   = _counters.xcorr_good_cc_theo,
-           good_cc_s_theo = _counters.xcorr_good_cc_s_theo,
-           good_cc_p_theo = good_cc_theo - good_cc_s_theo;
-
   updateCounters();
-  unsigned snr_low = _counters.wf_snr_low, wf_no_avail = _counters.wf_no_avail,
-           wf_disk_cached = _counters.wf_disk_cached,
-           wf_downloaded  = _counters.wf_downloaded;
+
+  unsigned performed      = _counters.xcorr_performed;
+  unsigned performed_s    = _counters.xcorr_performed_s;
+  unsigned performed_p    = performed - performed_s;
+  unsigned perf_theo      = _counters.xcorr_performed_theo;
+  unsigned perf_theo_s    = _counters.xcorr_performed_s_theo;
+  unsigned perf_theo_p    = perf_theo - perf_theo_s;
+  unsigned good_cc        = _counters.xcorr_good_cc;
+  unsigned good_cc_s      = _counters.xcorr_good_cc_s;
+  unsigned good_cc_p      = good_cc - good_cc_s;
+  unsigned good_cc_theo   = _counters.xcorr_good_cc_theo;
+  unsigned good_cc_s_theo = _counters.xcorr_good_cc_s_theo;
+  unsigned good_cc_p_theo = good_cc_theo - good_cc_s_theo;
+
+  unsigned wf_snr_low     = _counters.wf_snr_low;
+  unsigned wf_no_avail    = _counters.wf_no_avail;
+  unsigned wf_disk_cached = _counters.wf_disk_cached;
+  unsigned wf_downloaded  = _counters.wf_downloaded;
 
   SEISCOMP_INFO("Cross correlation performed %u, "
                 "phases with Signal to Noise ratio too low %u, "
                 "phases not available %u (waveforms downloaded %u, "
                 "waveforms loaded from disk cache %u)",
-                performed, snr_low, wf_no_avail, wf_downloaded, wf_disk_cached);
+                performed, wf_snr_low, wf_no_avail, wf_downloaded,
+                wf_disk_cached);
 
   SEISCOMP_INFO("Total xcorr %u (P %.f%%, S %.f%%) success %.f%% (%u/%u). "
                 "Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",

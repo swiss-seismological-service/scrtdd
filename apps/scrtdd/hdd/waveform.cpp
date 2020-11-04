@@ -907,14 +907,11 @@ GenericRecordCPtr Loader::get(const Core::TimeWindow &tw,
         }
       }
       isProcessed = false;
+      if (!trace) _counters_wf_no_avail++;
     }
   }
 
-  if (!trace)
-  {
-    _counters_wf_no_avail++;
-  }
-  else
+  if (trace)
   {
     // cache unprocessed trace
     if (_doCaching && !isCached && !_cacheProcessed && !isProcessed)
