@@ -1070,8 +1070,8 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
   unordered_map<string, Station> fStations    = finalCatalog->getStations();
   map<unsigned, Event> fEvents                = finalCatalog->getEvents();
   unordered_multimap<unsigned, Phase> fPhases = finalCatalog->getPhases();
-  vector<double> allRms(startCatalog->getEvents().size());
-  vector<double> stationDist(finalCatalog->getStations().size());
+  vector<double> allRms;
+  vector<double> stationDist;
 
   for (const NeighboursPtr &neighbours : neighCluster)
   {
@@ -1196,8 +1196,7 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
   const double allRmsMAD = computeMedianAbsoluteDeviation(allRms, allRmsMedian);
 
   SEISCOMP_INFO("Events Rms Before relocation: median %.4f median absolute "
-                "deviation %.4f",
-                allRmsMedian, allRmsMAD);
+                "deviation %.4f", allRmsMedian, allRmsMAD);
 
   return new Catalog(fStations, fEvents, fPhases);
 }

@@ -839,7 +839,7 @@ void Catalog::writeToFile(string eventFile,
     {
       if (!ph.relocInfo.isRelocated)
       {
-        phStream << ",false,,,,,,,";
+        phStream << ",false,,,,,,,,";
       }
       else
       {
