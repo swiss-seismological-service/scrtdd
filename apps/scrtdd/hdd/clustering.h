@@ -36,14 +36,17 @@ struct Neighbours : public Core::BaseObject
 {
   unsigned refEvId;
 
-  unsigned numNeighbours;
-
   std::unordered_set<unsigned> ids; // neighbouring event id
 
   std::unordered_map<unsigned,                       // indexed by event id
                      std::unordered_map<std::string, // indexed by station id
                                         std::set<Catalog::Phase::Type>>>
       phases;
+
+  std::unordered_set<unsigned>::size_type numNeighbours() const
+  {
+    return ids.size();
+  }
 
   std::unordered_map<std::string, std::set<Catalog::Phase::Type>>
   allPhases() const

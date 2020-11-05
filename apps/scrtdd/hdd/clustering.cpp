@@ -259,8 +259,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
   // algorithm or simply the nearest neighbour method
   //
   NeighboursPtr neighboringEventCat(new Neighbours());
-  neighboringEventCat->refEvId       = refEv.id;
-  neighboringEventCat->numNeighbours = 0;
+  neighboringEventCat->refEvId = refEv.id;
 
   if (numEllipsoids <= 0)
   {
@@ -277,7 +276,6 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
       // add this event to the catalog
       neighboringEventCat->ids.insert(ev.id);
       neighboringEventCat->phases[ev.id] = evSelEntry.phases;
-      neighboringEventCat->numNeighbours++;
 
       SEISCOMP_INFO("Neighbour: #obsers %2d distance %5.2f azimuth %3.f "
                     "depth-diff %6.3f depth %5.3f event %s",
@@ -285,7 +283,8 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
                     azimuthByEvent[ev.id], refEv.depth - ev.depth, ev.depth,
                     string(ev).c_str());
 
-      if (maxNumNeigh > 0 && neighboringEventCat->numNeighbours >= maxNumNeigh)
+      if (maxNumNeigh > 0 &&
+          neighboringEventCat->numNeighbours() >= maxNumNeigh)
         break;
     }
   }
@@ -307,7 +306,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
           // neighbors exit
           if (selectedEvents.empty() ||
               (maxNumNeigh > 0 &&
-               neighboringEventCat->numNeighbours >= maxNumNeigh))
+               neighboringEventCat->numNeighbours() >= maxNumNeigh))
           {
             workToDo = false;
             break;
@@ -329,7 +328,6 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
               neighboringEventCat->ids.insert(ev.id);
               neighboringEventCat->phases[ev.id] = evSelEntry.phases;
 
-              neighboringEventCat->numNeighbours++;
               selectedEvents.erase(it);
 
               SEISCOMP_INFO("Neighbour: ellipsoid %2d quadrant %d #observs %2d "
@@ -349,11 +347,11 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
   }
 
   // Check if enough neighbors were found
-  if (neighboringEventCat->numNeighbours < minNumNeigh)
+  if (neighboringEventCat->numNeighbours() < minNumNeigh)
   {
     string msg =
         stringify("Skipping event %s, insufficient number of neighbors (%d)",
-                  string(refEv).c_str(), neighboringEventCat->numNeighbours);
+                  string(refEv).c_str(), neighboringEventCat->numNeighbours());
     SEISCOMP_DEBUG("%s", msg.c_str());
     throw runtime_error(msg);
   }

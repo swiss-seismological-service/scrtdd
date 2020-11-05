@@ -452,15 +452,11 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
   if (relocatedEvCat)
   {
     const Event &ev = relocatedEvCat->getEvents().begin()->second;
-    SEISCOMP_INFO(
-        "Step 1 relocation successful, new location: "
-        "lat %.6f (diff %.6f) lon %.6f (diff %.6f) depth %.4f (diff %.4f km) "
-        "time %s (diff %.3f sec)",
-        ev.latitude, ev.latitude - evToRelocate.latitude, ev.longitude,
-        ev.longitude - evToRelocate.longitude, ev.depth,
-        ev.depth - evToRelocate.depth, ev.time.iso().c_str(),
-        (ev.time - evToRelocate.time).length());
-    SEISCOMP_INFO("\n%s", relocationReport(relocatedEvCat).c_str());
+    SEISCOMP_INFO("Step 1 relocation successful, new location: "
+                  "lat %.6f lon %.6f depth %.4f time %s",
+                  ev.latitude, ev.longitude, ev.depth, ev.time.iso().c_str());
+    SEISCOMP_INFO("Relocation report:\n%s",
+                  relocationReport(relocatedEvCat).c_str());
 
     evToRelocateCat = relocatedEvCat;
   }
@@ -487,16 +483,32 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
 
   if (relocatedEvWithXcorr)
   {
-    const Event &ev = relocatedEvWithXcorr->getEvents().begin()->second;
-    SEISCOMP_INFO(
-        "Step 2 relocation successful, new location: "
-        "lat %.6f (diff %.6f) lon %.6f (diff %.6f) depth %.4f (diff %.4f km)"
-        "time %s (diff %.3f sec)",
-        ev.latitude, ev.latitude - evToRelocate.latitude, ev.longitude,
-        ev.longitude - evToRelocate.longitude, ev.depth,
-        ev.depth - evToRelocate.depth, ev.time.iso().c_str(),
-        (ev.time - evToRelocate.time).length());
-    SEISCOMP_INFO("\n%s", relocationReport(relocatedEvWithXcorr).c_str());
+    Event ev = relocatedEvWithXcorr->getEvents().begin()->second;
+    SEISCOMP_INFO("Step 2 relocation successful, new location: "
+                  "lat %.6f lon %.6f depth %.4f time %s",
+                  ev.latitude, ev.longitude, ev.depth, ev.time.iso().c_str());
+    SEISCOMP_INFO("Relocation report:\n%s",
+                  relocationReport(relocatedEvWithXcorr).c_str());
+
+    // update the origin changes statistics using the first relocatin too
+    if (relocatedEvCat)
+    {
+      const Event &prevRelocEv = relocatedEvCat->getEvents().begin()->second;
+      if (prevRelocEv.relocInfo.isRelocated)
+      {
+        ev.relocInfo.locChange += prevRelocEv.relocInfo.locChange;
+        ev.relocInfo.depthChange += prevRelocEv.relocInfo.depthChange;
+        ev.relocInfo.timeChange += prevRelocEv.relocInfo.timeChange;
+        ev.relocInfo.startRms = prevRelocEv.relocInfo.startRms;
+        relocatedEvWithXcorr->updateEvent(ev);
+      }
+    }
+
+    SEISCOMP_INFO("Total Changes: location=%.2f[km] depth=%.2f[km] "
+                  "time=%.3f[sec] Rms=%.3f[sec] (before/after %.3f/%.3f)",
+                  ev.relocInfo.locChange, ev.relocInfo.depthChange,
+                  ev.relocInfo.timeChange, (ev.rms - ev.relocInfo.startRms),
+                  ev.relocInfo.startRms, ev.rms);
   }
   else
   {
@@ -726,27 +738,24 @@ string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
   if (!event.relocInfo.isRelocated) return "Event not relocated";
 
   return stringify(
-      "Origin changes: location %.1f[km] depth %.1f[km] time %.3f[sec] RMS "
-      "%.3f[sec]\n"
-      "Rms before/after %.3f/%.3f[sec]\n"
-      "Used Phases: P %u S %u\n"
+      "Origin changes: location=%.2f[km] depth=%.2f[km] time=%.3f[sec]\n"
+      "Rms change [sec]: %.3f (before/after %.3f/%.3f)\n"
+      "Neighbours=%u, Used Phases: P=%u S=%u\n"
       "Stations distance [km]: min %.1f median %.1f max %.1f\n"
-      "Neighbours: %u\n"
-      "Neighbours/Origin distace to centroid [km]: lat=%.2f/%.2f "
-      "lon=%.2f/%.2f depth=%.2f/%.2f\n"
+      "Neighbours mean distace to centroid [km]: location=%.2f depth=%.2f\n"
+      "Origin distace to neighbours centroid [km]: location=%.2f depth=%.2f\n"
       "DD observations: %u (CC P/S %u/%u TT P/S %u/%u)\n"
       "DD observations residuals [msec]: before %.f+/-%.1f after %.f+/-%.1f\n",
       event.relocInfo.locChange, event.relocInfo.depthChange,
       event.relocInfo.timeChange, (event.rms - event.relocInfo.startRms),
-      event.relocInfo.startRms, event.rms, event.relocInfo.phases.usedP,
-      event.relocInfo.phases.usedS, event.relocInfo.phases.stationDistMin,
+      event.relocInfo.startRms, event.rms, event.relocInfo.neighbours.amount,
+      event.relocInfo.phases.usedP, event.relocInfo.phases.usedS,
+      event.relocInfo.phases.stationDistMin,
       event.relocInfo.phases.stationDistMedian,
-      event.relocInfo.phases.stationDistMax, event.relocInfo.neighbours.amount,
-      event.relocInfo.neighbours.meanLatDistToCentroid,
-      event.relocInfo.neighbours.eventLatDistToCentroid,
-      event.relocInfo.neighbours.meanLonDistToCentroid,
-      event.relocInfo.neighbours.eventLonDistToCentroid,
+      event.relocInfo.phases.stationDistMax,
+      event.relocInfo.neighbours.meanDistToCentroid,
       event.relocInfo.neighbours.meanDepthDistToCentroid,
+      event.relocInfo.neighbours.eventDistToCentroid,
       event.relocInfo.neighbours.eventDepthDistToCentroid,
       (event.relocInfo.ddObs.numCCp + event.relocInfo.ddObs.numCCs +
        event.relocInfo.ddObs.numTTp + event.relocInfo.ddObs.numTTs),
@@ -967,7 +976,7 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
     event.relocInfo.ddObs.numCCs = 0;
 
     event.relocInfo.isRelocated       = true;
-    event.relocInfo.neighbours.amount = neighbours->numNeighbours;
+    event.relocInfo.neighbours.amount = neighbours->numNeighbours();
 
     vector<double> obsResiduals;
     unsigned rmsCount = 0;
@@ -1165,32 +1174,32 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
     for (unsigned neighEvId : neighbours->ids)
     {
       const Event &neighEv = startCatalog->getEvents().at(neighEvId);
-      double dist = computeDistance(startEvent.latitude, startEvent.longitude,
-                                    neighEv.latitude, startEvent.longitude);
-      if (startEvent.latitude < neighEv.latitude) dist = -dist;
-      latDiff.push_back(dist);
-      dist = computeDistance(startEvent.latitude, startEvent.longitude,
-                             startEvent.latitude, neighEv.longitude);
-      if (startEvent.longitude < neighEv.longitude) dist = -dist;
-      lonDiff.push_back(dist);
+      latDiff.push_back(startEvent.latitude - neighEv.latitude);
+      lonDiff.push_back(startEvent.longitude - neighEv.longitude);
       depthDiff.push_back(startEvent.depth - neighEv.depth);
     }
-    finalEvent.relocInfo.neighbours.eventLatDistToCentroid =
-        computeMean(latDiff);
-    finalEvent.relocInfo.neighbours.eventLonDistToCentroid =
-        computeMean(lonDiff);
-    finalEvent.relocInfo.neighbours.eventDepthDistToCentroid =
-        computeMean(depthDiff);
-    finalEvent.relocInfo.neighbours.meanLatDistToCentroid =
-        computeMeanAbsoluteDeviation(
-            latDiff, finalEvent.relocInfo.neighbours.eventLatDistToCentroid);
-    finalEvent.relocInfo.neighbours.meanLonDistToCentroid =
-        computeMeanAbsoluteDeviation(
-            lonDiff, finalEvent.relocInfo.neighbours.eventLonDistToCentroid);
+    double meanLatDiff   = computeMean(latDiff);
+    double meanLonDiff   = computeMean(lonDiff);
+    double meanDepthDiff = computeMean(depthDiff);
+    double centroidLat   = startEvent.latitude + meanLatDiff;
+    double centroidLon   = startEvent.longitude + meanLonDiff;
+    // double centroidDepth = startEvent.depth + meanDepthDiff; not used
+
+    finalEvent.relocInfo.neighbours.eventDistToCentroid = computeDistance(
+        startEvent.latitude, startEvent.longitude, centroidLat, centroidLon);
+    finalEvent.relocInfo.neighbours.eventDepthDistToCentroid = meanDepthDiff;
     finalEvent.relocInfo.neighbours.meanDepthDistToCentroid =
-        computeMeanAbsoluteDeviation(
-            depthDiff,
-            finalEvent.relocInfo.neighbours.eventDepthDistToCentroid);
+        computeMeanAbsoluteDeviation(depthDiff, meanDepthDiff);
+
+    finalEvent.relocInfo.neighbours.meanDistToCentroid = 0;
+    for (unsigned neighEvId : neighbours->ids)
+    {
+      const Event &neighEv = startCatalog->getEvents().at(neighEvId);
+      finalEvent.relocInfo.neighbours.meanDistToCentroid += computeDistance(
+          neighEv.latitude, neighEv.longitude, centroidLat, centroidLon);
+    }
+    finalEvent.relocInfo.neighbours.meanDistToCentroid /=
+        neighbours->numNeighbours();
   }
 
   const double allRmsMedian = computeMedian(allRms);
@@ -1475,6 +1484,10 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
                 _cfg.snr.signalEnd);
   Waveform::LoaderPtr snrLdr =
       new Waveform::MemCachedLoader(actualSnrLdr, true);
+
+  memLdr->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
+  actualSnrLdr->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
+  snrLdr->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
 
   // keep track of refEv distance to stations
   multimap<double, string> stationByDistance; // <distance, stationid>

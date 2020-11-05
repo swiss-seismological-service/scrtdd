@@ -474,7 +474,7 @@ bool xcorr(const GenericRecordCPtr &tr1,
   };
   LocalMaxima localMaxs, localMins;
 
-  auto sampleAtLong = [&, smpsSsize, smpsLsize, smpsL](int idxS, int delay) {
+  auto sampleAtLong = [&smpsSsize, &smpsLsize, &smpsL](int idxS, int delay) {
     int idxL = idxS + (smpsLsize - smpsSsize) / 2 + delay;
     return (idxL < 0 || idxL >= smpsLsize) ? 0 : smpsL[idxL];
   };
@@ -576,7 +576,7 @@ double computeSnr(const GenericRecordCPtr &tr,
   const Core::Time dataStartTime = tr->startTime();
 
   // convert time w.r.t. guiding pick time to sample number
-  auto secToSample = [&, freq, size](double sec) {
+  auto secToSample = [&freq, &size](double sec) {
     return std::min(std::max(std::round(sec * freq), 0.), size - 1.);
   };
   const double pickOffset = (pickTime - dataStartTime).length();
@@ -1119,11 +1119,10 @@ GenericRecordCPtr SnrFilteredLoader::get(const Core::TimeWindow &tw,
     if (!goodSnr(trace, ph.time))
     {
       _snrExcludedWfs.insert(wfId);
+      SEISCOMP_DEBUG("Trace has too low SNR(%s)", string(ph).c_str());
       // Debugging waveforms: dump snr low traces
       if (!_wfDebugDir.empty())
       {
-        SEISCOMP_DEBUG("Trace has too low SNR, discard it (%s)",
-                       string(ph).c_str());
         writeTrace(trace,
                    waveformDebugPath(_wfDebugDir, ev, ph, "snr-rejected"));
       }

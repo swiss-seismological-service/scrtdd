@@ -266,16 +266,12 @@ Catalog::Catalog(const string &stationFile,
       ev.relocInfo.depthChange       = std::stod(row.at("depthChange"));
       ev.relocInfo.timeChange        = std::stod(row.at("timeChange"));
       ev.relocInfo.neighbours.amount = std::stoul(row.at("numNeighbours"));
-      ev.relocInfo.neighbours.meanLatDistToCentroid =
-          std::stod(row.at("neigh_meanLatDistToCentroid"));
-      ev.relocInfo.neighbours.meanLonDistToCentroid =
-          std::stod(row.at("neigh_meanLonDistToCentroid"));
+      ev.relocInfo.neighbours.meanDistToCentroid =
+          std::stod(row.at("neigh_meanDistToCentroid"));
       ev.relocInfo.neighbours.meanDepthDistToCentroid =
           std::stod(row.at("neigh_meanDepthDistToCentroid"));
-      ev.relocInfo.neighbours.eventLatDistToCentroid =
-          std::stod(row.at("neigh_centroidToEventLatDist"));
-      ev.relocInfo.neighbours.eventLonDistToCentroid =
-          std::stod(row.at("neigh_centroidToEventLonDist"));
+      ev.relocInfo.neighbours.eventDistToCentroid =
+          std::stod(row.at("neigh_centroidToEventDist"));
       ev.relocInfo.neighbours.eventDepthDistToCentroid =
           std::stod(row.at("neigh_centroidToEventDepthDist"));
       ev.relocInfo.phases.usedP = std::stoul(row.at("ph_usedP"));
@@ -749,9 +745,8 @@ void Catalog::writeToFile(string eventFile,
   evStreamReloc
       << evStreamNoReloc.str()
       << ",relocated,startRms,locChange,depthChange,timeChange,numNeighbours,"
-         "neigh_meanLatDistToCentroid,neigh_centroidToEventLatDist,"
-         "neigh_meanLonDistToCentroid,neigh_centroidToEventLonDist,"
-         "neigh_meanDepthDistToCentroid,neigh_centroidToEventDepth,"
+         "neigh_meanDistToCentroid,neigh_centroidToEventDist,"
+         "neigh_meanDepthDistToCentroid,neigh_centroidToEventDepthDist,"
          "ph_usedP,ph_usedS,"
          "ph_stationDistMin,ph_stationDistMedian,ph_stationDistMax,"
          "ddObs_numTTp,ddObs_numTTs,ddObs_numCCp,ddObs_numCCs,"
@@ -775,21 +770,19 @@ void Catalog::writeToFile(string eventFile,
 
     if (!ev.relocInfo.isRelocated)
     {
-      evStreamReloc << ",false,,,,,,,,,,,,,,,,,,,,,,,,";
+      evStreamReloc << ",false,,,,,,,,,,,,,,,,,,,,,,";
     }
     else
     {
       relocInfo = true;
       evStreamReloc << stringify(
-          ",true,%.3f,%.3f,%.3f,%.3f,%u,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,"
+          ",true,%.3f,%.3f,%.3f,%.3f,%u,%.3f,%.3f,%.3f,%.3f,"
           "%u,%u,%.3f,%.3f,%.3f,%u,%u,%u,%u,%.4f,%.4f,%.4f,%.4f",
           ev.relocInfo.startRms, ev.relocInfo.locChange,
           ev.relocInfo.depthChange, ev.relocInfo.timeChange,
           ev.relocInfo.neighbours.amount,
-          ev.relocInfo.neighbours.meanLatDistToCentroid,
-          ev.relocInfo.neighbours.eventLatDistToCentroid,
-          ev.relocInfo.neighbours.meanLonDistToCentroid,
-          ev.relocInfo.neighbours.eventLonDistToCentroid,
+          ev.relocInfo.neighbours.meanDistToCentroid,
+          ev.relocInfo.neighbours.eventDistToCentroid,
           ev.relocInfo.neighbours.meanDepthDistToCentroid,
           ev.relocInfo.neighbours.eventDepthDistToCentroid,
           ev.relocInfo.phases.usedP, ev.relocInfo.phases.usedS,

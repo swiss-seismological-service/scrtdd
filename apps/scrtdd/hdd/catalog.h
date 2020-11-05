@@ -84,11 +84,9 @@ public:
       struct
       {
         unsigned amount;
-        double meanLatDistToCentroid;
-        double meanLonDistToCentroid;
+        double meanDistToCentroid;
         double meanDepthDistToCentroid;
-        double eventLatDistToCentroid;
-        double eventLonDistToCentroid;
+        double eventDistToCentroid;
         double eventDepthDistToCentroid;
       } neighbours;
 
