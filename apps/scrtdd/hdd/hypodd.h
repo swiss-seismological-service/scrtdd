@@ -250,7 +250,7 @@ private:
 
   CatalogPtr updateRelocatedEventsFinalStats(
       const CatalogCPtr &startingCatalog,
-      CatalogPtr &finalCatalog,
+      const CatalogCPtr &finalCatalog,
       const std::list<NeighboursPtr> &neighCluster) const;
 
   void addMissingEventPhases(const Catalog::Event &refEv,

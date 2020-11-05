@@ -714,20 +714,9 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
         updateRelocatedEvents(solver, currCatalog, neighCluster, obsparams);
   }
 
-  // build the relocated catalog from the results of relocations
-  CatalogPtr relocatedCatalog(new Catalog());
-  for (const NeighboursPtr &neighbours : neighCluster)
-  {
-    const Event &event = currCatalog->getEvents().at(neighbours->refEvId);
-    if (event.relocInfo.isRelocated)
-    {
-      relocatedCatalog->add(neighbours->refEvId, *currCatalog, true);
-    }
-  }
-
-  // compute last bit of statistics for this event
-  relocatedCatalog =
-      updateRelocatedEventsFinalStats(catalog, relocatedCatalog, neighCluster);
+  // compute last bit of statistics for the relocated events
+  CatalogPtr relocatedCatalog =
+      updateRelocatedEventsFinalStats(catalog, currCatalog, neighCluster);
 
   return relocatedCatalog;
 }
@@ -745,7 +734,7 @@ string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
       "Neighbours mean distace to centroid [km]: location=%.2f depth=%.2f\n"
       "Origin distace to neighbours centroid [km]: location=%.2f depth=%.2f\n"
       "DD observations: %u (CC P/S %u/%u TT P/S %u/%u)\n"
-      "DD observations residuals [msec]: before %.f+/-%.1f after %.f+/-%.1f\n",
+      "DD observations residuals [msec]: before %.f+/-%.1f after %.f+/-%.1f",
       event.relocInfo.locChange, event.relocInfo.depthChange,
       event.relocInfo.timeChange, (event.rms - event.relocInfo.startRms),
       event.relocInfo.startRms, event.rms, event.relocInfo.neighbours.amount,
@@ -1074,21 +1063,28 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
 
 CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
     const CatalogCPtr &startCatalog,
-    CatalogPtr &finalCatalog,
+    const CatalogCPtr &finalCatalog,
     const std::list<NeighboursPtr> &neighCluster) const
 {
-  unordered_map<string, Station> fStations    = finalCatalog->getStations();
-  map<unsigned, Event> fEvents                = finalCatalog->getEvents();
-  unordered_multimap<unsigned, Phase> fPhases = finalCatalog->getPhases();
+  CatalogPtr catalogToReturn(new Catalog());
   vector<double> allRms;
   vector<double> stationDist;
 
   for (const NeighboursPtr &neighbours : neighCluster)
   {
-    const Event &startEvent = startCatalog->getEvents().at(neighbours->refEvId);
-    Event &finalEvent       = fEvents.at(neighbours->refEvId);
+    auto it = finalCatalog->getEvents().find(neighbours->refEvId);
 
-    if (!finalEvent.relocInfo.isRelocated) continue;
+    // if the event hasn't been relocated remove it from the final catalog
+    if (it == finalCatalog->getEvents().end() ||
+        !it->second.relocInfo.isRelocated)
+    {
+      continue;
+    }
+
+    CatalogPtr tmpCat = finalCatalog->extractEvent(neighbours->refEvId, true);
+
+    const Event &startEvent = startCatalog->getEvents().at(neighbours->refEvId);
+    Event finalEvent        = tmpCat->getEvents().at(neighbours->refEvId);
 
     //
     // compute location/time change of start/final origin
@@ -1106,12 +1102,11 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
     //
     unsigned rmsCount             = 0;
     finalEvent.relocInfo.startRms = 0;
-    auto eqlrng                   = fPhases.equal_range(finalEvent.id);
+    auto eqlrng = tmpCat->getPhases().equal_range(finalEvent.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
-      Phase &finalPhase = it->second;
-      const Station &station =
-          startCatalog->getStations().at(finalPhase.stationId);
+      Phase finalPhase       = it->second;
+      const Station &station = tmpCat->getStations().at(finalPhase.stationId);
       try
       {
         double travelTime, takeOffAngle, velocityAtSrc;
@@ -1122,6 +1117,7 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
             travelTime - (finalPhase.time - startEvent.time).length();
         finalEvent.relocInfo.startRms += residual * residual;
         finalPhase.relocInfo.startResidual = residual;
+        tmpCat->updatePhase(finalPhase, false);
         rmsCount++;
       }
       catch (exception &e)
@@ -1149,13 +1145,11 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
         // check this station is actually part of the event phases (remember
         // keepUnmatchedPhases option during clustering) and also the phase
         // was used in relocation
-        auto it =
-            finalCatalog->searchPhase(finalEvent.id, stationId, phaseType);
-        if (it != finalCatalog->getPhases().end() &&
-            it->second.relocInfo.isRelocated)
+        auto it = tmpCat->searchPhase(finalEvent.id, stationId, phaseType);
+        if (it != tmpCat->getPhases().end() && it->second.relocInfo.isRelocated)
         {
           const Station &station =
-              finalCatalog->getStations().at(it->second.stationId);
+              tmpCat->getStations().at(it->second.stationId);
           stationDist.push_back(computeDistance(finalEvent, station));
           break;
         }
@@ -1200,6 +1194,9 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
     }
     finalEvent.relocInfo.neighbours.meanDistToCentroid /=
         neighbours->numNeighbours();
+
+    tmpCat->updateEvent(finalEvent, false);
+    catalogToReturn->add(finalEvent.id, *tmpCat, true);
   }
 
   const double allRmsMedian = computeMedian(allRms);
@@ -1209,7 +1206,7 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
                 "deviation %.4f",
                 allRmsMedian, allRmsMAD);
 
-  return new Catalog(fStations, fEvents, fPhases);
+  return catalogToReturn;
 }
 
 void HypoDD::addMissingEventPhases(const Event &refEv,
