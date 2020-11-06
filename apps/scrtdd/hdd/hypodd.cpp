@@ -455,7 +455,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
     SEISCOMP_INFO("Step 1 relocation successful, new location: "
                   "lat %.6f lon %.6f depth %.4f time %s",
                   ev.latitude, ev.longitude, ev.depth, ev.time.iso().c_str());
-    SEISCOMP_INFO("Relocation report:\n%s",
+    SEISCOMP_INFO("Relocation report: %s",
                   relocationReport(relocatedEvCat).c_str());
 
     evToRelocateCat = relocatedEvCat;
@@ -487,7 +487,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
     SEISCOMP_INFO("Step 2 relocation successful, new location: "
                   "lat %.6f lon %.6f depth %.4f time %s",
                   ev.latitude, ev.longitude, ev.depth, ev.time.iso().c_str());
-    SEISCOMP_INFO("Relocation report:\n%s",
+    SEISCOMP_INFO("Relocation report: %s",
                   relocationReport(relocatedEvWithXcorr).c_str());
 
     // update the origin changes statistics using the first relocatin too
@@ -727,14 +727,14 @@ string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
   if (!event.relocInfo.isRelocated) return "Event not relocated";
 
   return stringify(
-      "Origin changes: location=%.2f[km] depth=%.2f[km] time=%.3f[sec]\n"
-      "Rms change [sec]: %.3f (before/after %.3f/%.3f)\n"
-      "Neighbours=%u, Used Phases: P=%u S=%u\n"
-      "Stations distance [km]: min %.1f median %.1f max %.1f\n"
-      "Neighbours mean distace to centroid [km]: location=%.2f depth=%.2f\n"
-      "Origin distace to neighbours centroid [km]: location=%.2f depth=%.2f\n"
-      "DD observations: %u (CC P/S %u/%u TT P/S %u/%u)\n"
-      "DD observations residuals [msec]: before %.f+/-%.1f after %.f+/-%.1f",
+      "Origin changes: location=%.2f[km] depth=%.2f[km] time=%.3f[sec] "
+      "Rms change [sec]: %.3f (before/after %.3f/%.3f) "
+      "Neighbours=%u Used Phases: P=%u S=%u "
+      "Stations distance [km]: min=%.1f median=%.1f max=%.1f "
+      "Neighbours mean distace to centroid [km]: location=%.2f depth=%.2f "
+      "Origin distace to neighbours centroid [km]: location=%.2f depth=%.2f "
+      "DD observations: %u (CC P/S %u/%u TT P/S %u/%u) "
+      "DD observations residuals [msec]: before=%.f+/-%.1f after=%.f+/-%.1f",
       event.relocInfo.locChange, event.relocInfo.depthChange,
       event.relocInfo.timeChange, (event.rms - event.relocInfo.startRms),
       event.relocInfo.startRms, event.rms, event.relocInfo.neighbours.amount,
