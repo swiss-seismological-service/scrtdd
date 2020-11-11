@@ -999,9 +999,9 @@ bool RTDD::validateParameters()
     _profiles.push_back(prof);
   }
 
-  // If the inventory is provided by an XML file disable the database because
-  // we don't need to access it
-  if (!isInventoryDatabaseEnabled())
+  // If the inventory is provided by an XML file and the --ep option too
+  // then disable the database because we don't need to access it
+  if (!isInventoryDatabaseEnabled() && !_config.eventXML.empty())
   {
     SEISCOMP_INFO("Disable database connection");
     setDatabaseEnabled(false, false);
