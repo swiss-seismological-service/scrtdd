@@ -6,15 +6,21 @@
 
             <parameter name="onlyPreferredOrigins" type="boolean" default="true">
                 <description>
-                    Relocate only preferred origins. Without this option scrtdd listens to LOCATION and
-                    try to relocate any origin. If this option is set scrtdd listens to EVENT and
-                    try to relcoate the preferred origin of an event.
+                  Relocate only preferred origins. When disabled scrtdd listens to LOCATION group
+                  and tries to relocate any origin. When enabled scrtdd listens to EVENT group
+                  and tries to relocate the preferred origin of an event.
+                </description>
+              </parameter>
+
+            <parameter name="automaticOrigins" type="boolean" default="true">
+                <description>
+                    Allow relocation of automatic origins 
                 </description>
             </parameter>
 
-            <parameter name="manualOrigins" type="boolean" default="false">
+            <parameter name="manualOrigins" type="boolean" default="true">
                 <description>
-                    If disable manual origins are not relocated.
+                    Allow relocation of automatic origins 
                 </description>
             </parameter>
 

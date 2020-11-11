@@ -94,9 +94,10 @@ private:
                      DataModel::OriginPtr &relocatedOrg,
                      std::vector<DataModel::PickPtr> &relocatedOrgPicks,
                      const ProfilePtr &profile,
-                     bool forceProcessing   = false,
-                     bool allowManualOrigin = false,
-                     bool doSend            = true);
+                     bool forceProcessing,
+                     bool allowAutomaticOrigin,
+                     bool allowManualOrigin,
+                     bool doSend);
 
   void relocateOrigin(DataModel::Origin *org,
                       ProfilePtr profile,
@@ -128,6 +129,7 @@ private:
     std::string workingDirectory;
     bool saveProcessingFiles;
     bool onlyPreferredOrigin;
+    bool allowAutomaticOrigin;
     bool allowManualOrigin;
     int profileTimeAlive; // seconds
     bool cacheWaveforms;

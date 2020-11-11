@@ -236,8 +236,9 @@ RTDD::Config::Config()
 {
   workingDirectory    = "/tmp/rtdd";
   saveProcessingFiles = false;
-  onlyPreferredOrigin = false;
-  allowManualOrigin   = false;
+  onlyPreferredOrigin = true;
+  allowAutomaticOrigin = true;
+  allowManualOrigin   = true;
   profileTimeAlive    = -1;
   cacheWaveforms      = false;
   cacheAllWaveforms   = false;
@@ -274,6 +275,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 
   NEW_OPT(_config.saveProcessingFiles, "saveProcessingFiles");
   NEW_OPT(_config.onlyPreferredOrigin, "onlyPreferredOrigins");
+  NEW_OPT(_config.allowAutomaticOrigin, "automaticOrigins");
   NEW_OPT(_config.allowManualOrigin, "manualOrigins");
   NEW_OPT(_config.activeProfiles, "activeProfiles");
 
@@ -1384,7 +1386,7 @@ void RTDD::handleMessage(Core::Message *msg)
       std::vector<DataModel::PickPtr>
           relocatedOrgPicks; // we cannot return these to scolv
       processOrigin(originToReloc.get(), relocatedOrg, relocatedOrgPicks,
-                    currProfile, true, true, false);
+                    currProfile, true, true, true, false);
 
       if (relocatedOrg)
       {
@@ -1687,8 +1689,8 @@ bool RTDD::startProcess(Process *proc)
   OriginPtr relocatedOrg;
   std::vector<DataModel::PickPtr> relocatedOrgPicks;
   return processOrigin(org.get(), relocatedOrg, relocatedOrgPicks, currProfile,
-                       _config.forceProcessing, _config.allowManualOrigin,
-                       !_config.testMode);
+                       _config.forceProcessing, _config.allowAutomaticOrigin,
+                       _config.allowManualOrigin, !_config.testMode);
 }
 
 void RTDD::removeProcess(Process *proc)
@@ -1703,11 +1705,14 @@ void RTDD::removeProcess(Process *proc)
   if (qit != _processQueue.end()) _processQueue.erase(qit);
 }
 
+// return false when the process cannot run and should not be retried in the
+// future
 bool RTDD::processOrigin(Origin *origin,
                          OriginPtr &relocatedOrg,
                          std::vector<DataModel::PickPtr> &relocatedOrgPicks,
                          const ProfilePtr &profile,
                          bool forceProcessing,
+                         bool allowAutomaticOrigin,
                          bool allowManualOrigin,
                          bool doSend)
 {
@@ -1717,22 +1722,27 @@ bool RTDD::processOrigin(Origin *origin,
 
   SEISCOMP_DEBUG("Process origin %s", origin->publicID().c_str());
 
-  // ignore non automatic origins
-  if (!allowManualOrigin && !forceProcessing)
+  // Skip automatic or manul origins if configured so
+  if ( !forceProcessing )
   {
+    bool isManualOrigin = false;
     try
     {
-      if (origin->evaluationMode() != Seiscomp::DataModel::AUTOMATIC)
-      {
-        SEISCOMP_DEBUG("Skipping non-automatic origin %s",
-                       origin->publicID().c_str());
-        return false;
-      }
+      isManualOrigin = origin->evaluationMode() != Seiscomp::DataModel::AUTOMATIC;
     }
-    // origins without an evaluation mode are treated as
-    // automatic origins
-    catch (...)
-    {}
+    catch (...) {
+      // origins without an evaluation mode are treated as automatic 
+    }
+    if ( isManualOrigin && !allowManualOrigin )
+    {
+      SEISCOMP_DEBUG("Ignoring manual origin %s", origin->publicID().c_str());
+      return false;
+    }
+    if ( !isManualOrigin && !allowAutomaticOrigin )
+    {
+      SEISCOMP_DEBUG("Ignoring automatic origin %s", origin->publicID().c_str());
+      return false;
+    }
   }
 
   if (startsWith(origin->methodID(), profile->methodID, false) &&
