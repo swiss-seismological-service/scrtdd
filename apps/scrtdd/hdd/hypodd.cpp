@@ -878,6 +878,8 @@ void HypoDD::ObservationParams::add(HDD::TravelTimeTablePtr ttt,
     double travelTime, takeOffAngle, velocityAtSrc;
     ttt->compute(event, station, string(1, phaseType), travelTime, takeOffAngle,
                  velocityAtSrc);
+    // when takeOffAngle/velocityAtSrc are not provided (i.e. are 0) by
+    // the ttt then the solver will use straight ray path approximation
     _entries[key] = Entry{event,      station,      phaseType,
                           travelTime, takeOffAngle, velocityAtSrc};
   }
@@ -1013,7 +1015,7 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
       catch (exception &e)
       {
         phase.relocInfo.finalResidual = 0;
-        SEISCOMP_DEBUG("TTT: %s", e.what());
+        SEISCOMP_WARNING("TTT: %s", e.what());
       }
 
       event.rms +=
@@ -1122,7 +1124,7 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
       }
       catch (exception &e)
       {
-        SEISCOMP_DEBUG("TTT: %s", e.what());
+        SEISCOMP_WARNING("TTT: %s", e.what());
       }
     }
 

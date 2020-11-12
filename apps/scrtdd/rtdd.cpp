@@ -234,15 +234,15 @@ double normalizeLon(double lon)
 
 RTDD::Config::Config()
 {
-  workingDirectory    = "/tmp/rtdd";
-  saveProcessingFiles = false;
-  onlyPreferredOrigin = true;
+  workingDirectory     = "/tmp/rtdd";
+  saveProcessingFiles  = false;
+  onlyPreferredOrigin  = true;
   allowAutomaticOrigin = true;
-  allowManualOrigin   = true;
-  profileTimeAlive    = -1;
-  cacheWaveforms      = false;
-  cacheAllWaveforms   = false;
-  debugWaveforms      = false;
+  allowManualOrigin    = true;
+  profileTimeAlive     = -1;
+  cacheWaveforms       = false;
+  cacheAllWaveforms    = false;
+  debugWaveforms       = false;
 
   forceProcessing = false;
   testMode        = false;
@@ -1723,24 +1723,27 @@ bool RTDD::processOrigin(Origin *origin,
   SEISCOMP_DEBUG("Process origin %s", origin->publicID().c_str());
 
   // Skip automatic or manul origins if configured so
-  if ( !forceProcessing )
+  if (!forceProcessing)
   {
     bool isManualOrigin = false;
     try
     {
-      isManualOrigin = origin->evaluationMode() != Seiscomp::DataModel::AUTOMATIC;
+      isManualOrigin =
+          origin->evaluationMode() != Seiscomp::DataModel::AUTOMATIC;
     }
-    catch (...) {
-      // origins without an evaluation mode are treated as automatic 
+    catch (...)
+    {
+      // origins without an evaluation mode are treated as automatic
     }
-    if ( isManualOrigin && !allowManualOrigin )
+    if (isManualOrigin && !allowManualOrigin)
     {
       SEISCOMP_DEBUG("Ignoring manual origin %s", origin->publicID().c_str());
       return false;
     }
-    if ( !isManualOrigin && !allowAutomaticOrigin )
+    if (!isManualOrigin && !allowAutomaticOrigin)
     {
-      SEISCOMP_DEBUG("Ignoring automatic origin %s", origin->publicID().c_str());
+      SEISCOMP_DEBUG("Ignoring automatic origin %s",
+                     origin->publicID().c_str());
       return false;
     }
   }

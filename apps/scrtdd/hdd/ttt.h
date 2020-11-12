@@ -23,6 +23,8 @@
 #include <seiscomp3/core/baseobject.h>
 #include <seiscomp3/seismology/ttt.h>
 
+#include <unordered_map>
+
 namespace Seiscomp {
 namespace HDD {
 
@@ -31,7 +33,9 @@ DEFINE_SMARTPOINTER(TravelTimeTable);
 class TravelTimeTable : public Core::BaseObject
 {
 public:
-  TravelTimeTable(std::string type, std::string model);
+  TravelTimeTable(std::string type,
+                  std::string model,
+                  double depthVelResolution = 0.1);
   virtual ~TravelTimeTable() {}
 
   void compute(double eventLat,
@@ -58,7 +62,12 @@ public:
   }
 
 private:
+  double velocityAtSource(double eventDepth, const std::string &phaseType);
+
   TravelTimeTableInterfacePtr _ttt;
+  const double _depthVelResolution; // km
+  // key 1 = phase type. key 2 = depth bin
+  std::unordered_map<std::string, std::unordered_map<int, double>> _depthVel;
 };
 
 DEFINE_SMARTPOINTER(TravelTimeTable);
