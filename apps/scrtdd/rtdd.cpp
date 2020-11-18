@@ -1093,10 +1093,12 @@ bool RTDD::run()
   // evaluate cross-correlation settings and exit
   if (!_config.evalXCorr.empty())
   {
+    bool profileFound = false;
     for (ProfilePtr profile : _profiles)
     {
       if (profile->name == _config.evalXCorr)
       {
+        profileFound = true;
         profile->load(query(), &_cache, _eventParameters.get(),
                       _config.workingDirectory, !_config.saveProcessingFiles,
                       _config.cacheWaveforms, true, _config.dumpWaveforms,
@@ -1106,16 +1108,23 @@ bool RTDD::run()
         break;
       }
     }
+    if (!profileFound)
+    {
+      SEISCOMP_ERROR("Cannot find profile: %s", _config.evalXCorr.c_str());
+      return false;
+    }
     return true;
   }
 
   // load catalog waveforms and exit
   if (!_config.loadProfile.empty())
   {
+    bool profileFound = false;
     for (ProfilePtr profile : _profiles)
     {
       if (profile->name == _config.loadProfile)
       {
+        profileFound = true;
         profile->load(query(), &_cache, _eventParameters.get(),
                       _config.workingDirectory, !_config.saveProcessingFiles,
                       true, _config.cacheAllWaveforms, _config.dumpWaveforms,
@@ -1123,6 +1132,11 @@ bool RTDD::run()
         profile->unload();
         break;
       }
+    }
+    if (!profileFound)
+    {
+      SEISCOMP_ERROR("Cannot find profile: %s", _config.loadProfile.c_str());
+      return false;
     }
     return true;
   }
@@ -1225,10 +1239,12 @@ bool RTDD::run()
   // relocate full catalog and exit
   if (!_config.relocateProfile.empty())
   {
+    bool profileFound = false;
     for (ProfilePtr profile : _profiles)
     {
       if (profile->name == _config.relocateProfile)
       {
+        profileFound = true;
         profile->load(query(), &_cache, _eventParameters.get(),
                       _config.workingDirectory, !_config.saveProcessingFiles,
                       _config.cacheWaveforms, true, _config.dumpWaveforms,
@@ -1248,6 +1264,11 @@ bool RTDD::run()
         profile->unload();
         break;
       }
+    }
+    if (!profileFound)
+    {
+      SEISCOMP_ERROR("Cannot find profile: %s", _config.relocateProfile.c_str());
+      return false;
     }
     return true;
   }
