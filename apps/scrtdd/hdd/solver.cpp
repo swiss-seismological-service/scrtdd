@@ -374,7 +374,8 @@ bool Solver::getObservationParamsChanges(unsigned evId,
 
 void Solver::loadSolutions()
 {
-  auto computeEventDelta = [this](unsigned evIdx, EventDeltas &evDelta) {
+  auto computeEventDelta = [this](unsigned evIdx,
+                                  EventDeltas &evDelta) -> bool {
     const EventParams &evprm = _eventParams.at(evIdx);
     const unsigned evOffset  = evIdx * 4;
 
@@ -382,6 +383,12 @@ void Solver::loadSolutions()
     double deltaY      = _dd->m[evOffset + 1];
     evDelta.deltaDepth = _dd->m[evOffset + 2];
     evDelta.deltaTT    = _dd->m[evOffset + 3];
+
+    if (!std::isfinite(deltaX) || !std::isfinite(deltaY) ||
+        !std::isfinite(evDelta.deltaDepth) || !std::isfinite(evDelta.deltaTT))
+    {
+      return false;
+    }
 
     double newX = evprm.x + deltaX;
     double newY = evprm.y + deltaY;
@@ -402,6 +409,7 @@ void Solver::loadSolutions()
 
     evDelta.deltaLat = newLat - evprm.lat;
     evDelta.deltaLon = newLon - evprm.lon;
+    return true;
   };
 
   //
@@ -465,11 +473,12 @@ void Solver::loadSolutions()
   // Load change in event parameters for all events that have at least
   // one non-zero-weight observation
   //
-  for (auto &kw : _eventDeltas)
+  for (auto it = _eventDeltas.begin(); it != _eventDeltas.end();)
   {
-    const unsigned evIds = kw.first;
-    EventDeltas &evDelta = kw.second;
-    computeEventDelta(evIds, evDelta);
+    const unsigned evIds = it->first;
+    EventDeltas &evDelta = it->second;
+    it                   = computeEventDelta(evIds, evDelta) ? std::next(it)
+                                           : _eventDeltas.erase(it);
   }
 
   // free some memory
