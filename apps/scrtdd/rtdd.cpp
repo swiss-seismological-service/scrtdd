@@ -921,31 +921,20 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->ddcfg.solver.dampingFactorEnd = 0.3;
+      prof->ddcfg.solver.dampingFactorEnd = 0.1;
     }
-    vector<double> cs, ce;
-    if (configGetTypedList(this,
-                           prefix + "meanShiftconstraintWeight.startingValue",
-                           cs, 4, true) &&
-        configGetTypedList(
-            this, prefix + "meanShiftconstraintWeight.finalValue", ce, 4, true))
+    if ( prof->ddcfg.solver.dampingFactorStart < 0 || prof->ddcfg.solver.dampingFactorEnd < 0 )
     {
-      if (cs.empty())
-        prof->ddcfg.solver.meanShiftConstraintStart = {0., 0., 0., 0.};
-      else
-        prof->ddcfg.solver.meanShiftConstraintStart = {cs[0], cs[1], cs[2],
-                                                       cs[3]};
-      if (ce.empty())
-        prof->ddcfg.solver.meanShiftConstraintEnd = {0., 0., 0., 0.};
-      else
-        prof->ddcfg.solver.meanShiftConstraintEnd = {ce[0], ce[1], ce[2],
-                                                     ce[3]};
+      SEISCOMP_INFO("Enabled travel time constrains in DD system");
+      prof->ddcfg.solver.ttConstraint = true;
+      prof->ddcfg.solver.dampingFactorStart = 0;
+      prof->ddcfg.solver.dampingFactorEnd = 0;
     }
     else
     {
-      profilesOK = false;
-      continue;
+      prof->ddcfg.solver.ttConstraint = false;
     }
+
     try
     {
       prof->ddcfg.solver.downWeightingByResidualStart =
@@ -1110,7 +1099,8 @@ bool RTDD::run()
     }
     if (!profileFound)
     {
-      SEISCOMP_ERROR("Cannot find profile: %s", _config.evalXCorr.c_str());
+      SEISCOMP_ERROR("Profile %s not found in activeProfiles",
+                     _config.evalXCorr.c_str());
       return false;
     }
     return true;
@@ -1135,7 +1125,8 @@ bool RTDD::run()
     }
     if (!profileFound)
     {
-      SEISCOMP_ERROR("Cannot find profile: %s", _config.loadProfile.c_str());
+      SEISCOMP_ERROR("Profile %s not found in activeProfiles",
+                     _config.loadProfile.c_str());
       return false;
     }
     return true;
@@ -1267,7 +1258,8 @@ bool RTDD::run()
     }
     if (!profileFound)
     {
-      SEISCOMP_ERROR("Cannot find profile: %s", _config.relocateProfile.c_str());
+      SEISCOMP_ERROR("Profile %s not found in activeProfiles",
+                     _config.relocateProfile.c_str());
       return false;
     }
     return true;

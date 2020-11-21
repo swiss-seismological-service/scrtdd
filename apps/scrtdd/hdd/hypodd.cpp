@@ -650,30 +650,15 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
     double downWeightingByResidual =
         interpolate(_cfg.solver.downWeightingByResidualStart,
                     _cfg.solver.downWeightingByResidualEnd);
-    double meanLonShiftConstraint =
-        interpolate(_cfg.solver.meanShiftConstraintStart[0],
-                    _cfg.solver.meanShiftConstraintEnd[0]);
-    double meanLatShiftConstraint =
-        interpolate(_cfg.solver.meanShiftConstraintStart[1],
-                    _cfg.solver.meanShiftConstraintEnd[1]);
-    double meanDepthShiftConstraint =
-        interpolate(_cfg.solver.meanShiftConstraintStart[2],
-                    _cfg.solver.meanShiftConstraintEnd[2]);
-    double meanTTShiftConstraint =
-        interpolate(_cfg.solver.meanShiftConstraintStart[3],
-                    _cfg.solver.meanShiftConstraintEnd[3]);
     double absTTDiffObsWeight =
         interpolate(1.0, _cfg.solver.absTTDiffObsWeight);
     double xcorrObsWeight = interpolate(1.0, _cfg.solver.xcorrObsWeight);
 
     SEISCOMP_INFO("Solving iteration %u num events %lu. Parameters: "
                   "observWeight TT/CC=%.2f/%.2f dampingFactor=%.2f "
-                  "downWeightingByResidual=%.2f "
-                  "meanShiftConstrainWeight=%.2f,%.2f,%.2f,%.2f",
+                  "downWeightingByResidual=%.2f ",
                   iteration, neighCluster.size(), absTTDiffObsWeight,
-                  xcorrObsWeight, dampingFactor, downWeightingByResidual,
-                  meanLonShiftConstraint, meanLatShiftConstraint,
-                  meanDepthShiftConstraint, meanTTShiftConstraint);
+                  xcorrObsWeight, dampingFactor, downWeightingByResidual);
 
     // Create a solver and then add observations
     Solver solver(_cfg.solver.type);
@@ -694,10 +679,9 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
     //
     try
     {
-      solver.solve(_cfg.solver.solverIterations, dampingFactor,
-                   downWeightingByResidual, meanLonShiftConstraint,
-                   meanLatShiftConstraint, meanDepthShiftConstraint,
-                   meanTTShiftConstraint, _cfg.solver.L2normalization);
+      solver.solve(_cfg.solver.solverIterations, _cfg.solver.ttConstraint,
+                   dampingFactor, downWeightingByResidual,
+                   _cfg.solver.L2normalization);
     }
     catch (exception &e)
     {
@@ -817,16 +801,11 @@ void HypoDD::addObservations(Solver &solver,
         continue;
       }
 
-      try
+      if (!obsparams.add(_ttt, refEv, station, refPhase, true) ||
+          !obsparams.add(_ttt, event, station, phase, !keepNeighboursFixed))
       {
-        obsparams.add(_ttt, refEv, station, phaseTypeAsChar);
-        obsparams.add(_ttt, event, station, phaseTypeAsChar);
-      }
-      catch (exception &e)
-      {
-        SEISCOMP_DEBUG("Skipping observation (ev %u-%u sta %s phase %c): %s",
-                       refEv.id, event.id, station.id.c_str(), phaseTypeAsChar,
-                       e.what());
+        SEISCOMP_DEBUG("Skipping observation (ev %u-%u sta %s phase %c)",
+                       refEv.id, event.id, station.id.c_str(), phaseTypeAsChar);
         continue;
       }
 
@@ -860,29 +839,45 @@ void HypoDD::addObservations(Solver &solver,
       }
 
       solver.addObservation(refEv.id, event.id, refPhase.stationId,
-                            phaseTypeAsChar, diffTime, weight, true,
-                            !keepNeighboursFixed, isXcorr);
+                            phaseTypeAsChar, diffTime, weight, isXcorr);
     }
   }
 }
 
-void HypoDD::ObservationParams::add(HDD::TravelTimeTablePtr ttt,
+bool HypoDD::ObservationParams::add(HDD::TravelTimeTablePtr ttt,
                                     const Event &event,
                                     const Station &station,
-                                    char phaseType)
+                                    const Phase &phase,
+                                    bool computeEvChanges)
 {
+  char phaseType = static_cast<char>(phase.procInfo.type);
   const std::string key =
       std::to_string(event.id) + "@" + station.id + ":" + phaseType;
   if (_entries.find(key) == _entries.end())
   {
-    double travelTime, takeOffAngle, velocityAtSrc;
-    ttt->compute(event, station, string(1, phaseType), travelTime, takeOffAngle,
-                 velocityAtSrc);
-    // when takeOffAngle/velocityAtSrc are not provided (i.e. are 0) by
-    // the ttt then the solver will use straight ray path approximation
-    _entries[key] = Entry{event,      station,      phaseType,
-                          travelTime, takeOffAngle, velocityAtSrc};
+    try
+    {
+      double travelTime, takeOffAngle, velocityAtSrc;
+      ttt->compute(event, station, string(1, phaseType), travelTime,
+                   takeOffAngle, velocityAtSrc);
+      double ttResidual = travelTime - (phase.time - event.time).length();
+      // when takeOffAngle/velocityAtSrc are not provided (i.e. are 0) by
+      // the ttt then the solver will use straight ray path approximation
+      _entries[key] =
+          Entry{event,      station,      phaseType,     travelTime,
+                ttResidual, takeOffAngle, velocityAtSrc, computeEvChanges};
+    }
+    catch (exception &e)
+    {
+      SEISCOMP_WARNING(
+          "Travel Time Table error: %s (Event lat %.6f lon %.6f depth %.6f "
+          "Station lat %.6f lon %.6f elevation %.f )",
+          e.what(), event.latitude, event.longitude, event.depth,
+          station.latitude, station.longitude, station.elevation);
+      return false;
+    }
   }
+  return true;
 }
 
 const HypoDD::ObservationParams::Entry &HypoDD::ObservationParams::get(
@@ -898,11 +893,11 @@ void HypoDD::ObservationParams::addToSolver(Solver &solver) const
   for (const auto &kv : _entries)
   {
     const ObservationParams::Entry &e = kv.second;
-    solver.addObservationParams(e.event.id, e.station.id, e.phaseType,
-                                e.event.latitude, e.event.longitude,
-                                e.event.depth, e.station.latitude,
-                                e.station.longitude, e.station.elevation,
-                                e.travelTime, e.takeOffAngle, e.velocityAtSrc);
+    solver.addObservationParams(
+        e.event.id, e.station.id, e.phaseType, e.event.latitude,
+        e.event.longitude, e.event.depth, e.station.latitude,
+        e.station.longitude, e.station.elevation, e.computeEvChanges,
+        e.travelTime, e.travelTimeResidual, e.takeOffAngle, e.velocityAtSrc);
   }
 }
 
@@ -1003,19 +998,17 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
       phase.relocInfo.finalMeanObsResidual = meanObsResidual;
       obsResiduals.push_back(meanObsResidual);
 
-      try
+      if (obsparams.add(_ttt, event, station, phase, true))
       {
-        obsparams.add(_ttt, event, station, phaseTypeAsChar);
         double travelTime =
             obsparams.get(event.id, station.id, phaseTypeAsChar).travelTime;
         phase.relocInfo.finalResidual =
             travelTime - (phase.time - event.time).length();
         rmsCount++;
       }
-      catch (exception &e)
+      else
       {
         phase.relocInfo.finalResidual = 0;
-        SEISCOMP_WARNING("TTT: %s", e.what());
       }
 
       event.rms +=
@@ -1124,7 +1117,12 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
       }
       catch (exception &e)
       {
-        SEISCOMP_WARNING("TTT: %s", e.what());
+        SEISCOMP_WARNING(
+            "Travel Time Table error: %s (Event lat %.6f lon %.6f depth %.6f "
+            "Station lat %.6f lon %.6f elevation %.f )",
+            e.what(), startEvent.latitude, startEvent.longitude,
+            startEvent.depth, station.latitude, station.longitude,
+            station.elevation);
       }
     }
 

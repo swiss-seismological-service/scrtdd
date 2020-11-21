@@ -126,16 +126,13 @@ struct Config
 
   struct
   {
-    std::string type                               = "LSMR"; // LSMR or LSQR
-    bool L2normalization                           = true;
-    unsigned solverIterations                      = 0;
-    unsigned algoIterations                        = 20;
-    double dampingFactorStart                      = 0.;
-    double dampingFactorEnd                        = 0.;
-    std::array<double, 4> meanShiftConstraintStart = {
-        {0., 0., 0., 0.}}; // lon, lat, depth, time
-    std::array<double, 4> meanShiftConstraintEnd = {
-        {0., 0., 0., 0.}}; // lon, lat, depth, time
+    std::string type                    = "LSMR"; // LSMR or LSQR
+    bool L2normalization                = true;
+    unsigned solverIterations           = 0;
+    unsigned algoIterations             = 20;
+    bool ttConstraint                   = true;
+    double dampingFactorStart           = 0.;
+    double dampingFactorEnd             = 0.;
     double downWeightingByResidualStart = 0.;
     double downWeightingByResidualEnd   = 0.;
     bool usePickUncertainty             = false;
@@ -218,13 +215,16 @@ private:
       Catalog::Station station;
       char phaseType;
       double travelTime;
+      double travelTimeResidual;
       double takeOffAngle;
       double velocityAtSrc;
+      bool computeEvChanges;
     };
-    void add(HDD::TravelTimeTablePtr ttt,
+    bool add(HDD::TravelTimeTablePtr ttt,
              const Catalog::Event &event,
              const Catalog::Station &station,
-             char phaseType);
+             const Catalog::Phase &phase,
+             bool computeEvChanges);
     const Entry &
     get(unsigned eventId, const std::string stationId, char phaseType) const;
     void addToSolver(Solver &solver) const;
