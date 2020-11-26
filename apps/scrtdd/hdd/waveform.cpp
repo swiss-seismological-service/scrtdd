@@ -257,7 +257,7 @@ bool trim(GenericRecord &trace, const Core::TimeWindow &tw)
   {
     SEISCOMP_DEBUG("%s: need %d more samples past the end",
                    trace.streamID().c_str(),
-                   trace.data()->size() - samples - ofs);
+                   -(trace.data()->size() - samples - ofs));
     return false;
   }
 
