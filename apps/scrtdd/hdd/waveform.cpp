@@ -480,12 +480,20 @@ bool xcorr(const GenericRecordCPtr &tr1,
   };
 
   // do as much computation as possible outside the main xcorr loop
+  double localMeanL = 0;
+  for (int idxS = 0; idxS < smpsSsize; idxS++)
+  {
+    double sample = sampleAtLong(idxS, -(maxDelaySmps + 1));
+    localMeanL += sample;
+  }
+  localMeanL /= smpsSsize;
+
   double denomL = 0, denomS = 0;
   for (int idxS = 0; idxS < smpsSsize; idxS++)
   {
     denomS += smpsS[idxS] * smpsS[idxS];
     double sampleL = sampleAtLong(idxS, -(maxDelaySmps + 1));
-    denomL += sampleL * sampleL;
+    denomL += (sampleL - localMeanL) * (sampleL - localMeanL);
   }
 
   // cross-correlation loop
@@ -493,15 +501,17 @@ bool xcorr(const GenericRecordCPtr &tr1,
   {
     // remove from denomL the sample that has exited the current xcorr win
     double lastSampleL = sampleAtLong(-1, delay);
-    denomL -= lastSampleL * lastSampleL;
+    localMeanL         = (localMeanL * smpsSsize - lastSampleL) / smpsSsize;
+    denomL -= (lastSampleL - localMeanL) * (lastSampleL - localMeanL);
     // add to denomL the sample that has just entered the current xcorr win
     double newSampleL = sampleAtLong(smpsSsize - 1, delay);
-    denomL += newSampleL * newSampleL;
+    localMeanL        = (localMeanL * smpsSsize + newSampleL) / smpsSsize;
+    denomL += (newSampleL - localMeanL) * (newSampleL - localMeanL);
 
     // compute numerator
     double numer = 0;
     for (int idxS = 0; idxS < smpsSsize; idxS++)
-      numer += smpsS[idxS] * sampleAtLong(idxS, delay);
+      numer += smpsS[idxS] * (sampleAtLong(idxS, delay) - localMeanL);
 
     const double denom = std::sqrt(denomS * denomL);
     const double coeff = numer / denom;
