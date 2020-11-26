@@ -221,21 +221,21 @@
                                 for which exist phases for both events.
                                 To build the event pairs a clustering algorithm is performed, joining
                                 together events within a given distance and fulfilling specific
-                                requirements which are confiurable in here
+                                requirements which are configurable in here
                             </description>
                             <parameter name="minNumNeigh" type="int">
                                 <description>
                                     Minimum number of neighboring events required to relocate an event.
-                                    This is useful to avoid including solutions that are poorly 
-                                    constrained.
+                                    Useful to avoid inclusion of poorly constrained events.
                                 </description>
                             </parameter>
                             <parameter name="maxNumNeigh" type="int">
                                 <description>
-                                    Maximum number of neighbors per event. When setting this
-                                    value make it consistent with numEllipsoids parameter (that is 
-                                    numEllipsoids * 8) if numEllipsoids is not 0.
-                                    A value of 0 or less disables this limit
+                                  Maximum number of neighbors per event. Useful to reduce
+                                  computation time when relocating a large number events.
+                                  This value should be consistent with numEllipsoids parameter (that
+                                  is numEllipsoids * 8) if numEllipsoids is not 0.
+                                  A value of 0 or less disables this limit
                                 </description>
                             </parameter>
                             <parameter name="minObservationPerEvtPair" type="int" >
@@ -243,7 +243,7 @@
                                     Minimum number of differential travel times (Including P+S) per
                                     event pair required.
                                     Event pairs not satisfying this condition will not be used.
-                                    This is useful to force inclusion of well connected
+                                    Useful to force inclusion of well connected
                                     neighbours only.
                                 </description>
                             </parameter>
@@ -354,21 +354,21 @@
                                 for which exist phases for both events.
                                 To build the event pairs a clustering algorithm is performed, joining
                                 together events within a given distance and fulfilling specific
-                                requirements which are confiurable in here
+                                requirements which are configurable in here
                             </description>
                             <parameter name="minNumNeigh" type="int">
                                 <description>
                                     Minimum number of neighboring events required to relocate an event.
-                                    This is useful to avoid including solutions that are poorly 
-                                    constrained.
+                                    Useful to avoid inclusion of poorly constrained events.
                                 </description>
                             </parameter>
                             <parameter name="maxNumNeigh" type="int">
                                 <description>
-                                    Maximum number of neighbors per event. When setting this
-                                    value make it consistent with numEllipsoids parameter (that is 
-                                    numEllipsoids * 8) if numEllipsoids is not 0.
-                                    A value of 0 or less disables this limit
+                                  Maximum number of neighbors per event. Useful to reduce
+                                  computation time when relocating a large number events.
+                                  This value should be consistent with numEllipsoids parameter (that
+                                  is numEllipsoids * 8) if numEllipsoids is not 0.
+                                  A value of 0 or less disables this limit
                                 </description>
                             </parameter>
                             <parameter name="minObservationPerEvtPair" type="int" >
@@ -376,7 +376,7 @@
                                     Minimum number of differential travel times (Including P+S) per
                                     event pair required.
                                     Event pairs not satisfying this condition will not be used.
-                                    This is useful to force inclusion of well connected
+                                    Useful to force inclusion of well connected
                                     neighbours only.
                                 </description>
                             </parameter>
@@ -650,21 +650,20 @@
                             </parameter> 
                         </group> 
                         <group name="dampingFactor">
-                            <description>
-                              Setting a value different than 0 enables the solver to use a damped
-                              least squares system instead of a standard linear least squares.
-                              The damping factor value constrains the changes in earthquakes
-                              parameters (location and time) to avoid huge earthquakes shift during
-                              relocation and also helps with ill-conditioned systems.
-                              The units used in the double-difference sytem are km and seconds,
-                              so a dampingFactor value of 1 weighs as much as 1 km on changes
-                              to lat/lon/depth and 1 second to changes in origin time. A sensible
-                              value for evaluating the effect of dampingFactor can be 0.3
+                          <description>
+                            Setting a value different than 0 enables the solver to use a damped
+                            (regularized) least squares system.
+                            The damping factor value constrains the changes in earthquakes
+                            parameters (location and time) to avoid huge earthquakes shift during
+                            relocation and also helps ill-conditioned systems.
+                            A too high value prevents the events to properly relocate. A too low
+                            value might result in a huge shift of the event cluster although the
+                            structure persists.
                             </description> 
                             <parameter name="startingValue" type="double" default="0.3">
                               <description>Value for the first iteration of the solver</description> 
                             </parameter>
-                            <parameter name="finalValue"    type="double" default="0.1">
+                            <parameter name="finalValue"    type="double" default="0.3">
                               <description>Value for the last iteration of the solver</description> 
                             </parameter> 
                         </group>

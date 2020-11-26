@@ -921,7 +921,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->ddcfg.solver.dampingFactorEnd = 0.1;
+      prof->ddcfg.solver.dampingFactorEnd = 0.3;
     }
     if ( prof->ddcfg.solver.dampingFactorStart < 0 || prof->ddcfg.solver.dampingFactorEnd < 0 )
     {
