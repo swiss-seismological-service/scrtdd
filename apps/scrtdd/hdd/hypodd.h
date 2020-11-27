@@ -246,12 +246,13 @@ private:
   updateRelocatedEvents(const Solver &solver,
                         const CatalogCPtr &catalog,
                         const std::list<NeighboursPtr> &neighbourCats,
-                        ObservationParams &obsparams) const;
+                        ObservationParams &obsparams,
+                        std::unordered_map<unsigned, NeighboursPtr> &neighCluster) const;
 
   CatalogPtr updateRelocatedEventsFinalStats(
       const CatalogCPtr &startingCatalog,
       const CatalogCPtr &finalCatalog,
-      const std::list<NeighboursPtr> &neighCluster) const;
+      const std::unordered_map<unsigned, NeighboursPtr> &neighCluster) const;
 
   void addMissingEventPhases(const Catalog::Event &refEv,
                              CatalogPtr &refEvCatalog,

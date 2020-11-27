@@ -43,19 +43,17 @@ struct Neighbours : public Core::BaseObject
                                         std::set<Catalog::Phase::Type>>>
       phases;
 
+  void add(unsigned neighbourId,
+           const std::string &stationId,
+           const Catalog::Phase::Type &phase)
+  {
+    ids.insert(neighbourId);
+    phases[neighbourId][stationId].insert(phase);
+  }
+
   std::unordered_set<unsigned>::size_type numNeighbours() const
   {
     return ids.size();
-  }
-
-  std::unordered_map<std::string, std::set<Catalog::Phase::Type>>
-  allPhases() const
-  {
-    std::unordered_map<std::string, std::set<Catalog::Phase::Type>> allPhases;
-    for (const auto &kw1 : phases)
-      for (const auto &kw2 : kw1.second)
-        allPhases[kw2.first].insert(kw2.second.begin(), kw2.second.end());
-    return allPhases;
   }
 
   bool has(unsigned neighbourId) const
@@ -86,15 +84,11 @@ struct Neighbours : public Core::BaseObject
     return false;
   }
 
+  std::unordered_map<std::string, std::set<Catalog::Phase::Type>>
+  allPhases() const;
+
   CatalogPtr toCatalog(const CatalogCPtr &catalog,
-                       bool includeRefEv = false) const
-  {
-    CatalogPtr returnCat(new Catalog());
-    for (unsigned neighbourId : ids)
-      returnCat->add(neighbourId, *catalog, true);
-    if (includeRefEv) returnCat->add(refEvId, *catalog, true);
-    return returnCat;
-  }
+                       bool includeRefEv = false) const;
 };
 
 NeighboursPtr
@@ -113,7 +107,7 @@ selectNeighbouringEvents(const CatalogCPtr &catalog,
                          double maxEllipsoidSize = 10,
                          bool keepUnmatched      = false);
 
-std::deque<std::list<NeighboursPtr>>
+std::list<NeighboursPtr>
 selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
                                 double minPhaseWeight,
                                 double minESdis,

@@ -290,14 +290,20 @@ CatalogPtr HypoDD::relocateCatalog()
     processingInfoOutput->subscribe(Seiscomp::Logging::_SCErrorChannel);
   }
 
-  // Find Neighbouring Events in the catalog
-  deque<list<NeighboursPtr>> clusters = selectNeighbouringEventsCatalog(
+  // Find Neighbours for each event in the catalog
+  list<NeighboursPtr> allNeighbours = selectNeighbouringEventsCatalog(
       catToReloc, _cfg.ddObservations2.minWeight,
       _cfg.ddObservations2.minESdist, _cfg.ddObservations2.maxESdist,
       _cfg.ddObservations2.minEStoIEratio, _cfg.ddObservations2.minDTperEvt,
       _cfg.ddObservations2.maxDTperEvt, _cfg.ddObservations2.minNumNeigh,
       _cfg.ddObservations2.maxNumNeigh, _cfg.ddObservations2.numEllipsoids,
       _cfg.ddObservations2.maxEllipsoidSize, true);
+
+  // Organize the neighbours by not connected clusters and also
+  // don't report the same pair multiple times (e.g. ev1-ev2 and ev2-ev1)
+  // since we only need one observation for pair in the DD solver
+  deque<list<NeighboursPtr>> clusters =
+      clusterizeNeighbouringEvents(allNeighbours);
 
   SEISCOMP_INFO("Found %lu event clusters", clusters.size());
 
@@ -631,7 +637,8 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
   //
   // Iterate the solver computation multiple times
   //
-  CatalogCPtr currCatalog = catalog;
+  CatalogCPtr finalCatalog = catalog;
+  unordered_map<unsigned, NeighboursPtr> finalNeighCluster;
   ObservationParams obsparams;
   for (unsigned iteration = 0; iteration < _cfg.solver.algoIterations;
        iteration++)
@@ -669,7 +676,7 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
     //
     for (const NeighboursPtr &neighbours : neighCluster)
     {
-      addObservations(solver, absTTDiffObsWeight, xcorrObsWeight, currCatalog,
+      addObservations(solver, absTTDiffObsWeight, xcorrObsWeight, finalCatalog,
                       neighbours, keepNeighboursFixed, xcorr, obsparams);
     }
     obsparams.addToSolver(solver);
@@ -694,15 +701,13 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
     obsparams = ObservationParams();
 
     // update event parameters
-    currCatalog =
-        updateRelocatedEvents(solver, currCatalog, neighCluster, obsparams);
+    finalCatalog = updateRelocatedEvents(solver, finalCatalog, neighCluster,
+                                         obsparams, finalNeighCluster);
   }
 
   // compute last bit of statistics for the relocated events
-  CatalogPtr relocatedCatalog =
-      updateRelocatedEventsFinalStats(catalog, currCatalog, neighCluster);
-
-  return relocatedCatalog;
+  return updateRelocatedEventsFinalStats(catalog, finalCatalog,
+                                         finalNeighCluster);
 }
 
 string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
@@ -901,11 +906,13 @@ void HypoDD::ObservationParams::addToSolver(Solver &solver) const
   }
 }
 
-CatalogPtr
-HypoDD::updateRelocatedEvents(const Solver &solver,
-                              const CatalogCPtr &catalog,
-                              const std::list<NeighboursPtr> &neighCluster,
-                              ObservationParams &obsparams) const
+CatalogPtr HypoDD::updateRelocatedEvents(
+    const Solver &solver,
+    const CatalogCPtr &catalog,
+    const std::list<NeighboursPtr> &neighCluster,
+    ObservationParams &obsparams,
+    std::unordered_map<unsigned, NeighboursPtr> &finalNeighCluster // output
+    ) const
 {
   unordered_map<string, Station> stations    = catalog->getStations();
   map<unsigned, Event> events                = catalog->getEvents();
@@ -942,18 +949,20 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
       deltaDepth = 0;
     }
 
+    NeighboursPtr finalNeighbours(new Neighbours());
+    finalNeighbours->refEvId = event.id;
+    bool isFirstIteration    = !event.relocInfo.isRelocated;
+
     //
     // Update event location/time and compute statistics
     //
     relocatedEvs++;
-
-    bool isFirstIteration = !event.relocInfo.isRelocated;
-
     event.latitude += deltaLat;
     event.longitude += deltaLon;
     event.depth += deltaDepth;
     event.time += Core::TimeSpan(deltaTT);
     event.rms                    = 0;
+    event.relocInfo.isRelocated  = true;
     event.relocInfo.phases       = {0};
     event.relocInfo.neighbours   = {0};
     event.relocInfo.ddObs.numTTp = 0;
@@ -961,9 +970,7 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
     event.relocInfo.ddObs.numCCp = 0;
     event.relocInfo.ddObs.numCCs = 0;
 
-    event.relocInfo.isRelocated       = true;
-    event.relocInfo.neighbours.amount = neighbours->numNeighbours();
-
+    set<unsigned> neighbourIds;
     vector<double> obsResiduals;
     unsigned rmsCount = 0;
     auto eqlrng       = phases.equal_range(event.id);
@@ -981,7 +988,7 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
       if (!solver.getObservationParamsChanges(
               event.id, station.id, phaseTypeAsChar, startTTObs, startCCObs,
               finalTotalObs, meanAPrioriWeight, meanFinalWeight,
-              meanObsResidual))
+              meanObsResidual, neighbourIds))
       {
         continue;
       }
@@ -1025,6 +1032,11 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
         event.relocInfo.ddObs.numCCs += phase.relocInfo.numCCObs;
         event.relocInfo.ddObs.numTTs += phase.relocInfo.numTTObs;
       }
+
+      for (unsigned nId : neighbourIds)
+      {
+        finalNeighbours->add(nId, station.id, phase.procInfo.type);
+      }
     }
 
     if (rmsCount > 0)
@@ -1043,6 +1055,9 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
     }
     event.relocInfo.ddObs.finalResidualMedian = residualMedian;
     event.relocInfo.ddObs.finalResidualMAD    = residualMAD;
+
+    event.relocInfo.neighbours.amount = finalNeighbours->numNeighbours();
+    finalNeighCluster[finalNeighbours->refEvId] = finalNeighbours;
   }
 
   const double allRmsMedian = computeMedian(allRms);
@@ -1059,14 +1074,15 @@ HypoDD::updateRelocatedEvents(const Solver &solver,
 CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
     const CatalogCPtr &startCatalog,
     const CatalogCPtr &finalCatalog,
-    const std::list<NeighboursPtr> &neighCluster) const
+    const std::unordered_map<unsigned, NeighboursPtr> &neighCluster) const
 {
   CatalogPtr catalogToReturn(new Catalog());
   vector<double> allRms;
   vector<double> stationDist;
 
-  for (const NeighboursPtr &neighbours : neighCluster)
+  for (const auto &kv : neighCluster)
   {
+    const NeighboursPtr &neighbours = kv.second;
     auto it = finalCatalog->getEvents().find(neighbours->refEvId);
 
     // if the event hasn't been relocated remove it from the final catalog

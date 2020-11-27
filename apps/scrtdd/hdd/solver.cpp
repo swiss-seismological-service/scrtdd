@@ -292,7 +292,8 @@ bool Solver::getObservationParamsChanges(unsigned evId,
                                          unsigned &finalTotalObs,
                                          double &meanAPrioriWeight,
                                          double &meanFinalWeight,
-                                         double &meanObsResiduals) const
+                                         double &meanObsResiduals,
+                                         std::set<unsigned> &evIds) const
 {
   if (!_eventIdConverter.hasId(evId)) return false;
 
@@ -326,6 +327,7 @@ bool Solver::getObservationParamsChanges(unsigned evId,
     meanFinalWeight  = prmSts.totalFinalWeight / finalTotalObs;
     meanObsResiduals = prmSts.totalResiduals / finalTotalObs;
   }
+  evIds.insert(prmSts.peerEvIds.begin(), prmSts.peerEvIds.end());
   return true;
 }
 
@@ -652,6 +654,7 @@ void Solver::prepareDDSystem(bool useTTconstraint, double residualDownWeight)
       else
         prmSts.startingTTObs++;
       prmSts.totalAPrioriWeight += _dd->W[obIdx];
+      prmSts.peerEvIds.insert(_eventIdConverter.fromIdx(ob.ev2Idx));
     }
 
     if (obprm2.computeEvChanges)
@@ -662,6 +665,7 @@ void Solver::prepareDDSystem(bool useTTconstraint, double residualDownWeight)
       else
         prmSts.startingTTObs++;
       prmSts.totalAPrioriWeight += _dd->W[obIdx];
+      prmSts.peerEvIds.insert(_eventIdConverter.fromIdx(ob.ev1Idx));
     }
   }
 
@@ -679,7 +683,7 @@ void Solver::prepareDDSystem(bool useTTconstraint, double residualDownWeight)
   }
 
   //
-  // (bookkeeping) Compute final weghts for each ObservationParams
+  // (bookkeeping) Compute final stats for each ObservationParams
   //
   for (unsigned int obIdx = 0; obIdx < _dd->nObs; obIdx++)
   {
@@ -729,8 +733,9 @@ void Solver::prepareDDSystem(bool useTTconstraint, double residualDownWeight)
 
         const ParamStats &prmSts = _paramStats.at(evIdx).at(phStaIdx);
 
-        _dd->W[ttconstraintIdx] = prmSts.totalFinalWeight /
-                                  ((prmSts.finalTotalObs+1) * evObsParamMap.size());
+        _dd->W[ttconstraintIdx] =
+            prmSts.totalFinalWeight /
+            ((prmSts.finalTotalObs + 1) * evObsParamMap.size());
         _dd->d[ttconstraintIdx] =
             -obprm.travelTimeResidual * _dd->W[ttconstraintIdx];
         _dd->evByObs[0][ttconstraintIdx] = evIdx;
@@ -828,12 +833,12 @@ void Solver::_solve(unsigned numIterations,
   solver.SetToleranceB(1e-16);
   solver.SetUpperLimitOnConditional(1.0 / (10 * sqrt(eps)));
 
-  //std::ostringstream solverLogs;
-  //solver.SetOutputStream(solverLogs);
+  std::ostringstream solverLogs;
+  solver.SetOutputStream(solverLogs);
 
   solver.Solve(_dd->numRowsG, _dd->numColsG, _dd->d, _dd->m);
 
-  //SEISCOMP_DEBUG("%s", solverLogs.str().c_str());
+  SEISCOMP_DEBUG("%s", solverLogs.str().c_str());
 
   SEISCOMP_INFO("Stopped because %u : %s (used %u Iterations)",
                 solver.GetStoppingReason(),

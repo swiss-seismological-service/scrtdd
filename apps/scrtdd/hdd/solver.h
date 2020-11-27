@@ -22,6 +22,7 @@
 #include "lsqr.h"
 
 #include <seiscomp3/core/baseobject.h>
+#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -171,7 +172,8 @@ public:
                                    unsigned &finalTotalObs,
                                    double &meanAPrioriWeight,
                                    double &meanFinalWeight,
-                                   double &meanObsResidual) const;
+                                   double &meanObsResidual,
+                                   std::set<unsigned> &evIds) const;
 
 private:
   void computePartialDerivatives();
@@ -278,6 +280,7 @@ private:
     double totalAPrioriWeight = 0;
     double totalFinalWeight   = 0;
     double totalResiduals     = 0;
+    std::set<unsigned> peerEvIds;
   };
   // key1=evIdx  key2=phStaIdx
   std::unordered_map<unsigned, std::unordered_map<unsigned, ParamStats>>
