@@ -769,7 +769,7 @@ GenericRecordPtr Loader::readAndProjectWaveform(const Core::TimeWindow &tw,
 
   // The wrapper will direct 3 codes into the right slots using the
   // Stream configuration class and will finally use the transformation
-  // operator. The advantage is that it will apply the configured gain for
+  // operator. The advantage is that it will apply the configured gain
   typedef Operator::StreamConfigWrapper<double, 3, Operator::Transformation>
       OpWrapper;
 
@@ -783,6 +783,13 @@ GenericRecordPtr Loader::readAndProjectWaveform(const Core::TimeWindow &tw,
   streams[2].init(tc.comps[ThreeComponents::Vertical]);
   streams[1].init(tc.comps[ThreeComponents::FirstHorizontal]);
   streams[0].init(tc.comps[ThreeComponents::SecondHorizontal]);
+
+  // Set gain to 0 since we do not need the gain for cross-correlation
+  // and for consistency with rest of the API (e.g. readWaveformFromRecordStream)
+  streams[2].gain = 0;
+  streams[1].gain = 0;
+  streams[0].gain = 0;
+
   Rotator op(
       OpWrapper(streams, Operator::Transformation<double, 3>(transformation)));
 
