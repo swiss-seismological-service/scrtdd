@@ -242,12 +242,12 @@ private:
                        const XCorrCache &xcorr,
                        ObservationParams &obsparams) const;
 
-  CatalogPtr
-  updateRelocatedEvents(const Solver &solver,
-                        const CatalogCPtr &catalog,
-                        const std::list<NeighboursPtr> &neighbourCats,
-                        ObservationParams &obsparams,
-                        std::unordered_map<unsigned, NeighboursPtr> &neighCluster) const;
+  CatalogPtr updateRelocatedEvents(
+      const Solver &solver,
+      const CatalogCPtr &catalog,
+      const std::list<NeighboursPtr> &neighbourCats,
+      ObservationParams &obsparams,
+      std::unordered_map<unsigned, NeighboursPtr> &neighCluster) const;
 
   CatalogPtr updateRelocatedEventsFinalStats(
       const CatalogCPtr &startingCatalog,

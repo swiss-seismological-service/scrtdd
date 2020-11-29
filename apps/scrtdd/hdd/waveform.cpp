@@ -571,12 +571,12 @@ bool xcorr(const GenericRecordCPtr &tr1,
   }
 
   int fe = fetestexcept(FE_ALL_EXCEPT);
-  if ( (fe & ~FE_INEXACT) != 0 ) // we don't care about FE_INEXACT
+  if ((fe & ~FE_INEXACT) != 0) // we don't care about FE_INEXACT
   {
     SEISCOMP_WARNING("Floating point exception during cross-correlation:");
     if (fe & FE_DIVBYZERO) SEISCOMP_WARNING("FE_DIVBYZERO");
-    if (fe & FE_INVALID)   SEISCOMP_WARNING("FE_INVALID");
-    if (fe & FE_OVERFLOW)  SEISCOMP_WARNING("FE_OVERFLOW");
+    if (fe & FE_INVALID) SEISCOMP_WARNING("FE_INVALID");
+    if (fe & FE_OVERFLOW) SEISCOMP_WARNING("FE_OVERFLOW");
     if (fe & FE_UNDERFLOW) SEISCOMP_WARNING("FE_UNDERFLOW");
   }
 

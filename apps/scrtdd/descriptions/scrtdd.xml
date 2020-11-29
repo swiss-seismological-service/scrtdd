@@ -665,7 +665,14 @@
                             </parameter>
                             <parameter name="finalValue"    type="double" default="0.3">
                               <description>Value for the last iteration of the solver</description> 
-                            </parameter> 
+                            </parameter>
+                            <parameter name="dampByTTResiduals" type="boolean" default="false">
+                              <description>Use travel time residuals as driving values for
+                                damping the double-different system. The relocated origins
+                                will have better absolute locations but the relative locations
+                                might lose in resolution
+                              </description> 
+                            </parameter>
                         </group>
                         <group name="aPrioriWeights">
                             <description>

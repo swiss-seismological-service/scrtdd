@@ -184,7 +184,9 @@ private:
   computeResidualWeights(const std::vector<double> &residuals,
                          const double alpha) const;
 
-  void prepareDDSystem(bool useTTconstraint, double residualDownWeight);
+  void prepareDDSystem(bool useTTconstraint,
+                       double dampingFactor,
+                       double residualDownWeight);
 
   template <class T>
   void _solve(unsigned numIterations,

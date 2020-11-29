@@ -589,7 +589,9 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
   return weights;
 }
 
-void Solver::prepareDDSystem(bool useTTconstraint, double residualDownWeight)
+void Solver::prepareDDSystem(bool useTTconstraint,
+                             double dampingFactor,
+                             double residualDownWeight)
 {
   computePartialDerivatives();
 
@@ -734,8 +736,7 @@ void Solver::prepareDDSystem(bool useTTconstraint, double residualDownWeight)
         const ParamStats &prmSts = _paramStats.at(evIdx).at(phStaIdx);
 
         _dd->W[ttconstraintIdx] =
-            prmSts.totalFinalWeight /
-            ((prmSts.finalTotalObs + 1) * evObsParamMap.size());
+            prmSts.totalFinalWeight / evObsParamMap.size() * dampingFactor;
         _dd->d[ttconstraintIdx] =
             -obprm.travelTimeResidual * _dd->W[ttconstraintIdx];
         _dd->evByObs[0][ttconstraintIdx] = evIdx;
@@ -814,7 +815,7 @@ void Solver::_solve(unsigned numIterations,
                     double residualDownWeight,
                     bool normalizeG)
 {
-  prepareDDSystem(useTTconstraint, residualDownWeight);
+  prepareDDSystem(useTTconstraint, dampingFactor, residualDownWeight);
 
   Adapter<T> solver;
   solver.setDDSytem(_dd);
@@ -823,7 +824,10 @@ void Solver::_solve(unsigned numIterations,
     solver.L2normalize();
   }
 
-  solver.SetDamp(dampingFactor);
+  if (!useTTconstraint)
+  {
+    solver.SetDamp(dampingFactor);
+  }
   solver.SetMaximumNumberOfIterations(numIterations ? numIterations
                                                     : _dd->numColsG / 2);
 

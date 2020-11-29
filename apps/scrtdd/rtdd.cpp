@@ -923,15 +923,12 @@ bool RTDD::validateParameters()
     {
       prof->ddcfg.solver.dampingFactorEnd = 0.3;
     }
-    if (prof->ddcfg.solver.dampingFactorStart < 0 ||
-        prof->ddcfg.solver.dampingFactorEnd < 0)
+    try
     {
-      SEISCOMP_INFO("Enabled travel time constrains in DD system");
-      prof->ddcfg.solver.ttConstraint       = true;
-      prof->ddcfg.solver.dampingFactorStart = 0;
-      prof->ddcfg.solver.dampingFactorEnd   = 0;
+      prof->ddcfg.solver.ttConstraint =
+          configGetBool(prefix + "dampingFactor.dampByTTResiduals");
     }
-    else
+    catch (...)
     {
       prof->ddcfg.solver.ttConstraint = false;
     }
