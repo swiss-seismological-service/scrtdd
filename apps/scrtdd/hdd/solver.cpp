@@ -736,7 +736,10 @@ void Solver::prepareDDSystem(bool useTTconstraint,
         const ParamStats &prmSts = _paramStats.at(evIdx).at(phStaIdx);
 
         _dd->W[ttconstraintIdx] =
-            prmSts.totalFinalWeight / evObsParamMap.size() * dampingFactor;
+            (prmSts.finalTotalObs != 0)
+                ? (prmSts.totalFinalWeight /
+                   (prmSts.finalTotalObs * evObsParamMap.size()))
+                : 0;
         _dd->d[ttconstraintIdx] =
             -obprm.travelTimeResidual * _dd->W[ttconstraintIdx];
         _dd->evByObs[0][ttconstraintIdx] = evIdx;
@@ -823,14 +826,9 @@ void Solver::_solve(unsigned numIterations,
   {
     solver.L2normalize();
   }
-
-  if (!useTTconstraint)
-  {
-    solver.SetDamp(dampingFactor);
-  }
+  solver.SetDamp(dampingFactor);
   solver.SetMaximumNumberOfIterations(numIterations ? numIterations
                                                     : _dd->numColsG / 2);
-
   const double eps = 1e-15;
   solver.SetEpsilon(eps);
   solver.SetToleranceA(1e-16);

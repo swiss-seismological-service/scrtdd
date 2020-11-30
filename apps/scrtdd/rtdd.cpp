@@ -907,6 +907,15 @@ bool RTDD::validateParameters()
     }
     try
     {
+      prof->ddcfg.solver.ttConstraint =
+          configGetBool(prefix + "useTTResiduals");
+    }
+    catch (...)
+    {
+      prof->ddcfg.solver.ttConstraint = true;
+    }
+    try
+    {
       prof->ddcfg.solver.dampingFactorStart =
           configGetDouble(prefix + "dampingFactor.startingValue");
     }
@@ -922,15 +931,6 @@ bool RTDD::validateParameters()
     catch (...)
     {
       prof->ddcfg.solver.dampingFactorEnd = 0.3;
-    }
-    try
-    {
-      prof->ddcfg.solver.ttConstraint =
-          configGetBool(prefix + "dampingFactor.dampByTTResiduals");
-    }
-    catch (...)
-    {
-      prof->ddcfg.solver.ttConstraint = false;
     }
 
     try
