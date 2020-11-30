@@ -53,7 +53,7 @@ public:
   {
     std::fill_n(_dd->L2NScaler, _dd->numColsG, 0.);
 
-    for (unsigned int ob = 0; ob < _dd->nObs; ob++)
+    for (unsigned int ob = 0; ob < _dd->numRowsG; ob++)
     {
       const double obsW = _dd->W[ob];
       if (obsW == 0.) continue;
@@ -61,7 +61,7 @@ public:
       const unsigned phStaIdx =
           _dd->phStaByObs[ob]; // station for this observation
 
-      const int evIdx1 = _dd->evByObs[ob][0]; // event 1 for this observation
+      const int evIdx1 = _dd->evByObs[0][ob]; // event 1 for this observation
       if (evIdx1 >= 0)
       {
         const unsigned idxG     = evIdx1 * _dd->nPhStas + phStaIdx;
@@ -72,7 +72,7 @@ public:
         _dd->L2NScaler[evOffset + 3] += std::pow(_dd->G[idxG][3] * obsW, 2);
       }
 
-      const int evIdx2 = _dd->evByObs[ob][1]; // event 2 for this observation
+      const int evIdx2 = _dd->evByObs[1][ob]; // event 2 for this observation
       if (evIdx2 >= 0)
       {
         const unsigned idxG     = evIdx2 * _dd->nPhStas + phStaIdx;
@@ -81,19 +81,6 @@ public:
         _dd->L2NScaler[evOffset + 1] += std::pow(_dd->G[idxG][1] * obsW, 2);
         _dd->L2NScaler[evOffset + 2] += std::pow(_dd->G[idxG][2] * obsW, 2);
         _dd->L2NScaler[evOffset + 3] += std::pow(_dd->G[idxG][3] * obsW, 2);
-      }
-    }
-
-    double const *meanShiftWeight = &_dd->W[_dd->nObs];
-    if (meanShiftWeight[0] != 0 || meanShiftWeight[1] != 0 ||
-        meanShiftWeight[2] != 0 || meanShiftWeight[3] != 0)
-    {
-      for (unsigned evOffset = 0; evOffset < _dd->numColsG; evOffset += 4)
-      {
-        _dd->L2NScaler[evOffset + 0] += std::pow(meanShiftWeight[0], 2);
-        _dd->L2NScaler[evOffset + 1] += std::pow(meanShiftWeight[1], 2);
-        _dd->L2NScaler[evOffset + 2] += std::pow(meanShiftWeight[2], 2);
-        _dd->L2NScaler[evOffset + 3] += std::pow(meanShiftWeight[3], 2);
       }
     }
 
@@ -135,7 +122,7 @@ public:
       throw std::runtime_error(msg.c_str());
     }
 
-    for (unsigned int ob = 0; ob < _dd->nObs; ob++)
+    for (unsigned int ob = 0; ob < _dd->numRowsG; ob++)
     {
       if (_dd->W[ob] == 0.) continue;
 
@@ -143,7 +130,7 @@ public:
           _dd->phStaByObs[ob]; // station for this observation
       double sum = 0;
 
-      const int evIdx1 = _dd->evByObs[ob][0]; // event 1 for this observation
+      const int evIdx1 = _dd->evByObs[0][ob]; // event 1 for this observation
       if (evIdx1 >= 0)
       {
         const unsigned idxG     = evIdx1 * _dd->nPhStas + phStaIdx;
@@ -154,7 +141,7 @@ public:
         sum += _dd->G[idxG][3] * _dd->L2NScaler[evOffset + 3] * x[evOffset + 3];
       }
 
-      const int evIdx2 = _dd->evByObs[ob][1]; // event 2 for this observation
+      const int evIdx2 = _dd->evByObs[1][ob]; // event 2 for this observation
       if (evIdx2 >= 0)
       {
         const unsigned idxG     = evIdx2 * _dd->nPhStas + phStaIdx;
@@ -166,24 +153,6 @@ public:
       }
 
       y[ob] += _dd->W[ob] * sum;
-    }
-
-    double *meanShiftWeight = &_dd->W[_dd->nObs];
-    if (meanShiftWeight[0] != 0 || meanShiftWeight[1] != 0 ||
-        meanShiftWeight[2] != 0 || meanShiftWeight[3] != 0)
-    {
-      double meanShift[4] = {0};
-      for (unsigned evOffset = 0; evOffset < _dd->numColsG; evOffset += 4)
-      {
-        meanShift[0] += x[evOffset + 0] * _dd->L2NScaler[evOffset + 0];
-        meanShift[1] += x[evOffset + 1] * _dd->L2NScaler[evOffset + 1];
-        meanShift[2] += x[evOffset + 2] * _dd->L2NScaler[evOffset + 2];
-        meanShift[3] += x[evOffset + 3] * _dd->L2NScaler[evOffset + 3];
-      }
-      y[_dd->nObs + 0] += meanShift[0] * meanShiftWeight[0];
-      y[_dd->nObs + 1] += meanShift[1] * meanShiftWeight[1];
-      y[_dd->nObs + 2] += meanShift[2] * meanShiftWeight[2];
-      y[_dd->nObs + 3] += meanShift[3] * meanShiftWeight[3];
     }
   }
 
@@ -205,7 +174,7 @@ public:
       throw std::runtime_error(msg.c_str());
     }
 
-    for (unsigned int ob = 0; ob < _dd->nObs; ob++)
+    for (unsigned int ob = 0; ob < _dd->numRowsG; ob++)
     {
       const double wY = y[ob] * _dd->W[ob];
       if (wY == 0.) continue;
@@ -213,7 +182,7 @@ public:
       const unsigned phStaIdx =
           _dd->phStaByObs[ob]; // station for this observation
 
-      const int evIdx1 = _dd->evByObs[ob][0]; // event 1 for this observation
+      const int evIdx1 = _dd->evByObs[0][ob]; // event 1 for this observation
       if (evIdx1 >= 0)
       {
         const unsigned idxG     = evIdx1 * _dd->nPhStas + phStaIdx;
@@ -224,7 +193,7 @@ public:
         x[evOffset + 3] += _dd->G[idxG][3] * _dd->L2NScaler[evOffset + 3] * wY;
       }
 
-      const int evIdx2 = _dd->evByObs[ob][1]; // event 2 for this observation
+      const int evIdx2 = _dd->evByObs[1][ob]; // event 2 for this observation
       if (evIdx2 >= 0)
       {
         const unsigned idxG     = evIdx2 * _dd->nPhStas + phStaIdx;
@@ -233,23 +202,6 @@ public:
         x[evOffset + 1] -= _dd->G[idxG][1] * _dd->L2NScaler[evOffset + 1] * wY;
         x[evOffset + 2] -= _dd->G[idxG][2] * _dd->L2NScaler[evOffset + 2] * wY;
         x[evOffset + 3] -= _dd->G[idxG][3] * _dd->L2NScaler[evOffset + 3] * wY;
-      }
-    }
-
-    double *meanShiftWeight = &_dd->W[_dd->nObs];
-    if (meanShiftWeight[0] != 0 || meanShiftWeight[1] != 0 ||
-        meanShiftWeight[2] != 0 || meanShiftWeight[3] != 0)
-    {
-      for (unsigned evOffset = 0; evOffset < _dd->numColsG; evOffset += 4)
-      {
-        x[evOffset + 0] += meanShiftWeight[0] * y[_dd->nObs + 0] *
-                           _dd->L2NScaler[evOffset + 0];
-        x[evOffset + 1] += meanShiftWeight[1] * y[_dd->nObs + 1] *
-                           _dd->L2NScaler[evOffset + 1];
-        x[evOffset + 2] += meanShiftWeight[2] * y[_dd->nObs + 2] *
-                           _dd->L2NScaler[evOffset + 2];
-        x[evOffset + 3] += meanShiftWeight[3] * y[_dd->nObs + 3] *
-                           _dd->L2NScaler[evOffset + 3];
       }
     }
   }
@@ -269,8 +221,6 @@ void Solver::addObservation(unsigned evId1,
                             char phase,
                             double observedDiffTime,
                             double aPrioriWeight,
-                            bool computeEv1Changes,
-                            bool computeEv2Changes,
                             bool isXcorr)
 {
   string phStaId    = string(1, phase) + "@" + staId;
@@ -279,9 +229,8 @@ void Solver::addObservation(unsigned evId1,
   unsigned evIdx2   = _eventIdConverter.convert(evId2);
   unsigned phStaIdx = _phStaIdConverter.convert(phStaId);
   unsigned obsIdx   = _obsIdConverter.convert(obsId);
-  _observations[obsIdx] = Observation(
-      {evIdx1, evIdx2, phStaIdx, computeEv1Changes, computeEv2Changes,
-       observedDiffTime, aPrioriWeight, isXcorr});
+  _observations[obsIdx] = Observation{evIdx1,           evIdx2,        phStaIdx,
+                                      observedDiffTime, aPrioriWeight, isXcorr};
 }
 
 void Solver::addObservationParams(unsigned evId,
@@ -293,7 +242,9 @@ void Solver::addObservationParams(unsigned evId,
                                   double staLat,
                                   double staLon,
                                   double staElevation,
+                                  bool computeEvChanges,
                                   double travelTime,
+                                  double travelTimeResidual,
                                   double takeOffAngle,
                                   double velocityAtSrc)
 {
@@ -303,8 +254,14 @@ void Solver::addObservationParams(unsigned evId,
   _eventParams[evIdx] = EventParams{evLat, evLon, evDepth, 0, 0, 0};
   _stationParams[phStaIdx] =
       StationParams{staLat, staLon, staElevation, 0, 0, 0};
-  _obsParams[evIdx][phStaIdx] =
-      ObservationParams{travelTime, takeOffAngle, velocityAtSrc, 0, 0, 0};
+  _obsParams[evIdx][phStaIdx] = ObservationParams{computeEvChanges,
+                                                  travelTime,
+                                                  travelTimeResidual,
+                                                  takeOffAngle,
+                                                  velocityAtSrc,
+                                                  0,
+                                                  0,
+                                                  0};
 }
 
 bool Solver::getEventChanges(unsigned evId,
@@ -335,7 +292,8 @@ bool Solver::getObservationParamsChanges(unsigned evId,
                                          unsigned &finalTotalObs,
                                          double &meanAPrioriWeight,
                                          double &meanFinalWeight,
-                                         double &meanObsResiduals) const
+                                         double &meanObsResiduals,
+                                         std::set<unsigned> &evIds) const
 {
   if (!_eventIdConverter.hasId(evId)) return false;
 
@@ -369,12 +327,14 @@ bool Solver::getObservationParamsChanges(unsigned evId,
     meanFinalWeight  = prmSts.totalFinalWeight / finalTotalObs;
     meanObsResiduals = prmSts.totalResiduals / finalTotalObs;
   }
+  evIds.insert(prmSts.peerEvIds.begin(), prmSts.peerEvIds.end());
   return true;
 }
 
 void Solver::loadSolutions()
 {
-  auto computeEventDelta = [this](unsigned evIdx, EventDeltas &evDelta) {
+  auto computeEventDelta = [this](unsigned evIdx,
+                                  EventDeltas &evDelta) -> bool {
     const EventParams &evprm = _eventParams.at(evIdx);
     const unsigned evOffset  = evIdx * 4;
 
@@ -382,6 +342,12 @@ void Solver::loadSolutions()
     double deltaY      = _dd->m[evOffset + 1];
     evDelta.deltaDepth = _dd->m[evOffset + 2];
     evDelta.deltaTT    = _dd->m[evOffset + 3];
+
+    if (!std::isfinite(deltaX) || !std::isfinite(deltaY) ||
+        !std::isfinite(evDelta.deltaDepth) || !std::isfinite(evDelta.deltaTT))
+    {
+      return false;
+    }
 
     double newX = evprm.x + deltaX;
     double newY = evprm.y + deltaY;
@@ -402,44 +368,11 @@ void Solver::loadSolutions()
 
     evDelta.deltaLat = newLat - evprm.lat;
     evDelta.deltaLon = newLon - evprm.lon;
+    return true;
   };
 
   //
-  // Compute final weghts for each ObservationParams
-  // Note: we could have done this even before solving the system
-  //       but here is more convenient because we might eventually
-  //       add more statitical information that require the solution
-  //
-  for (unsigned int obIdx = 0; obIdx < _dd->nObs; obIdx++)
-  {
-    double observationWeight = _dd->W[obIdx];
-
-    if (observationWeight == 0.) continue;
-
-    const unsigned phStaIdx =
-        _dd->phStaByObs[obIdx]; // station for this observation
-
-    const int evIdx1 = _dd->evByObs[obIdx][0]; // event 1 for this observation
-    if (evIdx1 >= 0)
-    {
-      ParamStats &prmSts = _paramStats.at(evIdx1).at(phStaIdx);
-      prmSts.finalTotalObs++;
-      prmSts.totalFinalWeight += observationWeight;
-      prmSts.totalResiduals += _residuals.at(obIdx);
-    }
-
-    const int evIdx2 = _dd->evByObs[obIdx][1]; // event 2 for this observation
-    if (evIdx2 >= 0)
-    {
-      ParamStats &prmSts = _paramStats.at(evIdx2).at(phStaIdx);
-      prmSts.finalTotalObs++;
-      prmSts.totalFinalWeight += observationWeight;
-      prmSts.totalResiduals += _residuals.at(obIdx);
-    }
-  }
-
-  //
-  // Now build a map of events that have at least one observation whose weight
+  // Build a map of events that have at least one observation whose weight
   // is non zero (i.e. discard events that lost all their observations due to
   // downweighting )
   //
@@ -465,11 +398,12 @@ void Solver::loadSolutions()
   // Load change in event parameters for all events that have at least
   // one non-zero-weight observation
   //
-  for (auto &kw : _eventDeltas)
+  for (auto it = _eventDeltas.begin(); it != _eventDeltas.end();)
   {
-    const unsigned evIds = kw.first;
-    EventDeltas &evDelta = kw.second;
-    computeEventDelta(evIds, evDelta);
+    const unsigned evIds = it->first;
+    EventDeltas &evDelta = it->second;
+    it                   = computeEventDelta(evIds, evDelta) ? std::next(it)
+                                           : _eventDeltas.erase(it);
   }
 
   // free some memory
@@ -538,12 +472,12 @@ void Solver::computePartialDerivatives()
     for (auto &kv2 : kv1.second)
     {
       unsigned phStaIdx           = kv2.first;
-      ObservationParams &obsprm   = kv2.second;
+      ObservationParams &obprm    = kv2.second;
       const EventParams &evprm    = _eventParams.at(evIdx);
       const StationParams &staprm = _stationParams.at(phStaIdx);
 
-      double velocityAtSrc = obsprm.velocityAtSrc;
-      double takeOffAngle  = obsprm.takeOffAngle;
+      double velocityAtSrc = obprm.velocityAtSrc;
+      double takeOffAngle  = obprm.takeOffAngle;
 
       // when velocityAtSrc and/or takeOff angle are not provided
       // use straight ray path approximation
@@ -554,7 +488,7 @@ void Solver::computePartialDerivatives()
                             staprm.lon, -staprm.elevation / 1000.);
         if (velocityAtSrc == 0)
         {
-          velocityAtSrc = distance / obsprm.travelTime;
+          velocityAtSrc = distance / obprm.travelTime;
         }
         if (takeOffAngle == 0)
         {
@@ -566,9 +500,9 @@ void Solver::computePartialDerivatives()
       double xyAngle  = std::atan2(evprm.y - staprm.y, evprm.x - staprm.x);
       double slowness = 1. / velocityAtSrc;
 
-      obsprm.dx = slowness * std::cos(takeOffAngle) * std::cos(xyAngle);
-      obsprm.dy = slowness * std::cos(takeOffAngle) * std::sin(xyAngle);
-      obsprm.dz = slowness * std::sin(takeOffAngle);
+      obprm.dx = slowness * std::cos(takeOffAngle) * std::cos(xyAngle);
+      obprm.dy = slowness * std::cos(takeOffAngle) * std::sin(xyAngle);
+      obprm.dz = slowness * std::sin(takeOffAngle);
     }
   }
 }
@@ -655,13 +589,24 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
   return weights;
 }
 
-void Solver::prepareDDSystem(array<double, 4> meanShiftConstraint,
+void Solver::prepareDDSystem(bool useTTconstraint,
+                             double dampingFactor,
                              double residualDownWeight)
 {
   computePartialDerivatives();
 
+  // Count how many travel time constraints we need in the DD system
+  unsigned ttconstraintNum = 0;
+  if (useTTconstraint)
+  {
+    for (const auto &kv1 : _obsParams)
+      for (const auto &kv2 : kv1.second)
+        if (kv2.second.computeEvChanges) ttconstraintNum++;
+  }
+
+  // Allocate DD system memory
   _dd = DDSystemPtr(new DDSystem(_observations.size(), _eventIdConverter.size(),
-                                 _phStaIdConverter.size()));
+                                 _phStaIdConverter.size(), ttconstraintNum));
 
   // Init m and L2NScaler
   std::fill_n(_dd->m, _dd->numColsG, 0);
@@ -674,10 +619,10 @@ void Solver::prepareDDSystem(array<double, 4> meanShiftConstraint,
     for (const auto &kv2 : kv1.second)
     {
       unsigned phStaIdx                          = kv2.first;
-      const ObservationParams &obsprm            = kv2.second;
-      _dd->G[evIdx * _dd->nPhStas + phStaIdx][0] = obsprm.dx;
-      _dd->G[evIdx * _dd->nPhStas + phStaIdx][1] = obsprm.dy;
-      _dd->G[evIdx * _dd->nPhStas + phStaIdx][2] = obsprm.dz;
+      const ObservationParams &obprm             = kv2.second;
+      _dd->G[evIdx * _dd->nPhStas + phStaIdx][0] = obprm.dx;
+      _dd->G[evIdx * _dd->nPhStas + phStaIdx][1] = obprm.dy;
+      _dd->G[evIdx * _dd->nPhStas + phStaIdx][2] = obprm.dz;
       _dd->G[evIdx * _dd->nPhStas + phStaIdx][3] = 1.; // travel time
     }
   }
@@ -686,56 +631,45 @@ void Solver::prepareDDSystem(array<double, 4> meanShiftConstraint,
   // note: m is zero initialized
   for (auto &kw : _observations)
   {
-    unsigned obIdx     = kw.first;
-    Observation &obsrv = kw.second;
+    unsigned obIdx                  = kw.first;
+    Observation &ob                 = kw.second;
+    const ObservationParams &obprm1 = _obsParams.at(ob.ev1Idx).at(ob.phStaIdx);
+    const ObservationParams &obprm2 = _obsParams.at(ob.ev2Idx).at(ob.phStaIdx);
 
-    _dd->W[obIdx]          = obsrv.aPrioriWeight;
-    _dd->evByObs[obIdx][0] = obsrv.computeEv1Changes ? obsrv.ev1Idx : -1;
-    _dd->evByObs[obIdx][1] = obsrv.computeEv2Changes ? obsrv.ev2Idx : -1;
-    _dd->phStaByObs[obIdx] = obsrv.phStaIdx;
-
+    _dd->W[obIdx]          = ob.aPrioriWeight;
+    _dd->evByObs[0][obIdx] = obprm1.computeEvChanges ? ob.ev1Idx : -1;
+    _dd->evByObs[1][obIdx] = obprm2.computeEvChanges ? ob.ev2Idx : -1;
+    _dd->phStaByObs[obIdx] = ob.phStaIdx;
     // compute double difference
-    const ObservationParams &obsprm1 =
-        _obsParams.at(obsrv.ev1Idx).at(obsrv.phStaIdx);
-    const ObservationParams &obsprm2 =
-        _obsParams.at(obsrv.ev2Idx).at(obsrv.phStaIdx);
     _dd->d[obIdx] =
-        obsrv.observedDiffTime - (obsprm1.travelTime - obsprm2.travelTime);
+        ob.observedDiffTime - (obprm1.travelTime - obprm2.travelTime);
 
     // apply weights to d
     _dd->d[obIdx] *= _dd->W[obIdx];
 
-    // keep track of the wights for these obsparms
-    if (obsrv.computeEv1Changes)
+    // (bookkeeping) keep track of the wights for these obsparms
+    if (obprm1.computeEvChanges)
     {
-      ParamStats &prmSts = _paramStats[obsrv.ev1Idx][obsrv.phStaIdx];
-      if (obsrv.isXcorr)
+      ParamStats &prmSts = _paramStats[ob.ev1Idx][ob.phStaIdx];
+      if (ob.isXcorr)
         prmSts.startingCCObs++;
       else
         prmSts.startingTTObs++;
       prmSts.totalAPrioriWeight += _dd->W[obIdx];
+      prmSts.peerEvIds.insert(_eventIdConverter.fromIdx(ob.ev2Idx));
     }
 
-    if (obsrv.computeEv2Changes)
+    if (obprm2.computeEvChanges)
     {
-      ParamStats &prmSts = _paramStats[obsrv.ev2Idx][obsrv.phStaIdx];
-      if (obsrv.isXcorr)
+      ParamStats &prmSts = _paramStats[ob.ev2Idx][ob.phStaIdx];
+      if (ob.isXcorr)
         prmSts.startingCCObs++;
       else
         prmSts.startingTTObs++;
       prmSts.totalAPrioriWeight += _dd->W[obIdx];
+      prmSts.peerEvIds.insert(_eventIdConverter.fromIdx(ob.ev1Idx));
     }
   }
-
-  // Init remaining 4 equations for cluster zero mean shift and their weights
-  _dd->d[_dd->nObs + 0] = 0;
-  _dd->d[_dd->nObs + 1] = 0;
-  _dd->d[_dd->nObs + 2] = 0;
-  _dd->d[_dd->nObs + 3] = 0;
-  _dd->W[_dd->nObs + 0] = meanShiftConstraint[0];
-  _dd->W[_dd->nObs + 1] = meanShiftConstraint[1];
-  _dd->W[_dd->nObs + 2] = meanShiftConstraint[2];
-  _dd->W[_dd->nObs + 3] = meanShiftConstraint[3];
 
   // downweight observations by residuals
   _residuals = vector<double>(_dd->d, _dd->d + _dd->nObs);
@@ -747,6 +681,71 @@ void Solver::prepareDDSystem(array<double, 4> meanShiftConstraint,
     {
       _dd->W[obIdx] *= resWeights[obIdx];
       _dd->d[obIdx] *= resWeights[obIdx];
+    }
+  }
+
+  //
+  // (bookkeeping) Compute final stats for each ObservationParams
+  //
+  for (unsigned int obIdx = 0; obIdx < _dd->nObs; obIdx++)
+  {
+    double observationWeight = _dd->W[obIdx];
+
+    if (observationWeight == 0.) continue;
+
+    const unsigned phStaIdx =
+        _dd->phStaByObs[obIdx]; // station for this observation
+
+    const int evIdx1 = _dd->evByObs[0][obIdx]; // event 1 for this observation
+    if (evIdx1 >= 0)
+    {
+      ParamStats &prmSts = _paramStats.at(evIdx1).at(phStaIdx);
+      prmSts.finalTotalObs++;
+      prmSts.totalFinalWeight += observationWeight;
+      prmSts.totalResiduals += _residuals.at(obIdx);
+    }
+
+    const int evIdx2 = _dd->evByObs[1][obIdx]; // event 2 for this observation
+    if (evIdx2 >= 0)
+    {
+      ParamStats &prmSts = _paramStats.at(evIdx2).at(phStaIdx);
+      prmSts.finalTotalObs++;
+      prmSts.totalFinalWeight += observationWeight;
+      prmSts.totalResiduals += _residuals.at(obIdx);
+    }
+  }
+
+  // Add travel time residual constraints after DD observations
+  if (useTTconstraint)
+  {
+    unsigned ttconstraintIdx = _dd->nObs - 1;
+    for (const auto &kv1 : _obsParams)
+    {
+      unsigned evIdx            = kv1.first;
+      const auto &evObsParamMap = kv1.second;
+      for (const auto &kv2 : evObsParamMap)
+      {
+        unsigned phStaIdx              = kv2.first;
+        const ObservationParams &obprm = kv2.second;
+
+        if (!obprm.computeEvChanges) continue;
+
+        if (++ttconstraintIdx > _dd->numRowsG)
+          throw runtime_error("Solver: internal logic error");
+
+        const ParamStats &prmSts = _paramStats.at(evIdx).at(phStaIdx);
+
+        _dd->W[ttconstraintIdx] =
+            (prmSts.finalTotalObs != 0)
+                ? (prmSts.totalFinalWeight /
+                   (prmSts.finalTotalObs * evObsParamMap.size()))
+                : 0;
+        _dd->d[ttconstraintIdx] =
+            -obprm.travelTimeResidual * _dd->W[ttconstraintIdx];
+        _dd->evByObs[0][ttconstraintIdx] = evIdx;
+        _dd->evByObs[1][ttconstraintIdx] = -1;
+        _dd->phStaByObs[ttconstraintIdx] = phStaIdx;
+      }
     }
   }
 
@@ -785,12 +784,9 @@ void Solver::prepareDDSystem(array<double, 4> meanShiftConstraint,
 }
 
 void Solver::solve(unsigned numIterations,
+                   bool useTTconstraint,
                    double dampingFactor,
                    double residualDownWeight,
-                   double meanLonShiftConstraint,
-                   double meanLatShiftConstraint,
-                   double meanDepthShiftConstraint,
-                   double meanTTShiftConstraint,
                    bool normalizeG)
 {
   if (_observations.size() == 0)
@@ -798,22 +794,15 @@ void Solver::solve(unsigned numIterations,
     throw runtime_error("Solver: no observations given");
   }
 
-  array<double, 4> meanShiftConstraint = {
-      meanLonShiftConstraint,
-      meanLatShiftConstraint,
-      meanDepthShiftConstraint,
-      meanTTShiftConstraint,
-  };
-
   if (_type == "LSQR")
   {
-    _solve<lsqrBase>(numIterations, dampingFactor, residualDownWeight,
-                     meanShiftConstraint, normalizeG);
+    _solve<lsqrBase>(numIterations, useTTconstraint, dampingFactor,
+                     residualDownWeight, normalizeG);
   }
   else if (_type == "LSMR")
   {
-    _solve<lsmrBase>(numIterations, dampingFactor, residualDownWeight,
-                     meanShiftConstraint, normalizeG);
+    _solve<lsmrBase>(numIterations, useTTconstraint, dampingFactor,
+                     residualDownWeight, normalizeG);
   }
   else
   {
@@ -824,12 +813,12 @@ void Solver::solve(unsigned numIterations,
 
 template <class T>
 void Solver::_solve(unsigned numIterations,
+                    bool useTTconstraint,
                     double dampingFactor,
                     double residualDownWeight,
-                    array<double, 4> meanShiftConstraint,
                     bool normalizeG)
 {
-  prepareDDSystem(meanShiftConstraint, residualDownWeight);
+  prepareDDSystem(useTTconstraint, dampingFactor, residualDownWeight);
 
   Adapter<T> solver;
   solver.setDDSytem(_dd);
@@ -837,23 +826,21 @@ void Solver::_solve(unsigned numIterations,
   {
     solver.L2normalize();
   }
-
   solver.SetDamp(dampingFactor);
   solver.SetMaximumNumberOfIterations(numIterations ? numIterations
                                                     : _dd->numColsG / 2);
-
   const double eps = 1e-15;
   solver.SetEpsilon(eps);
   solver.SetToleranceA(1e-16);
   solver.SetToleranceB(1e-16);
   solver.SetUpperLimitOnConditional(1.0 / (10 * sqrt(eps)));
 
-  // std::ostringstream solverLogs;
-  // solver.SetOutputStream( solverLogs );
+  std::ostringstream solverLogs;
+  solver.SetOutputStream(solverLogs);
 
   solver.Solve(_dd->numRowsG, _dd->numColsG, _dd->d, _dd->m);
 
-  // SEISCOMP_DEBUG("%s", solverLogs.str().c_str() );
+  SEISCOMP_DEBUG("%s", solverLogs.str().c_str());
 
   SEISCOMP_INFO("Stopped because %u : %s (used %u Iterations)",
                 solver.GetStoppingReason(),

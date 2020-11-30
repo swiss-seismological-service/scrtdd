@@ -19,6 +19,7 @@
 
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
+#include <cfenv>
 #include <fstream>
 #include <iostream>
 #include <seiscomp3/client/inventory.h>
@@ -420,7 +421,7 @@ GenericRecordPtr readTrace(const std::string &file)
 }
 
 /*
- * Calculate the correlation series (tr1 and tr2 are already demeaned)
+ * Calculate the correlation series
  *
  * delayOut is the shift in seconds (positive or negative) between tr1 and tr2
  * middle points to get the highest correlation coefficient (coeffOut) between
@@ -451,10 +452,10 @@ bool xcorr(const GenericRecordCPtr &tr1,
   GenericRecordCPtr trShorter = swap ? tr2 : tr1;
   GenericRecordCPtr trLonger  = swap ? tr1 : tr2;
 
-  const double *smpsS = DoubleArray::ConstCast(trShorter->data())->typedData();
-  const double *smpsL = DoubleArray::ConstCast(trLonger->data())->typedData();
-  const int smpsSsize = trShorter->data()->size();
-  const int smpsLsize = trLonger->data()->size();
+  const double *dataS = DoubleArray::ConstCast(trShorter->data())->typedData();
+  const double *dataL = DoubleArray::ConstCast(trLonger->data())->typedData();
+  const int sizeS     = trShorter->data()->size();
+  const int sizeL     = trLonger->data()->size();
 
   //
   // for later quality check: save local maxima/minima
@@ -474,37 +475,84 @@ bool xcorr(const GenericRecordCPtr &tr1,
   };
   LocalMaxima localMaxs, localMins;
 
-  auto sampleAtLong = [&smpsSsize, &smpsLsize, &smpsL](int idxS, int delay) {
-    int idxL = idxS + (smpsLsize - smpsSsize) / 2 + delay;
-    return (idxL < 0 || idxL >= smpsLsize) ? 0 : smpsL[idxL];
+  /*
+   * Pearson correlation coefficient for time series X and Y of length n
+   *
+   *              sum((Xi-meanX) * (Yi-meanY))
+   * cc = --------------------------------------------------
+   *      sqrt(sum((Xi-meanX)^2)) * sqrt(sum((Yi-meanY)^2))
+   *
+   * Where sum(X)  is the sum of Xi for i=1 until i=n
+   *
+   * This can be rearranged in a form suitable for a single-pass algorithm
+   * (where the mean of X and Y are not needed)
+   *
+   *                 n * sum(Xi*Yi) - sum(Xi) * sum(Yi)
+   * cc = -----------------------------------------------------------
+   *      sqrt(n*sum(Xi^2)-sum(Xi)^2) * sqrt(n*sum(Yi^2)-sum(Yi)^2))
+   *
+   * For cross-correlation, where we have a short trace S which is correlated
+   * against a longer trace L at subsequent offset, we can pre-compute the
+   * parts that involves S and re-use them at each step of the
+   * cross-correlation:
+   *
+   *   sumS   = sum(Xi)
+   *   denomS = sqrt(n*sum(Xi^2)-sum(Xi)^2)
+   *
+   * For the parts that involves the longer trace L alone we can compute them
+   * in a rolling fashion (removing first sample of previous iteration and
+   * adding the last sample of the new iteration):
+   *
+   *   sumL   = sum(Yi)
+   *   sumL2  = sum(Yi^2)
+   *   denomL = sqrt(n*sumL2-sumL^2))
+   *
+   * Finally, this is the equation at each step (offset) of cross-correlation:
+   *
+   *       n * sum(Xi*Yi) - sumS * sumL
+   * cc = ------------------------------
+   *             denomS * denomL
+   *
+   * Unfortunately we cannot optimize sum(Xi*Yi) and this will be a inner
+   * loop inside the main cross-correlation loop
+   */
+
+  auto sampleAtDataL = [&sizeS, &sizeL, &dataL](int idxS, int delay) {
+    int idxL = idxS + (sizeL - sizeS) / 2 + delay;
+    return (idxL < 0 || idxL >= sizeL) ? 0 : dataL[idxL];
   };
 
-  // do as much computation as possible outside the main xcorr loop
-  double denomL = 0, denomS = 0;
-  for (int idxS = 0; idxS < smpsSsize; idxS++)
+  std::feclearexcept(FE_ALL_EXCEPT);
+
+  const int n = sizeS;
+  double sumS = 0, sumS2 = 0;
+  double sumL = 0, sumL2 = 0;
+  for (int i = 0; i < n; i++)
   {
-    denomS += smpsS[idxS] * smpsS[idxS];
-    double sampleL = sampleAtLong(idxS, -(maxDelaySmps + 1));
-    denomL += sampleL * sampleL;
+    sumS += dataS[i];
+    sumS2 += dataS[i] * dataS[i];
+    double sampleL = sampleAtDataL(i, -(maxDelaySmps + 1));
+    sumL += sampleL;
+    sumL2 += sampleL * sampleL;
   }
+  double denomS = std::sqrt(n * sumS2 - sumS * sumS);
 
   // cross-correlation loop
   for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
   {
-    // remove from denomL the sample that has exited the current xcorr win
-    double lastSampleL = sampleAtLong(-1, delay);
-    denomL -= lastSampleL * lastSampleL;
-    // add to denomL the sample that has just entered the current xcorr win
-    double newSampleL = sampleAtLong(smpsSsize - 1, delay);
-    denomL += newSampleL * newSampleL;
+    // sumL/sumL2: remove the sample that has exited the current xcorr win
+    // and add the sample that has just entered the current xcorr win
+    const double lastSampleL = sampleAtDataL(-1, delay);
+    const double newSampleL  = sampleAtDataL(n - 1, delay);
+    sumL += newSampleL - lastSampleL;
+    sumL2 += newSampleL * newSampleL - lastSampleL * lastSampleL;
 
-    // compute numerator
-    double numer = 0;
-    for (int idxS = 0; idxS < smpsSsize; idxS++)
-      numer += smpsS[idxS] * sampleAtLong(idxS, delay);
+    const double denomL = std::sqrt(n * sumL2 - sumL * sumL);
 
-    const double denom = std::sqrt(denomS * denomL);
-    const double coeff = numer / denom;
+    double sumSL = 0;
+    for (int i = 0; i < n; i++) sumSL += dataS[i] * sampleAtDataL(i, delay);
+
+    const double coeff = (n * sumSL - sumS * sumL) / (denomS * denomL);
 
     if (std::abs(coeff) > std::abs(coeffOut) || !std::isfinite(coeffOut))
     {
@@ -520,6 +568,16 @@ bool xcorr(const GenericRecordCPtr &tr1,
   if (swap)
   {
     delayOut = -delayOut;
+  }
+
+  int fe = fetestexcept(FE_ALL_EXCEPT);
+  if ((fe & ~FE_INEXACT) != 0) // we don't care about FE_INEXACT
+  {
+    SEISCOMP_WARNING("Floating point exception during cross-correlation:");
+    if (fe & FE_DIVBYZERO) SEISCOMP_WARNING("FE_DIVBYZERO");
+    if (fe & FE_INVALID) SEISCOMP_WARNING("FE_INVALID");
+    if (fe & FE_OVERFLOW) SEISCOMP_WARNING("FE_OVERFLOW");
+    if (fe & FE_UNDERFLOW) SEISCOMP_WARNING("FE_UNDERFLOW");
   }
 
   /*
@@ -769,7 +827,7 @@ GenericRecordPtr Loader::readAndProjectWaveform(const Core::TimeWindow &tw,
 
   // The wrapper will direct 3 codes into the right slots using the
   // Stream configuration class and will finally use the transformation
-  // operator. The advantage is that it will apply the configured gain for
+  // operator. The advantage is that it will apply the configured gain
   typedef Operator::StreamConfigWrapper<double, 3, Operator::Transformation>
       OpWrapper;
 
@@ -783,6 +841,14 @@ GenericRecordPtr Loader::readAndProjectWaveform(const Core::TimeWindow &tw,
   streams[2].init(tc.comps[ThreeComponents::Vertical]);
   streams[1].init(tc.comps[ThreeComponents::FirstHorizontal]);
   streams[0].init(tc.comps[ThreeComponents::SecondHorizontal]);
+
+  // Set gain to 0 since we do not need the gain for cross-correlation
+  // and for consistency with rest of the API (e.g.
+  // readWaveformFromRecordStream)
+  streams[2].gain = 0;
+  streams[1].gain = 0;
+  streams[0].gain = 0;
+
   Rotator op(
       OpWrapper(streams, Operator::Transformation<double, 3>(transformation)));
 

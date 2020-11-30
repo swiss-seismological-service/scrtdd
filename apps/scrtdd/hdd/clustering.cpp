@@ -34,6 +34,25 @@ using Station = HDD::Catalog::Station;
 namespace Seiscomp {
 namespace HDD {
 
+std::unordered_map<std::string, std::set<Catalog::Phase::Type>>
+Neighbours::allPhases() const
+{
+  std::unordered_map<std::string, std::set<Catalog::Phase::Type>> allPhases;
+  for (const auto &kw1 : phases)
+    for (const auto &kw2 : kw1.second)
+      allPhases[kw2.first].insert(kw2.second.begin(), kw2.second.end());
+  return allPhases;
+}
+
+CatalogPtr Neighbours::toCatalog(const CatalogCPtr &catalog,
+                                 bool includeRefEv) const
+{
+  CatalogPtr returnCat(new Catalog());
+  for (unsigned neighbourId : ids) returnCat->add(neighbourId, *catalog, true);
+  if (includeRefEv) returnCat->add(refEvId, *catalog, true);
+  return returnCat;
+}
+
 NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
                                        const Event &refEv,
                                        const CatalogCPtr &refEvCatalog,
@@ -258,8 +277,8 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
   // Finally build the catalog of neighboring events using the elipsoids
   // algorithm or simply the nearest neighbour method
   //
-  NeighboursPtr neighboringEventCat(new Neighbours());
-  neighboringEventCat->refEvId = refEv.id;
+  NeighboursPtr neighbours(new Neighbours());
+  neighbours->refEvId = refEv.id;
 
   if (numEllipsoids <= 0)
   {
@@ -274,8 +293,8 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
       const Event &ev                      = evSelEntry.event;
 
       // add this event to the catalog
-      neighboringEventCat->ids.insert(ev.id);
-      neighboringEventCat->phases[ev.id] = evSelEntry.phases;
+      neighbours->ids.insert(ev.id);
+      neighbours->phases[ev.id] = evSelEntry.phases;
 
       SEISCOMP_INFO("Neighbour: #obsers %2d distance %5.2f azimuth %3.f "
                     "depth-diff %6.3f depth %5.3f event %s",
@@ -283,9 +302,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
                     azimuthByEvent[ev.id], refEv.depth - ev.depth, ev.depth,
                     string(ev).c_str());
 
-      if (maxNumNeigh > 0 &&
-          neighboringEventCat->numNeighbours() >= maxNumNeigh)
-        break;
+      if (maxNumNeigh > 0 && neighbours->numNeighbours() >= maxNumNeigh) break;
     }
   }
   else
@@ -305,8 +322,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
           // if we don't have events or we have already selected maxNumNeigh
           // neighbors exit
           if (selectedEvents.empty() ||
-              (maxNumNeigh > 0 &&
-               neighboringEventCat->numNeighbours() >= maxNumNeigh))
+              (maxNumNeigh > 0 && neighbours->numNeighbours() >= maxNumNeigh))
           {
             workToDo = false;
             break;
@@ -325,8 +341,8 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
             if (found)
             {
               // add this event to the catalog
-              neighboringEventCat->ids.insert(ev.id);
-              neighboringEventCat->phases[ev.id] = evSelEntry.phases;
+              neighbours->ids.insert(ev.id);
+              neighbours->phases[ev.id] = evSelEntry.phases;
 
               selectedEvents.erase(it);
 
@@ -347,31 +363,30 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
   }
 
   // Check if enough neighbors were found
-  if (neighboringEventCat->numNeighbours() < minNumNeigh)
+  if (neighbours->numNeighbours() < minNumNeigh)
   {
     string msg =
         stringify("Skipping event %s, insufficient number of neighbors (%d)",
-                  string(refEv).c_str(), neighboringEventCat->numNeighbours());
+                  string(refEv).c_str(), neighbours->numNeighbours());
     SEISCOMP_DEBUG("%s", msg.c_str());
     throw runtime_error(msg);
   }
 
-  return neighboringEventCat;
+  return neighbours;
 }
 
-deque<list<NeighboursPtr>>
-selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
-                                double minPhaseWeight,
-                                double minESdist,
-                                double maxESdist,
-                                double minEStoIEratio,
-                                unsigned minDTperEvt,
-                                unsigned maxDTperEvt,
-                                unsigned minNumNeigh,
-                                unsigned maxNumNeigh,
-                                unsigned numEllipsoids,
-                                double maxEllipsoidSize,
-                                bool keepUnmatched)
+list<NeighboursPtr> selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
+                                                    double minPhaseWeight,
+                                                    double minESdist,
+                                                    double maxESdist,
+                                                    double minEStoIEratio,
+                                                    unsigned minDTperEvt,
+                                                    unsigned maxDTperEvt,
+                                                    unsigned minNumNeigh,
+                                                    unsigned maxNumNeigh,
+                                                    unsigned numEllipsoids,
+                                                    double maxEllipsoidSize,
+                                                    bool keepUnmatched)
 {
   SEISCOMP_INFO("Selecting Catalog Neighbouring Events ");
 
@@ -464,15 +479,14 @@ selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
     } while (redo);
   }
 
-  return clusterizeNeighbouringEvents(neighboursList);
+  return neighboursList;
 }
 
 /*
  * Organize the neighbours by not connected clusters
  * Also, we don't want to report the same pair multiple times
  * (e.g. ev1-ev2 and ev2-ev1) since we only want one observation
- * for pair when creating the double-difference observations
- * system
+ * per pair
  */
 deque<list<NeighboursPtr>>
 clusterizeNeighbouringEvents(const list<NeighboursPtr> &neighboursList)
@@ -545,6 +559,7 @@ clusterizeNeighbouringEvents(const list<NeighboursPtr> &neighboursList)
       }
     }
 
+    // Save current cluster
     unsigned maxKey       = clusters.empty() ? 0 : clusters.rbegin()->first;
     unsigned newClusterId = maxKey + 1;
 

@@ -74,7 +74,7 @@ void TravelTimeTable::compute(double eventLat,
   travelTime    = tt.time;
   velocityAtSrc = velocityAtSource(depth, phaseType);
   // tt.takeOff is not computed for LOCSAT and for libTau it seems wrong
-  takeOffAngle = 0; 
+  takeOffAngle = 0;
 }
 
 // Since the seiscomp travel time api doesn't offer the velocity at
@@ -105,9 +105,11 @@ double TravelTimeTable::velocityAtSource(double eventDepth,
   double binVelocity = 0;
   try
   {
-    double tt1 = (binStartDepth == 0) ? 0 :
-        _ttt->compute(phaseType.c_str(), 0, 0, binStartDepth, 0, 0, 0).time;
-    double tt2 = 
+    double tt1 = (binStartDepth == 0) ? 0
+                                      : _ttt->compute(phaseType.c_str(), 0, 0,
+                                                      binStartDepth, 0, 0, 0)
+                                            .time;
+    double tt2 =
         _ttt->compute(phaseType.c_str(), 0, 0, binEndDepth, 0, 0, 0).time;
 
     binVelocity = _depthVelResolution / (tt2 - tt1); // [km/sec]
@@ -120,9 +122,9 @@ double TravelTimeTable::velocityAtSource(double eventDepth,
   // store the value
   _depthVel[phaseType][bin] = binVelocity;
 
-  //SEISCOMP_DEBUG("velocityAtSource %s bin %u depth %.3f[km] vel %.3f [m/sec]",
-  //               phaseType.c_str(), bin, bin * _depthVelResolution,
-  //               binVelocity);
+  // SEISCOMP_DEBUG(
+  // "velocityAtSource %s bin %u depth %.3f[km] vel %.3f [m/sec]",
+  //  phaseType.c_str(), bin, bin * _depthVelResolution, binVelocity);
 
   return binVelocity;
 }

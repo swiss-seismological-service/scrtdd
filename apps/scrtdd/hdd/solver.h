@@ -22,6 +22,7 @@
 #include "lsqr.h"
 
 #include <seiscomp3/core/baseobject.h>
+#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -32,7 +33,7 @@ namespace HDD {
  * Store data for a double-difference problem as described in Waldhaused &
  * Ellsworth 2000 paper:
  *
- *      W*G*m = d*W;
+ *      W G m = d W;
  *
  * Where G contains the partial derivatives of the travel times with respect to
  * event location and origin times.
@@ -41,8 +42,8 @@ namespace HDD {
  * d is the data vector containing the double-differences
  * W is a diagonal matrix to weight each equation.
  *
- * This class also contains 4 additional equations for constraining the mean
- * shift of all earthquakes during relocation.
+ * This class also contains additional equations for constraining the shift of
+ * earthquakes accordingly to travel time residuals.
  *
  * We take advantage of the sparsness of G matrix, so G is not a full matrix
  */
@@ -55,46 +56,51 @@ struct DDSystem : public Core::BaseObject
   const unsigned nEvts;
   // number of stations
   const unsigned nPhStas;
-  // W[nObs+4]: weight of each observation + cluster mean shift constraints
-  // (x,y,z,time)
+  // number of obtional travel time constraints
+  const unsigned nTTconstraints;
+  // weight of each row of G matrix
   double *W;
-  // G[nEvts*nPhStas][4]: 3 partial derivatives for each event/station pair + tt
-  // (dx,dy,dz,1)
+  // The G matrix stores data in a dense format since it is a sparce matrix:
+  // 3 partial derivatives for each event/station pair + tt (dx,dy,dz,1)
   double (*G)[4];
-  // m[nEvts*4]: changes for each event hypocentral parameters we wish to
-  // determine (x,y,z,t)
+  // Changes for each event hypocentral parameters we wish to determine
+  // (x,y,z,t)
   double(*m);
-  // d[nObs+4]: double differences, one for each observation + mean shift
-  // constraints (x,y,z,time)
+  // double differences + optional travel time constraints
   double *d;
-  // L2NScaler[nEvts*4]: L2 norm scaler for each G column
+  // L2 norm scaler for each G column
   double *L2NScaler;
-  // evByObs[nObs][2]: map of 2 event idx for each observation (index -1 means
-  // no parameters)
-  int (*evByObs)[2];
-  // phStaByObs[nObs]: map of station idx for each observation
+  // map of 2 event idx for each observation (index -1 means no parameters)
+  int *evByObs[2];
+  // map of station idx for each observation
   unsigned *phStaByObs;
 
-  const unsigned numRowsG;
   const unsigned numColsG;
+  const unsigned numRowsG;
 
-  DDSystem(unsigned _nObs, unsigned _nEvts, unsigned _nPhStas)
-      : nObs(_nObs), nEvts(_nEvts), nPhStas(_nPhStas), numRowsG(nObs + 4),
-        numColsG(nEvts * 4)
+  DDSystem(unsigned _nObs,
+           unsigned _nEvts,
+           unsigned _nPhStas,
+           unsigned _nTTconstraints = 0)
+      : nObs(_nObs), nEvts(_nEvts), nPhStas(_nPhStas),
+        nTTconstraints(_nTTconstraints), numColsG(nEvts * 4),
+        numRowsG(_nObs + _nTTconstraints)
   {
     W          = new double[numRowsG];
     G          = new double[nEvts * nPhStas][4];
     m          = new double[numColsG];
     d          = new double[numRowsG];
     L2NScaler  = new double[numColsG];
-    evByObs    = new int[nObs][2];
-    phStaByObs = new unsigned[nObs];
+    evByObs[0] = new int[numRowsG];
+    evByObs[1] = new int[numRowsG];
+    phStaByObs = new unsigned[numRowsG];
   }
 
   virtual ~DDSystem()
   {
     delete[] phStaByObs;
-    delete[] evByObs;
+    delete[] evByObs[0];
+    delete[] evByObs[1];
     delete[] L2NScaler;
     delete[] d;
     delete[] m;
@@ -129,8 +135,6 @@ public:
                       char phase,
                       double diffTime,
                       double aPrioriWeight,
-                      bool computeEv1Changes,
-                      bool computeEv2Changes,
                       bool isXcorr);
 
   void addObservationParams(unsigned evId,
@@ -142,18 +146,17 @@ public:
                             double staLat,
                             double staLon,
                             double staElevation,
+                            bool computeEvChanges,
                             double travelTime,
+                            double travelTimeResidual,
                             double takeOffAngle  = 0,
                             double velocityAtSrc = 0);
 
-  void solve(unsigned numIterations          = 0,
-             double dampingFactor            = 0,
-             double residualDownWeight       = 0,
-             double meanLonShiftConstraint   = 0,
-             double meanLatShiftConstraint   = 0,
-             double meanDepthShiftConstraint = 0,
-             double meanTTShiftConstraint    = 0,
-             bool normalizeG                 = true);
+  void solve(unsigned numIterations    = 0,
+             bool useTTconstraint      = false,
+             double dampingFactor      = 0,
+             double residualDownWeight = 0,
+             bool normalizeG           = true);
 
   bool getEventChanges(unsigned evId,
                        double &deltaLat,
@@ -169,7 +172,8 @@ public:
                                    unsigned &finalTotalObs,
                                    double &meanAPrioriWeight,
                                    double &meanFinalWeight,
-                                   double &meanObsResidual) const;
+                                   double &meanObsResidual,
+                                   std::set<unsigned> &evIds) const;
 
 private:
   void computePartialDerivatives();
@@ -180,14 +184,15 @@ private:
   computeResidualWeights(const std::vector<double> &residuals,
                          const double alpha) const;
 
-  void prepareDDSystem(std::array<double, 4> meanShiftConstraint,
+  void prepareDDSystem(bool useTTconstraint,
+                       double dampingFactor,
                        double residualDownWeight);
 
   template <class T>
   void _solve(unsigned numIterations,
+              bool useTTconstraint,
               double dampingFactor,
               double residualDownWeight,
-              std::array<double, 4> meanShiftConstraint,
               bool normalizeG);
 
   void loadSolutions();
@@ -234,8 +239,6 @@ private:
     unsigned ev1Idx;
     unsigned ev2Idx;
     unsigned phStaIdx;
-    bool computeEv1Changes;
-    bool computeEv2Changes;
     double observedDiffTime;
     double aPrioriWeight;
     bool isXcorr;
@@ -258,7 +261,9 @@ private:
 
   struct ObservationParams
   {
+    bool computeEvChanges;
     double travelTime;
+    double travelTimeResidual;
     double takeOffAngle;
     double velocityAtSrc;
     double dx;
@@ -277,6 +282,7 @@ private:
     double totalAPrioriWeight = 0;
     double totalFinalWeight   = 0;
     double totalResiduals     = 0;
+    std::set<unsigned> peerEvIds;
   };
   // key1=evIdx  key2=phStaIdx
   std::unordered_map<unsigned, std::unordered_map<unsigned, ParamStats>>

@@ -184,11 +184,11 @@ In addition to the options we have already seen, there are also some other inter
 
 E.g.
 ```
-scrtdd --dump-catalog-xml station.csv,event.csv,phase.csv
+scrtdd --dump-catalog-xml station.csv,event.csv,phase.csv > mycatalog.xml
 ```
 or
 ```
-scrtdd --dump-catalog-xml myCatalog.csv
+scrtdd --dump-catalog-xml myCatalog.csv > mycatalog.xml
 ```
 
 `--merge-catalogs` and `--merge-catalogs-keepid` are useful to merge several catalogs in a single one. The difference between the two is that "keepid" properly handle repeted events. e.g.
