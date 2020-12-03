@@ -379,9 +379,27 @@ Picks that have been updated or created by scrtdd are identifiable by a `x` suff
 
 Manual picks are never modified.
 
-### 2.5 RecordStream configuration
+### 2.5 Recolation results summary
 
-SeisComP3 applications access waveform data through the RecordStream interface and it is usually configured in global.cfg, for example:
+Each relocated origin has two comments that contains information on the relocation process: ```scrtddSourceOrigin``` and ```scrtddRelocationReport```. They can be both visualized in  scolv (see official SeisComP documentation on how to do it).
+
+```scrtddSourceOrigin``` simply contains the id of the origin that triggered the relocation. ```scrtddRelocationReport``` contains a summary of the relocation process (the full information is available in the log files). E.g.
+
+```
+Origin changes: location=0.23[km] depth=1.40[km] time=-0.147[sec]
+Rms change [sec]: -0.153 (before/after 0.502/0.349)
+Neighbours=80 Used Phases: P=37 S=16
+Stations distance [km]: min=15.9 median=57.0 max=99.8
+Neighbours mean distace to centroid [km]: location=5.11 depth=5.06
+Origin distace to neighbours centroid [km]: location=1.30 depth=3.01
+DD observations: 687 (CC P/S 141/47 TT P/S 375/124)
+DD observations residuals [msec]: before=-106+/-21.6 after=9+/-26.2
+```
+
+
+### 2.6 RecordStream configuration
+
+SeisComP applications access waveform data through the RecordStream interface (see official SeisComP documentation for more details) and it is usually configured in global.cfg, for example:
 
 ```
 recordstream = combined://slink/localhost:18000;sdsarchive//mnt/miniseed
