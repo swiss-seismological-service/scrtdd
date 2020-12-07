@@ -912,7 +912,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->ddcfg.solver.ttConstraint = true;
+      prof->ddcfg.solver.ttConstraint = false;
     }
     try
     {

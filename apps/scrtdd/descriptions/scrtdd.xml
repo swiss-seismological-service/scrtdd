@@ -626,9 +626,10 @@
                                increasing/decreasing the number of interations.
                             </description>
                         </parameter>
-                        <parameter name="useTTResiduals" type="boolean" default="true">
+                        <parameter name="useTTResiduals" type="boolean" default="false">
                           <description>Include travel time residuals in the double-difference
-                            system. The relocated origins will improve in absolute locations                              but the relative locations might lose in resolution
+                            system. The relocated origins will improve in absolute locations
+                            but the relative locations might lose in resolution
                           </description> 
                         </parameter>
                         <group name="downWeightingByResidual">

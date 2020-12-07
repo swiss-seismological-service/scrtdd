@@ -54,6 +54,13 @@ For compiling SeisComP, please refer to https://github.com/SeisComP/seiscomp#bui
 
 # Getting Started
 
+* [1.Multi-event relocation](#1-multi-event-relocationi)
+* [2.Real-time single-event relocation](#2-real-time-single-event-relocation)
+* [3.Cross-correlation](#3-cross-correlation)
+* [4.Waveforms data caching](#4-waveforms-data-caching) 
+* [5.Scolv Locator plugin](#5-scolv-locator-plugin) 
+* [6.Troubleshooting](#6-troubleshooting) 
+
 ## 1. Multi-event relocation
 
 In this section we will explain how to relocate a set of existing events in offline mode: no interaction with the running system or database will take place. The relocated events will be stored in plain text files and can be used externaly to SeisComP. Optionally it is possible to import the relocated events back into the database.
@@ -379,9 +386,27 @@ Picks that have been updated or created by scrtdd are identifiable by a `x` suff
 
 Manual picks are never modified.
 
-### 2.5 RecordStream configuration
+### 2.5 Recolation results summary
 
-SeisComP3 applications access waveform data through the RecordStream interface and it is usually configured in global.cfg, for example:
+Each relocated origin has two comments that contains information on the relocation process: ```scrtddSourceOrigin``` and ```scrtddRelocationReport```. They can be both visualized in  scolv (see official SeisComP documentation on how to do it).
+
+```scrtddSourceOrigin``` simply contains the id of the origin that triggered the relocation. ```scrtddRelocationReport``` contains a summary of the relocation process (the full information is available in the log files). E.g.
+
+```
+Origin changes: location=0.23[km] depth=1.40[km] time=-0.147[sec]
+Rms change [sec]: -0.153 (before/after 0.502/0.349)
+Neighbours=80 Used Phases: P=37 S=16
+Stations distance [km]: min=15.9 median=57.0 max=99.8
+Neighbours mean distace to centroid [km]: location=5.11 depth=5.06
+Origin distace to neighbours centroid [km]: location=1.30 depth=3.01
+DD observations: 687 (CC P/S 141/47 TT P/S 375/124)
+DD observations residuals [msec]: before=-106+/-21.6 after=9+/-26.2
+```
+
+
+### 2.6 RecordStream configuration
+
+SeisComP applications access waveform data through the RecordStream interface (see official SeisComP documentation for more details) and it is usually configured in global.cfg, for example:
 
 ```
 recordstream = combined://slink/localhost:18000;sdsarchive//mnt/miniseed
@@ -400,7 +425,7 @@ recordstream = combined://slink/localhost:18000?timeout=1&retries=0;sdsarchive//
 Also we use `cron.delayTimes` option to re-perform the relocation some minutes later in case we know more waveforms will become available at a later time.
 
 
-## 3. Cross-correlation, waveform filtering and signal to noise ratio options
+## 3. Cross-correlation
 
 Good cross-correlation results are needed to achieve high resolution double-difference observations, which in turn results in high quality relocations.
 
@@ -620,7 +645,7 @@ scrtdd --load-profile-wf myprofile
 
 
 
-## 5. Locator plugin
+## 5. Scolv Locator plugin
 
 A (re)locator plugin is also avaiable in the code, which makes scrtdd available via scolv. To enable this plugin just add `rtddloc` to the list of plugins in the global configuration.
 

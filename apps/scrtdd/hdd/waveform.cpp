@@ -554,7 +554,7 @@ bool xcorr(const GenericRecordCPtr &tr1,
 
     const double coeff = (n * sumSL - sumS * sumL) / (denomS * denomL);
 
-    if (std::abs(coeff) > std::abs(coeffOut) || !std::isfinite(coeffOut))
+    if (!std::isfinite(coeffOut) || std::abs(coeff) > std::abs(coeffOut))
     {
       coeffOut = coeff;
       delayOut = delay / freq; // samples to secs
