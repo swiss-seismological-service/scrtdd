@@ -72,7 +72,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
       "Selecting Neighbouring Events for event %s lat %.6f lon %.6f depth %.4f",
       string(refEv).c_str(), refEv.latitude, refEv.longitude, refEv.depth);
 
-  // Optimization: make code faster but the result will be the same
+  // Optimization: make code faster but the result will be the same.
   if (maxNumNeigh <= 0)
   {
     SEISCOMP_INFO("Disabling ellipsoid algorithm since maxNumNeigh is not set");
@@ -100,8 +100,8 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
                                         refEv.longitude, refEv.depth));
 
   //
-  // sort catalog events by distance and drop the ones further than the outmost
-  // ellipsoid
+  // Sort catalog events by distance and drop the ones further than the outmost
+  // ellipsoid.
   //
   unordered_map<unsigned, double> distanceByEvent; // eventid, distance
   unordered_map<unsigned, double> azimuthByEvent;  // eventid, azimuth
@@ -128,7 +128,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
   }
 
   //
-  // Select stations within configured distance
+  // select stations within configured distance
   //
   unordered_map<string, double> validatedStationDistance;
   for (const auto &kv : catalog->getStations())
@@ -139,7 +139,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
     // compute distance between reference event and station
     double staRefEvDistance = computeDistance(refEv, station);
 
-    // check this station distance is ok
+    // check if station distance is ok
     if ((maxESdist <= 0 || staRefEvDistance <= maxESdist) || // too far away ?
         (staRefEvDistance >= minESdist))                     // too close ?
     {
@@ -148,7 +148,8 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
   }
 
   //
-  // Select from the events within distance the ones who respect the constraints
+  // Select from the events within distance the ones which respect the
+  // constraints.
   //
   struct SelectedEventEntry
   {
@@ -165,10 +166,8 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
     const Event &event         = catalog->getEvents().at(kv.first);
     const double eventDistance = kv.second;
 
-    //
-    // Loop through this even phases and keep track of
-    // the valid phases and their station distance
-    //
+    // Loop through event phases and keep track of the valid phases and their
+    // station distance.
     multimap<double, pair<string, Phase::Type>>
         stationByDistance; // distance, <stationid,phaseType>
     multimap<double, pair<string, Phase::Type>>
@@ -194,7 +193,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
           minEStoIEratio) // ratio too small ?
       {
         continue;
-      } // check this station distance to current event is ok
+      } // check if the station distance to the current event is valid
       if (maxESdist > 0 || minESdist > 0 || minEStoIEratio > 0)
       {
         // compute distance between current event and station
@@ -232,7 +231,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
           pair<string, Phase::Type>(phase.stationId, phase.procInfo.type));
     }
 
-    // Check enough phases (> minDTperEvt) ? if not skip event
+    // check if enough phases (> `minDTperEvt`); if not skip event
     if (stationByDistance.size() < minDTperEvt)
     {
       continue;
@@ -240,14 +239,15 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
 
     unsigned numObservations = 0;
 
-    // Since the constraints are met evSelEntry will be added to selectedEvents
+    // Since the constraints are met `evSelEntry` will be added to
+    // `selectedEvents`
     SelectedEventEntry evSelEntry;
     evSelEntry.event = event;
 
-    // Copy the phases
+    // copy the phases
     for (const auto &kw : stationByDistance)
     {
-      // if maxDTperEvt is set then make sure to stay within limits
+      // If `maxDTperEvt` is set, make sure to stay within limits.
       if (maxDTperEvt > 0 && numObservations >= maxDTperEvt) break;
       const pair<string, Phase::Type> &staPh = kw.second;
       evSelEntry.phases[staPh.first].insert(staPh.second);
@@ -256,11 +256,11 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
 
     if (keepUnmatched)
     {
-      // Those neighbour's phases respects the constraints and if we add
-      // theoretical picks to refEv those phases might become useful for xcorr
+      // Add theoretical picks to `refEv` of those neighbors' phases respecting
+      // the constraints. Those phases might be used for cross-correlation.
       for (const auto &kw : unmatchedPhases)
       {
-        // if maxDTperEvt is set then make sure to stay within limits
+        // if `maxDTperEvt` is set, make sure to stay within limits
         if (maxDTperEvt > 0 && numObservations >= maxDTperEvt) break;
         const pair<string, Phase::Type> &staPh = kw.second;
         evSelEntry.phases[staPh.first].insert(staPh.second);
@@ -273,20 +273,16 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
     dtCountByEvent.emplace(event.id, numObservations);
   }
 
-  //
-  // Finally build the catalog of neighboring events using the elipsoids
-  // algorithm or simply the nearest neighbour method
-  //
+  // Finally, build the catalog of neighboring events using either the
+  // ellipsoids algorithm or the nearest neighbour method.
   NeighboursPtr neighbours(new Neighbours());
   neighbours->refEvId = refEv.id;
 
   if (numEllipsoids <= 0)
   {
-    //
-    // if numEllipsoids is 0 then disable the ellipsoid algorithm and simply
-    // select events on the nearest neighbor basis Since selectedEvents is
-    // sorted by distance we get closer events first
-    //
+    // If `numEllipsoids` is 0, disable the ellipsoid algorithm and simply
+    // select events by means of the nearest neighbor algorithm. Since
+    // `selectedEvents` is sorted by distance, we obtain closer events first.
     for (auto kv : selectedEvents)
     {
       const SelectedEventEntry &evSelEntry = kv.second;
@@ -308,7 +304,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
   else
   {
     //
-    // Apply Waldauser's concentric ellipsoids algorithm
+    // apply Waldauser's concentric ellipsoids algorithm
     //
     vector<int> quadrants = {1, 2, 3, 4, 5, 6, 7, 8};
     bool workToDo         = true;
@@ -319,8 +315,8 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
       {
         for (int quadrant : quadrants)
         {
-          // if we don't have events or we have already selected maxNumNeigh
-          // neighbors exit
+          // if we either don't have events or we have already selected
+          // `maxNumNeigh` neighbors, exit
           if (selectedEvents.empty() ||
               (maxNumNeigh > 0 && neighbours->numNeighbours() >= maxNumNeigh))
           {
@@ -328,7 +324,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
             break;
           }
 
-          // since selectedEvents is sorted by distance we get closer events
+          // since `selectedEvents` is sorted by distance, we get closer events
           // first
           for (auto it = selectedEvents.begin(); it != selectedEvents.end();
                it++)
@@ -362,7 +358,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
     }
   }
 
-  // Check if enough neighbors were found
+  // check if enough neighbors were found
   if (neighbours->numNeighbours() < minNumNeigh)
   {
     string msg =
@@ -422,7 +418,7 @@ list<NeighboursPtr> selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
 
       if (!neighbours)
       {
-        // event discarded because it doesn't satisfies requirements
+        // event discarded because it doesn't satisfy requirements
         removedEvents.push_back(event.id);
         // next loop we don't want other events to pick this as neighbour
         validCatalog->removeEvent(event.id);
@@ -443,7 +439,7 @@ list<NeighboursPtr> selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
       todoEvents.remove(neighbours->refEvId);
     }
 
-    // check if the removed events were used as neighbour of any other event
+    // check if the removed events were used as neighbour of any other event;
     // if so rebuild neighbours for those events
     bool redo;
     do
@@ -483,7 +479,8 @@ list<NeighboursPtr> selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
 }
 
 /*
- * Organize the neighbours by not connected clusters
+ * Organize the neighbours by not connected clusters.
+ *
  * Also, we don't want to report the same pair multiple times
  * (e.g. ev1-ev2 and ev2-ev1) since we only want one observation
  * per pair
@@ -510,7 +507,7 @@ clusterizeNeighbouringEvents(const list<NeighboursPtr> &neighboursList)
     list<NeighboursPtr> currentCluster;
     unordered_set<unsigned> connectedClusters;
 
-    while (!clusterEvs.empty()) // when empty the cluster is fully built
+    while (!clusterEvs.empty()) // when empty, the cluster is fully built
     {
       unsigned currentEv = *clusterEvs.begin();
       clusterEvs.erase(currentEv);
@@ -559,7 +556,7 @@ clusterizeNeighbouringEvents(const list<NeighboursPtr> &neighboursList)
       }
     }
 
-    // Save current cluster
+    // save current cluster
     unsigned maxKey       = clusters.empty() ? 0 : clusters.rbegin()->first;
     unsigned newClusterId = maxKey + 1;
 

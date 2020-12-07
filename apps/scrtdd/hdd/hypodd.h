@@ -41,21 +41,21 @@ struct Config
   std::vector<std::string> validPphases = {"Pg", "P", "Px"};
   std::vector<std::string> validSphases = {"Sg", "S", "Sx"};
 
-  // Absolute travel time difference observations only
+  // Absolute travel time difference observations
   struct
   {
-    double minWeight = 0; // Min weight of phases required (0-1)
+    double minWeight = 0; // min weight of phases required (0-1)
     double minEStoIEratio =
-        0; // Min epi-sta to  interevent distance ration required
-    double minESdist     = 0;  // Min epi-sta distance required
-    double maxESdist     = -1; // Max epi-sta distance allowed
-    unsigned minNumNeigh = 1;  // Min neighbors required
+        0; // min epi-sta to interevent distance ration required
+    double minESdist     = 0;  // min epi-sta distance required
+    double maxESdist     = -1; // max epi-sta distance allowed
+    unsigned minNumNeigh = 1;  // min neighbors required
     unsigned maxNumNeigh =
-        0; // Max neighbors allowed (furthest events are discarded)
+        0; // max neighbors allowed (furthest events are discarded)
     unsigned minDTperEvt =
-        1; // Min differential times per event pair required (Including P+S)
+        1; // min differential times per event pair required (Including P+S)
     unsigned maxDTperEvt =
-        0; // Max differential times per event pair required (Including P+S)
+        0; // max differential times per event pair required (Including P+S)
     // From Waldhauser 2009: to assure a spatially homogeneous subsampling,
     // reference events are selected within each of five concentric, vertically
     // longated ellipsoidal layers of increasing thickness. Each layer has 8
@@ -67,18 +67,18 @@ struct Config
   // Absolute travel time difference AND cross-correlation observations
   struct
   {
-    double minWeight = 0; // Min weight of phases required (0-1)
+    double minWeight = 0; // min weight of phases required (0-1)
     double minEStoIEratio =
-        0; // Min epi-sta to  interevent distance ration required
-    double minESdist     = 0;  // Min epi-sta distance required
-    double maxESdist     = -1; // Max epi-sta distance allowed
-    unsigned minNumNeigh = 1;  // Min neighbors required
+        0; // min epi-sta to interevent distance ration required
+    double minESdist     = 0;  // min epi-sta distance required
+    double maxESdist     = -1; // max epi-sta distance allowed
+    unsigned minNumNeigh = 1;  // min neighbors required
     unsigned maxNumNeigh =
-        0; // Max neighbors allowed (furthest events are discarded)
+        0; // max neighbors allowed (furthest events are discarded)
     unsigned minDTperEvt =
-        1; // Min differential times per event pair required (Including P+S)
+        1; // min differential times per event pair required (Including P+S)
     unsigned maxDTperEvt =
-        0; // Max differential times per event pair required (Including P+S)
+        0; // max differential times per event pair required (Including P+S)
     // From Waldhauser 2009: to assure a spatially homogeneous subsampling,
     // reference events are selected within each of five concentric, vertically
     // longated ellipsoidal layers of increasing thickness. Each layer has 8
@@ -94,10 +94,10 @@ struct Config
 
   struct XCorr
   {
-    double minCoef;                      // Min xcorr coefficient required (0-1)
-    double startOffset;                  // secs
-    double endOffset;                    // secs
-    double maxDelay;                     // secs
+    double minCoef;     // min cross-correlatation coefficient required (0-1)
+    double startOffset; // secs
+    double endOffset;   // secs
+    double maxDelay;    // secs
     std::vector<std::string> components; // priority list of components to use
   };
   std::map<Catalog::Phase::Type, struct XCorr> xcorr = {
@@ -377,13 +377,14 @@ private:
     unsigned wf_snr_low;
   } mutable _counters;
 
-  // For waveforms that are cached to disk store at least DISK_TRACE_MIN_LEN
-  // secs of data (centered at pick time)
-  // This is to avoid re-downloading waveforms every time scrtdd is restarted
-  // with a minimum change of the xcorr configuration, which happens when
-  // the user is experimenting with the configuration optiobns.
-  // This is a little overhead for the disk space but saves lot of precious user
-  // time
+  // For waveforms that are cached to disk, store at least `DISK_TRACE_MIN_LEN`
+  // secs of data (centered at pick time).
+  // This is to avoid re-downloading waveforms every time the application is
+  // restarted with a minimum change of the cross-correlation configuration,
+  // which happens when the user is experimenting with the configuration
+  // options.
+  // Note that this approach requires slightly more disk space, but saves lot of
+  // precious user time.
   static constexpr const double DISK_TRACE_MIN_LEN = 10;
 };
 

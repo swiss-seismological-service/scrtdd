@@ -142,7 +142,7 @@ private:
            static_cast<char>(type);
   }
 
-  // cache of computed xcorr
+  // cache of computed cross-correlation
   std::unordered_map<std::string, Entry> resultsByPhase;
 };
 

@@ -30,7 +30,7 @@ namespace Seiscomp {
 namespace HDD {
 
 /*
- * Store data for a double-difference problem as described in Waldhaused &
+ * Store data for a double-difference problem as described in Waldhauser &
  * Ellsworth 2000 paper:
  *
  *      W G m = d W;
@@ -38,14 +38,14 @@ namespace HDD {
  * Where G contains the partial derivatives of the travel times with respect to
  * event location and origin times.
  * m is a vector containing the changes in hypocentral parameters we wish to
- * determine for each event ( delta x, delta y, delta z and delta travel time)
+ * determine for each event (delta x, delta y, delta z and delta travel time)
  * d is the data vector containing the double-differences
  * W is a diagonal matrix to weight each equation.
  *
  * This class also contains additional equations for constraining the shift of
- * earthquakes accordingly to travel time residuals.
+ * earthquakes according to travel time residuals.
  *
- * We take advantage of the sparsness of G matrix, so G is not a full matrix
+ * We take advantage of the sparsness of G matrix, so G is not a full matrix.
  */
 struct DDSystem : public Core::BaseObject
 {
@@ -60,19 +60,20 @@ struct DDSystem : public Core::BaseObject
   const unsigned nTTconstraints;
   // weight of each row of G matrix
   double *W;
-  // The G matrix stores data in a dense format since it is a sparce matrix:
+  // The G matrix stores data in a dense format since it is a sparse matrix:
   // 3 partial derivatives for each event/station pair + tt (dx,dy,dz,1)
   double (*G)[4];
-  // Changes for each event hypocentral parameters we wish to determine
+  // changes for each event hypocentral parameters we wish to determine
   // (x,y,z,t)
   double(*m);
   // double differences + optional travel time constraints
   double *d;
   // L2 norm scaler for each G column
   double *L2NScaler;
-  // map of 2 event idx for each observation (index -1 means no parameters)
+  // map of 2 event identifiers for each observation (index -1 means no
+  // parameters)
   int *evByObs[2];
-  // map of station idx for each observation
+  // map of station identifiers for each observation
   unsigned *phStaByObs;
 
   const unsigned numColsG;
@@ -118,7 +119,7 @@ DEFINE_SMARTPOINTER(DDSystem);
 /*
  * Solver for double difference problems.
  *
- * For details see Waldhauser & Ellsworth 2000 paper
+ * For details, see Waldhauser & Ellsworth 2000 paper.
  */
 class Solver : public Core::BaseObject
 {
@@ -199,9 +200,9 @@ private:
 
 private:
   /*
-   *  Convert some hashable id of type T (e.g. string) to an alternative
-   *  rappresentaion as a sequentially growing integer starting from 0
-   *  (suitable for array index)
+   *  Convert some hashable id of type T (e.g. `std::string`) to an alternative
+   *  representation i.e. a sequentially growing integer starting from 0
+   *  (suitable for array index).
    */
   template <class T> class IdToIndex
   {

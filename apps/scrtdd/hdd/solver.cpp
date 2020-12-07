@@ -34,7 +34,7 @@ namespace {
 
 /**
  * Common DDSystem adapter for both LSQR and LSMR solvers
- * T can be lsqrBase or lsmrBase
+ * T can be `lsqrBase` or `lsmrBase`.
  */
 template <class T> class Adapter : public T
 {
@@ -47,7 +47,7 @@ public:
 
   /*
    * Scale G by normalizing the L2-norm of each column as suggested
-   * by LSQR and LSMR solvers
+   * by LSQR and LSMR solvers.
    */
   void L2normalize()
   {
@@ -91,7 +91,7 @@ public:
   }
 
   /*
-   * Rescale m back to the initial scaling
+   * Rescale m back to the initial scaling.
    */
   void L2DeNormalize()
   {
@@ -105,7 +105,7 @@ public:
   }
 
   /**
-   * Required by lsqrBase and lsmrBase:
+   * Required by `lsqrBase` and `lsmrBase`:
    *
    * computes y = y + A*x without altering x,
    * where A is a matrix of dimensions A[m][n].
@@ -157,7 +157,7 @@ public:
   }
 
   /**
-   * Required by lsqrBase and lsmrBase:
+   * Required by `lsqrBase` and `lsmrBase`:
    *
    * computes x = x + A'*y without altering y,
    * where A is a matrix of dimensions A[m][n].
@@ -352,16 +352,16 @@ void Solver::loadSolutions()
     double newX = evprm.x + deltaX;
     double newY = evprm.y + deltaY;
 
-    // compute distance and azimuth of evId to centroid (0,0,0)
+    // compute distance and azimuth of `evId` to centroid (0,0,0)
     double hdist = std::sqrt(std::pow(newX, 2) + std::pow(newY, 2));
     hdist        = Math::Geo::km2deg(hdist); // distance to degree
 
     double azimuth = std::atan2(newX, newY);
     azimuth        = rad2deg(azimuth);
 
-    // Computes the coordinates (lat, lon) of the point which
-    // is at a degree azimuth of 'azi' and a distance of 'dist' as seen
-    // from the centroid (lat0, lon0)
+    // Computes the coordinates (lat, lon) of the point which is at a degree
+    // azimuth of 'azi' and a distance of 'dist' as seen from the centroid
+    // (lat0, lon0).
     double newLat, newLon;
     Math::Geo::delandaz2coord(hdist, azimuth, _centroid.lat, _centroid.lon,
                               &newLat, &newLon);
@@ -372,9 +372,9 @@ void Solver::loadSolutions()
   };
 
   //
-  // Build a map of events that have at least one observation whose weight
-  // is non zero (i.e. discard events that lost all their observations due to
-  // downweighting )
+  // Build a map of events that has at least one non-zero-weight observation
+  // (i.e. discard events that lost all their observations due to
+  // downweighting).
   //
   for (const auto &kv1 : _paramStats)
   {
@@ -396,7 +396,7 @@ void Solver::loadSolutions()
 
   //
   // Load change in event parameters for all events that have at least
-  // one non-zero-weight observation
+  // one non-zero-weight observation.
   //
   for (auto it = _eventDeltas.begin(); it != _eventDeltas.end();)
   {
@@ -415,13 +415,13 @@ void Solver::loadSolutions()
 void Solver::computePartialDerivatives()
 {
   //
-  // Fist convert all events and staions coordinates to an euclidean space
-  // in X,Y,Z cartesian system centered around the cluster centroid, which
-  // is an approximation of the original non-euclidean system.
-  // The approximation works when the area covered by all events is small
-  // and the Earth curvature can be assumed flat
-  // Then compute the partial derivatives of the travel times with respect to
-  // the new system
+  // Convert all events and station coordinates to an euclidean space in X,Y,Z
+  // cartesian system centered around the cluster centroid, which is an
+  // approximation of the original non-euclidean system (The approximation is
+  // valid if the area covered by all events is small such that the Earth
+  // curvature can be assumed flat.).
+  // Next, compute the partial derivatives of the travel times with respect to
+  // the new system.
   //
   _centroid = {0, 0, 0};
   for (const auto &kw : _eventParams)
@@ -445,16 +445,14 @@ void Solver::computePartialDerivatives()
     z        = depth - _centroid.depth;
   };
 
-  //
-  // convert events coordinates
-  //
+  // convert events' coordinates
   for (auto &kv : _eventParams)
   {
     EventParams &evprm = kv.second;
     convertCoord(evprm.lat, evprm.lon, evprm.depth, evprm.x, evprm.y, evprm.z);
   }
 
-  // convert stations coordinates
+  // convert stations' coordinates
   for (auto &kv : _stationParams)
   {
     StationParams &staprm = kv.second;
@@ -462,9 +460,7 @@ void Solver::computePartialDerivatives()
                  staprm.y, staprm.z);
   }
 
-  //
   // compute derivatives
-  //
   for (auto &kv1 : _obsParams)
   {
     unsigned evIdx = kv1.first;
@@ -479,8 +475,8 @@ void Solver::computePartialDerivatives()
       double velocityAtSrc = obprm.velocityAtSrc;
       double takeOffAngle  = obprm.takeOffAngle;
 
-      // when velocityAtSrc and/or takeOff angle are not provided
-      // use straight ray path approximation
+      // When `velocityAtSrc` and/or `takeOffAngle` are not provided, use
+      // straight ray path approximation.
       if (velocityAtSrc == 0 || takeOffAngle == 0)
       {
         double distance =
@@ -562,7 +558,7 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
   }
 
   //
-  // Find the median absolute deviation of residuals (MAD)
+  // Find the median absolute deviation of residuals (MAD).
   //
   const double median = computeMedian(residuals);
   const double MAD    = computeMedianAbsoluteDeviation(residuals, median);
@@ -572,7 +568,7 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
                 _observations.size(), median * 1000, MAD * 1000);
 
   //
-  // Compute weights
+  // compute weights
   //
   vector<double> weights(residuals.size());
 
@@ -595,7 +591,7 @@ void Solver::prepareDDSystem(bool useTTconstraint,
 {
   computePartialDerivatives();
 
-  // Count how many travel time constraints we need in the DD system
+  // Count how many travel time constraints we need in the DD system.
   unsigned ttconstraintNum = 0;
   if (useTTconstraint)
   {
@@ -604,15 +600,15 @@ void Solver::prepareDDSystem(bool useTTconstraint,
         if (kv2.second.computeEvChanges) ttconstraintNum++;
   }
 
-  // Allocate DD system memory
+  // allocate DD system memory
   _dd = DDSystemPtr(new DDSystem(_observations.size(), _eventIdConverter.size(),
                                  _phStaIdConverter.size(), ttconstraintNum));
 
-  // Init m and L2NScaler
+  // initialize `m` and `L2NScaler`
   std::fill_n(_dd->m, _dd->numColsG, 0);
   std::fill_n(_dd->L2NScaler, _dd->numColsG, 1.);
 
-  // initialize G
+  // initialize `G`
   for (const auto &kv1 : _obsParams)
   {
     unsigned evIdx = kv1.first;
@@ -627,8 +623,7 @@ void Solver::prepareDDSystem(bool useTTconstraint,
     }
   }
 
-  // initialize: W, d, evByObsi, phStaByObs
-  // note: m is zero initialized
+  // initialize: `W`, `d`, `evByObsi`, `phStaByObs` (`m` is zero initialized)
   for (auto &kw : _observations)
   {
     unsigned obIdx                  = kw.first;
@@ -647,7 +642,7 @@ void Solver::prepareDDSystem(bool useTTconstraint,
     // apply weights to d
     _dd->d[obIdx] *= _dd->W[obIdx];
 
-    // (bookkeeping) keep track of the wights for these obsparms
+    // (bookkeeping) Keep track of the weights of observation parameters.
     if (obprm1.computeEvChanges)
     {
       ParamStats &prmSts = _paramStats[ob.ev1Idx][ob.phStaIdx];
@@ -685,7 +680,7 @@ void Solver::prepareDDSystem(bool useTTconstraint,
   }
 
   //
-  // (bookkeeping) Compute final stats for each ObservationParams
+  // (bookkeeping) Compute final stats for each observation.
   //
   for (unsigned int obIdx = 0; obIdx < _dd->nObs; obIdx++)
   {
@@ -715,7 +710,7 @@ void Solver::prepareDDSystem(bool useTTconstraint,
     }
   }
 
-  // Add travel time residual constraints after DD observations
+  // add travel time residual constraints after DD observations
   if (useTTconstraint)
   {
     unsigned ttconstraintIdx = _dd->nObs - 1;
@@ -749,7 +744,7 @@ void Solver::prepareDDSystem(bool useTTconstraint,
     }
   }
 
-  // Print residual by inter-event distance information
+  // print residual by inter-event distance
   multimap<double, unsigned> obByDist = computeInterEventDistance();
   auto obByDistIt                     = obByDist.begin();
   while (obByDistIt != obByDist.end())
@@ -842,7 +837,7 @@ void Solver::_solve(unsigned numIterations,
 
   SEISCOMP_DEBUG("%s", solverLogs.str().c_str());
 
-  SEISCOMP_INFO("Stopped because %u : %s (used %u Iterations)",
+  SEISCOMP_INFO("Stopped because %u : %s (used %u iterations)",
                 solver.GetStoppingReason(),
                 solver.GetStoppingReasonMessage().c_str(),
                 solver.GetNumberOfIterationsPerformed());

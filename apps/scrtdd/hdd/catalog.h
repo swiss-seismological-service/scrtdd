@@ -49,8 +49,8 @@ public:
     std::string stationCode;
     std::string locationCode;
 
-    // search by value when the Id is not known (works between multiple catalogs
-    // )
+    // Compare attributes when the id is not known (works between multiple
+    // catalogs).
     bool operator==(const Station &other) const
     {
       return (networkCode == other.networkCode) &&
@@ -113,8 +113,8 @@ public:
 
     } relocInfo;
 
-    // search by value when the Id is not known (works between multiple catalogs
-    // )
+    // Compare attributes when the id is not known (works between multiple
+    // catalogs).
     bool operator==(const Event &other) const
     {
       return (time == other.time) && (latitude == other.latitude) &&
@@ -172,7 +172,8 @@ public:
       double finalMeanObsResidual;
     } relocInfo;
 
-    // search by value when the Id is not known (works between catalogs )
+    // Compare attributes when the id is not known (works between multiple
+    // catalogs).
     bool operator==(const Phase &other) const
     {
       return (time == other.time) &&
@@ -196,15 +197,12 @@ public:
   Catalog();
   virtual ~Catalog() {}
 
-  // copy constructor/assignment operator
   Catalog(const Catalog &other) = default;
   Catalog &operator=(const Catalog &other) = default;
 
-  // move constructor/assignment operator
   Catalog(Catalog &&other) = default;
   Catalog &operator=(Catalog &&other) = default;
 
-  // custom data format constructors
   Catalog(std::unordered_map<std::string, Station> &&stations,
           std::map<unsigned, Event> &&events,
           std::unordered_multimap<unsigned, Phase> &&phases);

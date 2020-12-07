@@ -57,7 +57,7 @@ DEFINE_SMARTPOINTER(Ellipsoid);
 
 /*
  * Helper class to implement Waldhauser's paper method of neighboring events
- * selection based on 5 concentric ellipsoidal layers
+ * selection based on 5 concentric ellipsoidal layers.
  *
  * Quadrants (1-4 above depth, 5-8 below depth):
  *
@@ -101,18 +101,19 @@ public:
   const Ellipsoid &getInnerEllipsoid() const { return _innerEllipsoid; }
   const Ellipsoid &getOuterEllipsoid() const { return _outerEllipsoid; }
 
+  // Returns if the coordinate provided is located within the correct quadrant,
+  // and is both inside the outer layer and outside of the inner one.
   bool
   isInside(double lat, double lon, double depth, int quadrant /* 1-8 */) const
   {
-    // be in the right quadrant and inside the outer layer and outside of the
-    // inner one
     return isInQuadrant(_innerEllipsoid, lat, lon, depth, quadrant) &&
            isInside(lat, lon, depth);
   }
 
+  // Returns if the coordinate provided is located both inside the outer layer
+  // and outside of the inner one.
   bool isInside(double lat, double lon, double depth) const
   {
-    // be inside the outer layer and outside of the inner one
     return _outerEllipsoid.isInside(lat, lon, depth) &&
            !_innerEllipsoid.isInside(lat, lon, depth);
   }

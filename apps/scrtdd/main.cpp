@@ -22,7 +22,7 @@ int main(int argc, char **argv)
   int retCode = EXIT_SUCCESS;
 
   // Create an own block to make sure the application object
-  // is destroyed when printing the overall objectcount
+  // is destroyed when printing the overall objectcount.
   {
     Seiscomp::RTDD app(argc, argv);
     retCode = app.exec();

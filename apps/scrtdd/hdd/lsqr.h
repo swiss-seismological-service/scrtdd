@@ -39,8 +39,8 @@ namespace HDD {
  *                                in the least-squares sense
  *
  *   where A is a matrix with m rows and n columns, b is an m-vector,
- *   and damp is a scalar.  (All quantities are real.)
- *   The matrix A is treated as a linear operator.  It is accessed
+ *   and damp is a scalar. (All quantities are real.)
+ *   The matrix A is treated as a linear operator. It is accessed
  *   by means of subroutine calls with the following purpose:
  *
  *   call Aprod1(m,n,x,y)  must compute y = y + A*x  without altering x.
@@ -58,23 +58,23 @@ namespace HDD {
  *   scaled up or down.
  *
  *   In problems 1 and 2, the solution x is easily recovered
- *   following column-scaling.  Unless better information is known,
+ *   following column-scaling. Unless better information is known,
  *   the nonzero columns of A should be scaled so that they all have
  *   the same Euclidean norm (e.g., 1.0).
  *
  *   In problem 3, there is no freedom to re-scale if damp is
- *   nonzero.  However, the value of damp should be assigned only
+ *   nonzero. However, the value of damp should be assigned only
  *   after attention has been paid to the scaling of A.
  *
  *   The parameter damp is intended to help regularize
  *   ill-conditioned systems, by preventing the true solution from
- *   being very large.  Another aid to regularization is provided by
+ *   being very large. Another aid to regularization is provided by
  *   the parameter Acond, which may be used to terminate iterations
  *   before the computed solution becomes very large.
  *
  *   This class is a direct C++ translation from the Fortran90 version
  *   of the solver that is available at
- *   http://www.stanford.edu/group/SOL/software.html
+ *   https://web.stanford.edu/group/SOL/software.html
  *   distributed under a BSD license.
  *
  *   This class is a replacement for the lsqr code taken from netlib.
@@ -124,24 +124,24 @@ public:
   void Scale(unsigned int n, double factor, double *x) const;
 
   /**  A logical variable to say if the array se(*) of standard error estimates
-   * should be computed.  If m > n  or  damp > 0,  the system is overdetermined
+   * should be computed.  If m > n  or  damp > 0, the system is overdetermined
    * and the standard errors may be useful.  (See the first LSQR reference.)
    * Otherwise (m <= n  and  damp = 0) they do not mean much.  Some time and
    * storage can be saved by setting wantse = .false. and using any convenient
-   * array for se(*), which won't be touched.  If you call this method with the
+   * array for se(*), which won't be touched. If you call this method with the
    * flag ON, then you MUST provide a working memory array to store the standard
    * error estimates, via the method SetStandardErrorEstimates()
    */
   void SetStandardErrorEstimatesFlag(bool);
 
   /** An estimate of the relative error in the data
-   *  defining the matrix A.  For example, if A is
+   *  defining the matrix A. For example, if A is
    *  accurate to about 6 digits, set atol = 1.0e-6.
    */
   void SetToleranceA(double);
 
   /** An estimate of the relative error in the data
-   *  defining the rhs b.  For example, if b is
+   *  defining the rhs b. For example, if b is
    *  accurate to about 6 digits, set btol = 1.0e-6.
    */
   void SetToleranceB(double);
@@ -266,14 +266,14 @@ public:
 
   /**
    *   An estimate of cond(Abar), the condition
-   *   number of Abar.  A very high value of Acond
+   *   number of Abar. A very high value of Acond
    *   may again indicate an error in Aprod1 or Aprod2.
    */
   double GetConditionNumberEstimateOfAbar() const;
 
   /** An estimate of the final value of norm(rbar),
    *  the function being minimized (see notation
-   *  above).  This will be small if A*x = b has
+   *  above). This will be small if A*x = b has
    *  a solution.
    */
   double GetFinalEstimateOfNormRbar() const;

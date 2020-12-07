@@ -376,7 +376,7 @@ bool RTDD::validateParameters()
     _config.mergeCatalogs = env->absolutePath(
         commandline().option<string>("merge-catalogs-keepid"));
 
-  // Disable messaging (offline mode) with certain command line options:
+  // disable messaging (offline mode) with certain command line options
   if (!_config.eventXML.empty() || !_config.dumpCatalog.empty() ||
       !_config.mergeCatalogs.empty() || !_config.dumpCatalogXML.empty() ||
       !_config.loadProfile.empty() || !_config.evalXCorr.empty() ||
@@ -992,8 +992,7 @@ bool RTDD::validateParameters()
     _profiles.push_back(prof);
   }
 
-  // If the inventory is provided by an XML file and the --ep option too
-  // then disable the database because we don't need to access it
+  // disable the database if the inventory is provided by XML file
   if (!isInventoryDatabaseEnabled() && !_config.eventXML.empty())
   {
     SEISCOMP_INFO("Disable database connection");
@@ -1074,7 +1073,7 @@ bool RTDD::run()
       ar >> _eventParameters;
       ar.close();
     }
-    else // if file doesn't exists then XML output only (-O and --ep options
+    else // if file doesn't exist then XML output only (-O and --ep options
          // together)
     {
       _eventParameters = new DataModel::EventParameters();
@@ -1472,7 +1471,7 @@ void RTDD::handleTimeout()
 /*
  * Periodically clean up profiles unused for some time as they
  * might use lots of memory (waveform data)
- * OR, if the profiles are configured to neer expire, make sure
+ * OR, if the profiles are configured to near expire, make sure
  * they are loaded
  */
 void RTDD::checkProfileStatus()
