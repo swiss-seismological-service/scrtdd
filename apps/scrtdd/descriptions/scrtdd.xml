@@ -46,9 +46,9 @@
 
             <group name="performance">
 
-                <parameter name="profileTimeAlive" type="int" default="-1">
+                <parameter name="profileTimeAlive" type="int" default="-1" unit="s">
                     <description>
-                        Defines how long the profile data should be kept in memory (in seconds). This is useful
+                        Defines how long the profile data should be kept in memory. This is useful
                         to release memory (e.g. catalog waveform data) after a period of inactivity at the cost of
                         re-loading and re-processing the waveforms whenever a new event occurs (not
                         very time consuming but still a bit slower than keeping the waveforms in memory).
@@ -76,7 +76,7 @@
 
             <group name="cron">
 
-                <parameter name="delayTimes" type="list:int" default="60,300">
+                <parameter name="delayTimes" type="list:int" default="60,300" unit="s">
                     <description>
                     Specifies a delay time in seconds, relative to origin time,
                     to trigger the processing. This can be a single value or a list of delay
@@ -288,9 +288,9 @@
                                         (numEllipsoids * 8) if numEllipsoids is not 0.
                                     </description>
                                 </parameter>
-                                <parameter name="maxEllipsoidSize" type="double" default="5">
+                                <parameter name="maxEllipsoidSize" type="double" default="5" unit="km">
                                     <description>
-                                        Horizontal axis length (km) of the outermost boundary. Each inner
+                                        Horizontal axis length of the outermost boundary. Each inner
                                         concentric layer axis will be of size/2 of the previous one. Please note
                                         that the horizontal axis size is half of the vertical one.
                                     </description>
@@ -300,17 +300,17 @@
                                 <description>
                                     This option defines how event phases are selected.
                                 </description>
-                                <parameter name="minStationDistance" type="double">
+                                <parameter name="minStationDistance" type="double" unit="km">
                                     <description>
-                                        Minimum distance (km) between event pair and station required
+                                        Minimum distance between event pair and station required
                                         to use a phase in the double-difference observations. 
                                         Phases belonging to stations not satisfyig this condition 
                                         will not be used.
                                     </description>
                                 </parameter>
-                                <parameter name="maxStationDistance" type="double">
+                                <parameter name="maxStationDistance" type="double" unit="km">
                                     <description>
-                                        Max distance (km) between event pair and station allowed
+                                        Max distance between event pair and station allowed
                                         to use a phase in the double-difference observations.
                                         Phases belonging to stations not satisfyig this condition 
                                         will not be used.
@@ -421,9 +421,9 @@
                                         (numEllipsoids * 8) if numEllipsoids is not 0.
                                     </description>
                                 </parameter>
-                                <parameter name="maxEllipsoidSize" type="double" default="5">
+                                <parameter name="maxEllipsoidSize" type="double" default="5" unit="km">
                                     <description>
-                                        Horizontal axis length (km) of the outermost boundary. Each inner
+                                        Horizontal axis length of the outermost boundary. Each inner
                                         concentric layer axis will be of size/2 of the previous one. Please, note
                                         that the horizontal axis size is half of the vertical one.
                                     </description>
@@ -433,17 +433,17 @@
                                 <description>
                                     This options define how event phases are selected.
                                 </description>
-                                <parameter name="minStationDistance" type="double">
+                                <parameter name="minStationDistance" type="double" unit="km">
                                     <description>
-                                        Minimum distance (km) between event pair and station required
+                                        Minimum distance between event pair and station required
                                         to use a phase in the double-difference observations. 
                                         Phases belonging to stations not satisfyig this condition 
-                                        will not be used
+                                        will not be used.
                                     </description>
                                 </parameter>
-                                <parameter name="maxStationDistance" type="double">
+                                <parameter name="maxStationDistance" type="double" unit="km">
                                     <description>
-                                        Max distance (km) between event pair and station allowed
+                                        Max distance between event pair and station allowed
                                         to use a phase in the double-difference observations.
                                         Phases belonging to stations not satisfyig this condition 
                                         will not be used.
@@ -467,18 +467,18 @@
                                         Min cross-correlation coefficient accepted to use a differential travel time.
                                     </description>
                                 </parameter>
-                                <parameter name="start" type="double" default="-0.50">
+                                <parameter name="start" type="double" default="-0.50" unit="s">
                                     <description>
                                         Start of data window to cross-correlate with respect to pick time (+/- secs).
                                     </description>
                                 </parameter>
-                                <parameter name="end" type="double" default="0.50">
+                                <parameter name="end" type="double" default="0.50" unit="s">
                                     <description>
                                       End of data window to cross-correlate with respect to pick time (+/- secs).
                                     </description>
                                 </parameter>
-                                <parameter name="maxDelay" type="double" default="0.350">
-                                    <description>Maximum data windows lag accepted (secs).</description>
+                                <parameter name="maxDelay" type="double" default="0.350" unit="s">
+                                    <description>Maximum data windows lag accepted.</description>
                                 </parameter>
                                 <parameter name="components" type="list:string" default="Z">
                                     <description>
@@ -494,18 +494,18 @@
                                         Min cross-correlation coefficient accepted to use a differential travel time.
                                     </description>
                                 </parameter>
-                                <parameter name="start" type="double" default="-0.50">
+                                <parameter name="start" type="double" default="-0.50" unit="s">
                                     <description>
                                         Start of data window to cross-correlate with respect to pick time (+/- secs).
                                     </description>
                                 </parameter>
-                                <parameter name="end" type="double" default="0.75">
+                                <parameter name="end" type="double" default="0.75", unit="s">
                                     <description>
                                         End of data window to cross-correlate with respect to pick time (+/- secs).
                                     </description>
                                 </parameter>
-                                <parameter name="maxDelay" type="double" default="0.350">
-                                    <description>Maximum data windows lag accepted (secs).</description>
+                                <parameter name="maxDelay" type="double" default="0.350" unit="s">
+                                    <description>Maximum data windows lag accepted.</description>
                                 </parameter>
                                 <parameter name="components" type="list:string" default="T,Z">
                                     <description>
@@ -516,16 +516,16 @@
                                 </parameter>
                             </group>
                             <group name="options">
-                                <parameter name="maxStationDistance" type="double" default="85">
+                                <parameter name="maxStationDistance" type="double" default="85" unit="km">
                                     <description>
-                                        Max distance (km) between event and station allowed.
+                                        Max distance between event and station allowed.
                                         Phases belonging to further stations will not be used
                                         in cross-correlation. Set it to -1 to remove limits.
                                     </description>
                                 </parameter> 
-                                <parameter name="maxInterEventDistance" type="double" default="-1">
+                                <parameter name="maxInterEventDistance" type="double" default="-1" unit="km">
                                     <description>
-                                        Max distance (km) between events allowed.
+                                        Max distance between events allowed.
                                         Event pairs whose inter-event distance if further than 
                                         this value will not be used in cross-correlation.
                                         Set it to -1 to remove limits.
@@ -565,9 +565,9 @@
                                     SeisComP string based filter definition. Set to "" to disable filtering.
                                 </description>
                             </parameter>
-                            <parameter name="resampling" type="double" default="400">
+                            <parameter name="resampling" type="double" default="400" unit="Hz">
                                 <description>
-                                    Resample all traces at this samplig interval (hz)
+                                    Resample all traces at this samplig interval
                                     Set it to 0 disable resampling.
                                 </description>
                             </parameter>
@@ -584,16 +584,16 @@
                                     If 'minSnr' is used, then the noise and signal windows must be defined too.
                                 </description>
                             </parameter>
-                            <parameter name="noiseStart" type="double" default="-3">
+                            <parameter name="noiseStart" type="double" default="-3" unit="s">
                                 <description>Start of noise window with respect to pick time (+/- secs).</description>
                             </parameter>
-                            <parameter name="noiseEnd" type="double" default="-0.350">
+                            <parameter name="noiseEnd" type="double" default="-0.350" unit="s">
                                 <description>End of noise window with respect to pick time (+/- secs).</description>
                             </parameter>
-                            <parameter name="signalStart" type="double" default="-0.350">
+                            <parameter name="signalStart" type="double" default="-0.350" unit="s">
                                 <description>Start of signal window with respect to pick time (+/- secs).</description>
                             </parameter>
-                            <parameter name="signalEnd" type="double" default="0.350">
+                            <parameter name="signalEnd" type="double" default="0.350" unit="s">
                                 <description>End of signal window with respect to pick time (+/- secs).</description>
                             </parameter> 
                         </group>
