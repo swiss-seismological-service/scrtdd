@@ -33,7 +33,7 @@
 
             <parameter name="saveProcessingFiles" type="boolean" default="false">
                 <description>
-                    Store adavanced processing information files in the working directory
+                    Store advanced processing information files in the working directory
                     (useful for debugging/troubleshooting).
                 </description>
             </parameter>
@@ -50,25 +50,25 @@
                     <description>
                         Defines how long the profile data should be kept in memory (in seconds). This is useful
                         to release memory (e.g. catalog waveform data) after a period of inactivity at the cost of
-                        re-loading and re-process the waveforms whenever a new event occurs (not 
+                        re-loading and re-processing the waveforms whenever a new event occurs (not
                         very time consuming but still a bit slower than keeping the waveforms in memory).
-                        A negative value force the profile to never expires (always in memory).
+                        A negative value forces the profile to never expires (always in memory).
                     </description>
                 </parameter>
 
                 <parameter name="cacheWaveforms" type="boolean" default="true">
                     <description>
                         Save catalog waveforms to local disk after they have been loaded the first
-                        times. This avoid re-reading them from the configured recordStream in the 
-                        future since this operation is drammatically slow (unless the recordstream
-                        points to a local disk source, in which case there is no advantace in
+                        time. This avoids re-reading them from the configured recordStream in the
+                        future since this operation is dramatically slow (unless the recordStream
+                        points to a local disk source, in which case there is no advantage over
                         caching the waveforms).
                         It is safe to delete the cache folder, in which case the waveforms will be
                         loaded and saved again on disk the next time the profile is loaded (they will
                         be read again from the configured recordStream).
-                        Please note that exists a command line options '--load-profile-wf' useful to
-                        load all the catalog waveforms from the record stream and save them on disk.                         This is useful to make sure all the wavefrorms are on disk before when the
-                        module is started and avoid lenghty loading the first time the module starts.
+                        Please, note the '--load-profile-wf' CLI option useful to
+                        load all the catalog waveforms from the recordStream and save them on disk.                         This is useful to make sure all the wavefrorms are on disk before when the
+                        module is started and avoid lenghty loading the module starts initially.
                     </description>
                 </parameter>
 
@@ -82,7 +82,7 @@
                     to trigger the processing. This can be a single value or a list of delay
                     times. The list case can be useful when a quick solution is wanted but
                     more data (e.g. waveforms) becomes available at a later time. In this
-                    scenario multiple times are configured so that an early solution is attempted
+                    scenario multiple times are configured, so that an early solution is attempted
                     and a more refined one is computed later.
                     Example: &quot;60, 120, 300, 3600&quot;
                     </description>
@@ -106,7 +106,7 @@
                     the profile defined first in activeProfile option will be used.
                     This allows for hierarchical regions, where special regions are defined
                     first and then a generic and broad region is defined as last entry to be used as
-                    default configuration.
+                    default fallback configuration.
                     The region check is not used for multi-event relocation (see --relocate-profile
                     command line option)
                 </description> 
@@ -142,7 +142,7 @@
                     <group name="catalog">
                         <description>
                             Define a catalog for this profile. In real-time mode this represents the 
-                            background catalog used as base catalog to relocate origins received from
+                            background catalog used as a base catalog to relocate origins received from
                             the messaging system.
                             In multi-event mode, this represents the catalog to be relocated
                             as a whole (see --relocate-profile command line option).
@@ -207,21 +207,21 @@
                             initial location creating double-difference observations from absolute
                             travel time differences and solving the system. The first step is
                             controlled by this option group.
-                            A second step is then performed, starting from the refined location 
+                            Next, the second step is performed. Starting from the refined location
                             and solving again a double-difference system but this time using both
-                            absolute travel times difference and cross correlation differential
-                            travel times observations. The second step is controlled by 
+                            absolute travel times difference and cross-correlation differential
+                            travel times observations. The second step is controlled by the
                             'doubleDifferenceObservations' option group.
                         </description>
                         <group name="clustering">
                             <description>
                                 Those options control the selection of event pairs and the phases
                                 within pairs, to be used to create double-difference observations.
-                                Wihtin an event pair, an observation is created for every station
+                                Within an event pair, an observation is created for every station
                                 for which exist phases for both events.
-                                To build the event pairs a clustering algorithm is performed, joining
+                                To build the event pairs a clustering algorithm is used, joining
                                 together events within a given distance and fulfilling specific
-                                requirements which are configurable in here
+                                requirements which are configurable in here.
                             </description>
                             <parameter name="minNumNeigh" type="int">
                                 <description>
@@ -233,9 +233,9 @@
                                 <description>
                                   Maximum number of neighbors per event. Useful to reduce
                                   computation time when relocating a large number events.
-                                  This value should be consistent with numEllipsoids parameter (that
+                                  This value should be consistent with the 'numEllipsoids' parameter (that
                                   is numEllipsoids * 8) if numEllipsoids is not 0.
-                                  A value of 0 or less disables this limit
+                                  A value of 0 or less disables this limit.
                                 </description>
                             </parameter>
                             <parameter name="minObservationPerEvtPair" type="int" >
@@ -253,7 +253,7 @@
                                     event pair used.
                                     If this value is set, closer stations will have higher 
                                     precedence over further ones.
-                                    A value of 0 or less disables this limit
+                                    A value of 0 or less disables this limit.
                                 </description>
                             </parameter>
                             <group name="neighboringEventSelection">
@@ -278,14 +278,14 @@
                                     relocation to build a background catalog where we seek a network of links between
                                     events so that there exists a chain of pairwise connected events from any one
                                     event to any other event, with the distance being as small as possible between
-                                    connected events
+                                    connected events.
                                 </description>
                                 <parameter name="numEllipsoids" type="int" default="5">
                                     <description>
                                         Number of concentric ellipsoidal layers to use in neighboring events 
-                                        selection. if maxNumNeigh is not set this parameter does not have effects.
-                                        If maxNumNeigh is used, make it consistent with numEllipsoids 
-                                        (numEllipsoids * 8) if numEllipsoids is not 0
+                                        selection. If 'maxNumNeigh' is not set this parameter does not have effects.
+                                        If maxNumNeigh is used, make it consistent with 'numEllipsoids'
+                                        (numEllipsoids * 8) if numEllipsoids is not 0.
                                     </description>
                                 </parameter>
                                 <parameter name="maxEllipsoidSize" type="double" default="5">
@@ -298,14 +298,14 @@
                             </group>
                             <group name="phaseSelection">
                                 <description>
-                                    This option define how event phases are selected. 
+                                    This option defines how event phases are selected.
                                 </description>
                                 <parameter name="minStationDistance" type="double">
                                     <description>
                                         Minimum distance (km) between event pair and station required
                                         to use a phase in the double-difference observations. 
                                         Phases belonging to stations not satisfyig this condition 
-                                        will not be used
+                                        will not be used.
                                     </description>
                                 </parameter>
                                 <parameter name="maxStationDistance" type="double">
@@ -314,14 +314,14 @@
                                         to use a phase in the double-difference observations.
                                         Phases belonging to stations not satisfyig this condition 
                                         will not be used.
-                                        A value of 0 or less disables this limit
+                                        A value of 0 or less disables this limit.
                                     </description>
                                 </parameter>
                                 <parameter name="minStationToEventPairDistRatio" type="double">
                                     <description>
                                         Minimum ratio between event-station distance and pair 
                                         inter-event-pair distance. Phases belonging to stations 
-                                        not satisfyig this condition will not be used
+                                        not satisfyig this condition will not be used.
                                     </description>
                                 </parameter>  
                             </group> 
@@ -338,9 +338,9 @@
                             initial location creating double-difference observations from absolute
                             travel time differences and solving the system. The first step is
                             controlled by 'doubleDifferenceObservationsNoXcorr' option group.
-                            A second step is then performed, starting from the refined location 
-                            and solving again a double-difference system but this time using both
-                            absolute travel times difference and cross correlation differential
+                            Next, the second step is performed. Starting from the refined location
+                            and solving again a double-difference system, but this time using both
+                            absolute travel times difference and cross-correlation differential
                             travel times observations. The second step is controlled by this
                             option group.
                             The multi-event relocation works in one step only and it uses this 
@@ -350,11 +350,11 @@
                             <description>
                                 Those options control the selection of event pairs and the phases
                                 within pairs, to be used to create double-difference observations.
-                                Wihtin an event pair, an observation is created for every station
+                                Within an event pair, an observation is created for every station
                                 for which exist phases for both events.
                                 To build the event pairs a clustering algorithm is performed, joining
                                 together events within a given distance and fulfilling specific
-                                requirements which are configurable in here
+                                requirements which are configurable in here.
                             </description>
                             <parameter name="minNumNeigh" type="int">
                                 <description>
@@ -386,7 +386,7 @@
                                     event pair used.
                                     If this value is set, closer stations will have higher 
                                     precedence over further ones.
-                                    A value of 0 or less disables this limit
+                                    A value of 0 or less disables this limit.
                                 </description>
                             </parameter>
                             <group name="neighboringEventSelection">
@@ -405,33 +405,33 @@
                                     SCRTDD selects neighbours for each ellipsoid/quadrant conbination in
                                     a round robin fashion until "maxNumNeigh" is reached. If there are no events
                                     in a specific ellipsoid/quadrant location it is simply skipped.
-                                    Note: if numEllipsoids is 0 then the concentric ellipsoid algorithm will not
+                                    Note: if 'numEllipsoids' is 0 then the concentric ellipsoid algorithm will not
                                     be used and the events will be selected on nearest neighbor basis within a
-                                    search distance of maxEllipsoidSize. This is useful when performing multi-event
+                                    search distance of 'maxEllipsoidSize'. This is useful when performing multi-event
                                     relocation to build a background catalog where we seek a network of links between
                                     events so that there exists a chain of pairwise connected events from any one
                                     event to any other event, with the distance being as small as possible between
-                                    connected events
+                                    connected events.
                                 </description>
                                 <parameter name="numEllipsoids" type="int" default="5">
                                     <description>
                                         Number of concentric ellipsoidal layers to use in neighboring events 
-                                        selection. if maxNumNeigh is not set this parameter does not have effects.
-                                        If maxNumNeigh is used, make it consistent with numEllipsoids 
-                                        (numEllipsoids * 8) if numEllipsoids is not 0
+                                        selection. If 'maxNumNeigh' is not set this parameter does not have effects.
+                                        If maxNumNeigh is used, make it consistent with 'numEllipsoids'
+                                        (numEllipsoids * 8) if numEllipsoids is not 0.
                                     </description>
                                 </parameter>
                                 <parameter name="maxEllipsoidSize" type="double" default="5">
                                     <description>
                                         Horizontal axis length (km) of the outermost boundary. Each inner
-                                        concentric layer axis will be of size/2 of the previous one. Please note
+                                        concentric layer axis will be of size/2 of the previous one. Please, note
                                         that the horizontal axis size is half of the vertical one.
                                     </description>
                                 </parameter> 
                             </group>
                             <group name="phaseSelection">
                                 <description>
-                                    This option define how event phases are selected. 
+                                    This options define how event phases are selected.
                                 </description>
                                 <parameter name="minStationDistance" type="double">
                                     <description>
@@ -447,14 +447,14 @@
                                         to use a phase in the double-difference observations.
                                         Phases belonging to stations not satisfyig this condition 
                                         will not be used.
-                                        A value of 0 or less disables this limit
+                                        A value of 0 or less disables this limit.
                                     </description>
                                 </parameter>
                                 <parameter name="minStationToEventPairDistRatio" type="double">
                                     <description>
                                         Minimum ratio between event-station distance and pair 
-                                        inter-event-pair distance. Phases belonging to stations 
-                                        not satisfyig this condition will not be used
+                                        inter-event-pair distance. Phases belonging to stations
+                                        not satisfyig this condition will not be used.
                                     </description>
                                 </parameter> 
                             </group>
@@ -464,54 +464,54 @@
                             <group name="p-phase">
                                 <parameter name="minCCCoef" type="double" default="0.50">
                                     <description>
-                                        Min crosscorrelation coefficient accepted to use a differential travel time
+                                        Min cross-correlation coefficient accepted to use a differential travel time.
                                     </description>
                                 </parameter>
                                 <parameter name="start" type="double" default="-0.50">
                                     <description>
-                                        Start of data window to cross correlate with respect to pick time (+/- secs)
+                                        Start of data window to cross-correlate with respect to pick time (+/- secs).
                                     </description>
                                 </parameter>
                                 <parameter name="end" type="double" default="0.50">
                                     <description>
-                                        End of data window to cross correlate with respect to pick time (+/- secs)
+                                      End of data window to cross-correlate with respect to pick time (+/- secs).
                                     </description>
                                 </parameter>
                                 <parameter name="maxDelay" type="double" default="0.350">
-                                    <description>Maximum data windows lag accepted (secs)</description>
+                                    <description>Maximum data windows lag accepted (secs).</description>
                                 </parameter>
                                 <parameter name="components" type="list:string" default="Z">
                                     <description>
                                         Priority list of components to be used in cross-correlation.
-                                        If cross-correlation is below threshold on a component, the next
-                                        component is tried.
+                                        If cross-correlation is below threshold on a component, the subsequent
+                                        component is used.
                                     </description>
                                 </parameter>
                             </group>
                             <group name="s-phase">
                                 <parameter name="minCCCoef" type="double" default="0.50">
                                     <description>
-                                        Min crosscorrelation coefficient accepted to use a differential travel time
+                                        Min cross-correlation coefficient accepted to use a differential travel time.
                                     </description>
                                 </parameter>
                                 <parameter name="start" type="double" default="-0.50">
                                     <description>
-                                        Start of data window to cross correlate with respect to pick time (+/- secs)
+                                        Start of data window to cross-correlate with respect to pick time (+/- secs).
                                     </description>
                                 </parameter>
                                 <parameter name="end" type="double" default="0.75">
                                     <description>
-                                        End of data window to cross correlate with respect to pick time (+/- secs)
+                                        End of data window to cross-correlate with respect to pick time (+/- secs).
                                     </description>
                                 </parameter>
                                 <parameter name="maxDelay" type="double" default="0.350">
-                                    <description>Maximum data windows lag accepted (secs)</description>
+                                    <description>Maximum data windows lag accepted (secs).</description>
                                 </parameter>
                                 <parameter name="components" type="list:string" default="T,Z">
                                     <description>
                                         Priority list of components to be used in cross-correlation.
-                                        If cross-correlation is below threshold on a component, the next
-                                        component is tried.
+                                        If cross-correlation is below threshold on a component, the subsequent
+                                        component is used.
                                     </description>
                                 </parameter>
                             </group>
@@ -519,8 +519,8 @@
                                 <parameter name="maxStationDistance" type="double" default="85">
                                     <description>
                                         Max distance (km) between event and station allowed.
-                                        Phases belonging to furhter stations will not be used
-                                        in cross-correlation. Set it to -1 to remove limits
+                                        Phases belonging to further stations will not be used
+                                        in cross-correlation. Set it to -1 to remove limits.
                                     </description>
                                 </parameter> 
                                 <parameter name="maxInterEventDistance" type="double" default="-1">
@@ -528,7 +528,7 @@
                                         Max distance (km) between events allowed.
                                         Event pairs whose inter-event distance if further than 
                                         this value will not be used in cross-correlation.
-                                        Set it to -1 to remove limits 
+                                        Set it to -1 to remove limits.
                                     </description>
                                 </parameter>
                                 <parameter name="theoreticalPhaseAutoOrigin" type="boolean" default="true">
@@ -537,7 +537,7 @@
                                         theoretical ones. This allows to increase the number of
                                         double-difference observations and so the accuracy of the
                                         relocations. For automatic origins this improves considerably
-                                        the relocation results
+                                        the relocation results.
                                     </description>
                                 </parameter>
 
@@ -546,11 +546,11 @@
                                         Manual origins: cross-correlate actual phases against 
                                         theoretical ones. This allows to increase the number of
                                         double-difference observations and so the accuracy of the
-                                        relocations. Normally this increases the quality of the
+                                        relocations. Normally, this increases the quality of the
                                         relocations even when the manual origins have many good
                                         manuallly picked phases. Since this feature is a bit slower
                                         it should be enabled only at the end of the parameters 
-                                        tuning process to avoid lengthy relocations
+                                        tuning process in order to avoid lengthy relocations.
                                     </description>
                                 </parameter>
                             </group>
@@ -558,43 +558,43 @@
 
                         <group name="waveformFiltering">
                             <description>
-                                Filter waveforms before performing the cross correlation
+                                Filter waveforms before performing the cross-correlation
                             </description>
                             <parameter name="filterString" type="string" default="ITAPER(1)>>BW_HLP(2,1,20)">
                                 <description>
-                                    SeisComP3 string based filter definition. Set to "" to disable filtering
+                                    SeisComP string based filter definition. Set to "" to disable filtering.
                                 </description>
                             </parameter>
                             <parameter name="resampling" type="double" default="400">
                                 <description>
                                     Resample all traces at this samplig interval (hz)
-                                    Set it to 0 to not resample
+                                    Set it to 0 disable resampling.
                                 </description>
                             </parameter>
                         </group>
 
                         <group name="snr">
                            <description>
-                               Exclude phases from cross correlation when Signal to Noise Ratio is below
+                               Exclude phases from cross-correlation when the Signal to Noise Ratio (SNR) is below
                                a configured threshold.
                            </description>
                            <parameter name="minSnr" type="double" default="2">
                                 <description>
-                                    Minimum Signal to Noise Ratio value required to use a Pick in cross correlation.
-                                    If minSnr is used, then the noise and signal windows must be defined too.
+                                    Minimum SNR value required to use a pick in cross-correlation.
+                                    If 'minSnr' is used, then the noise and signal windows must be defined too.
                                 </description>
                             </parameter>
                             <parameter name="noiseStart" type="double" default="-3">
-                                <description>Start of noise  window with respect to pick time (+/- secs)</description>
+                                <description>Start of noise window with respect to pick time (+/- secs).</description>
                             </parameter>
                             <parameter name="noiseEnd" type="double" default="-0.350">
-                                <description>End of noise  window with respect to pick time (+/- secs)</description>
+                                <description>End of noise window with respect to pick time (+/- secs).</description>
                             </parameter>
                             <parameter name="signalStart" type="double" default="-0.350">
-                                <description>Start of signal window with respect to pick time (+/- secs)</description>
+                                <description>Start of signal window with respect to pick time (+/- secs).</description>
                             </parameter>
                             <parameter name="signalEnd" type="double" default="0.350">
-                                <description>End of signal window with respect to pick time (+/- secs)</description>
+                                <description>End of signal window with respect to pick time (+/- secs).</description>
                             </parameter> 
                         </group>
                     </group>
@@ -603,18 +603,18 @@
                         <description>
                             Configuration for the double-difference equations system solver.
                             The solver finds the solution to the double-difference system (the
-                            origin locations/times) starting from the initial origins locations,
-                            then it iterates the process multiple times updating the
+                            origin locations/times) starting from the initial origins locations.
+                            Afterwards, it iterates the process multiple times updating the
                             double-difference observations based on the previous iteration solutions
-                            and also updating the observations weights accordingly to
-                            downWeightingByResidual settings.
+                            and also updating the observations weights according to
+                            'downWeightingByResidual' settings.
                           </description>
                         <parameter name="solverType" type="string" default="LSMR" >
                             <description>
-                                Solver algorithm to use: either LSMR or LSQR. Both works solving
+                                Solver algorithm to use: either LSMR or LSQR. Both algorithms solve
                                 the double-difference equations system in a least squares sense.
                                 LSMR is based on Fong and Saunders algorithm from 2010. LSQR is
-                                based on Paige and Saunders algorithm from 1982
+                                based on Paige and Saunders algorithm from 1982.
                             </description>
                        </parameter>
                         <parameter name="algoIterations" type="int" default="20">
@@ -628,8 +628,8 @@
                         </parameter>
                         <parameter name="useTTResiduals" type="boolean" default="false">
                           <description>Include travel time residuals in the double-difference
-                            system. The relocated origins will improve in absolute locations
-                            but the relative locations might lose in resolution
+                            system. The relocated origins will improve in absolute locations,
+                            but the relative locations might lose in resolution.
                           </description> 
                         </parameter>
                         <group name="downWeightingByResidual">
@@ -638,21 +638,21 @@
                                 a priori weights options is used). In subsequent 
                                 iterations each observation is downweighted accordingly to its 
                                 residuals, which allows to eventualy get rid of bad observations 
-                                and also to scale observation wights accordingly to their quality 
+                                and also to scale observation wights according to their quality
                                 and resolution (e.g. absolute travel time differences vs 
                                 cross-correlation ones).
-                                The values to be configured here express the standard deviations of 
+                                The values to be configured, here, express the standard deviations of
                                 the double-difference observation residuals beyond which the
                                 observations are dropped (their weight becomes 0). Values lower
-                                that the configured threshold are donweighted accordingly to their
-                                residual value (see Waldhauser/Ellsworth paper)
-                                A value of 0 disables downweighting
+                                than the configured threshold are donweighted according to their
+                                residual value (see Waldhauser/Ellsworth paper).
+                                A value of 0 disables downweighting.
                             </description> 
                             <parameter name="startingValue" type="double" default="10">
-                              <description>Value for the first iteration of the solver</description> 
+                              <description>Value for the first iteration of the solver.</description>
                             </parameter>
-                            <parameter name="finalValue"    type="double" default="3">
-                              <description>Value for the last iteration of the solver</description> 
+                            <parameter name="finalValue" type="double" default="3">
+                              <description>Value for the last iteration of the solver.</description>
                             </parameter> 
                         </group> 
                         <group name="dampingFactor">
@@ -664,13 +664,13 @@
                             and it also helps in case of ill-conditioned systems.
                             A too high value prevents the events from changing at all. A too low
                             value might result in a huge shift of the event cluster after
-                            relocation, although the structure should persists.
+                            relocation, although the structure should persist.
                             </description> 
                             <parameter name="startingValue" type="double" default="0.3">
-                              <description>Value for the first iteration of the solver</description> 
+                              <description>Value for the first iteration of the solver.</description>
                             </parameter>
-                            <parameter name="finalValue"    type="double" default="0.3">
-                              <description>Value for the last iteration of the solver</description> 
+                            <parameter name="finalValue" type="double" default="0.3">
+                              <description>Value for the last iteration of the solver.</description>
                             </parameter>
                         </group>
                         <group name="aPrioriWeights">
@@ -773,39 +773,39 @@
             <group name="Mode">
 
                 <option long-flag="load-profile-wf" argument="profile">
-                    <description>Load catalog waveforms from the configured recordstream and save them in the working directory configured for the profile</description>
+                    <description>Load catalog waveforms from the configured recordStream and save them in the working directory configured for the profile.</description>
                 </option>
 
                 <option long-flag="debug-wf">
-                    <description>Enable the dumping of waveforms (filtered and resampled phases, artificial phases, SNR rejected phases) into the profile working directory ('cacheWaveforms' folder). Useful when run in combination with --load-profile-wf</description>
+                    <description>Enable the dumping of waveforms (filtered and resampled phases, artificial phases, SNR rejected phases) into the profile working directory ('cacheWaveforms' folder). Useful when run in combination with --load-profile-wf CLI option.</description>
                 </option>
 
                 <option long-flag="eval-xcorr" argument="profile">
-                    <description>"Evaluate cross-correlation settings for the given profile</description>
+                    <description>"Evaluate cross-correlation settings for the given profile.</description>
                 </option>
 
                 <option long-flag="expiry" flag="x" argument="hours">
-                    <description>Time span in hours after which objects expire</description>
+                    <description>Time span in hours after which objects expire.</description>
                 </option>
 
                 <option long-flag="dump-config">
-                    <description>Dump the configuration and exit</description>
+                    <description>Dump the configuration and exit.</description>
                 </option>
 
             </group>
             <group name="Catalog">
 
                 <option long-flag="dump-catalog" argument="catalog-file">
-                    <description>Dump the seiscomp event/origin id file passed as argument into a catalog file triplet (station.csv,event.csv,phase.csv)</description>
+                    <description>Dump the seiscomp event/origin id file passed as argument into a catalog file triplet (station.csv,event.csv,phase.csv).</description>
                 </option>
 
                 <option long-flag="dump-catalog-options" argument="type,evalmode,includeCreator,excludeCreator,region">
-                    <description>Allows --dump-catalog to accept event ids besides origin ids. For each event id an origin will be selected following the provided options whose format is: 'type,evalmode,includeCreator,excludeCreator,region', where type=preferred|last|first  evalmode=any|onlyManual|onlyAutomatic  includeCreator=any|author|methodID  excludeCreator=none|author|methodID  region=any|profileName e.g. to select preferred origins within my profile region given the input event ids use 'preferred,any,any,none,myProfile'
+                    <description>Allows --dump-catalog to accept event ids besides origin ids. For each event id an origin will be selected following the provided options with the format: 'type,evalmode,includeCreator,excludeCreator,region', where type=preferred|last|first  evalmode=any|onlyManual|onlyAutomatic  includeCreator=any|author|methodID  excludeCreator=none|author|methodID  region=any|profileName. E.g. to select preferred origins within a profile region named 'myProfile', and given the input event ids use 'preferred,any,any,none,myProfile'.
                     </description>
                 </option>
 
                 <option long-flag="dump-catalog-xml" argument="catalog-files">
-                    <description>Convert the input catalog into XML format. The input can be a single file (containing seiscomp event/origin ids) or a catalog file triplet (station.csv,event.csv,phase.csv)</description>
+                    <description>Convert the input catalog into XML format. The input can be a single file (containing seiscomp event/origin ids) or a catalog file triplet (station.csv,event.csv,phase.csv).</description>
                 </option>
 
                 <option long-flag="merge-catalogs" argument="catalog-files">
@@ -813,28 +813,28 @@
                 </option>
 
                 <option long-flag="merge-catalogs-keepid" argument="catalog-files">
-                    <description>Similar to --merge-catalogs option but events keeps their ids. If multiple events share the same id, subsequent events will be discarded.</description>
+                    <description>Similar to the --merge-catalogs option but events keep their ids. If multiple events share the same id, subsequent events will be discarded.</description>
                 </option>
 
             </group>
             <group name="SingleEvent">
 
                 <option long-flag="origin-id" flag="O" argument="origin-id">
-                    <description>Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed accordingly with the matching profile region unless --profile option is used</description>
+                    <description>Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed according to the matching profile region unless the --profile option is used.</description>
                 </option>
 
                 <option long-flag="ep" argument="xml-file">
-                    <description>Event parameters XML file for offline processing of contained origins (imply test option). Each origin will be processed accordingly with the matching profile region unless --profile option is used</description>
+                    <description>Event parameters XML file for offline processing of contained origins (implies the --test option). Each origin will be processed according to the matching profile region unless the --profile option is used.</description>
                 </option>
 
                 <option long-flag="test">
-                    <description>"Test mode, no messages are sent</description>
+                    <description>"Test mode, no messages are sent.</description>
                 </option>
 
                 <option long-flag="profile" argument="profile">
                     <description>
                         Force a specific profile to be used when relocating an origin. This overrides the selection 
-                        of profiles based on region information and the initial origin location
+                        of profiles based on region information and the initial origin location.
                     </description>
                 </option>
 
@@ -843,7 +843,7 @@
             <group name="MultiEvents">
 
                 <option long-flag="reloc-profile" argument="profile">
-                    <description>Relocate the catalog of profile passed as argument</description>
+                    <description>Relocate the catalog of profile passed as argument.</description>
                 </option>
  
             </group>

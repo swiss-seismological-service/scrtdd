@@ -287,54 +287,57 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 
   NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
               "Load catalog waveforms from the configured recordstream and "
-              "save them into the profile working directory",
+              "save them into the profile working directory.",
               true);
   NEW_OPT_CLI(
       _config.dumpWaveforms, "Mode", "debug-wf",
-      "Enable the saving of processed waveforms (filtered/resampled, SNR "
-      "rejected, ZRT projected, etc) into the profile working directory",
+      "Enable saving of processed waveforms (filtered/resampled, SNR "
+      "rejected, ZRT projected, etc.) into the profile working directory.",
       false, true);
   NEW_OPT_CLI(_config.evalXCorr, "Mode", "eval-xcorr",
-              "Evaluate cross-correlation settings for the given profile",
+              "Evaluate cross-correlation settings for the given profile.",
               true);
   NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
-              "Time span in hours after which objects expire", true);
+              "Defines the time span in hours after which objects expire.",
+              true);
 
   NEW_OPT_CLI(_config.dumpCatalog, "Catalog", "dump-catalog",
               "Dump the seiscomp event/origin id file passed as argument into "
-              "a catalog file triplet (station.csv,event.csv,phase.csv)",
+              "a catalog file triplet (station.csv,event.csv,phase.csv).",
               true);
   NEW_OPT_CLI(_config.dumpCatalogXML, "Catalog", "dump-catalog-xml",
               "Convert the input catalog into XML format. The input can be a "
               "single file (containing seiscomp origin ids) or a catalog file "
-              "triplet (station.csv,event.csv,phase.csv)",
+              "triplet (station.csv,event.csv,phase.csv).",
               true);
   NEW_OPT_CLI(_config.mergeCatalogs, "Catalog", "merge-catalogs",
               "Merge in a single catalog all the catalog file triplets "
               "(station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,"
-              "phase2.csv,...) passed as arguments",
+              "phase2.csv,...) passed as arguments.",
               true);
-  NEW_OPT_CLI(_config.originIDs, "SingleEvent", "origin-id,O",
-              "Relocate the origin (or multiple comma-separated origins) and "
-              "send a message. Each origin will be processed accordingly with "
-              "the matching profile region unless --profile option is used",
-              true);
+  NEW_OPT_CLI(
+      _config.originIDs, "SingleEvent", "origin-id,O",
+      "Relocate the origin (or multiple comma-separated origins) and "
+      "send a message. Each origin will be processed according to"
+      "the matching profile region unless the --profile option is used.",
+      true);
   NEW_OPT_CLI(
       _config.eventXML, "SingleEvent", "ep",
       "Event parameters XML file for offline processing of contained origins "
-      "(imply test option). Each contained origin will be processed "
-      "accordingly with the matching profile region unless --profile option is "
-      "used. In combination with origin-id option this produces an xml output",
+      "(implies --test option). Each contained origin will be processed "
+      "according to the matching profile region unless --profile option is "
+      "used. In combination with the --origin-id option an XML output is "
+      "produced.",
       true);
   NEW_OPT_CLI(_config.testMode, "SingleEvent", "test",
               "Test mode, no messages are sent", false, true);
   NEW_OPT_CLI(_config.forceProfile, "SingleEvent", "profile",
               "Force a specific profile to be used when relocating an origin. "
               "This overrides the selection of profiles based on region "
-              "information and the initial origin location",
+              "information and the initial origin location.",
               true);
   NEW_OPT_CLI(_config.relocateProfile, "MultiEvents", "reloc-profile",
-              "Relocate the catalog of profile passed as argument", true);
+              "Relocate the catalog of the profile passed as argument.", true);
 }
 
 RTDD::~RTDD() {}
@@ -346,19 +349,20 @@ void RTDD::createCommandLineDescription()
                           "Dump the configuration and exit");
   commandline().addOption<string>(
       "Catalog", "merge-catalogs-keepid",
-      "Similar to --merge-catalogs option but events keeps their ids. If "
+      "Similar to the --merge-catalogs option but events keep their ids. If "
       "multiple events share the same id, subsequent events will be discarded.",
       nullptr, false);
   commandline().addOption<string>(
       "Catalog", "dump-catalog-options",
-      "Allows --dump-catalog to accept event ids besides origin ids. For each "
-      "event id an origin will be selected following the provided options "
-      "whose format is: 'type,evalmode,includeCreator,excludeCreator,region', "
+      "Allows the --dump-catalog option to accept event ids besides origin "
+      "ids. For each event id an origin will be selected following the "
+      "provided options which format is: "
+      "'type,evalmode,includeCreator,excludeCreator,region', "
       "where type=preferred|last|first  evalmode=any|onlyManual|onlyAutomatic  "
       "includeCreator=any|author|methodID  excludeCreator=none|author|methodID "
-      " region=any|profileName e.g. to select preferred origins within my "
-      "profile region given the input event ids use "
-      "'preferred,any,any,none,myProfile",
+      "region=any|profileName e.g. to select preferred origins within a "
+      "profile region named 'myProfile', and the given the input event ids, "
+      "use 'preferred,any,any,none,myProfile",
       nullptr, false);
 }
 
