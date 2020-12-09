@@ -10,7 +10,7 @@
                   and tries to relocate any origin. When enabled scrtdd listens to EVENT group
                   and tries to relocate the preferred origin of an event.
                 </description>
-              </parameter>
+            </parameter>
 
             <parameter name="automaticOrigins" type="boolean" default="true">
                 <description>
@@ -48,7 +48,7 @@
 
                 <parameter name="profileTimeAlive" type="int" default="-1" unit="s">
                     <description>
-                        Defines how long the profile data should be kept in memory. This is useful
+                        Defines how long the profile data should be kept in memory (in seconds). This is useful
                         to release memory (e.g. catalog waveform data) after a period of inactivity at the cost of
                         re-loading and re-processing the waveforms whenever a new event occurs (not
                         very time consuming but still a bit slower than keeping the waveforms in memory).
@@ -67,12 +67,13 @@
                         loaded and saved again on disk the next time the profile is loaded (they will
                         be read again from the configured recordStream).
                         Please, note the '--load-profile-wf' CLI option useful to
-                        load all the catalog waveforms from the recordStream and save them on disk.                         This is useful to make sure all the wavefrorms are on disk before when the
+                        load all the catalog waveforms from the recordStream and save them on disk.
+                        This is useful to make sure all the wavefrorms are on disk before when the
                         module is started and avoid lenghty loading the module starts initially.
                     </description>
                 </parameter>
 
-        </group>
+            </group>
 
             <group name="cron">
 
@@ -109,9 +110,9 @@
                     default fallback configuration.
                     The region check is not used for multi-event relocation (see --relocate-profile
                     command line option)
-                </description> 
-                <struct type="rtdd profile" link = "rtdd.activeProfiles">
-                    <parameter name="regionType" type="string" default="CIRCULAR" >
+                </description>
+                <struct type="rtdd profile" link="rtdd.activeProfiles">
+                    <parameter name="regionType" type="string" default="CIRCULAR">
                         <description>
                             Type of region: RECTANGULAR or CIRCULAR
                         </description>
@@ -238,7 +239,7 @@
                                   A value of 0 or less disables this limit.
                                 </description>
                             </parameter>
-                            <parameter name="minObservationPerEvtPair" type="int" >
+                            <parameter name="minObservationPerEvtPair" type="int">
                                 <description>
                                     Minimum number of differential travel times (Including P+S) per
                                     event pair required.
@@ -247,7 +248,7 @@
                                     neighbours only.
                                 </description>
                             </parameter>
-                            <parameter name="maxObservationPerEvtPair" type="int" >
+                            <parameter name="maxObservationPerEvtPair" type="int">
                                 <description>
                                     Maximum number of differential travel times (Including P+S) per 
                                     event pair used.
@@ -290,11 +291,11 @@
                                 </parameter>
                                 <parameter name="maxEllipsoidSize" type="double" default="5" unit="km">
                                     <description>
-                                        Horizontal axis length of the outermost boundary. Each inner
+                                        Horizontal axis length (km) of the outermost boundary. Each inner
                                         concentric layer axis will be of size/2 of the previous one. Please note
                                         that the horizontal axis size is half of the vertical one.
                                     </description>
-                                </parameter> 
+                                </parameter>
                             </group>
                             <group name="phaseSelection">
                                 <description>
@@ -302,7 +303,7 @@
                                 </description>
                                 <parameter name="minStationDistance" type="double" unit="km">
                                     <description>
-                                        Minimum distance between event pair and station required
+                                        Minimum distance (km) between event pair and station required
                                         to use a phase in the double-difference observations. 
                                         Phases belonging to stations not satisfyig this condition 
                                         will not be used.
@@ -310,7 +311,7 @@
                                 </parameter>
                                 <parameter name="maxStationDistance" type="double" unit="km">
                                     <description>
-                                        Max distance between event pair and station allowed
+                                        Max distance (km) between event pair and station allowed
                                         to use a phase in the double-difference observations.
                                         Phases belonging to stations not satisfyig this condition 
                                         will not be used.
@@ -323,9 +324,9 @@
                                         inter-event-pair distance. Phases belonging to stations 
                                         not satisfyig this condition will not be used.
                                     </description>
-                                </parameter>  
-                            </group> 
-                        </group> 
+                                </parameter>
+                            </group>
+                        </group>
                     </group>
 
                     <group name="doubleDifferenceObservations">
@@ -371,7 +372,7 @@
                                   A value of 0 or less disables this limit
                                 </description>
                             </parameter>
-                            <parameter name="minObservationPerEvtPair" type="int" >
+                            <parameter name="minObservationPerEvtPair" type="int">
                                 <description>
                                     Minimum number of differential travel times (Including P+S) per
                                     event pair required.
@@ -380,7 +381,7 @@
                                     neighbours only.
                                 </description>
                             </parameter>
-                            <parameter name="maxObservationPerEvtPair" type="int" >
+                            <parameter name="maxObservationPerEvtPair" type="int">
                                 <description>
                                     Maximum number of differential travel times (Including P+S) per 
                                     event pair used.
@@ -423,11 +424,11 @@
                                 </parameter>
                                 <parameter name="maxEllipsoidSize" type="double" default="5" unit="km">
                                     <description>
-                                        Horizontal axis length of the outermost boundary. Each inner
+                                        Horizontal axis length (km) of the outermost boundary. Each inner
                                         concentric layer axis will be of size/2 of the previous one. Please, note
                                         that the horizontal axis size is half of the vertical one.
                                     </description>
-                                </parameter> 
+                                </parameter>
                             </group>
                             <group name="phaseSelection">
                                 <description>
@@ -435,7 +436,7 @@
                                 </description>
                                 <parameter name="minStationDistance" type="double" unit="km">
                                     <description>
-                                        Minimum distance between event pair and station required
+                                        Minimum distance (km) between event pair and station required
                                         to use a phase in the double-difference observations. 
                                         Phases belonging to stations not satisfyig this condition 
                                         will not be used.
@@ -443,7 +444,7 @@
                                 </parameter>
                                 <parameter name="maxStationDistance" type="double" unit="km">
                                     <description>
-                                        Max distance between event pair and station allowed
+                                        Max distance (km) between event pair and station allowed
                                         to use a phase in the double-difference observations.
                                         Phases belonging to stations not satisfyig this condition 
                                         will not be used.
@@ -456,7 +457,7 @@
                                         inter-event-pair distance. Phases belonging to stations
                                         not satisfyig this condition will not be used.
                                     </description>
-                                </parameter> 
+                                </parameter>
                             </group>
                         </group>
 
@@ -478,7 +479,7 @@
                                     </description>
                                 </parameter>
                                 <parameter name="maxDelay" type="double" default="0.350" unit="s">
-                                    <description>Maximum data windows lag accepted.</description>
+                                    <description>Maximum data windows lag accepted (secs)..</description>
                                 </parameter>
                                 <parameter name="components" type="list:string" default="Z">
                                     <description>
@@ -499,13 +500,13 @@
                                         Start of data window to cross-correlate with respect to pick time (+/- secs).
                                     </description>
                                 </parameter>
-                                <parameter name="end" type="double" default="0.75", unit="s">
+                                <parameter name="end" type="double" default="0.75" unit="s">
                                     <description>
                                         End of data window to cross-correlate with respect to pick time (+/- secs).
                                     </description>
                                 </parameter>
                                 <parameter name="maxDelay" type="double" default="0.350" unit="s">
-                                    <description>Maximum data windows lag accepted.</description>
+                                    <description>Maximum data windows lag accepted  (secs).</description>
                                 </parameter>
                                 <parameter name="components" type="list:string" default="T,Z">
                                     <description>
@@ -518,14 +519,14 @@
                             <group name="options">
                                 <parameter name="maxStationDistance" type="double" default="85" unit="km">
                                     <description>
-                                        Max distance between event and station allowed.
+                                        Max distance (km) between event and station allowed.
                                         Phases belonging to further stations will not be used
                                         in cross-correlation. Set it to -1 to remove limits.
                                     </description>
-                                </parameter> 
+                                </parameter>
                                 <parameter name="maxInterEventDistance" type="double" default="-1" unit="km">
                                     <description>
-                                        Max distance between events allowed.
+                                        Max distance (km) between events allowed.
                                         Event pairs whose inter-event distance if further than 
                                         this value will not be used in cross-correlation.
                                         Set it to -1 to remove limits.
@@ -567,18 +568,18 @@
                             </parameter>
                             <parameter name="resampling" type="double" default="400" unit="Hz">
                                 <description>
-                                    Resample all traces at this samplig interval
+                                    Resample all traces at this samplig interval (hz)
                                     Set it to 0 disable resampling.
                                 </description>
                             </parameter>
                         </group>
 
                         <group name="snr">
-                           <description>
+                            <description>
                                Exclude phases from cross-correlation when the Signal to Noise Ratio (SNR) is below
                                a configured threshold.
                            </description>
-                           <parameter name="minSnr" type="double" default="2">
+                            <parameter name="minSnr" type="double" default="2">
                                 <description>
                                     Minimum SNR value required to use a pick in cross-correlation.
                                     If 'minSnr' is used, then the noise and signal windows must be defined too.
@@ -595,7 +596,7 @@
                             </parameter>
                             <parameter name="signalEnd" type="double" default="0.350" unit="s">
                                 <description>End of signal window with respect to pick time (+/- secs).</description>
-                            </parameter> 
+                            </parameter>
                         </group>
                     </group>
 
@@ -609,14 +610,14 @@
                             and also updating the observations weights according to
                             'downWeightingByResidual' settings.
                           </description>
-                        <parameter name="solverType" type="string" default="LSMR" >
+                        <parameter name="solverType" type="string" default="LSMR">
                             <description>
                                 Solver algorithm to use: either LSMR or LSQR. Both algorithms solve
                                 the double-difference equations system in a least squares sense.
                                 LSMR is based on Fong and Saunders algorithm from 2010. LSQR is
                                 based on Paige and Saunders algorithm from 1982.
                             </description>
-                       </parameter>
+                        </parameter>
                         <parameter name="algoIterations" type="int" default="20">
                             <description>
                               This parameter control how many iterations the solver performs.
@@ -627,10 +628,10 @@
                             </description>
                         </parameter>
                         <parameter name="useTTResiduals" type="boolean" default="false">
-                          <description>Include travel time residuals in the double-difference
+                            <description>Include travel time residuals in the double-difference
                             system. The relocated origins will improve in absolute locations,
                             but the relative locations might lose in resolution.
-                          </description> 
+                          </description>
                         </parameter>
                         <group name="downWeightingByResidual">
                             <description>
@@ -647,16 +648,16 @@
                                 than the configured threshold are donweighted according to their
                                 residual value (see Waldhauser/Ellsworth paper).
                                 A value of 0 disables downweighting.
-                            </description> 
+                            </description>
                             <parameter name="startingValue" type="double" default="10">
-                              <description>Value for the first iteration of the solver.</description>
+                                <description>Value for the first iteration of the solver.</description>
                             </parameter>
                             <parameter name="finalValue" type="double" default="3">
-                              <description>Value for the last iteration of the solver.</description>
-                            </parameter> 
-                        </group> 
+                                <description>Value for the last iteration of the solver.</description>
+                            </parameter>
+                        </group>
                         <group name="dampingFactor">
-                          <description>
+                            <description>
                             Setting a value different than 0 enables the solver to use a damped
                             (regularized) least squares system.
                             The damping factor value constrains the changes in earthquakes
@@ -665,12 +666,12 @@
                             A too high value prevents the events from changing at all. A too low
                             value might result in a huge shift of the event cluster after
                             relocation, although the structure should persist.
-                            </description> 
+                            </description>
                             <parameter name="startingValue" type="double" default="0.3">
-                              <description>Value for the first iteration of the solver.</description>
+                                <description>Value for the first iteration of the solver.</description>
                             </parameter>
                             <parameter name="finalValue" type="double" default="0.3">
-                              <description>Value for the last iteration of the solver.</description>
+                                <description>Value for the last iteration of the solver.</description>
                             </parameter>
                         </group>
                         <group name="aPrioriWeights">
@@ -710,12 +711,10 @@
                             <description>
                                 Traveltime table used by the solver (LOCSAT or libtau). This
                                 can be a system default or a user custom travel time table.
-                            </description> 
-                            <parameter name="tableType" type="string" default="libtau">
-                            </parameter>
-                            <parameter name="tableModel" type="string" default="iasp91">
-                            </parameter> 
-                        </group>  
+                            </description>
+                            <parameter name="tableType" type="string" default="libtau"></parameter>
+                            <parameter name="tableModel" type="string" default="iasp91"></parameter>
+                        </group>
                     </group>
                 </struct>
             </group>
@@ -732,7 +731,7 @@
                 <optionReference>generic#shutdown-master-module</optionReference>
                 <optionReference>generic#shutdown-master-username</optionReference>
             </group>
-            
+
             <group name="Verbosity">
                 <optionReference>verbosity#verbosity</optionReference>
                 <optionReference>verbosity#v</optionReference>
@@ -744,7 +743,7 @@
                 <optionReference>verbosity#debug</optionReference>
                 <optionReference>verbosity#log-file</optionReference>
             </group>
-            
+
             <group name="Messaging">
                 <optionReference>messaging#user</optionReference>
                 <optionReference>messaging#host</optionReference>
@@ -845,7 +844,7 @@
                 <option long-flag="reloc-profile" argument="profile">
                     <description>Relocate the catalog of profile passed as argument.</description>
                 </option>
- 
+
             </group>
 
         </command-line>
