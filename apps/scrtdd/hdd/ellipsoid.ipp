@@ -34,31 +34,30 @@ namespace HDD {
  */
 struct Ellipsoid
 {
-    bool isInside(double lat, double lon, double depth) const
-    {
-        double distance, az;
-        distance = computeDistance(lat, lon, 0, this->lat, this->lon, 0, &az);
-        az = deg2rad(az);
+  bool isInside(double lat, double lon, double depth) const
+  {
+    double distance, az;
+    distance = computeDistance(lat, lon, 0, this->lat, this->lon, 0, &az);
+    az       = deg2rad(az);
 
-        double dist_x = distance * std::sin(az);
-        double dist_y = distance * std::cos(az);
-        double dist_z = depth - this->depth;
+    double dist_x = distance * std::sin(az);
+    double dist_y = distance * std::cos(az);
+    double dist_z = depth - this->depth;
 
-        double one = std::pow( dist_x / axis_a, 2) +
-                     std::pow( dist_y / axis_b, 2) +
-                     std::pow( dist_z / axis_c, 2);
-        return one <= 1;
-    }
+    double one = std::pow(dist_x / axis_a, 2) + std::pow(dist_y / axis_b, 2) +
+                 std::pow(dist_z / axis_c, 2);
+    return one <= 1;
+  }
 
-    double axis_a=0, axis_b=0, axis_c=0; // axis in km
-    double lat=0, lon=0, depth=0;        // origin
+  double axis_a = 0, axis_b = 0, axis_c = 0; // axis in km
+  double lat = 0, lon = 0, depth = 0;        // origin
 };
 
 DEFINE_SMARTPOINTER(Ellipsoid);
 
 /*
- * Helper class to implement Waldhauser's paper method of neighboring events selection
- * based on 5 concentric ellipsoidal layers
+ * Helper class to implement Waldhauser's paper method of neighboring events
+ * selection based on 5 concentric ellipsoidal layers.
  *
  * Quadrants (1-4 above depth, 5-8 below depth):
  *
@@ -76,70 +75,84 @@ class HddEllipsoid : public Core::BaseObject
 {
 
 public:
+  HddEllipsoid(double vertical_axis_len, double lat, double lon, double depth)
+      : HddEllipsoid(vertical_axis_len / 2., vertical_axis_len, lat, lon, depth)
+  {}
 
-    HddEllipsoid(double vertical_axis_len, double lat, double lon, double depth)
-        : HddEllipsoid(vertical_axis_len/2., vertical_axis_len, lat, lon, depth)
-    { }
+  HddEllipsoid(double inner_vertical_axis_len,
+               double outer_vertical_axis_len,
+               double lat,
+               double lon,
+               double depth)
+  {
+    _outerEllipsoid.axis_a = outer_vertical_axis_len / 2.;
+    _outerEllipsoid.axis_b = _outerEllipsoid.axis_a;
+    _outerEllipsoid.axis_c = outer_vertical_axis_len;
 
-    HddEllipsoid(double inner_vertical_axis_len, double outer_vertical_axis_len,
-                 double lat, double lon, double depth)
-    {
-        _outerEllipsoid.axis_a = outer_vertical_axis_len / 2.;
-        _outerEllipsoid.axis_b = _outerEllipsoid.axis_a;
-        _outerEllipsoid.axis_c = outer_vertical_axis_len;
+    _innerEllipsoid.axis_a = inner_vertical_axis_len / 2.;
+    _innerEllipsoid.axis_b = _innerEllipsoid.axis_a;
+    _innerEllipsoid.axis_c = inner_vertical_axis_len;
 
-        _innerEllipsoid.axis_a = inner_vertical_axis_len / 2.;
-        _innerEllipsoid.axis_b = _innerEllipsoid.axis_a;
-        _innerEllipsoid.axis_c = inner_vertical_axis_len;
+    _outerEllipsoid.lat = _innerEllipsoid.lat = lat;
+    _outerEllipsoid.lon = _innerEllipsoid.lon = lon;
+    _outerEllipsoid.depth = _innerEllipsoid.depth = depth;
+  }
 
-        _outerEllipsoid.lat   = _innerEllipsoid.lat   = lat;
-        _outerEllipsoid.lon   = _innerEllipsoid.lon   = lon;
-        _outerEllipsoid.depth = _innerEllipsoid.depth = depth;
-    }
+  const Ellipsoid &getInnerEllipsoid() const { return _innerEllipsoid; }
+  const Ellipsoid &getOuterEllipsoid() const { return _outerEllipsoid; }
 
-    const Ellipsoid& getInnerEllipsoid() const { return _innerEllipsoid; }
-    const Ellipsoid& getOuterEllipsoid() const { return _outerEllipsoid; }
+  // Returns if the coordinate provided is located within the correct quadrant,
+  // and is both inside the outer layer and outside of the inner one.
+  bool
+  isInside(double lat, double lon, double depth, int quadrant /* 1-8 */) const
+  {
+    return isInQuadrant(_innerEllipsoid, lat, lon, depth, quadrant) &&
+           isInside(lat, lon, depth);
+  }
 
-    bool isInside(double lat, double lon, double depth, int quadrant/* 1-8 */) const
-    {
-        // be in the right quadrant and inside the outer layer and outside of the inner one
-        return isInQuadrant(_innerEllipsoid, lat, lon, depth, quadrant) &&  isInside(lat, lon, depth);
-    }
+  // Returns if the coordinate provided is located both inside the outer layer
+  // and outside of the inner one.
+  bool isInside(double lat, double lon, double depth) const
+  {
+    return _outerEllipsoid.isInside(lat, lon, depth) &&
+           !_innerEllipsoid.isInside(lat, lon, depth);
+  }
 
-    bool isInside(double lat, double lon, double depth) const
-    {
-        // be inside the outer layer and outside of the inner one
-        return _outerEllipsoid.isInside(lat, lon, depth) && ! _innerEllipsoid.isInside(lat, lon, depth);
-    }
+  static bool isInQuadrant(const Ellipsoid &ellip,
+                           double lat,
+                           double lon,
+                           double depth,
+                           int quadrant /* 1-8 */)
+  {
+    if (quadrant < 1 || quadrant > 8)
+      throw std::invalid_argument("quadrant should be between 1 and 8");
 
-    static bool
-    isInQuadrant(const Ellipsoid& ellip, double lat, double lon, double depth, int quadrant /* 1-8 */)
-    {
-        if (quadrant < 1 || quadrant > 8)
-            throw std::invalid_argument( "quadrant should be between 1 and 8");
+    if (depth < ellip.depth && std::set<int>{1, 2, 3, 4}.count(quadrant) != 0)
+      return false;
+    if (depth > ellip.depth && std::set<int>{5, 6, 7, 8}.count(quadrant) != 0)
+      return false;
 
-        if (depth < ellip.depth && std::set<int>{1,2,3,4}.count(quadrant) != 0) return false;
-        if (depth > ellip.depth && std::set<int>{5,6,7,8}.count(quadrant) != 0) return false;
+    if (lon < ellip.lon && std::set<int>{1, 4, 5, 8}.count(quadrant) != 0)
+      return false;
+    if (lon > ellip.lon && std::set<int>{2, 3, 6, 7}.count(quadrant) != 0)
+      return false;
 
-        if (lon < ellip.lon && std::set<int>{1,4,5,8}.count(quadrant) != 0) return false;
-        if (lon > ellip.lon && std::set<int>{2,3,6,7}.count(quadrant) != 0) return false;
+    if (lat < ellip.lat && std::set<int>{1, 2, 5, 6}.count(quadrant) != 0)
+      return false;
+    if (lat > ellip.lat && std::set<int>{3, 4, 7, 8}.count(quadrant) != 0)
+      return false;
 
-        if (lat < ellip.lat && std::set<int>{1,2,5,6}.count(quadrant) != 0) return false;
-        if (lat > ellip.lat && std::set<int>{3,4,7,8}.count(quadrant) != 0) return false;
-
-        return true;
-    }
+    return true;
+  }
 
 private:
-
-    Ellipsoid _outerEllipsoid;
-    Ellipsoid _innerEllipsoid;
+  Ellipsoid _outerEllipsoid;
+  Ellipsoid _innerEllipsoid;
 };
 
 DEFINE_SMARTPOINTER(HddEllipsoid);
 
-
-}
-}
+} // namespace HDD
+} // namespace Seiscomp
 
 #endif

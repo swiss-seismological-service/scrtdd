@@ -26,7 +26,7 @@ namespace HDD {
 
 /*
  * Compute distance in km between two points and optionally
- * azimuth and backazimuth
+ * `azimuth` and `backazimuth`.
  */
 double computeDistance(double lat1,
                        double lon1,
@@ -41,8 +41,8 @@ double computeDistance(double lat1,
 
   if (depth1 == depth2) return Hdist;
 
-  // this is an approximation that works when the distance is small
-  // and the Earth curvature can be assumed flat
+  // Use the Euclidean distance. This approximation is sufficient when the
+  // distance is small and the Earth curvature can be assumed flat.
   double Vdist = abs(depth1 - depth2);
   return std::sqrt(std::pow(Hdist, 2) + std::pow(Vdist, 2));
 }

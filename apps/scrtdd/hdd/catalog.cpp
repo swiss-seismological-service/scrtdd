@@ -84,12 +84,12 @@ std::pair<double, double> getPickUncertainty(DataModel::Pick *pick)
   pair<double, double> uncertainty(-1, -1); // secs
   try
   {
-    // Symmetric uncertainty
+    // symmetric uncertainty
     uncertainty.first = uncertainty.second = pick->time().uncertainty();
   }
   catch (Core::ValueException &)
   {
-    // Unsymmetric uncertainty
+    // unsymmetric uncertainty
     try
     {
       uncertainty.first  = pick->time().lowerUncertainty();
@@ -350,7 +350,7 @@ void Catalog::add(const std::vector<DataModel::OriginPtr> &origins,
       continue;
     }
 
-    // Add event
+    // add event
     Event ev;
     ev.id        = 0;
     ev.time      = org->time().value();
@@ -367,7 +367,7 @@ void Catalog::add(const std::vector<DataModel::OriginPtr> &origins,
     }
 
     DataModel::MagnitudePtr mag;
-    // try to fetch preferred magnitude stored in the event
+    // try to fetch preferred magnitude of the event
     DataModel::EventPtr parentEvent = dataSrc.getParentEvent(org->publicID());
     if (parentEvent)
     {
@@ -391,7 +391,7 @@ void Catalog::add(const std::vector<DataModel::OriginPtr> &origins,
 
     unsigned newEventId = this->addEvent(ev);
 
-    // Add Phases
+    // add phases
     for (size_t i = 0; i < org->arrivalCount(); ++i)
     {
       DataModel::Arrival *orgArr    = org->arrival(i);
@@ -411,7 +411,8 @@ void Catalog::add(const std::vector<DataModel::OriginPtr> &origins,
       sta.stationCode  = pick->waveformID().stationCode();
       sta.locationCode = pick->waveformID().locationCode();
 
-      // skip not selected picks/phases or those who has 0 weight, unless manual
+      // skip not selected picks/phases or those which have 0 weight, unless
+      // manual
       try
       {
         if (pick->evaluationMode() != Seiscomp::DataModel::MANUAL &&
@@ -450,7 +451,7 @@ void Catalog::add(const std::vector<DataModel::OriginPtr> &origins,
         sta.elevation = loc->elevation(); // meter
         this->addStation(sta);
       }
-      // the station has to be there at this point
+      // the station must be available at this point
       sta = searchStation(sta.networkCode, sta.stationCode, sta.locationCode)
                 ->second;
 
@@ -736,8 +737,8 @@ void Catalog::writeToFile(string eventFile,
                           string stationFile) const
 {
   /*
-   * Write Events
-   * */
+   * write events
+   */
   stringstream evStreamNoReloc;
   stringstream evStreamReloc;
 
@@ -802,8 +803,8 @@ void Catalog::writeToFile(string eventFile,
   evStream << (relocInfo ? evStreamReloc.str() : evStreamNoReloc.str());
 
   /*
-   * Write Phases
-   * */
+   * write phases
+   */
   ofstream phStream(phaseFile);
 
   phStream << "eventId,stationId,isotime,lowerUncertainty,upperUncertainty,"
@@ -848,8 +849,8 @@ void Catalog::writeToFile(string eventFile,
   }
 
   /*
-   * Write Stations
-   * */
+   * write stations
+   */
   ofstream staStream(stationFile);
   staStream
       << "id,latitude,longitude,elevation,networkCode,stationCode,locationCode"
@@ -869,9 +870,9 @@ void Catalog::writeToFile(string eventFile,
 }
 
 /*
- * Build a catalog with requested phases only and for the same event/station
- * pair make sure to have only one P and one S phase. If multiple phases are
- * found, keep the highest priority one
+ * Build a catalog with requested phases, only. Besides, make sure, that for an
+ * event/station pair there is only one P and one S phase. If multiple phases
+ * are found, keep the one with the highest priority.
  */
 CatalogPtr
 Catalog::filterPhasesAndSetWeights(const CatalogCPtr &catalog,
@@ -891,7 +892,7 @@ Catalog::filterPhasesAndSetWeights(const CatalogCPtr &catalog,
     const auto &eqlrng = catalog->getPhases().equal_range(event.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
-      // keep the phase only if it has a higher priority of an existing one
+      // keep the phase only if it has a higher priority than an existing one
       // or if this is the only one for a given station
       const Phase &phase = it->second;
 
@@ -901,8 +902,8 @@ Catalog::filterPhasesAndSetWeights(const CatalogCPtr &catalog,
       {
         auto priority = std::distance(PphaseToKeep.begin(), itpp);
 
-        // fetch already selected P phases for current event, and
-        // check if there is already a P phase for the same station
+        // fetch already selected P phases for current event, and check if
+        // there is already a P phase for the same station
         bool inserted = false;
         auto eqlrng2  = filteredP.equal_range(event.id);
         for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
@@ -931,8 +932,8 @@ Catalog::filterPhasesAndSetWeights(const CatalogCPtr &catalog,
       {
         auto priority = std::distance(SphaseToKeep.begin(), itsp);
 
-        // fetch already selected S phases for current event, and
-        // check if there is already a S phase for the same station
+        // fetch already selected S phases for current event, and check if
+        // there is already a S phase for the same station
         bool inserted = false;
         auto eqlrng2  = filteredS.equal_range(event.id);
         for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
@@ -961,8 +962,8 @@ Catalog::filterPhasesAndSetWeights(const CatalogCPtr &catalog,
     }
   }
 
-  // loop through selected phases and replace actual phase name
-  //  with a generic P or S
+  // loop through selected phases and replace the actual phase name with a
+  // generic P or S
   unordered_multimap<unsigned, Phase> filteredPhases;
   for (auto &it : filteredP)
   {

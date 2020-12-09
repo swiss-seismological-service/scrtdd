@@ -52,8 +52,8 @@ namespace HDD {
  *                              in the least-squares sense
  *
  * where A is a matrix with m rows and n columns, b is an m-vector,
- * and damp is a scalar.  (All quantities are real.)
- * The matrix A is treated as a linear operator.  It is accessed
+ * and damp is a scalar. (All quantities are real.)
+ * The matrix A is treated as a linear operator. It is accessed
  * by means of subroutine calls with the following purpose:
  *
  * call Aprod1(m,n,x,y)  must compute y = y + A*x  without altering x.
@@ -61,27 +61,27 @@ namespace HDD {
  *
  * LSMR uses an iterative method to approximate the solution.
  * The number of iterations required to reach a certain accuracy
- * depends strongly on the scaling of the problem.  Poor scaling of
+ * depends strongly on the scaling of the problem. Poor scaling of
  * the rows or columns of A should therefore be avoided where
  * possible.
  *
  * For example, in problem 1 the solution is unaltered by
- * row-scaling.  If a row of A is very small or large compared to
+ * row-scaling. If a row of A is very small or large compared to
  * the other rows of A, the corresponding row of ( A  b ) should be
  * scaled up or down.
  *
  * In problems 1 and 2, the solution x is easily recovered
- * following column-scaling.  Unless better information is known,
+ * following column-scaling. Unless better information is known,
  * the nonzero columns of A should be scaled so that they all have
  * the same Euclidean norm (e.g., 1.0).
  *
  * In problem 3, there is no freedom to re-scale if damp is
- * nonzero.  However, the value of damp should be assigned only
+ * nonzero. However, the value of damp should be assigned only
  * after attention has been paid to the scaling of A.
  *
  * The parameter damp is intended to help regularize
  * ill-conditioned systems, by preventing the true solution from
- * being very large.  Another aid to regularization is provided by
+ * being very large. Another aid to regularization is provided by
  * the parameter condA, which may be used to terminate iterations
  * before the computed solution becomes very large.
  *
@@ -94,12 +94,12 @@ namespace HDD {
  * 3. Add the correction dx to obtain a final solution x = x0 + dx.
  *
  * This requires that x0 be available before and after the call
- * to LSMR.  To judge the benefits, suppose LSMR takes k1 iterations
+ * to LSMR. To judge the benefits, suppose LSMR takes k1 iterations
  * to solve A*x = b and k2 iterations to solve A*dx = r0.
  * If x0 is "good", norm(r0) will be smaller than norm(b).
  * If the same stopping tolerances atol and btol are used for each
  * system, k1 and k2 will be similar, but the final solution x0 + dx
- * should be more accurate.  The only way to reduce the total work
+ * should be more accurate. The only way to reduce the total work
  * is to use a larger stopping tolerance for the second system.
  * If some value btol is suitable for A*x = b, the larger value
  * btol*norm(b)/norm(r0)  should be suitable for A*dx = r0.
@@ -112,7 +112,7 @@ namespace HDD {
  *       A*M(inverse)*z = b,
  * after which x can be recovered by solving M*x = z.
  *
- * NOTE: If A is symmetric, LSMR should not be used*
+ * NOTE: If A is symmetric, LSMR should not be used.
  * Alternatives are the symmetric conjugate-gradient method (CG)
  * and/or SYMMLQ.
  * SYMMLQ is an implementation of symmetric CG that applies to
@@ -168,11 +168,11 @@ namespace HDD {
  * x(n)    output     Returns the computed solution x.
  *
  * atol    input      An estimate of the relative error in the data
- *                    defining the matrix A.  For example, if A is
+ *                    defining the matrix A. For example, if A is
  *                    accurate to about 6 digits, set atol = 1.0e-6.
  *
  * btol    input      An estimate of the relative error in the data
- *                    defining the rhs b.  For example, if b is
+ *                    defining the rhs b. For example, if b is
  *                    accurate to about 6 digits, set btol = 1.0e-6.
  *
  * conlim  input      An upper limit on cond(Abar), the apparent
@@ -221,12 +221,12 @@ namespace HDD {
  *                    Norm(A*x - b) is sufficiently small, given the
  *                    values of atol and btol.
  *
- *            2       damp is zero.  The system A*x = b is probably
- *                    not compatible.  A least-squares solution has
+ *            2       damp is zero. The system A*x = b is probably
+ *                    not compatible. A least-squares solution has
  *                    been obtained that is sufficiently accurate,
  *                    given the value of atol.
  *
- *            3       damp is nonzero.  A damped least-squares
+ *            3       damp is nonzero. A damped least-squares
  *                    solution has been obtained that is sufficiently
  *                    accurate, given the value of atol.
  *
@@ -248,18 +248,18 @@ namespace HDD {
  *                    indicate an error in Aprod1 or Aprod2.
  *
  * condA   output     An estimate of cond(Abar), the condition
- *                    number of Abar.  A very high value of condA
+ *                    number of Abar. A very high value of condA
  *                    may again indicate an error in Aprod1 or Aprod2.
  *
  * normr   output     An estimate of the final value of norm(rbar),
  *                    the function being minimized (see notation
- *                    above).  This will be small if A*x = b has
+ *                    above). This will be small if A*x = b has
  *                    a solution.
  *
  * normAr  output     An estimate of the final value of
  *                    norm( Abar'*rbar ), the norm of
  *                    the residual for the normal equations.
- *                    This should be small in all cases.  (normAr
+ *                    This should be small in all cases. (normAr
  *                    will often be smaller than the true value
  *                    computed from the output vector x.)
  *
@@ -271,13 +271,14 @@ namespace HDD {
  * if the computation is performed in higher precision.
  * At least 15-digit arithmetic should normally be used.
  * "real(dp)" declarations should normally be 8-byte words.
- * If this ever changes, the BLAS routines  dnrm2, dscal
+ * If this ever changes, the BLAS routines dnrm2, dscal
  * (Lawson, et al., 1979) will also need to be changed.
  *
  *
  * Reference
  * ---------
- * http://www.stanford.edu/group/SOL/software/lsmr.html
+ * - https://web.stanford.edu/group/SOL/software.html
+ * - https://github.com/tvercaut/LSQR-cpp
  * ------------------------------------------------------------------
  *
  * LSMR development:

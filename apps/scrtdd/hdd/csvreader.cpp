@@ -86,7 +86,7 @@ vector<string> readRow(const string &row)
   return fields;
 }
 
-/// Read CSV file, Excel dialect. Accept "quoted fields ""with quotes"""
+// Read CSV file, Excel dialect.
 vector<vector<string>> read(istream &in)
 {
   vector<vector<string>> table;

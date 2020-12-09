@@ -94,9 +94,8 @@ HypoDD::HypoDD(const CatalogCPtr &catalog,
 
 HypoDD::~HypoDD()
 {
-  //
-  // delete all in working directory except the cache directory
-  //
+  // delete everything located in the working directory except for the cache
+  // directory
   if (_workingDirCleanup)
   {
     for (auto &entry : boost::make_iterator_range(
@@ -219,7 +218,7 @@ void HypoDD::preloadData()
   unsigned numPhases = 0, numSPhases = 0;
 
   //
-  // Preload waveforms on disk and cache them in memory (pre-processed)
+  // preload waveforms on disk and cache them in memory (pre-processed)
   //
   for (const auto &kv : _bgCat->getEvents())
   {
@@ -263,7 +262,7 @@ CatalogPtr HypoDD::relocateCatalog()
 
   CatalogPtr catToReloc(new Catalog(*_bgCat));
 
-  // Create working directory (used to be a working directory, now it's just
+  // create working directory (used to be a working directory, now it's just
   // logs/debug)
   string catalogWorkingDir =
       (boost::filesystem::path(_workingDir) / "catalog").string();
@@ -290,7 +289,7 @@ CatalogPtr HypoDD::relocateCatalog()
     processingInfoOutput->subscribe(Seiscomp::Logging::_SCErrorChannel);
   }
 
-  // Find Neighbours for each event in the catalog
+  // find Neighbours for each event in the catalog
   list<NeighboursPtr> allNeighbours = selectNeighbouringEventsCatalog(
       catToReloc, _cfg.ddObservations2.minWeight,
       _cfg.ddObservations2.minESdist, _cfg.ddObservations2.maxESdist,
@@ -299,15 +298,15 @@ CatalogPtr HypoDD::relocateCatalog()
       _cfg.ddObservations2.maxNumNeigh, _cfg.ddObservations2.numEllipsoids,
       _cfg.ddObservations2.maxEllipsoidSize, true);
 
-  // Organize the neighbours by not connected clusters and also
+  // Organize the neighbours by not connected clusters. In addition,
   // don't report the same pair multiple times (e.g. ev1-ev2 and ev2-ev1)
-  // since we only need one observation for pair in the DD solver
+  // since we only need one observation per pair in the DD solver.
   deque<list<NeighboursPtr>> clusters =
       clusterizeNeighbouringEvents(allNeighbours);
 
   SEISCOMP_INFO("Found %lu event clusters", clusters.size());
 
-  // write catalog for debugging purpose
+  // write catalog for debugging purposes
   if (!_workingDirCleanup)
   {
     catToReloc->writeToFile(
@@ -320,7 +319,7 @@ CatalogPtr HypoDD::relocateCatalog()
   }
 
   //
-  // Relocate one cluster a time
+  // relocate one cluster a time
   //
   CatalogPtr relocatedCatalog(new Catalog());
 
@@ -347,12 +346,13 @@ CatalogPtr HypoDD::relocateCatalog()
               .string());
     }
 
-    // Perform cross correlation, which also detects picks around theoretical
-    // arrival times. The catalog will be updated with those theoretical phases
+    // Perform cross-correlation which also detects picks around theoretical
+    // arrival times. The catalog will be updated with the corresponding
+    // theoretical phases.
     const XCorrCache xcorr =
         buildXCorrCache(catToReloc, neighCluster, _useArtificialPhases);
 
-    // The actual relocation
+    // the actual relocation
     CatalogPtr relocatedCluster =
         relocate(catToReloc, neighCluster, false, xcorr);
 
@@ -372,7 +372,7 @@ CatalogPtr HypoDD::relocateCatalog()
     }
   }
 
-  // write catalog for debugging purpose
+  // write catalog for debugging purposes
   if (!_workingDirCleanup)
   {
     relocatedCatalog->writeToFile(
@@ -407,7 +407,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
       std::distance(evToRelocatePhases.first, evToRelocatePhases.second));
 
   // Create working directory (used to be a working directory, now it's just
-  // logs/debug)
+  // logs/debug).
   string subFolder = generateWorkingSubDir(evToRelocate);
   subFolder = (boost::filesystem::path(_workingDir) / subFolder).string();
   if (!Util::pathExists(subFolder))
@@ -433,11 +433,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
     processingInfoOutput->subscribe(Seiscomp::Logging::_SCErrorChannel);
   }
 
-  //
-  // Step 1: refine location without cross correlation
-  //
   SEISCOMP_INFO(
-      "Performing step 1: initial location refinement (no cross correlation)");
+      "Performing step 1: initial location refinement (no cross-correlation)");
 
   string eventWorkingDir =
       (boost::filesystem::path(subFolder) / "step1").string();
@@ -471,10 +468,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
     SEISCOMP_ERROR("Failed to perform step 1 origin relocation");
   }
 
-  //
-  // Step 2: relocate the refined location this time with cross correlation
-  //
-  SEISCOMP_INFO("Performing step 2: relocation with cross correlation");
+  SEISCOMP_INFO("Performing step 2: relocation with cross-correlation");
 
   eventWorkingDir = (boost::filesystem::path(subFolder) / "step2").string();
 
@@ -496,7 +490,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
     SEISCOMP_INFO("Relocation report: %s",
                   relocationReport(relocatedEvWithXcorr).c_str());
 
-    // update the origin changes statistics using the first relocatin too
+    // update the "origin change information" taking into consideration
+    // the first relocation step, too
     if (relocatedEvCat)
     {
       const Event &prevRelocEv = relocatedEvCat->getEvents().begin()->second;
@@ -568,7 +563,7 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
     const Event &evToRelocate = evToRelocateCat->getEvents().begin()->second;
 
     //
-    // Select neighbouring events
+    // select neighbouring events
     //
     bool keepUnmatchedPhases = doXcorr; // useful for detecting missed picks
 
@@ -578,14 +573,14 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
         maxNumNeigh, numEllipsoids, maxEllipsoidSize, keepUnmatchedPhases);
 
     //
-    // Prepare catalog to relocate
+    // prepare catalog to relocate
     //
     CatalogPtr catalog = neighbours->toCatalog(bgCat);
     unsigned evToRelocateNewId =
         catalog->add(evToRelocate.id, *evToRelocateCat, false);
     neighbours->refEvId = evToRelocateNewId;
 
-    // write catalog for debugging purpose
+    // write catalog for debugging purposes
     if (!_workingDirCleanup)
     {
       catalog->writeToFile(
@@ -598,13 +593,13 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
     XCorrCache xcorr;
     if (doXcorr)
     {
-      // Perform cross correlation, which also detects picks around theoretical
-      // arrival times. The catalog will be updated with those theoretical
-      // phases
+      // Perform cross-correlation, which also detects picks around theoretical
+      // arrival times. The catalog will be updated with the corresponding
+      // phases.
       xcorr = buildXCorrCache(catalog, {neighbours}, computeTheoreticalPhases);
     }
 
-    // The actual relocation
+    // the actual relocation
     relocatedEvCat = relocate(catalog, {neighbours}, true, xcorr);
 
     // write catalog for debugging purpose
@@ -635,7 +630,7 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
   SEISCOMP_INFO("Building and solving double-difference system...");
 
   //
-  // Iterate the solver computation multiple times
+  // iterate the solver computation multiple times
   //
   CatalogCPtr finalCatalog = catalog;
   unordered_map<unsigned, NeighboursPtr> finalNeighCluster;
@@ -667,12 +662,12 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
                   iteration, neighCluster.size(), absTTDiffObsWeight,
                   xcorrObsWeight, dampingFactor, downWeightingByResidual);
 
-    // Create a solver and then add observations
+    // create a solver and then add observations
     Solver solver(_cfg.solver.type);
 
     //
-    // Add absolute travel time/xcorr differences to the solver (the
-    // observations)
+    // Add absolute travel time/cross-correlation differences to the solver
+    // (the observations)
     //
     for (const NeighboursPtr &neighbours : neighCluster)
     {
@@ -746,9 +741,9 @@ string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
 }
 
 /*
- * Add to the Solver the absolute travel times differences and the
- * differential travel times from cross correlation for pairs of
- * earthquakes
+ * Add both the absolute travel time differences and the differential
+ * travel times from the cross-correlation for pairs of earthquakes to the
+ * solver.
  */
 void HypoDD::addObservations(Solver &solver,
                              double absTTDiffObsWeight,
@@ -788,7 +783,7 @@ void HypoDD::addObservations(Solver &solver,
                                              refPhase.procInfo.type)
                                ->second;
       //
-      // compute travel times for both event and refEvent
+      // compute travel times for both event and `refEv`
       //
       double ref_travel_time = (refPhase.time - refEv.time).length();
       if (ref_travel_time < 0)
@@ -815,7 +810,7 @@ void HypoDD::addObservations(Solver &solver,
       }
 
       //
-      // Conpute absolute trave time differences to the solver
+      // compute absolute travel time differences to the solver
       //
       double diffTime = ref_travel_time - travel_time;
       double weight =
@@ -825,8 +820,8 @@ void HypoDD::addObservations(Solver &solver,
       bool isXcorr = false;
 
       //
-      // Check if we have xcorr results for current event/refEvent pair at
-      // station/phase and use those instead
+      // Check if we have cross-correlation results for the current
+      // event/`refEv` pair at station/phase and use those instead.
       //
       if (xcorr.has(refEv.id, event.id, refPhase.stationId,
                     refPhase.procInfo.type))
@@ -866,8 +861,8 @@ bool HypoDD::ObservationParams::add(HDD::TravelTimeTablePtr ttt,
       ttt->compute(event, station, string(1, phaseType), travelTime,
                    takeOffAngle, velocityAtSrc);
       double ttResidual = travelTime - (phase.time - event.time).length();
-      // when takeOffAngle/velocityAtSrc are not provided (i.e. are 0) by
-      // the ttt then the solver will use straight ray path approximation
+      // When `takeOffAngle`/`velocityAtSrc` are not provided (i.e. set to 0)
+      // by the ttt, the solver will use straight ray path approximation.
       _entries[key] =
           Entry{event,      station,      phaseType,     travelTime,
                 ttResidual, takeOffAngle, velocityAtSrc, computeEvChanges};
@@ -954,7 +949,7 @@ CatalogPtr HypoDD::updateRelocatedEvents(
     bool isFirstIteration    = !event.relocInfo.isRelocated;
 
     //
-    // Update event location/time and compute statistics
+    // update event location/time and compute statistics
     //
     relocatedEvs++;
     event.latitude += deltaLat;
@@ -1085,7 +1080,7 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
     const NeighboursPtr &neighbours = kv.second;
     auto it = finalCatalog->getEvents().find(neighbours->refEvId);
 
-    // if the event hasn't been relocated remove it from the final catalog
+    // If the event hasn't been relocated, remove it from the final catalog.
     if (it == finalCatalog->getEvents().end() ||
         !it->second.relocInfo.isRelocated)
     {
@@ -1098,7 +1093,7 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
     Event finalEvent        = tmpCat->getEvents().at(neighbours->refEvId);
 
     //
-    // compute location/time change of start/final origin
+    // Compute location/time change of start/final origin.
     //
     finalEvent.relocInfo.locChange =
         computeDistance(finalEvent.latitude, finalEvent.longitude,
@@ -1109,7 +1104,7 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
 
     //
     // Compute starting event rms considering only the phases in the final
-    // catalog
+    // catalog.
     //
     unsigned rmsCount             = 0;
     finalEvent.relocInfo.startRms = 0;
@@ -1150,7 +1145,7 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
     }
 
     //
-    // Compute stations distance to final event
+    // compute station distances to final event
     //
     stationDist.clear();
     for (const auto &kv : neighbours->allPhases())
@@ -1158,9 +1153,9 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
       const string &stationId = kv.first;
       for (Phase::Type phaseType : kv.second)
       {
-        // check this station is actually part of the event phases (remember
-        // keepUnmatchedPhases option during clustering) and also the phase
-        // was used in relocation
+        // Check if this station is actually part of the event phases (remember
+        // keepUnmatchedPhases option during clustering). Make sure that the
+        // phase was used for relocation.
         auto it = tmpCat->searchPhase(finalEvent.id, stationId, phaseType);
         if (it != tmpCat->getPhases().end() && it->second.relocInfo.isRelocated)
         {
@@ -1218,7 +1213,7 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
   const double allRmsMedian = computeMedian(allRms);
   const double allRmsMAD = computeMedianAbsoluteDeviation(allRms, allRmsMedian);
 
-  SEISCOMP_INFO("Events Rms Before relocation: median %.4f median absolute "
+  SEISCOMP_INFO("Events RMS before relocation: median %.4f median absolute "
                 "deviation %.4f",
                 allRmsMedian, allRmsMAD);
 
@@ -1248,7 +1243,7 @@ HypoDD::findMissingEventPhases(const Event &refEv,
                                const NeighboursPtr &neighbours)
 {
   //
-  // find stations for which the refEv doesn't have phases
+  // find stations for which the `refEv` doesn't have phases
   //
   vector<MissingStationPhase> missingPhases =
       getMissingPhases(refEv, refEvCatalog, searchCatalog);
@@ -1263,8 +1258,8 @@ HypoDD::findMissingEventPhases(const Event &refEv,
     const Phase::Type phaseType = pair.second;
 
     //
-    // loop through each other event and select the ones who have a manually
-    // picked phase for the missing station
+    // Loop through every other event and select the ones who have a manually
+    // picked phase for the missing station.
     //
     vector<HypoDD::PhasePeer> peers =
         findPhasePeers(station, phaseType, searchCatalog, neighbours);
@@ -1303,8 +1298,8 @@ HypoDD::getMissingPhases(const Event &refEv,
   const auto &refEvPhases = refEvCatalog->getPhases().equal_range(refEv.id);
 
   //
-  // loop through stations and find those for which the refEv doesn't have
-  // phases
+  // Loop through stations and find those for which the `refEv` doesn't have
+  // phases.
   //
   vector<MissingStationPhase> missingPhases;
   for (const auto &kv : searchCatalog->getStations())
@@ -1345,8 +1340,8 @@ HypoDD::findPhasePeers(const Station &station,
                        const NeighboursPtr &neighbours) const
 {
   //
-  // loop through each other event and select the manual phases for the station
-  // we are interested in
+  // Loop through every other event and select those manual phases of the
+  // `station` we are interested in.
   //
   vector<PhasePeer> phasePeers;
 
@@ -1384,7 +1379,7 @@ Phase HypoDD::createThoreticalPhase(const Station &station,
 {
   const auto xcorrCfg = _cfg.xcorr.at(phaseType);
 
-  // store most recent channelCode used
+  // store most recent `channelCode` used
   struct
   {
     string channelCode;
@@ -1395,7 +1390,7 @@ Phase HypoDD::createThoreticalPhase(const Station &station,
   {
     // const Event& event = peer.first;
     const Phase &phase = peer.second;
-    // get the closest in time to refEv stream information
+    // get the closest stream to the `refEv` (w.r.t. time)
     if ((refEv.time - phase.time).abs() < (refEv.time - streamInfo.time).abs())
       streamInfo = {phase.channelCode, phase.time};
   }
@@ -1439,8 +1434,8 @@ XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
   {
     const Event &refEv = catalog->getEvents().at(neighbours->refEvId);
 
-    // Compute theoretical phases for stations that have no picks. The cross
-    // correlation will be used to detect and fix pick time
+    // Compute theoretical phases for stations that have no picks. The
+    // cross-correlation will be used to detect and fix the pick time.
     if (computeTheoreticalPhases)
     {
       addMissingEventPhases(refEv, catalog, catalog, neighbours);
@@ -1449,8 +1444,8 @@ XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
     buildXcorrDiffTTimePairs(catalog, neighbours, refEv, xcorr);
 
     // Update theoretical and automatic phase pick time and uncertainties based
-    // on cross-correlation results Also drop theoretical phases wihout any good
-    // cross correlation result
+    // on cross-correlation results. Also, drop theoretical phases wihout any
+    // good cross-correlation result.
     fixPhases(catalog, refEv, xcorr);
   }
 
@@ -1460,8 +1455,8 @@ XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
 }
 
 /*
- * Compute and store to XCorrCache cross-correlated differential travel times
- * for pairs of earthquake
+ * Compute and store to `XCorrCache` cross-correlated differential travel times
+ * for pairs of the earthquake.
  */
 void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
                                       const NeighboursPtr &neighbours,
@@ -1473,7 +1468,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
       string(refEv).c_str());
 
   //
-  // Prepare the waveform loaders for temporary/real-time waveforms
+  // Prepare the waveform loaders for temporary/real-time waveforms.
   //
   Waveform::LoaderPtr actualDiskLdr = new Waveform::DiskCachedLoader(
       _cfg.ddObservations2.recordStreamURL, false, _tmpCacheDir);
@@ -1502,7 +1497,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
   actualSnrLdr->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
   snrLdr->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
 
-  // keep track of refEv distance to stations
+  // keep track of the `refEv` distance to stations
   multimap<double, string> stationByDistance; // <distance, stationid>
   unordered_set<string> computedStations;
 
@@ -1534,13 +1529,13 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
       refLdr = snrLdr;
     else // not from catalog, not manual, and _cfg.snr.minSnr > 0
     {
-      // for "untrusted" phases (non-manual or not coming from the catalog) the
-      // SNR is checked AFTER loading the cross-correlation, once the pick time
-      // has been adjusted using the lag computed by the cross-corr against a
-      //  "trusted"  phase (manual or catalog)
-      // Also compute a large enough waveform to avoid reloading refPhase at
+      // For "untrusted" phases (i.e. non-manual or not coming from the
+      // catalog) the SNR is checked AFTER loading the cross-correlation, i.e.
+      // once the pick time has been adjusted using the lag computed by the
+      // cross-corr against a "trusted" phase (manual or catalog).
+      // Also compute a large enough waveform to avoid reloading `refPhase` at
       // every new neighbour, since the pick time (and thus the SNR window)
-      // chages at every iteration cross-correlation
+      // changes at every iteration of the cross-correlation.
       const auto xcorrCfg = _cfg.xcorr.at(refPhase.procInfo.type);
       snrWin              = _wfSnrFilter->snrTimeWindow(refPhase.time -
                                            Core::TimeSpan(xcorrCfg.maxDelay)) |
@@ -1550,7 +1545,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
     }
 
     //
-    // loop through neighbouring events and cross correlate with refPhase
+    // loop through neighbouring events and cross-correlate with `refPhase`
     //
     for (unsigned neighEvId : neighbours->ids)
     {
@@ -1572,9 +1567,8 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
                                                refPhase.procInfo.type)
                                  ->second;
 
-        // 'phase' is always from catalog: in single-event mode 'refPhase' is
-        // real-time and 'phase' is from catalog. In multi-event mode both are
-        // catalog
+        // In single-event mode `refPhase` is real-time and `phase` is from the
+        // catalog. In multi-event mode both are from the catalog.
         if (phase.procInfo.source != Phase::Source::CATALOG)
           throw runtime_error(
               "Internal logic error: phase is not from catalog");
@@ -1585,14 +1579,15 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
         {
           bool goodSNR = true;
 
-          // for phases that have not had their SNR checked already, do it now
-          // using the pick time adjusted by xcorr detected lag
+          // Check the SNR (using the pick time adjusted with the
+          // cross-correlation lag) of those phases, where the check hadn't
+          // been performed, yet.
           if (_cfg.snr.minSnr > 0 && !refPhase.isManual &&
               refPhase.procInfo.source != Phase::Source::CATALOG)
           {
             const auto xcorrCfg = _cfg.xcorr.at(refPhase.procInfo.type);
-            // check that at least one of the components allowed for this
-            // phase type has a good SNR
+            // Make sure that at least one of the components allowed for this
+            // phase type has a good SNR.
             goodSNR = false;
             for (const string &component : xcorrCfg.components)
             {
@@ -1611,7 +1606,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
             }
           }
 
-          // Store good xcorr results
+          // store good cross-correlation results
           if (goodSNR)
           {
             auto &entry1 = xcorr.getForUpdate(refEv.id, refPhase.stationId,
@@ -1623,7 +1618,8 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
           }
         }
 
-        // keep trace of  events/station distance for every xcorr performed
+        // keep track of events/station distance for every cross-correlation
+        // performed
         if (computedStations.find(refPhase.stationId) == computedStations.end())
         {
           stationByDistance.emplace(stationDistance, refPhase.stationId);
@@ -1644,7 +1640,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
   // keep track of couters
   updateCounters(actualDiskLdr, actualSnrLdr, memLdr);
 
-  // Print some useful information
+  // print some useful information
   for (const auto &kv : stationByDistance)
   {
     const double stationDistance = kv.first;
@@ -1687,9 +1683,9 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
 }
 
 /*
- * Update theoretical and automatic phase pick time and uncertainties based on
- * cross-correlation results.
- * Also drop theoretical phases wihout any good cross correlation result
+ * Update theoretical and automatic phase pick times and uncertainties based on
+ * cross-correlation results. Drop theoretical phases not passing the
+ * cross-correlation verification.
  */
 void HypoDD::fixPhases(CatalogPtr &catalog,
                        const Event &refEv,
@@ -1715,7 +1711,7 @@ void HypoDD::fixPhases(CatalogPtr &catalog,
     if (!goodXcorr || phase.isManual ||
         (phase.procInfo.source == Phase::Source::CATALOG))
     {
-      // remove thoretical phases wihtout good xcorr results
+      // remove thoretical phases without good cross-correlation results
       if (phase.procInfo.source == Phase::Source::THEORETICAL)
         phasesToBeRemoved.push_back(phase);
       continue;
@@ -1725,7 +1721,7 @@ void HypoDD::fixPhases(CatalogPtr &catalog,
         xcorr.get(refEv.id, phase.stationId, phase.procInfo.type);
 
     //
-    // Set new phase time and uncertainty
+    // set new phase time and uncertainty
     //
     Phase newPhase(phase);
     newPhase.time -= Core::TimeSpan(pdata.mean_lag);
@@ -1745,7 +1741,8 @@ void HypoDD::fixPhases(CatalogPtr &catalog,
   }
 
   //
-  // Replace automatic/theoretical phases with xcorr detected ones
+  // replace automatic/theoretical phases with those detected by means of
+  // cross-correlation
   //
   for (const Phase &ph : phasesToBeRemoved)
   {
@@ -1831,8 +1828,8 @@ void HypoDD::printCounters() const
   unsigned wf_disk_cached = _counters.wf_disk_cached;
   unsigned wf_downloaded  = _counters.wf_downloaded;
 
-  SEISCOMP_INFO("Cross correlation performed %u, "
-                "phases with Signal to Noise ratio too low %u, "
+  SEISCOMP_INFO("Cross-correlation performed %u, "
+                "phases with SNR ratio too low %u, "
                 "phases not available %u (waveforms downloaded %u, "
                 "waveforms loaded from disk cache %u)",
                 performed, wf_snr_low, wf_no_avail, wf_downloaded,
@@ -1904,7 +1901,8 @@ bool HypoDD::xcorrPhases(const Event &event1,
   if (phase1.procInfo.type != phase2.procInfo.type)
   {
     SEISCOMP_ERROR(
-        "Internal logic error: trying to xcorr different phases (%s and %s)",
+        "Internal logic error: trying to cross-correlate mismatching "
+        "phases (%s and %s)",
         string(phase1).c_str(), string(phase2).c_str());
     return false;
   }
@@ -1914,8 +1912,8 @@ bool HypoDD::xcorrPhases(const Event &event1,
   bool goodCoeff = false;
 
   //
-  // Try to use the same channels in cross correlation, in case the two phases
-  // differ but do not change the catalog phase channels
+  // Try to use the same channels for the cross-correlation. In case the two
+  // phases differ, do not change the catalog phase channels.
   //
   const string channelCodeRoot1 = getBandAndInstrumentCodes(phase1.channelCode);
   const string channelCodeRoot2 = getBandAndInstrumentCodes(phase2.channelCode);
@@ -1936,7 +1934,7 @@ bool HypoDD::xcorrPhases(const Event &event1,
     if (loc2 &&
         getThreeComponents(dummy, loc2, channelCodeRoot1.c_str(), phase2.time))
     {
-      // phase 2 has the same channels of phase 1
+      // phase 2 has the same channels as phase 1
       commonChRoot = channelCodeRoot1;
     }
   }
@@ -1950,7 +1948,7 @@ bool HypoDD::xcorrPhases(const Event &event1,
     if (loc1 &&
         getThreeComponents(dummy, loc1, channelCodeRoot2.c_str(), phase1.time))
     {
-      // phase 1 has the same channels of phase 2
+      // phase 1 has the same channels as phase 2
       commonChRoot = channelCodeRoot2;
     }
   }
@@ -1958,21 +1956,21 @@ bool HypoDD::xcorrPhases(const Event &event1,
   if (commonChRoot.empty())
   {
     SEISCOMP_DEBUG(
-        "Cannot find common channels to cross correlate %s and %s (%s and %s)",
+        "Cannot find common channels to cross-correlate %s and %s (%s and %s)",
         channelCodeRoot1.c_str(), channelCodeRoot2.c_str(),
         string(phase1).c_str(), string(phase2).c_str());
   }
 
   //
-  // perform xcorr on all registered component until we get a good correlation
-  // coefficient
+  // Perform the cross-correlation on all registered components until we get a
+  // good correlation coefficient.
   //
   for (const string &component : xcorrCfg.components)
   {
     Phase tmpPh1 = phase1;
     Phase tmpPh2 = phase2;
 
-    // overwrite phases' component for the xcorr
+    // overwrite phases' component for the cross-correlation
     if (commonChRoot.empty())
     {
       tmpPh1.channelCode = channelCodeRoot1 + component;
@@ -1991,7 +1989,8 @@ bool HypoDD::xcorrPhases(const Event &event1,
 
     goodCoeff = (performed && coeffOut >= xcorrCfg.minCoef);
 
-    // if the xcorr was successfull and the coeffiecnt is good then stop here
+    // If the cross-correlation was successful and the coefficient is good,
+    // stop here.
     if (goodCoeff)
     {
       break;
@@ -1999,7 +1998,7 @@ bool HypoDD::xcorrPhases(const Event &event1,
   }
 
   //
-  // Deal with counters
+  // deal with counters
   //
   bool isS           = (phase1.procInfo.type == Phase::Type::S);
   bool isTheoretical = (phase1.procInfo.source == Phase::Source::XCORR ||
@@ -2048,35 +2047,35 @@ bool HypoDD::_xcorrPhases(const Event &event1,
   Core::TimeWindow tw1 = xcorrTimeWindowLong(phase1);
   Core::TimeWindow tw2 = xcorrTimeWindowLong(phase2);
 
-  // load the long trace 1, because we want to cache the long version. Then
-  // we'll trim it.
+  // Load the long `tr1`, because we want to cache the long version. Then we'll
+  // trim it.
   GenericRecordCPtr tr1 = getWaveform(tw1, event1, phase1, ph1Cache);
   if (!tr1)
   {
     return false;
   }
 
-  // load the long trace 2, because we want to cache the long version. Then
-  // we'll trim it
+  // Load the long `tr2`, because we want to cache the long version. Then we'll
+  // trim it.
   GenericRecordCPtr tr2 = getWaveform(tw2, event2, phase2, ph2Cache);
   if (!tr2)
   {
     return false;
   }
 
-  // trust the manual pick on phase 2: keet trace2 short and xcorr it with
-  // a larger trace1 window
+  // Trust the manual pick on `phase2`: keep `tr2` short and cross-correlate it
+  // with the larger `tr1` window.
   double xcorr_coeff = 0, xcorr_lag = 0;
 
   if (phase2.isManual || (!phase1.isManual && !phase2.isManual))
   {
-    // trim tr2 to shorter length, we want to cross correlate the short with the
-    // long one
+    // Trim `tr2` to shorter length; we want to cross-correlate the short one
+    // with the long one.
     GenericRecordPtr tr2Short = new GenericRecord(*tr2);
     Core::TimeWindow tw2Short = xcorrTimeWindowShort(phase2);
     if (!Waveform::trim(*tr2Short, tw2Short))
     {
-      SEISCOMP_DEBUG("Cannot trim phase2 waveform, skipping cross correlation "
+      SEISCOMP_DEBUG("Cannot trim phase2 waveform, skipping cross-correlation "
                      "for phase pair phase1='%s', phase2='%s'",
                      string(phase1).c_str(), string(phase2).c_str());
       return false;
@@ -2089,19 +2088,19 @@ bool HypoDD::_xcorrPhases(const Event &event1,
     }
   }
 
-  // trust the manual pick on phase 1: keet trace1 short and xcorr it with
-  // a larger trace2 window
+  // Trust the manual pick on `phase1`: keep `tr1` short and cross-correlate it
+  // with a larger `tr2` window.
   double xcorr_coeff2 = 0, xcorr_lag2 = 0;
 
   if (phase1.isManual || (!phase1.isManual && !phase2.isManual))
   {
-    // trim tr1 to shorter length, we want to cross correlate the short with the
-    // long one
+    // Trim `tr1` to shorter length; we want to cross-correlate the short with
+    // the long one.
     GenericRecordPtr tr1Short = new GenericRecord(*tr1);
     Core::TimeWindow tw1Short = xcorrTimeWindowShort(phase1);
     if (!Waveform::trim(*tr1Short, tw1Short))
     {
-      SEISCOMP_DEBUG("Cannot trim phase1 waveform, skipping cross correlation "
+      SEISCOMP_DEBUG("Cannot trim phase1 waveform, skipping cross-correlation "
                      "for phase pair phase1='%s', phase2='%s'",
                      string(phase1).c_str(), string(phase2).c_str());
       return false;
@@ -2139,7 +2138,7 @@ GenericRecordCPtr HypoDD::getWaveform(const Core::TimeWindow &tw,
   const string wfId = Waveform::waveformId(ph, tw);
 
   // Check if we have already excluded the trace because we couldn't load it
-  // (save time)
+  // (-> save time).
   if (_unloadableWfs.count(wfId) != 0)
   {
     return nullptr;
@@ -2232,7 +2231,7 @@ struct XCorrEvalStats
 void HypoDD::evalXCorr()
 {
   bool theoretical =
-      false; // this is useful for testing theoretical phase detection
+      false; // this is useful for testing theoretical phase detections
 
   XCorrEvalStats totalStats, pPhaseStats, sPhaseStats;
   map<string, XCorrEvalStats> statsByStation;      // key station id
@@ -2251,7 +2250,7 @@ void HypoDD::evalXCorr()
                      sPhaseStats.describeShort().c_str());
 
     log += stringify(
-        "Cross-correlated Phases by inter-event distance in %.2f km step\n",
+        "Cross-correlated phases by inter-event distance in %.2f km step\n",
         EV_DIST_STEP);
     log += stringify(" EvDist [km]  #Phases GoodCC AvgCoeff(+/-) "
                      "GoodCC/Ph(+/-) time-diff[msec] (+/-)\n");
@@ -2262,7 +2261,7 @@ void HypoDD::evalXCorr()
                        kv.second.describe().c_str());
     }
 
-    log += stringify("Cross-correlated Phases by event to station distance in "
+    log += stringify("Cross-correlated phases by event to station distance in "
                      "%.2f km step\n",
                      STA_DIST_STEP);
     log += stringify("StaDist [km]  #Phases GoodCC AvgCoeff(+/-) "
@@ -2313,8 +2312,8 @@ void HypoDD::evalXCorr()
 
     if (theoretical)
     {
-      // create theoretical phases for this event instead of
-      // fetching its phases from the catalog
+      // create theoretical phases for this event instead of fetching its
+      // phases from the catalog
       catalog = neighbours->toCatalog(_bgCat, false);
       addMissingEventPhases(event, catalog, _bgCat, neighbours);
     }
@@ -2323,14 +2322,14 @@ void HypoDD::evalXCorr()
       catalog = neighbours->toCatalog(_bgCat, true);
     }
 
-    // cross correlate every neighbour phase with corresponding event
-    // theoretical phase
+    // Cross-correlate every neighbour phase with its corresponding event
+    // theoretical phase.
     XCorrCache xcorr;
     buildXcorrDiffTTimePairs(catalog, neighbours, event, xcorr);
 
     // Update theoretical and automatic phase pick time and uncertainties based
-    // on cross-correlation results Also drop theoretical phases wihout any good
-    // cross correlation result
+    // on cross-correlation results. Drop theoretical phases wihout any good
+    // cross-correlation result.
     if (theoretical)
     {
       fixPhases(catalog, event, xcorr);
@@ -2338,7 +2337,7 @@ void HypoDD::evalXCorr()
 
     //
     // Compare the detected phases with the actual event phases (manual or
-    // automatic)
+    // automatic).
     //
     XCorrEvalStats evStats;
 
@@ -2388,7 +2387,7 @@ void HypoDD::evalXCorr()
         statsByStaDistance[int(stationDistance / STA_DIST_STEP)] += phStaStats;
 
         //
-        //  collect stats by inter event distance
+        //  collect stats by inter-event distance
         //
         map<unsigned, XCorrEvalStats> tmpStatsByInterEvDistance;
 

@@ -122,7 +122,7 @@ GenericRecordPtr readWaveformFromRecordStream(const string &recordStreamURL,
   rs->setTimeWindow(tw);
   rs->addStream(networkCode, stationCode, locationCode, channelCode);
 
-  // Store each record in a RecordSequence
+  // store each record in a RecordSequence
   IO::RecordInput inp(rs.get(), Array::DOUBLE, Record::DATA_ONLY);
   std::shared_ptr<RecordSequence> seq(new TimeWindowBuffer(tw));
   RecordPtr rec;
@@ -205,7 +205,7 @@ bool merge(GenericRecord &trace, const RecordSequence &seq)
       return false;
     }
 
-    // Check for gaps and overlaps
+    // check for gaps and overlaps
     if (last)
     {
       Core::TimeSpan diff = rec->startTime() - last->endTime();
@@ -245,7 +245,7 @@ bool trim(GenericRecord &trace, const Core::TimeWindow &tw)
                   trace.samplingFrequency());
   int samples = (int)(tw.length() * trace.samplingFrequency());
 
-  // Not enough data at start of time window
+  // not enough data at start of time window
   if (ofs < 0)
   {
     SEISCOMP_DEBUG("%s: need %d more samples in past", trace.streamID().c_str(),
@@ -253,7 +253,7 @@ bool trim(GenericRecord &trace, const Core::TimeWindow &tw)
     return false;
   }
 
-  // Not enough data at end of time window
+  // not enough data at end of time window
   if (ofs + samples > trace.data()->size())
   {
     SEISCOMP_DEBUG("%s: need %d more samples past the end",
@@ -410,7 +410,7 @@ GenericRecordPtr readTrace(const std::string &file)
     IO::MSeedRecord msRec(Array::DOUBLE, Record::Hint::DATA_ONLY);
     msRec.read(ifs);
     GenericRecordPtr trace = new GenericRecord(msRec);
-    trace->setData(msRec.data()->clone()); // copy data too
+    trace->setData(msRec.data()->clone()); // copy data, too
     return trace;
   }
   catch (exception &e)
@@ -423,9 +423,10 @@ GenericRecordPtr readTrace(const std::string &file)
 /*
  * Calculate the correlation series
  *
- * delayOut is the shift in seconds (positive or negative) between tr1 and tr2
- * middle points to get the highest correlation coefficient (coeffOut) between
- * the 2 traces A delayOut of 0 is when tr1 and tr2 middle points are aligned
+ * `delayOut` is the shift in seconds (positive or negative) between `tr1` and
+ * `tr2` middle points to get the highest correlation coefficient (`coeffOut`)
+ * between the 2 traces. `delayOut` is eual to 0 when `tr1` and `tr2` middle
+ * points are aligned.
  */
 bool xcorr(const GenericRecordCPtr &tr1,
            const GenericRecordCPtr &tr2,
@@ -513,8 +514,8 @@ bool xcorr(const GenericRecordCPtr &tr1,
    * cc = ------------------------------
    *             denomS * denomL
    *
-   * Unfortunately we cannot optimize sum(Xi*Yi) and this will be a inner
-   * loop inside the main cross-correlation loop
+   * Unfortunately, we cannot optimize sum(Xi*Yi) and this will be a inner
+   * loop inside the main cross-correlation loop.
    */
 
   auto sampleAtDataL = [&sizeS, &sizeL, &dataL](int idxS, int delay) {
@@ -540,8 +541,9 @@ bool xcorr(const GenericRecordCPtr &tr1,
   // cross-correlation loop
   for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
   {
-    // sumL/sumL2: remove the sample that has exited the current xcorr win
-    // and add the sample that has just entered the current xcorr win
+    // sumL/sumL2: Remove the sample that has exited the current
+    // cross-correlation win and add the sample that has just entered the
+    // current cross-correlation win.
     const double lastSampleL = sampleAtDataL(-1, delay);
     const double newSampleL  = sampleAtDataL(n - 1, delay);
     sumL += newSampleL - lastSampleL;
@@ -581,8 +583,8 @@ bool xcorr(const GenericRecordCPtr &tr1,
   }
 
   /*
-   * To avoid errors introduced by cycle skipping the differential time
-   * measurement is only accepted, if all side lobe maxima CCslm of the
+   * To avoid errors introduced by cycle skipping, the differential time
+   * measurement is only accepted if all side lobe maxima CCslm of the
    * cross-correlation function fulfill the following condition:
    *
    *                CCslm < CCmax - ( (1.0-CCmax) / 2.0 )
@@ -651,14 +653,14 @@ double computeSnr(const GenericRecordCPtr &tr,
     return -1;
   }
 
-  // Get maximum (absolute) amplitude in noise window:
+  // get maximum (absolute) amplitude in noise window
   double noiseMax = -1.0;
   for (int i = noiseStart; i < noiseEnd; i++)
   {
     noiseMax = std::max(std::abs(data[i]), noiseMax);
   }
 
-  // Get maximum (absolute) amplitude in signal window:
+  // get maximum (absolute) amplitude in signal window
   double signalMax = -1.0;
   for (int i = signalStart; i < signalEnd; i++)
   {
@@ -684,8 +686,8 @@ GenericRecordPtr Loader::readAndProjectWaveform(const Core::TimeWindow &tw,
   if (loc)
   {
     //
-    // Check if the projection is actually required, return nullpt and
-    // do not throw if that's not the case
+    // Check if the projection is actually required; return `nullptr` and
+    // do not throw if that's not the case.
     //
 
     allComponents =
@@ -719,10 +721,10 @@ GenericRecordPtr Loader::readAndProjectWaveform(const Core::TimeWindow &tw,
   }
 
   //
-  // Load data and Perform the projection
+  // load data and perform the projection
   //
   SEISCOMP_DEBUG("Loading the 3 components waveforms (%s %s %s) to perform the "
-                 "projection...",
+                 "projection ...",
                  tc.comps[ThreeComponents::Vertical]->code().c_str(),
                  tc.comps[ThreeComponents::FirstHorizontal]->code().c_str(),
                  tc.comps[ThreeComponents::SecondHorizontal]->code().c_str());
@@ -784,7 +786,7 @@ GenericRecordPtr Loader::readAndProjectWaveform(const Core::TimeWindow &tw,
   }
   else
   {
-    throw runtime_error("Internal logic error: this shouldn't happend");
+    throw runtime_error("Internal logic error: This shouldn't happend.");
   }
 
   //
@@ -827,7 +829,7 @@ GenericRecordPtr Loader::readAndProjectWaveform(const Core::TimeWindow &tw,
 
   // The wrapper will direct 3 codes into the right slots using the
   // Stream configuration class and will finally use the transformation
-  // operator. The advantage is that it will apply the configured gain
+  // operator. The advantage is that it will apply the configured gain.
   typedef Operator::StreamConfigWrapper<double, 3, Operator::Transformation>
       OpWrapper;
 
@@ -844,7 +846,7 @@ GenericRecordPtr Loader::readAndProjectWaveform(const Core::TimeWindow &tw,
 
   // Set gain to 0 since we do not need the gain for cross-correlation
   // and for consistency with rest of the API (e.g.
-  // readWaveformFromRecordStream)
+  // readWaveformFromRecordStream).
   streams[2].gain = 0;
   streams[1].gain = 0;
   streams[0].gain = 0;
@@ -874,7 +876,7 @@ GenericRecordPtr Loader::readAndProjectWaveform(const Core::TimeWindow &tw,
 
   DataStorer projectedData(ph.channelCode, tw, chCodeMap);
 
-  // The function that will be called after a transformed record was created
+  // configure callback (called after a transformed record was created)
   // op.setStoreFunc(boost::bind(&RecordSequence::feed, seq, _1));
   op.setStoreFunc(boost::bind(&DataStorer::store, projectedData, _1));
 
@@ -936,19 +938,19 @@ GenericRecordCPtr Loader::get(const Core::TimeWindow &tw,
     }
   }
 
-  // if the trace is not cached try loading it
+  // if the trace is not cached, try loading it
   if (!trace)
   {
     isCached = false;
     if (_auxLdr)
     {
-      // Load trace from the auxiliary loader
+      // load trace from the auxiliary loader
       trace = _auxLdr->get(tw, ph, ev, demeaning, filterStr, resampleFreq);
       isProcessed = true;
     }
     else if (!_recordStreamURL.empty())
     {
-      // Load trace from the configured record stream
+      // load trace from the configured record stream
       try
       {
         trace = readWaveformFromRecordStream(_recordStreamURL, tw,
@@ -961,10 +963,10 @@ GenericRecordCPtr Loader::get(const Core::TimeWindow &tw,
         SEISCOMP_DEBUG("%s", e.what());
         try
         {
-          // if the waveform is not available, possibly a projection
-          // 123->ZNE or ZNE->ZRT is required
+          // If the waveform is not available, possibly a projection 123->ZNE
+          // or ZNE->ZRT is required.
           trace = readAndProjectWaveform(tw, ph, ev);
-          // raw traces are cached by readAndProjectWaveform
+          // raw traces are cached by `readAndProjectWaveform()`
           if (!_cacheProcessed) isCached = true;
         }
         catch (exception &e)
@@ -1002,7 +1004,7 @@ GenericRecordCPtr Loader::get(const Core::TimeWindow &tw,
                    ph.channelCode, trace);
     }
 
-    // Debugging waveforms: first time we load a waveform dump it
+    // Dump waveforms loaded initially (debugging).
     if (!_wfDebugDir.empty() && _doCaching && !isCached && isProcessed)
     {
       string ext = (ph.procInfo.source == Catalog::Phase::Source::THEORETICAL)
@@ -1101,7 +1103,7 @@ ExtraLenLoader::traceTimeWindowToLoad(const Core::TimeWindow &neededTW,
 {
   Core::TimeWindow twToLoad = neededTW;
 
-  // Make sure to load at least _traceMinLenh seconds of waveform
+  // Make sure to load at least `_traceMinLenh` seconds of the waveform.
   if (_traceMinLen > 0)
   {
     const Core::TimeSpan additionalTime(_traceMinLen / 2);
@@ -1167,7 +1169,7 @@ GenericRecordCPtr SnrFilteredLoader::get(const Core::TimeWindow &tw,
 {
   const string wfId = waveformId(ph, tw);
 
-  // Check if we have already excluded the trace SNR
+  // Check if we have already excluded the trace's SNR.
   if (_snrExcludedWfs.count(wfId) != 0)
   {
     return nullptr;
@@ -1179,14 +1181,14 @@ GenericRecordCPtr SnrFilteredLoader::get(const Core::TimeWindow &tw,
 
   if (!trace) return nullptr;
 
-  // Check if we have already validated the trace SNR, if not do it now
+  // Check if we have already validated the trace's SNR, if not do it now.
   if (_snrGoodWfs.count(wfId) == 0)
   {
     if (!goodSnr(trace, ph.time))
     {
       _snrExcludedWfs.insert(wfId);
       SEISCOMP_DEBUG("Trace has too low SNR(%s)", string(ph).c_str());
-      // Debugging waveforms: dump snr low traces
+      // Dump SNR low traces (debugging).
       if (!_wfDebugDir.empty())
       {
         writeTrace(trace,

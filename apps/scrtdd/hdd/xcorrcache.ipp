@@ -25,114 +25,128 @@
 namespace Seiscomp {
 namespace HDD {
 
-class XCorrCache {
+class XCorrCache
+{
 
 public:
+  struct Entry
+  {
 
-    struct Entry {
+    double mean_coeff;
+    double mean_lag;
+    double min_lag;
+    double max_lag;
+    unsigned ccCount;
 
-        double mean_coeff;
-        double mean_lag;
-        double min_lag;
-        double max_lag;
-        unsigned ccCount;
-
-        struct PeerInfo {
-            double coeff, lag, lowerUncertainty, upperUncertainty;
-        };
-        std::unordered_map<unsigned,const PeerInfo> peers;
-
-        std::string peersStr; // debug
-
-        void update(const Catalog::Event& event, const Catalog::Phase& phase,
-                    double coeff, double lag)
-        {
-            PeerInfo pi= {coeff, lag, phase.lowerUncertainty, phase.upperUncertainty};
-            peers.insert( std::pair<unsigned,const PeerInfo>(event.id, pi) );
-            peersStr   += std::string(event) + " ";
-        }
-
-        void computeStats()
-        {
-            ccCount = peers.size();
-            mean_coeff = 0;
-            mean_lag   = 0;
-            min_lag    = 0;
-            max_lag    = 0;
-            for ( auto& pair : peers )
-            {
-                const PeerInfo& data = pair.second;
-                mean_coeff += std::abs(data.coeff);
-                mean_lag   += data.lag;
-                min_lag    += data.lag - data.lowerUncertainty;
-                max_lag    += data.lag + data.upperUncertainty; 
-            }
-            mean_coeff /= ccCount;
-            mean_lag   /= ccCount;
-            min_lag    /= ccCount;
-            max_lag    /= ccCount; 
-        }
+    struct PeerInfo
+    {
+      double coeff, lag, lowerUncertainty, upperUncertainty;
     };
+    std::unordered_map<unsigned, const PeerInfo> peers;
 
-    Entry& getForUpdate(unsigned evId, const std::string& stationId,
-                                  const Catalog::Phase::Type& type)
-    {
-        std::string key = make_key(evId, stationId, type);
-        return resultsByPhase[key];
-    }
+    std::string peersStr; // debug
 
-    void remove(unsigned evId, const std::string& stationId,
-                const Catalog::Phase::Type& type)
+    void update(const Catalog::Event &event,
+                const Catalog::Phase &phase,
+                double coeff,
+                double lag)
     {
-        std::string key = make_key(evId, stationId, type);
-        resultsByPhase.erase(key);
+      PeerInfo pi = {coeff, lag, phase.lowerUncertainty,
+                     phase.upperUncertainty};
+      peers.insert(std::pair<unsigned, const PeerInfo>(event.id, pi));
+      peersStr += std::string(event) + " ";
     }
 
     void computeStats()
     {
-        for ( auto& pair : resultsByPhase )  pair.second.computeStats();
+      ccCount    = peers.size();
+      mean_coeff = 0;
+      mean_lag   = 0;
+      min_lag    = 0;
+      max_lag    = 0;
+      for (auto &pair : peers)
+      {
+        const PeerInfo &data = pair.second;
+        mean_coeff += std::abs(data.coeff);
+        mean_lag += data.lag;
+        min_lag += data.lag - data.lowerUncertainty;
+        max_lag += data.lag + data.upperUncertainty;
+      }
+      mean_coeff /= ccCount;
+      mean_lag /= ccCount;
+      min_lag /= ccCount;
+      max_lag /= ccCount;
     }
+  };
 
-    bool has(unsigned evId, const std::string& stationId, const Catalog::Phase::Type& type ) const
-    {
-        std::string key = make_key(evId, stationId, type);
-        return resultsByPhase.count(key) != 0;
-    }
+  Entry &getForUpdate(unsigned evId,
+                      const std::string &stationId,
+                      const Catalog::Phase::Type &type)
+  {
+    std::string key = make_key(evId, stationId, type);
+    return resultsByPhase[key];
+  }
 
-    const Entry& get(unsigned evId, const std::string& stationId,
-                     const Catalog::Phase::Type& type ) const
-    {
-        std::string key = make_key(evId, stationId, type);
-        return resultsByPhase.at(key);
-    }
+  void remove(unsigned evId,
+              const std::string &stationId,
+              const Catalog::Phase::Type &type)
+  {
+    std::string key = make_key(evId, stationId, type);
+    resultsByPhase.erase(key);
+  }
 
-    bool has(unsigned evId1, unsigned evId2, const std::string& stationId,
-             const Catalog::Phase::Type& type ) const
-    {
-        return has(evId1, stationId, type) && (get(evId1, stationId, type).peers.count(evId2) != 0);
-    }
+  void computeStats()
+  {
+    for (auto &pair : resultsByPhase) pair.second.computeStats();
+  }
 
-    const Entry::PeerInfo& get(unsigned evId1, unsigned evId2,
-                               const std::string& stationId,
-                               const Catalog::Phase::Type& type ) const
-    {
-        return get(evId1, stationId, type).peers.at(evId2);
-    } 
+  bool has(unsigned evId,
+           const std::string &stationId,
+           const Catalog::Phase::Type &type) const
+  {
+    std::string key = make_key(evId, stationId, type);
+    return resultsByPhase.count(key) != 0;
+  }
+
+  const Entry &get(unsigned evId,
+                   const std::string &stationId,
+                   const Catalog::Phase::Type &type) const
+  {
+    std::string key = make_key(evId, stationId, type);
+    return resultsByPhase.at(key);
+  }
+
+  bool has(unsigned evId1,
+           unsigned evId2,
+           const std::string &stationId,
+           const Catalog::Phase::Type &type) const
+  {
+    return has(evId1, stationId, type) &&
+           (get(evId1, stationId, type).peers.count(evId2) != 0);
+  }
+
+  const Entry::PeerInfo &get(unsigned evId1,
+                             unsigned evId2,
+                             const std::string &stationId,
+                             const Catalog::Phase::Type &type) const
+  {
+    return get(evId1, stationId, type).peers.at(evId2);
+  }
 
 private:
-    static std::string make_key(unsigned evId, const std::string& stationId,
-                                const Catalog::Phase::Type& type )
-    {
-        return std::to_string(evId) + "." + stationId + "." + static_cast<char>(type);
-    }
+  static std::string make_key(unsigned evId,
+                              const std::string &stationId,
+                              const Catalog::Phase::Type &type)
+  {
+    return std::to_string(evId) + "." + stationId + "." +
+           static_cast<char>(type);
+  }
 
-    // cache of computed xcorr
-    std::unordered_map<std::string, Entry> resultsByPhase;
-
+  // cache of computed cross-correlation
+  std::unordered_map<std::string, Entry> resultsByPhase;
 };
 
-
-}
-}
+} // namespace HDD
+} // namespace Seiscomp
 
 #endif

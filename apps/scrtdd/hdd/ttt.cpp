@@ -77,8 +77,8 @@ void TravelTimeTable::compute(double eventLat,
   takeOffAngle = 0;
 }
 
-// Since the seiscomp travel time api doesn't offer the velocity at
-// source information we need to reverse-engineer that information
+// Since the seiscomp travel time API doesn't offer the velocity at source we
+// need to reverse-engineer that information.
 double TravelTimeTable::velocityAtSource(double eventDepth,
                                          const std::string &phaseType)
 {
@@ -100,7 +100,7 @@ double TravelTimeTable::velocityAtSource(double eventDepth,
   }
 
   //
-  // This is a new phase/depth pair
+  // this is a new phase/depth pair
   //
   double binVelocity = 0;
   try
