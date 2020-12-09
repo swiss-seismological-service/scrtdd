@@ -356,13 +356,13 @@ void RTDD::createCommandLineDescription()
       "Catalog", "dump-catalog-options",
       "Allows the --dump-catalog option to accept event ids besides origin "
       "ids. For each event id an origin will be selected following the "
-      "provided options which format is: "
+      "provided options whose format is: "
       "'type,evalmode,includeCreator,excludeCreator,region', "
       "where type=preferred|last|first  evalmode=any|onlyManual|onlyAutomatic  "
       "includeCreator=any|author|methodID  excludeCreator=none|author|methodID "
-      "region=any|profileName e.g. to select preferred origins within a "
-      "profile region named 'myProfile', and the given the input event ids, "
-      "use 'preferred,any,any,none,myProfile",
+      "region=any|profileName e.g. to select preferred origins of the input"
+      "event ids that lie within the region defined for 'myProfile' use "
+      "'preferred,any,any,none,myProfile'",
       nullptr, false);
 }
 
@@ -993,6 +993,7 @@ bool RTDD::validateParameters()
   }
 
   // disable the database if the inventory is provided by XML file
+  // and the --ep option is present too
   if (!isInventoryDatabaseEnabled() && !_config.eventXML.empty())
   {
     SEISCOMP_INFO("Disable database connection");

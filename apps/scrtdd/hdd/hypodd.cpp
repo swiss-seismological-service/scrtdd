@@ -94,7 +94,7 @@ HypoDD::HypoDD(const CatalogCPtr &catalog,
 
 HypoDD::~HypoDD()
 {
-  // delete everything located in the working directory except of the cache
+  // delete everything located in the working directory except for the cache
   // directory
   if (_workingDirCleanup)
   {
@@ -490,7 +490,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
     SEISCOMP_INFO("Relocation report: %s",
                   relocationReport(relocatedEvWithXcorr).c_str());
 
-    // update the *origin change statistics* using the first relocatin, too
+    // update the "origin change information" taking into consideration
+    // the first relocation step, too
     if (relocatedEvCat)
     {
       const Event &prevRelocEv = relocatedEvCat->getEvents().begin()->second;
@@ -592,9 +593,9 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
     XCorrCache xcorr;
     if (doXcorr)
     {
-      // Perform cross-correlation which also detects picks around theoretical
+      // Perform cross-correlation, which also detects picks around theoretical
       // arrival times. The catalog will be updated with the corresponding
-      // theoretical phases.
+      // phases.
       xcorr = buildXCorrCache(catalog, {neighbours}, computeTheoreticalPhases);
     }
 
@@ -906,7 +907,7 @@ CatalogPtr HypoDD::updateRelocatedEvents(
     const std::list<NeighboursPtr> &neighCluster,
     ObservationParams &obsparams,
     std::unordered_map<unsigned, NeighboursPtr> &finalNeighCluster // output
-) const
+    ) const
 {
   unordered_map<string, Station> stations    = catalog->getStations();
   map<unsigned, Event> events                = catalog->getEvents();
@@ -1705,6 +1706,8 @@ void HypoDD::fixPhases(CatalogPtr &catalog,
     if (phase.procInfo.type == Phase::Type::P) totP++;
     if (phase.procInfo.type == Phase::Type::S) totS++;
 
+    // nothing to do if we dont't have good xcorr results of if the phase is
+    // manual or from catalog
     if (!goodXcorr || phase.isManual ||
         (phase.procInfo.source == Phase::Source::CATALOG))
     {

@@ -68,8 +68,8 @@
                         be read again from the configured recordStream).
                         Please, note the '--load-profile-wf' CLI option useful to
                         load all the catalog waveforms from the recordStream and save them on disk.
-                        This is useful to make sure all the wavefrorms are on disk before when the
-                        module is started and avoid lenghty loading the module starts initially.
+                        This is useful to make sure all the waveforms are already on disk
+                        when the module is started for the first time
                     </description>
                 </parameter>
 
@@ -799,7 +799,8 @@
                 </option>
 
                 <option long-flag="dump-catalog-options" argument="type,evalmode,includeCreator,excludeCreator,region">
-                    <description>Allows --dump-catalog to accept event ids besides origin ids. For each event id an origin will be selected following the provided options with the format: 'type,evalmode,includeCreator,excludeCreator,region', where type=preferred|last|first  evalmode=any|onlyManual|onlyAutomatic  includeCreator=any|author|methodID  excludeCreator=none|author|methodID  region=any|profileName. E.g. to select preferred origins within a profile region named 'myProfile', and given the input event ids use 'preferred,any,any,none,myProfile'.
+                    <description>Allows the --dump-catalog option to accept event ids besides
+origin ids. For each event id an origin will be selected following the provided options whose format is: 'type,evalmode,includeCreator,excludeCreator,region', where type=preferred|last|first evalmode=any|onlyManual|onlyAutomatic  includeCreator=any|author|methodID  excludeCreator=none|author|methodID region=any|profileName E.g. to select preferred origins of the input event ids that lie within the region defined for 'myProfile' use 'preferred,any,any,none,myProfile'.
                     </description>
                 </option>
 
