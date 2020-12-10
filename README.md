@@ -210,42 +210,44 @@ Here is a list of all the options we have seen so far:
 scrtdd --help
 
 MultiEvents:
-  --reloc-profile arg                   Relocate the catalog of profile passed 
-                                        as argument 
+  --reloc-profile arg                   Relocate the catalog of the profile 
+                                        passed as argument.
 Catalog:
   --dump-catalog arg                    Dump the seiscomp event/origin id file 
                                         passed as argument into a catalog file 
                                         triplet (station.csv,event.csv,phase.cs
-                                        v)
-  --dump-catalog-options arg            Allows --dump-catalog to accept event 
-                                        ids besides origin ids. For each event 
-                                        id an origin will be selected following
-                                        the provided options whose format is: 
-                                        'type,evalmode,includeCreator,excludeCr
-                                        eator,region', where 
+                                        v).
+  --dump-catalog-options arg            Allows the --dump-catalog option to 
+                                        accept event ids besides origin ids. 
+                                        For each event id an origin will be 
+                                        selected following the provided options
+                                        whose format is: 'type,evalmode,include
+                                        Creator,excludeCreator,region', where 
                                         type=preferred|last|first  
                                         evalmode=any|onlyManual|onlyAutomatic  
                                         includeCreator=any|author|methodID  
-                                        excludeCreator=none|author|methodID  
+                                        excludeCreator=none|author|methodID 
                                         region=any|profileName e.g. to select 
-                                        preferred origins within my profile 
-                                        region given the input event ids use 
-                                        'preferred,any,any,none,myProfile 
+                                        preferred origins of the inputevent ids
+                                        that lie within the region defined for 
+                                        'myProfile' use 'preferred,any,any,none
+                                        ,myProfile'
+
   --dump-catalog-xml arg                Convert the input catalog into XML 
                                         format. The input can be a single file 
                                         (containing seiscomp origin ids) or a 
                                         catalog file triplet 
-                                        (station.csv,event.csv,phase.csv)
+                                        (station.csv,event.csv,phase.csv).
+
   --merge-catalogs arg                  Merge in a single catalog all the 
                                         catalog file triplets 
                                         (station1.csv,event1.csv,phase1.csv,sta
                                         tion2.csv,event2.csv,phase2.csv,...) 
-                                        passed as arguments
-  --merge-catalogs-keepid arg           Similar to --merge-catalogs option but 
-                                        events keeps their ids. If multiple 
+                                        passed as arguments.
+  --merge-catalogs-keepid arg           Similar to the --merge-catalogs option 
+                                        but events keep their ids. If multiple 
                                         events share the same id, subsequent 
                                         events will be discarded.
-
 ```
 
 ## 2. Real-time single-event relocation
@@ -307,22 +309,22 @@ SingleEvent:
   -O [ --origin-id ] arg                Relocate the origin (or multiple 
                                         comma-separated origins) and send a 
                                         message. Each origin will be processed 
-                                        accordingly with the matching profile 
-                                        region unless --profile option is used
+                                        according tothe matching profile region
+                                        unless the --profile option is used.
   --ep arg                              Event parameters XML file for offline 
-                                        processing of contained origins (imply 
-                                        test option). Each contained origin 
-                                        will be processed accordingly with the 
-                                        matching profile region unless 
+                                        processing of contained origins 
+                                        (implies --test option). Each contained
+                                        origin will be processed according to 
+                                        the matching profile region unless 
                                         --profile option is used. In 
-                                        combination with origin-id option this 
-                                        produces an xml output
+                                        combination with the --origin-id option
+                                        an XML output is produced.
   --test                                Test mode, no messages are sent
   --profile arg                         Force a specific profile to be used 
                                         when relocating an origin. This 
                                         overrides the selection of profiles 
                                         based on region information and the 
-                                        initial origin location
+                                        initial origin location.
 ```
 
 #### 2.3.1 Relocate origin ID and send the relocation to the messaging system for further processing
@@ -556,10 +558,10 @@ A more in-depth source of information for waveform filtering and SNR options com
 
 ```
 scrtdd --help
-  --debug-wf                            Enable the saving of waveforms 
+  --debug-wf                            Enable saving of processed waveforms 
                                         (filtered/resampled, SNR rejected, ZRT 
-                                        projected and scrtdd detected phase) 
-                                        into the profile working directory. 
+                                        projected, etc.) into the profile 
+                                        working directory.
 ```
 
 Simply adding `--debug-wf` to the command line will make `scrtdd` dump to disk miniseed files for inspection (e.g. `scrttv` waveformfile.mseed). Just make sure to delete the folder before using this option to make sure to not look at previous relocation output. This option can be added to any `scrtdd` commands (e.g. `--relocate-profile`, `--ev`, `--origin-id` ) but it is mostly useful when relocating a single event mode because in multi-event mode there will be way too many waveforms to be able to check them all manually, although we can still do some random check to get an overall feeling of the filtering and SNR.
@@ -634,7 +636,7 @@ When `scrtdd` starts for the first time it loads all the catalog waveforms and s
 scrtdd --help
   --load-profile-wf arg                 Load catalog waveforms from the 
                                         configured recordstream and save them 
-                                        into the profile working directory
+                                        into the profile working directory.
 ``` 
 
 e.g.
