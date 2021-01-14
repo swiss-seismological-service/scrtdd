@@ -59,7 +59,9 @@ For compiling SeisComP, please refer to https://github.com/SeisComP/seiscomp#bui
 * [3.Cross-correlation](#3-cross-correlation)
 * [4.Waveforms data caching](#4-waveforms-data-caching) 
 * [5.Scolv Locator plugin](#5-scolv-locator-plugin) 
-* [6.Troubleshooting](#6-troubleshooting) 
+* [6.Troubleshooting - Logs](#6-troubleshooting-logs) 
+* [7.Database connection and working with remote machines](#7-database-connection-and-working-with-remote-machines)
+* [8.Custom velocity models](#8-custom-velocity-models)
 
 ## 1. Multi-event relocation
 
@@ -88,7 +90,7 @@ Once that's done, we run the command:
 scrtdd --dump-catalog myCatalog.csv --verbosity=3 --console=1 [db options]
 ```
 
-The above command will generate three files (*event.csv*, *phase.csv* and *stations.csv*) which contain the information needed by `scrtdd` to relocate the selected events (see the `Troubleshooting` paragraph for details on how to specify a database connection):
+The above command will generate three files (*event.csv*, *phase.csv* and *stations.csv*) which contain the information needed by `scrtdd` to relocate the selected events:
 
 E.g. *file event.csv*
 
@@ -657,9 +659,7 @@ Please note that this plugin is not strictly required since `scrtdd` would reloc
 
 Also `scolv` doesn't allow to create new picks when performing a relocation, so `scrtdd` plugin disable the cross-correlation on theoretical picks since those picks will not be reported on `scolv`.
 
-## 6. Troubleshooting
-
-### 6.1. Logs
+## 6. Troubleshooting - Logs
 
 Check log file: ~/.seiscomp/log/scrtdd.log 
 
@@ -671,10 +671,11 @@ scrtdd [some options] --verbosity=3 --console=1
 
 Verbosity 3 should be preferred to level 4, since the debug level 4 makes the logs hard to read due to the huge amount of information. Any useful information to the user is given at level 3 or above, while level 4 is only for debugging.
 
-### 6.2. Database connection
+## 7. Database connection and working with remote machines
 
-The SeisComP database connection can be configured either inside `global.cfg` (and thus every module knows what database to use since they inherit `global.cfg`), or in `scmaster.cfg`, in which case scmaster module passes the database connection string to every module when they connect to the messagin system. Since several `scrtdd` command line options don't need the messaging system, `scrtdd` doesn't connect to it and in those cases we have to pass the database connection string to `scrtdd` as a command line option (Since the database is still required for the inventory).
-Also, specifying the database connection via command line is useful to use a local seiscomp installation to access events stored in another seiscomp installation. We can use the -d option to specify the database connection, e.g.
+When SeisComP modules need to access the database for reading or writing they use the connection string configured in either `global.cfg` (which is inherited by every module) or in `scmaster.cfg`, in which case is scmaster module that passes the database connection string to every module when they connect to the messagin system.
+
+When running `scrtdd` from the command line, it doesn't connect to the messaging system. So, if the database connection is specified via `scmaster.cfg`, the configuration is never passed to `scrtdd` and it needs to be configured as a command line option. We can use the -d option to specify the database connection, e.g.
 
 ```
 scrtdd [some options] -d  mysql://user:password@host/seiscompDbName
@@ -685,4 +686,77 @@ or in case of a Postgresql database:
 ```
 scrtdd [some options] --plugins dbpostgresql -d postgresql://user:password@host/seiscompDbName
 ``` 
+
+This option is also useful to connect to remote seiscomp databases using a local `scrtdd` installation to relocate events stored in other machines without interfering with the real-time processing happening in the remote machine.
+
+
+## 8. Custom velocity models
+
+In the `scrtdd` configuration it is possible to select any travel time table installed in SeisComP; this means the default SeisComP travel time tables and any other tablse installed by the user. Although this is a general SeisComP topic and we suggest to refer to the official SeisComP documentation, here is a quick recipe for generating your own travel time table from a custom velocity model.
+
+SeisComP supports `LOCSAT` and `libtau` travel time table formats (1D velocity model). It is possible to generate a custom travel time table in `LOCSAT` format using the [TauP toolkit](https://www.seis.sc.edu/taup). 
+
+First step is to have a velity model in one of the formats supported by `TauP`. To do so just make a copy of the SeisComP iasp91 or ak135 velocity models:
+
+```
+cp seiscomp_installation/share/ttt/iasp91.tvel mymodel.tvel
+```
+or
+```
+cp seiscomp_installation/share/ttt/ak135.tvel mymodel.tvel
+```
+
+Then edit the relevant layers to match your velocity model and leave the others untacched. Now run:
+
+```
+./TauP-installation/bin/taup_create -tvel mymodel.tvel --verbose
+```
+
+That generates `mymodel.taup` file that will be used by the subsequent TauP commands.
+
+Before generating the travel time tables we need to decide the resolution (range of depths and distances). TauP uses a default range of depths and distances that is not very dense. So create a header file containing the desired depths and distances ranges. E.g. file `mymodel.header`
+
+```
+n # P,S travel-time tables resolution for mymodel
+29     # number of depth samples
+   0.00   1.00   2.00   3.00   4.00   5.00   6.00   7.00   8.00   9.00
+  10.00  15.00  20.00  25.00  30.00  35.00  40.00  45.00  50.00  60.00
+  75.00 100.00 150.00 200.00 300.00 400.00 500.00 600.00 800.00
+120    # number of distances
+   0.00   0.05   0.10   0.15   0.20   0.25   0.30   0.35   0.40   0.45
+   0.50   0.60   0.70   0.80   0.90   1.00   1.10   1.20   1.30   1.40
+   1.50   1.60   1.70   1.80   1.90   2.00   2.50   3.00   4.00   5.00
+   5.50   6.00   6.50   7.00   7.50   8.00   8.50   9.00   9.50  10.00
+  11.00  12.00  13.00  14.00  15.00  16.00  17.00  18.00  19.00  20.00
+  21.00  22.00  23.00  24.00  25.00  26.00  27.00  28.00  29.00  30.00
+  31.00  32.00  33.00  34.00  35.00  36.00  37.00  38.00  39.00  40.00
+  41.00  42.00  43.00  44.00  45.00  46.00  47.00  48.00  49.00  50.00
+  51.00  52.00  53.00  54.00  55.00  56.00  57.00  58.00  59.00  60.00
+  61.00  62.00  63.00  64.00  65.00  66.00  67.00  68.00  69.00  70.00
+  71.00  72.00  73.00  74.00  75.00  76.00  77.00  78.00  79.00  80.00
+  81.00  82.00  83.00  84.00  85.00  86.00  87.00  88.00  89.00  90.00
+```
+
+Finally we can generate the travel time tables:
+
+```
+./TauP-installation/bin/taup_table -mod mymodel -ph ttp+ -locsat -header mymodel.header -o mymodel.P
+./TauP-installation/bin/taup_table -mod mymodel -ph tts+ -locsat -header mymodel.header -o mymodel.S
+./TauP-installation/bin/taup_table -mod mymodel -ph PcP  -locsat -header mymodel.header -o mymodel.PcP
+./TauP-installation/bin/taup_table -mod mymodel -ph Pg   -locsat -header mymodel.header -o mymodel.Pg
+./TauP-installation/bin/taup_table -mod mymodel -ph Pn   -locsat -header mymodel.header -o mymodel.Pn
+./TauP-installation/bin/taup_table -mod mymodel -ph pP   -locsat -header mymodel.header -o mymodel.pP
+./TauP-installation/bin/taup_table -mod mymodel -ph PP   -locsat -header mymodel.header -o mymodel.PP
+./TauP-installation/bin/taup_table -mod mymodel -ph pS   -locsat -header mymodel.header -o mymodel.pS
+./TauP-installation/bin/taup_table -mod mymodel -ph ScP  -locsat -header mymodel.header -o mymodel.ScP
+./TauP-installation/bin/taup_table -mod mymodel -ph Sg   -locsat -header mymodel.header -o mymodel.Sg
+./TauP-installation/bin/taup_table -mod mymodel -ph Sn   -locsat -header mymodel.header -o mymodel.Sn
+./TauP-installation/bin/taup_table -mod mymodel -ph sP   -locsat -header mymodel.header -o mymodel.sP
+```
+
+Last step is to copy the travel time tables to the SeisComP installation folder so that all modules can see the new model:
+
+```
+cp mymodel* seiscomp_installation/share/locsat/tables/
+```
 
