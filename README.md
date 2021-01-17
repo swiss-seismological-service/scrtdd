@@ -59,9 +59,10 @@ For compiling SeisComP, please refer to https://github.com/SeisComP/seiscomp#bui
 * [3.Cross-correlation](#3-cross-correlation)
 * [4.Waveforms data caching](#4-waveforms-data-caching) 
 * [5.Scolv Locator plugin](#5-scolv-locator-plugin) 
-* [6.Troubleshooting - Logs](#6-troubleshooting-logs) 
-* [7.Database connection and working with remote machines](#7-database-connection-and-working-with-remote-machines)
-* [8.Custom velocity models](#8-custom-velocity-models)
+* [6.Troubleshooting - Logs](#6-troubleshooting---logs) 
+* [7.Database connection and relocating events on remote machines](#7-database-connection-and-relocating-events-on-remote-machines)
+* [8.Waveform data and recordStream configuration](#8-waveform-data-and-recordstream-configuration)
+* [9.Custom velocity models](#9-custom-velocity-models)
 
 ## 1. Multi-event relocation
 
@@ -408,27 +409,6 @@ DD observations residuals [msec]: before=-106+/-21.6 after=9+/-26.2
 ```
 
 
-### 2.6 RecordStream configuration
-
-SeisComP applications access waveform data through the RecordStream interface (see official SeisComP documentation for more details) and it is usually configured in *global.cfg*, for example:
-
-```
-recordstream = combined://slink/localhost:18000;sdsarchive//mnt/miniseed
-```
-
-This configuration is a combination of seedlink and sds archive, which is very useful because `scrtdd` catalog waveforms can be retrieved via sds while real-time event data can be fetched via seedlink (much faster since recent data is probably already in memory).
-
-Please note that seedlink service might delay the relocation of incoming origins due to timeouts. For this reason we suggest to specify the configuration options: *timeout* and *retries*
-
-e.g. Below we force a timeout of 1 seconds (default is 5 minutes) and do not try to reconnect (`scrtdd` will deal with what data is available):
-
-```
-recordstream = combined://slink/localhost:18000?timeout=1&retries=0;sdsarchive//rz_nas/miniseed
-```
-
-Also we use `cron.delayTimes` option to re-perform the relocation some minutes later in case we know more waveforms will become available at a later time.
-
-
 ## 3. Cross-correlation
 
 Good cross-correlation results are needed to achieve high resolution double-difference observations, which in turn results in high quality relocations.
@@ -671,11 +651,11 @@ scrtdd [some options] --verbosity=3 --console=1
 
 Verbosity 3 should be preferred to level 4, since the debug level 4 makes the logs hard to read due to the huge amount of information. Any useful information to the user is given at level 3 or above, while level 4 is only for debugging.
 
-## 7. Database connection and working with remote machines
+## 7. Database connection and relocating events on remote machines
 
-When SeisComP modules need to access the database for reading or writing they use the connection string configured in either `global.cfg` (which is inherited by every module) or in `scmaster.cfg`, in which case is scmaster module that passes the database connection string to every module when they connect to the messagin system.
+When SeisComP modules need to access the database for reading or writing data (events, picks, magnitudes, etc) they use the connection string configured in either `global.cfg` (which is inherited by every module) or in `scmaster.cfg`, in which case is scmaster module that passes the database connection string to every module when they connect to the messagin system (usually at module startup).
 
-When running `scrtdd` from the command line, it doesn't connect to the messaging system. So, if the database connection is specified via `scmaster.cfg`, the configuration is never passed to `scrtdd` and it needs to be configured as a command line option. We can use the -d option to specify the database connection, e.g.
+However, when running `scrtdd` from the command line, it doesn't connect to the messaging system and if the database connection is specified via `scmaster.cfg`, the information never reaches `scrtdd`. In this case the database connnetion must be passed as a command line option:
 
 ```
 scrtdd [some options] -d  mysql://user:password@host/seiscompDbName
@@ -685,12 +665,31 @@ or in case of a Postgresql database:
 
 ```
 scrtdd [some options] --plugins dbpostgresql -d postgresql://user:password@host/seiscompDbName
-``` 
+```
 
-This option is also useful to connect to remote seiscomp databases using a local `scrtdd` installation to relocate events stored in other machines without interfering with the real-time processing happening in the remote machine.
+It is worth noting that this feature allows `scrtdd` to connect to remote seiscomp databases too and relocate events stored in other machines without interfering with the real-time processing happening there.
 
 
-## 8. Custom velocity models
+## 8. Waveform data and recordStream configuration
+
+SeisComP applications access waveform data through the RecordStream interface (see official SeisComP documentation for more details) and it is usually configured in *global.cfg*, where the user is able to define the service(s) through which SeisComP can access real-time and historical waveforms data (seedlink, fdsn, sds archive, etc). An hypothetical RecordStream configuration might look like this:
+
+```
+recordstream = combined://slink/localhost:18000;sdsarchive//mnt/miniseed
+```
+
+This configuration is a combination of seedlink and sds archive, which is very useful because `scrtdd` catalog waveforms can be retrieved via sds while real-time event data can be fetched via seedlink (much faster since recent data is probably already in memory).
+
+Please note that seedlink service might delay the relocation of incoming origins due to timeouts. For this reason we suggest to specify the configuration options: *timeout* and *retries*
+
+e.g. Below we force a timeout of 1 seconds (default is 5 minutes) and do not try to reconnect (`scrtdd` will deal with what data is available):
+
+```
+recordstream = combined://slink/localhost:18000?timeout=1&retries=0;sdsarchive//rz_nas/miniseed
+```
+
+
+## 9. Custom velocity models
 
 In the `scrtdd` configuration it is possible to select any travel time table installed in SeisComP; this means the default SeisComP travel time tables and any other tablse installed by the user. Although this is a general SeisComP topic and we suggest to refer to the official SeisComP documentation, here is a quick recipe for generating your own travel time table from a custom velocity model.
 
