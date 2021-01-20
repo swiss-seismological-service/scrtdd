@@ -37,60 +37,10 @@ namespace HDD {
 
 struct Config
 {
-
   std::vector<std::string> validPphases = {"Pg", "P", "Px"};
   std::vector<std::string> validSphases = {"Sg", "S", "Sx"};
 
-  // Absolute travel time difference observations
-  struct
-  {
-    double minWeight = 0; // min weight of phases required (0-1)
-    double minEStoIEratio =
-        0; // min epi-sta to interevent distance ration required
-    double minESdist     = 0;  // min epi-sta distance required
-    double maxESdist     = -1; // max epi-sta distance allowed
-    unsigned minNumNeigh = 1;  // min neighbors required
-    unsigned maxNumNeigh =
-        0; // max neighbors allowed (furthest events are discarded)
-    unsigned minDTperEvt =
-        1; // min differential times per event pair required (Including P+S)
-    unsigned maxDTperEvt =
-        0; // max differential times per event pair required (Including P+S)
-    // From Waldhauser 2009: to assure a spatially homogeneous subsampling,
-    // reference events are selected within each of five concentric, vertically
-    // longated ellipsoidal layers of increasing thickness. Each layer has 8
-    // quadrants.
-    unsigned numEllipsoids  = 5;
-    double maxEllipsoidSize = 10; // km
-  } ddObservations1;
-
-  // Absolute travel time difference AND cross-correlation observations
-  struct
-  {
-    double minWeight = 0; // min weight of phases required (0-1)
-    double minEStoIEratio =
-        0; // min epi-sta to interevent distance ration required
-    double minESdist     = 0;  // min epi-sta distance required
-    double maxESdist     = -1; // max epi-sta distance allowed
-    unsigned minNumNeigh = 1;  // min neighbors required
-    unsigned maxNumNeigh =
-        0; // max neighbors allowed (furthest events are discarded)
-    unsigned minDTperEvt =
-        1; // min differential times per event pair required (Including P+S)
-    unsigned maxDTperEvt =
-        0; // max differential times per event pair required (Including P+S)
-    // From Waldhauser 2009: to assure a spatially homogeneous subsampling,
-    // reference events are selected within each of five concentric, vertically
-    // longated ellipsoidal layers of increasing thickness. Each layer has 8
-    // quadrants.
-    unsigned numEllipsoids  = 5;
-    double maxEllipsoidSize = 10; // km
-
-    //  cross-correlation specific
-    double xcorrMaxEvStaDist   = -1; // max event to station distance
-    double xcorrMaxInterEvDist = -1; // max inter-event distance
-    std::string recordStreamURL;
-  } ddObservations2;
+  std::string recordStreamURL; // where to fetch waveforms from
 
   struct XCorr
   {
@@ -123,22 +73,49 @@ struct Config
     std::string type  = "LOCSAT";
     std::string model = "iasp91";
   } ttt;
+};
 
-  struct
-  {
-    std::string type                    = "LSMR"; // LSMR or LSQR
-    bool L2normalization                = true;
-    unsigned solverIterations           = 0;
-    unsigned algoIterations             = 20;
-    bool ttConstraint                   = true;
-    double dampingFactorStart           = 0.;
-    double dampingFactorEnd             = 0.;
-    double downWeightingByResidualStart = 0.;
-    double downWeightingByResidualEnd   = 0.;
-    bool usePickUncertainty             = false;
-    double absTTDiffObsWeight           = 1.0;
-    double xcorrObsWeight               = 1.0;
-  } solver;
+struct ClusteringOptions
+{
+  // min weight of phases required (0-1)
+  double minWeight = 0;
+  // min epi-sta to interevent distance ration required
+  double minEStoIEratio = 0;
+  double minESdist      = 0;  // min epi-sta distance required
+  double maxESdist      = -1; // max epi-sta distance allowed
+  unsigned minNumNeigh  = 1;  // min neighbors required
+  // max neighbors allowed (furthest events are discarded)
+  unsigned maxNumNeigh = 0;
+  // min differential times per event pair required (Including P+S)
+  unsigned minDTperEvt = 1;
+  // max differential times per event pair required (Including P+S)
+  unsigned maxDTperEvt = 0;
+  // From Waldhauser 2009: to assure a spatially homogeneous subsampling,
+  // reference events are selected within each of five concentric, vertically
+  // longated ellipsoidal layers of increasing thickness. Each layer has 8
+  // quadrants.
+  unsigned numEllipsoids  = 5;
+  double maxEllipsoidSize = 10; // km
+
+  //  cross-correlation observations specific (should be moved away)
+  double xcorrMaxEvStaDist   = -1; // max event to station distance
+  double xcorrMaxInterEvDist = -1; // max inter-event distance
+};
+
+struct SolverOptions
+{
+  std::string type                    = "LSMR"; // LSMR or LSQR
+  bool L2normalization                = true;
+  unsigned solverIterations           = 0;
+  unsigned algoIterations             = 20;
+  bool ttConstraint                   = true;
+  double dampingFactorStart           = 0.;
+  double dampingFactorEnd             = 0.;
+  double downWeightingByResidualStart = 0.;
+  double downWeightingByResidualEnd   = 0.;
+  bool usePickUncertainty             = false;
+  double absTTDiffObsWeight           = 1.0;
+  double xcorrObsWeight               = 1.0;
 };
 
 DEFINE_SMARTPOINTER(HypoDD);
@@ -157,9 +134,13 @@ public:
   CatalogCPtr getCatalog() { return _srcCat; }
   void setCatalog(const CatalogCPtr &catalog);
 
-  CatalogPtr relocateCatalog();
-  CatalogPtr relocateSingleEvent(const CatalogCPtr &orgToRelocate);
-  void evalXCorr();
+  CatalogPtr relocateMultiEvents(const ClusteringOptions &clustOpt,
+                                 const SolverOptions &solverOpt);
+  CatalogPtr relocateSingleEvent(const CatalogCPtr &singleEvent,
+                                 const ClusteringOptions &clustOpt1,
+                                 const ClusteringOptions &clustOpt2,
+                                 const SolverOptions &solverOpt);
+  void evalXCorr(const ClusteringOptions &clustOpt);
 
   void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
   bool workingDirCleanup() const { return _workingDirCleanup; }
@@ -189,21 +170,14 @@ private:
   CatalogPtr relocateEventSingleStep(const CatalogCPtr bgCat,
                                      const CatalogCPtr &evToRelocateCat,
                                      const std::string &workingDir,
+                                     const ClusteringOptions &clustOpt,
+                                     const SolverOptions &solverOpt,
                                      bool doXcorr,
-                                     bool computeTheoreticalPhases,
-                                     double minPhaseWeight,
-                                     double minESdist,
-                                     double maxESdist,
-                                     double minEStoIEratio,
-                                     int minDTperEvt,
-                                     int maxDTperEvt,
-                                     int minNumNeigh,
-                                     int maxNumNeigh,
-                                     int numEllipsoids,
-                                     double maxEllipsoidSize);
+                                     bool computeTheoreticalPhases);
 
   CatalogPtr relocate(const CatalogCPtr &catalog,
                       const std::list<NeighboursPtr> &neighbourCats,
+                      const SolverOptions &solverOpt,
                       bool keepNeighboursFixed,
                       const XCorrCache &xcorr) const;
 
@@ -239,6 +213,7 @@ private:
                        const CatalogCPtr &catalog,
                        const NeighboursPtr &neighbours,
                        bool keepNeighboursFixed,
+                       bool usePickUncertainty,
                        const XCorrCache &xcorr,
                        ObservationParams &obsparams) const;
 
@@ -287,11 +262,15 @@ private:
 
   XCorrCache buildXCorrCache(CatalogPtr &catalog,
                              const std::list<NeighboursPtr> &neighbourCats,
-                             bool computeTheoreticalPhases);
+                             bool computeTheoreticalPhases,
+                             double xcorrMaxEvStaDist   = -1,
+                             double xcorrMaxInterEvDist = -1);
 
   void buildXcorrDiffTTimePairs(CatalogPtr &catalog,
                                 const NeighboursPtr &neighbours,
                                 const Catalog::Event &refEv,
+                                double xcorrMaxEvStaDist,   // -1 to disable
+                                double xcorrMaxInterEvDist, // -1 to disable
                                 XCorrCache &xcorr);
 
   void fixPhases(CatalogPtr &catalog,

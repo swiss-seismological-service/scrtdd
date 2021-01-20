@@ -185,7 +185,10 @@ private:
     std::string eventFile;
     std::string phaFile;
     RegionPtr region;
-    HDD::Config ddcfg;
+    HDD::Config ddCfg;
+    HDD::ClusteringOptions ddObservations1;
+    HDD::ClusteringOptions ddObservations2;
+    HDD::SolverOptions solverCfg;
     bool useTheoreticalAuto;
     bool useTheoreticalManual;
 

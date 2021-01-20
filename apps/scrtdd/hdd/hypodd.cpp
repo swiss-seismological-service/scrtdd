@@ -138,8 +138,8 @@ void HypoDD::createWaveformCache()
 
   if (_useCatalogWaveformDiskCache)
   {
-    _wfDiskCache = new Waveform::DiskCachedLoader(
-        _cfg.ddObservations2.recordStreamURL, false, _cacheDir);
+    _wfDiskCache =
+        new Waveform::DiskCachedLoader(_cfg.recordStreamURL, false, _cacheDir);
     Waveform::ExtraLenLoaderPtr extLen =
         new Waveform::ExtraLenLoader(_wfDiskCache, DISK_TRACE_MIN_LEN);
 
@@ -160,15 +160,13 @@ void HypoDD::createWaveformCache()
     if (_cfg.snr.minSnr > 0)
     {
       _wfSnrFilter = new Waveform::SnrFilteredLoader(
-          _cfg.ddObservations2.recordStreamURL, _cfg.snr.minSnr,
-          _cfg.snr.noiseStart, _cfg.snr.noiseEnd, _cfg.snr.signalStart,
-          _cfg.snr.signalEnd);
+          _cfg.recordStreamURL, _cfg.snr.minSnr, _cfg.snr.noiseStart,
+          _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd);
       _wfMemCache = new Waveform::MemCachedLoader(_wfSnrFilter, true);
     }
     else
     {
-      _wfMemCache = new Waveform::MemCachedLoader(
-          _cfg.ddObservations2.recordStreamURL, true);
+      _wfMemCache = new Waveform::MemCachedLoader(_cfg.recordStreamURL, true);
     }
   }
 }
@@ -256,7 +254,8 @@ void HypoDD::preloadData()
       _counters.wf_disk_cached);
 }
 
-CatalogPtr HypoDD::relocateCatalog()
+CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
+                                       const SolverOptions &solverOpt)
 {
   SEISCOMP_INFO("Starting HypoDD relocator in multiple events mode");
 
@@ -291,12 +290,10 @@ CatalogPtr HypoDD::relocateCatalog()
 
   // find Neighbours for each event in the catalog
   list<NeighboursPtr> allNeighbours = selectNeighbouringEventsCatalog(
-      catToReloc, _cfg.ddObservations2.minWeight,
-      _cfg.ddObservations2.minESdist, _cfg.ddObservations2.maxESdist,
-      _cfg.ddObservations2.minEStoIEratio, _cfg.ddObservations2.minDTperEvt,
-      _cfg.ddObservations2.maxDTperEvt, _cfg.ddObservations2.minNumNeigh,
-      _cfg.ddObservations2.maxNumNeigh, _cfg.ddObservations2.numEllipsoids,
-      _cfg.ddObservations2.maxEllipsoidSize, true);
+      catToReloc, clustOpt.minWeight, clustOpt.minESdist, clustOpt.maxESdist,
+      clustOpt.minEStoIEratio, clustOpt.minDTperEvt, clustOpt.maxDTperEvt,
+      clustOpt.minNumNeigh, clustOpt.maxNumNeigh, clustOpt.numEllipsoids,
+      clustOpt.maxEllipsoidSize, true);
 
   // Organize the neighbours by not connected clusters. In addition,
   // don't report the same pair multiple times (e.g. ev1-ev2 and ev2-ev1)
@@ -349,12 +346,13 @@ CatalogPtr HypoDD::relocateCatalog()
     // Perform cross-correlation which also detects picks around theoretical
     // arrival times. The catalog will be updated with the corresponding
     // theoretical phases.
-    const XCorrCache xcorr =
-        buildXCorrCache(catToReloc, neighCluster, _useArtificialPhases);
+    const XCorrCache xcorr = buildXCorrCache(
+        catToReloc, neighCluster, _useArtificialPhases,
+        clustOpt.xcorrMaxEvStaDist, clustOpt.xcorrMaxInterEvDist);
 
     // the actual relocation
     CatalogPtr relocatedCluster =
-        relocate(catToReloc, neighCluster, false, xcorr);
+        relocate(catToReloc, neighCluster, solverOpt, false, xcorr);
 
     relocatedCatalog->add(*relocatedCluster, true);
 
@@ -389,7 +387,10 @@ CatalogPtr HypoDD::relocateCatalog()
   return relocatedCatalog;
 }
 
-CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
+CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
+                                       const ClusteringOptions &clustOpt1,
+                                       const ClusteringOptions &clustOpt2,
+                                       const SolverOptions &solverOpt)
 {
   const CatalogCPtr bgCat = _bgCat;
 
@@ -443,14 +444,9 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
       Catalog::filterPhasesAndSetWeights(singleEvent, Phase::Source::RT_EVENT,
                                          _cfg.validPphases, _cfg.validSphases);
 
-  CatalogPtr relocatedEvCat = relocateEventSingleStep(
-      bgCat, evToRelocateCat, eventWorkingDir, false, false,
-      _cfg.ddObservations1.minWeight, _cfg.ddObservations1.minESdist,
-      _cfg.ddObservations1.maxESdist, _cfg.ddObservations1.minEStoIEratio,
-      _cfg.ddObservations1.minDTperEvt, _cfg.ddObservations1.maxDTperEvt,
-      _cfg.ddObservations1.minNumNeigh, _cfg.ddObservations1.maxNumNeigh,
-      _cfg.ddObservations1.numEllipsoids,
-      _cfg.ddObservations1.maxEllipsoidSize);
+  CatalogPtr relocatedEvCat =
+      relocateEventSingleStep(bgCat, evToRelocateCat, eventWorkingDir,
+                              clustOpt1, solverOpt, false, false);
 
   if (relocatedEvCat)
   {
@@ -472,14 +468,9 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
 
   eventWorkingDir = (boost::filesystem::path(subFolder) / "step2").string();
 
-  CatalogPtr relocatedEvWithXcorr = relocateEventSingleStep(
-      bgCat, evToRelocateCat, eventWorkingDir, true, _useArtificialPhases,
-      _cfg.ddObservations2.minWeight, _cfg.ddObservations2.minESdist,
-      _cfg.ddObservations2.maxESdist, _cfg.ddObservations2.minEStoIEratio,
-      _cfg.ddObservations2.minDTperEvt, _cfg.ddObservations2.maxDTperEvt,
-      _cfg.ddObservations2.minNumNeigh, _cfg.ddObservations2.maxNumNeigh,
-      _cfg.ddObservations2.numEllipsoids,
-      _cfg.ddObservations2.maxEllipsoidSize);
+  CatalogPtr relocatedEvWithXcorr =
+      relocateEventSingleStep(bgCat, evToRelocateCat, eventWorkingDir,
+                              clustOpt2, solverOpt, true, _useArtificialPhases);
 
   if (relocatedEvWithXcorr)
   {
@@ -526,18 +517,10 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent)
 CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
                                            const CatalogCPtr &evToRelocateCat,
                                            const string &workingDir,
+                                           const ClusteringOptions &clustOpt,
+                                           const SolverOptions &solverOpt,
                                            bool doXcorr,
-                                           bool computeTheoreticalPhases,
-                                           double minPhaseWeight,
-                                           double minESdist,
-                                           double maxESdist,
-                                           double minEStoIEratio,
-                                           int minDTperEvt,
-                                           int maxDTperEvt,
-                                           int minNumNeigh,
-                                           int maxNumNeigh,
-                                           int numEllipsoids,
-                                           double maxEllipsoidSize)
+                                           bool computeTheoreticalPhases)
 {
   if (!Util::createPath(workingDir))
   {
@@ -568,9 +551,11 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
     bool keepUnmatchedPhases = doXcorr; // useful for detecting missed picks
 
     NeighboursPtr neighbours = selectNeighbouringEvents(
-        bgCat, evToRelocate, evToRelocateCat, minPhaseWeight, minESdist,
-        maxESdist, minEStoIEratio, minDTperEvt, maxDTperEvt, minNumNeigh,
-        maxNumNeigh, numEllipsoids, maxEllipsoidSize, keepUnmatchedPhases);
+        bgCat, evToRelocate, evToRelocateCat, clustOpt.minWeight,
+        clustOpt.minESdist, clustOpt.maxESdist, clustOpt.minEStoIEratio,
+        clustOpt.minDTperEvt, clustOpt.maxDTperEvt, clustOpt.minNumNeigh,
+        clustOpt.maxNumNeigh, clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize,
+        keepUnmatchedPhases);
 
     //
     // prepare catalog to relocate
@@ -596,11 +581,13 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
       // Perform cross-correlation, which also detects picks around theoretical
       // arrival times. The catalog will be updated with the corresponding
       // phases.
-      xcorr = buildXCorrCache(catalog, {neighbours}, computeTheoreticalPhases);
+      xcorr = buildXCorrCache(catalog, {neighbours}, computeTheoreticalPhases,
+                              clustOpt.xcorrMaxEvStaDist,
+                              clustOpt.xcorrMaxInterEvDist);
     }
 
     // the actual relocation
-    relocatedEvCat = relocate(catalog, {neighbours}, true, xcorr);
+    relocatedEvCat = relocate(catalog, {neighbours}, solverOpt, true, xcorr);
 
     // write catalog for debugging purpose
     if (!_workingDirCleanup)
@@ -624,6 +611,7 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
 
 CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
                             const std::list<NeighboursPtr> &neighCluster,
+                            const SolverOptions &solverOpt,
                             bool keepNeighboursFixed,
                             const XCorrCache &xcorr) const
 {
@@ -635,26 +623,24 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
   CatalogCPtr finalCatalog = catalog;
   unordered_map<unsigned, NeighboursPtr> finalNeighCluster;
   ObservationParams obsparams;
-  for (unsigned iteration = 0; iteration < _cfg.solver.algoIterations;
+  for (unsigned iteration = 0; iteration < solverOpt.algoIterations;
        iteration++)
   {
     //
     // compute parameters for this loop iteration
     //
     auto interpolate = [&](double start, double end) -> double {
-      if (_cfg.solver.algoIterations < 2) return (start + end) / 2;
-      return start +
-             (end - start) * iteration / (_cfg.solver.algoIterations - 1);
+      if (solverOpt.algoIterations < 2) return (start + end) / 2;
+      return start + (end - start) * iteration / (solverOpt.algoIterations - 1);
     };
 
-    double dampingFactor = interpolate(_cfg.solver.dampingFactorStart,
-                                       _cfg.solver.dampingFactorEnd);
+    double dampingFactor =
+        interpolate(solverOpt.dampingFactorStart, solverOpt.dampingFactorEnd);
     double downWeightingByResidual =
-        interpolate(_cfg.solver.downWeightingByResidualStart,
-                    _cfg.solver.downWeightingByResidualEnd);
-    double absTTDiffObsWeight =
-        interpolate(1.0, _cfg.solver.absTTDiffObsWeight);
-    double xcorrObsWeight = interpolate(1.0, _cfg.solver.xcorrObsWeight);
+        interpolate(solverOpt.downWeightingByResidualStart,
+                    solverOpt.downWeightingByResidualEnd);
+    double absTTDiffObsWeight = interpolate(1.0, solverOpt.absTTDiffObsWeight);
+    double xcorrObsWeight     = interpolate(1.0, solverOpt.xcorrObsWeight);
 
     SEISCOMP_INFO("Solving iteration %u num events %lu. Parameters: "
                   "observWeight TT/CC=%.2f/%.2f dampingFactor=%.2f "
@@ -663,7 +649,7 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
                   xcorrObsWeight, dampingFactor, downWeightingByResidual);
 
     // create a solver and then add observations
-    Solver solver(_cfg.solver.type);
+    Solver solver(solverOpt.type);
 
     //
     // Add absolute travel time/cross-correlation differences to the solver
@@ -672,7 +658,8 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
     for (const NeighboursPtr &neighbours : neighCluster)
     {
       addObservations(solver, absTTDiffObsWeight, xcorrObsWeight, finalCatalog,
-                      neighbours, keepNeighboursFixed, xcorr, obsparams);
+                      neighbours, keepNeighboursFixed,
+                      solverOpt.usePickUncertainty, xcorr, obsparams);
     }
     obsparams.addToSolver(solver);
 
@@ -681,9 +668,9 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
     //
     try
     {
-      solver.solve(_cfg.solver.solverIterations, _cfg.solver.ttConstraint,
+      solver.solve(solverOpt.solverIterations, solverOpt.ttConstraint,
                    dampingFactor, downWeightingByResidual,
-                   _cfg.solver.L2normalization);
+                   solverOpt.L2normalization);
     }
     catch (exception &e)
     {
@@ -751,6 +738,7 @@ void HypoDD::addObservations(Solver &solver,
                              const CatalogCPtr &catalog,
                              const NeighboursPtr &neighbours,
                              bool keepNeighboursFixed,
+                             bool usePickUncertainty,
                              const XCorrCache &xcorr,
                              ObservationParams &obsparams) const
 {
@@ -814,7 +802,7 @@ void HypoDD::addObservations(Solver &solver,
       //
       double diffTime = ref_travel_time - travel_time;
       double weight =
-          _cfg.solver.usePickUncertainty
+          usePickUncertainty
               ? (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0
               : 1.0;
       bool isXcorr = false;
@@ -1425,7 +1413,9 @@ Phase HypoDD::createThoreticalPhase(const Station &station,
 
 XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
                                    const std::list<NeighboursPtr> &neighCluster,
-                                   bool computeTheoreticalPhases)
+                                   bool computeTheoreticalPhases,
+                                   double xcorrMaxEvStaDist,
+                                   double xcorrMaxInterEvDist)
 {
   XCorrCache xcorr;
   resetCounters();
@@ -1441,7 +1431,8 @@ XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
       addMissingEventPhases(refEv, catalog, catalog, neighbours);
     }
 
-    buildXcorrDiffTTimePairs(catalog, neighbours, refEv, xcorr);
+    buildXcorrDiffTTimePairs(catalog, neighbours, refEv, xcorrMaxEvStaDist,
+                             xcorrMaxInterEvDist, xcorr);
 
     // Update theoretical and automatic phase pick time and uncertainties based
     // on cross-correlation results. Also, drop theoretical phases wihout any
@@ -1461,6 +1452,8 @@ XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
 void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
                                       const NeighboursPtr &neighbours,
                                       const Event &refEv,
+                                      double xcorrMaxEvStaDist,
+                                      double xcorrMaxInterEvDist,
                                       XCorrCache &xcorr)
 {
   SEISCOMP_INFO(
@@ -1470,16 +1463,15 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
   //
   // Prepare the waveform loaders for temporary/real-time waveforms.
   //
-  Waveform::LoaderPtr actualDiskLdr = new Waveform::DiskCachedLoader(
-      _cfg.ddObservations2.recordStreamURL, false, _tmpCacheDir);
+  Waveform::LoaderPtr actualDiskLdr =
+      new Waveform::DiskCachedLoader(_cfg.recordStreamURL, false, _tmpCacheDir);
   Waveform::LoaderPtr diskLdr =
       new Waveform::ExtraLenLoader(actualDiskLdr, DISK_TRACE_MIN_LEN);
 
   Waveform::LoaderPtr memLdr =
       (_useCatalogWaveformDiskCache && _waveformCacheAll)
           ? new Waveform::MemCachedLoader(diskLdr, true)
-          : new Waveform::MemCachedLoader(_cfg.ddObservations2.recordStreamURL,
-                                          true);
+          : new Waveform::MemCachedLoader(_cfg.recordStreamURL, true);
 
   Waveform::SnrFilteredLoaderPtr actualSnrLdr =
       (_useCatalogWaveformDiskCache && _waveformCacheAll)
@@ -1487,9 +1479,8 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
                 diskLdr, _cfg.snr.minSnr, _cfg.snr.noiseStart,
                 _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd)
           : new Waveform::SnrFilteredLoader(
-                _cfg.ddObservations2.recordStreamURL, _cfg.snr.minSnr,
-                _cfg.snr.noiseStart, _cfg.snr.noiseEnd, _cfg.snr.signalStart,
-                _cfg.snr.signalEnd);
+                _cfg.recordStreamURL, _cfg.snr.minSnr, _cfg.snr.noiseStart,
+                _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd);
   Waveform::LoaderPtr snrLdr =
       new Waveform::MemCachedLoader(actualSnrLdr, true);
 
@@ -1514,9 +1505,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
     // skip stations too far away
     //
     double stationDistance = computeDistance(refEv, station);
-    if (stationDistance > _cfg.ddObservations2.xcorrMaxEvStaDist &&
-        _cfg.ddObservations2.xcorrMaxEvStaDist >= 0)
-      continue;
+    if (stationDistance > xcorrMaxEvStaDist && xcorrMaxEvStaDist >= 0) continue;
 
     // select appropriate waveform loader for refPhase
     Waveform::LoaderPtr refLdr;
@@ -1555,8 +1544,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
       // skip events too far away
       //
       double interEventDistance = computeDistance(refEv, event);
-      if (interEventDistance > _cfg.ddObservations2.xcorrMaxInterEvDist &&
-          _cfg.ddObservations2.xcorrMaxInterEvDist >= 0)
+      if (interEventDistance > xcorrMaxInterEvDist && xcorrMaxInterEvDist >= 0)
         continue;
 
       if (neighbours->has(neighEvId, refPhase.stationId,
@@ -2228,7 +2216,7 @@ struct XCorrEvalStats
 };
 } // namespace
 
-void HypoDD::evalXCorr()
+void HypoDD::evalXCorr(const ClusteringOptions &clustOpt)
 {
   bool theoretical =
       false; // this is useful for testing theoretical phase detections
@@ -2296,12 +2284,10 @@ void HypoDD::evalXCorr()
     try
     {
       neighbours = selectNeighbouringEvents(
-          _bgCat, event, _bgCat, _cfg.ddObservations2.minWeight,
-          _cfg.ddObservations2.minESdist, _cfg.ddObservations2.maxESdist,
-          _cfg.ddObservations2.minEStoIEratio, _cfg.ddObservations2.minDTperEvt,
-          _cfg.ddObservations2.maxDTperEvt, _cfg.ddObservations2.minNumNeigh,
-          _cfg.ddObservations2.maxNumNeigh, _cfg.ddObservations2.numEllipsoids,
-          _cfg.ddObservations2.maxEllipsoidSize, false);
+          _bgCat, event, _bgCat, clustOpt.minWeight, clustOpt.minESdist,
+          clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
+          clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
+          clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, false);
     }
     catch (...)
     {
@@ -2325,7 +2311,9 @@ void HypoDD::evalXCorr()
     // Cross-correlate every neighbour phase with its corresponding event
     // theoretical phase.
     XCorrCache xcorr;
-    buildXcorrDiffTTimePairs(catalog, neighbours, event, xcorr);
+    buildXcorrDiffTTimePairs(catalog, neighbours, event,
+                             clustOpt.xcorrMaxEvStaDist,
+                             clustOpt.xcorrMaxInterEvDist, xcorr);
 
     // Update theoretical and automatic phase pick time and uncertainties based
     // on cross-correlation results. Drop theoretical phases wihout any good

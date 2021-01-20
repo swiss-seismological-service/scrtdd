@@ -477,58 +477,56 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->ddcfg.validPphases = configGetStrings(prefix + "P-Phases");
+      prof->ddCfg.validPphases = configGetStrings(prefix + "P-Phases");
     }
     catch (...)
     {
-      prof->ddcfg.validPphases = {"Pg", "P"};
+      prof->ddCfg.validPphases = {"Pg", "P"};
     }
     try
     {
-      prof->ddcfg.validSphases = configGetStrings(prefix + "S-Phases");
+      prof->ddCfg.validSphases = configGetStrings(prefix + "S-Phases");
     }
     catch (...)
     {
-      prof->ddcfg.validSphases = {"Sg", "S"};
+      prof->ddCfg.validSphases = {"Sg", "S"};
     }
 
     prefix = string("profile.") + *it +
              ".doubleDifferenceObservationsNoXcorr.clustering.";
     try
     {
-      prof->ddcfg.ddObservations1.minNumNeigh =
-          configGetInt(prefix + "minNumNeigh");
+      prof->ddObservations1.minNumNeigh = configGetInt(prefix + "minNumNeigh");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.minNumNeigh = 1;
+      prof->ddObservations1.minNumNeigh = 1;
     }
     try
     {
-      prof->ddcfg.ddObservations1.maxNumNeigh =
-          configGetInt(prefix + "maxNumNeigh");
+      prof->ddObservations1.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.maxNumNeigh = 0;
+      prof->ddObservations1.maxNumNeigh = 0;
     }
     try
     {
-      prof->ddcfg.ddObservations1.minDTperEvt =
+      prof->ddObservations1.minDTperEvt =
           configGetInt(prefix + "minObservationPerEvtPair");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.minDTperEvt = 1;
+      prof->ddObservations1.minDTperEvt = 1;
     }
     try
     {
-      prof->ddcfg.ddObservations1.maxDTperEvt =
+      prof->ddObservations1.maxDTperEvt =
           configGetInt(prefix + "maxObservationPerEvtPair");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.maxDTperEvt = 0;
+      prof->ddObservations1.maxDTperEvt = 0;
     }
 
     prefix = string("profile.") + *it +
@@ -536,91 +534,88 @@ bool RTDD::validateParameters()
              "neighboringEventSelection.";
     try
     {
-      prof->ddcfg.ddObservations1.numEllipsoids =
+      prof->ddObservations1.numEllipsoids =
           configGetInt(prefix + "numEllipsoids");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.numEllipsoids = 5;
+      prof->ddObservations1.numEllipsoids = 5;
     }
     try
     {
-      prof->ddcfg.ddObservations1.maxEllipsoidSize =
+      prof->ddObservations1.maxEllipsoidSize =
           configGetDouble(prefix + "maxEllipsoidSize");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.maxEllipsoidSize = 5;
+      prof->ddObservations1.maxEllipsoidSize = 5;
     }
 
     prefix = string("profile.") + *it +
              ".doubleDifferenceObservationsNoXcorr.clustering.phaseSelection.";
     try
     {
-      prof->ddcfg.ddObservations1.minESdist =
+      prof->ddObservations1.minESdist =
           configGetDouble(prefix + "minStationDistance");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.minESdist = 0;
+      prof->ddObservations1.minESdist = 0;
     }
     try
     {
-      prof->ddcfg.ddObservations1.maxESdist =
+      prof->ddObservations1.maxESdist =
           configGetDouble(prefix + "maxStationDistance");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.maxESdist = 0;
+      prof->ddObservations1.maxESdist = 0;
     }
     try
     {
-      prof->ddcfg.ddObservations1.minEStoIEratio =
+      prof->ddObservations1.minEStoIEratio =
           configGetDouble(prefix + "minStationToEventPairDistRatio");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.minEStoIEratio = 0;
+      prof->ddObservations1.minEStoIEratio = 0;
     }
 
     prefix =
         string("profile.") + *it + ".doubleDifferenceObservations.clustering.";
-    prof->ddcfg.ddObservations2.recordStreamURL = recordStreamURL();
     try
     {
-      prof->ddcfg.ddObservations2.minNumNeigh =
-          configGetInt(prefix + "minNumNeigh");
+      prof->ddObservations2.minNumNeigh = configGetInt(prefix + "minNumNeigh");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.minNumNeigh = 1;
+      prof->ddObservations2.minNumNeigh = 1;
     }
     try
     {
-      prof->ddcfg.ddObservations2.maxNumNeigh =
-          configGetInt(prefix + "maxNumNeigh");
+      prof->ddObservations2.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.maxNumNeigh = 0;
+      prof->ddObservations2.maxNumNeigh = 0;
     }
     try
     {
-      prof->ddcfg.ddObservations2.minDTperEvt =
+      prof->ddObservations2.minDTperEvt =
           configGetInt(prefix + "minObservationPerEvtPair");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.minDTperEvt = 1;
+      prof->ddObservations2.minDTperEvt = 1;
     }
     try
     {
-      prof->ddcfg.ddObservations2.maxDTperEvt =
+      prof->ddObservations2.maxDTperEvt =
           configGetInt(prefix + "maxObservationPerEvtPair");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.maxDTperEvt = 0;
+      prof->ddObservations2.maxDTperEvt = 0;
     }
 
     prefix =
@@ -628,168 +623,168 @@ bool RTDD::validateParameters()
         ".doubleDifferenceObservations.clustering.neighboringEventSelection.";
     try
     {
-      prof->ddcfg.ddObservations2.numEllipsoids =
+      prof->ddObservations2.numEllipsoids =
           configGetInt(prefix + "numEllipsoids");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.numEllipsoids = 5;
+      prof->ddObservations2.numEllipsoids = 5;
     }
     try
     {
-      prof->ddcfg.ddObservations2.maxEllipsoidSize =
+      prof->ddObservations2.maxEllipsoidSize =
           configGetDouble(prefix + "maxEllipsoidSize");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.maxEllipsoidSize = 5;
+      prof->ddObservations2.maxEllipsoidSize = 5;
     }
 
     prefix = string("profile.") + *it +
              ".doubleDifferenceObservations.clustering.phaseSelection.";
     try
     {
-      prof->ddcfg.ddObservations2.minESdist =
+      prof->ddObservations2.minESdist =
           configGetDouble(prefix + "minStationDistance");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.minESdist = 0;
+      prof->ddObservations2.minESdist = 0;
     }
     try
     {
-      prof->ddcfg.ddObservations2.maxESdist =
+      prof->ddObservations2.maxESdist =
           configGetDouble(prefix + "maxStationDistance");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.maxESdist = 0;
+      prof->ddObservations2.maxESdist = 0;
     }
     try
     {
-      prof->ddcfg.ddObservations2.minEStoIEratio =
+      prof->ddObservations2.minEStoIEratio =
           configGetDouble(prefix + "minStationToEventPairDistRatio");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.minEStoIEratio = 0;
+      prof->ddObservations2.minEStoIEratio = 0;
     }
 
     prefix = string("profile.") + *it +
              ".doubleDifferenceObservations.crosscorrelation.p-phase.";
     try
     {
-      prof->ddcfg.xcorr[PhaseType::P].startOffset =
+      prof->ddCfg.xcorr[PhaseType::P].startOffset =
           configGetDouble(prefix + "start");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::P].startOffset = -0.50;
+      prof->ddCfg.xcorr[PhaseType::P].startOffset = -0.50;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::P].endOffset =
+      prof->ddCfg.xcorr[PhaseType::P].endOffset =
           configGetDouble(prefix + "end");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::P].endOffset = 0.50;
+      prof->ddCfg.xcorr[PhaseType::P].endOffset = 0.50;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::P].maxDelay =
+      prof->ddCfg.xcorr[PhaseType::P].maxDelay =
           configGetDouble(prefix + "maxDelay");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::P].maxDelay = 0.350;
+      prof->ddCfg.xcorr[PhaseType::P].maxDelay = 0.350;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::P].minCoef =
+      prof->ddCfg.xcorr[PhaseType::P].minCoef =
           configGetDouble(prefix + "minCCCoef");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::P].minCoef = 0.50;
+      prof->ddCfg.xcorr[PhaseType::P].minCoef = 0.50;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::P].components =
+      prof->ddCfg.xcorr[PhaseType::P].components =
           configGetStrings(prefix + "components");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::P].components = {"Z"};
+      prof->ddCfg.xcorr[PhaseType::P].components = {"Z"};
     }
 
     prefix = string("profile.") + *it +
              ".doubleDifferenceObservations.crosscorrelation.s-phase.";
     try
     {
-      prof->ddcfg.xcorr[PhaseType::S].startOffset =
+      prof->ddCfg.xcorr[PhaseType::S].startOffset =
           configGetDouble(prefix + "start");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::S].startOffset = -0.50;
+      prof->ddCfg.xcorr[PhaseType::S].startOffset = -0.50;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::S].endOffset =
+      prof->ddCfg.xcorr[PhaseType::S].endOffset =
           configGetDouble(prefix + "end");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::S].endOffset = 0.75;
+      prof->ddCfg.xcorr[PhaseType::S].endOffset = 0.75;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::S].maxDelay =
+      prof->ddCfg.xcorr[PhaseType::S].maxDelay =
           configGetDouble(prefix + "maxDelay");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::S].maxDelay = 0.350;
+      prof->ddCfg.xcorr[PhaseType::S].maxDelay = 0.350;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::S].minCoef =
+      prof->ddCfg.xcorr[PhaseType::S].minCoef =
           configGetDouble(prefix + "minCCCoef");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::S].minCoef = 0.50;
+      prof->ddCfg.xcorr[PhaseType::S].minCoef = 0.50;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::S].components =
+      prof->ddCfg.xcorr[PhaseType::S].components =
           configGetStrings(prefix + "components");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::S].components = {"T", "Z"};
+      prof->ddCfg.xcorr[PhaseType::S].components = {"T", "Z"};
     }
 
     prefix = string("profile.") + *it +
              ".doubleDifferenceObservations.crosscorrelation.options.";
     try
     {
-      prof->ddcfg.ddObservations2.xcorrMaxEvStaDist =
+      prof->ddObservations2.xcorrMaxEvStaDist =
           configGetDouble(prefix + "maxStationDistance");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.xcorrMaxEvStaDist = 85;
+      prof->ddObservations2.xcorrMaxEvStaDist = 85;
     }
     try
     {
-      prof->ddcfg.ddObservations2.xcorrMaxInterEvDist =
+      prof->ddObservations2.xcorrMaxInterEvDist =
           configGetDouble(prefix + "maxInterEventDistance");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.xcorrMaxInterEvDist = -1;
+      prof->ddObservations2.xcorrMaxInterEvDist = -1;
     }
 
     try
@@ -815,179 +810,179 @@ bool RTDD::validateParameters()
              ".doubleDifferenceObservations.waveformFiltering.";
     try
     {
-      prof->ddcfg.wfFilter.filterStr = configGetString(prefix + "filterString");
+      prof->ddCfg.wfFilter.filterStr = configGetString(prefix + "filterString");
     }
     catch (...)
     {
-      prof->ddcfg.wfFilter.filterStr = "ITAPER(1)>>BW_HLP(2,1,20)";
+      prof->ddCfg.wfFilter.filterStr = "ITAPER(1)>>BW_HLP(2,1,20)";
     }
     try
     {
-      prof->ddcfg.wfFilter.resampleFreq =
+      prof->ddCfg.wfFilter.resampleFreq =
           configGetDouble(prefix + "resampling");
     }
     catch (...)
     {
-      prof->ddcfg.wfFilter.resampleFreq = 400;
+      prof->ddCfg.wfFilter.resampleFreq = 400;
     }
 
     prefix = string("profile.") + *it + ".doubleDifferenceObservations.snr.";
     try
     {
-      prof->ddcfg.snr.minSnr = configGetDouble(prefix + "minSnr");
+      prof->ddCfg.snr.minSnr = configGetDouble(prefix + "minSnr");
     }
     catch (...)
     {
-      prof->ddcfg.snr.minSnr = 2.;
+      prof->ddCfg.snr.minSnr = 2.;
     }
     try
     {
-      prof->ddcfg.snr.noiseStart = configGetDouble(prefix + "noiseStart");
+      prof->ddCfg.snr.noiseStart = configGetDouble(prefix + "noiseStart");
     }
     catch (...)
     {
-      prof->ddcfg.snr.noiseStart = -3.0;
+      prof->ddCfg.snr.noiseStart = -3.0;
     }
     try
     {
-      prof->ddcfg.snr.noiseEnd = configGetDouble(prefix + "noiseEnd");
+      prof->ddCfg.snr.noiseEnd = configGetDouble(prefix + "noiseEnd");
     }
     catch (...)
     {
-      prof->ddcfg.snr.noiseEnd = -0.350;
+      prof->ddCfg.snr.noiseEnd = -0.350;
     }
     try
     {
-      prof->ddcfg.snr.signalStart = configGetDouble(prefix + "signalStart");
+      prof->ddCfg.snr.signalStart = configGetDouble(prefix + "signalStart");
     }
     catch (...)
     {
-      prof->ddcfg.snr.signalStart = -0.350;
+      prof->ddCfg.snr.signalStart = -0.350;
     }
     try
     {
-      prof->ddcfg.snr.signalEnd = configGetDouble(prefix + "signalEnd");
+      prof->ddCfg.snr.signalEnd = configGetDouble(prefix + "signalEnd");
     }
     catch (...)
     {
-      prof->ddcfg.snr.signalEnd = 0.350;
+      prof->ddCfg.snr.signalEnd = 0.350;
     }
 
     prefix = string("profile.") + *it + ".solver.";
     try
     {
-      prof->ddcfg.ttt.type =
+      prof->ddCfg.ttt.type =
           configGetString(prefix + "travelTimeTable.tableType");
     }
     catch (...)
     {
-      prof->ddcfg.ttt.type = "libtau";
+      prof->ddCfg.ttt.type = "libtau";
     }
     try
     {
-      prof->ddcfg.ttt.model =
+      prof->ddCfg.ttt.model =
           configGetString(prefix + "travelTimeTable.tableModel");
     }
     catch (...)
     {
-      prof->ddcfg.ttt.model = "iasp91";
+      prof->ddCfg.ttt.model = "iasp91";
     }
     try
     {
-      prof->ddcfg.solver.type = configGetString(prefix + "solverType");
+      prof->solverCfg.type = configGetString(prefix + "solverType");
     }
     catch (...)
     {
-      prof->ddcfg.solver.type = "LSMR";
+      prof->solverCfg.type = "LSMR";
     }
     try
     {
-      prof->ddcfg.solver.algoIterations =
-          configGetInt(prefix + "algoIterations");
+      prof->solverCfg.algoIterations = configGetInt(prefix + "algoIterations");
     }
     catch (...)
     {
-      prof->ddcfg.solver.algoIterations = 20;
+      prof->solverCfg.algoIterations = 20;
     }
     try
     {
-      prof->ddcfg.solver.ttConstraint =
-          configGetBool(prefix + "useTTResiduals");
+      prof->solverCfg.ttConstraint = configGetBool(prefix + "useTTResiduals");
     }
     catch (...)
     {
-      prof->ddcfg.solver.ttConstraint = false;
+      prof->solverCfg.ttConstraint = false;
     }
     try
     {
-      prof->ddcfg.solver.dampingFactorStart =
+      prof->solverCfg.dampingFactorStart =
           configGetDouble(prefix + "dampingFactor.startingValue");
     }
     catch (...)
     {
-      prof->ddcfg.solver.dampingFactorStart = 0.3;
+      prof->solverCfg.dampingFactorStart = 0.3;
     }
     try
     {
-      prof->ddcfg.solver.dampingFactorEnd =
+      prof->solverCfg.dampingFactorEnd =
           configGetDouble(prefix + "dampingFactor.finalValue");
     }
     catch (...)
     {
-      prof->ddcfg.solver.dampingFactorEnd = 0.3;
+      prof->solverCfg.dampingFactorEnd = 0.3;
     }
 
     try
     {
-      prof->ddcfg.solver.downWeightingByResidualStart =
+      prof->solverCfg.downWeightingByResidualStart =
           configGetDouble(prefix + "downWeightingByResidual.startingValue");
     }
     catch (...)
     {
-      prof->ddcfg.solver.downWeightingByResidualStart = 10.;
+      prof->solverCfg.downWeightingByResidualStart = 10.;
     }
     try
     {
-      prof->ddcfg.solver.downWeightingByResidualEnd =
+      prof->solverCfg.downWeightingByResidualEnd =
           configGetDouble(prefix + "downWeightingByResidual.finalValue");
     }
     catch (...)
     {
-      prof->ddcfg.solver.downWeightingByResidualEnd = 3.;
+      prof->solverCfg.downWeightingByResidualEnd = 3.;
     }
     try
     {
-      prof->ddcfg.solver.usePickUncertainty =
+      prof->solverCfg.usePickUncertainty =
           configGetBool(prefix + "aPrioriWeights.usePickUncertainties");
     }
     catch (...)
     {
-      prof->ddcfg.solver.usePickUncertainty = false;
+      prof->solverCfg.usePickUncertainty = false;
     }
     try
     {
-      prof->ddcfg.solver.absTTDiffObsWeight =
+      prof->solverCfg.absTTDiffObsWeight =
           configGetDouble(prefix + "aPrioriWeights.absoluteTTObsWeight");
     }
     catch (...)
     {
-      prof->ddcfg.solver.absTTDiffObsWeight = 1.0;
+      prof->solverCfg.absTTDiffObsWeight = 1.0;
     }
     try
     {
-      prof->ddcfg.solver.xcorrObsWeight =
+      prof->solverCfg.xcorrObsWeight =
           configGetDouble(prefix + "aPrioriWeights.xcorrObsWeight");
     }
     catch (...)
     {
-      prof->ddcfg.solver.xcorrObsWeight = 1.0;
+      prof->solverCfg.xcorrObsWeight = 1.0;
     }
 
+    prof->ddCfg.recordStreamURL = recordStreamURL();
+
     // no reason to make those configurable
-    prof->ddcfg.ddObservations1.minWeight = 0;
-    prof->ddcfg.ddObservations2.minWeight = 0;
-    prof->ddcfg.solver.L2normalization    = true;
-    prof->ddcfg.solver.solverIterations   = 0;
+    prof->ddObservations1.minWeight  = 0;
+    prof->ddObservations2.minWeight  = 0;
+    prof->solverCfg.L2normalization  = true;
+    prof->solverCfg.solverIterations = 0;
 
     _profiles.push_back(prof);
   }
@@ -2338,7 +2333,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
     ddbgc = new HDD::Catalog(stationFile, eventFile, phaFile);
   }
 
-  hypodd = new HDD::HypoDD(ddbgc, ddcfg, pWorkingDir);
+  hypodd = new HDD::HypoDD(ddbgc, ddCfg, pWorkingDir);
   hypodd->setWorkingDirCleanup(cleanupWorkingDir);
   hypodd->setUseCatalogWaveformDiskCache(cacheWaveforms);
   hypodd->setWaveformCacheAll(cacheAllWaveforms);
@@ -2385,7 +2380,8 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   else
     hypodd->setUseArtificialPhases(this->useTheoreticalAuto);
 
-  return hypodd->relocateSingleEvent(orgToRelocate);
+  return hypodd->relocateSingleEvent(orgToRelocate, ddObservations1,
+                                     ddObservations2, solverCfg);
 }
 
 HDD::CatalogPtr RTDD::Profile::relocateCatalog()
@@ -2398,7 +2394,7 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog()
   }
   lastUsage = Core::Time::GMT();
   hypodd->setUseArtificialPhases(this->useTheoreticalManual);
-  return hypodd->relocateCatalog();
+  return hypodd->relocateMultiEvents(ddObservations2, solverCfg);
 }
 
 void RTDD::Profile::evalXCorr()
@@ -2411,7 +2407,7 @@ void RTDD::Profile::evalXCorr()
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::GMT();
-  hypodd->evalXCorr();
+  hypodd->evalXCorr(ddObservations2);
 }
 
 // End Profile class
