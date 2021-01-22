@@ -1,1 +1,1 @@
-SUBDIRS(core)
+SUBDIRS(hdd rtddmsg)

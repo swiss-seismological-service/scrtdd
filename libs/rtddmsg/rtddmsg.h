@@ -15,8 +15,8 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#ifndef __RTDD_CORE_RTDDMSG_H__
-#define __RTDD_CORE_RTDDMSG_H__
+#ifndef __RTDD_RTDDMSG_H__
+#define __RTDD_RTDDMSG_H__
 
 #include <seiscomp/client.h>
 #include <seiscomp3/core/genericmessage.h>
