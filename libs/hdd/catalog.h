@@ -18,13 +18,8 @@
 #ifndef __HDD_CATALOG_H__
 #define __HDD_CATALOG_H__
 
-#include "datasrc.h"
-
 #include <seiscomp3/core/baseobject.h>
-#include <seiscomp3/datamodel/databasequery.h>
-#include <seiscomp3/datamodel/eventparameters.h>
-#include <seiscomp3/datamodel/origin.h>
-#include <seiscomp3/datamodel/publicobjectcache.h>
+#include <seiscomp3/datamodel/station.h>
 
 #include <unordered_map>
 #include <vector>
@@ -214,12 +209,6 @@ public:
           const std::string &phaseFile,
           bool loadRelocationInfo = false);
 
-  // populate from seiscomp data format
-  void add(const std::vector<DataModel::OriginPtr> &origins,
-           DataSource &dataSrc);
-  void add(const std::vector<std::string> &ids, DataSource &dataSrc);
-  void add(const std::string &idFile, DataSource &dataSrc);
-
   void add(const Catalog &other, bool keepEvId);
   unsigned add(unsigned evId, const Catalog &eventCatalog, bool keepEvId);
   CatalogPtr extractEvent(unsigned eventId, bool keepEvId) const;
@@ -285,7 +274,7 @@ public:
   static constexpr double DEFAULT_MANUAL_PICK_UNCERTAINTY    = 0.030;
   static constexpr double DEFAULT_AUTOMATIC_PICK_UNCERTAINTY = 0.100;
 
-private:
+protected:
   std::unordered_map<std::string, Station> _stations; // indexed by station id
   std::map<unsigned, Event> _events;                  // indexed by event id
   std::unordered_multimap<unsigned, Phase> _phases;   // indexed by event id

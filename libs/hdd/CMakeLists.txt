@@ -4,8 +4,8 @@ SET(HDD_SOURCES
 	lsqr.cpp
 	solver.cpp
 	csvreader.cpp
-	datasrc.cpp
 	catalog.cpp
+	sccatalog.cpp
 	waveform.cpp
 	clustering.cpp
 	ttt.cpp
@@ -14,8 +14,8 @@ SET(HDD_SOURCES
 
 SET(HDD_HEADERS
 	csvreader.h
-	datasrc.h
 	catalog.h
+	sccatalog.h
 	hypodd.h
 )
 

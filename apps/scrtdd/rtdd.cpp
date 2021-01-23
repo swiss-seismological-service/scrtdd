@@ -18,6 +18,7 @@
 #include "rtdd.h"
 #include "csvreader.h"
 #include "rtddmsg.h"
+#include "sccatalog.h"
 
 #include <seiscomp3/logging/channel.h>
 #include <seiscomp3/logging/filerotator.h>
@@ -54,8 +55,9 @@ using namespace std;
 using namespace Seiscomp::Processing;
 using namespace Seiscomp::DataModel;
 using Seiscomp::Core::stringify;
-using PhaseType = Seiscomp::HDD::Catalog::Phase::Type;
-using PhaseSrc  = Seiscomp::HDD::Catalog::Phase::Source;
+using PhaseType      = Seiscomp::HDD::Catalog::Phase::Type;
+using PhaseSrc       = Seiscomp::HDD::Catalog::Phase::Source;
+using CatalogDataSrc = Seiscomp::HDD::ScCatalog::DataSource;
 
 namespace Seiscomp {
 
@@ -1132,8 +1134,8 @@ bool RTDD::run()
   // dump catalog and exit
   if (!_config.dumpCatalog.empty())
   {
-    HDD::CatalogPtr cat(new HDD::Catalog());
-    HDD::DataSource dataSrc(query(), &_cache, _eventParameters.get());
+    HDD::ScCatalogPtr cat(new HDD::ScCatalog());
+    CatalogDataSrc dataSrc(query(), &_cache, _eventParameters.get());
 
     if (commandline().hasOption("dump-catalog-options"))
     {
@@ -1192,9 +1194,10 @@ bool RTDD::run()
     HDD::CatalogPtr cat;
     if (tokens.size() == 1)
     {
-      HDD::DataSource dataSrc(query(), &_cache, _eventParameters.get());
-      cat = new HDD::Catalog();
-      cat->add(tokens[0], dataSrc);
+      CatalogDataSrc dataSrc(query(), &_cache, _eventParameters.get());
+      HDD::ScCatalogPtr cat_ = new HDD::ScCatalog();
+      cat_->add(tokens[0], dataSrc);
+      cat = cat_;
     }
     else if (tokens.size() == 3)
     {
@@ -2324,9 +2327,10 @@ void RTDD::Profile::load(DatabaseQuery *query,
   HDD::CatalogPtr ddbgc;
   if (!eventIDFile.empty())
   {
-    HDD::DataSource dataSrc(query, cache, eventParameters);
-    ddbgc = new HDD::Catalog();
-    ddbgc->add(eventIDFile, dataSrc);
+    CatalogDataSrc dataSrc(query, cache, eventParameters);
+    HDD::ScCatalogPtr ddbgc_ = new HDD::ScCatalog();
+    ddbgc_->add(eventIDFile, dataSrc);
+    ddbgc = ddbgc_;
   }
   else
   {
@@ -2366,11 +2370,11 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   }
   lastUsage = Core::Time::GMT();
 
-  HDD::DataSource dataSrc(query, cache, eventParameters);
+  CatalogDataSrc dataSrc(query, cache, eventParameters);
 
   // we pass the stations information from the background catalog, to avoid
   // wasting time accessing the inventory again for information we already have
-  HDD::CatalogPtr orgToRelocate = new HDD::Catalog(
+  HDD::ScCatalogPtr orgToRelocate = new HDD::ScCatalog(
       hypodd->getCatalog()->getStations(), map<unsigned, HDD::Catalog::Event>(),
       unordered_multimap<unsigned, HDD::Catalog::Phase>());
   orgToRelocate->add({org}, dataSrc);
