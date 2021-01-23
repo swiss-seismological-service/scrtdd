@@ -19,6 +19,7 @@
 
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/math/constants/constants.hpp>
 #include <cfenv>
 #include <fstream>
 #include <iostream>
@@ -190,7 +191,7 @@ bool merge(GenericRecord &trace, const RecordSequence &seq)
   trace.setSamplingFrequency(samplingFrequency);
 
   Array::DataType datatype = first->data()->dataType();
-  ArrayPtr arr = ArrayFactory::Create(datatype, datatype, 0, nullptr);
+  Array *arr = ArrayFactory::Create(datatype, datatype, 0, nullptr);
 
   for (const RecordCPtr &rec : seq)
   {
@@ -229,12 +230,12 @@ bool merge(GenericRecord &trace, const RecordSequence &seq)
       }
     }
 
-    arr->append((Array *)(rec->data()));
+    arr->append(rec->data());
 
     last = rec;
   }
 
-  trace.setData(arr.get());
+  trace.setData(arr);
 
   return true;
 }
@@ -285,7 +286,7 @@ void filter(GenericRecord &trace,
 
   if (resampleFreq > 0)
   {
-    resample(trace, resampleFreq, true);
+    resample(trace, resampleFreq);
   }
 
   if (!filterStr.empty())
@@ -306,73 +307,73 @@ void filter(GenericRecord &trace,
   }
 }
 
-void resample(GenericRecord &trace, double sf, bool average)
+void resample(GenericRecord &trace, double new_sf)
 {
-  if (sf <= 0) return;
+  if (new_sf <= 0 || trace.samplingFrequency() == new_sf ||
+      !DoubleArray::Cast(trace.data()))
+    return;
 
-  if (trace.samplingFrequency() == sf) return;
+  const double data_sf       = trace.samplingFrequency();
+  const double resamp_factor = new_sf / data_sf;
+  const double nyquist       = std::min(new_sf, data_sf) / 2.;
 
-  DoubleArray *data = DoubleArray::Cast(trace.data());
-  double step       = trace.samplingFrequency() / sf;
+  const double *data  = DoubleArray::Cast(trace.data())->typedData();
+  const int data_size = trace.data()->size();
 
-  if (trace.samplingFrequency() < sf) // upsampling
-  {
-    double fi = data->size() - 1;
-    data->resize(data->size() / step);
+  const int resampled_data_size = data_size * resamp_factor;
+  double resampled_data[resampled_data_size];
 
-    for (int i = data->size() - 1; i >= 0; i--)
+  /*
+   * Compute one sample of the resampled data:
+   *
+   * x: new sample point location (relative to old indexes)
+   *    (e.g. every other integer for 0.5x decimation)
+   * fmax: low pass filter cutoff frequency. Fmax should be less
+   *       than half of data_freq, and less than half of the
+   *       new sample frequency (the reciprocal of the x step size).
+   * win_len: width of windowed Sinc used as the low pass filter
+   *          Filter quality increases with a larger window width.
+   *          The wider the window, the closer fmax can approach half of
+   *          data_freq or the new sample frequency
+   */
+  auto new_sample = [&data, &data_size, &data_sf](double x, double fmax,
+                                                  double win_len) -> double {
+    static const double pi = boost::math::constants::pi<double>();
+    double r_g             = 2 * fmax / data_sf; // Calc gain correction factor
+    double r_y             = 0;
+
+    // For 1 window width
+    for (double win_i = -(win_len / 2.); win_i < (win_len / 2.); win_i += 1.)
     {
-      (*data)[i] = (*data)[(int)fi];
-      fi -= step;
-    }
-  }
-  else // downsampling
-  {
-    int w     = average ? step * 0.5 + 0.5 : 0;
-    int i     = 0;
-    double fi = 0.0;
-    int cnt   = data->size();
-
-    if (w <= 0)
-    {
-      while (fi < cnt)
+      int j = int(x + win_i); // input sample index
+      if (j >= 0 && j < data_size)
       {
-        (*data)[i++] = (*data)[(int)fi];
-        fi += step;
+        // calculate von Hann Window. Scale and calculate Sinc
+        double r_w   = 0.5 - 0.5 * std::cos(2 * pi * (0.5 + (j - x) / win_len));
+        double r_a   = 2 * pi * (j - x) * fmax / data_sf;
+        double r_snc = (r_a != 0) ? std::sin(r_a) / r_a : 1;
+        r_y          = r_y + r_g * r_w * r_snc * data[j];
       }
     }
-    else
-    {
-      while (fi < cnt)
-      {
-        int ci       = (int)fi;
-        double scale = 1.0;
-        double v     = (*data)[ci];
+    return r_y;
+  };
 
-        for (int g = 1; g < w; ++g)
-        {
-          if (ci >= g)
-          {
-            v += (*data)[ci - g];
-            scale += 1.0;
-          }
-
-          if (ci + g < cnt)
-          {
-            v += (*data)[ci + g];
-            scale += 1.0;
-          }
-        }
-
-        v /= scale;
-
-        (*data)[i++] = v;
-        fi += step;
-      }
-    }
-    data->resize(i);
+  for (int i = 0; i < resampled_data_size; i++)
+  {
+    /*
+     * If the x step size is rational the same Window and Sinc values
+     * will be recalculated repeatedly. Therefore these values can either
+     * be cached, or pre-calculated and stored in a table (polyphase
+     * interpolation); or interpolated from a smaller pre-calculated table;
+     * or computed from a set of low-order polynomials fitted to each
+     * section or lobe between  zero-crossings of the windowed Sinc (Farrow)
+     */
+    double x          = i / resamp_factor;
+    resampled_data[i] = new_sample(x, nyquist, 4);
   }
-  trace.setSamplingFrequency((double)sf);
+
+  DoubleArray::Cast(trace.data())->setData(resampled_data_size, resampled_data);
+  trace.setSamplingFrequency(new_sf);
   trace.dataUpdated();
 }
 

@@ -48,7 +48,7 @@ void filter(GenericRecord &trace,
             bool demeaning               = true,
             const std::string &filterStr = "",
             double resampleFreq          = 0);
-void resample(GenericRecord &trace, double sf, bool average);
+void resample(GenericRecord &trace, double new_sf);
 
 void writeTrace(GenericRecordCPtr trace, const std::string &file);
 GenericRecordPtr readTrace(const std::string &file);
