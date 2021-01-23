@@ -27,30 +27,33 @@ The double-difference equation system solver uses [LSQR by Chris Paige, Michael 
 
 ## Compile
 
-#### Seiscomp3
+In order to use this module the sources have to be compiled to an executable. Merge the scrtdd code into the *SeisComP* sources and compile *SeisComP as usual.
 
-In order to use this module the sources have to be compiled to an executable. Merge them into the *Seiscomp3* sources and compile *Seiscomp3* as usual.
-<pre>
-# merge rtdd-addons and Seiscomp3
-git clone https://github.com/SeisComP3/seiscomp3.git sc3-src
-cd sc3-src
-git submodule add -f https://github.com/swiss-seismological-service/scrtdd.git src/rtdd-addons
-</pre>
-For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#compiling
-
-#### New AGPL SeisComP
+#### AGPL SeisComP
 
 Instructions for the *new AGPL seiscomp*:
 <pre>
-# merge rtdd-addons and SeisComP
+# get SeisComP
 git clone https://github.com/SeisComP/seiscomp.git seiscomp
+# merge rtdd to SeisComP
 cd seiscomp/src/extras
 git clone https://github.com/swiss-seismological-service/scrtdd.git
-cd scrtdd
-git checkout new_agpl_seiscomp
 </pre>
 For compiling SeisComP, please refer to https://github.com/SeisComP/seiscomp#build
 
+#### Old versions of Seiscomp3
+
+<pre>
+# get Seiscomp3
+git clone https://github.com/SeisComP3/seiscomp3.git sc3-src
+# merge rtdd to Seiscomp3
+cd sc3-src
+git submodule add -f https://github.com/swiss-seismological-service/scrtdd.git src/rtdd-addons
+# now switch scrtdd code to seiscomp3 compatible branch
+cd src/rtdd-addons
+git checkout seiscomp3
+</pre>
+For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#compiling
 
 # Getting Started
 
