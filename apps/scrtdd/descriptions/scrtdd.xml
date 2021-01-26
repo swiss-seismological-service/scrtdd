@@ -40,7 +40,7 @@
 
             <parameter name="activeProfiles" type="list:string" default="">
                 <description>
-                    Defines a list of active profiles.
+                  Defines a list of active profiles for real-time/single-event processing.
                 </description>
             </parameter>
 
@@ -695,11 +695,26 @@
                         </group>
                         <group name="travelTimeTable">
                             <description>
-                                Traveltime table used by the solver (LOCSAT or libtau). This
-                                can be a system default or a user custom travel time table.
+                              Traveltime table used by the solver. Supported format are LOCSAT,
+                              libtau or NonLinLoc. 
+                              For tableType LOCSAT or libtau: valid tableModel are the ones configured
+                              in SeisComP global configuration.
+                              For tableType NonLinLoc: tableModel is the path to velocity, time and angle
+                              grid files. The path format is "path_to_velocity_grids;path_to_time_grids;path_to_angle_grids;"
+                              E.g. "/some_path/anything.PHASE.mod;/some_path/anything.PHASE.STATION.time;/some_path/anything.PHASE.STATION.angle"
+                              Valid placeholders are NETWORK,STATION,LOCATION,PHASE and they will be 
+                              replaced with actual values, if present
                             </description>
-                            <parameter name="tableType" type="string" default="libtau"></parameter>
-                            <parameter name="tableModel" type="string" default="iasp91"></parameter>
+                            <parameter name="tableType" type="string" default="libtau">
+                              <description>
+                                LOCSAT, libtau or NonLinLoc
+                               </description>
+                            </parameter>
+                            <parameter name="tableModel" type="string" default="iasp91">
+                              <description>
+                               Any SeisComP preconfigured modelor a user defined one
+                              </description>
+                            </parameter>
                         </group>
                     </group>
                 </struct>
@@ -753,12 +768,12 @@
                 <optionReference>records#record-url</optionReference>
                 <optionReference>records#record-file</optionReference>
                 <optionReference>records#record-type</optionReference>
-              </group>
+            </group>
 
             <group name="SingleEvent">
 
                 <option long-flag="origin-id" flag="O" argument="origin-id">
-                  <description>  
+                    <description>  
                                        Relocate the origin (or multiple 
                                        comma-separated origins) and send a 
                                        message. Each origin will be processed 
@@ -772,7 +787,7 @@
             <group name="MultiEvents">
 
                 <option long-flag="reloc-catalog" argument="profile">
-                  <description>
+                    <description>
                                        Relocate the catalog passed as argument
                                         in multi-event mode. The input can be a
                                         single file (containing seiscomp origin
@@ -783,12 +798,12 @@
                   </description>
                 </option>
 
-            </group> 
-            
+            </group>
+
             <group name="SingleAndMultiEvent">
 
                 <option long-flag="reloc-catalog" argument="profile">
-                  <description>
+                    <description>
                                        Event parameters XML file for offline 
                                         processing of contained origins 
                                         (implies --test option). Each contained
@@ -801,25 +816,25 @@
                   </description>
                 </option>
 
-            </group> 
+            </group>
 
             <group name="Mode">
 
                 <option long-flag="eval-xcorr" argument="profile">
-                  <description>
+                    <description>
                                         Evaluate cross-correlation settings for
                                         the given profile.
                   </description>
                 </option>
 
                 <option long-flag="test">
-                  <description>
+                    <description>
                                   Test mode, no messages are sent
                   </description>
-                </option> 
-                
+                </option>
+
                 <option long-flag="debug-wf">
-                  <description>
+                    <description>
                                         Enable saving of processed waveforms 
                                         (filtered/resampled, SNR rejected, ZRT 
                                         projected, etc.) into the profile 
@@ -827,9 +842,9 @@
 
                   </description>
                 </option>
-                
-               <option long-flag="cache-wf-all">
-                  <description>
+
+                <option long-flag="cache-wf-all">
+                    <description>
                                   All waveforms will be saved to disk 
                                         cache, even temporarily ones. Normally 
                                         only catalog phase waveforms are cached
@@ -837,10 +852,10 @@
                                         debugging/testing when the same origins
                                         are repeatedly processed.
                   </description>
-                </option> 
-                
+                </option>
+
                 <option long-flag="load-profile-wf" argument="profile">
-                  <description>
+                    <description>
                                         Load catalog waveforms from the 
                                         configured recordstream and save them 
                                         into the profile working directory.
@@ -848,24 +863,24 @@
                 </option>
 
                 <option long-flag="expiry" flag="x" argument="hours">
-                  <description>
+                    <description>
                                         Defines the time span in hours after 
                                         which objects expire.
                   </description>
                 </option>
 
                 <option long-flag="dump-config">
-                  <description>
+                    <description>
                                         Dump the configuration and exit
                   </description>
                 </option>
 
             </group>
-            
+
             <group name="Catalog">
 
                 <option long-flag="dump-catalog" argument="catalog-file">
-                  <description>
+                    <description>
                                         Dump the seiscomp event/origin id file 
                                         passed as argument into a catalog file 
                                         triplet (station.csv,event.csv,phase.cs
@@ -874,7 +889,7 @@
                 </option>
 
                 <option long-flag="dump-catalog-options" argument="type,evalmode,includeCreator,excludeCreator,region">
-                  <description>
+                    <description>
                                         Allows the --dump-catalog option to 
                                         accept event ids besides origin ids. 
                                         For each event id an origin will be 
@@ -895,7 +910,7 @@
                 </option>
 
                 <option long-flag="dump-catalog-xml" argument="catalog-files">
-                  <description>
+                    <description>
                                        Convert the input catalog into XML 
                                        format. The input can be a single file 
                                        (containing seiscomp origin ids) or a 
@@ -905,7 +920,7 @@
                 </option>
 
                 <option long-flag="merge-catalogs" argument="catalog-files">
-                  <description>
+                    <description>
                                         Merge in a single catalog all the 
                                         catalog file triplets 
                                         (station1.csv,event1.csv,phase1.csv,sta
@@ -915,7 +930,7 @@
                 </option>
 
                 <option long-flag="merge-catalogs-keepid" argument="catalog-files">
-                  <description>
+                    <description>
                                         Similar to the --merge-catalogs option 
                                         but events keep their ids. If multiple 
                                         events share the same id, subsequent 
@@ -924,7 +939,7 @@
                 </option>
 
             </group>
- 
+
         </command-line>
     </module>
 

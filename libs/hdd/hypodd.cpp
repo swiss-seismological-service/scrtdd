@@ -89,7 +89,7 @@ HypoDD::HypoDD(const CatalogCPtr &catalog,
   setWaveformCacheAll(false);
   setWaveformDebug(false);
 
-  _ttt = new TravelTimeTable(_cfg.ttt.type, _cfg.ttt.model);
+  _ttt = TravelTimeTable::create(_cfg.ttt.type, _cfg.ttt.model);
 }
 
 HypoDD::~HypoDD()
@@ -845,15 +845,13 @@ bool HypoDD::ObservationParams::add(HDD::TravelTimeTablePtr ttt,
   {
     try
     {
-      double travelTime, takeOffAngle, velocityAtSrc;
+      double travelTime, takeOfAngleAzim, takeOfAngleDip, velocityAtSrc;
       ttt->compute(event, station, string(1, phaseType), travelTime,
-                   takeOffAngle, velocityAtSrc);
+                   takeOfAngleAzim, takeOfAngleDip, velocityAtSrc);
       double ttResidual = travelTime - (phase.time - event.time).length();
-      // When `takeOffAngle`/`velocityAtSrc` are not provided (i.e. set to 0)
-      // by the ttt, the solver will use straight ray path approximation.
-      _entries[key] =
-          Entry{event,      station,      phaseType,     travelTime,
-                ttResidual, takeOffAngle, velocityAtSrc, computeEvChanges};
+      _entries[key]     = Entry{event,          station,       phaseType,
+                            travelTime,     ttResidual,    takeOfAngleAzim,
+                            takeOfAngleDip, velocityAtSrc, computeEvChanges};
     }
     catch (exception &e)
     {
@@ -885,7 +883,8 @@ void HypoDD::ObservationParams::addToSolver(Solver &solver) const
         e.event.id, e.station.id, e.phaseType, e.event.latitude,
         e.event.longitude, e.event.depth, e.station.latitude,
         e.station.longitude, e.station.elevation, e.computeEvChanges,
-        e.travelTime, e.travelTimeResidual, e.takeOffAngle, e.velocityAtSrc);
+        e.travelTime, e.travelTimeResidual, e.takeOfAngleAzim, e.takeOfAngleDip,
+        e.velocityAtSrc);
   }
 }
 
@@ -1103,10 +1102,10 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
       const Station &station = tmpCat->getStations().at(finalPhase.stationId);
       try
       {
-        double travelTime, takeOffAngle, velocityAtSrc;
+        double travelTime;
         _ttt->compute(startEvent, station,
                       string(1, static_cast<char>(finalPhase.procInfo.type)),
-                      travelTime, takeOffAngle, velocityAtSrc);
+                      travelTime);
         double residual =
             travelTime - (finalPhase.time - startEvent.time).length();
         finalEvent.relocInfo.startRms += residual * residual;

@@ -19,7 +19,9 @@
 #define __HDD_UTILS_H__
 
 #include "catalog.h"
+#include <initializer_list>
 #include <random>
+#include <regex>
 #include <seiscomp3/core/strings.h>
 #include <vector>
 
@@ -27,6 +29,13 @@ namespace Seiscomp {
 namespace HDD {
 
 template <class T> inline T square(T x) { return x * x; }
+
+inline std::vector<std::string> splitString(const std::string &str,
+                                            const std::regex &regex)
+{
+  return {std::sregex_token_iterator{str.begin(), str.end(), regex, -1},
+          std::sregex_token_iterator()};
+}
 
 double computeDistance(double lat1,
                        double lon1,

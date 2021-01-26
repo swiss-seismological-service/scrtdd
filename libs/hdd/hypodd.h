@@ -190,7 +190,8 @@ private:
       char phaseType;
       double travelTime;
       double travelTimeResidual;
-      double takeOffAngle;
+      double takeOfAngleAzim;
+      double takeOfAngleDip;
       double velocityAtSrc;
       bool computeEvChanges;
     };

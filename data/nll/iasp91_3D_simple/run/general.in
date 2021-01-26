@@ -1,0 +1,57 @@
+
+# =============================================================================
+#  Sample NonLinLoc programs control file
+#
+#  NonLinLoc Version 2.3 - APR2001
+#
+#  Anthony Lomax <anthony@alomax.net>
+#
+#  See "Control File" and "Running the Sample Location" pages
+#     in the NonLicLoc on-line documentation:
+#     http://www.alomax.net/nlloc
+# =============================================================================
+
+
+# = comment
+
+# non-nested include files allowed, use:
+# INCLUDE <include_file_name>
+
+
+# =============================================================================
+# =============================================================================
+# Generic control file statements
+# =============================================================================
+#
+#
+
+# control (CONTROL message_flag (0:silent,1:few messages,2:verbose,...),
+#		RandomNumSeed)
+CONTROL 1 99991
+
+# -----------------------------------------------------------------------------
+# lat/long to rect grid transformation
+# -----------------------------------------------------------------------------
+
+# map projection / transformation
+# (TRANS type <params>)
+#    (char[])   search_type (SIMPLE, LAMBERT)
+#    <params>:
+#	SIMPLE LatOrig  LongOrig  RotCW
+#	LAMBERT  RefEllipsoid LatOrig  LongOrig
+#                   FirstStdParal  SecondStdParal   RotCW
+#
+#    RefEllipsoid choices:
+#                   WGS-84, GRS-80, WGS-72, Australian, Krasovsky,
+#                   International, Hayford-1909, Clarke-1880, Clarke-1866,
+#                   Airy, Bessel, Hayford-1830, Sphere
+#
+#
+TRANS SIMPLE 47.0 8.3 25.0
+
+#
+#
+# =============================================================================
+# END of Generic control file statements
+# =============================================================================
+# =============================================================================

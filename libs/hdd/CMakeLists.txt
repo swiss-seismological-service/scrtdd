@@ -9,6 +9,8 @@ SET(HDD_SOURCES
 	waveform.cpp
 	clustering.cpp
 	ttt.cpp
+	scttt.cpp
+	nllttt.cpp
 	hypodd.cpp
 )
 

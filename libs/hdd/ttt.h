@@ -23,8 +23,6 @@
 #include <seiscomp3/core/baseobject.h>
 #include <seiscomp3/seismology/ttt.h>
 
-#include <unordered_map>
-
 namespace Seiscomp {
 namespace HDD {
 
@@ -33,44 +31,80 @@ DEFINE_SMARTPOINTER(TravelTimeTable);
 class TravelTimeTable : public Core::BaseObject
 {
 public:
-  TravelTimeTable(std::string type,
-                  std::string model,
-                  double depthVelResolution = 0.1);
-  virtual ~TravelTimeTable() {}
+  static TravelTimeTable *create(const std::string &type,
+                                 const std::string &model);
 
-  void compute(double eventLat,
-               double eventLon,
-               double eventDepth,
-               double stationLat,
-               double stationLon,
-               double stationElevation,
-               const std::string &phaseType,
-               double &travelTime,
-               double &takeOffAngle,
-               double &velocityAtSrc);
+  /*
+   * The implementation of this interface MUST compute:
+   * - travelTime [seconds]
+   * - takeOffAngleAzim [degree]
+   * - takeOffAngleDip [degree]
+   * - velocityAtSrc [km/sec]
+   */
+  virtual void compute(double eventLat,
+                       double eventLon,
+                       double eventDepth,
+                       const Catalog::Station &station,
+                       const std::string &phaseType,
+                       double &travelTime,
+                       double &takeOfAngleAzim,
+                       double &takeOfAngleDip,
+                       double &velocityAtSrc) = 0;
 
   void compute(const Catalog::Event &event,
                const Catalog::Station &station,
                const std::string &phaseType,
                double &travelTime,
-               double &takeOffAngle,
+               double &takeOfAngleAzim,
+               double &takeOfAngleDip,
                double &velocityAtSrc)
   {
-    return compute(event.latitude, event.longitude, event.depth,
-                   station.latitude, station.longitude, station.elevation,
-                   phaseType, travelTime, takeOffAngle, velocityAtSrc);
+    return compute(event.latitude, event.longitude, event.depth, station,
+                   phaseType, travelTime, takeOfAngleAzim, takeOfAngleDip,
+                   velocityAtSrc);
   }
 
-private:
-  double velocityAtSource(double eventDepth, const std::string &phaseType);
+  /*
+   * Sometimes only travel time is required (save computation)
+   */
+  virtual void compute(double eventLat,
+                       double eventLon,
+                       double eventDepth,
+                       const Catalog::Station &station,
+                       const std::string &phaseType,
+                       double &travelTime) = 0;
 
-  TravelTimeTableInterfacePtr _ttt;
-  const double _depthVelResolution; // km
-  // key 1 = phase type. key 2 = depth bin
-  std::unordered_map<std::string, std::unordered_map<int, double>> _depthVel;
+  void compute(const Catalog::Event &event,
+               const Catalog::Station &station,
+               const std::string &phaseType,
+               double &travelTime)
+  {
+    return compute(event.latitude, event.longitude, event.depth, station,
+                   phaseType, travelTime);
+  }
+
+  const std::string type;
+  const std::string model;
+
+protected:
+  /*
+   * Utility function to compute straight ray path approximation
+   * for takeOfAngles angles when those are not available in the
+   * travel time tables
+   */
+  static void computeApproximatedTakeOfAngles(double eventLat,
+                                              double eventLon,
+                                              double eventDepth,
+                                              const Catalog::Station &station,
+                                              const std::string &phaseType,
+                                              double *takeOfAngleAzim = nullptr,
+                                              double *takeOfAngleDip = nullptr);
+
+  TravelTimeTable(const std::string &t, const std::string &m)
+      : type(t), model(m)
+  {}
+  virtual ~TravelTimeTable() {}
 };
-
-DEFINE_SMARTPOINTER(TravelTimeTable);
 
 } // namespace HDD
 } // namespace Seiscomp

@@ -151,8 +151,9 @@ public:
                             bool computeEvChanges,
                             double travelTime,
                             double travelTimeResidual,
-                            double takeOffAngle  = 0,
-                            double velocityAtSrc = 0);
+                            double takeOfAngleAzim,
+                            double takeOfAngleDip,
+                            double velocityAtSrc);
 
   void solve(unsigned numIterations    = 0,
              bool useTTconstraint      = false,
@@ -234,7 +235,8 @@ private:
     bool computeEvChanges;
     double travelTime;
     double travelTimeResidual;
-    double takeOffAngle;
+    double takeOffAngleAzim;
+    double takeOffAngleDip;
     double velocityAtSrc;
     double dx;
     double dy;

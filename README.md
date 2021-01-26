@@ -25,6 +25,8 @@ The actual methods are based on the paper "Near-Real-Time Double-Difference Even
 
 The double-difference equation system solver uses [LSQR by Chris Paige, Michael Saunders](<https://web.stanford.edu/group/SOL/software/lsqr/>) and [LSMR by David Fong, Michael Saunders](<https://web.stanford.edu/group/SOL/software/lsmr/>) algorithms from [this](<https://github.com/tvercaut/LSQR-cpp/>) Apache Licensed beautiful implementation by Tom Vercautereen.
 
+SCRTDD also supports [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) grid file format alongside the formats natively supported y SeisComP (LOCSAT and libtau). A feature that enable 3D velocity models support within the tool.
+
 ## Compile
 
 In order to use this module the sources have to be compiled to an executable. Merge the scrtdd code into the *SeisComP* sources and compile *SeisComP as usual.
@@ -67,7 +69,7 @@ For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#
 * [5.Relocation statistics](#5-relocation-statistics)
 * [6.Troubleshooting - Logs](#6-troubleshooting---logs) 
 * [7.Database connection and relocating events on remote machines](#7-database-connection-and-relocating-events-on-remote-machines)
-* [8.Custom velocity models](#8-custom-velocity-models)
+* [8.Custom velocity models - LOCSAT NonLinLoc](#8-custom-velocity-models---locsat-nonlinloc)
 * [9.Scolv Locator plugin](#9-scolv-locator-plugin) 
 
 ## 1. Multi-event relocation
@@ -164,8 +166,7 @@ Before performing the relocation we need to create a new profile in the `scrtdd`
 
 ![Relocation options](/data/img/multiEventStep2options.png?raw=true "Relocation options")
 
-Then it is time to set the cross-correlation parameters, which require a more careful selection and they are described in a dedicated paragraph. Finally, when the configuration is ready, we can relocate the catalog with the following commands.
-
+Then it is time to set the cross-correlation parameters, which require a more careful selection and they are described in a dedicated paragraph. Finally, when the configuration is ready, we can relocate the catalog with the following commands...
 
 #### 1.3.1 Relocating a file containing a list of origin ids
 
@@ -200,25 +201,21 @@ scrtdd --reloc-catalog myCatalog.csv --ep events.xml --profile myProfile --verbo
 
 ### 1.4 Review of results
 
-Independently on how the input events are provided, `scrtdd` will generate in ouput the relocated events as a set of files *reloc-event.csv*, *reloc-phase.csv* and *reloc-stations.csv*.
+Independently on how the input events are provided, `scrtdd` will output a set of files *reloc-event.csv*, *reloc-phase.csv* and *reloc-stations.csv*, these contain the relocated catalog.
 
 At this point we should check the relocated events (and logs) and see whether the results make sense and are satisfactory. Usually we want to keep tuning the `scrtdd` settings and relocate the catalog multiple times until we are sure we reached the best relocations. Having a good background catalog is the base for good real-time relocations.
+
+**Notes**:
+Be aware that the first time you try to relocate a catalog it can be very slow because the waveforms have to be downloaded from the configured recordStream and saved to disk for the next runs, which will be much faster. 
 
 As an example you can see below two catalogs before and after `scrtdd` relocation:
 
 
 ![Relocation example picture](/data/img/multiEventRelocationExample.png?raw=true "Relocation example")
 
-The relocation output files (reloc-event.csv reloc-phase.csv and reloc-stations.csv) will become the background catalog used in real-time relocation and this is the only output we need to keep from the relocation process. The profile configuration can be now deleted or, in the case we want to kept it, it has to be removed from the list of active profiles (`scrtdd.activeProfiles`) to avoid interaction with real-time processing.
-
-Now that we have a high quality background catalog we are ready to perform real-time relocation. For that we will create a new profile whose catalog will be the relocation output files:
+If we are going to create a profile for real-time relocation, only the output files reloc-event.csv reloc-phase.csv and reloc-stations.csv are required. A new profile has to be created and those output files will become the background catalog for the real-time/single-event relocation.
 
 ![Catalog selection option](/data/img/catalog-selection3.png?raw=true "Catalog selection from raw file format")
-
-
-**Notes**:
-
-- Be aware that the first time you run the command it will be very slow because the waveforms have to be downloaded from the configured recordStream and saved to disk (for the next runs, which will be much faster). 
 
 
 ### 1.5 Useful options
@@ -375,10 +372,9 @@ SingleAndMultiEvent:
   --profile arg                         To be used in combination with other 
                                         options: select the profile 
                                         configuration to use
-                                        
 ```
 
-#### 2.3.1 Relocate origin ID and send the relocation to the messaging system for further processing
+#### 2.2.1 Relocate origin ID and send the relocation to the messaging system for further processing
 
 If we want to process an origin we can run the following command and then check on `scolv` the relocated origin (the messaging system must be active). This is mostly useful when we want to relocate an origin on a running system and keep the relocation:
 
@@ -386,7 +382,7 @@ If we want to process an origin we can run the following command and then check 
 scrtdd --origin-id someOriginId --verbosity=3 --console=1 [db options] 
 ```
 
-#### 2.3.2 Relocate origin ID but do not send the relocation (debug)
+#### 2.2.2 Relocate origin ID but do not send the relocation (debug)
 
 As above but add `--test`
 
@@ -394,7 +390,7 @@ As above but add `--test`
 scrtdd --origin-id someOriginId --test --verbosity=3 --console=1 [db options]
 ``` 
 
-#### 2.3.3 Relocate origin ID and store the result to XML file
+#### 2.2.3 Relocate origin ID and store the result to XML file
 
 For testing purpose we are more likely interested in not interfering with the database and the messaging system so we can use the `--ep` option and the relocated origin will be saved as a XML file. We can finally open the XML file with `scolv` for inspection:
 
@@ -402,7 +398,7 @@ For testing purpose we are more likely interested in not interfering with the da
 scrtdd --origin-id someOriginId --ep - --verbosity=3 --console=1 [db options] >  relocated-origin.xml
 ```
 
-#### 2.3.4 Relocate XML file and store the result to XML file
+#### 2.2.4 Relocate XML file and store the result to XML file
 
 Alternatively the `--ep` option (without `-O`) can process all origins contained in the input XML file:
 
@@ -417,7 +413,7 @@ And we can use the `scxmldump` to dump an existing origin id to file:
 scxmldump -fPAMF -p -O originId -o origin.xml --verbosity=3  --console=1
 ```
 
-#### 2.3.5 Notes
+#### 2.2.5 Notes
 
 Also, as explained in the cross-correlation settings paragraph, we can add the `--debug-wf` option to the above commands to dump and inspect the waveforms used during cross-correlation.
 
@@ -438,6 +434,24 @@ For stations with no associated phases, `scrtdd` computes theoretical picks. Tho
 Picks that have been updated or created by `scrtdd` are identifiable by a `x` suffix (Px, Sx).
 
 Manual picks are never modified.
+
+### 2.5 Avoiding Relocation Loops
+
+`scrtdd` listens and sends messages to the LOCATION group. In a default installation where the only locator is `scautoloc` that's not an issue: `scautoloc` will send an origin to LOCATION and `scrtdd` will receive it and send an updated origin to LOCATION.  However, when thare are multiple (re)locators (e.g. scanloc, screloc) that listen to LOCATION and send their own updated origin to LOCATION too, then an infinite loop happens! In this case a new messaging group needs to be created, e.g. RELOCATION, so that the origins flow from LOCATION to RELOCATION without going back.
+
+ E.g. of a properly configured system:
+
+```
+                      LISTEN                       SEND 
+              (MessagingSubscription)      (PrimaryMessagingGroup)
+scautoloc             ...                        LOCATION
+scanloc       LOCATION, ...                      LOCATION
+screloc       LOCATION, ...                     RELOCATION
+scrtdd        LOCATION, ...                     RELOCATION
+scevent       LOCATION,RELOCATION, ...             ...
+scamp         LOCATION,RELOCATION, ...             ...
+scmag         LOCATION,RELOCATION, ...             ...
+```
 
 ## 3. Cross-correlation
 
@@ -850,7 +864,9 @@ scrtdd [some options] --plugins dbpostgresql -d postgresql://user:password@host/
 It is worth noting that this feature allows `scrtdd` to connect to remote seiscomp databases too and relocate events stored in other machines without interfering with the real-time processing happening there.
 
 
-## 8. Custom velocity models
+## 8. Custom velocity models - LOCSAT NonLinLoc
+
+### 8.1 LOCSAT
 
 In the `scrtdd` configuration it is possible to select any travel time table installed in SeisComP; this means the default SeisComP travel time tables and any other tablse installed by the user. Although this is a general SeisComP topic and we suggest to refer to the official SeisComP documentation, here is a quick recipe for generating your own travel time table from a custom velocity model.
 
@@ -919,6 +935,9 @@ Last step is to copy the travel time tables to the SeisComP installation folder 
 ```
 cp mymodel* seiscomp_installation/share/locsat/tables/
 ```
+### 8.2 NonLinLoc
+
+Please refer to [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) documenation on how to generate grid files. Once you have them you can configure in `scrtdd` in travel time table options.
 
 ## 9. Scolv Locator plugin
 

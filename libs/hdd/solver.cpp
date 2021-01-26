@@ -246,7 +246,8 @@ void Solver::addObservationParams(unsigned evId,
                                   bool computeEvChanges,
                                   double travelTime,
                                   double travelTimeResidual,
-                                  double takeOffAngle,
+                                  double takeOfAngleAzim,
+                                  double takeOfAngleDip,
                                   double velocityAtSrc)
 {
   string phStaId      = string(1, phase) + "@" + staId;
@@ -258,7 +259,8 @@ void Solver::addObservationParams(unsigned evId,
   _obsParams[evIdx][phStaIdx] = ObservationParams{computeEvChanges,
                                                   travelTime,
                                                   travelTimeResidual,
-                                                  takeOffAngle,
+                                                  takeOfAngleAzim,
+                                                  takeOfAngleDip,
                                                   velocityAtSrc,
                                                   0,
                                                   0,
@@ -462,42 +464,17 @@ void Solver::computePartialDerivatives()
   // compute derivatives
   for (auto &kv1 : _obsParams)
   {
-    unsigned evIdx = kv1.first;
-
     for (auto &kv2 : kv1.second)
     {
-      unsigned phStaIdx           = kv2.first;
-      ObservationParams &obprm    = kv2.second;
-      const EventParams &evprm    = _eventParams.at(evIdx);
-      const StationParams &staprm = _stationParams.at(phStaIdx);
+      ObservationParams &obprm = kv2.second;
 
-      double velocityAtSrc = obprm.velocityAtSrc;
-      double takeOffAngle  = obprm.takeOffAngle;
+      double slowness = 1. / obprm.velocityAtSrc;
 
-      // When `velocityAtSrc` and/or `takeOffAngle` are not provided, use
-      // straight ray path approximation.
-      if (velocityAtSrc == 0 || takeOffAngle == 0)
-      {
-        double distance =
-            computeDistance(evprm.lat, evprm.lon, evprm.depth, staprm.lat,
-                            staprm.lon, -staprm.elevation / 1000.);
-        if (velocityAtSrc == 0)
-        {
-          velocityAtSrc = distance / obprm.travelTime;
-        }
-        if (takeOffAngle == 0)
-        {
-          double VertDist = evprm.depth + staprm.elevation / 1000.;
-          takeOffAngle    = std::asin(VertDist / distance);
-        }
-      }
-
-      double xyAngle  = std::atan2(evprm.y - staprm.y, evprm.x - staprm.x);
-      double slowness = 1. / velocityAtSrc;
-
-      obprm.dx = slowness * std::cos(takeOffAngle) * std::cos(xyAngle);
-      obprm.dy = slowness * std::cos(takeOffAngle) * std::sin(xyAngle);
-      obprm.dz = slowness * std::sin(takeOffAngle);
+      obprm.dx = slowness * std::cos(obprm.takeOffAngleDip) *
+                 std::sin(obprm.takeOffAngleAzim);
+      obprm.dy = slowness * std::cos(obprm.takeOffAngleDip) *
+                 std::cos(obprm.takeOffAngleAzim);
+      obprm.dz = slowness * std::sin(obprm.takeOffAngleDip);
     }
   }
 }

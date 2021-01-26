@@ -16,11 +16,12 @@
  ***************************************************************************/
 
 #include "ttt.h"
+#include "nllttt.h"
+#include "scttt.h"
 #include "utils.h"
+#include <seiscomp3/math/math.h>
 
 #include <seiscomp3/core/strings.h>
-#include <seiscomp3/math/geo.h>
-#include <seiscomp3/math/math.h>
 #include <sstream>
 #include <stdexcept>
 
@@ -33,100 +34,57 @@ using Seiscomp::Core::stringify;
 namespace Seiscomp {
 namespace HDD {
 
-TravelTimeTable::TravelTimeTable(std::string type,
-                                 std::string model,
-                                 double depthVelResolution)
-    : _depthVelResolution(depthVelResolution)
+TravelTimeTable *TravelTimeTable::create(const std::string &type,
+                                         const std::string &model)
 {
-  _ttt = TravelTimeTableInterface::Create(type.c_str());
-  _ttt->setModel(model.c_str());
+  TravelTimeTable *ttt = nullptr;
 
-  /*
-  for (int i = 0; i < 500; i++)
+  if (type == "LOCSAT" || type == "libtau")
   {
-    double vel = velocityAtSource(i * _depthVelResolution, "P");
-    SEISCOMP_INFO("Velocity model phase P depth %.2f [km] vel %.2f [m/sec]",
-                   (i * _depthVelResolution), vel);
+    ttt = new ScTravelTimeTable(type, model);
   }
-  for (int i = 0; i < 500; i++)
+  else if (type == "NonLinLoc")
   {
-    double vel = velocityAtSource(i * _depthVelResolution, "S");
-    SEISCOMP_INFO("Velocity model phase S depth %.2f [km] vel %.2f [m/sec]",
-                   (i * _depthVelResolution), vel);
+    ttt = new NLL::NllTravelTimeTable(type, model);
   }
-  */
+
+  if (ttt == nullptr)
+  {
+    string msg = stringify("Cannot load travel time table: unknown type %s",
+                           type.c_str());
+    throw runtime_error(msg.c_str());
+  }
+  return ttt;
 }
 
-void TravelTimeTable::compute(double eventLat,
-                              double eventLon,
-                              double eventDepth,
-                              double stationLat,
-                              double stationLon,
-                              double stationElevation,
-                              const std::string &phaseType,
-                              double &travelTime,
-                              double &takeOffAngle,
-                              double &velocityAtSrc)
+void TravelTimeTable::computeApproximatedTakeOfAngles(
+    double eventLat,
+    double eventLon,
+    double eventDepth,
+    const Catalog::Station &station,
+    const std::string &phaseType,
+    double *takeOffAngleAzim,
+    double *takeOffAngleDip)
 {
-  double depth  = eventDepth > 0 ? eventDepth : 0;
-  TravelTime tt = _ttt->compute(phaseType.c_str(), eventLat, eventLon, depth,
-                                stationLat, stationLon, stationElevation);
-  travelTime    = tt.time;
-  velocityAtSrc = velocityAtSource(depth, phaseType);
-  // tt.takeOff is not computed for LOCSAT and for libTau it seems wrong
-  takeOffAngle = 0;
-}
 
-// Since the seiscomp travel time API doesn't offer the velocity at source we
-// need to reverse-engineer that information.
-double TravelTimeTable::velocityAtSource(double eventDepth,
-                                         const std::string &phaseType)
-{
-  if (eventDepth < 0) eventDepth = 0;
-
-  const unsigned bin         = std::floor(eventDepth / _depthVelResolution);
-  const double binStartDepth = bin * _depthVelResolution;
-  const double binEndDepth   = (bin + 1) * _depthVelResolution;
-
-  //
-  // first check if we have alrady computed the velocity for this phase/depth
-  //
-  auto it1 = _depthVel.find(phaseType);
-  if (it1 != _depthVel.end())
+  if (takeOffAngleAzim || takeOffAngleDip)
   {
-    const auto &phaseDepthVel = it1->second;
-    auto it2                  = phaseDepthVel.find(bin);
-    if (it2 != phaseDepthVel.end()) return it2->second;
+    double backAzimuth;
+    double distance = computeDistance(
+        eventLat, eventLon, eventDepth, station.latitude, station.longitude,
+        -(station.elevation / 1000.), nullptr, &backAzimuth);
+
+    if (takeOffAngleDip)
+    {
+      double VertDist  = eventDepth + station.elevation / 1000.;
+      *takeOffAngleDip = std::asin(VertDist / distance);
+    }
+
+    if (takeOffAngleAzim)
+    {
+      *takeOffAngleAzim = deg2rad(backAzimuth);
+    }
   }
-
-  //
-  // this is a new phase/depth pair
-  //
-  double binVelocity = 0;
-  try
-  {
-    double tt1 = (binStartDepth == 0) ? 0
-                                      : _ttt->compute(phaseType.c_str(), 0, 0,
-                                                      binStartDepth, 0, 0, 0)
-                                            .time;
-    double tt2 =
-        _ttt->compute(phaseType.c_str(), 0, 0, binEndDepth, 0, 0, 0).time;
-
-    binVelocity = _depthVelResolution / (tt2 - tt1); // [km/sec]
-  }
-  catch (exception &e)
-  {
-    SEISCOMP_WARNING("TTT: %s", e.what());
-  }
-
-  // store the value
-  _depthVel[phaseType][bin] = binVelocity;
-
-  // SEISCOMP_DEBUG(
-  // "velocityAtSource %s bin %u depth %.3f[km] vel %.3f [m/sec]",
-  //  phaseType.c_str(), bin, bin * _depthVelResolution, binVelocity);
-
-  return binVelocity;
 }
 
 } // namespace HDD
