@@ -60,12 +60,12 @@ For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#
 * [1.Multi-event relocation](#1-multi-event-relocationi)
 * [2.Real-time single-event relocation](#2-real-time-single-event-relocation)
 * [3.Cross-correlation](#3-cross-correlation)
-* [4.Waveforms data caching](#4-waveforms-data-caching) 
-* [5.Scolv Locator plugin](#5-scolv-locator-plugin) 
+* [4.Waveform data and recordStream configuration](#4-waveform-data-and-recordstream-configuration)
+* [5.Relocation statistics](#5-relocation-statistics)
 * [6.Troubleshooting - Logs](#6-troubleshooting---logs) 
 * [7.Database connection and relocating events on remote machines](#7-database-connection-and-relocating-events-on-remote-machines)
-* [8.Waveform data and recordStream configuration](#8-waveform-data-and-recordstream-configuration)
-* [9.Custom velocity models](#9-custom-velocity-models)
+* [8.Custom velocity models](#8-custom-velocity-models)
+* [9.Scolv Locator plugin](#9-scolv-locator-plugin) 
 
 ## 1. Multi-event relocation
 
@@ -394,24 +394,6 @@ Picks that have been updated or created by `scrtdd` are identifiable by a `x` su
 
 Manual picks are never modified.
 
-### 2.5 Recolation results summary
-
-Each relocated origin has two comments that contain information on the relocation process: `scrtddSourceOrigin` and `scrtddRelocationReport`. They can be both visualized in `scolv` (see official SeisComP documentation on how to do it).
-
-`scrtddSourceOrigin` simply contains the id of the origin that triggered the relocation. `scrtddRelocationReport` contains a summary of the relocation process (the full information is available in the log files). E.g.
-
-```
-Origin changes: location=0.23[km] depth=1.40[km] time=-0.147[sec]
-Rms change [sec]: -0.153 (before/after 0.502/0.349)
-Neighbours=80 Used Phases: P=37 S=16
-Stations distance [km]: min=15.9 median=57.0 max=99.8
-Neighbours mean distace to centroid [km]: location=5.11 depth=5.06
-Origin distace to neighbours centroid [km]: location=1.30 depth=3.01
-DD observations: 687 (CC P/S 141/47 TT P/S 375/124)
-DD observations residuals [msec]: before=-106+/-21.6 after=9+/-26.2
-```
-
-
 ## 3. Cross-correlation
 
 Good cross-correlation results are needed to achieve high resolution double-difference observations, which in turn results in high quality relocations.
@@ -606,14 +588,33 @@ For comparison we can always find the raw waveforms (not processed) fetched from
 * `NET.ST.LOC.CH.startime-endtime.mseed`
 
 
-## 4. Waveforms data caching
+## 4. Waveform data and recordStream configuration
+
+SeisComP applications access waveform data through the RecordStream interface (see official SeisComP documentation for more details) and it is usually configured in *global.cfg*, where the user is able to define the service(s) through which SeisComP can access real-time and historical waveforms data (seedlink, fdsn, sds archive, etc). An hypothetical RecordStream configuration might look like this:
+
+```
+recordstream = combined://slink/localhost:18000;sdsarchive//mnt/miniseed
+```
+
+This configuration is a combination of seedlink and sds archive, which is very useful because `scrtdd` catalog waveforms can be retrieved via sds while real-time event data can be fetched via seedlink (much faster since recent data is probably already in memory).
+
+Please note that seedlink service might delay the relocation of incoming origins due to timeouts. For this reason we suggest to specify the configuration options: *timeout* and *retries*
+
+e.g. Below we force a timeout of 1 seconds (default is 5 minutes) and do not try to reconnect (`scrtdd` will deal with what data is available):
+
+```
+recordstream = combined://slink/localhost:18000?timeout=1&retries=0;sdsarchive//rz_nas/miniseed
+```
+
+ 
+### 4.1 Waveforms data caching
 
 `scrtdd` spends most of the relocation time downloading waveforms (unless the recordStream points to a local disk storage) and the rest is shared betweeen cross-correlation and double difference system inversion. For this reason the waveforms are cached to disk after being downloaded so that there is no need to download them again. This is obviously true for catalog phase waveforms that are re-used over and over again in real-time, but that's not true for real-time events waveforms (and also for some temporary waveforms like theoretical phases) that are never saved. The cache folder is `workingDirectory/profileName/wfcache/` (e.g. /installation/path/seiscomp3/var/lib/rtdd/myProfile/wfcache/). 
 
 However, during the parameters tuning phase the user performs relocations (both single-event and multi-event) from the command line several times to find the best configuration. For those special cases even the temporary waveforms are saved to disk. For those cases a different folder is used: `workingDirectory/profileName/tmpcache/` which can be deleted after the parameter tuning phase. The commands that store the temporary waveforms are: `--reloc-profile`, `--ep`, `-O`, `--origin-id`.
 
 
-### 4.1 Catalog waveforms preloading
+### 4.2 Catalog waveforms preloading
 
 When `scrtdd` starts for the first time it loads all the catalog waveforms and stores them to disk. In this way, the waveforms become quickly available in real-time without the need to access the recordStream. However, if the option `performance.profileTimeAlive` is greater than 0, the catalog waveforms will be loaded only when needed (on a new origin arrival) and and not when `scrtdd` starts. In this case we might decide to pre-download all waveforms anyway, before starting the module, using the following option:
 
@@ -630,17 +631,63 @@ e.g.
 scrtdd --load-profile-wf myprofile
 ```
 
+## 5. Relocation statistics
 
+### 5.1 Single-event
 
-## 5. Scolv Locator plugin
+`scrtdd` adds two comments to each relocated origin: `scrtddSourceOrigin` and `scrtddRelocationReport`. They can be both visualized in `scolv` (see official SeisComP documentation on how to do so), or they can be seen on the logs.
 
-A (re)locator plugin is also avaiable in the code, which makes `scrtdd` available via `scolv`. To enable this plugin just add `rtddloc` to the list of plugins in the global configuration.
+`scrtddSourceOrigin` contains the id of the origin that triggered the relocation. `scrtddRelocationReport` contains a summary of the relocation process. E.g.
 
-![Locator plugin](/data/locator-plugin.png?raw=true "Locator plugin")
+```
+Origin changes: location=0.23[km] depth=1.40[km] time=-0.147[sec]
+Rms change [sec]: -0.153 (before/after 0.502/0.349)
+Neighbours=80 Used Phases: P=37 S=16
+Stations distance [km]: min=15.9 median=57.0 max=99.8
+Neighbours mean distace to centroid [km]: location=5.11 depth=5.06
+Origin distace to neighbours centroid [km]: location=1.30 depth=3.01
+DD observations: 687 (CC P/S 141/47 TT P/S 375/124)
+DD observations residuals [msec]: before=-106+/-21.6 after=9+/-26.2
+```
 
-Please note that this plugin is not strictly required since `scrtdd` would relocated any manaul origins anyway (if configured to do so) and the relocated origin will appear on `scolv` as soon as ready.
+The initial RMS (before relocation) is recomputed by `scrtdd` with the configured travel time tables. This is to make sure we are comparing the final RMS (after relocation) in a consistent way.
 
-Also `scolv` doesn't allow to create new picks when performing a relocation, so `scrtdd` plugin disable the cross-correlation on theoretical picks since those picks will not be reported on `scolv`.
+The following two lines can be a little cryptic to interpret: 
+```
+Neighbours mean distace to centroid [km]: location=5.11 depth=5.06
+Origin distace to neighbours centroid [km]: location=1.30 depth=3.01
+```
+
+Their intent is to highlight how far the relocated event is to the neighbours centroid. The idea is that an event that falls within a cluster has a better chance to be properly relocated than an event that is far away from the neighbouring events.
+
+### 5.1 Multi-event
+
+The above information are also stored in the output files (events.csv,phases.csv,station,csv) of the multi-event relocation and they can be used to compute useful statistics for an entire catalog.
+
+```
+startRms
+locChange
+depthChange
+timeChange
+numNeighbours
+neigh_meanDistToCentroid
+neigh_centroidToEventDist
+neigh_meanDepthDistToCentroid
+neigh_centroidToEventDepthDist
+ph_usedP
+ph_usedS
+ph_stationDistMin
+ph_stationDistMedian
+ph_stationDistMax
+ddObs_numTTp
+ddObs_numTTs
+ddObs_numCCp
+ddObs_numCCs
+ddObs_startResidualMedian
+ddObs_startResidualMAD
+ddObs_finalResidualMedian
+ddObs_finalResidualMAD 
+```
 
 ## 6. Troubleshooting - Logs
 
@@ -652,7 +699,87 @@ Alternatively, when running `scrtdd` from the command line use the following opt
 scrtdd [some options] --verbosity=3 --console=1
 ```
 
-Verbosity 3 should be preferred to level 4, since the debug level 4 makes the logs hard to read due to the huge amount of information. Any useful information to the user is given at level 3 or above, while level 4 is only for debugging.
+Verbosity 3 should be preferred to level 4, since the debug level 4 makes the logs hard to read due to the huge amount of information. Any useful information to the user is given at level 3 or above.
+
+A typical *single-event* relocation log looks like the followig;
+
+```
+[info/RTDD] Performing step 1: initial location refinement (no cross correlation)
+[info/RTDD] Selecting Neighbouring Events for event 1 lat 46.902294 lon 9.109304 depth 0.9287
+[...]
+Details of the Neighbouring Events found
+[...]
+[info/RTDD] Building and solving double-difference system...
+[...]
+Details of the solutions for each iteration of the solver
+[...]
+[info/RTDD] Step 1 relocation successful, new location: lat 46.899737 lon 9.111036 depth 1.3489 time 2020-10-29T20:08:36.572955Z
+[info/RTDD] Relocation report:
+            Origin changes: location=0.31[km] depth=0.42[km] time=-0.119[sec] 
+            Rms change [sec]: 0.100 (before/after 0.415/0.516)
+            Neighbours=70 Used Phases: P=13 S=20
+            Stations distance [km]: min=4.5 median=36.6 max=65.7
+            Neighbours mean distace to centroid [km]: location=6.97 depth=1.95
+            Origin distace to neighbours centroid [km]: location=1.32 depth=-2.46 
+            DD observations: 696 (CC P/S 0/0 TT P/S 285/411)
+            DD observations residuals [msec]: before=-59+/-38.5 after=8+/-11.8
+
+[info/RTDD] Performing step 2: relocation with cross correlation
+[info/RTDD] Selecting Neighbouring Events for event 11371 lat 46.899737 lon 9.111036 depth 1.3489
+[...]
+Details of the Neighbouring Events found
+[...] 
+[info/RTDD] Computing cross-correlation differential travel times for event 10260
+[...]
+Details of cross-correlation
+[...]  
+[info/RTDD] Cross correlation performed 377, phases with Signal to Noise ratio too low 16, phases not available 0 (waveforms downloaded 0, waveforms loaded from disk cache 89)
+[info/RTDD] Total xcorr 377 (P 46%, S 54%) success 71% (267/377). Successful P 59% (103/175). Successful S 81% (164/202)
+[info/RTDD] Building and solving double-difference system...
+[...]
+Details of the solutions for each iteration of the solver
+[...]
+[info/RTDD] Step 2 relocation successful, new location: lat 46.899428 lon 9.110789 depth 1.5173 time 2020-10-29T20:08:36.558864Z
+[info/RTDD] Relocation report:
+            Origin changes: location=0.04[km] depth=0.17[km] time=-0.014[sec]
+            Rms change [sec]: 0.038 (before/after 0.509/0.546)
+            Neighbours=46 Used Phases: P=12 S=19 
+            Stations distance [km]: min=8.7 median=36.9 max=65.7
+            Neighbours mean distace to centroid [km]: location=5.40 depth=1.86
+            Origin distace to neighbours centroid [km]: location=2.10 depth=-1.39 
+            DD observations: 532 (CC P/S 103/164 TT P/S 117/148) 
+            DD observations residuals [msec]: before=-59+/-38.5 after=8+/-18.3
+[info/RTDD] Total Changes: location=0.35[km] depth=0.59[km] time=-0.133[sec] Rms=0.131[sec] (before/after 0.415/0.546)
+```
+
+For *multi-event* relocations, a typical log looks like the following:
+
+```
+[info/RTDD] Selecting Catalog Neighbouring Events 
+[...]
+Details of the Neighbouring Events selection [very very long]
+[...]
+[info/RTDD] Found 3 event clusters
+[info/RTDD] Relocating cluster 1 (134 events)
+[info/RTDD] Computing cross-correlation differential travel times for event 134
+[...]
+Details of cross-correlation [very very long]
+[...]   
+[info/RTDD] Cross-correlation performed 75917, phases with SNR ratio too low 1040, phases not available 12 (waveforms downloaded 0, waveforms loaded from disk cache 6325)
+[info/RTDD] Total xcorr 75917 (P 62%, S 38%) success 87% (66110/75917). Successful P 81% (37825/46816). Successful S 97% (28285/29101)
+[info/RTDD] Building and solving double-difference system...
+[...]
+Details of the solutions for each iteration of the solver
+[...] 
+[info/RTDD] Successfully relocated 134 events. RMS median 0.3288 [sec] median absolute deviation 0.0170 [sec]
+[info/RTDD] Events RMS before relocation: median 0.3431 median absolute deviation 0.0318
+
+[info/RTDD] Relocating cluster 2 (83 events)
+[...]
+
+[info/RTDD] Relocating cluster 3 (1583 events)
+[...] 
+```
 
 ## 7. Database connection and relocating events on remote machines
 
@@ -673,26 +800,7 @@ scrtdd [some options] --plugins dbpostgresql -d postgresql://user:password@host/
 It is worth noting that this feature allows `scrtdd` to connect to remote seiscomp databases too and relocate events stored in other machines without interfering with the real-time processing happening there.
 
 
-## 8. Waveform data and recordStream configuration
-
-SeisComP applications access waveform data through the RecordStream interface (see official SeisComP documentation for more details) and it is usually configured in *global.cfg*, where the user is able to define the service(s) through which SeisComP can access real-time and historical waveforms data (seedlink, fdsn, sds archive, etc). An hypothetical RecordStream configuration might look like this:
-
-```
-recordstream = combined://slink/localhost:18000;sdsarchive//mnt/miniseed
-```
-
-This configuration is a combination of seedlink and sds archive, which is very useful because `scrtdd` catalog waveforms can be retrieved via sds while real-time event data can be fetched via seedlink (much faster since recent data is probably already in memory).
-
-Please note that seedlink service might delay the relocation of incoming origins due to timeouts. For this reason we suggest to specify the configuration options: *timeout* and *retries*
-
-e.g. Below we force a timeout of 1 seconds (default is 5 minutes) and do not try to reconnect (`scrtdd` will deal with what data is available):
-
-```
-recordstream = combined://slink/localhost:18000?timeout=1&retries=0;sdsarchive//rz_nas/miniseed
-```
-
-
-## 9. Custom velocity models
+## 8. Custom velocity models
 
 In the `scrtdd` configuration it is possible to select any travel time table installed in SeisComP; this means the default SeisComP travel time tables and any other tablse installed by the user. Although this is a general SeisComP topic and we suggest to refer to the official SeisComP documentation, here is a quick recipe for generating your own travel time table from a custom velocity model.
 
@@ -761,4 +869,14 @@ Last step is to copy the travel time tables to the SeisComP installation folder 
 ```
 cp mymodel* seiscomp_installation/share/locsat/tables/
 ```
+
+## 9. Scolv Locator plugin
+
+A (re)locator plugin is also avaiable in the code, which makes `scrtdd` available via `scolv`. To enable this plugin just add `rtddloc` to the list of plugins in the global configuration.
+
+![Locator plugin](/data/locator-plugin.png?raw=true "Locator plugin")
+
+Please note that this plugin is not strictly required since `scrtdd` would relocated any manaul origins anyway (if configured to do so) and the relocated origin will appear on `scolv` as soon as ready.
+
+Also `scolv` doesn't allow to create new picks when performing a relocation, so `scrtdd` plugin disable the cross-correlation on theoretical picks since those picks will not be reported on `scolv`.
 
