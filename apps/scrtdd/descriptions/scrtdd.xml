@@ -46,7 +46,7 @@
 
             <group name="performance">
 
-                <parameter name="profileTimeAlive" type="int" default="-1" unit="s">
+                <parameter name="profileTimeAlive" type="int" default="3600" unit="sec">
                     <description>
                         Defines how long the profile data should be kept in memory (in seconds). This is useful
                         to release memory (e.g. catalog waveform data) after a period of inactivity at the cost of
@@ -73,7 +73,7 @@
 
             <group name="cron">
 
-                <parameter name="delayTimes" type="list:int" default="60,300" unit="s">
+                <parameter name="delayTimes" type="list:int" default="60,300" unit="sec">
                     <description>
                     Specifies a delay time in seconds, relative to origin time,
                     to trigger the processing. This can be a single value or a list of delay
@@ -464,17 +464,17 @@
                                         Min cross-correlation coefficient accepted to use a differential travel time.
                                     </description>
                                 </parameter>
-                                <parameter name="start" type="double" default="-0.50" unit="s">
+                                <parameter name="start" type="double" default="-0.50" unit="sec">
                                     <description>
                                         Start of data window to cross-correlate with respect to pick time (+/- secs).
                                     </description>
                                 </parameter>
-                                <parameter name="end" type="double" default="0.50" unit="s">
+                                <parameter name="end" type="double" default="0.50" unit="sec">
                                     <description>
                                       End of data window to cross-correlate with respect to pick time (+/- secs).
                                     </description>
                                 </parameter>
-                                <parameter name="maxDelay" type="double" default="0.350" unit="s">
+                                <parameter name="maxDelay" type="double" default="0.350" unit="sec">
                                     <description>Maximum data windows lag accepted (secs)..</description>
                                 </parameter>
                                 <parameter name="components" type="list:string" default="Z">
@@ -491,17 +491,17 @@
                                         Min cross-correlation coefficient accepted to use a differential travel time.
                                     </description>
                                 </parameter>
-                                <parameter name="start" type="double" default="-0.50" unit="s">
+                                <parameter name="start" type="double" default="-0.50" unit="sec">
                                     <description>
                                         Start of data window to cross-correlate with respect to pick time (+/- secs).
                                     </description>
                                 </parameter>
-                                <parameter name="end" type="double" default="0.75" unit="s">
+                                <parameter name="end" type="double" default="0.75" unit="sec">
                                     <description>
                                         End of data window to cross-correlate with respect to pick time (+/- secs).
                                     </description>
                                 </parameter>
-                                <parameter name="maxDelay" type="double" default="0.350" unit="s">
+                                <parameter name="maxDelay" type="double" default="0.350" unit="sec">
                                     <description>Maximum data windows lag accepted  (secs).</description>
                                 </parameter>
                                 <parameter name="components" type="list:string" default="T,Z">
@@ -581,16 +581,16 @@
                                     If 'minSnr' is used, then the noise and signal windows must be defined too.
                                 </description>
                             </parameter>
-                            <parameter name="noiseStart" type="double" default="-3" unit="s">
+                            <parameter name="noiseStart" type="double" default="-3" unit="sec">
                                 <description>Start of noise window with respect to pick time (+/- secs).</description>
                             </parameter>
-                            <parameter name="noiseEnd" type="double" default="-0.350" unit="s">
+                            <parameter name="noiseEnd" type="double" default="-0.350" unit="sec">
                                 <description>End of noise window with respect to pick time (+/- secs).</description>
                             </parameter>
-                            <parameter name="signalStart" type="double" default="-0.350" unit="s">
+                            <parameter name="signalStart" type="double" default="-0.350" unit="sec">
                                 <description>Start of signal window with respect to pick time (+/- secs).</description>
                             </parameter>
-                            <parameter name="signalEnd" type="double" default="0.350" unit="s">
+                            <parameter name="signalEnd" type="double" default="0.350" unit="sec">
                                 <description>End of signal window with respect to pick time (+/- secs).</description>
                             </parameter>
                         </group>
