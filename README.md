@@ -38,6 +38,9 @@ git clone https://github.com/SeisComP/seiscomp.git seiscomp
 # merge rtdd to SeisComP
 cd seiscomp/src/extras
 git clone https://github.com/swiss-seismological-service/scrtdd.git
+cd scrtdd
+# now checkout the tag pointing to the latest version: vX.Y.Z (e.g. v1.2.4)
+git checkout vX.Y.Z
 </pre>
 For compiling SeisComP, please refer to https://github.com/SeisComP/seiscomp#build
 
@@ -49,9 +52,9 @@ git clone https://github.com/SeisComP3/seiscomp3.git sc3-src
 # merge rtdd to Seiscomp3
 cd sc3-src
 git submodule add -f https://github.com/swiss-seismological-service/scrtdd.git src/rtdd-addons
-# now switch scrtdd code to seiscomp3 compatible branch
 cd src/rtdd-addons
-git checkout seiscomp3
+# now checkout the tag pointing to the latest version: vX.Y.Z_sc3 (_sc3 for Seiscomp3 compatible versions)
+git checkout vX.Y.Z_sc3
 </pre>
 For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#compiling
 
