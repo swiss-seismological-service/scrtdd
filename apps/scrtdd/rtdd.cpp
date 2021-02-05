@@ -246,6 +246,7 @@ RTDD::Config::Config()
   cacheAllWaveforms    = false;
   debugWaveforms       = false;
 
+  loadProfile     = false;
   forceProcessing = false;
   testMode        = false;
   dumpWaveforms   = false;
@@ -286,10 +287,10 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
 
   NEW_OPT(_config.profileTimeAlive, "performance.profileTimeAlive");
   NEW_OPT(_config.cacheWaveforms, "performance.cacheWaveforms");
-  NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf",
-              "Enable saving of processed waveforms into the profile working "
-              "directory for inspection.",
-              false, true);
+
+  NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
+              "Defines the time span in hours after which objects expire.",
+              true);
   NEW_OPT_CLI(_config.cacheAllWaveforms, "Mode", "cache-wf-all",
               "All waveforms will be saved to disk cache, even temporarily "
               "ones. Normally only catalog phase waveforms are cached to disk. "
@@ -298,14 +299,27 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
               false, true);
   NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
               "Load catalog waveforms from the configured recordstream and "
-              "save them into the profile working directory.",
+              "save them into the profile working directory. Use in "
+              "combination with --profile",
+              false, true);
+  NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf",
+              "Enable saving of processed waveforms into the profile working "
+              "directory for inspection.",
+              false, true);
+  NEW_OPT_CLI(_config.testMode, "Mode", "test",
+              "Test mode, no messages are sent when relocating a single event",
+              false, true);
+  NEW_OPT_CLI(_config.forceProfile, "Mode", "profile",
+              "To be used in combination with other options: select the "
+              "profile configuration to use",
               true);
-  NEW_OPT_CLI(_config.evalXCorr, "Mode", "eval-xcorr",
-              "Evaluate cross-correlation settings for the given profile.",
-              true);
-  NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
-              "Defines the time span in hours after which objects expire.",
-              true);
+  NEW_OPT_CLI(
+      _config.evalXCorr, "Mode", "eval-xcorr",
+      "Compute cross-correlation statistics fon the catalog passed as "
+      "argument. The input can be a single file (containing seiscomp origin "
+      "ids) or a file triplet (station.csv,event.csv,phase.csv). Use in "
+      "combination with --profile",
+      true);
 
   NEW_OPT_CLI(_config.dumpCatalog, "Catalog", "dump-catalog",
               "Dump the seiscomp event/origin id file passed as argument into "
@@ -321,29 +335,29 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
               "(station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,"
               "phase2.csv,...) passed as arguments.",
               true);
+
+  NEW_OPT_CLI(
+      _config.eventXML, "SingleAndMultiEvent", "ep",
+      "Event parameters XML file for offline processing of contained origins "
+      "(implies --test option). Each contained origin will be processed in "
+      "signle-event mode unless --reloc-catalog is provided, which enable "
+      "multi-event mode.  In combination with --origin-id a XML output is "
+      "generated",
+      true);
   NEW_OPT_CLI(
       _config.originIDs, "SingleEvent", "origin-id,O",
-      "Relocate the origin (or multiple comma-separated origins) and "
-      "send a message. Each origin will be processed according to"
-      "the matching profile region unless the --profile option is used.",
+      "Relocate  the origin (or multiple comma-separated origins) in "
+      "signle-event mode and send a message. Each origin will be processed "
+      "accordingly to the matching profile region unless the --profile option "
+      " is used.",
       true);
   NEW_OPT_CLI(
-      _config.eventXML, "SingleEvent", "ep",
-      "Event parameters XML file for offline processing of contained origins "
-      "(implies --test option). Each contained origin will be processed "
-      "according to the matching profile region unless --profile option is "
-      "used. In combination with the --origin-id option an XML output is "
-      "produced.",
+      _config.relocateCatalog, "MultiEvents", "reloc-catalog",
+      "Relocate the catalog passed as argument in multi-event mode. The "
+      "input can be a single file (containing seiscomp origin ids) or a file "
+      "triplet (station.csv,event.csv,phase.csv). For events stored "
+      "in a XML files add the --ep option. Use in combination with --profile",
       true);
-  NEW_OPT_CLI(_config.testMode, "SingleEvent", "test",
-              "Test mode, no messages are sent", false, true);
-  NEW_OPT_CLI(_config.forceProfile, "SingleEvent", "profile",
-              "Force a specific profile to be used when relocating an origin. "
-              "This overrides the selection of profiles based on region "
-              "information and the initial origin location.",
-              true);
-  NEW_OPT_CLI(_config.relocateProfile, "MultiEvents", "reloc-profile",
-              "Relocate the catalog of the profile passed as argument.", true);
 }
 
 RTDD::~RTDD() {}
@@ -385,8 +399,8 @@ bool RTDD::validateParameters()
   // disable messaging (offline mode) with certain command line options
   if (!_config.eventXML.empty() || !_config.dumpCatalog.empty() ||
       !_config.mergeCatalogs.empty() || !_config.dumpCatalogXML.empty() ||
-      !_config.loadProfile.empty() || !_config.evalXCorr.empty() ||
-      !_config.relocateProfile.empty() ||
+      _config.loadProfile || !_config.evalXCorr.empty() ||
+      !_config.relocateCatalog.empty() ||
       (!_config.originIDs.empty() && _config.testMode))
   {
     SEISCOMP_INFO("Disable messaging");
@@ -399,14 +413,21 @@ bool RTDD::validateParameters()
 
   bool profilesOK = true;
 
-  for (vector<string>::iterator it = _config.activeProfiles.begin();
-       it != _config.activeProfiles.end(); it++)
+  // make sure to load the profile passed via command line too
+  std::vector<string> profilesToLoad(_config.activeProfiles);
+  if (!_config.forceProfile.empty() &&
+      std::find(profilesToLoad.begin(), profilesToLoad.end(),
+                _config.forceProfile) == profilesToLoad.end())
+  {
+    profilesToLoad.push_back(_config.forceProfile);
+  }
+
+  for (const string &profileName : profilesToLoad)
   {
 
     ProfilePtr prof = new Profile;
-    string prefix   = string("profile.") + *it + ".";
-
-    prof->name = *it;
+    prof->name      = profileName;
+    string prefix   = string("profile.") + prof->name + ".";
 
     try
     {
@@ -438,7 +459,7 @@ bool RTDD::validateParameters()
 
     if (prof->region == nullptr)
     {
-      SEISCOMP_ERROR("profile.%s: invalid region type: %s", it->c_str(),
+      SEISCOMP_ERROR("profile.%s: invalid region type: %s", prof->name.c_str(),
                      regionType.c_str());
       profilesOK = false;
       continue;
@@ -446,39 +467,32 @@ bool RTDD::validateParameters()
 
     if (!prof->region->init(this, prefix))
     {
-      SEISCOMP_ERROR("profile.%s: invalid region parameters", it->c_str());
+      SEISCOMP_ERROR("profile.%s: invalid region parameters",
+                     prof->name.c_str());
       profilesOK = false;
       continue;
     }
 
-    prefix = string("profile.") + *it + ".catalog.";
+    prefix = string("profile.") + prof->name + ".catalog.";
 
-    string eventFile = env->absolutePath(configGetPath(prefix + "eventFile"));
-
-    // check if the file contains only seiscomp event/origin ids
-    bool eventIdOnly = false;
+    // For the catalog we can have either a single file (origin ids) or three
+    // files ( event, station, phase ). They can also be left empty
     try
     {
-      eventIdOnly =
-          HDD::CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0;
-    }
-    catch (exception &e)
-    {
-      SEISCOMP_ERROR("%seventFile: cannot read catalog %s (%s)", prefix.c_str(),
-                     eventFile.c_str(), e.what());
-      profilesOK = false;
-      continue;
-    }
-    if (eventIdOnly)
-    {
-      prof->eventIDFile = eventFile;
-    }
-    else
-    {
-      prof->eventFile = eventFile;
       prof->stationFile =
           env->absolutePath(configGetPath(prefix + "stationFile"));
-      prof->phaFile = env->absolutePath(configGetPath(prefix + "phaFile"));
+      prof->phaFile   = env->absolutePath(configGetPath(prefix + "phaFile"));
+      prof->eventFile = env->absolutePath(configGetPath(prefix + "eventFile"));
+    }
+    catch (...)
+    {
+      try
+      {
+        prof->eventIDFile =
+            env->absolutePath(configGetPath(prefix + "eventFile"));
+      }
+      catch (...)
+      {}
     }
 
     try
@@ -498,7 +512,7 @@ bool RTDD::validateParameters()
       prof->ddCfg.validSphases = {"Sg", "S"};
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservationsNoXcorr.clustering.";
     try
     {
@@ -535,7 +549,7 @@ bool RTDD::validateParameters()
       prof->ddObservations1.maxDTperEvt = 0;
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservationsNoXcorr.clustering."
              "neighboringEventSelection.";
     try
@@ -557,7 +571,7 @@ bool RTDD::validateParameters()
       prof->ddObservations1.maxEllipsoidSize = 5;
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservationsNoXcorr.clustering.phaseSelection.";
     try
     {
@@ -587,8 +601,8 @@ bool RTDD::validateParameters()
       prof->ddObservations1.minEStoIEratio = 0;
     }
 
-    prefix =
-        string("profile.") + *it + ".doubleDifferenceObservations.clustering.";
+    prefix = string("profile.") + prof->name +
+             ".doubleDifferenceObservations.clustering.";
     try
     {
       prof->ddObservations2.minNumNeigh = configGetInt(prefix + "minNumNeigh");
@@ -625,7 +639,7 @@ bool RTDD::validateParameters()
     }
 
     prefix =
-        string("profile.") + *it +
+        string("profile.") + prof->name +
         ".doubleDifferenceObservations.clustering.neighboringEventSelection.";
     try
     {
@@ -646,7 +660,7 @@ bool RTDD::validateParameters()
       prof->ddObservations2.maxEllipsoidSize = 5;
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservations.clustering.phaseSelection.";
     try
     {
@@ -676,7 +690,7 @@ bool RTDD::validateParameters()
       prof->ddObservations2.minEStoIEratio = 0;
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservations.crosscorrelation.p-phase.";
     try
     {
@@ -724,7 +738,7 @@ bool RTDD::validateParameters()
       prof->ddCfg.xcorr[PhaseType::P].components = {"Z"};
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservations.crosscorrelation.s-phase.";
     try
     {
@@ -772,7 +786,7 @@ bool RTDD::validateParameters()
       prof->ddCfg.xcorr[PhaseType::S].components = {"T", "Z"};
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservations.crosscorrelation.options.";
     try
     {
@@ -812,7 +826,7 @@ bool RTDD::validateParameters()
       prof->useTheoreticalManual = false;
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservations.waveformFiltering.";
     try
     {
@@ -832,7 +846,8 @@ bool RTDD::validateParameters()
       prof->ddCfg.wfFilter.resampleFreq = 400;
     }
 
-    prefix = string("profile.") + *it + ".doubleDifferenceObservations.snr.";
+    prefix =
+        string("profile.") + prof->name + ".doubleDifferenceObservations.snr.";
     try
     {
       prof->ddCfg.snr.minSnr = configGetDouble(prefix + "minSnr");
@@ -874,7 +889,7 @@ bool RTDD::validateParameters()
       prof->ddCfg.snr.signalEnd = 0.350;
     }
 
-    prefix = string("profile.") + *it + ".solver.";
+    prefix = string("profile.") + prof->name + ".solver.";
     try
     {
       prof->ddCfg.ttt.type =
@@ -1085,53 +1100,25 @@ bool RTDD::run()
   // evaluate cross-correlation settings and exit
   if (!_config.evalXCorr.empty())
   {
-    bool profileFound = false;
-    for (ProfilePtr profile : _profiles)
-    {
-      if (profile->name == _config.evalXCorr)
-      {
-        profileFound = true;
-        profile->load(query(), &_cache, _eventParameters.get(),
-                      _config.workingDirectory, !_config.saveProcessingFiles,
-                      _config.cacheWaveforms, true, _config.dumpWaveforms,
-                      false);
-        profile->evalXCorr();
-        profile->unload();
-        break;
-      }
-    }
-    if (!profileFound)
-    {
-      SEISCOMP_ERROR("Profile %s not found in activeProfiles",
-                     _config.evalXCorr.c_str());
-      return false;
-    }
+    HDD::CatalogPtr catalog = getCatalog(_config.evalXCorr);
+    ProfilePtr profile      = getProfile(_config.forceProfile);
+    if (!catalog || !profile) return false;
+    profile->load(query(), &_cache, _eventParameters.get(),
+                  _config.workingDirectory, !_config.saveProcessingFiles,
+                  _config.cacheWaveforms, true, _config.dumpWaveforms, false,
+                  catalog);
+    profile->evalXCorr();
     return true;
   }
 
   // load catalog waveforms and exit
-  if (!_config.loadProfile.empty())
+  if (_config.loadProfile)
   {
-    bool profileFound = false;
-    for (ProfilePtr profile : _profiles)
-    {
-      if (profile->name == _config.loadProfile)
-      {
-        profileFound = true;
-        profile->load(query(), &_cache, _eventParameters.get(),
-                      _config.workingDirectory, !_config.saveProcessingFiles,
-                      true, _config.cacheAllWaveforms, _config.dumpWaveforms,
-                      true);
-        profile->unload();
-        break;
-      }
-    }
-    if (!profileFound)
-    {
-      SEISCOMP_ERROR("Profile %s not found in activeProfiles",
-                     _config.loadProfile.c_str());
-      return false;
-    }
+    ProfilePtr profile = getProfile(_config.forceProfile);
+    if (!profile) return false;
+    profile->load(query(), &_cache, _eventParameters.get(),
+                  _config.workingDirectory, !_config.saveProcessingFiles, true,
+                  _config.cacheAllWaveforms, _config.dumpWaveforms, true);
     return true;
   }
 
@@ -1232,39 +1219,26 @@ bool RTDD::run()
   }
 
   // relocate full catalog and exit
-  if (!_config.relocateProfile.empty())
+  if (!_config.relocateCatalog.empty())
   {
-    bool profileFound = false;
-    for (ProfilePtr profile : _profiles)
+    HDD::CatalogPtr catalog = getCatalog(_config.relocateCatalog);
+    ProfilePtr profile      = getProfile(_config.forceProfile);
+    if (!catalog || !profile) return false;
+    profile->load(query(), &_cache, _eventParameters.get(),
+                  _config.workingDirectory, !_config.saveProcessingFiles,
+                  _config.cacheWaveforms, true, _config.dumpWaveforms, false,
+                  catalog);
+    try
     {
-      if (profile->name == _config.relocateProfile)
-      {
-        profileFound = true;
-        profile->load(query(), &_cache, _eventParameters.get(),
-                      _config.workingDirectory, !_config.saveProcessingFiles,
-                      _config.cacheWaveforms, true, _config.dumpWaveforms,
-                      false);
-        try
-        {
-          HDD::CatalogPtr relocatedCat = profile->relocateCatalog();
-          relocatedCat->writeToFile("reloc-event.csv", "reloc-phase.csv",
-                                    "reloc-station.csv");
-          SEISCOMP_INFO("Wrote files reloc-event.csv, reloc-phase.csv, "
-                        "reloc-station.csv");
-        }
-        catch (exception &e)
-        {
-          SEISCOMP_ERROR("Cannot relocate profile catalog: %s", e.what());
-        }
-        profile->unload();
-        break;
-      }
+      HDD::CatalogPtr relocatedCat = profile->relocateCatalog();
+      relocatedCat->writeToFile("reloc-event.csv", "reloc-phase.csv",
+                                "reloc-station.csv");
+      SEISCOMP_INFO("Wrote files reloc-event.csv, reloc-phase.csv, "
+                    "reloc-station.csv");
     }
-    if (!profileFound)
+    catch (exception &e)
     {
-      SEISCOMP_ERROR("Profile %s not found in activeProfiles",
-                     _config.relocateProfile.c_str());
-      return false;
+      SEISCOMP_ERROR("Cannot relocate profile catalog: %s", e.what());
     }
     return true;
   }
@@ -2103,6 +2077,48 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr &relocatedOrg,
   newOrg->setQuality(oq);
 }
 
+HDD::Catalog *RTDD::getCatalog(const std::string &catalogPath)
+{
+  std::vector<std::string> tokens;
+  boost::split(tokens, catalogPath, boost::is_any_of(","),
+               boost::token_compress_on);
+
+  try
+  {
+    if (tokens.size() == 1) // single file containing origin ids
+    {
+      CatalogDataSrc dataSrc(query(), &_cache, _eventParameters.get());
+      HDD::ScCatalog *cat = new HDD::ScCatalog();
+      cat->add(tokens[0], dataSrc);
+      return cat;
+    }
+    else if (tokens.size() ==
+             3) // file triplet: station.csv,event.csv,phase.csv
+    {
+      return new HDD::Catalog(tokens[0], tokens[1], tokens[2], true);
+    }
+  }
+  catch (...)
+  {}
+  SEISCOMP_ERROR("Cannot load catalog %s", catalogPath.c_str());
+  return nullptr;
+}
+
+RTDD::ProfilePtr RTDD::getProfile(const std::string &profile)
+{
+  if (profile.empty())
+  {
+    SEISCOMP_ERROR("No profile has been selected");
+    return nullptr;
+  }
+  for (ProfilePtr p : _profiles)
+  {
+    if (p->name == profile) return p;
+  }
+  SEISCOMP_ERROR("Profile %s not found", profile.c_str());
+  return nullptr;
+}
+
 RTDD::ProfilePtr RTDD::getProfile(const DataModel::Origin *origin,
                                   const std::string &forceProfile)
 {
@@ -2303,6 +2319,7 @@ std::vector<DataModel::OriginPtr> RTDD::fetchOrigins(const std::string &idFile,
 // Profile class
 
 RTDD::Profile::Profile() { loaded = false; }
+RTDD::Profile::~Profile() { unload(); }
 
 void RTDD::Profile::load(DatabaseQuery *query,
                          PublicObjectTimeSpanBuffer *cache,
@@ -2312,7 +2329,8 @@ void RTDD::Profile::load(DatabaseQuery *query,
                          bool cacheWaveforms,
                          bool cacheAllWaveforms,
                          bool debugWaveforms,
-                         bool preloadData)
+                         bool preloadData,
+                         const HDD::CatalogCPtr &alternativeCatalog)
 {
   if (loaded) return;
 
@@ -2324,17 +2342,20 @@ void RTDD::Profile::load(DatabaseQuery *query,
   this->cache           = cache;
   this->eventParameters = eventParameters;
 
-  // load the catalog either from seiscomp event/origin ids or from extended
-  // format
-  HDD::CatalogPtr ddbgc;
-  if (!eventIDFile.empty())
+  // load the catalog
+  HDD::CatalogCPtr ddbgc;
+  if (alternativeCatalog) // force this catalog
+  {
+    ddbgc = alternativeCatalog;
+  }
+  else if (!eventIDFile.empty()) // catalog is a list of origin ids
   {
     CatalogDataSrc dataSrc(query, cache, eventParameters);
     HDD::ScCatalogPtr ddbgc_ = new HDD::ScCatalog();
     ddbgc_->add(eventIDFile, dataSrc);
     ddbgc = ddbgc_;
   }
-  else
+  else // catalog is extended format station.csv,event.csv,phase.csv
   {
     ddbgc = new HDD::Catalog(stationFile, eventFile, phaFile);
   }

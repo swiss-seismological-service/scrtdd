@@ -112,6 +112,8 @@ private:
 
   void removedFromCache(DataModel::PublicObject *);
 
+  HDD::Catalog *getCatalog(const std::string &catalogPath);
+  ProfilePtr getProfile(const std::string &profile);
   ProfilePtr getProfile(const DataModel::Origin *origin,
                         const std::string &forceProfile = "");
   ProfilePtr getProfile(double latitude,
@@ -144,12 +146,12 @@ private:
     std::string originIDs;
     std::string eventXML;
     std::string forceProfile;
-    std::string relocateProfile;
+    std::string relocateCatalog;
     std::string dumpCatalog;
     std::string mergeCatalogs;
     std::string dumpCatalogXML;
-    std::string loadProfile;
     std::string evalXCorr;
+    bool loadProfile;
 
     // cron
     int wakeupInterval;
@@ -161,6 +163,7 @@ private:
   {
   public:
     Profile();
+    ~Profile();
     void load(DataModel::DatabaseQuery *query,
               DataModel::PublicObjectTimeSpanBuffer *cache,
               DataModel::EventParameters *eventParameters,
@@ -169,7 +172,8 @@ private:
               bool cacheWaveforms,
               bool cacheAllWaveforms,
               bool debugWaveforms,
-              bool preloadData);
+              bool preloadData,
+              const HDD::CatalogCPtr &alternativeCatalog = nullptr);
     void unload();
     bool isLoaded() { return loaded; }
     Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }

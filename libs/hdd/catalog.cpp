@@ -634,7 +634,7 @@ void Catalog::writeToFile(string eventFile,
  * event/station pair there is only one P and one S phase. If multiple phases
  * are found, keep the one with the highest priority.
  */
-Catalog*
+Catalog *
 Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
                                    const Phase::Source &source,
                                    const std::vector<std::string> &PphaseToKeep,

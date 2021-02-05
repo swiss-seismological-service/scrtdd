@@ -255,7 +255,7 @@ public:
   //
   static double computePickWeight(double uncertainty);
   static double computePickWeight(const Catalog::Phase &phase);
-  static Catalog*
+  static Catalog *
   filterPhasesAndSetWeights(const Catalog &catalog,
                             const Catalog::Phase::Source &source,
                             const std::vector<std::string> &PphaseToKeep,
