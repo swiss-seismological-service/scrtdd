@@ -44,7 +44,7 @@ double computeDistance(double lat1,
   // Use the Euclidean distance. This approximation is sufficient when the
   // distance is small and the Earth curvature can be assumed flat.
   double Vdist = abs(depth1 - depth2);
-  return std::sqrt(std::pow(Hdist, 2) + std::pow(Vdist, 2));
+  return std::sqrt(square(Hdist) + square(Vdist));
 }
 
 double computeDistance(double lat1,

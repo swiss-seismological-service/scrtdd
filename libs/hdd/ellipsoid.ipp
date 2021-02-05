@@ -44,8 +44,8 @@ struct Ellipsoid
     double dist_y = distance * std::cos(az);
     double dist_z = depth - this->depth;
 
-    double one = std::pow(dist_x / axis_a, 2) + std::pow(dist_y / axis_b, 2) +
-                 std::pow(dist_z / axis_c, 2);
+    double one = square(dist_x / axis_a) + square(dist_y / axis_b) +
+                 square(dist_z / axis_c);
     return one <= 1;
   }
 

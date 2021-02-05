@@ -29,6 +29,7 @@
 
 using namespace std;
 using Seiscomp::Core::stringify;
+using Seiscomp::HDD::square;
 
 namespace {
 
@@ -66,10 +67,10 @@ public:
       {
         const unsigned idxG     = evIdx1 * _dd->nPhStas + phStaIdx;
         const unsigned evOffset = evIdx1 * 4;
-        _dd->L2NScaler[evOffset + 0] += std::pow(_dd->G[idxG][0] * obsW, 2);
-        _dd->L2NScaler[evOffset + 1] += std::pow(_dd->G[idxG][1] * obsW, 2);
-        _dd->L2NScaler[evOffset + 2] += std::pow(_dd->G[idxG][2] * obsW, 2);
-        _dd->L2NScaler[evOffset + 3] += std::pow(_dd->G[idxG][3] * obsW, 2);
+        _dd->L2NScaler[evOffset + 0] += square(_dd->G[idxG][0] * obsW);
+        _dd->L2NScaler[evOffset + 1] += square(_dd->G[idxG][1] * obsW);
+        _dd->L2NScaler[evOffset + 2] += square(_dd->G[idxG][2] * obsW);
+        _dd->L2NScaler[evOffset + 3] += square(_dd->G[idxG][3] * obsW);
       }
 
       const int evIdx2 = _dd->evByObs[1][ob]; // event 2 for this observation
@@ -77,10 +78,10 @@ public:
       {
         const unsigned idxG     = evIdx2 * _dd->nPhStas + phStaIdx;
         const unsigned evOffset = evIdx2 * 4;
-        _dd->L2NScaler[evOffset + 0] += std::pow(_dd->G[idxG][0] * obsW, 2);
-        _dd->L2NScaler[evOffset + 1] += std::pow(_dd->G[idxG][1] * obsW, 2);
-        _dd->L2NScaler[evOffset + 2] += std::pow(_dd->G[idxG][2] * obsW, 2);
-        _dd->L2NScaler[evOffset + 3] += std::pow(_dd->G[idxG][3] * obsW, 2);
+        _dd->L2NScaler[evOffset + 0] += square(_dd->G[idxG][0] * obsW);
+        _dd->L2NScaler[evOffset + 1] += square(_dd->G[idxG][1] * obsW);
+        _dd->L2NScaler[evOffset + 2] += square(_dd->G[idxG][2] * obsW);
+        _dd->L2NScaler[evOffset + 3] += square(_dd->G[idxG][3] * obsW);
       }
     }
 
@@ -353,7 +354,7 @@ void Solver::loadSolutions()
     double newY = evprm.y + deltaY;
 
     // compute distance and azimuth of `evId` to centroid (0,0,0)
-    double hdist = std::sqrt(std::pow(newX, 2) + std::pow(newY, 2));
+    double hdist = std::sqrt(square(newX) + square(newY));
     hdist        = Math::Geo::km2deg(hdist); // distance to degree
 
     double azimuth = std::atan2(newX, newY);
@@ -575,9 +576,9 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
   const double MAD_gn = 0.67449; // MAD for gaussian noise
   for (unsigned i = 0; i < residuals.size(); i++)
   {
-    double weight = 1. - std::pow(residuals.at(i) / (alpha * MAD / MAD_gn), 2);
+    double weight = 1. - square(residuals.at(i) / (alpha * MAD / MAD_gn));
     weight        = std::max(weight, 0.);
-    weight        = std::pow(weight, 2);
+    weight        = square(weight);
 
     weights[i] = weight;
   }

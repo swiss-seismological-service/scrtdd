@@ -338,9 +338,8 @@ void resample(GenericRecord &trace, double new_sf)
    */
   auto new_sample = [&data, &data_size, &data_sf](double x, double fmax,
                                                   double win_len) -> double {
-    static const double pi = boost::math::constants::pi<double>();
-    double r_g             = 2 * fmax / data_sf; // Calc gain correction factor
-    double r_y             = 0;
+    double r_g = 2 * fmax / data_sf; // Calc gain correction factor
+    double r_y = 0;
 
     // For 1 window width
     for (double win_i = -(win_len / 2.); win_i < (win_len / 2.); win_i += 1.)
@@ -349,8 +348,8 @@ void resample(GenericRecord &trace, double new_sf)
       if (j >= 0 && j < data_size)
       {
         // calculate von Hann Window. Scale and calculate Sinc
-        double r_w   = 0.5 - 0.5 * std::cos(2 * pi * (0.5 + (j - x) / win_len));
-        double r_a   = 2 * pi * (j - x) * fmax / data_sf;
+        double r_w = 0.5 - 0.5 * std::cos(2 * M_PI * (0.5 + (j - x) / win_len));
+        double r_a = 2 * M_PI * (j - x) * fmax / data_sf;
         double r_snc = (r_a != 0) ? std::sin(r_a) / r_a : 1;
         r_y          = r_y + r_g * r_w * r_snc * data[j];
       }
