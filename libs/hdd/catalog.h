@@ -255,15 +255,11 @@ public:
   //
   static double computePickWeight(double uncertainty);
   static double computePickWeight(const Catalog::Phase &phase);
-  static CatalogPtr
-  filterPhasesAndSetWeights(const CatalogCPtr &catalog,
+  static Catalog*
+  filterPhasesAndSetWeights(const Catalog &catalog,
                             const Catalog::Phase::Source &source,
                             const std::vector<std::string> &PphaseToKeep,
                             const std::vector<std::string> &SphaseToKeep);
-
-  static DataModel::Station *findStation(const std::string &netCode,
-                                         const std::string &stationCode,
-                                         const Core::Time &atTime);
 
   static DataModel::SensorLocation *
   findSensorLocation(const std::string &networkCode,

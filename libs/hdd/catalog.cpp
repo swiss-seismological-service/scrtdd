@@ -93,29 +93,6 @@ namespace HDD {
  * static methods
  */
 
-DataModel::Station *Catalog::findStation(const string &netCode,
-                                         const string &stationCode,
-                                         const Core::Time &atTime)
-{
-  DataModel::Inventory *inv = Client::Inventory::Instance()->inventory();
-  if (!inv)
-  {
-    SEISCOMP_ERROR("Inventory not available");
-    return nullptr;
-  }
-
-  DataModel::InventoryError error;
-  DataModel::Station *station =
-      DataModel::getStation(inv, netCode, stationCode, atTime, &error);
-  if (!station)
-  {
-    SEISCOMP_ERROR("Cannot find station %s.%s: %s", netCode.c_str(),
-                   stationCode.c_str(), error.toString());
-    return nullptr;
-  }
-  return station;
-}
-
 DataModel::SensorLocation *
 Catalog::findSensorLocation(const std::string &networkCode,
                             const std::string &stationCode,
@@ -657,8 +634,8 @@ void Catalog::writeToFile(string eventFile,
  * event/station pair there is only one P and one S phase. If multiple phases
  * are found, keep the one with the highest priority.
  */
-CatalogPtr
-Catalog::filterPhasesAndSetWeights(const CatalogCPtr &catalog,
+Catalog*
+Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
                                    const Phase::Source &source,
                                    const std::vector<std::string> &PphaseToKeep,
                                    const std::vector<std::string> &SphaseToKeep)
@@ -667,12 +644,12 @@ Catalog::filterPhasesAndSetWeights(const CatalogCPtr &catalog,
   unordered_multimap<unsigned, Phase> filteredP;
 
   // loop through each event
-  for (const auto &kv : catalog->getEvents())
+  for (const auto &kv : catalog.getEvents())
   {
     const Event &event = kv.second;
 
     // loop through all phases of current event
-    const auto &eqlrng = catalog->getPhases().equal_range(event.id);
+    const auto &eqlrng = catalog.getPhases().equal_range(event.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
       // keep the phase only if it has a higher priority than an existing one
@@ -767,7 +744,7 @@ Catalog::filterPhasesAndSetWeights(const CatalogCPtr &catalog,
     filteredPhases.emplace(phase.eventId, phase);
   }
 
-  return new Catalog(catalog->getStations(), catalog->getEvents(),
+  return new Catalog(catalog.getStations(), catalog.getEvents(),
                      filteredPhases);
 }
 

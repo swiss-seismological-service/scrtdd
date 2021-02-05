@@ -121,7 +121,7 @@ void HypoDD::setCatalog(const CatalogCPtr &catalog)
 {
   _srcCat = catalog;
   _bgCat  = Catalog::filterPhasesAndSetWeights(
-      _srcCat, Phase::Source::CATALOG, _cfg.validPphases, _cfg.validSphases);
+      *_srcCat, Phase::Source::CATALOG, _cfg.validPphases, _cfg.validSphases);
 }
 
 void HypoDD::setUseCatalogWaveformDiskCache(bool cache)
@@ -441,7 +441,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
       (boost::filesystem::path(subFolder) / "step1").string();
 
   CatalogPtr evToRelocateCat =
-      Catalog::filterPhasesAndSetWeights(singleEvent, Phase::Source::RT_EVENT,
+      Catalog::filterPhasesAndSetWeights(*singleEvent, Phase::Source::RT_EVENT,
                                          _cfg.validPphases, _cfg.validSphases);
 
   CatalogPtr relocatedEvCat =
@@ -2127,7 +2127,7 @@ GenericRecordCPtr HypoDD::getWaveform(const Core::TimeWindow &tw,
 
   // Check if we have already excluded the trace because we couldn't load it
   // (-> save time).
-  if (_unloadableWfs.count(wfId) != 0)
+  if (_unloadableWfs.find(wfId) != _unloadableWfs.end())
   {
     return nullptr;
   }
