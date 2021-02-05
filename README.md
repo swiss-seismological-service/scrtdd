@@ -72,7 +72,9 @@ For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#
 
 ## 1. Multi-event relocation
 
-In this section we will explain how to relocate a set of existing events in offline mode: no interaction with the running system or database will take place. The relocated events will be stored in plain text files and can be used externally to SeisComP. Optionally, it is possible to import the relocated events back into the database.
+In this section we will explain how to relocate a set of existing events in offline mode: no interaction with the running system or database will take place. The relocated events will be stored in plain text files, so that they can be used externally to SeisComP or they can be stored back in the SeisComP datatabase if required.
+
+The multi-evet relocation consists in providing the input events to scrtdd, configure the clustering, cross-correlation and solver options and that's it. The configuration is an easy task since the default options should already provide sensible solutions, then the user can start experimenting. The input events involved in the relocation might come from differnt sources: a SeisComP database, either in the same machine or a remote one, they can be in a xml file (in this case the inventory is required too), or they can be in a `scrtdd` specific format (a csv file triplet discussed next).
 
 ### 1.1 Dumping the candidate events to files
 
@@ -149,11 +151,13 @@ scevtls --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --verbosity=3 
 # create the catalog using only manually reviewed preferred origins within the region defined in myProfile
 scrtdd --dump-catalog myCatalog.csv --dump-catalog-options 'preferred,onlyManual,any,none,myProfile' --verbosity=3 --console=1 [db options]
 ```
-### 1.2 Avoid events dumping to flat files
+### 1.2 Fetching the candidate events from the database
 
-event.csv, phase.csv and stations.csv files are the extended catalog format, useful when the catalog information is fully contained in those files and it doesn't require the catalog to be present on the seiscomp database. This might come in handy when using events coming from a different SeisComP installation. However, it is possible to totally skip the dumping of events to files and select the catalog as a single file containing the origin ids like the following:
+It is possible to skip the dumping of events to files and use the origin IDs directly. In this case a single file containing the origin ids will suffice:
 
 ![Catalog selection option](/data/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
+
+However, depending on the number of events, fetching the information from the database can be slow. In this case the event.csv, phase.csv and stations.csv files triplet can be a better option. Also the file triples might come in handy when the events are not in the database where you intend to use `scrtdd`.
 
 
 ### 1.3 Relocating the candidate events
@@ -261,11 +265,11 @@ Catalog:
 
 ## 2. Real-time single-event relocation
 
+In real-time processing `scrtdd` relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generate via multi-event relocation, which has already been coverred in the previous section.
+
 The first step is to create a new profile or we can modify the profile used to create the background catalog, in case we don't need that anymore. If we decide to go for a new profile we might want to copy the waveform cache folder of the background catalog profile to the new real-time profile cache folder to avoid re-downloading all the catalog waveforms (see the `Performance` paragraph for more details).
 
 The waveform cache folder is located in `workingDirectory/profileName/wfcache/` (e.g. `~/seiscomp3/var/lib/rtdd/myProfile/wfcache/`).
-
-In real-time processing `scrtdd` relocates new origins against a background catalog of high quality events. If we don't already have those high quality events we can generate the background catalog via multi-event relocation coverred in the previous section.
  
 
 ### 2.1. Selecting a background catalog from existing origins
