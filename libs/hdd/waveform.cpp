@@ -265,7 +265,8 @@ bool trim(GenericRecord &trace, const Core::TimeWindow &tw)
 
   ArrayPtr sliced = trace.data()->slice(ofs, ofs + samples);
 
-  trace.setStartTime(tw.startTime());
+  trace.setStartTime(trace.startTime() +
+                     Core::TimeSpan(ofs / trace.samplingFrequency()));
   trace.setData(sliced.get());
 
   return true;
