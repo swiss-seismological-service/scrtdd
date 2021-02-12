@@ -421,12 +421,13 @@ GenericRecordPtr readTrace(const std::string &file)
 }
 
 /*
- * Calculate the correlation series
- *
- * `delayOut` is the shift in seconds (positive or negative) between `tr1` and
- * `tr2` middle points to get the highest correlation coefficient (`coeffOut`)
- * between the 2 traces. `delayOut` is eual to 0 when `tr1` and `tr2` middle
- * points are aligned.
+ * Compute cross-correlation between two traces centered around their respective
+ * picks. The cross-correlation will be performed from the longest trace middle
+ * minus 'maxDelay' to the same trace middle plus 'maxDelay' (if enough data is
+ * available).
+ * `delayOut` will store the shift in seconds (positive or negative) from the
+ * longest trace middle point at which there is the highest (absolute value)
+ * correlation coefficient, stored in 'coeffOut'
  */
 bool xcorr(const GenericRecordCPtr &tr1,
            const GenericRecordCPtr &tr2,
@@ -444,9 +445,7 @@ bool xcorr(const GenericRecordCPtr &tr1,
         tr1->samplingFrequency(), tr2->samplingFrequency());
     return false;
   }
-
-  const double freq      = tr1->samplingFrequency();
-  const int maxDelaySmps = maxDelay * freq; // secs to samples
+  const double freq = tr1->samplingFrequency();
 
   // check longest/shortest trace
   const bool swap             = tr1->data()->size() > tr2->data()->size();
@@ -458,9 +457,40 @@ bool xcorr(const GenericRecordCPtr &tr1,
   const int sizeS     = trShorter->data()->size();
   const int sizeL     = trLonger->data()->size();
 
-  //
-  // for later quality check: save local maxima/minima
-  //
+  // force to cross-correlate withing data boundaries
+  int availableData = (sizeL - sizeS) / 2;
+  int maxDelaySmps  = maxDelay * freq;
+  if (maxDelaySmps > availableData) maxDelaySmps = availableData;
+
+  crossCorrelation(dataS, sizeS, (dataL + availableData - maxDelaySmps),
+                   (sizeS + maxDelaySmps * 2), qualityCheck, delayOut,
+                   coeffOut);
+
+  if (!std::isfinite(coeffOut))
+  {
+    coeffOut = 0;
+    delayOut = 0.;
+  }
+  else
+  {
+    delayOut -= maxDelaySmps; // the reference is the middle of the long trace
+    delayOut /= freq;  // samples to secs
+    if (swap) delayOut = -delayOut;
+  }
+  return true;
+}
+
+void crossCorrelation(const double *dataS,
+                      const int sizeS,
+                      const double *dataL,
+                      const int sizeL,
+                      bool qualityCheck,
+                      double &delayOut,
+                      double &coeffOut)
+{
+  /*
+   * for later quality check: save local maxima/minima
+   */
   struct LocalMaxima
   {
     bool notDecreasing = false;
@@ -518,13 +548,9 @@ bool xcorr(const GenericRecordCPtr &tr1,
    * loop inside the main cross-correlation loop.
    */
 
-  auto sampleAtDataL = [&sizeS, &sizeL, &dataL](int idxS, int delay) {
-    int idxL = idxS + (sizeL - sizeS) / 2 + delay;
-    return (idxL < 0 || idxL >= sizeL) ? 0 : dataL[idxL];
-  };
-
   std::feclearexcept(FE_ALL_EXCEPT);
 
+  // prepare the data before the main xcorr loop
   const int n = sizeS;
   double sumS = 0, sumS2 = 0;
   double sumL = 0, sumL2 = 0;
@@ -532,44 +558,40 @@ bool xcorr(const GenericRecordCPtr &tr1,
   {
     sumS += dataS[i];
     sumS2 += dataS[i] * dataS[i];
-    double sampleL = sampleAtDataL(i, -(maxDelaySmps + 1));
-    sumL += sampleL;
-    sumL2 += sampleL * sampleL;
+    if (i >= (n - 1)) continue;
+    sumL += dataL[i];
+    sumL2 += dataL[i] * dataL[i];
   }
   double denomS = std::sqrt(n * sumS2 - sumS * sumS);
 
   // cross-correlation loop
-  for (int delay = -maxDelaySmps; delay < maxDelaySmps; delay++)
+  double lastSampleL = 0;
+  for (int delay = 0; delay < (sizeL - sizeS); delay++)
   {
-    // sumL/sumL2: Remove the sample that has exited the current
-    // cross-correlation win and add the sample that has just entered the
-    // current cross-correlation win.
-    const double lastSampleL = sampleAtDataL(-1, delay);
-    const double newSampleL  = sampleAtDataL(n - 1, delay);
+    // sumL/sumL2 update: remove the sample that has just exited the
+    // current cross-correlation win and add the sample that has just
+    // entered
+    const double newSampleL = dataL[delay + n - 1];
     sumL += newSampleL - lastSampleL;
     sumL2 += newSampleL * newSampleL - lastSampleL * lastSampleL;
+    lastSampleL = dataL[delay]; // prepare for next loop
 
     const double denomL = std::sqrt(n * sumL2 - sumL * sumL);
 
     double sumSL = 0;
-    for (int i = 0; i < n; i++) sumSL += dataS[i] * sampleAtDataL(i, delay);
+    for (int i = 0; i < n; i++) sumSL += dataS[i] * dataL[i + delay];
 
     const double coeff = (n * sumSL - sumS * sumL) / (denomS * denomL);
 
     if (!std::isfinite(coeffOut) || std::abs(coeff) > std::abs(coeffOut))
     {
       coeffOut = coeff;
-      delayOut = delay / freq; // samples to secs
+      delayOut = delay;
     }
 
     // for later quality check
     localMaxs.update(coeff);
     localMins.update(-coeff);
-  }
-
-  if (swap)
-  {
-    delayOut = -delayOut;
   }
 
   int fe = fetestexcept(FE_ALL_EXCEPT);
@@ -613,14 +635,6 @@ bool xcorr(const GenericRecordCPtr &tr1,
       }
     }
   }
-
-  if (!std::isfinite(coeffOut))
-  {
-    coeffOut = 0;
-    delayOut = 0.;
-  }
-
-  return true;
 }
 
 double computeSnr(const GenericRecordCPtr &tr,

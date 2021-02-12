@@ -59,12 +59,21 @@ double computeSnr(const GenericRecordCPtr &tr,
                   double noiseOffsetEnd,
                   double signalOffsetStart,
                   double signalOffsetEnd);
+
 bool xcorr(const GenericRecordCPtr &tr1,
            const GenericRecordCPtr &tr2,
            double maxDelay,
            bool qualityCheck,
            double &delayOut,
            double &coeffOut);
+
+void crossCorrelation(const double *dataS,
+                      const int sizeS,
+                      const double *dataL,
+                      const int sizeL,
+                      bool qualityCheck,
+                      double &delayOut,
+                      double &coeffOut);
 
 std::string getBandAndInstrumentCodes(const std::string &channelCode);
 std::string getOrientationCode(const std::string &channelCode);
