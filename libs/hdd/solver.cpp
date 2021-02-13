@@ -271,9 +271,8 @@ bool Solver::getEventChanges(unsigned evId,
                              double &deltaDepth,
                              double &deltaTT) const
 {
-  if (!_eventIdConverter.hasId(evId)) return false;
-
-  unsigned evIdx = _eventIdConverter.toIdx(evId);
+  unsigned evIdx;
+  if (!_eventIdConverter.hasId(evId, evIdx)) return false;
 
   if (_eventDeltas.find(evIdx) == _eventDeltas.end()) return false;
 
@@ -296,13 +295,12 @@ bool Solver::getObservationParamsChanges(unsigned evId,
                                          double &meanObsResiduals,
                                          std::set<unsigned> &evIds) const
 {
-  if (!_eventIdConverter.hasId(evId)) return false;
+  unsigned evIdx;
+  if (!_eventIdConverter.hasId(evId, evIdx)) return false;
 
   string phStaId = string(1, phase) + "@" + staId;
-  if (!_phStaIdConverter.hasId(phStaId)) return false;
-
-  int evIdx         = _eventIdConverter.toIdx(evId);
-  unsigned phStaIdx = _phStaIdConverter.toIdx(phStaId);
+  unsigned phStaIdx;
+  if (!_phStaIdConverter.hasId(phStaId, phStaIdx)) return false;
 
   const auto &it1 = _paramStats.find(evIdx);
   if (it1 == _paramStats.end()) return false;

@@ -83,6 +83,54 @@ private:
   std::uniform_int_distribution<size_t> dist_;
 };
 
+/*
+ *  Convert some hashable id of type T (e.g. `std::string`) to an alternative
+ *  representation i.e. a sequentially growing integer starting from 0
+ *  (suitable for array index).
+ */
+template <class T> class IdToIndex
+{
+public:
+  unsigned convert(const T &id)
+  {
+    unsigned idx;
+    if (hasId(id, idx)) return idx;
+    unsigned newIdx = _currentIdx++;
+    _to[id]         = newIdx;
+    _from[newIdx]   = id;
+    return newIdx;
+  }
+
+  unsigned toIdx(const T &id) const { return _to.at(id); }
+  T fromIdx(unsigned idx) const { return _from.at(idx); }
+
+  bool hasIdx(unsigned idx) const { return _from.find(idx) != _from.end(); }
+  bool hasId(const T &id) const { return _to.find(id) != _to.end(); }
+
+  bool hasIdx(unsigned idx, T &id) const
+  {
+    const auto &iter = _from.find(idx);
+    if (iter == _from.end()) return false;
+    id = iter->second;
+    return true;
+  }
+
+  bool hasId(const T &id, unsigned &idx) const
+  {
+    const auto &iter = _to.find(id);
+    if (iter == _to.end()) return false;
+    idx = iter->second;
+    return true;
+  }
+
+  unsigned size() const { return _to.size(); }
+
+private:
+  unsigned _currentIdx = 0;
+  std::unordered_map<T, unsigned> _to;
+  std::unordered_map<unsigned, T> _from;
+};
+
 } // namespace HDD
 } // namespace Seiscomp
 
