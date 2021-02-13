@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "waveform.h"
+#include "utils.h"
 
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
@@ -335,38 +336,41 @@ void resample(GenericRecord &trace, double new_sf)
    *          Filter quality increases with a larger window width.
    *          The wider the window, the closer fmax can approach half of
    *          data_freq or the new sample frequency
+   *
+   * If the x step size is rational the same Window and Sinc values
+   * will be recalculated repeatedly. Therefore these values can either
+   * be cached, or pre-calculated and stored in a table (polyphase
+   * interpolation); or interpolated from a smaller pre-calculated table;
+   * or computed from a set of low-order polynomials fitted to each
+   * section or lobe between  zero-crossings of the windowed Sinc (Farrow)
    */
   auto new_sample = [&data, &data_size, &data_sf](double x, double fmax,
                                                   double win_len) -> double {
-    double r_g = 2 * fmax / data_sf; // Calc gain correction factor
-    double r_y = 0;
+    const double gain = 2 * fmax / data_sf; // Calc gain correction factor
+    double newSmp     = 0;
 
     // For 1 window width
     for (double win_i = -(win_len / 2.); win_i < (win_len / 2.); win_i += 1.)
     {
-      int j = int(x + win_i); // input sample index
+      const int j        = int(x + win_i); // input sample index
+      const double win_x = j - x; // x relative to the window centered at j
       if (j >= 0 && j < data_size)
       {
-        // calculate von Hann Window. Scale and calculate Sinc
-        double r_w = 0.5 - 0.5 * std::cos(2 * M_PI * (0.5 + (j - x) / win_len));
-        double r_a = 2 * M_PI * (j - x) * fmax / data_sf;
-        double r_snc = (r_a != 0) ? std::sin(r_a) / r_a : 1;
-        r_y          = r_y + r_g * r_w * r_snc * data[j];
+        // calculate von Hann Window | hann(x) = sin^2(pi*x/N)
+        const double hannWin = square(std::sin(M_PI * (0.5 + win_x / win_len)));
+
+        // Scale and calculate Sinc | sinc(x) = sin(pi*x)/(pi*x); sinc(0)=1
+        const double a    = M_PI * win_x * gain;
+        const double sinc = (a == 0) ? 1 : std::sin(a) / a;
+
+        newSmp += gain * hannWin * sinc * data[j];
       }
     }
-    return r_y;
+    return newSmp;
   };
 
   for (int i = 0; i < resampled_data_size; i++)
   {
-    /*
-     * If the x step size is rational the same Window and Sinc values
-     * will be recalculated repeatedly. Therefore these values can either
-     * be cached, or pre-calculated and stored in a table (polyphase
-     * interpolation); or interpolated from a smaller pre-calculated table;
-     * or computed from a set of low-order polynomials fitted to each
-     * section or lobe between  zero-crossings of the windowed Sinc (Farrow)
-     */
     double x          = i / resamp_factor;
     resampled_data[i] = new_sample(x, nyquist, 4);
   }
@@ -474,7 +478,7 @@ bool xcorr(const GenericRecordCPtr &tr1,
   else
   {
     delayOut -= maxDelaySmps; // the reference is the middle of the long trace
-    delayOut /= freq;  // samples to secs
+    delayOut /= freq;         // samples to secs
     if (swap) delayOut = -delayOut;
   }
   return true;
