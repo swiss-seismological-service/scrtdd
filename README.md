@@ -158,11 +158,11 @@ scrtdd --dump-catalog myCatalog.csv --dump-catalog-options 'preferred,onlyManual
 
 Before performing the relocation we need to create a new profile in the `scrtdd` configuration where it is possible to select the values for the relocation steps: clustering, cross-correlation and solver.
 
-![Profile options](/data/configOverview.png?raw=true "Profile options")
+![Profile options](/data/img/configOverview.png?raw=true "Profile options")
 
 `doubleDifferenceObservations` controls the creation of catalog absolute travel time entries (dt.ct file in HypoDD terminology) and cross-correlated differential travel times for pairs of events (dt.cc file in HypoDD terminology). The clustering options should work just fine with the default values, however some adjustments are worth it. For example, we force to have only well connected events (`minNumNeigh` and `minObservationPerEvPair`), which helps in avoiding an ill-defined double difference system that can be hard to solve. Then, we minimize `maxNumNeigh` to reduce computation time (we can get very good results without using all the possible neighbours for every event). Finally, we like to disable the ellipsoid algorithms (`numEllipsoids=0`) since that is mostly useful in single event relocation.
 
-![Relocation options](/data/multiEventStep2options.png?raw=true "Relocation options")
+![Relocation options](/data/img/multiEventStep2options.png?raw=true "Relocation options")
 
 Then it is time to set the cross-correlation parameters, which require a more careful selection and they are described in a dedicated paragraph. Finally, when the configuration is ready, we can relocate the catalog with the following commands.
 
@@ -207,13 +207,13 @@ At this point we should check the relocated events (and logs) and see whether th
 As an example you can see below two catalogs before and after `scrtdd` relocation:
 
 
-![Relocation example picture](/data/multiEventRelocationExample.png?raw=true "Relocation example")
+![Relocation example picture](/data/img/multiEventRelocationExample.png?raw=true "Relocation example")
 
 The relocation output files (reloc-event.csv reloc-phase.csv and reloc-stations.csv) will become the background catalog used in real-time relocation and this is the only output we need to keep from the relocation process. The profile configuration can be now deleted or, in the case we want to kept it, it has to be removed from the list of active profiles (`scrtdd.activeProfiles`) to avoid interaction with real-time processing.
 
 Now that we have a high quality background catalog we are ready to perform real-time relocation. For that we will create a new profile whose catalog will be the relocation output files:
 
-![Catalog selection option](/data/catalog-selection3.png?raw=true "Catalog selection from raw file format")
+![Catalog selection option](/data/img/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
 
 **Notes**:
@@ -321,11 +321,11 @@ To enable the real-time processing a profile should be created and enabled by in
 
 The easiest choice is to use as background catalog the relocated multi-event results; the triplet *reloc-event.csv*, *phase.csv*, *station.csv*:
 
-![Catalog selection option](/data/catalog-selection3.png?raw=true "Catalog selection from raw file format")
+![Catalog selection option](/data/img/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
 However, the backgroud catalog can be imported into the database too: we can transform the relocated catalog triplet reloc-event.csv, phase.csv,station.csv to XML format (see --dump-catalog-xml option) and insert the XML into the seiscomp database. While it is neat to have the background catalog in the seiscomp database, this approach is inconvenient in the common scenario where the background catalog is periodically re-generated.
 
-![Catalog selection option](/data/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
+![Catalog selection option](/data/img/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
 
  
 ### 2.2 Testing
@@ -341,8 +341,8 @@ If step2 completes successfully the relocated origin is sent to the messaging sy
 You can see below the most important parameters we want to configure. We enable the ellipsoid clustering algorithms selecting `numEllipsoids != 0` and we define the number of neighbour events used for relocation. We also increased `maxEllipsoidSize` in `doubleDifferenceObservationsNoXcorr` to accomodate the possible large error in the automatic origin locations.
  
 
-![Relocation options](/data/step1options.png?raw=true "Relocation options")
-![Relocation options](/data/step2options.png?raw=true "Relocation options")
+![Relocation options](/data/img/step1options.png?raw=true "Relocation options")
+![Relocation options](/data/img/step2options.png?raw=true "Relocation options")
 
 You might consider testing the configuration relocating some existing events to make sure the parameters are suitable for your use case. To test the real time relocation there are two command line options which relocate existing origins:
 
@@ -423,7 +423,7 @@ Also, as explained in the cross-correlation settings paragraph, we can add the `
 
 As an example you can see below the single event relocation of several manually reviewed origins (when relocating automatic origins the quality and number of relocated origins is certainly lower).
 
-![Single event relocation example picture](/data/singleEventRelocationExample.png?raw=true "Single Event Relocation example")
+![Single event relocation example picture](/data/img/singleEventRelocationExample.png?raw=true "Single Event Relocation example")
 
 Once we are happy with the configuration we can simply enable and start `scrtdd` as any other SeisComP module and it will start relocating origins as soon as they arrive in the messsaging system.
 
@@ -447,7 +447,7 @@ The configuration of cross-correlation parameters require some trial and error, 
 
 Here is an example configuration:
 
-![Relocation options](/data/xcorr.png?raw=true "Relocation options")
+![Relocation options](/data/img/xcorr.png?raw=true "Relocation options")
 
 
 ### 3.1 Logs
@@ -924,7 +924,7 @@ cp mymodel* seiscomp_installation/share/locsat/tables/
 
 A (re)locator plugin is also avaiable in the code, which makes `scrtdd` available via `scolv`. To enable this plugin just add `rtddloc` to the list of plugins in the global configuration.
 
-![Locator plugin](/data/locator-plugin.png?raw=true "Locator plugin")
+![Locator plugin](/data/img/locator-plugin.png?raw=true "Locator plugin")
 
 Please note that this plugin is not strictly required since `scrtdd` would relocated any manaul origins anyway (if configured to do so) and the relocated origin will appear on `scolv` as soon as ready.
 
