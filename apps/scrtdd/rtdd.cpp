@@ -18,6 +18,7 @@
 #include "rtdd.h"
 #include "csvreader.h"
 #include "rtddmsg.h"
+#include "sccatalog.h"
 
 #include <seiscomp3/logging/channel.h>
 #include <seiscomp3/logging/filerotator.h>
@@ -54,8 +55,9 @@ using namespace std;
 using namespace Seiscomp::Processing;
 using namespace Seiscomp::DataModel;
 using Seiscomp::Core::stringify;
-using PhaseType = Seiscomp::HDD::Catalog::Phase::Type;
-using PhaseSrc  = Seiscomp::HDD::Catalog::Phase::Source;
+using PhaseType      = Seiscomp::HDD::Catalog::Phase::Type;
+using PhaseSrc       = Seiscomp::HDD::Catalog::Phase::Source;
+using CatalogDataSrc = Seiscomp::HDD::ScCatalog::DataSource;
 
 namespace Seiscomp {
 
@@ -244,6 +246,7 @@ RTDD::Config::Config()
   cacheAllWaveforms    = false;
   debugWaveforms       = false;
 
+  loadProfile     = false;
   forceProcessing = false;
   testMode        = false;
   dumpWaveforms   = false;
@@ -285,21 +288,38 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
   NEW_OPT(_config.profileTimeAlive, "performance.profileTimeAlive");
   NEW_OPT(_config.cacheWaveforms, "performance.cacheWaveforms");
 
-  NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
-              "Load catalog waveforms from the configured recordstream and "
-              "save them into the profile working directory.",
-              true);
-  NEW_OPT_CLI(
-      _config.dumpWaveforms, "Mode", "debug-wf",
-      "Enable saving of processed waveforms (filtered/resampled, SNR "
-      "rejected, ZRT projected, etc.) into the profile working directory.",
-      false, true);
-  NEW_OPT_CLI(_config.evalXCorr, "Mode", "eval-xcorr",
-              "Evaluate cross-correlation settings for the given profile.",
-              true);
   NEW_OPT_CLI(_config.fExpiry, "Mode", "expiry,x",
               "Defines the time span in hours after which objects expire.",
               true);
+  NEW_OPT_CLI(_config.cacheAllWaveforms, "Mode", "cache-wf-all",
+              "All waveforms will be saved to disk cache, even temporarily "
+              "ones. Normally only catalog phase waveforms are cached to disk. "
+              "This is useful to speed up debugging/testing when the same "
+              "origins are repeatedly processed.",
+              false, true);
+  NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
+              "Load catalog waveforms from the configured recordstream and "
+              "save them into the profile working directory. Use in "
+              "combination with --profile",
+              false, true);
+  NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "debug-wf",
+              "Enable saving of processed waveforms into the profile working "
+              "directory for inspection.",
+              false, true);
+  NEW_OPT_CLI(_config.testMode, "Mode", "test",
+              "Test mode, no messages are sent when relocating a single event",
+              false, true);
+  NEW_OPT_CLI(_config.forceProfile, "Mode", "profile",
+              "To be used in combination with other options: select the "
+              "profile configuration to use",
+              true);
+  NEW_OPT_CLI(
+      _config.evalXCorr, "Mode", "eval-xcorr",
+      "Compute cross-correlation statistics fon the catalog passed as "
+      "argument. The input can be a single file (containing seiscomp origin "
+      "ids) or a file triplet (station.csv,event.csv,phase.csv). Use in "
+      "combination with --profile",
+      true);
 
   NEW_OPT_CLI(_config.dumpCatalog, "Catalog", "dump-catalog",
               "Dump the seiscomp event/origin id file passed as argument into "
@@ -315,29 +335,29 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
               "(station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,"
               "phase2.csv,...) passed as arguments.",
               true);
+
+  NEW_OPT_CLI(
+      _config.eventXML, "SingleAndMultiEvent", "ep",
+      "Event parameters XML file for offline processing of contained origins "
+      "(implies --test option). Each contained origin will be processed in "
+      "signle-event mode unless --reloc-catalog is provided, which enable "
+      "multi-event mode.  In combination with --origin-id a XML output is "
+      "generated",
+      true);
   NEW_OPT_CLI(
       _config.originIDs, "SingleEvent", "origin-id,O",
-      "Relocate the origin (or multiple comma-separated origins) and "
-      "send a message. Each origin will be processed according to"
-      "the matching profile region unless the --profile option is used.",
+      "Relocate  the origin (or multiple comma-separated origins) in "
+      "signle-event mode and send a message. Each origin will be processed "
+      "accordingly to the matching profile region unless the --profile option "
+      " is used.",
       true);
   NEW_OPT_CLI(
-      _config.eventXML, "SingleEvent", "ep",
-      "Event parameters XML file for offline processing of contained origins "
-      "(implies --test option). Each contained origin will be processed "
-      "according to the matching profile region unless --profile option is "
-      "used. In combination with the --origin-id option an XML output is "
-      "produced.",
+      _config.relocateCatalog, "MultiEvents", "reloc-catalog",
+      "Relocate the catalog passed as argument in multi-event mode. The "
+      "input can be a single file (containing seiscomp origin ids) or a file "
+      "triplet (station.csv,event.csv,phase.csv). For events stored "
+      "in a XML files add the --ep option. Use in combination with --profile",
       true);
-  NEW_OPT_CLI(_config.testMode, "SingleEvent", "test",
-              "Test mode, no messages are sent", false, true);
-  NEW_OPT_CLI(_config.forceProfile, "SingleEvent", "profile",
-              "Force a specific profile to be used when relocating an origin. "
-              "This overrides the selection of profiles based on region "
-              "information and the initial origin location.",
-              true);
-  NEW_OPT_CLI(_config.relocateProfile, "MultiEvents", "reloc-profile",
-              "Relocate the catalog of the profile passed as argument.", true);
 }
 
 RTDD::~RTDD() {}
@@ -379,8 +399,8 @@ bool RTDD::validateParameters()
   // disable messaging (offline mode) with certain command line options
   if (!_config.eventXML.empty() || !_config.dumpCatalog.empty() ||
       !_config.mergeCatalogs.empty() || !_config.dumpCatalogXML.empty() ||
-      !_config.loadProfile.empty() || !_config.evalXCorr.empty() ||
-      !_config.relocateProfile.empty() ||
+      _config.loadProfile || !_config.evalXCorr.empty() ||
+      !_config.relocateCatalog.empty() ||
       (!_config.originIDs.empty() && _config.testMode))
   {
     SEISCOMP_INFO("Disable messaging");
@@ -393,14 +413,21 @@ bool RTDD::validateParameters()
 
   bool profilesOK = true;
 
-  for (vector<string>::iterator it = _config.activeProfiles.begin();
-       it != _config.activeProfiles.end(); it++)
+  // make sure to load the profile passed via command line too
+  std::vector<string> profilesToLoad(_config.activeProfiles);
+  if (!_config.forceProfile.empty() &&
+      std::find(profilesToLoad.begin(), profilesToLoad.end(),
+                _config.forceProfile) == profilesToLoad.end())
+  {
+    profilesToLoad.push_back(_config.forceProfile);
+  }
+
+  for (const string &profileName : profilesToLoad)
   {
 
     ProfilePtr prof = new Profile;
-    string prefix   = string("profile.") + *it + ".";
-
-    prof->name = *it;
+    prof->name      = profileName;
+    string prefix   = string("profile.") + prof->name + ".";
 
     try
     {
@@ -432,7 +459,7 @@ bool RTDD::validateParameters()
 
     if (prof->region == nullptr)
     {
-      SEISCOMP_ERROR("profile.%s: invalid region type: %s", it->c_str(),
+      SEISCOMP_ERROR("profile.%s: invalid region type: %s", prof->name.c_str(),
                      regionType.c_str());
       profilesOK = false;
       continue;
@@ -440,356 +467,344 @@ bool RTDD::validateParameters()
 
     if (!prof->region->init(this, prefix))
     {
-      SEISCOMP_ERROR("profile.%s: invalid region parameters", it->c_str());
+      SEISCOMP_ERROR("profile.%s: invalid region parameters",
+                     prof->name.c_str());
       profilesOK = false;
       continue;
     }
 
-    prefix = string("profile.") + *it + ".catalog.";
+    prefix = string("profile.") + prof->name + ".catalog.";
 
-    string eventFile = env->absolutePath(configGetPath(prefix + "eventFile"));
-
-    // check if the file contains only seiscomp event/origin ids
-    bool eventIdOnly = false;
+    // For the catalog we can have either a single file (origin ids) or three
+    // files ( event, station, phase ). They can also be left empty
     try
     {
-      eventIdOnly =
-          HDD::CSV::readWithHeader(eventFile)[0].count("seiscompId") != 0;
-    }
-    catch (exception &e)
-    {
-      SEISCOMP_ERROR("%seventFile: cannot read catalog %s (%s)", prefix.c_str(),
-                     eventFile.c_str(), e.what());
-      profilesOK = false;
-      continue;
-    }
-    if (eventIdOnly)
-    {
-      prof->eventIDFile = eventFile;
-    }
-    else
-    {
-      prof->eventFile = eventFile;
       prof->stationFile =
           env->absolutePath(configGetPath(prefix + "stationFile"));
-      prof->phaFile = env->absolutePath(configGetPath(prefix + "phaFile"));
+      prof->phaFile   = env->absolutePath(configGetPath(prefix + "phaFile"));
+      prof->eventFile = env->absolutePath(configGetPath(prefix + "eventFile"));
+    }
+    catch (...)
+    {
+      try
+      {
+        prof->eventIDFile =
+            env->absolutePath(configGetPath(prefix + "eventFile"));
+      }
+      catch (...)
+      {}
     }
 
     try
     {
-      prof->ddcfg.validPphases = configGetStrings(prefix + "P-Phases");
+      prof->ddCfg.validPphases = configGetStrings(prefix + "P-Phases");
     }
     catch (...)
     {
-      prof->ddcfg.validPphases = {"Pg", "P"};
+      prof->ddCfg.validPphases = {"Pg", "P"};
     }
     try
     {
-      prof->ddcfg.validSphases = configGetStrings(prefix + "S-Phases");
+      prof->ddCfg.validSphases = configGetStrings(prefix + "S-Phases");
     }
     catch (...)
     {
-      prof->ddcfg.validSphases = {"Sg", "S"};
+      prof->ddCfg.validSphases = {"Sg", "S"};
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservationsNoXcorr.clustering.";
     try
     {
-      prof->ddcfg.ddObservations1.minNumNeigh =
-          configGetInt(prefix + "minNumNeigh");
+      prof->ddObservations1.minNumNeigh = configGetInt(prefix + "minNumNeigh");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.minNumNeigh = 1;
+      prof->ddObservations1.minNumNeigh = 1;
     }
     try
     {
-      prof->ddcfg.ddObservations1.maxNumNeigh =
-          configGetInt(prefix + "maxNumNeigh");
+      prof->ddObservations1.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.maxNumNeigh = 0;
+      prof->ddObservations1.maxNumNeigh = 0;
     }
     try
     {
-      prof->ddcfg.ddObservations1.minDTperEvt =
+      prof->ddObservations1.minDTperEvt =
           configGetInt(prefix + "minObservationPerEvtPair");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.minDTperEvt = 1;
+      prof->ddObservations1.minDTperEvt = 1;
     }
     try
     {
-      prof->ddcfg.ddObservations1.maxDTperEvt =
+      prof->ddObservations1.maxDTperEvt =
           configGetInt(prefix + "maxObservationPerEvtPair");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.maxDTperEvt = 0;
+      prof->ddObservations1.maxDTperEvt = 0;
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservationsNoXcorr.clustering."
              "neighboringEventSelection.";
     try
     {
-      prof->ddcfg.ddObservations1.numEllipsoids =
+      prof->ddObservations1.numEllipsoids =
           configGetInt(prefix + "numEllipsoids");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.numEllipsoids = 5;
+      prof->ddObservations1.numEllipsoids = 5;
     }
     try
     {
-      prof->ddcfg.ddObservations1.maxEllipsoidSize =
+      prof->ddObservations1.maxEllipsoidSize =
           configGetDouble(prefix + "maxEllipsoidSize");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.maxEllipsoidSize = 5;
+      prof->ddObservations1.maxEllipsoidSize = 5;
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservationsNoXcorr.clustering.phaseSelection.";
     try
     {
-      prof->ddcfg.ddObservations1.minESdist =
+      prof->ddObservations1.minESdist =
           configGetDouble(prefix + "minStationDistance");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.minESdist = 0;
+      prof->ddObservations1.minESdist = 0;
     }
     try
     {
-      prof->ddcfg.ddObservations1.maxESdist =
+      prof->ddObservations1.maxESdist =
           configGetDouble(prefix + "maxStationDistance");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.maxESdist = 0;
+      prof->ddObservations1.maxESdist = 0;
     }
     try
     {
-      prof->ddcfg.ddObservations1.minEStoIEratio =
+      prof->ddObservations1.minEStoIEratio =
           configGetDouble(prefix + "minStationToEventPairDistRatio");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations1.minEStoIEratio = 0;
+      prof->ddObservations1.minEStoIEratio = 0;
     }
 
-    prefix =
-        string("profile.") + *it + ".doubleDifferenceObservations.clustering.";
-    prof->ddcfg.ddObservations2.recordStreamURL = recordStreamURL();
+    prefix = string("profile.") + prof->name +
+             ".doubleDifferenceObservations.clustering.";
     try
     {
-      prof->ddcfg.ddObservations2.minNumNeigh =
-          configGetInt(prefix + "minNumNeigh");
+      prof->ddObservations2.minNumNeigh = configGetInt(prefix + "minNumNeigh");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.minNumNeigh = 1;
+      prof->ddObservations2.minNumNeigh = 1;
     }
     try
     {
-      prof->ddcfg.ddObservations2.maxNumNeigh =
-          configGetInt(prefix + "maxNumNeigh");
+      prof->ddObservations2.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.maxNumNeigh = 0;
+      prof->ddObservations2.maxNumNeigh = 0;
     }
     try
     {
-      prof->ddcfg.ddObservations2.minDTperEvt =
+      prof->ddObservations2.minDTperEvt =
           configGetInt(prefix + "minObservationPerEvtPair");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.minDTperEvt = 1;
+      prof->ddObservations2.minDTperEvt = 1;
     }
     try
     {
-      prof->ddcfg.ddObservations2.maxDTperEvt =
+      prof->ddObservations2.maxDTperEvt =
           configGetInt(prefix + "maxObservationPerEvtPair");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.maxDTperEvt = 0;
+      prof->ddObservations2.maxDTperEvt = 0;
     }
 
     prefix =
-        string("profile.") + *it +
+        string("profile.") + prof->name +
         ".doubleDifferenceObservations.clustering.neighboringEventSelection.";
     try
     {
-      prof->ddcfg.ddObservations2.numEllipsoids =
+      prof->ddObservations2.numEllipsoids =
           configGetInt(prefix + "numEllipsoids");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.numEllipsoids = 5;
+      prof->ddObservations2.numEllipsoids = 5;
     }
     try
     {
-      prof->ddcfg.ddObservations2.maxEllipsoidSize =
+      prof->ddObservations2.maxEllipsoidSize =
           configGetDouble(prefix + "maxEllipsoidSize");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.maxEllipsoidSize = 5;
+      prof->ddObservations2.maxEllipsoidSize = 5;
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservations.clustering.phaseSelection.";
     try
     {
-      prof->ddcfg.ddObservations2.minESdist =
+      prof->ddObservations2.minESdist =
           configGetDouble(prefix + "minStationDistance");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.minESdist = 0;
+      prof->ddObservations2.minESdist = 0;
     }
     try
     {
-      prof->ddcfg.ddObservations2.maxESdist =
+      prof->ddObservations2.maxESdist =
           configGetDouble(prefix + "maxStationDistance");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.maxESdist = 0;
+      prof->ddObservations2.maxESdist = 0;
     }
     try
     {
-      prof->ddcfg.ddObservations2.minEStoIEratio =
+      prof->ddObservations2.minEStoIEratio =
           configGetDouble(prefix + "minStationToEventPairDistRatio");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.minEStoIEratio = 0;
+      prof->ddObservations2.minEStoIEratio = 0;
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservations.crosscorrelation.p-phase.";
     try
     {
-      prof->ddcfg.xcorr[PhaseType::P].startOffset =
+      prof->ddCfg.xcorr[PhaseType::P].startOffset =
           configGetDouble(prefix + "start");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::P].startOffset = -0.50;
+      prof->ddCfg.xcorr[PhaseType::P].startOffset = -0.50;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::P].endOffset =
+      prof->ddCfg.xcorr[PhaseType::P].endOffset =
           configGetDouble(prefix + "end");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::P].endOffset = 0.50;
+      prof->ddCfg.xcorr[PhaseType::P].endOffset = 0.50;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::P].maxDelay =
+      prof->ddCfg.xcorr[PhaseType::P].maxDelay =
           configGetDouble(prefix + "maxDelay");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::P].maxDelay = 0.350;
+      prof->ddCfg.xcorr[PhaseType::P].maxDelay = 0.350;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::P].minCoef =
+      prof->ddCfg.xcorr[PhaseType::P].minCoef =
           configGetDouble(prefix + "minCCCoef");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::P].minCoef = 0.50;
+      prof->ddCfg.xcorr[PhaseType::P].minCoef = 0.50;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::P].components =
+      prof->ddCfg.xcorr[PhaseType::P].components =
           configGetStrings(prefix + "components");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::P].components = {"Z"};
+      prof->ddCfg.xcorr[PhaseType::P].components = {"Z"};
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservations.crosscorrelation.s-phase.";
     try
     {
-      prof->ddcfg.xcorr[PhaseType::S].startOffset =
+      prof->ddCfg.xcorr[PhaseType::S].startOffset =
           configGetDouble(prefix + "start");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::S].startOffset = -0.50;
+      prof->ddCfg.xcorr[PhaseType::S].startOffset = -0.50;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::S].endOffset =
+      prof->ddCfg.xcorr[PhaseType::S].endOffset =
           configGetDouble(prefix + "end");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::S].endOffset = 0.75;
+      prof->ddCfg.xcorr[PhaseType::S].endOffset = 0.75;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::S].maxDelay =
+      prof->ddCfg.xcorr[PhaseType::S].maxDelay =
           configGetDouble(prefix + "maxDelay");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::S].maxDelay = 0.350;
+      prof->ddCfg.xcorr[PhaseType::S].maxDelay = 0.350;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::S].minCoef =
+      prof->ddCfg.xcorr[PhaseType::S].minCoef =
           configGetDouble(prefix + "minCCCoef");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::S].minCoef = 0.50;
+      prof->ddCfg.xcorr[PhaseType::S].minCoef = 0.50;
     }
     try
     {
-      prof->ddcfg.xcorr[PhaseType::S].components =
+      prof->ddCfg.xcorr[PhaseType::S].components =
           configGetStrings(prefix + "components");
     }
     catch (...)
     {
-      prof->ddcfg.xcorr[PhaseType::S].components = {"T", "Z"};
+      prof->ddCfg.xcorr[PhaseType::S].components = {"T", "Z"};
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservations.crosscorrelation.options.";
     try
     {
-      prof->ddcfg.ddObservations2.xcorrMaxEvStaDist =
+      prof->ddObservations2.xcorrMaxEvStaDist =
           configGetDouble(prefix + "maxStationDistance");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.xcorrMaxEvStaDist = 85;
+      prof->ddObservations2.xcorrMaxEvStaDist = 85;
     }
     try
     {
-      prof->ddcfg.ddObservations2.xcorrMaxInterEvDist =
+      prof->ddObservations2.xcorrMaxInterEvDist =
           configGetDouble(prefix + "maxInterEventDistance");
     }
     catch (...)
     {
-      prof->ddcfg.ddObservations2.xcorrMaxInterEvDist = -1;
+      prof->ddObservations2.xcorrMaxInterEvDist = -1;
     }
 
     try
@@ -811,183 +826,184 @@ bool RTDD::validateParameters()
       prof->useTheoreticalManual = false;
     }
 
-    prefix = string("profile.") + *it +
+    prefix = string("profile.") + prof->name +
              ".doubleDifferenceObservations.waveformFiltering.";
     try
     {
-      prof->ddcfg.wfFilter.filterStr = configGetString(prefix + "filterString");
+      prof->ddCfg.wfFilter.filterStr = configGetString(prefix + "filterString");
     }
     catch (...)
     {
-      prof->ddcfg.wfFilter.filterStr = "ITAPER(1)>>BW_HLP(2,1,20)";
+      prof->ddCfg.wfFilter.filterStr = "ITAPER(1)>>BW_HLP(2,1,20)";
     }
     try
     {
-      prof->ddcfg.wfFilter.resampleFreq =
+      prof->ddCfg.wfFilter.resampleFreq =
           configGetDouble(prefix + "resampling");
     }
     catch (...)
     {
-      prof->ddcfg.wfFilter.resampleFreq = 400;
+      prof->ddCfg.wfFilter.resampleFreq = 400;
     }
 
-    prefix = string("profile.") + *it + ".doubleDifferenceObservations.snr.";
+    prefix =
+        string("profile.") + prof->name + ".doubleDifferenceObservations.snr.";
     try
     {
-      prof->ddcfg.snr.minSnr = configGetDouble(prefix + "minSnr");
+      prof->ddCfg.snr.minSnr = configGetDouble(prefix + "minSnr");
     }
     catch (...)
     {
-      prof->ddcfg.snr.minSnr = 2.;
+      prof->ddCfg.snr.minSnr = 2.;
     }
     try
     {
-      prof->ddcfg.snr.noiseStart = configGetDouble(prefix + "noiseStart");
+      prof->ddCfg.snr.noiseStart = configGetDouble(prefix + "noiseStart");
     }
     catch (...)
     {
-      prof->ddcfg.snr.noiseStart = -3.0;
+      prof->ddCfg.snr.noiseStart = -3.0;
     }
     try
     {
-      prof->ddcfg.snr.noiseEnd = configGetDouble(prefix + "noiseEnd");
+      prof->ddCfg.snr.noiseEnd = configGetDouble(prefix + "noiseEnd");
     }
     catch (...)
     {
-      prof->ddcfg.snr.noiseEnd = -0.350;
+      prof->ddCfg.snr.noiseEnd = -0.350;
     }
     try
     {
-      prof->ddcfg.snr.signalStart = configGetDouble(prefix + "signalStart");
+      prof->ddCfg.snr.signalStart = configGetDouble(prefix + "signalStart");
     }
     catch (...)
     {
-      prof->ddcfg.snr.signalStart = -0.350;
+      prof->ddCfg.snr.signalStart = -0.350;
     }
     try
     {
-      prof->ddcfg.snr.signalEnd = configGetDouble(prefix + "signalEnd");
+      prof->ddCfg.snr.signalEnd = configGetDouble(prefix + "signalEnd");
     }
     catch (...)
     {
-      prof->ddcfg.snr.signalEnd = 0.350;
+      prof->ddCfg.snr.signalEnd = 0.350;
     }
 
-    prefix = string("profile.") + *it + ".solver.";
+    prefix = string("profile.") + prof->name + ".solver.";
     try
     {
-      prof->ddcfg.ttt.type =
+      prof->ddCfg.ttt.type =
           configGetString(prefix + "travelTimeTable.tableType");
     }
     catch (...)
     {
-      prof->ddcfg.ttt.type = "libtau";
+      prof->ddCfg.ttt.type = "libtau";
     }
     try
     {
-      prof->ddcfg.ttt.model =
+      prof->ddCfg.ttt.model =
           configGetString(prefix + "travelTimeTable.tableModel");
     }
     catch (...)
     {
-      prof->ddcfg.ttt.model = "iasp91";
+      prof->ddCfg.ttt.model = "iasp91";
     }
     try
     {
-      prof->ddcfg.solver.type = configGetString(prefix + "solverType");
+      prof->solverCfg.type = configGetString(prefix + "solverType");
     }
     catch (...)
     {
-      prof->ddcfg.solver.type = "LSMR";
+      prof->solverCfg.type = "LSMR";
     }
     try
     {
-      prof->ddcfg.solver.algoIterations =
-          configGetInt(prefix + "algoIterations");
+      prof->solverCfg.algoIterations = configGetInt(prefix + "algoIterations");
     }
     catch (...)
     {
-      prof->ddcfg.solver.algoIterations = 20;
+      prof->solverCfg.algoIterations = 20;
     }
     try
     {
-      prof->ddcfg.solver.ttConstraint =
-          configGetBool(prefix + "useTTResiduals");
+      prof->solverCfg.ttConstraint = configGetBool(prefix + "useTTResiduals");
     }
     catch (...)
     {
-      prof->ddcfg.solver.ttConstraint = false;
+      prof->solverCfg.ttConstraint = false;
     }
     try
     {
-      prof->ddcfg.solver.dampingFactorStart =
+      prof->solverCfg.dampingFactorStart =
           configGetDouble(prefix + "dampingFactor.startingValue");
     }
     catch (...)
     {
-      prof->ddcfg.solver.dampingFactorStart = 0.3;
+      prof->solverCfg.dampingFactorStart = 0.3;
     }
     try
     {
-      prof->ddcfg.solver.dampingFactorEnd =
+      prof->solverCfg.dampingFactorEnd =
           configGetDouble(prefix + "dampingFactor.finalValue");
     }
     catch (...)
     {
-      prof->ddcfg.solver.dampingFactorEnd = 0.3;
+      prof->solverCfg.dampingFactorEnd = 0.3;
     }
 
     try
     {
-      prof->ddcfg.solver.downWeightingByResidualStart =
+      prof->solverCfg.downWeightingByResidualStart =
           configGetDouble(prefix + "downWeightingByResidual.startingValue");
     }
     catch (...)
     {
-      prof->ddcfg.solver.downWeightingByResidualStart = 10.;
+      prof->solverCfg.downWeightingByResidualStart = 10.;
     }
     try
     {
-      prof->ddcfg.solver.downWeightingByResidualEnd =
+      prof->solverCfg.downWeightingByResidualEnd =
           configGetDouble(prefix + "downWeightingByResidual.finalValue");
     }
     catch (...)
     {
-      prof->ddcfg.solver.downWeightingByResidualEnd = 3.;
+      prof->solverCfg.downWeightingByResidualEnd = 3.;
     }
     try
     {
-      prof->ddcfg.solver.usePickUncertainty =
+      prof->solverCfg.usePickUncertainty =
           configGetBool(prefix + "aPrioriWeights.usePickUncertainties");
     }
     catch (...)
     {
-      prof->ddcfg.solver.usePickUncertainty = false;
+      prof->solverCfg.usePickUncertainty = false;
     }
     try
     {
-      prof->ddcfg.solver.absTTDiffObsWeight =
+      prof->solverCfg.absTTDiffObsWeight =
           configGetDouble(prefix + "aPrioriWeights.absoluteTTObsWeight");
     }
     catch (...)
     {
-      prof->ddcfg.solver.absTTDiffObsWeight = 1.0;
+      prof->solverCfg.absTTDiffObsWeight = 1.0;
     }
     try
     {
-      prof->ddcfg.solver.xcorrObsWeight =
+      prof->solverCfg.xcorrObsWeight =
           configGetDouble(prefix + "aPrioriWeights.xcorrObsWeight");
     }
     catch (...)
     {
-      prof->ddcfg.solver.xcorrObsWeight = 1.0;
+      prof->solverCfg.xcorrObsWeight = 1.0;
     }
 
+    prof->ddCfg.recordStreamURL = recordStreamURL();
+
     // no reason to make those configurable
-    prof->ddcfg.ddObservations1.minWeight = 0;
-    prof->ddcfg.ddObservations2.minWeight = 0;
-    prof->ddcfg.solver.L2normalization    = true;
-    prof->ddcfg.solver.solverIterations   = 0;
+    prof->ddObservations1.minWeight  = 0;
+    prof->ddObservations2.minWeight  = 0;
+    prof->solverCfg.L2normalization  = true;
+    prof->solverCfg.solverIterations = 0;
 
     _profiles.push_back(prof);
   }
@@ -1084,61 +1100,33 @@ bool RTDD::run()
   // evaluate cross-correlation settings and exit
   if (!_config.evalXCorr.empty())
   {
-    bool profileFound = false;
-    for (ProfilePtr profile : _profiles)
-    {
-      if (profile->name == _config.evalXCorr)
-      {
-        profileFound = true;
-        profile->load(query(), &_cache, _eventParameters.get(),
-                      _config.workingDirectory, !_config.saveProcessingFiles,
-                      _config.cacheWaveforms, true, _config.dumpWaveforms,
-                      false);
-        profile->evalXCorr();
-        profile->unload();
-        break;
-      }
-    }
-    if (!profileFound)
-    {
-      SEISCOMP_ERROR("Profile %s not found in activeProfiles",
-                     _config.evalXCorr.c_str());
-      return false;
-    }
+    HDD::CatalogPtr catalog = getCatalog(_config.evalXCorr);
+    ProfilePtr profile      = getProfile(_config.forceProfile);
+    if (!catalog || !profile) return false;
+    profile->load(query(), &_cache, _eventParameters.get(),
+                  _config.workingDirectory, !_config.saveProcessingFiles,
+                  _config.cacheWaveforms, true, _config.dumpWaveforms, false,
+                  catalog);
+    profile->evalXCorr();
     return true;
   }
 
   // load catalog waveforms and exit
-  if (!_config.loadProfile.empty())
+  if (_config.loadProfile)
   {
-    bool profileFound = false;
-    for (ProfilePtr profile : _profiles)
-    {
-      if (profile->name == _config.loadProfile)
-      {
-        profileFound = true;
-        profile->load(query(), &_cache, _eventParameters.get(),
-                      _config.workingDirectory, !_config.saveProcessingFiles,
-                      true, _config.cacheAllWaveforms, _config.dumpWaveforms,
-                      true);
-        profile->unload();
-        break;
-      }
-    }
-    if (!profileFound)
-    {
-      SEISCOMP_ERROR("Profile %s not found in activeProfiles",
-                     _config.loadProfile.c_str());
-      return false;
-    }
+    ProfilePtr profile = getProfile(_config.forceProfile);
+    if (!profile) return false;
+    profile->load(query(), &_cache, _eventParameters.get(),
+                  _config.workingDirectory, !_config.saveProcessingFiles, true,
+                  _config.cacheAllWaveforms, _config.dumpWaveforms, true);
     return true;
   }
 
   // dump catalog and exit
   if (!_config.dumpCatalog.empty())
   {
-    HDD::CatalogPtr cat(new HDD::Catalog());
-    HDD::DataSource dataSrc(query(), &_cache, _eventParameters.get());
+    HDD::ScCatalogPtr cat(new HDD::ScCatalog());
+    CatalogDataSrc dataSrc(query(), &_cache, _eventParameters.get());
 
     if (commandline().hasOption("dump-catalog-options"))
     {
@@ -1197,9 +1185,10 @@ bool RTDD::run()
     HDD::CatalogPtr cat;
     if (tokens.size() == 1)
     {
-      HDD::DataSource dataSrc(query(), &_cache, _eventParameters.get());
-      cat = new HDD::Catalog();
-      cat->add(tokens[0], dataSrc);
+      CatalogDataSrc dataSrc(query(), &_cache, _eventParameters.get());
+      HDD::ScCatalogPtr cat_ = new HDD::ScCatalog();
+      cat_->add(tokens[0], dataSrc);
+      cat = cat_;
     }
     else if (tokens.size() == 3)
     {
@@ -1230,39 +1219,26 @@ bool RTDD::run()
   }
 
   // relocate full catalog and exit
-  if (!_config.relocateProfile.empty())
+  if (!_config.relocateCatalog.empty())
   {
-    bool profileFound = false;
-    for (ProfilePtr profile : _profiles)
+    HDD::CatalogPtr catalog = getCatalog(_config.relocateCatalog);
+    ProfilePtr profile      = getProfile(_config.forceProfile);
+    if (!catalog || !profile) return false;
+    profile->load(query(), &_cache, _eventParameters.get(),
+                  _config.workingDirectory, !_config.saveProcessingFiles,
+                  _config.cacheWaveforms, true, _config.dumpWaveforms, false,
+                  catalog);
+    try
     {
-      if (profile->name == _config.relocateProfile)
-      {
-        profileFound = true;
-        profile->load(query(), &_cache, _eventParameters.get(),
-                      _config.workingDirectory, !_config.saveProcessingFiles,
-                      _config.cacheWaveforms, true, _config.dumpWaveforms,
-                      false);
-        try
-        {
-          HDD::CatalogPtr relocatedCat = profile->relocateCatalog();
-          relocatedCat->writeToFile("reloc-event.csv", "reloc-phase.csv",
-                                    "reloc-station.csv");
-          SEISCOMP_INFO("Wrote files reloc-event.csv, reloc-phase.csv, "
-                        "reloc-station.csv");
-        }
-        catch (exception &e)
-        {
-          SEISCOMP_ERROR("Cannot relocate profile catalog: %s", e.what());
-        }
-        profile->unload();
-        break;
-      }
+      HDD::CatalogPtr relocatedCat = profile->relocateCatalog();
+      relocatedCat->writeToFile("reloc-event.csv", "reloc-phase.csv",
+                                "reloc-station.csv");
+      SEISCOMP_INFO("Wrote files reloc-event.csv, reloc-phase.csv, "
+                    "reloc-station.csv");
     }
-    if (!profileFound)
+    catch (exception &e)
     {
-      SEISCOMP_ERROR("Profile %s not found in activeProfiles",
-                     _config.relocateProfile.c_str());
-      return false;
+      SEISCOMP_ERROR("Cannot relocate profile catalog: %s", e.what());
     }
     return true;
   }
@@ -1270,9 +1246,8 @@ bool RTDD::run()
   // relocate passed origin and exit
   if (!_config.originIDs.empty())
   {
-    _config.cacheAllWaveforms = true;
-    _config.forceProcessing   = true; // force process of any origin
-    _config.profileTimeAlive  = 3600; // do not preload profile
+    _config.forceProcessing  = true; // force process of any origin
+    _config.profileTimeAlive = 3600; // do not preload profile
 
     // split multiple origins
     std::vector<std::string> ids;
@@ -1316,9 +1291,8 @@ bool RTDD::run()
       return false;
     }
 
-    _config.cacheAllWaveforms = true;
-    _config.forceProcessing   = true; // force process of any origin
-    _config.profileTimeAlive  = 3600; // do not preload profile
+    _config.forceProcessing  = true; // force process of any origin
+    _config.profileTimeAlive = 3600; // do not preload profile
 
     vector<OriginPtr> origins;
     for (unsigned i = 0; i < _eventParameters->originCount(); i++)
@@ -1392,7 +1366,7 @@ void RTDD::handleMessage(Core::Message *msg)
     // Inform scolv we are going to relocate this origin or not
     reloc_resp.setRequestAccepted(!reloc_resp.hasError());
 
-    if (!connection()->send("SERVICE_REQUEST", &reloc_resp))
+    if (!connection()->send("SERVICE_PROVIDE", &reloc_resp))
       SEISCOMP_ERROR("Failed sending relocation response");
 
     if (!reloc_resp.hasError())
@@ -1418,7 +1392,7 @@ void RTDD::handleMessage(Core::Message *msg)
                                             : "no relocation errors")
                          .c_str());
 
-      if (!connection()->send("SERVICE_REQUEST", &reloc_resp))
+      if (!connection()->send("SERVICE_PROVIDE", &reloc_resp))
         SEISCOMP_ERROR("Failed sending relocation response");
     }
   }
@@ -2103,6 +2077,48 @@ void RTDD::convertOrigin(const HDD::CatalogCPtr &relocatedOrg,
   newOrg->setQuality(oq);
 }
 
+HDD::Catalog *RTDD::getCatalog(const std::string &catalogPath)
+{
+  std::vector<std::string> tokens;
+  boost::split(tokens, catalogPath, boost::is_any_of(","),
+               boost::token_compress_on);
+
+  try
+  {
+    if (tokens.size() == 1) // single file containing origin ids
+    {
+      CatalogDataSrc dataSrc(query(), &_cache, _eventParameters.get());
+      HDD::ScCatalog *cat = new HDD::ScCatalog();
+      cat->add(tokens[0], dataSrc);
+      return cat;
+    }
+    else if (tokens.size() ==
+             3) // file triplet: station.csv,event.csv,phase.csv
+    {
+      return new HDD::Catalog(tokens[0], tokens[1], tokens[2], true);
+    }
+  }
+  catch (...)
+  {}
+  SEISCOMP_ERROR("Cannot load catalog %s", catalogPath.c_str());
+  return nullptr;
+}
+
+RTDD::ProfilePtr RTDD::getProfile(const std::string &profile)
+{
+  if (profile.empty())
+  {
+    SEISCOMP_ERROR("No profile has been selected");
+    return nullptr;
+  }
+  for (ProfilePtr p : _profiles)
+  {
+    if (p->name == profile) return p;
+  }
+  SEISCOMP_ERROR("Profile %s not found", profile.c_str());
+  return nullptr;
+}
+
 RTDD::ProfilePtr RTDD::getProfile(const DataModel::Origin *origin,
                                   const std::string &forceProfile)
 {
@@ -2303,6 +2319,7 @@ std::vector<DataModel::OriginPtr> RTDD::fetchOrigins(const std::string &idFile,
 // Profile class
 
 RTDD::Profile::Profile() { loaded = false; }
+RTDD::Profile::~Profile() { unload(); }
 
 void RTDD::Profile::load(DatabaseQuery *query,
                          PublicObjectTimeSpanBuffer *cache,
@@ -2312,7 +2329,8 @@ void RTDD::Profile::load(DatabaseQuery *query,
                          bool cacheWaveforms,
                          bool cacheAllWaveforms,
                          bool debugWaveforms,
-                         bool preloadData)
+                         bool preloadData,
+                         const HDD::CatalogCPtr &alternativeCatalog)
 {
   if (loaded) return;
 
@@ -2324,21 +2342,25 @@ void RTDD::Profile::load(DatabaseQuery *query,
   this->cache           = cache;
   this->eventParameters = eventParameters;
 
-  // load the catalog either from seiscomp event/origin ids or from extended
-  // format
-  HDD::CatalogPtr ddbgc;
-  if (!eventIDFile.empty())
+  // load the catalog
+  HDD::CatalogCPtr ddbgc;
+  if (alternativeCatalog) // force this catalog
   {
-    HDD::DataSource dataSrc(query, cache, eventParameters);
-    ddbgc = new HDD::Catalog();
-    ddbgc->add(eventIDFile, dataSrc);
+    ddbgc = alternativeCatalog;
   }
-  else
+  else if (!eventIDFile.empty()) // catalog is a list of origin ids
+  {
+    CatalogDataSrc dataSrc(query, cache, eventParameters);
+    HDD::ScCatalogPtr ddbgc_ = new HDD::ScCatalog();
+    ddbgc_->add(eventIDFile, dataSrc);
+    ddbgc = ddbgc_;
+  }
+  else // catalog is extended format station.csv,event.csv,phase.csv
   {
     ddbgc = new HDD::Catalog(stationFile, eventFile, phaFile);
   }
 
-  hypodd = new HDD::HypoDD(ddbgc, ddcfg, pWorkingDir);
+  hypodd = new HDD::HypoDD(ddbgc, ddCfg, pWorkingDir);
   hypodd->setWorkingDirCleanup(cleanupWorkingDir);
   hypodd->setUseCatalogWaveformDiskCache(cacheWaveforms);
   hypodd->setWaveformCacheAll(cacheAllWaveforms);
@@ -2371,11 +2393,11 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   }
   lastUsage = Core::Time::GMT();
 
-  HDD::DataSource dataSrc(query, cache, eventParameters);
+  CatalogDataSrc dataSrc(query, cache, eventParameters);
 
   // we pass the stations information from the background catalog, to avoid
   // wasting time accessing the inventory again for information we already have
-  HDD::CatalogPtr orgToRelocate = new HDD::Catalog(
+  HDD::ScCatalogPtr orgToRelocate = new HDD::ScCatalog(
       hypodd->getCatalog()->getStations(), map<unsigned, HDD::Catalog::Event>(),
       unordered_multimap<unsigned, HDD::Catalog::Phase>());
   orgToRelocate->add({org}, dataSrc);
@@ -2385,7 +2407,8 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   else
     hypodd->setUseArtificialPhases(this->useTheoreticalAuto);
 
-  return hypodd->relocateSingleEvent(orgToRelocate);
+  return hypodd->relocateSingleEvent(orgToRelocate, ddObservations1,
+                                     ddObservations2, solverCfg);
 }
 
 HDD::CatalogPtr RTDD::Profile::relocateCatalog()
@@ -2398,7 +2421,7 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog()
   }
   lastUsage = Core::Time::GMT();
   hypodd->setUseArtificialPhases(this->useTheoreticalManual);
-  return hypodd->relocateCatalog();
+  return hypodd->relocateMultiEvents(ddObservations2, solverCfg);
 }
 
 void RTDD::Profile::evalXCorr()
@@ -2411,7 +2434,7 @@ void RTDD::Profile::evalXCorr()
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::GMT();
-  hypodd->evalXCorr();
+  hypodd->evalXCorr(ddObservations2);
 }
 
 // End Profile class

@@ -1,0 +1,51 @@
+#
+# property defaults file for Seismicity Viewer
+#
+
+#
+seismicity.title = Irpinia 
+
+#seismicity.grid = vinti.hdr
+#seismicity.event = vinti.hyp
+seismicity.eventfiletype=NLLOC
+
+seismicity.binaryout = false
+
+seismicity.init.plotfirst=NO
+#seismicity.init.rotation=0,0,0
+
+seismicity.show.axes3d=NO
+seismicity.show.axis.p=NO
+seismicity.show.axis.t=NO
+seismicity.show.ellipsoid=NO
+seismicity.show.expectation=NO
+seismicity.show.faultplane=NO
+seismicity.show.firstmotion=NO
+seismicity.show.magnitude=NO
+seismicity.show.maxlikelihood=YES
+seismicity.show.probability=YES
+seismicity.show.residual.all=NO
+seismicity.show.residual.p=YES
+seismicity.show.residual.s=NO
+seismicity.show.station=YES
+
+seismicity.lines.black =
+seismicity.lines.blue =
+seismicity.lines.cyan =
+seismicity.lines.darkGray = data_geog/basilicata.xy#Basilicata
+seismicity.lines.gray = data_geog/campania.xy#Campania
+seismicity.lines.lightGray = data_geog/puglia.xy#Puglia
+seismicity.lines.green = 
+seismicity.lines.magenta =
+seismicity.lines.orange =
+seismicity.lines.pink =
+seismicity.lines.red =
+seismicity.lines.white =
+seismicity.lines.yellow =
+
+seismicity.text = 
+
+#seismicity.symbols.0=ipocentro1.xyz;FILLED_SPHERE;0,0,255;ipocentro1
+#seismicity.symbols.1=ipocentro2.xyz;FILLED_SPHERE;0,255,0;ipocentro2
+#seismicity.symbols.2=ipocentro3.xyz;FILLED_SPHERE;255,181,5;ipocentro3
+

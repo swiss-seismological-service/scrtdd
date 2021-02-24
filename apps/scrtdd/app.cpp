@@ -28,7 +28,7 @@ void readConfig(const Seiscomp::Client::Application *,
 {}
 
 template <typename T>
-void readCLI(const Seiscomp::Client::CommandLine *,
+void readCLI(const Seiscomp::System::CommandLine *,
              T *storage,
              const char *name)
 {}
@@ -47,7 +47,7 @@ void readCLI(const Seiscomp::Client::CommandLine *,
   }
 
 template <>
-void readCLI<bool>(const Seiscomp::Client::CommandLine *cli,
+void readCLI<bool>(const Seiscomp::System::CommandLine *cli,
                    bool *storage,
                    const char *name)
 {
@@ -68,7 +68,7 @@ template <typename T> struct OptionImpl : Application::Option
         storage(var)
   {}
 
-  void bind(Seiscomp::Client::CommandLine *cli)
+  void bind(Seiscomp::System::CommandLine *cli)
   {
     if (cliParam == nullptr) return;
     if (cliGroup != nullptr) cli->addGroup(cliGroup);
@@ -79,7 +79,7 @@ template <typename T> struct OptionImpl : Application::Option
                      storage, cliDefault);
   }
 
-  bool get(Seiscomp::Client::CommandLine *cli)
+  bool get(Seiscomp::System::CommandLine *cli)
   {
     if (cliParam == nullptr) return true;
     if (cliSwitch) readCLI(cli, storage, cliParam);
@@ -111,7 +111,7 @@ template <typename T> struct OptionVecImpl : Application::Option
         storage(var)
   {}
 
-  void bind(Seiscomp::Client::CommandLine *cli)
+  void bind(Seiscomp::System::CommandLine *cli)
   {
     if (cliParam == nullptr) return;
 
@@ -120,7 +120,7 @@ template <typename T> struct OptionVecImpl : Application::Option
     cli->addOption(cliGroup ? cliGroup : "Generic", cliParam, cliDesc, storage);
   }
 
-  bool get(Seiscomp::Client::CommandLine *cli)
+  bool get(Seiscomp::System::CommandLine *cli)
   {
     if (cliParam == nullptr) return true;
     if (cliSwitch) readCLI(cli, storage, cliParam);
