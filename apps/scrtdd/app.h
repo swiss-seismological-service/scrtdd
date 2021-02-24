@@ -40,8 +40,8 @@ public:
           cliDesc(clidesc), cliDefault(clidefault), cliSwitch(cliswitch)
     {}
 
-    virtual void bind(Seiscomp::System::CommandLine *cli)      = 0;
-    virtual bool get(Seiscomp::System::CommandLine *cli)       = 0;
+    virtual void bind(Seiscomp::Client::CommandLine *cli)      = 0;
+    virtual bool get(Seiscomp::Client::CommandLine *cli)       = 0;
     virtual bool get(const Seiscomp::Client::Application *app) = 0;
     virtual void printStorage(std::ostream &os)                = 0;
 

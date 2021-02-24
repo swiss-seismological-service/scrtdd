@@ -388,7 +388,7 @@ void writeTrace(GenericRecordCPtr trace, const std::string &file)
   {
     std::ofstream ofs(file);
     IO::MSeedRecord msRec(*trace);
-    int reclen = msRec.data()->size() * msRec.data()->elementSize() + 64;
+    int reclen = msRec.data()->size() * msRec.data()->bytes() + 64;
     reclen     = nextPowerOf2<int>(reclen, 128,
                                1048576); // MINRECLEN 128, MAXRECLEN 1048576
     if (reclen > 0)
