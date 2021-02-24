@@ -25,7 +25,7 @@ The actual methods are based on the paper "Near-Real-Time Double-Difference Even
 
 The double-difference equation system solver uses [LSQR by Chris Paige, Michael Saunders](<https://web.stanford.edu/group/SOL/software/lsqr/>) and [LSMR by David Fong, Michael Saunders](<https://web.stanford.edu/group/SOL/software/lsmr/>) algorithms from [this](<https://github.com/tvercaut/LSQR-cpp/>) Apache Licensed beautiful implementation by Tom Vercautereen.
 
-SCRTDD also supports [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) grid file format alongside the formats natively supported y SeisComP (LOCSAT and libtau). A feature that enable 3D velocity models support within the tool.
+SCRTDD also supports [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) grid file format alongside the formats natively supported by SeisComP (LOCSAT and libtau). A feature that enables 3D velocity models support within the tool.
 
 ## Compile
 
@@ -41,7 +41,7 @@ git clone https://github.com/SeisComP/seiscomp.git seiscomp
 cd seiscomp/src/extras
 git clone https://github.com/swiss-seismological-service/scrtdd.git
 cd scrtdd
-# now checkout the tag pointing to the latest version: vX.Y.Z (e.g. v1.2.4)
+# now checkout the tag pointing to the latest version: vX.Y.Z (e.g. v1.3.0)
 git checkout vX.Y.Z
 </pre>
 For compiling SeisComP, please refer to https://github.com/SeisComP/seiscomp#build
@@ -423,7 +423,7 @@ As an example you can see below the single event relocation of several manually 
 
 Once we are happy with the configuration we can simply enable and start `scrtdd` as any other SeisComP module and it will start relocating origins as soon as they arrive in the messsaging system.
 
-### 2.4 Phase update
+### 2.3 Phase update
 
 `scrtdd` uses cross-correlation to detect phases at stations with no associated picks in order to fix the pick time and uncertainty of automatic picks. Those features are especially useful in real-time to increase the quality and number of double-difference observations when automatic origins have only few picks/phases.
 
@@ -435,7 +435,7 @@ Picks that have been updated or created by `scrtdd` are identifiable by a `x` su
 
 Manual picks are never modified.
 
-### 2.5 Avoiding Relocation Loops
+### 2.4 Avoiding Relocation Loops
 
 `scrtdd` listens and sends messages to the LOCATION group. In a default installation where the only locator is `scautoloc` that's not an issue: `scautoloc` will send an origin to LOCATION and `scrtdd` will receive it and send an updated origin to LOCATION.  However, when thare are multiple (re)locators (e.g. scanloc, screloc) that listen to LOCATION and send their own updated origin to LOCATION too, then an infinite loop happens! In this case a new messaging group needs to be created, e.g. RELOCATION, so that the origins flow from LOCATION to RELOCATION without going back.
 
