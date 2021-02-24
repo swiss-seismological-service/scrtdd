@@ -516,9 +516,8 @@ void Grid::getValuesAt3DLocation(double xloc,
                            "dx %.2f dy %.2f dz %.2f "
                            "numx %u numy %u numz %u)",
                            xloc, yloc, zloc, info.hdrFilePath.c_str(),
-                           info.origx,info.origy, info.origz,
-                           info.dx,info.dy, info.dz,
-                           info.numx,info.numy, info.numz); 
+                           info.origx, info.origy, info.origz, info.dx, info.dy,
+                           info.dz, info.numx, info.numy, info.numz);
     throw runtime_error(msg.c_str());
   }
 
@@ -577,9 +576,8 @@ void Grid::getValuesAt2DLocation(double yloc,
                            "dx %.2f dy %.2f dz %.2f "
                            "numx %u numy %u numz %u)",
                            xloc, yloc, zloc, info.hdrFilePath.c_str(),
-                           info.origx,info.origy, info.origz,
-                           info.dx,info.dy, info.dz,
-                           info.numx,info.numy, info.numz);
+                           info.origx, info.origy, info.origz, info.dx, info.dy,
+                           info.dz, info.numx, info.numy, info.numz);
     throw runtime_error(msg.c_str());
   }
 
