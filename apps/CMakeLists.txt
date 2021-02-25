@@ -1,1 +1,1 @@
-SUBDIRS(scrtdd)
+SUBDIRS(scrtdd sclistorg)

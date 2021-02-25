@@ -1,0 +1,333 @@
+#!/usr/bin/env seiscomp-python
+# -*- coding: utf-8 -*-
+############################################################################
+# Copyright (C) GFZ Potsdam, ETH Zuerich                                   #
+#                                                                          #
+# All rights reserved.                                                     #
+#                                                                          #
+# GNU Affero General Public License Usage                                  #
+# This file may be used under the terms of the GNU Affero                  #
+# Public License version 3.0 as published by the Free Software Foundation  #
+# and appearing in the file LICENSE included in the packaging of this      #
+# file. Please review the following information to ensure the GNU Affero   #
+# Public License version 3.0 requirements will be met:                     #
+# https://www.gnu.org/licenses/agpl-3.0.html.                              #
+############################################################################
+
+import sys
+import seiscomp.core
+import seiscomp.client
+import seiscomp.datamodel
+import seiscomp.logging
+from collections import namedtuple
+
+
+def _parseTime(timestring):
+    t = seiscomp.core.Time()
+    if t.fromString(timestring, "%F %T"):
+        return t
+    if t.fromString(timestring, "%FT%T"):
+        return t
+    if t.fromString(timestring, "%FT%TZ"):
+        return t
+    return None
+
+
+class EventList(seiscomp.client.Application):
+
+    def __init__(self, argc, argv):
+        seiscomp.client.Application.__init__(self, argc, argv)
+
+        self.setMessagingEnabled(False)
+        self.setDatabaseEnabled(True, False)
+        self.setDaemonEnabled(False)
+
+        self._startTime = None
+        self._endTime = None
+        self._modifiedAfterTime = None
+
+    def createCommandLineDescription(self):
+        self.commandline().addGroup("Events")
+        self.commandline().addStringOption("Events", "begin",
+             "specify the lower bound of the time interval")
+        self.commandline().addStringOption(
+            "Events", "end", "specify the upper bound of the time interval")
+        self.commandline().addStringOption("Events", "modified-after",
+             "select events modified after the specified time")
+        self.commandline().addStringOption("Events", "ev-type",
+             "include only events whose type is one of the values provided (comma separated list)")
+        self.commandline().addOption(
+             "Events", "simple", "Print only origin ids")
+        self.commandline().addGroup("Origins")
+        self.commandline().addStringOption(
+            "Origins", "org-type", "preferred, last or first (default is preferred)")
+        self.commandline().addOption(
+             "Origins", "manual-only", "Include only manual origins")
+        self.commandline().addOption(
+             "Origins", "auto-only", "Inlude only automatic origins")
+        self.commandline().addStringOption("Origins", "inc-author",
+             "include only origins whose author is one of the values provided (comma separated list)")
+        self.commandline().addStringOption("Origins", "excl-author",
+             "exclude origins whose author is one of the values provided (comma separated list)")
+        self.commandline().addStringOption("Origins", "inc-method",
+             "include only origins whose methodID is one of the values provided (comma separated list)")
+        self.commandline().addStringOption("Origins", "excl-method",
+             "exclue origins whose methodID is one of the values provided (comma separated list)")
+        self.commandline().addStringOption("Origins", "inc-agency",
+             "include only origins whose agencyID is one of the values provided (comma separated list)")
+        self.commandline().addStringOption("Origins", "excl-agency",
+             "exclude origins whose agencyID is one of the values provided (comma separated list)")
+        self.commandline().addStringOption("Origins", "area",
+             "Include only origins in the rectangular area provided: MinLat,MinLon,MaxLat,MaxLon")
+        return True
+
+    def init(self):
+        if not seiscomp.client.Application.init(self):
+            return False
+
+        try:
+            start = self.commandline().optionString("begin")
+        except BaseException:
+            start = "1900-01-01T00:00:00Z"
+        self._startTime = _parseTime(start)
+        if self._startTime is None:
+            seiscomp.logging.error("Wrong 'begin' format '%s'" % start)
+            return False
+        seiscomp.logging.debug("Setting start to %s" %
+                               self._startTime.toString("%FT%TZ"))
+
+        try:
+            end = self.commandline().optionString("end")
+        except BaseException:
+            end = "2500-01-01T00:00:00Z"
+        self._endTime = _parseTime(end)
+        if self._endTime is None:
+            seiscomp.logging.error("Wrong 'end' format '%s'" % end)
+            return False
+        seiscomp.logging.debug("Setting end to %s" %
+                               self._endTime.toString("%FT%TZ"))
+
+        try:
+            modifiedAfter = self.commandline().optionString("modified-after")
+            self._modifiedAfterTime = _parseTime(modifiedAfter)
+            if self._modifiedAfterTime is None:
+                seiscomp.logging.error(
+                    "Wrong 'modified-after' format '%s'" % modifiedAfter)
+                return False
+            seiscomp.logging.debug(
+                "Setting 'modified-after' time to %s" %
+                self._modifiedAfterTime.toString("%FT%TZ"))
+        except BaseException:
+            pass
+
+        try:
+            self.evtypes = self.commandline().optionString("ev-type")
+        except BaseException:
+            self.evtypes = None
+        try:
+            self.orgType = self.commandline().optionString("org-type")
+        except BaseException:
+            self.orgType = "preferred"
+
+        self.simple = self.commandline().hasOption("simple")
+        self.manualOnly = self.commandline().hasOption("manual-only")
+        self.automaticOnly = self.commandline().hasOption("auto-only")
+
+        try:
+            self.incAuthor = self.commandline().optionString("inc-author").split(',')
+        except BaseException:
+            self.incAuthor = None
+        try:
+            self.exclAuthor = self.commandline().optionString("excl-author").split(',')
+        except BaseException:
+            self.exclAuthor = None
+
+        try:
+            self.incAgencyID = self.commandline().optionString("inc-agency").split(',')
+        except BaseException:
+            self.incAgencyID = None
+
+        try:
+            self.exclAgencyID = self.commandline().optionString("excl-agency").split(',')
+        except BaseException:
+            self.exclAgencyID = None
+
+        try:
+            self.incMethodID = self.commandline().optionString("inc-method").split(',')
+        except BaseException:
+            self.incMethodID = None
+        try:
+            self.exclMethodID = self.commandline().optionString("excl-method").split(',')
+        except BaseException:
+            self.exclMethodID = None
+        try:
+            tokens = self.commandline().optionString("area").split(',')
+            Area = namedtuple('Area', 'minLat minLon maxLat maxLon')
+            self.area = Area(float(tokens[0]), float(tokens[1]),
+                        float(tokens[2]), float(tokens[3]))
+        except BaseException:
+            self.area = None
+
+        return True
+
+    def run(self):
+
+        if not self.simple:
+            sys.stdout.write("seiscompId,event,eventType,evalMode,creationTime,modificationTime,agencyID,author,methodID,latitude,longitude\n")
+
+        events = []
+        for obj in self.query().getEvents(self._startTime, self._endTime):
+            evt = seiscomp.datamodel.Event.Cast(obj)
+            if not evt:
+                continue
+
+            if self._modifiedAfterTime is not None:
+                try:
+                    if evt.creationInfo().modificationTime() < self._modifiedAfterTime:
+                        continue
+                except ValueError:
+                    continue
+
+            try:
+                evtype = seiscomp.datamodel.EEventTypeNames.name(evt.type())
+            except ValueError:
+                continue
+            if (self.evtypes is not None) and \
+                (evtype is None or evtype not in self.evtypes):
+                continue
+
+            events.append( (evt.publicID(), evt.preferredOriginID(),evtype) )
+
+        for (evId,preferredOrgId,evtype) in events:
+            orgInfo = self.findOrigin(evId, preferredOrgId)
+            if orgInfo is None:
+                continue
+            if self.simple:
+                sys.stdout.write("%s\n" % orgInfo.id)
+            else:
+                sys.stdout.write("%s,%s,%s,%s,%s,%s,%s,%s,%s,%f,%f\n" % (orgInfo.id, evId, evtype,
+                    orgInfo.evalMode, orgInfo.creationTime, orgInfo.modificationTime, orgInfo.agencyID,
+                    orgInfo.author, orgInfo.methodID, orgInfo.latitude, orgInfo.longitude))
+
+        return True
+
+    def findOrigin(self, evId, preferredOrgId):
+        origins = []
+        if self.orgType == "preferred":
+            obj = self.query().getObject(seiscomp.datamodel.Origin.TypeInfo(), preferredOrgId)
+            org = seiscomp.datamodel.Origin.Cast(obj)
+            if org is not None: 
+                origins.append(org)
+        else:
+            for obj in self.query().getOrigins(evId):
+                org = seiscomp.datamodel.Origin.Cast(obj)
+                if org is not None:
+                    origins.append(org)
+
+        OrgInfo = namedtuple('OrgInfo', 'id evalMode creationTime modificationTime agencyID author methodID latitude longitude')
+        orgInfo = None
+        for currOrg in origins:
+
+            try:
+                evalMode = currOrg.evaluationMode()
+            except ValueError:
+                evalMode = None
+
+            try:
+                creationTime = currOrg.creationInfo().creationTime()
+            except ValueError:
+                creationTime = None
+
+            try:
+                modificationTime = currOrg.creationInfo().modificationTime()
+            except ValueError:
+                modificationTime = None
+
+            try:
+                author = currOrg.creationInfo().author()
+            except ValueError:
+                author = None
+
+            try:
+                agencyID = currOrg.creationInfo().agencyID()
+            except ValueError:
+                agencyID = None
+
+            try:
+                methodID = currOrg.methodID()
+            except ValueError:
+                methodID = None
+
+            try:
+                latitude  = currOrg.latitude().value()
+                longitude = currOrg.longitude().value()
+            except ValueError:
+                latitude = None
+                longitude = None
+
+            if self.automaticOnly and evalMode != seiscomp.datamodel.AUTOMATIC:
+                continue
+
+            if self.manualOnly and evalMode != seiscomp.datamodel.MANUAL:
+                continue
+
+            if self.orgType == "last" and (org is not None) and \
+               (creationTime < org.creationInfo().creationTime()):
+                continue
+
+            if self.orgType == "first" and (org is not None) and \
+               (creationTime > org.creationInfo().creationTime()):
+                continue
+
+            if (self.incAuthor is not None) and (author is None or
+               author not in self.incAuthor):
+                continue
+
+            if (self.exclAuthor is not None) and (author is not None) and \
+               (author in self.exclAuthor):
+                continue
+
+            if (self.incAgencyID is not None) and (agencyID is None or
+                agencyID not in self.incAgencyID):
+                continue
+
+            if (self.exclAgencyID is not None) and (agencyID is not None) and \
+                (agencyID in self.exclAgencyID):
+                continue
+
+            if (self.incMethodID is not None) and (methodID is None or
+                methodID not in self.incMethodID):
+                continue
+
+            if (self.exclMethodID is not None) and (methodID is not None) and \
+                (methodID in self.exclMethodID):
+                continue
+
+            if self.area is not None:
+
+                if latitude < self.area.minLat or latitude > self.area.maxLat:
+                    continue
+
+                lonRange = self.area.maxLon - self.area.minLon
+                if lonRange < 0: lonRange += 360.0
+                lonDelta = longitude - self.area.minLon
+                if lonDelta < 0: lonDelta += 360.0
+                if lonDelta > lonRange:
+                    continue
+
+            evalModeStr = ""
+            if evalMode is not None:
+                evalModeStr = seiscomp.datamodel.EEvaluationModeNames.name(evalMode)
+            orgInfo = OrgInfo(currOrg.publicID(), evalModeStr, creationTime, 
+                    modificationTime, agencyID, author, methodID, latitude, longitude)
+
+        return orgInfo
+
+
+def main():
+    app = EventList(len(sys.argv), sys.argv)
+    app()
+
+
+if __name__ == "__main__":
+    main()
