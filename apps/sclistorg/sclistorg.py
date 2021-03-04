@@ -15,10 +15,10 @@
 ############################################################################
 
 import sys
-import seiscomp3.Core      as sc_core
-import seiscomp3.Client    as sc_client
-import seiscomp3.DataModel as sc_datamodel
-import seiscomp3.Logging   as sc_logging
+import seiscomp.core      as sc_core
+import seiscomp.client    as sc_client
+import seiscomp.datamodel as sc_datamodel
+import seiscomp.logging   as sc_logging
 from collections import namedtuple
 
 
