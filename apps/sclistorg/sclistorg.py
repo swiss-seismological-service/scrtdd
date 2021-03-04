@@ -15,15 +15,15 @@
 ############################################################################
 
 import sys
-import seiscomp.core
-import seiscomp.client
-import seiscomp.datamodel
-import seiscomp.logging
+import seiscomp3.Core      as sc_core
+import seiscomp3.Client    as sc_client
+import seiscomp3.DataModel as sc_datamodel
+import seiscomp3.Logging   as sc_logging
 from collections import namedtuple
 
 
 def _parseTime(timestring):
-    t = seiscomp.core.Time()
+    t = sc_core.Time()
     if t.fromString(timestring, "%F %T"):
         return t
     if t.fromString(timestring, "%FT%T"):
@@ -33,10 +33,10 @@ def _parseTime(timestring):
     return None
 
 
-class EventList(seiscomp.client.Application):
+class EventList(sc_client.Application):
 
     def __init__(self, argc, argv):
-        seiscomp.client.Application.__init__(self, argc, argv)
+        sc_client.Application.__init__(self, argc, argv)
 
         self.setMessagingEnabled(False)
         self.setDatabaseEnabled(True, False)
@@ -82,7 +82,7 @@ class EventList(seiscomp.client.Application):
         return True
 
     def init(self):
-        if not seiscomp.client.Application.init(self):
+        if not sc_client.Application.init(self):
             return False
 
         try:
@@ -91,9 +91,9 @@ class EventList(seiscomp.client.Application):
             start = "1900-01-01T00:00:00Z"
         self._startTime = _parseTime(start)
         if self._startTime is None:
-            seiscomp.logging.error("Wrong 'begin' format '%s'" % start)
+            sc_logging.error("Wrong 'begin' format '%s'" % start)
             return False
-        seiscomp.logging.debug("Setting start to %s" %
+        sc_logging.debug("Setting start to %s" %
                                self._startTime.toString("%FT%TZ"))
 
         try:
@@ -102,19 +102,19 @@ class EventList(seiscomp.client.Application):
             end = "2500-01-01T00:00:00Z"
         self._endTime = _parseTime(end)
         if self._endTime is None:
-            seiscomp.logging.error("Wrong 'end' format '%s'" % end)
+            sc_logging.error("Wrong 'end' format '%s'" % end)
             return False
-        seiscomp.logging.debug("Setting end to %s" %
+        sc_logging.debug("Setting end to %s" %
                                self._endTime.toString("%FT%TZ"))
 
         try:
             modifiedAfter = self.commandline().optionString("modified-after")
             self._modifiedAfterTime = _parseTime(modifiedAfter)
             if self._modifiedAfterTime is None:
-                seiscomp.logging.error(
+                sc_logging.error(
                     "Wrong 'modified-after' format '%s'" % modifiedAfter)
                 return False
-            seiscomp.logging.debug(
+            sc_logging.debug(
                 "Setting 'modified-after' time to %s" %
                 self._modifiedAfterTime.toString("%FT%TZ"))
         except BaseException:
@@ -177,7 +177,7 @@ class EventList(seiscomp.client.Application):
 
         events = []
         for obj in self.query().getEvents(self._startTime, self._endTime):
-            evt = seiscomp.datamodel.Event.Cast(obj)
+            evt = sc_datamodel.Event.Cast(obj)
             if not evt:
                 continue
 
@@ -189,7 +189,7 @@ class EventList(seiscomp.client.Application):
                     continue
 
             try:
-                evtype = seiscomp.datamodel.EEventTypeNames.name(evt.type())
+                evtype = sc_datamodel.EEventTypeNames.name(evt.type())
             except ValueError:
                 continue
             if (self.evtypes is not None) and \
@@ -214,13 +214,13 @@ class EventList(seiscomp.client.Application):
     def findOrigin(self, evId, preferredOrgId):
         origins = []
         if self.orgType == "preferred":
-            obj = self.query().getObject(seiscomp.datamodel.Origin.TypeInfo(), preferredOrgId)
-            org = seiscomp.datamodel.Origin.Cast(obj)
+            obj = self.query().getObject(sc_datamodel.Origin.TypeInfo(), preferredOrgId)
+            org = sc_datamodel.Origin.Cast(obj)
             if org is not None: 
                 origins.append(org)
         else:
             for obj in self.query().getOrigins(evId):
-                org = seiscomp.datamodel.Origin.Cast(obj)
+                org = sc_datamodel.Origin.Cast(obj)
                 if org is not None:
                     origins.append(org)
 
@@ -265,10 +265,10 @@ class EventList(seiscomp.client.Application):
                 latitude = None
                 longitude = None
 
-            if self.automaticOnly and evalMode != seiscomp.datamodel.AUTOMATIC:
+            if self.automaticOnly and evalMode != sc_datamodel.AUTOMATIC:
                 continue
 
-            if self.manualOnly and evalMode != seiscomp.datamodel.MANUAL:
+            if self.manualOnly and evalMode != sc_datamodel.MANUAL:
                 continue
 
             if self.orgType == "last" and (org is not None) and \
@@ -317,7 +317,7 @@ class EventList(seiscomp.client.Application):
 
             evalModeStr = ""
             if evalMode is not None:
-                evalModeStr = seiscomp.datamodel.EEvaluationModeNames.name(evalMode)
+                evalModeStr = sc_datamodel.EEvaluationModeNames.name(evalMode)
             orgInfo = OrgInfo(currOrg.publicID(), evalModeStr, creationTime, 
                     modificationTime, agencyID, author, methodID, latitude, longitude)
 
