@@ -19,13 +19,13 @@
 </pre>
 # Description
 
-The SCRTDD is a [SeisComP](<https://github.com/SeisComP>) extension module that implements both Real-Time Double-Difference Event relocation and classic offline Multi-Event Double-Difference relocation. The module allows multi-event and single-event mode. In multi-event mode it relocates event clusters (any set of events stored in the SeisComP database) without interfering with real-time processing and optionally stores the relocated events back in the database or simply keep the results as plain text files for external use. Also the software allows to perform Real-Time Double-Difference relocation of newly located events, one a time, as they become available through SeisComP. This is the single-event mode and in this mode each event is relocated against a background catalog (historical events for the region) that is the base on which the Double-Difference equation system is built.
+The SCRTDD is a [SeisComP](<https://github.com/SeisComP>) extension module that implements both Real-Time Double-Difference Event relocation and classic offline Multi-Event Double-Difference relocation.
 
 The actual methods are based on the paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser and "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Waldhauser & Ellsworth.
 
 The double-difference equation system solver uses [LSQR by Chris Paige, Michael Saunders](<https://web.stanford.edu/group/SOL/software/lsqr/>) and [LSMR by David Fong, Michael Saunders](<https://web.stanford.edu/group/SOL/software/lsmr/>) algorithms from [this](<https://github.com/tvercaut/LSQR-cpp/>) Apache Licensed beautiful implementation by Tom Vercautereen.
 
-SCRTDD also supports [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) grid file format alongside the formats natively supported y SeisComP (LOCSAT and libtau). A feature that enable 3D velocity models support within the tool.
+SCRTDD also supports [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) grid file format alongside the formats natively supported by SeisComP (LOCSAT and libtau). A feature that enables 3D velocity models support within the tool.
 
 ## Compile
 
@@ -41,7 +41,7 @@ git clone https://github.com/SeisComP/seiscomp.git seiscomp
 cd seiscomp/src/extras
 git clone https://github.com/swiss-seismological-service/scrtdd.git
 cd scrtdd
-# now checkout the tag pointing to the latest version: vX.Y.Z (e.g. v1.2.4)
+# now checkout the tag pointing to the latest version: vX.Y.Z (e.g. v1.3.0)
 git checkout vX.Y.Z
 </pre>
 For compiling SeisComP, please refer to https://github.com/SeisComP/seiscomp#build
@@ -74,22 +74,68 @@ For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#
 
 ## 1. Multi-event relocation
 
-The multi-event relocation consists of two steps: first we select the candidate origins and then we use `scrtdd` to relocated those. For the latter we need to configure a `scrtdd` profile where the relocation options are stored and then run the command line option `--reloc-catalog`. That's it.
+The multi-event relocation consists of two steps: selecting the candidate origins and using `scrtdd` to relocate those. For the former task an utility `sclistorg` might come in handy. For the latter we need to configure a `scrtdd` profile where the relocation options are stored and then run the command line option `--reloc-catalog`. That's it.
 
-The output will be another catalog containing the relocated origins. The configuration is an easy task since the default options should already provide sensible solutions. The input events  might come from differnt sources: a SeisComP database (local or remote), a xml file, or a `scrtdd` specific format (station.csv,event.csv,phase.csv triplet, explained later).
+The output will be another catalog containing the relocated origins. The configuration is an easy task since the default options should already provide sensible solutions. The input origins might come from differnt sources: a SeisComP database (local or remote), a xml file, or a `scrtdd` specific format (station.csv,event.csv,phase.csv triplet, explained later).
 
 In multi-event mode there is no interaction neither with the running SeisComP modules nor with database (except for reading the inventory). It is a safe operation and allow for easy experimenting. The relocated events will be stored in plain text files, so that they can be analysed  externally to SeisComP, but they can also be stored back into the database. That is optional.
 
-`scrtdd` supports also the standard options (`--inventory-db inventory.xml --config-db config.xml`) that allows to read the station inventory from plain files, making the database optional.
+`scrtdd` supports also the standard options (`--inventory-db inventory.xml --config-db config.xml`) that allows to read the station inventory from plain files, making the database fully optional.
 
 
-### 1.1 Preparing the candidate events
+### 1.1 How to get the origin ids?
 
-Here we'll explain the `scrtdd` specific format for the candidate events, for the SeisComP XML format please refer to the official SeisComP  documentation of `scxmldump`, a very convenient tool for dumping events to XML file.
+There is a tool that is installed alongside `scrtdd`, called `sclistorg`, that is useful for listing origin ids satisfying certain criterias, sush as time period, geographic area, author, agency and so on. E.g.
 
-The first option to provide an event set to `scrtdd` is to generate a file containing the origing IDs of the events we want to relocate. `scrtdd` will use the IDs to fetch all necessary information from the databse (a local one, or even a database in another machine).
+```sh
+# list the preferred origin ids for all events between 2018-11-27 and 2018-12-14
+sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --org-type preferred [db options]
 
-E.g. *file myCatalog.csv* (a mandatory column named `seiscompId` is required, but others might be present too).
+# select also the event type and the accepted agencies
+sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --org-type preferred --ev-type "earthquake,quarry blast" --inc-agency Agency1,Agency2 [db options]
+
+# select an area of interest, a rectangle minLat,minLon,maxLat,maxLon
+sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --org-type preferred --area 46.0,8.5,46.5,8.7 [db options]
+
+```
+See `sclistorg --help` for a full list of options.
+
+```
+Events:
+  --begin arg                   specify the lower bound of the time interval
+  --end arg                     specify the upper bound of the time interval
+  --modified-after arg          select events modified after the specified time
+  --ev-type arg                 include only events whose type is one of the
+                                values provided (comma separated list)
+  --simple                      Print only origin ids
+
+Origins:
+  --org-type arg                preferred, last or first (default is preferred)
+  --manual-only                 Include only manual origins
+  --auto-only                   Inlude only automatic origins
+  --inc-author arg              include only origins whose author is one of the
+                                values provided (comma separated list)
+  --excl-author arg             exclude origins whose author is one of the
+                                values provided (comma separated list)
+  --inc-method arg              include only origins whose methodID is one of
+                                the values provided (comma separated list)
+  --excl-method arg             exclue origins whose methodID is one of the
+                                values provided (comma separated list)
+  --inc-agency arg              include only origins whose agencyID is one of
+                                the values provided (comma separated list)
+  --excl-agency arg             exclude origins whose agencyID is one of the
+                                values provided (comma separated list)
+  --area arg                    Include only origins in the rectangular area
+                                provided: MinLat,MinLon,MaxLat,MaxLon
+```
+
+### 1.2 Preparing the candidate events
+
+Once we have the origin ids of the events we are going to relocate, we need to store them in a proper format that `scrtdd` understands.
+
+The first option is to store them in a simple file containing the origing IDs. `scrtdd` will use the origin IDs to fetch all necessary information from the SeisComP databse (local or even a remote machine).
+
+E.g. *file myCatalog.csv* (a mandatory column named `seiscompId` is required, but other column might be present too).
 
 ```
 seiscompId
@@ -100,13 +146,15 @@ Origin/20190223103327.031726.346363
 [...]
 ```
 
-Depending on the number of events, fetching the information from the database can be slow. For this reason it might be covenient to store the origins information to flat files and let `scrtdd` use the files from then on. 
+Once we have the file cotaining the origins we can proceed with the relocation. 
+
+There is another format we can use to specify the catalog. This format stores the full origins information to flat files, not only the origin ids. We can instruct `scrtdd` to generate this format like this:
 
 ```
 scrtdd --dump-catalog myCatalog.csv --verbosity=3 --console=1 [db options]
 ```
 
-The above command will generate three files (*event.csv*, *phase.csv* and *stations.csv*) which contain the information needed by `scrtdd`. Also the file triples might come in handy when the database is not available anymore.
+The above command will generate three files (*event.csv*, *phase.csv* and *stations.csv*) which contain all the information needed by `scrtdd` and avoid future database access for those events.
 
 E.g. *file event.csv*
 
@@ -141,20 +189,9 @@ eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,sta
 1,CHGRIMS,2014-01-10T04:47:01.597023Z,0.100,0.100,Pg,CH,GRIMS,,HHR,manual
 1,IVMRGE,2014-01-10T04:46:58.219541Z,0.100,0.100,Pg,IV,MRGE,,HHR,manual
 ```
-Now that we have dumped the events (event.csv, phase.csv, stations.csv) we might perform some editing of those files, if required.
 
-### 1.2 Event ids or origin ids?
+Finally, the events to be relocated can also be stored i SeisComP XML format. Please refer to the official SeisComP  documentation of `scxmldump`, a very convenient tool for dumping events to XML file.
 
-It might be useful to know that there exists a `--dump-catalog-options` CLI option too, which allows to use the event id instead of the origin id in *myCatalog.csv*. For example we can list all events between two dates and then ask `scrtdd` to extract the preferred manual origins within our profile region):
-
-```sh
-# prepare myCatalog.csv
-echo seiscompId > myCatalog.csv
-# save all events ids between 2018-11-27 and 2018-12-14 in myCatalog.csv
-scevtls --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --verbosity=3 --console=1 [db options] >> myCatalog.csv
-# create the catalog using only manually reviewed preferred origins within the region defined in myProfile
-scrtdd --dump-catalog myCatalog.csv --dump-catalog-options 'preferred,onlyManual,any,none,myProfile' --verbosity=3 --console=1 [db options]
-```
 
 ### 1.3 Relocating the candidate events
 
@@ -275,21 +312,6 @@ Catalog:
                                         passed as argument into a catalog file 
                                         triplet (station.csv,event.csv,phase.cs
                                         v).
-  --dump-catalog-options arg            Allows the --dump-catalog option to 
-                                        accept event ids besides origin ids. 
-                                        For each event id an origin will be 
-                                        selected following the provided options
-                                        whose format is: 'type,evalmode,include
-                                        Creator,excludeCreator,region', where 
-                                        type=preferred|last|first  
-                                        evalmode=any|onlyManual|onlyAutomatic  
-                                        includeCreator=any|author|methodID  
-                                        excludeCreator=none|author|methodID 
-                                        region=any|profileName e.g. to select 
-                                        preferred origins of the inputevent ids
-                                        that lie within the region defined for 
-                                        'myProfile' use 'preferred,any,any,none
-                                        ,myProfile'
 
   --dump-catalog-xml arg                Convert the input catalog into XML 
                                         format. The input can be a single file 
@@ -310,9 +332,9 @@ Catalog:
 
 ## 2. Real-time single-event relocation
 
-In real-time processing `scrtdd` relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generate via multi-event relocation, which has already been coverred in the previous section.
+In real-time processing `scrtdd` relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generate via multi-event relocation, which has already been coverred in the previous sections.
 
-To enable the real-time processing a profile should be created and enabled by include it in `scrtdd.activeProfiles` list. Note: we might want to copy the waveform cache folder from the background catalog profile to the new real-time profile in order to avoid re-downloading all the catalog waveforms (see the `Waveforms data caching` paragraph for more details).
+To enable the real-time processing a profile should be created and enabled by including it in `scrtdd.activeProfiles` option. Note: we might want to copy the waveform cache folder from the background catalog profile to the new real-time profile in order to avoid re-downloading all the catalog waveforms (see the `Waveforms data caching` paragraph for more details).
 
 ### 2.1. Selecting a background catalog from existing origins
 
@@ -320,7 +342,7 @@ The easiest choice is to use as background catalog the relocated multi-event res
 
 ![Catalog selection option](/data/img/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
-However, the backgroud catalog can be imported into the database too: we can transform the relocated catalog triplet reloc-event.csv, phase.csv,station.csv to XML format (see --dump-catalog-xml option) and insert the XML into the seiscomp database. While it is neat to have the background catalog in the seiscomp database, this approach is inconvenient in the common scenario where the background catalog is periodically re-generated.
+However, it is also possible to import the catalog file triplet into the database and specify the origin ids as background catalog: we can transform the relocated catalog triplet reloc-event.csv, phase.csv,station.csv to XML format using the --dump-catalog-xml option and then insert the XML into the seiscomp database. While it is neat to have the background catalog in the seiscomp database, this approach is inconvenient in the common scenario where the background catalog is periodically re-generated.
 
 ![Catalog selection option](/data/img/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
 
@@ -423,7 +445,7 @@ As an example you can see below the single event relocation of several manually 
 
 Once we are happy with the configuration we can simply enable and start `scrtdd` as any other SeisComP module and it will start relocating origins as soon as they arrive in the messsaging system.
 
-### 2.4 Phase update
+### 2.3 Phase update
 
 `scrtdd` uses cross-correlation to detect phases at stations with no associated picks in order to fix the pick time and uncertainty of automatic picks. Those features are especially useful in real-time to increase the quality and number of double-difference observations when automatic origins have only few picks/phases.
 
@@ -435,7 +457,7 @@ Picks that have been updated or created by `scrtdd` are identifiable by a `x` su
 
 Manual picks are never modified.
 
-### 2.5 Avoiding Relocation Loops
+### 2.4 Avoiding Relocation Loops
 
 `scrtdd` listens and sends messages to the LOCATION group. In a default installation where the only locator is `scautoloc` that's not an issue: `scautoloc` will send an origin to LOCATION and `scrtdd` will receive it and send an updated origin to LOCATION.  However, when thare are multiple (re)locators (e.g. scanloc, screloc) that listen to LOCATION and send their own updated origin to LOCATION too, then an infinite loop happens! In this case a new messaging group needs to be created, e.g. RELOCATION, so that the origins flow from LOCATION to RELOCATION without going back.
 
