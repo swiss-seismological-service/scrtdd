@@ -191,7 +191,7 @@ class EventList(sc_client.Application):
             try:
                 evtype = sc_datamodel.EEventTypeNames.name(evt.type())
             except ValueError:
-                continue
+                evtype = None
             if (self.evtypes is not None) and \
                 (evtype is None or evtype not in self.evtypes):
                 continue
