@@ -132,14 +132,20 @@ public:
     if (depth > ellip.depth && std::set<int>{5, 6, 7, 8}.count(quadrant) != 0)
       return false;
 
-    if (lon < ellip.lon && std::set<int>{1, 4, 5, 8}.count(quadrant) != 0)
-      return false;
-    if (lon > ellip.lon && std::set<int>{2, 3, 6, 7}.count(quadrant) != 0)
-      return false;
-
     if (lat < ellip.lat && std::set<int>{1, 2, 5, 6}.count(quadrant) != 0)
       return false;
     if (lat > ellip.lat && std::set<int>{3, 4, 7, 8}.count(quadrant) != 0)
+      return false;
+
+    double lonDelta = lon - ellip.lon;
+    if (lonDelta > 180)
+      lonDelta = 360 - lonDelta;
+    else if (lonDelta < -180)
+      lonDelta = -360 - lonDelta;
+
+    if (lonDelta < 0 && std::set<int>{1, 4, 5, 8}.count(quadrant) != 0)
+      return false;
+    if (lonDelta > 0 && std::set<int>{2, 3, 6, 7}.count(quadrant) != 0)
       return false;
 
     return true;
