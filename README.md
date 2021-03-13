@@ -477,6 +477,12 @@ scamp         LOCATION,RELOCATION, ...             ...
 scmag         LOCATION,RELOCATION, ...             ...
 ```
 
+
+### 2.5 Periodic update of the background catalog
+
+It is useful to periodically update the background catalog to include the events that happened in a region since last time the background catalog was relocated. It might come in handy [this script](/data/scripts/generate-catalog.sh), that can be easily adapted to the specific use case.
+
+
 ## 3. Cross-correlation
 
 Good cross-correlation results are needed to achieve high resolution double-difference observations, which in turn results in high quality relocations.
