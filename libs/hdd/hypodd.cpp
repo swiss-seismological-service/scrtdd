@@ -683,8 +683,9 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
     obsparams = ObservationParams();
 
     // update event parameters
-    finalCatalog = updateRelocatedEvents(solver, finalCatalog, neighCluster,
-                                         obsparams, finalNeighCluster);
+    finalCatalog = updateRelocatedEvents(
+        solver, finalCatalog, neighCluster, obsparams,
+        std::max(absTTDiffObsWeight, xcorrObsWeight), finalNeighCluster);
   }
 
   // compute last bit of statistics for the relocated events
@@ -893,6 +894,7 @@ CatalogPtr HypoDD::updateRelocatedEvents(
     const CatalogCPtr &catalog,
     const std::list<NeighboursPtr> &neighCluster,
     ObservationParams &obsparams,
+    double pickWeightScaler,
     std::unordered_map<unsigned, NeighboursPtr> &finalNeighCluster // output
     ) const
 {
@@ -979,7 +981,7 @@ CatalogPtr HypoDD::updateRelocatedEvents(
 
       phase.relocInfo.isRelocated = true;
       phase.relocInfo.finalWeight =
-          phase.procInfo.weight * meanFinalWeight / meanAPrioriWeight;
+          meanFinalWeight / pickWeightScaler; // range 0-1
       phase.relocInfo.numTTObs = startTTObs;
       phase.relocInfo.numCCObs = startCCObs;
       if (isFirstIteration)
@@ -1108,9 +1110,9 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
                       travelTime);
         double residual =
             travelTime - (finalPhase.time - startEvent.time).length();
-        finalEvent.relocInfo.startRms += residual * residual;
         finalPhase.relocInfo.startResidual = residual;
         tmpCat->updatePhase(finalPhase, false);
+        finalEvent.relocInfo.startRms += residual * residual;
         rmsCount++;
       }
       catch (exception &e)

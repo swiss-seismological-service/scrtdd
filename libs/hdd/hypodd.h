@@ -223,6 +223,7 @@ private:
       const CatalogCPtr &catalog,
       const std::list<NeighboursPtr> &neighbourCats,
       ObservationParams &obsparams,
+      double pickWeightScaler,
       std::unordered_map<unsigned, NeighboursPtr> &neighCluster) const;
 
   CatalogPtr updateRelocatedEventsFinalStats(
