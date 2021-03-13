@@ -606,6 +606,8 @@ void crossCorrelation(const double *dataS,
     if (fe & FE_INVALID) SEISCOMP_WARNING("FE_INVALID");
     if (fe & FE_OVERFLOW) SEISCOMP_WARNING("FE_OVERFLOW");
     if (fe & FE_UNDERFLOW) SEISCOMP_WARNING("FE_UNDERFLOW");
+
+    std::feclearexcept(FE_ALL_EXCEPT);
   }
 
   /*
