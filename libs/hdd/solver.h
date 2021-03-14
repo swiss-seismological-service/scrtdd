@@ -18,8 +18,6 @@
 #ifndef __HDD_SOLVER_H__
 #define __HDD_SOLVER_H__
 
-#include "lsmr.h"
-#include "lsqr.h"
 #include "utils.h"
 
 #include <seiscomp3/core/baseobject.h>

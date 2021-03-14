@@ -1,7 +1,10 @@
+SET(LSMR_LSQR_DIR ${SC3_PACKAGE_SOURCE_DIR}/libs/3rd-party/lsqr-lsmr)
+INCLUDE_DIRECTORIES(${LSMR_LSQR_DIR})
+
 SET(HDD_SOURCES
+	${LSMR_LSQR_DIR}/lsmr.cpp
+	${LSMR_LSQR_DIR}/lsqr.cpp
 	utils.cpp
-	lsmr.cpp
-	lsqr.cpp
 	solver.cpp
 	csvreader.cpp
 	catalog.cpp

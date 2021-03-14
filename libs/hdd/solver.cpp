@@ -16,7 +16,8 @@
  ***************************************************************************/
 
 #include "solver.h"
-#include "utils.h"
+#include "lsmr.h"
+#include "lsqr.h"
 
 #include <seiscomp3/core/strings.h>
 #include <seiscomp3/math/geo.h>
