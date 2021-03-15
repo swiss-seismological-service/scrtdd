@@ -21,7 +21,9 @@ END_DATE=$(date -Iminutes)                    # now
 # 
 # Create a working directory for this relocation
 #
-workingdir="/somewhere/$(date +%Y%m%d-%H%M -d $END_DATE)"
+workingdir="./$(date +%Y%m%d-%H%M -d $END_DATE)"
+
+echo "Creating working directory $workingdir"
 
 if [ -d $workingdir ]; then
   echo "directory $workingdir already exists: stop here"
@@ -38,8 +40,10 @@ fi
 cd $workingdir
 
 #
-# Downloads the event catalog
+# Downloads the events
 #
+echo "Downloading events from $START_DATE to $END_DATE (database $CATALOG_DB)..."
+
 ID_FILE=catalog-ids.csv
 
 $seiscomp_exec sclistorg -d $CATALOG_DB --begin "$(date "+%Y-%m-%d %H:%M:00" -d $START_DATE)" \
@@ -55,6 +59,7 @@ fi
 #
 # Relocate catalog
 #
+echo "Relocating events..."
 
 #depending on the size of the logs, many files will be generated in the form scrtdd.log scrtdd.log.1 scrtdd.log.2 ...
 RTDDLOG_FILE=scrtdd.log
@@ -72,6 +77,8 @@ fi
 #
 XMLRELOC_FILE=relocated.xml
 
+echo "Converting relocated events to XML file $XMLRELOC_FILE..."
+
 $seiscomp_exec scrtdd --dump-catalog-xml reloc-station.csv,reloc-event.csv,reloc-phase.csv > $XMLRELOC_FILE
 
 if [ $? -ne 0 ] || [ ! -f $RELOC_FILE ]; then
@@ -83,6 +90,8 @@ fi
 # Import the relocated catalog in a database (if destination db is defined)
 #
 if [ -n "${DESTINATION_DB}" ]; then
+
+  echo "Importing $XMLRELOC_FILE to $DESTINATION_DB ..."
 
   $seiscomp_exec scdb -i  $XMLRELOC_FILE -d $DESTINATION_DB
 
@@ -99,6 +108,10 @@ fi
 #
 rm -f $XMLRELOC_FILE
 cd ..
+
+echo "Creating backup file $workingdir.tar.bz2..."
 tar cjSvf $workingdir.tar.bz2 $workingdir
+
+echo "Deleting folder $workingdir..."
 rm -rf $workingdir
 
