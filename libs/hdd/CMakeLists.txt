@@ -18,6 +18,15 @@ SET(HDD_SOURCES
 )
 
 SET(HDD_HEADERS
+	ellipsoid.ipp
+	xcorrcache.ipp
+	utils.h
+	clustering.h
+	solver.h
+	ttt.h
+	scttt.h
+	nllttt.h
+	waveform.h
 	csvreader.h
 	catalog.h
 	sccatalog.h
