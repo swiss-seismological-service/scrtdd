@@ -895,7 +895,7 @@ CatalogPtr HypoDD::updateRelocatedEvents(
     ObservationParams &obsparams,
     double pickWeightScaler,
     std::unordered_map<unsigned, NeighboursPtr> &finalNeighCluster // output
-    ) const
+) const
 {
   unordered_map<string, Station> stations    = catalog->getStations();
   map<unsigned, Event> events                = catalog->getEvents();
