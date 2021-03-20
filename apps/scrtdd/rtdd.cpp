@@ -136,17 +136,15 @@ struct RectangularRegion : public Seiscomp::RTDD::Region
   {
     if (isEmpty) return true;
 
-    double len, dist;
-
     if (lat < latMin || lat > latMax) return false;
 
-    len = lonMax - lonMin;
-    if (len < 0) len += 360.0;
+    double lonRange = lonMax - lonMin;
+    if (lonRange < 0) lonRange += 360.0;
 
-    dist = lon - lonMin;
-    if (dist < 0) dist += 360.0;
+    double lonDelta = lon - lonMin;
+    if (lonDelta < 0) lonDelta += 360.0;
 
-    return dist <= len;
+    return lonDelta <= lonRange;
   }
 
   bool isEmpty;

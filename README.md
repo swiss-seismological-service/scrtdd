@@ -92,10 +92,12 @@ There is a tool that is installed alongside `scrtdd`, called `sclistorg`, that i
 sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --org-type preferred [db options]
 
 # select also the event type and the accepted agencies
-sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --org-type preferred --ev-type "earthquake,quarry blast" --inc-agency Agency1,Agency2 [db options]
+sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --org-type preferred \
+          --ev-type "earthquake,quarry blast" --inc-agency Agency1,Agency2 [db options]
 
 # select an area of interest, a rectangle minLat,minLon,maxLat,maxLon
-sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --org-type preferred --area 46.0,8.5,46.5,8.7 [db options]
+sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --org-type preferred \
+          --area 46.0,8.5,46.5,8.7 [db options]
 
 ```
 See `sclistorg --help` for a full list of options.
