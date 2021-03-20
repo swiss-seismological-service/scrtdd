@@ -63,7 +63,7 @@ struct DDSystem : public Core::BaseObject
   double (*G)[4];
   // changes for each event hypocentral parameters we wish to determine
   // (x,y,z,t)
-  double(*m);
+  double *m;
   // double differences + optional travel time constraints
   double *d;
   // L2 norm scaler for each G column
