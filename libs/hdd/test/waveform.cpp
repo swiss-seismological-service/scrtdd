@@ -30,11 +30,11 @@ GenericRecordPtr buildSyntheticTrace1(double samplingFrequency)
   {
     double value =
         std::sin(2 * M_PI * i * 11 / tr->samplingFrequency()); // 11 Hz sin
-    value *=
-        (i <= tr->samplingFrequency() / 2) ? i : tr->samplingFrequency() - i;
-    samples->set(samples->size() / 3 + i, value);
+    value += std::sin(2 * M_PI * i / tr->samplingFrequency()); // 1 Hz sin
+    samples->set(samples->size() / 2 + i, value);
   }
   tr->setData(samples);
+  // writeTrace(tr, stringify("syntheticTrace1_%.fHz.mseed", tr->samplingFrequency()));
   return tr;
 }
 
@@ -52,12 +52,13 @@ GenericRecordPtr buildSyntheticTrace2(double samplingFrequency)
     samples->set(samples->size() / 2 + i, value);
   }
   tr->setData(samples);
+  // writeTrace(tr, stringify("syntheticTrace2_%.fHz.mseed", tr->samplingFrequency()));
   return tr;
 }
 
 GenericRecordPtr buildSyntheticTrace3(double samplingFrequency)
 {
-  GenericRecordPtr tr  = new GenericRecord("N3", "ST1", "", "GHZ",
+  GenericRecordPtr tr  = new GenericRecord("N3", "ST3", "", "GHZ",
                                           Core::Time(1998, 7, 5, 6, 12, 9, 3),
                                           samplingFrequency, 20, Array::DOUBLE);
   DoubleArray *samples = new DoubleArray(tr->samplingFrequency() * 3.5);
@@ -69,6 +70,7 @@ GenericRecordPtr buildSyntheticTrace3(double samplingFrequency)
     samples->set(samples->size() / 2 + i, value);
   }
   tr->setData(samples);
+  // writeTrace(tr, stringify("syntheticTrace3_%.fHz.mseed", tr->samplingFrequency()));
   return tr;
 }
 
@@ -78,8 +80,8 @@ void scaleTrace(GenericRecordPtr &tr, double constant, double scaler)
   for (int i = 0; i < samples->size(); ++i)
   {
     double value = (*samples)[i];
-    value += constant;
     value *= scaler;
+    value += constant;
     samples->set(i, value);
   }
   tr->dataUpdated();
@@ -104,102 +106,6 @@ GenericRecordPtr alterTrace(const GenericRecordCPtr &tr,
   if (constant != 0 || scaler != 1) scaleTrace(newTr, constant, scaler);
   return newTr;
 }
-
-struct GlobalFixture
-{
-  static vector<GenericRecordCPtr> realTraces;
-  static vector<GenericRecordCPtr> badSnrTraces;
-  static vector<GenericRecordCPtr> synthetic1Traces;
-  static vector<GenericRecordCPtr> synthetic2Traces;
-  static vector<GenericRecordCPtr> synthetic3Traces;
-  static const size_t realTracesNum;
-  static const size_t badSnrTracesNum;
-  static const size_t synthetic1TracesNum;
-  static const size_t synthetic2TracesNum;
-  static const size_t synthetic3TracesNum;
-
-  GlobalFixture()
-  {
-    for (size_t i = 1; i <= realTracesNum; i++)
-    {
-      GenericRecordPtr tr = readTrace(stringify("./waveform/xcorr%d.mseed", i));
-      BOOST_REQUIRE(tr);
-      realTraces.push_back(tr);
-    }
-
-    for (size_t i = 1; i <= badSnrTracesNum; i++)
-    {
-      GenericRecordPtr tr = readTrace(stringify("./waveform/snr%d.mseed", i));
-      BOOST_REQUIRE(tr);
-      badSnrTraces.push_back(tr);
-    }
-
-    GenericRecordPtr tr;
-    tr = buildSyntheticTrace1(160);
-    BOOST_REQUIRE(tr);
-    synthetic1Traces.push_back(tr);
-    tr = buildSyntheticTrace1(158);
-    BOOST_REQUIRE(tr);
-    synthetic1Traces.push_back(tr);
-    tr = buildSyntheticTrace1(80);
-    BOOST_REQUIRE(tr);
-    synthetic1Traces.push_back(tr);
-    tr = buildSyntheticTrace1(83);
-    BOOST_REQUIRE(tr);
-    synthetic1Traces.push_back(tr);
-
-    tr = buildSyntheticTrace2(300);
-    BOOST_REQUIRE(tr);
-    synthetic2Traces.push_back(tr);
-    tr = buildSyntheticTrace2(280);
-    BOOST_REQUIRE(tr);
-    synthetic2Traces.push_back(tr);
-    tr = buildSyntheticTrace2(150);
-    BOOST_REQUIRE(tr);
-    synthetic2Traces.push_back(tr);
-    tr = buildSyntheticTrace2(143);
-    BOOST_REQUIRE(tr);
-    synthetic2Traces.push_back(tr);
-
-    tr = buildSyntheticTrace3(80);
-    BOOST_REQUIRE(tr);
-    synthetic3Traces.push_back(tr);
-    tr = buildSyntheticTrace3(78);
-    BOOST_REQUIRE(tr);
-    synthetic3Traces.push_back(tr);
-    tr = buildSyntheticTrace3(40);
-    BOOST_REQUIRE(tr);
-    synthetic3Traces.push_back(tr);
-    tr = buildSyntheticTrace3(43);
-    BOOST_REQUIRE(tr);
-    synthetic3Traces.push_back(tr);
-    /*
-    for (size_t i = 0; i < synthetic1Traces.size(); i++)
-      writeTrace(synthetic1Traces[i], stringify("synthetic1Trace%d.mseed", i));
-    for (size_t i = 0; i < synthetic2Traces.size(); i++)
-      writeTrace(synthetic2Traces[i], stringify("synthetic2Trace%d.mseed", i));
-    for (size_t i = 0; i < synthetic3Traces.size(); i++)
-      writeTrace(synthetic3Traces[i], stringify("synthetic3Trace%d.mseed", i));
-    */
-
-    BOOST_REQUIRE(realTraces.size() == realTracesNum);
-    BOOST_REQUIRE(badSnrTraces.size() == badSnrTracesNum);
-    BOOST_REQUIRE(synthetic1Traces.size() == synthetic1TracesNum);
-    BOOST_REQUIRE(synthetic2Traces.size() == synthetic2TracesNum);
-    BOOST_REQUIRE(synthetic3Traces.size() == synthetic3TracesNum);
-  }
-};
-
-vector<GenericRecordCPtr> GlobalFixture::realTraces;
-vector<GenericRecordCPtr> GlobalFixture::badSnrTraces;
-vector<GenericRecordCPtr> GlobalFixture::synthetic1Traces;
-vector<GenericRecordCPtr> GlobalFixture::synthetic2Traces;
-vector<GenericRecordCPtr> GlobalFixture::synthetic3Traces;
-const size_t GlobalFixture::realTracesNum       = 6;
-const size_t GlobalFixture::badSnrTracesNum     = 7;
-const size_t GlobalFixture::synthetic1TracesNum = 4;
-const size_t GlobalFixture::synthetic2TracesNum = 4;
-const size_t GlobalFixture::synthetic3TracesNum = 4;
 
 void testTracesEqual(const GenericRecordCPtr &tr1, const GenericRecordCPtr &tr2)
 {
@@ -231,6 +137,20 @@ void testReadWriteTrace(const GenericRecordCPtr &tr)
   boost::filesystem::remove(filename);
 }
 
+void testXCorrTraces(const GenericRecordCPtr &tr1,
+                     const GenericRecordCPtr &tr2,
+                     double expectedLag)
+{
+  double delayOut, coeffOut;
+  BOOST_CHECK(xcorr(
+      tr1, tr2,
+      std::abs(tr1->timeWindow().length() - tr2->timeWindow().length()) / 2.0,
+      true, delayOut, coeffOut));
+  BOOST_CHECK_SMALL(expectedLag - delayOut,
+                    2.0 / tr1->samplingFrequency()); // 2 samples tolerance
+  BOOST_CHECK_SMALL(1.0 - std::abs(coeffOut), 0.1);  // positive or negative CC
+}
+
 void testXCorrTrace(const GenericRecordCPtr &tr1,
                     double timeShift,
                     double constant,
@@ -240,90 +160,211 @@ void testXCorrTrace(const GenericRecordCPtr &tr1,
       timeShift >= 0
           ? alterTrace(tr1, 0, timeShift * 2, constant, scaler)
           : alterTrace(tr1, std::abs(timeShift * 2), 0, constant, scaler);
-  double delayOut, coeffOut;
-  BOOST_CHECK(xcorr(
-      tr1, tr2, (tr1->timeWindow().length() - tr2->timeWindow().length()) / 2,
-      true, delayOut, coeffOut));
-  BOOST_CHECK_SMALL(timeShift - delayOut,
-                    2.0 / tr1->samplingFrequency()); // 2 samples tolerance
-  BOOST_CHECK_SMALL(1.0 - coeffOut, 0.1);
+  testXCorrTraces(tr1, tr2, timeShift);
 }
+
+void testXCorr(const GenericRecordCPtr &trace, int s)
+{
+  testXCorrTrace(trace, 0, 0, 1);
+  testXCorrTrace(trace, 0, 0, -1);
+  testXCorrTrace(trace, 25. / trace->samplingFrequency(), -1 * s, 100 * s);
+  testXCorrTrace(trace, 25. / trace->samplingFrequency(), 1 * s, 0.01 * s);
+  testXCorrTrace(trace, 10. / trace->samplingFrequency(), -10 * s, 0.1 * s);
+  testXCorrTrace(trace, 10. / trace->samplingFrequency(), 10 * s, 10 * s);
+}
+
+void testReampling(const vector<GenericRecordCPtr> &traces)
+{
+  // traces vector contains identical traces, but different sampling rates
+  for (size_t i = 0; i < traces.size() - 1; i++)
+  {
+    for (size_t j = i + 1; j < traces.size(); j++)
+    {
+      GenericRecordPtr tr1(new GenericRecord(*traces[i]));
+      GenericRecordPtr tr2(new GenericRecord(*traces[j]));
+      resample(*tr1, 1000);
+      resample(*tr2, 1000);
+      testXCorrTraces(tr1, tr2, 0);
+
+      // writeTrace(tr1, stringify("tr1_%s_%.f-%.fHz.mseed",
+      // tr1->networkCode().c_str(), traces[i]->samplingFrequency(),
+      // tr1->samplingFrequency())); writeTrace(tr2,
+      // stringify("tr2_%s_%.f-%.fHz.mseed", tr2->networkCode().c_str(),
+      // traces[j]->samplingFrequency(), tr2->samplingFrequency()));
+
+      tr1 = new GenericRecord(*traces[i]);
+      tr2 = new GenericRecord(*traces[j]);
+      resample(*tr1, 60);
+      resample(*tr2, 60);
+      testXCorrTraces(tr1, tr2, 0);
+
+      // writeTrace(tr1, stringify("tr1_%s_%.f-%.fHz.mseed",
+      // tr1->networkCode().c_str(), traces[i]->samplingFrequency(),
+      // tr1->samplingFrequency())); writeTrace(tr2,
+      // stringify("tr2_%s_%.f-%.fHz.mseed", tr2->networkCode().c_str(),
+      // traces[j]->samplingFrequency(), tr2->samplingFrequency()));
+
+      tr1 = new GenericRecord(*traces[i]);
+      tr2 = new GenericRecord(*traces[j]);
+      resample(*tr1, tr2->samplingFrequency());
+      testXCorrTraces(tr1, tr2, 0);
+
+      // writeTrace(tr1, stringify("tr1_%s_%.f-%.fHz.mseed",
+      // tr1->networkCode().c_str(), traces[i]->samplingFrequency(),
+      // tr1->samplingFrequency()));
+
+      tr1 = new GenericRecord(*traces[i]);
+      tr2 = new GenericRecord(*traces[j]);
+      resample(*tr2, tr1->samplingFrequency());
+      testXCorrTraces(tr1, tr2, 0);
+
+      // writeTrace(tr2, stringify("tr2_%s_%.f-%.fHz.mseed",
+      // tr2->networkCode().c_str(), traces[j]->samplingFrequency(),
+      // tr2->samplingFrequency()));
+    }
+  }
+}
+
+void testSnrSynthetic(const GenericRecordCPtr &trace)
+{
+  double snr = computeSnr(
+      trace, trace->startTime() + TimeSpan(trace->timeWindow().length() / 2),
+      -0.5, 0, 0, 0.5);
+  BOOST_CHECK(snr > 2);
+
+  snr = computeSnr(
+      trace, trace->startTime() + TimeSpan(trace->timeWindow().length() / 2),
+      0, 0.5, 0.5, 1);
+  BOOST_CHECK(snr < 2);
+}
+
+vector<GenericRecordCPtr> realTraces = {
+    readTrace("./data/waveform/xcorr1.mseed"), readTrace("./data/waveform/xcorr2.mseed"),
+    readTrace("./data/waveform/xcorr3.mseed"), readTrace("./data/waveform/xcorr4.mseed"),
+    readTrace("./data/waveform/xcorr5.mseed"), readTrace("./data/waveform/xcorr6.mseed")};
+
+vector<GenericRecordCPtr> badSnrTraces = {
+    readTrace("./data/waveform/snr1.mseed"), readTrace("./data/waveform/snr2.mseed"),
+    readTrace("./data/waveform/snr3.mseed"), readTrace("./data/waveform/snr4.mseed"),
+    readTrace("./data/waveform/snr5.mseed"), readTrace("./data/waveform/snr6.mseed"),
+    readTrace("./data/waveform/snr7.mseed")};
+
+vector<GenericRecordCPtr> synthetic1Traces = {
+    buildSyntheticTrace1(160), buildSyntheticTrace1(158),
+    buildSyntheticTrace1(80), buildSyntheticTrace1(83)};
+
+vector<GenericRecordCPtr> synthetic2Traces = {
+    buildSyntheticTrace2(300), buildSyntheticTrace2(280),
+    buildSyntheticTrace2(150), buildSyntheticTrace2(143)};
+
+vector<GenericRecordCPtr> synthetic3Traces = {
+    buildSyntheticTrace3(120), buildSyntheticTrace3(119),
+    buildSyntheticTrace3(60), buildSyntheticTrace3(67)};
 
 } // namespace
 
-BOOST_TEST_GLOBAL_FIXTURE(GlobalFixture);
-
-BOOST_DATA_TEST_CASE(test_read_write1,
-                     bdata::xrange(GlobalFixture::realTracesNum),
-                     i)
+BOOST_DATA_TEST_CASE(test_read_write1, bdata::make(realTraces), trace)
 {
-  testReadWriteTrace(GlobalFixture::realTraces[i]);
+  testReadWriteTrace(trace);
 }
 
-BOOST_DATA_TEST_CASE(test_read_write2,
-                     bdata::xrange(GlobalFixture::badSnrTracesNum),
-                     i)
+BOOST_DATA_TEST_CASE(test_read_write2, bdata::make(badSnrTraces), trace)
 {
-  testReadWriteTrace(GlobalFixture::badSnrTraces[i]);
+  testReadWriteTrace(trace);
 }
 
-BOOST_DATA_TEST_CASE(test_read_write3,
-                     bdata::xrange(GlobalFixture::synthetic1TracesNum),
-                     i)
+BOOST_DATA_TEST_CASE(test_read_write3, bdata::make(synthetic1Traces), trace)
 {
-  testReadWriteTrace(GlobalFixture::synthetic1Traces[i]);
+  testReadWriteTrace(trace);
 }
 
-BOOST_DATA_TEST_CASE(test_read_write4,
-                     bdata::xrange(GlobalFixture::synthetic2TracesNum),
-                     i)
+BOOST_DATA_TEST_CASE(test_read_write4, bdata::make(synthetic2Traces), trace)
 {
-  testReadWriteTrace(GlobalFixture::synthetic2Traces[i]);
+  testReadWriteTrace(trace);
 }
 
-BOOST_DATA_TEST_CASE(test_read_write5,
-                     bdata::xrange(GlobalFixture::synthetic3TracesNum),
-                     i)
+BOOST_DATA_TEST_CASE(test_read_write5, bdata::make(synthetic3Traces), trace)
 {
-  testReadWriteTrace(GlobalFixture::synthetic3Traces[i]);
+  testReadWriteTrace(trace);
 }
 
 BOOST_DATA_TEST_CASE(test_xcorr1,
-                     bdata::xrange(GlobalFixture::realTracesNum),
-                     i)
+                     bdata::xrange(realTraces.size()) ^ bdata::make(realTraces),
+                     i,
+                     trace)
 {
-  testXCorrTrace(GlobalFixture::realTraces[i], 0, 0, 1);
-  testXCorrTrace(GlobalFixture::realTraces[i], 0.1, 30, 40);
-  testXCorrTrace(GlobalFixture::realTraces[i], -0.1, -30, 0.4);
+  testXCorr(trace, i + 1);
 }
 
 BOOST_DATA_TEST_CASE(test_xcorr2,
-                     bdata::xrange(GlobalFixture::synthetic1TracesNum),
-                     i)
+                     bdata::xrange(synthetic1Traces.size()) ^
+                         bdata::make(synthetic1Traces),
+                     i,
+                     trace)
 {
-  testXCorrTrace(GlobalFixture::synthetic1Traces[i], 0, 0, 1);
-  testXCorrTrace(GlobalFixture::synthetic1Traces[i], 0.12, 1.5, 150);
-  testXCorrTrace(GlobalFixture::synthetic1Traces[i], -0.15, -1.5, 0.015);
+  testXCorr(trace, i + 1);
 }
 
 BOOST_DATA_TEST_CASE(test_xcorr3,
-                     bdata::xrange(GlobalFixture::synthetic2TracesNum),
-                     i)
+                     bdata::xrange(synthetic2Traces.size()) ^
+                         bdata::make(synthetic2Traces),
+                     i,
+                     trace)
 {
-  testXCorrTrace(GlobalFixture::synthetic2Traces[i], 0, 0, 1);
-  testXCorrTrace(GlobalFixture::synthetic2Traces[i], 0.05, -77, 0.158);
-  testXCorrTrace(GlobalFixture::synthetic2Traces[i], -0.05, 77, 158);
+  testXCorr(trace, i + 1);
 }
 
 BOOST_DATA_TEST_CASE(test_xcorr4,
-                     bdata::xrange(GlobalFixture::synthetic3TracesNum),
-                     i)
+                     bdata::xrange(synthetic3Traces.size()) ^
+                         bdata::make(synthetic3Traces),
+                     i,
+                     trace)
 {
-  testXCorrTrace(GlobalFixture::synthetic3Traces[i], 0, 0, 1);
-  testXCorrTrace(GlobalFixture::synthetic3Traces[i], 0.12, -45, 99);
-  testXCorrTrace(GlobalFixture::synthetic3Traces[i], -0.12, 14, 0.99);
+  testXCorr(trace, i + 1);
 }
 
-BOOST_AUTO_TEST_CASE(test_resampling) { BOOST_CHECK(1); }
+BOOST_AUTO_TEST_CASE(test_resampling1)
+{
+  testReampling(synthetic1Traces);
+}
 
-BOOST_AUTO_TEST_CASE(test_snr) { BOOST_CHECK(1); }
+BOOST_AUTO_TEST_CASE(test_resampling2)
+{
+  testReampling(synthetic2Traces);
+}
+
+BOOST_AUTO_TEST_CASE(test_resampling3)
+{
+  testReampling(synthetic3Traces);
+}
+
+BOOST_DATA_TEST_CASE(test_snr_bad, bdata::make(badSnrTraces), trace)
+{
+  double snr = computeSnr(
+      trace, trace->startTime() + TimeSpan(trace->timeWindow().length() / 2),
+      -3, -0.350, -0.350, 0.350);
+  BOOST_CHECK(snr < 2);
+}
+
+BOOST_DATA_TEST_CASE(test_snr_ok, bdata::make(realTraces), trace)
+{
+  double snr = computeSnr(
+      trace, trace->startTime() + TimeSpan(trace->timeWindow().length() / 2),
+      -3, -0.350, -0.350, 0.350);
+  BOOST_CHECK(snr >= 2);
+}
+
+BOOST_DATA_TEST_CASE(test_snr_synthetic1, bdata::make(synthetic1Traces), trace)
+{
+  testSnrSynthetic(trace);
+}
+
+BOOST_DATA_TEST_CASE(test_snr_synthetic2, bdata::make(synthetic2Traces), trace)
+{
+  testSnrSynthetic(trace);
+}
+
+BOOST_DATA_TEST_CASE(test_snr_synthetic3, bdata::make(synthetic3Traces), trace)
+{
+  testSnrSynthetic(trace);
+}
