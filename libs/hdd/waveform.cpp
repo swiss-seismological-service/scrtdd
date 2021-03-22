@@ -439,8 +439,6 @@ bool xcorr(const GenericRecordCPtr &tr1,
            double &delayOut,
            double &coeffOut)
 {
-  coeffOut = std::nan("");
-
   if (tr1->samplingFrequency() != tr2->samplingFrequency())
   {
     SEISCOMP_INFO(
@@ -568,8 +566,9 @@ void crossCorrelation(const double *dataS,
   double denomS = std::sqrt(n * sumS2 - sumS * sumS);
 
   // cross-correlation loop
+  coeffOut = std::nan("");
   double lastSampleL = 0;
-  for (int delay = 0; delay < (sizeL - sizeS); delay++)
+  for (int delay = 0; delay <= (sizeL - sizeS); delay++)
   {
     // sumL/sumL2 update: remove the sample that has just exited the
     // current cross-correlation win and add the sample that has just
