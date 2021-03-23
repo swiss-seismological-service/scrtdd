@@ -73,23 +73,29 @@ if [ $? -ne 0 ] || [ ! -f reloc-event.csv ] || [ ! -f reloc-phase.csv ] || [ ! -
 fi
 
 #
-# Convert catalog to Seiscomp XML
+# It is now possible to use the relocated events as a new backgroud catalog
+# for a scrtdd real-time profile (scrtdd needs to be restarted)
 #
-XMLRELOC_FILE=relocated.xml
-
-echo "Converting relocated events to XML file $XMLRELOC_FILE..."
-
-$seiscomp_exec scrtdd --dump-catalog-xml reloc-station.csv,reloc-event.csv,reloc-phase.csv > $XMLRELOC_FILE
-
-if [ $? -ne 0 ] || [ ! -f $RELOC_FILE ]; then
-  echo "Cannot convert the relocated catalog to XML: stop here"
-  exit 1
-fi
+#cp reloc-station.csv,reloc-event.csv,reloc-phase.csv rtdd_config/profile/
 
 #
 # Import the relocated catalog in a database (if destination db is defined)
 #
 if [ -n "${DESTINATION_DB}" ]; then
+
+  #
+  # Convert catalog to Seiscomp XML
+  #
+  XMLRELOC_FILE=relocated.xml
+
+  echo "Converting relocated events to XML file $XMLRELOC_FILE..."
+
+  $seiscomp_exec scrtdd --dump-catalog-xml reloc-station.csv,reloc-event.csv,reloc-phase.csv > $XMLRELOC_FILE
+
+  if [ $? -ne 0 ] || [ ! -f $RELOC_FILE ]; then
+    echo "Cannot convert the relocated catalog to XML: stop here"
+    exit 1
+  fi
 
   echo "Importing $XMLRELOC_FILE to $DESTINATION_DB ..."
 
@@ -100,13 +106,14 @@ if [ -n "${DESTINATION_DB}" ]; then
     exit 1
   fi
 
+  # No need to keep the xml file since we can easily re-create it
+  rm -f $XMLRELOC_FILE 
 fi
 
 #
-# clean-up of useless files (no need to save the xml since we can easily re-create it)
-# and keep a tar files of the results
+# Back-up the results in a compressed tar file and delete the
+# working directory
 #
-rm -f $XMLRELOC_FILE
 cd ..
 
 echo "Creating backup file $workingdir.tar.bz2..."
