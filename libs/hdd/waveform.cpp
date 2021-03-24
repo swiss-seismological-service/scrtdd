@@ -371,7 +371,7 @@ void resample(GenericRecord &trace, double new_sf)
   for (int i = 0; i < resampled_data_size; i++)
   {
     double x          = i / resamp_factor;
-    resampled_data[i] = new_sample(x, nyquist, 4);
+    resampled_data[i] = new_sample(x, nyquist, 20);
   }
 
   DoubleArray::Cast(trace.data())->setData(resampled_data_size, resampled_data);
