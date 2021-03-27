@@ -48,11 +48,11 @@
 
                 <parameter name="profileTimeAlive" type="int" default="3600" unit="sec">
                     <description>
-                        Defines how long the profile data should be kept in memory (in seconds). This is useful
-                        to release memory (e.g. catalog waveform data) after a period of inactivity at the cost of
-                        re-loading and re-processing the waveforms whenever a new event occurs (not
-                        very time consuming but still a bit slower than keeping the waveforms in memory).
-                        A negative value forces the profile to never expires (always in memory).
+                      Defines how long the real-time profile data should be kept in memory (in 
+                      seconds). This is useful to release memory (e.g. catalog waveform data) after
+                      a period of inactivity. When a profile is then reloaded into memory because
+                      a new origin arrived, the background catalog is reloaded as well (useful
+                      in case the background catalog has changed since last time).
                     </description>
                 </parameter>
 

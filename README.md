@@ -332,6 +332,12 @@ Catalog:
                                         events will be discarded.
 ```
 
+### 1.6 Periodic update of the multi-event relocation
+
+For real-time monitoring it is useful to periodically update the multi-event relocation, so that the news events are continuously included in the double-difference inversion. This is not only useful for keeping track of what is happing in a region, but it is crucial for real-time relocation, where new origins are relocated using a background catalog: the more update the background catalog is, the bettter the results.
+
+For this purpose it might come in handy [this script](/data/scripts/generate-catalog.sh), that can be easily adapted to the specific use case.
+ 
 ## 2. Real-time single-event relocation
 
 In real-time processing `scrtdd` relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generate via multi-event relocation, which has already been coverred in the previous sections.
@@ -476,12 +482,6 @@ scevent       LOCATION,RELOCATION, ...             ...
 scamp         LOCATION,RELOCATION, ...             ...
 scmag         LOCATION,RELOCATION, ...             ...
 ```
-
-
-### 2.5 Periodic update of the background catalog
-
-It is useful to periodically update the background catalog to include the events that happened in a region since last time the background catalog was relocated. It might come in handy [this script](/data/scripts/generate-catalog.sh), that can be easily adapted to the specific use case.
-
 
 ## 3. Cross-correlation
 
@@ -968,6 +968,8 @@ cp mymodel* seiscomp_installation/share/locsat/tables/
 ### 8.2 NonLinLoc
 
 Please refer to [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) documenation on how to generate grid files. Once you have them you can configure in `scrtdd` in travel time table options.
+
+The following geographic transformations (TRANS statement) are currently supported: GLOBAL 2D and 3D, SIMPLE 2D and 3D, SDS 2D and 3D. Also both float and double values are supported as well as byte swapping.
 
 ## 9. Scolv Locator plugin
 
