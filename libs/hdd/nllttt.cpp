@@ -209,7 +209,7 @@ void NllTravelTimeTable::compute(double eventLat,
                                  double &takeOffAngleDip,
                                  double &velocityAtSrc)
 {
-  // set travelTime
+  // get travelTime
   compute(eventLat, eventLon, eventDepth, station, phaseType, travelTime);
 
   string velGId = "velGrid:" + Grid::filePath(_velGridPath, station, phaseType);

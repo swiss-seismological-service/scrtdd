@@ -37,7 +37,6 @@ VGGRID  40 40 460 6.5 45.0 -1.0 0.1 0.1 0.1 SLOW_LEN
 
 # -----------------------------------------------------------------------------
 #
-# Modello a strati Irpinia (Improta et al.) - P/S ratio of 1.68 used
 # model layers (LAYER depth, Vp_top, Vp_grad, Vs_top, Vs_grad, p_top, p_grad)
 LAYER   -1.0  5.7900 0.0     3.3500 0.0     2.7100 0.0
 LAYER    0.0  5.8000 0.0     3.3600 0.0     2.7200 0.0
