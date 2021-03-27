@@ -68,10 +68,10 @@ void TravelTimeTable::computeApproximatedTakeOfAngles(
 
   if (takeOffAngleAzim || takeOffAngleDip)
   {
-    double backAzimuth;
+    double azimuth;
     double distance = computeDistance(
         eventLat, eventLon, eventDepth, station.latitude, station.longitude,
-        -(station.elevation / 1000.), nullptr, &backAzimuth);
+        -(station.elevation / 1000.), &azimuth, nullptr);
 
     if (takeOffAngleDip)
     {
@@ -82,7 +82,7 @@ void TravelTimeTable::computeApproximatedTakeOfAngles(
 
     if (takeOffAngleAzim)
     {
-      *takeOffAngleAzim = deg2rad(backAzimuth);
+      *takeOffAngleAzim = deg2rad(azimuth);
     }
   }
 }

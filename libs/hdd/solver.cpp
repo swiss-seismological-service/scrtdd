@@ -469,11 +469,13 @@ void Solver::computePartialDerivatives()
       ObservationParams &obprm = kv2.second;
 
       // dip angle:  0(down):180(up) -> -90(down):+90(up)
-      double dip = obprm.takeOffAngleDip-deg2rad(90);
-      double slowness = 1. / obprm.velocityAtSrc;
+      const double dip = obprm.takeOffAngleDip - deg2rad(90);
+      // azimuth angle to backazimuth
+      const double azi = obprm.takeOffAngleAzim - deg2rad(180);
+      const double slowness = 1. / obprm.velocityAtSrc;
 
-      obprm.dx = slowness * std::cos(dip) * std::sin(obprm.takeOffAngleAzim);
-      obprm.dy = slowness * std::cos(dip) * std::cos(obprm.takeOffAngleAzim);
+      obprm.dx = slowness * std::cos(dip) * std::sin(azi);
+      obprm.dy = slowness * std::cos(dip) * std::cos(azi);
       obprm.dz = slowness * std::sin(dip);
     }
   }
