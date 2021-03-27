@@ -148,8 +148,8 @@ public:
                             bool computeEvChanges,
                             double travelTime,
                             double travelTimeResidual,
-                            double takeOfAngleAzim,
-                            double takeOfAngleDip,
+                            double takeOffAngleAzim,
+                            double takeOffAngleDip,
                             double velocityAtSrc);
 
   void solve(unsigned numIterations    = 0,

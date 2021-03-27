@@ -76,8 +76,8 @@ void ScTravelTimeTable::compute(double eventLat,
                                 const Catalog::Station &station,
                                 const std::string &phaseType,
                                 double &travelTime,
-                                double &takeOfAngleAzim,
-                                double &takeOfAngleDip,
+                                double &takeOffAngleAzim,
+                                double &takeOffAngleDip,
                                 double &velocityAtSrc)
 {
   double depth = eventDepth > 0 ? eventDepth : 0;
@@ -85,9 +85,13 @@ void ScTravelTimeTable::compute(double eventLat,
       _ttt->compute(phaseType.c_str(), eventLat, eventLon, depth,
                     station.latitude, station.longitude, station.elevation);
   travelTime = tt.time;
-  // tt.takeOff is not computed for LOCSAT and for libTau it seems wrong
   computeApproximatedTakeOfAngles(eventLat, eventLon, eventDepth, station,
-                                  phaseType, &takeOfAngleAzim, &takeOfAngleDip);
+                                  phaseType, &takeOffAngleAzim, &takeOffAngleDip);
+  // tt.takeoff is not computed for LOCSAT
+  if ( type == "libtau" )
+  {
+    takeOffAngleDip = deg2rad(tt.takeoff);
+  }
   velocityAtSrc = velocityAtSource(depth, phaseType);
 }
 

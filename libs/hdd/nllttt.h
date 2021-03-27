@@ -336,8 +336,8 @@ public:
                        const Catalog::Station &station,
                        const std::string &phaseType,
                        double &travelTime,
-                       double &takeOfAngleAzim,
-                       double &takeOfAngleDip,
+                       double &takeOffAngleAzim,
+                       double &takeOffAngleDip,
                        double &velocityAtSrc);
 
 private:

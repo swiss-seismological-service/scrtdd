@@ -246,8 +246,8 @@ void Solver::addObservationParams(unsigned evId,
                                   bool computeEvChanges,
                                   double travelTime,
                                   double travelTimeResidual,
-                                  double takeOfAngleAzim,
-                                  double takeOfAngleDip,
+                                  double takeOffAngleAzim,
+                                  double takeOffAngleDip,
                                   double velocityAtSrc)
 {
   string phStaId      = string(1, phase) + "@" + staId;
@@ -259,8 +259,8 @@ void Solver::addObservationParams(unsigned evId,
   _obsParams[evIdx][phStaIdx] = ObservationParams{computeEvChanges,
                                                   travelTime,
                                                   travelTimeResidual,
-                                                  takeOfAngleAzim,
-                                                  takeOfAngleDip,
+                                                  takeOffAngleAzim,
+                                                  takeOffAngleDip,
                                                   velocityAtSrc,
                                                   0,
                                                   0,
@@ -468,13 +468,13 @@ void Solver::computePartialDerivatives()
     {
       ObservationParams &obprm = kv2.second;
 
+      // dip angle:  0(down):180(up) -> -90(down):+90(up)
+      double dip = obprm.takeOffAngleDip-deg2rad(90);
       double slowness = 1. / obprm.velocityAtSrc;
 
-      obprm.dx = slowness * std::cos(obprm.takeOffAngleDip) *
-                 std::sin(obprm.takeOffAngleAzim);
-      obprm.dy = slowness * std::cos(obprm.takeOffAngleDip) *
-                 std::cos(obprm.takeOffAngleAzim);
-      obprm.dz = slowness * std::sin(obprm.takeOffAngleDip);
+      obprm.dx = slowness * std::cos(dip) * std::sin(obprm.takeOffAngleAzim);
+      obprm.dy = slowness * std::cos(dip) * std::cos(obprm.takeOffAngleAzim);
+      obprm.dz = slowness * std::sin(dip);
     }
   }
 }

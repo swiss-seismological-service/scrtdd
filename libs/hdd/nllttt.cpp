@@ -205,8 +205,8 @@ void NllTravelTimeTable::compute(double eventLat,
                                  const Catalog::Station &station,
                                  const std::string &phaseType,
                                  double &travelTime,
-                                 double &takeOfAngleAzim,
-                                 double &takeOfAngleDip,
+                                 double &takeOffAngleAzim,
+                                 double &takeOffAngleDip,
                                  double &velocityAtSrc)
 {
   // set travelTime
@@ -266,15 +266,15 @@ void NllTravelTimeTable::compute(double eventLat,
   }
 
   // set takeOffAngles
-  takeOfAngleAzim = std::nan("");
-  takeOfAngleDip  = std::nan("");
+  takeOffAngleAzim = std::nan("");
+  takeOffAngleDip  = std::nan("");
   if (angleIt != _angleGrids.end())
   {
     AngleGridPtr angleGrid = angleIt->second;
     try
     {
-      angleGrid->getAngles(eventLat, eventLon, eventDepth, takeOfAngleAzim,
-                           takeOfAngleDip);
+      angleGrid->getAngles(eventLat, eventLon, eventDepth, takeOffAngleAzim,
+                           takeOffAngleDip);
     }
     catch (exception &e)
     {
@@ -286,8 +286,8 @@ void NllTravelTimeTable::compute(double eventLat,
   // approximate angles if not already provided by the grid
   computeApproximatedTakeOfAngles(
       eventLat, eventLon, eventDepth, station, phaseType,
-      std::isfinite(takeOfAngleAzim) ? nullptr : &takeOfAngleAzim,
-      std::isfinite(takeOfAngleDip) ? nullptr : &takeOfAngleDip);
+      std::isfinite(takeOffAngleAzim) ? nullptr : &takeOffAngleAzim,
+      std::isfinite(takeOffAngleDip) ? nullptr : &takeOffAngleDip);
 }
 
 std::string Grid::filePath(const std::string &basePath,
@@ -820,7 +820,7 @@ void AngleGrid::getAngles(
   {
     azim = std::nan("");
   }
-  dip = (angles.dip / 10.0) - 90; // 0(down):1800(up) -> -90(down):+90(up)
+  dip = (angles.dip / 10.0);
   dip = deg2rad(dip);
 }
 

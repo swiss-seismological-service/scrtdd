@@ -18,9 +18,9 @@
 #include "nllttt.h"
 #include "scttt.h"
 #include "utils.h"
-#include <seiscomp3/math/math.h>
 
 #include <seiscomp3/core/strings.h>
+#include <seiscomp3/math/math.h>
 #include <sstream>
 #include <stdexcept>
 
@@ -77,6 +77,7 @@ void TravelTimeTable::computeApproximatedTakeOfAngles(
     {
       double VertDist  = eventDepth + station.elevation / 1000.;
       *takeOffAngleDip = std::asin(VertDist / distance);
+      *takeOffAngleDip += deg2rad(90); // -90(down):+90(up) -> 0(down):180(up)
     }
 
     if (takeOffAngleAzim)

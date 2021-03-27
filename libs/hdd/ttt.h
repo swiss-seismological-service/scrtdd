@@ -46,20 +46,20 @@ public:
                        const Catalog::Station &station,
                        const std::string &phaseType,
                        double &travelTime,
-                       double &takeOfAngleAzim,
-                       double &takeOfAngleDip,
+                       double &takeOffAngleAzim,
+                       double &takeOffAngleDip,
                        double &velocityAtSrc) = 0;
 
   void compute(const Catalog::Event &event,
                const Catalog::Station &station,
                const std::string &phaseType,
                double &travelTime,
-               double &takeOfAngleAzim,
-               double &takeOfAngleDip,
+               double &takeOffAngleAzim,
+               double &takeOffAngleDip,
                double &velocityAtSrc)
   {
     return compute(event.latitude, event.longitude, event.depth, station,
-                   phaseType, travelTime, takeOfAngleAzim, takeOfAngleDip,
+                   phaseType, travelTime, takeOffAngleAzim, takeOffAngleDip,
                    velocityAtSrc);
   }
 
@@ -88,7 +88,7 @@ public:
 protected:
   /*
    * Utility function to compute straight ray path approximation
-   * for takeOfAngles angles when those are not available in the
+   * for takeOffAngles angles when those are not available in the
    * travel time tables
    */
   static void computeApproximatedTakeOfAngles(double eventLat,
@@ -96,8 +96,8 @@ protected:
                                               double eventDepth,
                                               const Catalog::Station &station,
                                               const std::string &phaseType,
-                                              double *takeOfAngleAzim = nullptr,
-                                              double *takeOfAngleDip = nullptr);
+                                              double *takeOffAngleAzim = nullptr,
+                                              double *takeOffAngleDip = nullptr);
 
   TravelTimeTable(const std::string &t, const std::string &m)
       : type(t), model(m)
