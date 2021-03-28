@@ -969,7 +969,7 @@ cp mymodel* seiscomp_installation/share/locsat/tables/
 
 Please refer to [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) documenation on how to generate grid files. Once you have them you can configure in `scrtdd` in travel time table options.
 
-The following geographic transformations (TRANS statement) are currently supported: GLOBAL 2D and 3D, SIMPLE 2D and 3D, SDS 2D and 3D. Also both float and double values are supported as well as byte swapping.
+The following geographic transformations (TRANS statement) are currently supported: GLOBAL 2D, SIMPLE 2D and 3D, SDS 2D and 3D. Also both float and double values are supported as well as byte swapping.
 
 ## 9. Scolv Locator plugin
 

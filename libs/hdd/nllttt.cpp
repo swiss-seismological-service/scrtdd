@@ -387,8 +387,7 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
       (gridType == Type::velocity && parsedLines != 2))
   {
     string msg =
-        stringify("Cannot load grid header file %s (malformed or missing file)",
-                  info.hdrFilePath.c_str());
+        stringify("Cannot load grid header file %s", info.hdrFilePath.c_str());
     throw runtime_error(msg.c_str());
   }
 
