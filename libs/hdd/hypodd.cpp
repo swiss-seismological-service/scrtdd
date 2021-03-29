@@ -31,7 +31,7 @@
 #include <seiscomp3/utils/files.h>
 #include <stdexcept>
 
-#define SEISCOMP_COMPONENT RTDD
+#define SEISCOMP_COMPONENT HDD
 #include <seiscomp3/logging/file.h>
 #include <seiscomp3/logging/log.h>
 

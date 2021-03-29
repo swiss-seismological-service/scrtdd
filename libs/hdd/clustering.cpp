@@ -20,7 +20,7 @@
 
 #include <seiscomp3/core/strings.h>
 
-#define SEISCOMP_COMPONENT RTDD
+#define SEISCOMP_COMPONENT HDD
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
