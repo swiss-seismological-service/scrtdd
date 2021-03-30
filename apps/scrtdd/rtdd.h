@@ -151,6 +151,7 @@ private:
     std::string mergeCatalogs;
     std::string dumpCatalogXML;
     std::string evalXCorr;
+    std::string reloadProfileMsg;
     bool loadProfile;
 
     // cron

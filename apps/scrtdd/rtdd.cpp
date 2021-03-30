@@ -318,7 +318,9 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
       "ids) or a file triplet (station.csv,event.csv,phase.csv). Use in "
       "combination with --profile",
       true);
-
+  NEW_OPT_CLI(_config.reloadProfileMsg, "Mode", "send-reload-profile-msg",
+              "Send a message to any running scrtdd module requesting to "
+              "reload a specific profile passed as argument", true); 
   NEW_OPT_CLI(_config.dumpCatalog, "Catalog", "dump-catalog",
               "Dump the seiscomp event/origin id file passed as argument into "
               "a catalog file triplet (station.csv,event.csv,phase.csv).",
@@ -395,10 +397,13 @@ bool RTDD::validateParameters()
         commandline().option<string>("merge-catalogs-keepid"));
 
   // disable messaging (offline mode) with certain command line options
-  if (!_config.eventXML.empty() || !_config.dumpCatalog.empty() ||
-      !_config.mergeCatalogs.empty() || !_config.dumpCatalogXML.empty() ||
-      _config.loadProfile || !_config.evalXCorr.empty() ||
+  if (!_config.eventXML.empty() ||
+      !_config.dumpCatalog.empty() ||
+      !_config.mergeCatalogs.empty() ||
+      !_config.dumpCatalogXML.empty() ||
+      !_config.evalXCorr.empty() ||
       !_config.relocateCatalog.empty() ||
+      _config.loadProfile ||
       (!_config.originIDs.empty() && _config.testMode))
   {
     SEISCOMP_INFO("Disable messaging");
@@ -1074,6 +1079,22 @@ bool RTDD::init()
 
 bool RTDD::run()
 {
+  // Send a profile reload request
+  if (!_config.reloadProfileMsg.empty())
+  {
+    RTDDReloadProfileRequestMessage msg;
+    msg.setProfile(_config.reloadProfileMsg);
+    connection()->send(&msg);
+    if (!connection()->send(&msg))
+    {
+      SEISCOMP_ERROR(
+          "Error while sending relocation request message: %s",
+          connection()->lastError().toString());
+      return false;
+    }
+    return true;
+  }
+
   // if xml file provided load it into _eventParameters
   if (!_config.eventXML.empty())
   {
@@ -1336,11 +1357,33 @@ void RTDD::handleMessage(Core::Message *msg)
   for (it = _todos.begin(); it != _todos.end(); ++it) addProcess(it->get());
   _todos.clear();
 
+  // Reload profile request
+  RTDDReloadProfileRequestMessage *reload_req =
+      RTDDReloadProfileRequestMessage::Cast(msg);
+  if (reload_req)
+  {
+    SEISCOMP_INFO("Received profile reload request (profile %s)",
+                  reload_req->getProfile().c_str());
+    RTDDReloadProfileResponseMessage resp;
+    ProfilePtr profile = getProfile(reload_req->getProfile());
+    if (profile)
+    {
+      profile->unload();
+    }
+    else
+    {
+      SEISCOMP_ERROR("Unknown profile '%s'", reload_req->getProfile().c_str());
+      resp.setError( stringify("Unknown profile '%s'", reload_req->getProfile().c_str()) );
+    }
+    if(!connection()->send(&resp))
+        SEISCOMP_ERROR("Failed sending profile reload response");
+  }
+
   // Relocate origins coming from scolv
   RTDDRelocateRequestMessage *reloc_req = RTDDRelocateRequestMessage::Cast(msg);
   if (reloc_req)
   {
-    SEISCOMP_DEBUG("Received relocation request");
+    SEISCOMP_INFO("Received relocation request");
 
     RTDDRelocateResponseMessage reloc_resp;
     ProfilePtr currProfile;

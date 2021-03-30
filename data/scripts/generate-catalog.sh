@@ -78,7 +78,8 @@ fi
 # It is now possible to use the relocated events as a new backgroud catalog
 # for a scrtdd real-time profile
 #
-#cp reloc-station.csv reloc-event.csv reloc-phase.csv ~/.seiscomp/scrtdd/myRealTimeProfile/bgcatalog/
+# cp reloc-station.csv reloc-event.csv reloc-phase.csv ~/.seiscomp/scrtdd/myRealTimeProfile/bgcatalog/
+# $seiscomp_exec scrtdd --send-reload-profile-msg myRealTimeProfile --user bgCatUpdated
 
 #
 # Import the relocated catalog in a database (if destination db is defined)

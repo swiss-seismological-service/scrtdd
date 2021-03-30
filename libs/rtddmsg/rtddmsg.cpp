@@ -43,4 +43,26 @@ IMPLEMENT_SC_CLASS_DERIVED(RTDDRelocateResponseMessage,
                            Message,
                            "rtdd_relocate_response_message");
 
+void RTDDReloadProfileRequestMessage::serialize(Archive &ar)
+{
+  Core::Message::serialize(ar);
+  if (!ar.success()) return;
+  ar &NAMED_OBJECT("profile", _profile);
+}
+
+IMPLEMENT_SC_CLASS_DERIVED(RTDDReloadProfileRequestMessage,
+                           Message,
+                           "rtdd_reload_profile_request_message");
+
+void RTDDReloadProfileResponseMessage::serialize(Archive &ar)
+{
+  Core::Message::serialize(ar);
+  if (!ar.success()) return;
+  ar &NAMED_OBJECT("error", _error);
+}
+
+IMPLEMENT_SC_CLASS_DERIVED(RTDDReloadProfileResponseMessage,
+                           Message,
+                           "rtdd_reload_profile_response_message");
+
 } // namespace Seiscomp

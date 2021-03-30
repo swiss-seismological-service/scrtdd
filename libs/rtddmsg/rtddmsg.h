@@ -26,10 +26,6 @@ namespace Seiscomp {
 
 DEFINE_SMARTPOINTER(RTDDRelocateRequestMessage);
 
-/**
- * \brief Message for requesting a clearing of the cache
- * This message type requests a response from a peer.
- */
 class SC_SYSTEM_CLIENT_API RTDDRelocateRequestMessage
     : public Seiscomp::Core::Message
 {
@@ -37,7 +33,6 @@ class SC_SYSTEM_CLIENT_API RTDDRelocateRequestMessage
   DECLARE_SERIALIZATION;
 
 public:
-  //! Constructor
   RTDDRelocateRequestMessage() : _origin(0), _profile("") {}
 
   void setOrigin(DataModel::OriginPtr org) { _origin = org; }
@@ -56,9 +51,6 @@ private:
 
 DEFINE_SMARTPOINTER(RTDDRelocateResponseMessage);
 
-/**
- * \brief Message to respond to a clear cache request
- */
 class SC_SYSTEM_CLIENT_API RTDDRelocateResponseMessage
     : public Seiscomp::Core::Message
 {
@@ -66,7 +58,6 @@ class SC_SYSTEM_CLIENT_API RTDDRelocateResponseMessage
   DECLARE_SERIALIZATION;
 
 public:
-  //! Constructor
   RTDDRelocateResponseMessage()
       : _relocatedOrigin(0), _error(""), _requestAccepted(false)
   {}
@@ -88,6 +79,49 @@ private:
   DataModel::OriginPtr _relocatedOrigin;
   std::string _error;
   bool _requestAccepted;
+};
+
+DEFINE_SMARTPOINTER(RTDDReloadProfileRequestMessage);
+
+class SC_SYSTEM_CLIENT_API RTDDReloadProfileRequestMessage
+    : public Seiscomp::Core::Message
+{
+  DECLARE_SC_CLASS(RTDDReloadProfileRequestMessage)
+  DECLARE_SERIALIZATION;
+
+public:
+  RTDDReloadProfileRequestMessage() : _profile("") {}
+
+  void setProfile(const std::string &name) { _profile = name; }
+  std::string getProfile() const { return _profile; }
+
+  //! Implemented interface from Message
+  virtual bool empty() const { return false; }
+
+private:
+  std::string _profile;
+};
+
+DEFINE_SMARTPOINTER(RTDDReloadProfileResponseMessage);
+
+class SC_SYSTEM_CLIENT_API RTDDReloadProfileResponseMessage
+    : public Seiscomp::Core::Message
+{
+  DECLARE_SC_CLASS(RTDDReloadProfileResponseMessage)
+  DECLARE_SERIALIZATION;
+
+public:
+  RTDDReloadProfileResponseMessage() : _error("") {}
+
+  void setError(const std::string err) { _error = err; }
+  std::string getError() const { return _error; }
+  bool hasError() const { return !_error.empty(); }
+
+  //! Implemented interface from Message
+  virtual bool empty() const { return false; }
+
+private:
+  std::string _error;
 };
 
 } // namespace Seiscomp
