@@ -86,9 +86,10 @@ void ScTravelTimeTable::compute(double eventLat,
                     station.latitude, station.longitude, station.elevation);
   travelTime = tt.time;
   computeApproximatedTakeOfAngles(eventLat, eventLon, eventDepth, station,
-                                  phaseType, &takeOffAngleAzim, &takeOffAngleDip);
+                                  phaseType, &takeOffAngleAzim,
+                                  &takeOffAngleDip);
   // tt.takeoff is not computed for LOCSAT
-  if ( type == "libtau" )
+  if (type == "libtau")
   {
     takeOffAngleDip = deg2rad(tt.takeoff);
   }

@@ -46,7 +46,8 @@ echo "Downloading events from $START_DATE to $END_DATE (database $CATALOG_DB)...
 
 ID_FILE=catalog-ids.csv
 
-$seiscomp_exec sclistorg -d $CATALOG_DB --begin "$(date "+%Y-%m-%d %H:%M:00" -d $START_DATE)" \
+$seiscomp_exec sclistorg -d $CATALOG_DB \
+          --begin "$(date "+%Y-%m-%d %H:%M:00" -d $START_DATE)" \
           --end "$(date "+%Y-%m-%d %H:%M:00" -d $END_DATE)" \
           --org-type preferred \
    > $ID_FILE
@@ -64,7 +65,8 @@ echo "Relocating events..."
 #depending on the size of the logs, many files will be generated in the form scrtdd.log scrtdd.log.1 scrtdd.log.2 ...
 RTDDLOG_FILE=scrtdd.log
 
-$seiscomp_exec scrtdd -d $CATALOG_DB --reloc-catalog $ID_FILE --profile myProfile \
+$seiscomp_exec scrtdd -d $CATALOG_DB --reloc-catalog $ID_FILE \
+       --profile myMultiEventProfile \
        --verbosity=3 --log-file $RTDDLOG_FILE
 
 if [ $? -ne 0 ] || [ ! -f reloc-event.csv ] || [ ! -f reloc-phase.csv ] || [ ! -f reloc-station.csv ]; then
@@ -74,9 +76,9 @@ fi
 
 #
 # It is now possible to use the relocated events as a new backgroud catalog
-# for a scrtdd real-time profile (scrtdd needs to be restarted)
+# for a scrtdd real-time profile
 #
-#cp reloc-station.csv,reloc-event.csv,reloc-phase.csv rtdd_config/profile/
+#cp reloc-station.csv reloc-event.csv reloc-phase.csv ~/.seiscomp/scrtdd/myRealTimeProfile/bgcatalog/
 
 #
 # Import the relocated catalog in a database (if destination db is defined)

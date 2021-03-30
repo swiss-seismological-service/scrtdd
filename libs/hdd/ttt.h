@@ -91,13 +91,14 @@ protected:
    * for takeOffAngles angles when those are not available in the
    * travel time tables
    */
-  static void computeApproximatedTakeOfAngles(double eventLat,
-                                              double eventLon,
-                                              double eventDepth,
-                                              const Catalog::Station &station,
-                                              const std::string &phaseType,
-                                              double *takeOffAngleAzim = nullptr,
-                                              double *takeOffAngleDip = nullptr);
+  static void
+  computeApproximatedTakeOfAngles(double eventLat,
+                                  double eventLon,
+                                  double eventDepth,
+                                  const Catalog::Station &station,
+                                  const std::string &phaseType,
+                                  double *takeOffAngleAzim = nullptr,
+                                  double *takeOffAngleDip  = nullptr);
 
   TravelTimeTable(const std::string &t, const std::string &m)
       : type(t), model(m)

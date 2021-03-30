@@ -149,8 +149,8 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
     {
       for (size_t j = i + 1; j < tttList.size(); j++)
       {
-        BOOST_CHECK_CLOSE(travelTimeP[i], travelTimeP[j], 15);
-        BOOST_CHECK_CLOSE(travelTimeS[i], travelTimeS[j], 15);
+        BOOST_CHECK_CLOSE(travelTimeP[i], travelTimeP[j], 10);
+        BOOST_CHECK_CLOSE(travelTimeS[i], travelTimeS[j], 10);
         BOOST_CHECK_CLOSE(velocityAtSrcP[i], velocityAtSrcP[j], 1);
         BOOST_CHECK_CLOSE(velocityAtSrcS[i], velocityAtSrcS[j], 1);
 
@@ -162,10 +162,10 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
           BOOST_CHECK_SMALL(diffAngle, degreeTol);
         };
 
-        checkCloseAngles(takeOffAngleAzimP[i], takeOffAngleAzimP[j], 30);
-        checkCloseAngles(takeOffAngleDipP[i], takeOffAngleDipP[j], 30);
-        checkCloseAngles(takeOffAngleAzimS[i], takeOffAngleAzimS[j], 30);
-        checkCloseAngles(takeOffAngleDipS[i], takeOffAngleDipS[j], 30);
+        checkCloseAngles(takeOffAngleAzimP[i], takeOffAngleAzimP[j], 15);
+        checkCloseAngles(takeOffAngleDipP[i], takeOffAngleDipP[j], 15);
+        checkCloseAngles(takeOffAngleAzimS[i], takeOffAngleAzimS[j], 15);
+        checkCloseAngles(takeOffAngleDipS[i], takeOffAngleDipS[j], 15);
       }
     }
   }

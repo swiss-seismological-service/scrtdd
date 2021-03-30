@@ -471,7 +471,7 @@ void Solver::computePartialDerivatives()
       // dip angle:  0(down):180(up) -> -90(down):+90(up)
       const double dip = obprm.takeOffAngleDip - deg2rad(90);
       // azimuth angle to backazimuth
-      const double azi = obprm.takeOffAngleAzim - deg2rad(180);
+      const double azi      = obprm.takeOffAngleAzim - deg2rad(180);
       const double slowness = 1. / obprm.velocityAtSrc;
 
       obprm.dx = slowness * std::cos(dip) * std::sin(azi);

@@ -284,11 +284,6 @@ void filter(GenericRecord &trace,
     trace.dataUpdated();
   }
 
-  if (resampleFreq > 0)
-  {
-    resample(trace, resampleFreq);
-  }
-
   if (!filterStr.empty())
   {
     string filterError;
@@ -304,6 +299,11 @@ void filter(GenericRecord &trace,
     filter->apply(data->size(), data->typedData());
     delete filter;
     trace.dataUpdated();
+  }
+
+  if (resampleFreq > 0)
+  {
+    resample(trace, resampleFreq);
   }
 }
 
@@ -342,17 +342,19 @@ void resample(GenericRecord &trace, double new_sf)
    * interpolation); or interpolated from a smaller pre-calculated table;
    * or computed from a set of low-order polynomials fitted to each
    * section or lobe between  zero-crossings of the windowed Sinc (Farrow)
+   *
+   * Credits: Ronald Nicholson, "Ron's Digital Signal Processing Page"
    */
   auto new_sample = [&data, &data_size, &data_sf](double x, double fmax,
-                                                  double win_len) -> double {
+                                                  int win_len) -> double {
     const double gain = 2 * fmax / data_sf; // Calc gain correction factor
     double newSmp     = 0;
 
     // For 1 window width
-    for (double win_i = -(win_len / 2.); win_i < (win_len / 2.); win_i += 1.)
+    for (int win_i = -(win_len / 2.); win_i < (win_len / 2.); win_i++)
     {
       const int j        = int(x + win_i); // input sample index
-      const double win_x = j - x; // x relative to the window centered at j
+      const double win_x = j - x;
       if (j >= 0 && j < data_size)
       {
         // calculate von Hann Window | hann(x) = sin^2(pi*x/N)
@@ -371,7 +373,7 @@ void resample(GenericRecord &trace, double new_sf)
   for (int i = 0; i < resampled_data_size; i++)
   {
     double x          = i / resamp_factor;
-    resampled_data[i] = new_sample(x, nyquist, 20);
+    resampled_data[i] = new_sample(x, nyquist, 21);
   }
 
   DoubleArray::Cast(trace.data())->setData(resampled_data_size, resampled_data);
@@ -566,7 +568,7 @@ void crossCorrelation(const double *dataS,
   double denomS = std::sqrt(n * sumS2 - sumS * sumS);
 
   // cross-correlation loop
-  coeffOut = std::nan("");
+  coeffOut           = std::nan("");
   double lastSampleL = 0;
   for (int delay = 0; delay <= (sizeL - sizeS); delay++)
   {
