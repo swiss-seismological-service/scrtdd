@@ -11,44 +11,39 @@ CATALOG_DB="dbtype://user:password@host/database"
 # Database to import the relocated catalog to (empty -> no import)
 DESTINATION_DB=""
 
-#
-# Date range used for fetching events from the database
-# The double-difference relocation will be peformend on those events
-#
-START_DATE=$(date -Iminutes -d "2009-01-01")  # set your starting date here
-END_DATE=$(date -Iminutes)                    # now
-
 # 
 # Create a working directory for this relocation
 #
-workingdir="./$(date +%Y%m%d-%H%M -d $END_DATE)"
+NOW=$(date -Iminutes)
 
-echo "Creating working directory $workingdir"
+WORKINGDIR="./$(date +%Y%m%d-%H%M -d $NOW)"
 
-if [ -d $workingdir ]; then
-  echo "directory $workingdir already exists: stop here"
+echo "Creating working directory $WORKINGDIR"
+
+if [ -d $WORKINGDIR ]; then
+  echo "directory $WORKINGDIR already exists: stop here"
   exit 1
 fi
 
-mkdir -p $workingdir
+mkdir -p $WORKINGDIR
 
-if [ ! -d $workingdir ]; then
-  echo "Cannot create directory $workingdir: stop here"
+if [ ! -d $WORKINGDIR ]; then
+  echo "Cannot create directory $WORKINGDIR: stop here"
   exit 1
 fi
 
-cd $workingdir
+cd $WORKINGDIR
 
 #
 # Downloads the events
 #
-echo "Downloading events from $START_DATE to $END_DATE (database $CATALOG_DB)..."
+echo "Downloading events from $CATALOG_DB)..."
 
 ID_FILE=catalog-ids.csv
 
 $seiscomp_exec sclistorg -d $CATALOG_DB \
-          --begin "$(date "+%Y-%m-%d %H:%M:00" -d $START_DATE)" \
-          --end "$(date "+%Y-%m-%d %H:%M:00" -d $END_DATE)" \
+          --begin "2000-01-01 00:00:00" \
+          --end "$(date "+%Y-%m-%d %H:%M:00" -d $NOW)" \
           --org-type preferred \
    > $ID_FILE
 
@@ -75,11 +70,19 @@ if [ $? -ne 0 ] || [ ! -f reloc-event.csv ] || [ ! -f reloc-phase.csv ] || [ ! -
 fi
 
 #
-# It is now possible to use the relocated events as a new backgroud catalog
-# for a scrtdd real-time profile
+# Copy relocated catalog to real-time rtDD configuration
 #
-# cp reloc-station.csv reloc-event.csv reloc-phase.csv ~/.seiscomp/scrtdd/myRealTimeProfile/bgcatalog/
-# $seiscomp_exec scrtdd --send-reload-profile-msg myRealTimeProfile --user bgCatUpdated
+RTDD_BGCAT_DIR=~/.seiscomp/scrtdd/myRealTimeProfile/bgCat
+
+echo "Copying reloc-station.csv reloc-phase.csv reloc-event.csv to $RTDD_BGCAT_DIR"
+
+cp -b -S .old -f reloc-station.csv reloc-phase.csv reloc-event.csv $RTDD_BGCAT_DIR/
+if [ $? -ne 0 ]; then
+  echo "Cannot copy the relocated catalog to $RTDD_BGCAT_DIR: stop here"
+  exit 1
+fi
+# Force scrtdd to reload the profile background catalog
+$seiscomp_exec scrtdd --send-reload-profile-msg myRealTimeProfile --user rtddBgCatUpdated
 
 #
 # Import the relocated catalog in a database (if destination db is defined)
@@ -114,14 +117,13 @@ if [ -n "${DESTINATION_DB}" ]; then
 fi
 
 #
-# Back-up the results in a compressed tar file and delete the
-# working directory
+# Back-up the results in a compressed tar file and then delete the working directory
 #
 cd ..
 
-echo "Creating backup file $workingdir.tar.bz2..."
-tar cjSvf $workingdir.tar.bz2 $workingdir
+echo "Creating backup file $WORKINGDIR.tar.bz2..."
+tar cjSvf $WORKINGDIR.tar.bz2 $WORKINGDIR
 
-echo "Deleting folder $workingdir..."
-rm -rf $workingdir
+echo "Deleting folder $WORKINGDIR..."
+rm -rf $WORKINGDIR
 
