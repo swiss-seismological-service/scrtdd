@@ -320,7 +320,8 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
       true);
   NEW_OPT_CLI(_config.reloadProfileMsg, "Mode", "send-reload-profile-msg",
               "Send a message to any running scrtdd module requesting to "
-              "reload a specific profile passed as argument", true); 
+              "reload a specific profile passed as argument",
+              true);
   NEW_OPT_CLI(_config.dumpCatalog, "Catalog", "dump-catalog",
               "Dump the seiscomp event/origin id file passed as argument into "
               "a catalog file triplet (station.csv,event.csv,phase.csv).",
@@ -397,14 +398,10 @@ bool RTDD::validateParameters()
         commandline().option<string>("merge-catalogs-keepid"));
 
   // disable messaging (offline mode) with certain command line options
-  if (!_config.eventXML.empty() ||
-      !_config.dumpCatalog.empty() ||
-      !_config.mergeCatalogs.empty() ||
-      !_config.dumpCatalogXML.empty() ||
-      !_config.evalXCorr.empty() ||
-      !_config.relocateCatalog.empty() ||
-      _config.loadProfile ||
-      (!_config.originIDs.empty() && _config.testMode))
+  if (!_config.eventXML.empty() || !_config.dumpCatalog.empty() ||
+      !_config.mergeCatalogs.empty() || !_config.dumpCatalogXML.empty() ||
+      !_config.evalXCorr.empty() || !_config.relocateCatalog.empty() ||
+      _config.loadProfile || (!_config.originIDs.empty() && _config.testMode))
   {
     SEISCOMP_INFO("Disable messaging");
     setMessagingEnabled(false);
@@ -1087,9 +1084,8 @@ bool RTDD::run()
     connection()->send(&msg);
     if (!connection()->send(&msg))
     {
-      SEISCOMP_ERROR(
-          "Error while sending relocation request message: %s",
-          connection()->lastError().toString());
+      SEISCOMP_ERROR("Error while sending relocation request message: %s",
+                     connection()->lastError().toString());
       return false;
     }
     return true;
@@ -1373,10 +1369,11 @@ void RTDD::handleMessage(Core::Message *msg)
     else
     {
       SEISCOMP_ERROR("Unknown profile '%s'", reload_req->getProfile().c_str());
-      resp.setError( stringify("Unknown profile '%s'", reload_req->getProfile().c_str()) );
+      resp.setError(
+          stringify("Unknown profile '%s'", reload_req->getProfile().c_str()));
     }
-    if(!connection()->send(&resp))
-        SEISCOMP_ERROR("Failed sending profile reload response");
+    if (!connection()->send(&resp))
+      SEISCOMP_ERROR("Failed sending profile reload response");
   }
 
   // Relocate origins coming from scolv
@@ -2377,42 +2374,53 @@ void RTDD::Profile::load(DatabaseQuery *query,
 
   string pWorkingDir = (boost::filesystem::path(workingDir) / name).string();
 
-  SEISCOMP_INFO("Loading profile %s", name.c_str());
-
   this->query           = query;
   this->cache           = cache;
   this->eventParameters = eventParameters;
 
-  // load the catalog
-  HDD::CatalogCPtr ddbgc;
-  if (alternativeCatalog) // force this catalog
+  SEISCOMP_INFO("Loading profile %s", name.c_str());
+
+  try
   {
-    ddbgc = alternativeCatalog;
+    // load the catalog
+    HDD::CatalogCPtr ddbgc;
+    if (alternativeCatalog) // force this catalog
+    {
+      ddbgc = alternativeCatalog;
+    }
+    else if (!eventIDFile.empty()) // catalog is a list of origin ids
+    {
+      CatalogDataSrc dataSrc(query, cache, eventParameters);
+      HDD::ScCatalogPtr ddbgc_ = new HDD::ScCatalog();
+      ddbgc_->add(eventIDFile, dataSrc);
+      ddbgc = ddbgc_;
+    }
+    else // catalog is extended format station.csv,event.csv,phase.csv
+    {
+      ddbgc = new HDD::Catalog(stationFile, eventFile, phaFile);
+    }
+
+    hypodd = new HDD::HypoDD(ddbgc, ddCfg, pWorkingDir);
+    hypodd->setWorkingDirCleanup(cleanupWorkingDir);
+    hypodd->setUseCatalogWaveformDiskCache(cacheWaveforms);
+    hypodd->setWaveformCacheAll(cacheAllWaveforms);
+    hypodd->setWaveformDebug(debugWaveforms);
+
+    if (preloadData)
+    {
+      hypodd->preloadData();
+    }
   }
-  else if (!eventIDFile.empty()) // catalog is a list of origin ids
+  catch (exception &e)
   {
-    CatalogDataSrc dataSrc(query, cache, eventParameters);
-    HDD::ScCatalogPtr ddbgc_ = new HDD::ScCatalog();
-    ddbgc_->add(eventIDFile, dataSrc);
-    ddbgc = ddbgc_;
-  }
-  else // catalog is extended format station.csv,event.csv,phase.csv
-  {
-    ddbgc = new HDD::Catalog(stationFile, eventFile, phaFile);
+    SEISCOMP_ERROR("Cannot load profile %s (%s)", name.c_str(), e.what());
+    unload();
+    return;
   }
 
-  hypodd = new HDD::HypoDD(ddbgc, ddCfg, pWorkingDir);
-  hypodd->setWorkingDirCleanup(cleanupWorkingDir);
-  hypodd->setUseCatalogWaveformDiskCache(cacheWaveforms);
-  hypodd->setWaveformCacheAll(cacheAllWaveforms);
-  hypodd->setWaveformDebug(debugWaveforms);
   loaded    = true;
   lastUsage = Core::Time::GMT();
 
-  if (preloadData)
-  {
-    hypodd->preloadData();
-  }
   SEISCOMP_INFO("Profile %s loaded into memory", name.c_str());
 }
 
