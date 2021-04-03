@@ -305,14 +305,13 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
     //
     // apply Waldauser's concentric ellipsoids algorithm
     //
-    vector<int> quadrants = {1, 2, 3, 4, 5, 6, 7, 8};
-    bool workToDo         = true;
+    bool workToDo = true;
 
     while (workToDo)
     {
       for (int elpsNum = ellipsoids.size() - 1; elpsNum >= 0; elpsNum--)
       {
-        for (int quadrant : quadrants)
+        for (int quadrant : {1, 2, 3, 4, 5, 6, 7, 8})
         {
           // if we either don't have events or we have already selected
           // `maxNumNeigh` neighbors, exit
