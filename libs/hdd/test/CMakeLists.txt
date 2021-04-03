@@ -1,7 +1,8 @@
 SET(TESTS
 	waveform.cpp
-	clustering.cpp
+	ellipsoid.cpp
 	ttt.cpp
+	clustering.cpp
 	ddme.cpp
 	ddse.cpp
 )
