@@ -140,7 +140,7 @@ public:
     if (lonDelta > 180)
       lonDelta = 360 - lonDelta;
     else if (lonDelta < -180)
-      lonDelta = -360 - lonDelta;
+      lonDelta = 360 + lonDelta;
 
     if (lonDelta < 0 && std::set<int>{1, 4, 5, 8}.count(quadrant) != 0)
       return false;
