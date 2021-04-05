@@ -1011,11 +1011,22 @@ GenericRecordCPtr Loader::get(const Core::TimeWindow &tw,
     if (!isProcessed)
     {
       GenericRecordPtr nonConstTrace(new GenericRecord(*trace));
-      filter(*nonConstTrace, demeaning, filterStr, resampleFreq);
-      isProcessed = true;
-      trace       = nonConstTrace;
+      try
+      {
+        filter(*nonConstTrace, demeaning, filterStr, resampleFreq);
+        isProcessed = true;
+        trace       = nonConstTrace;
+      }
+      catch (exception &e)
+      {
+        SEISCOMP_WARNING("Errow while filtering waveform: %s", e.what());
+        trace = nullptr;
+      }
     }
+  }
 
+  if (trace)
+  {
     // cache processed trace
     if (_doCaching && !isCached && _cacheProcessed && isProcessed)
     {
@@ -1218,6 +1229,7 @@ GenericRecordCPtr SnrFilteredLoader::get(const Core::TimeWindow &tw,
     }
     _snrGoodWfs.insert(wfId);
   }
+
   if (twToLoad != tw)
   {
     GenericRecordPtr nonConstTrace(new GenericRecord(*trace));
