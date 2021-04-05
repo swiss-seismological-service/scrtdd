@@ -613,10 +613,12 @@
                                increasing/decreasing the number of interations.
                             </description>
                         </parameter>
-                        <parameter name="useTTResiduals" type="boolean" default="false">
-                            <description>Include travel time residuals in the double-difference
-                            system. The relocated origins will improve in absolute locations,
-                            but the relative locations might lose in resolution.
+                        <parameter name="includeTravelTimeResiduals" type="boolean" default="false">
+                            <description>Include absolute travel time residuals in the double-difference
+                              system. This force the solver to find a solution that satisfies both
+                              dd-relative and absolute locations. The relocated origins will improve in
+                              absolute locations, but the relative locations might lose in resolution; it's
+                              a trade-off
                           </description>
                         </parameter>
                         <group name="downWeightingByResidual">
