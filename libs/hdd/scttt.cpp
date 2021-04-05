@@ -2,15 +2,14 @@
  *   Copyright (C) by ETHZ/SED                                             *
  *                                                                         *
  * This program is free software: you can redistribute it and/or modify    *
- * it under the terms of the GNU Affero General Public License as published*
- * by the Free Software Foundation, either version 3 of the License, or    *
- * (at your option) any later version.                                     *
+ * it under the terms of the GNU LESSER GENERAL PUBLIC LICENSE as          *
+ * published by the Free Software Foundation, either version 3 of the      *
+ * License, or (at your option) any later version.                         *
  *                                                                         *
- * This program is distributed in the hope that it will be useful,         *
+ * This software is distributed in the hope that it will be useful,        *
  * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  * GNU Affero General Public License for more details.                     *
- *                                                                         *
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
@@ -24,7 +23,7 @@
 #include <sstream>
 #include <stdexcept>
 
-#define SEISCOMP_COMPONENT RTDD
+#define SEISCOMP_COMPONENT HDD
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
@@ -77,8 +76,8 @@ void ScTravelTimeTable::compute(double eventLat,
                                 const Catalog::Station &station,
                                 const std::string &phaseType,
                                 double &travelTime,
-                                double &takeOfAngleAzim,
-                                double &takeOfAngleDip,
+                                double &takeOffAngleAzim,
+                                double &takeOffAngleDip,
                                 double &velocityAtSrc)
 {
   double depth = eventDepth > 0 ? eventDepth : 0;
@@ -86,9 +85,14 @@ void ScTravelTimeTable::compute(double eventLat,
       _ttt->compute(phaseType.c_str(), eventLat, eventLon, depth,
                     station.latitude, station.longitude, station.elevation);
   travelTime = tt.time;
-  // tt.takeOff is not computed for LOCSAT and for libTau it seems wrong
   computeApproximatedTakeOfAngles(eventLat, eventLon, eventDepth, station,
-                                  phaseType, &takeOfAngleAzim, &takeOfAngleDip);
+                                  phaseType, &takeOffAngleAzim,
+                                  &takeOffAngleDip);
+  // tt.takeoff is not computed for LOCSAT
+  if (type == "libtau")
+  {
+    takeOffAngleDip = deg2rad(tt.takeoff);
+  }
   velocityAtSrc = velocityAtSource(depth, phaseType);
 }
 

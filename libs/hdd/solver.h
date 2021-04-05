@@ -2,15 +2,14 @@
  *   Copyright (C) by ETHZ/SED                                             *
  *                                                                         *
  * This program is free software: you can redistribute it and/or modify    *
- * it under the terms of the GNU Affero General Public License as published*
- * by the Free Software Foundation, either version 3 of the License, or    *
- * (at your option) any later version.                                     *
+ * it under the terms of the GNU LESSER GENERAL PUBLIC LICENSE as          *
+ * published by the Free Software Foundation, either version 3 of the      *
+ * License, or (at your option) any later version.                         *
  *                                                                         *
- * This program is distributed in the hope that it will be useful,         *
+ * This software is distributed in the hope that it will be useful,        *
  * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  * GNU Affero General Public License for more details.                     *
- *                                                                         *
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
@@ -18,8 +17,6 @@
 #ifndef __HDD_SOLVER_H__
 #define __HDD_SOLVER_H__
 
-#include "lsmr.h"
-#include "lsqr.h"
 #include "utils.h"
 
 #include <seiscomp3/core/baseobject.h>
@@ -66,7 +63,7 @@ struct DDSystem : public Core::BaseObject
   double (*G)[4];
   // changes for each event hypocentral parameters we wish to determine
   // (x,y,z,t)
-  double(*m);
+  double *m;
   // double differences + optional travel time constraints
   double *d;
   // L2 norm scaler for each G column
@@ -151,8 +148,8 @@ public:
                             bool computeEvChanges,
                             double travelTime,
                             double travelTimeResidual,
-                            double takeOfAngleAzim,
-                            double takeOfAngleDip,
+                            double takeOffAngleAzim,
+                            double takeOffAngleDip,
                             double velocityAtSrc);
 
   void solve(unsigned numIterations    = 0,

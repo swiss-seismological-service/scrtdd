@@ -2,21 +2,14 @@
  *   Copyright (C) by ETHZ/SED                                             *
  *                                                                         *
  * This program is free software: you can redistribute it and/or modify    *
- * it under the terms of the GNU Affero General Public License as published*
- * by the Free Software Foundation, either version 3 of the License, or    *
- * (at your option) any later version.                                     *
+ * it under the terms of the GNU LESSER GENERAL PUBLIC LICENSE as          *
+ * published by the Free Software Foundation, either version 3 of the      *
+ * License, or (at your option) any later version.                         *
  *                                                                         *
- * This program is distributed in the hope that it will be useful,         *
+ * This software is distributed in the hope that it will be useful,        *
  * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  * GNU Affero General Public License for more details.                     *
- *                                                                         *
- * --------------------------- Note on NLL code ---------------------------*
- * Bits and pieces of Transform class and the interpolation funtions are   *
- * derived from NonLinLoc software by Anthony Lomax. Out of convenience    *
- * the code lies in here but consider that code under GPLv3 licence and    *
- * joint copyright by Anthony Lomax and SED                                *
- *-------------------------------------------------------------------------*
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
@@ -31,7 +24,7 @@
 #include <seiscomp3/utils/files.h>
 #include <stdexcept>
 
-#define SEISCOMP_COMPONENT RTDD
+#define SEISCOMP_COMPONENT HDD
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
@@ -212,11 +205,11 @@ void NllTravelTimeTable::compute(double eventLat,
                                  const Catalog::Station &station,
                                  const std::string &phaseType,
                                  double &travelTime,
-                                 double &takeOfAngleAzim,
-                                 double &takeOfAngleDip,
+                                 double &takeOffAngleAzim,
+                                 double &takeOffAngleDip,
                                  double &velocityAtSrc)
 {
-  // set travelTime
+  // get travelTime
   compute(eventLat, eventLon, eventDepth, station, phaseType, travelTime);
 
   string velGId = "velGrid:" + Grid::filePath(_velGridPath, station, phaseType);
@@ -273,15 +266,15 @@ void NllTravelTimeTable::compute(double eventLat,
   }
 
   // set takeOffAngles
-  takeOfAngleAzim = std::nan("");
-  takeOfAngleDip  = std::nan("");
+  takeOffAngleAzim = std::nan("");
+  takeOffAngleDip  = std::nan("");
   if (angleIt != _angleGrids.end())
   {
     AngleGridPtr angleGrid = angleIt->second;
     try
     {
-      angleGrid->getAngles(eventLat, eventLon, eventDepth, takeOfAngleAzim,
-                           takeOfAngleDip);
+      angleGrid->getAngles(eventLat, eventLon, eventDepth, takeOffAngleAzim,
+                           takeOffAngleDip);
     }
     catch (exception &e)
     {
@@ -293,8 +286,8 @@ void NllTravelTimeTable::compute(double eventLat,
   // approximate angles if not already provided by the grid
   computeApproximatedTakeOfAngles(
       eventLat, eventLon, eventDepth, station, phaseType,
-      std::isfinite(takeOfAngleAzim) ? nullptr : &takeOfAngleAzim,
-      std::isfinite(takeOfAngleDip) ? nullptr : &takeOfAngleDip);
+      std::isfinite(takeOffAngleAzim) ? nullptr : &takeOffAngleAzim,
+      std::isfinite(takeOffAngleDip) ? nullptr : &takeOffAngleDip);
 }
 
 std::string Grid::filePath(const std::string &basePath,
@@ -394,8 +387,7 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
       (gridType == Type::velocity && parsedLines != 2))
   {
     string msg =
-        stringify("Cannot load grid header file %s (malformed or missing file)",
-                  info.hdrFilePath.c_str());
+        stringify("Cannot load grid header file %s", info.hdrFilePath.c_str());
     throw runtime_error(msg.c_str());
   }
 
@@ -827,7 +819,7 @@ void AngleGrid::getAngles(
   {
     azim = std::nan("");
   }
-  dip = (angles.dip / 10.0) - 90; // 0(down):1800(up) -> -90(down):+90(up)
+  dip = (angles.dip / 10.0);
   dip = deg2rad(dip);
 }
 

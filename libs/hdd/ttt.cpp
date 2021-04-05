@@ -2,15 +2,14 @@
  *   Copyright (C) by ETHZ/SED                                             *
  *                                                                         *
  * This program is free software: you can redistribute it and/or modify    *
- * it under the terms of the GNU Affero General Public License as published*
- * by the Free Software Foundation, either version 3 of the License, or    *
- * (at your option) any later version.                                     *
+ * it under the terms of the GNU LESSER GENERAL PUBLIC LICENSE as          *
+ * published by the Free Software Foundation, either version 3 of the      *
+ * License, or (at your option) any later version.                         *
  *                                                                         *
- * This program is distributed in the hope that it will be useful,         *
+ * This software is distributed in the hope that it will be useful,        *
  * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  * GNU Affero General Public License for more details.                     *
- *                                                                         *
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
@@ -19,13 +18,13 @@
 #include "nllttt.h"
 #include "scttt.h"
 #include "utils.h"
-#include <seiscomp3/math/math.h>
 
 #include <seiscomp3/core/strings.h>
+#include <seiscomp3/math/math.h>
 #include <sstream>
 #include <stdexcept>
 
-#define SEISCOMP_COMPONENT RTDD
+#define SEISCOMP_COMPONENT HDD
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
@@ -69,20 +68,21 @@ void TravelTimeTable::computeApproximatedTakeOfAngles(
 
   if (takeOffAngleAzim || takeOffAngleDip)
   {
-    double backAzimuth;
+    double azimuth;
     double distance = computeDistance(
         eventLat, eventLon, eventDepth, station.latitude, station.longitude,
-        -(station.elevation / 1000.), nullptr, &backAzimuth);
+        -(station.elevation / 1000.), &azimuth, nullptr);
 
     if (takeOffAngleDip)
     {
       double VertDist  = eventDepth + station.elevation / 1000.;
       *takeOffAngleDip = std::asin(VertDist / distance);
+      *takeOffAngleDip += deg2rad(90); // -90(down):+90(up) -> 0(down):180(up)
     }
 
     if (takeOffAngleAzim)
     {
-      *takeOffAngleAzim = deg2rad(backAzimuth);
+      *takeOffAngleAzim = deg2rad(azimuth);
     }
   }
 }

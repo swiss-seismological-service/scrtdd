@@ -2,15 +2,14 @@
  *   Copyright (C) by ETHZ/SED                                             *
  *                                                                         *
  * This program is free software: you can redistribute it and/or modify    *
- * it under the terms of the GNU Affero General Public License as published*
- * by the Free Software Foundation, either version 3 of the License, or    *
- * (at your option) any later version.                                     *
+ * it under the terms of the GNU LESSER GENERAL PUBLIC LICENSE as          *
+ * published by the Free Software Foundation, either version 3 of the      *
+ * License, or (at your option) any later version.                         *
  *                                                                         *
- * This program is distributed in the hope that it will be useful,         *
+ * This software is distributed in the hope that it will be useful,        *
  * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  * GNU Affero General Public License for more details.                     *
- *                                                                         *
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
@@ -47,20 +46,20 @@ public:
                        const Catalog::Station &station,
                        const std::string &phaseType,
                        double &travelTime,
-                       double &takeOfAngleAzim,
-                       double &takeOfAngleDip,
+                       double &takeOffAngleAzim,
+                       double &takeOffAngleDip,
                        double &velocityAtSrc) = 0;
 
   void compute(const Catalog::Event &event,
                const Catalog::Station &station,
                const std::string &phaseType,
                double &travelTime,
-               double &takeOfAngleAzim,
-               double &takeOfAngleDip,
+               double &takeOffAngleAzim,
+               double &takeOffAngleDip,
                double &velocityAtSrc)
   {
     return compute(event.latitude, event.longitude, event.depth, station,
-                   phaseType, travelTime, takeOfAngleAzim, takeOfAngleDip,
+                   phaseType, travelTime, takeOffAngleAzim, takeOffAngleDip,
                    velocityAtSrc);
   }
 
@@ -89,16 +88,17 @@ public:
 protected:
   /*
    * Utility function to compute straight ray path approximation
-   * for takeOfAngles angles when those are not available in the
+   * for takeOffAngles angles when those are not available in the
    * travel time tables
    */
-  static void computeApproximatedTakeOfAngles(double eventLat,
-                                              double eventLon,
-                                              double eventDepth,
-                                              const Catalog::Station &station,
-                                              const std::string &phaseType,
-                                              double *takeOfAngleAzim = nullptr,
-                                              double *takeOfAngleDip = nullptr);
+  static void
+  computeApproximatedTakeOfAngles(double eventLat,
+                                  double eventLon,
+                                  double eventDepth,
+                                  const Catalog::Station &station,
+                                  const std::string &phaseType,
+                                  double *takeOffAngleAzim = nullptr,
+                                  double *takeOffAngleDip  = nullptr);
 
   TravelTimeTable(const std::string &t, const std::string &m)
       : type(t), model(m)

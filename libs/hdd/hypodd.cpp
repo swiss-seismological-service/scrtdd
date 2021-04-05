@@ -2,15 +2,14 @@
  *   Copyright (C) by ETHZ/SED                                             *
  *                                                                         *
  * This program is free software: you can redistribute it and/or modify    *
- * it under the terms of the GNU Affero General Public License as published*
- * by the Free Software Foundation, either version 3 of the License, or    *
- * (at your option) any later version.                                     *
+ * it under the terms of the GNU LESSER GENERAL PUBLIC LICENSE as          *
+ * published by the Free Software Foundation, either version 3 of the      *
+ * License, or (at your option) any later version.                         *
  *                                                                         *
- * This program is distributed in the hope that it will be useful,         *
+ * This software is distributed in the hope that it will be useful,        *
  * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  * GNU Affero General Public License for more details.                     *
- *                                                                         *
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
@@ -32,7 +31,7 @@
 #include <seiscomp3/utils/files.h>
 #include <stdexcept>
 
-#define SEISCOMP_COMPONENT RTDD
+#define SEISCOMP_COMPONENT HDD
 #include <seiscomp3/logging/file.h>
 #include <seiscomp3/logging/log.h>
 
@@ -683,8 +682,9 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
     obsparams = ObservationParams();
 
     // update event parameters
-    finalCatalog = updateRelocatedEvents(solver, finalCatalog, neighCluster,
-                                         obsparams, finalNeighCluster);
+    finalCatalog = updateRelocatedEvents(
+        solver, finalCatalog, neighCluster, obsparams,
+        std::max(absTTDiffObsWeight, xcorrObsWeight), finalNeighCluster);
   }
 
   // compute last bit of statistics for the relocated events
@@ -893,8 +893,9 @@ CatalogPtr HypoDD::updateRelocatedEvents(
     const CatalogCPtr &catalog,
     const std::list<NeighboursPtr> &neighCluster,
     ObservationParams &obsparams,
+    double pickWeightScaler,
     std::unordered_map<unsigned, NeighboursPtr> &finalNeighCluster // output
-    ) const
+) const
 {
   unordered_map<string, Station> stations    = catalog->getStations();
   map<unsigned, Event> events                = catalog->getEvents();
@@ -979,7 +980,7 @@ CatalogPtr HypoDD::updateRelocatedEvents(
 
       phase.relocInfo.isRelocated = true;
       phase.relocInfo.finalWeight =
-          phase.procInfo.weight * meanFinalWeight / meanAPrioriWeight;
+          meanFinalWeight / pickWeightScaler; // range 0-1
       phase.relocInfo.numTTObs = startTTObs;
       phase.relocInfo.numCCObs = startCCObs;
       if (isFirstIteration)
@@ -1108,9 +1109,9 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
                       travelTime);
         double residual =
             travelTime - (finalPhase.time - startEvent.time).length();
-        finalEvent.relocInfo.startRms += residual * residual;
         finalPhase.relocInfo.startResidual = residual;
         tmpCat->updatePhase(finalPhase, false);
+        finalEvent.relocInfo.startRms += residual * residual;
         rmsCount++;
       }
       catch (exception &e)

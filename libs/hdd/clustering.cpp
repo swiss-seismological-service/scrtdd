@@ -2,15 +2,14 @@
  *   Copyright (C) by ETHZ/SED                                             *
  *                                                                         *
  * This program is free software: you can redistribute it and/or modify    *
- * it under the terms of the GNU Affero General Public License as published*
- * by the Free Software Foundation, either version 3 of the License, or    *
- * (at your option) any later version.                                     *
+ * it under the terms of the GNU LESSER GENERAL PUBLIC LICENSE as          *
+ * published by the Free Software Foundation, either version 3 of the      *
+ * License, or (at your option) any later version.                         *
  *                                                                         *
- * This program is distributed in the hope that it will be useful,         *
+ * This software is distributed in the hope that it will be useful,        *
  * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  * GNU Affero General Public License for more details.                     *
- *                                                                         *
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
@@ -21,7 +20,7 @@
 
 #include <seiscomp3/core/strings.h>
 
-#define SEISCOMP_COMPONENT RTDD
+#define SEISCOMP_COMPONENT HDD
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
@@ -306,14 +305,13 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
     //
     // apply Waldauser's concentric ellipsoids algorithm
     //
-    vector<int> quadrants = {1, 2, 3, 4, 5, 6, 7, 8};
-    bool workToDo         = true;
+    bool workToDo = true;
 
     while (workToDo)
     {
       for (int elpsNum = ellipsoids.size() - 1; elpsNum >= 0; elpsNum--)
       {
-        for (int quadrant : quadrants)
+        for (int quadrant : {1, 2, 3, 4, 5, 6, 7, 8})
         {
           // if we either don't have events or we have already selected
           // `maxNumNeigh` neighbors, exit

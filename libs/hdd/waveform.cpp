@@ -2,15 +2,14 @@
  *   Copyright (C) by ETHZ/SED                                             *
  *                                                                         *
  * This program is free software: you can redistribute it and/or modify    *
- * it under the terms of the GNU Affero General Public License as published*
- * by the Free Software Foundation, either version 3 of the License, or    *
- * (at your option) any later version.                                     *
+ * it under the terms of the GNU LESSER GENERAL PUBLIC LICENSE as          *
+ * published by the Free Software Foundation, either version 3 of the      *
+ * License, or (at your option) any later version.                         *
  *                                                                         *
- * This program is distributed in the hope that it will be useful,         *
+ * This software is distributed in the hope that it will be useful,        *
  * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  * GNU Affero General Public License for more details.                     *
- *                                                                         *
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
@@ -266,7 +265,8 @@ bool trim(GenericRecord &trace, const Core::TimeWindow &tw)
 
   ArrayPtr sliced = trace.data()->slice(ofs, ofs + samples);
 
-  trace.setStartTime(tw.startTime());
+  trace.setStartTime(trace.startTime() +
+                     Core::TimeSpan(ofs / trace.samplingFrequency()));
   trace.setData(sliced.get());
 
   return true;
@@ -285,11 +285,6 @@ void filter(GenericRecord &trace,
     trace.dataUpdated();
   }
 
-  if (resampleFreq > 0)
-  {
-    resample(trace, resampleFreq);
-  }
-
   if (!filterStr.empty())
   {
     string filterError;
@@ -305,6 +300,11 @@ void filter(GenericRecord &trace,
     filter->apply(data->size(), data->typedData());
     delete filter;
     trace.dataUpdated();
+  }
+
+  if (resampleFreq > 0)
+  {
+    resample(trace, resampleFreq);
   }
 }
 
@@ -343,17 +343,19 @@ void resample(GenericRecord &trace, double new_sf)
    * interpolation); or interpolated from a smaller pre-calculated table;
    * or computed from a set of low-order polynomials fitted to each
    * section or lobe between  zero-crossings of the windowed Sinc (Farrow)
+   *
+   * Credits: Ronald Nicholson, "Ron's Digital Signal Processing Page"
    */
   auto new_sample = [&data, &data_size, &data_sf](double x, double fmax,
-                                                  double win_len) -> double {
+                                                  int win_len) -> double {
     const double gain = 2 * fmax / data_sf; // Calc gain correction factor
     double newSmp     = 0;
 
     // For 1 window width
-    for (double win_i = -(win_len / 2.); win_i < (win_len / 2.); win_i += 1.)
+    for (int win_i = -(win_len / 2.); win_i < (win_len / 2.); win_i++)
     {
       const int j        = int(x + win_i); // input sample index
-      const double win_x = j - x; // x relative to the window centered at j
+      const double win_x = j - x;
       if (j >= 0 && j < data_size)
       {
         // calculate von Hann Window | hann(x) = sin^2(pi*x/N)
@@ -372,7 +374,7 @@ void resample(GenericRecord &trace, double new_sf)
   for (int i = 0; i < resampled_data_size; i++)
   {
     double x          = i / resamp_factor;
-    resampled_data[i] = new_sample(x, nyquist, 4);
+    resampled_data[i] = new_sample(x, nyquist, 21);
   }
 
   DoubleArray::Cast(trace.data())->setData(resampled_data_size, resampled_data);
@@ -440,8 +442,6 @@ bool xcorr(const GenericRecordCPtr &tr1,
            double &delayOut,
            double &coeffOut)
 {
-  coeffOut = std::nan("");
-
   if (tr1->samplingFrequency() != tr2->samplingFrequency())
   {
     SEISCOMP_INFO(
@@ -569,8 +569,9 @@ void crossCorrelation(const double *dataS,
   double denomS = std::sqrt(n * sumS2 - sumS * sumS);
 
   // cross-correlation loop
+  coeffOut           = std::nan("");
   double lastSampleL = 0;
-  for (int delay = 0; delay < (sizeL - sizeS); delay++)
+  for (int delay = 0; delay <= (sizeL - sizeS); delay++)
   {
     // sumL/sumL2 update: remove the sample that has just exited the
     // current cross-correlation win and add the sample that has just
@@ -1010,11 +1011,22 @@ GenericRecordCPtr Loader::get(const Core::TimeWindow &tw,
     if (!isProcessed)
     {
       GenericRecordPtr nonConstTrace(new GenericRecord(*trace));
-      filter(*nonConstTrace, demeaning, filterStr, resampleFreq);
-      isProcessed = true;
-      trace       = nonConstTrace;
+      try
+      {
+        filter(*nonConstTrace, demeaning, filterStr, resampleFreq);
+        isProcessed = true;
+        trace       = nonConstTrace;
+      }
+      catch (exception &e)
+      {
+        SEISCOMP_WARNING("Errow while filtering waveform: %s", e.what());
+        trace = nullptr;
+      }
     }
+  }
 
+  if (trace)
+  {
     // cache processed trace
     if (_doCaching && !isCached && _cacheProcessed && isProcessed)
     {
@@ -1217,6 +1229,7 @@ GenericRecordCPtr SnrFilteredLoader::get(const Core::TimeWindow &tw,
     }
     _snrGoodWfs.insert(wfId);
   }
+
   if (twToLoad != tw)
   {
     GenericRecordPtr nonConstTrace(new GenericRecord(*trace));

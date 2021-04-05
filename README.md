@@ -19,17 +19,17 @@
 </pre>
 # Description
 
-The SCRTDD is a [SeisComP](<https://github.com/SeisComP>) extension module that implements both Real-Time Double-Difference Event relocation and classic offline Multi-Event Double-Difference relocation.
+rtDD is a [SeisComP](<https://github.com/SeisComP>) extension module that implements both Real-Time Double-Difference Event relocation and classic offline Multi-Event Double-Difference relocation.
 
 The actual methods are based on the paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser and "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Waldhauser & Ellsworth.
 
 The double-difference equation system solver uses [LSQR by Chris Paige, Michael Saunders](<https://web.stanford.edu/group/SOL/software/lsqr/>) and [LSMR by David Fong, Michael Saunders](<https://web.stanford.edu/group/SOL/software/lsmr/>) algorithms from [this](<https://github.com/tvercaut/LSQR-cpp/>) Apache Licensed beautiful implementation by Tom Vercautereen.
 
-SCRTDD also supports [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) grid file format alongside the formats natively supported by SeisComP (LOCSAT and libtau). A feature that enables 3D velocity models support within the tool.
+rtDD also supports [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) grid file format alongside the formats natively supported by SeisComP (LOCSAT and libtau). A feature that enables 3D velocity models support within the tool.
 
 ## Compile
 
-In order to use this module the sources have to be compiled to an executable. Merge the scrtdd code into the *SeisComP* sources and compile *SeisComP as usual.
+In order to use this module the sources have to be compiled to an executable. Merge the scrtdd code into the *SeisComP* sources and compile *SeisComP* as usual.
 
 #### AGPL SeisComP
 
@@ -85,7 +85,7 @@ In multi-event mode there is no interaction neither with the running SeisComP mo
 
 ### 1.1 How to get the origin ids?
 
-There is a tool that is installed alongside `scrtdd`, called `sclistorg`, that is useful for listing origin ids satisfying certain criterias, sush as time period, geographic area, author, agency and so on. E.g.
+There is a tool that is installed alongside `scrtdd`, called `sclistorg`, that is useful for listing origin ids satisfying certain criterias, such as time period, geographic area, author, agency and so on. E.g.
 
 ```sh
 # list the preferred origin ids for all events between 2018-11-27 and 2018-12-14
@@ -135,7 +135,7 @@ Origins:
 
 Once we have the origin ids of the events we are going to relocate, we need to store them in a proper format that `scrtdd` understands.
 
-The first option is to store them in a simple file containing the origing IDs. `scrtdd` will use the origin IDs to fetch all necessary information from the SeisComP databse (local or even a remote machine).
+The first option is to store them in a simple file containing the origing IDs. `scrtdd` will use the origin IDs to fetch all necessary information from the SeisComP database (local or even a remote machine).
 
 E.g. *file myCatalog.csv* (a mandatory column named `seiscompId` is required, but other column might be present too).
 
@@ -148,7 +148,7 @@ Origin/20190223103327.031726.346363
 [...]
 ```
 
-Once we have the file cotaining the origins we can proceed with the relocation. 
+Once we have the file containing the origins we can proceed with the relocation. 
 
 There is another format we can use to specify the catalog. This format stores the full origins information to flat files, not only the origin ids. We can instruct `scrtdd` to generate this format like this:
 
@@ -192,7 +192,7 @@ eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,sta
 1,IVMRGE,2014-01-10T04:46:58.219541Z,0.100,0.100,Pg,IV,MRGE,,HHR,manual
 ```
 
-Finally, the events to be relocated can also be stored i SeisComP XML format. Please refer to the official SeisComP  documentation of `scxmldump`, a very convenient tool for dumping events to XML file.
+Finally, the events to be relocated can also be stored in SeisComP XML format. Please refer to the official SeisComP  documentation of `scxmldump`, a very convenient tool for dumping events to XML file.
 
 
 ### 1.3 Relocating the candidate events
@@ -332,6 +332,12 @@ Catalog:
                                         events will be discarded.
 ```
 
+### 1.6 Periodic update of the multi-event relocation
+
+For real-time monitoring it is useful to periodically update the multi-event relocation, so that the news events are continuously included in the double-difference inversion. This is not only useful for keeping track of what is happing in a region, but it is crucial for real-time relocation, where new origins are relocated using a background catalog: the more update the background catalog is, the bettter the results.
+
+For this purpose it might come in handy [this script](/data/scripts/generate-catalog.sh), that can be easily adapted to the specific use case.
+ 
 ## 2. Real-time single-event relocation
 
 In real-time processing `scrtdd` relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generate via multi-event relocation, which has already been coverred in the previous sections.
@@ -738,7 +744,7 @@ DD observations: 687 (CC P/S 141/47 TT P/S 375/124)
 DD observations residuals [msec]: before=-106+/-21.6 after=9+/-26.2
 ```
 
-The initial RMS (before relocation) is recomputed by `scrtdd` with the configured travel time tables. This is to make sure we are comparing the final RMS (after relocation) in a consistent way.
+The initial RMS (before relocation) is recomputed by `scrtdd` on the incoming origin. This is useuful to allow a comparison with the final RMS (after relocation) in a consistent way. Infact each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a certain travel time table, that might not be the same as scrtdd. Moreover the locator might apply a specific logic that prevents a comparison between RMS generated by different locators. For example NonLinLoc locator weighs a residual by the pick weight, but since the wighting scheme is NonLinLoc specific, that prevents its RMS to be meaninguf when compared with other locators.
 
 The following two lines can be a little cryptic to interpret: 
 ```
@@ -871,9 +877,9 @@ Details of the solutions for each iteration of the solver
 
 ## 7. Database connection and relocating events on remote machines
 
-When SeisComP modules need to access the database for reading or writing data (events, picks, magnitudes, etc) they use the connection string configured in either `global.cfg` (which is inherited by every module) or in `scmaster.cfg`, in which case is scmaster module that passes the database connection string to every module when they connect to the messagin system (usually at module startup).
+When SeisComP modules need to access the database for reading or writing data (events, picks, magnitudes, etc) they use the connection string configured in either `global.cfg` (which is inherited by every module) or in `scmaster.cfg`, in which case is scmaster module that passes the database connection string to every module when they connect to the messaging system (usually at module startup).
 
-However, when running `scrtdd` from the command line, it doesn't connect to the messaging system and if the database connection is specified via `scmaster.cfg`, the information never reaches `scrtdd`. In this case the database connnetion must be passed as a command line option:
+However, when running `scrtdd` from the command line, it doesn't connect to the messaging system and if the database connection is specified via `scmaster.cfg`, the information never reaches `scrtdd`. In this case the database connection must be passed as a command line option:
 
 ```
 scrtdd [some options] -d  mysql://user:password@host/seiscompDbName
@@ -892,11 +898,11 @@ It is worth noting that this feature allows `scrtdd` to connect to remote seisco
 
 ### 8.1 LOCSAT
 
-In the `scrtdd` configuration it is possible to select any travel time table installed in SeisComP; this means the default SeisComP travel time tables and any other tablse installed by the user. Although this is a general SeisComP topic and we suggest to refer to the official SeisComP documentation, here is a quick recipe for generating your own travel time table from a custom velocity model.
+In the `scrtdd` configuration it is possible to select any travel time table installed in SeisComP; this means the default SeisComP travel time tables and any other tables installed by the user. Although, this is a general SeisComP topic and we suggest to refer to the official SeisComP documentation, here is a quick recipe for generating your own travel time table from a custom velocity model.
 
 SeisComP supports `LOCSAT` and `libtau` travel time table formats (1D velocity model). It is possible to generate a custom travel time table in `LOCSAT` format using the [TauP toolkit](https://www.seis.sc.edu/taup). 
 
-First step is to have a velity model in one of the formats supported by `TauP`. To do so just make a copy of the SeisComP iasp91 or ak135 velocity models:
+First step is to have a velocity model in one of the formats supported by `TauP`. To do so, just make a copy of the SeisComP iasp91 or ak135 velocity models:
 
 ```
 cp seiscomp_installation/share/ttt/iasp91.tvel mymodel.tvel
@@ -906,7 +912,7 @@ or
 cp seiscomp_installation/share/ttt/ak135.tvel mymodel.tvel
 ```
 
-Then edit the relevant layers to match your velocity model and leave the others untacched. Now run:
+Then edit the relevant layers to match your velocity model and leave the others untouched. Now run:
 
 ```
 ./TauP-installation/bin/taup_create -tvel mymodel.tvel --verbose
@@ -961,11 +967,13 @@ cp mymodel* seiscomp_installation/share/locsat/tables/
 ```
 ### 8.2 NonLinLoc
 
-Please refer to [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) documenation on how to generate grid files. Once you have them you can configure in `scrtdd` in travel time table options.
+Please refer to [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) documentation on how to generate grid files. Once you have them you can configure in `scrtdd` in travel time table options.
+
+The following geographic transformations (TRANS statement) are currently supported: GLOBAL 2D, SIMPLE 2D and 3D, SDS 2D and 3D. Also both float and double values are supported as well as byte swapping.
 
 ## 9. Scolv Locator plugin
 
-A (re)locator plugin is also avaiable in the code, which makes `scrtdd` available via `scolv`. To enable this plugin just add `rtddloc` to the list of plugins in the global configuration.
+A (re)locator plugin is also available in the code, which makes `scrtdd` available via `scolv`. To enable this plugin just add `rtddloc` to the list of plugins in the global configuration.
 
 ![Locator plugin](/data/img/locator-plugin.png?raw=true "Locator plugin")
 

@@ -2,15 +2,14 @@
  *   Copyright (C) by ETHZ/SED                                             *
  *                                                                         *
  * This program is free software: you can redistribute it and/or modify    *
- * it under the terms of the GNU Affero General Public License as published*
- * by the Free Software Foundation, either version 3 of the License, or    *
- * (at your option) any later version.                                     *
+ * it under the terms of the GNU LESSER GENERAL PUBLIC LICENSE as          *
+ * published by the Free Software Foundation, either version 3 of the      *
+ * License, or (at your option) any later version.                         *
  *                                                                         *
- * This program is distributed in the hope that it will be useful,         *
+ * This software is distributed in the hope that it will be useful,        *
  * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  * GNU Affero General Public License for more details.                     *
- *                                                                         *
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
@@ -132,14 +131,20 @@ public:
     if (depth > ellip.depth && std::set<int>{5, 6, 7, 8}.count(quadrant) != 0)
       return false;
 
-    if (lon < ellip.lon && std::set<int>{1, 4, 5, 8}.count(quadrant) != 0)
-      return false;
-    if (lon > ellip.lon && std::set<int>{2, 3, 6, 7}.count(quadrant) != 0)
-      return false;
-
     if (lat < ellip.lat && std::set<int>{1, 2, 5, 6}.count(quadrant) != 0)
       return false;
     if (lat > ellip.lat && std::set<int>{3, 4, 7, 8}.count(quadrant) != 0)
+      return false;
+
+    double lonDelta = lon - ellip.lon;
+    if (lonDelta > 180)
+      lonDelta = 360 - lonDelta;
+    else if (lonDelta < -180)
+      lonDelta = 360 + lonDelta;
+
+    if (lonDelta < 0 && std::set<int>{1, 4, 5, 8}.count(quadrant) != 0)
+      return false;
+    if (lonDelta > 0 && std::set<int>{2, 3, 6, 7}.count(quadrant) != 0)
       return false;
 
     return true;

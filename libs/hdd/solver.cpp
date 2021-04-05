@@ -2,21 +2,21 @@
  *   Copyright (C) by ETHZ/SED                                             *
  *                                                                         *
  * This program is free software: you can redistribute it and/or modify    *
- * it under the terms of the GNU Affero General Public License as published*
- * by the Free Software Foundation, either version 3 of the License, or    *
- * (at your option) any later version.                                     *
+ * it under the terms of the GNU LESSER GENERAL PUBLIC LICENSE as          *
+ * published by the Free Software Foundation, either version 3 of the      *
+ * License, or (at your option) any later version.                         *
  *                                                                         *
- * This program is distributed in the hope that it will be useful,         *
+ * This software is distributed in the hope that it will be useful,        *
  * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  * GNU Affero General Public License for more details.                     *
- *                                                                         *
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
 #include "solver.h"
-#include "utils.h"
+#include "lsmr.h"
+#include "lsqr.h"
 
 #include <seiscomp3/core/strings.h>
 #include <seiscomp3/math/geo.h>
@@ -24,7 +24,7 @@
 #include <sstream>
 #include <stdexcept>
 
-#define SEISCOMP_COMPONENT RTDD
+#define SEISCOMP_COMPONENT HDD
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
@@ -246,8 +246,8 @@ void Solver::addObservationParams(unsigned evId,
                                   bool computeEvChanges,
                                   double travelTime,
                                   double travelTimeResidual,
-                                  double takeOfAngleAzim,
-                                  double takeOfAngleDip,
+                                  double takeOffAngleAzim,
+                                  double takeOffAngleDip,
                                   double velocityAtSrc)
 {
   string phStaId      = string(1, phase) + "@" + staId;
@@ -259,8 +259,8 @@ void Solver::addObservationParams(unsigned evId,
   _obsParams[evIdx][phStaIdx] = ObservationParams{computeEvChanges,
                                                   travelTime,
                                                   travelTimeResidual,
-                                                  takeOfAngleAzim,
-                                                  takeOfAngleDip,
+                                                  takeOffAngleAzim,
+                                                  takeOffAngleDip,
                                                   velocityAtSrc,
                                                   0,
                                                   0,
@@ -468,13 +468,15 @@ void Solver::computePartialDerivatives()
     {
       ObservationParams &obprm = kv2.second;
 
-      double slowness = 1. / obprm.velocityAtSrc;
+      // dip angle:  0(down):180(up) -> -90(down):+90(up)
+      const double dip = obprm.takeOffAngleDip - deg2rad(90);
+      // azimuth angle to backazimuth
+      const double azi      = obprm.takeOffAngleAzim - deg2rad(180);
+      const double slowness = 1. / obprm.velocityAtSrc;
 
-      obprm.dx = slowness * std::cos(obprm.takeOffAngleDip) *
-                 std::sin(obprm.takeOffAngleAzim);
-      obprm.dy = slowness * std::cos(obprm.takeOffAngleDip) *
-                 std::cos(obprm.takeOffAngleAzim);
-      obprm.dz = slowness * std::sin(obprm.takeOffAngleDip);
+      obprm.dx = slowness * std::cos(dip) * std::sin(azi);
+      obprm.dy = slowness * std::cos(dip) * std::cos(azi);
+      obprm.dz = slowness * std::sin(dip);
     }
   }
 }

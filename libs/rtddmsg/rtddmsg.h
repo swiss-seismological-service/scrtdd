@@ -2,15 +2,14 @@
  *   Copyright (C) by ETHZ/SED                                             *
  *                                                                         *
  * This program is free software: you can redistribute it and/or modify    *
- * it under the terms of the GNU Affero General Public License as published*
- * by the Free Software Foundation, either version 3 of the License, or    *
- * (at your option) any later version.                                     *
+ * it under the terms of the GNU LESSER GENERAL PUBLIC LICENSE as          *
+ * published by the Free Software Foundation, either version 3 of the      *
+ * License, or (at your option) any later version.                         *
  *                                                                         *
- * This program is distributed in the hope that it will be useful,         *
+ * This software is distributed in the hope that it will be useful,        *
  * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
  * GNU Affero General Public License for more details.                     *
- *                                                                         *
  *                                                                         *
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
@@ -27,10 +26,6 @@ namespace Seiscomp {
 
 DEFINE_SMARTPOINTER(RTDDRelocateRequestMessage);
 
-/**
- * \brief Message for requesting a clearing of the cache
- * This message type requests a response from a peer.
- */
 class SC_SYSTEM_CLIENT_API RTDDRelocateRequestMessage
     : public Seiscomp::Core::Message
 {
@@ -38,7 +33,6 @@ class SC_SYSTEM_CLIENT_API RTDDRelocateRequestMessage
   DECLARE_SERIALIZATION;
 
 public:
-  //! Constructor
   RTDDRelocateRequestMessage() : _origin(0), _profile("") {}
 
   void setOrigin(DataModel::OriginPtr org) { _origin = org; }
@@ -57,9 +51,6 @@ private:
 
 DEFINE_SMARTPOINTER(RTDDRelocateResponseMessage);
 
-/**
- * \brief Message to respond to a clear cache request
- */
 class SC_SYSTEM_CLIENT_API RTDDRelocateResponseMessage
     : public Seiscomp::Core::Message
 {
@@ -67,7 +58,6 @@ class SC_SYSTEM_CLIENT_API RTDDRelocateResponseMessage
   DECLARE_SERIALIZATION;
 
 public:
-  //! Constructor
   RTDDRelocateResponseMessage()
       : _relocatedOrigin(0), _error(""), _requestAccepted(false)
   {}
@@ -89,6 +79,49 @@ private:
   DataModel::OriginPtr _relocatedOrigin;
   std::string _error;
   bool _requestAccepted;
+};
+
+DEFINE_SMARTPOINTER(RTDDReloadProfileRequestMessage);
+
+class SC_SYSTEM_CLIENT_API RTDDReloadProfileRequestMessage
+    : public Seiscomp::Core::Message
+{
+  DECLARE_SC_CLASS(RTDDReloadProfileRequestMessage)
+  DECLARE_SERIALIZATION;
+
+public:
+  RTDDReloadProfileRequestMessage() : _profile("") {}
+
+  void setProfile(const std::string &name) { _profile = name; }
+  std::string getProfile() const { return _profile; }
+
+  //! Implemented interface from Message
+  virtual bool empty() const { return false; }
+
+private:
+  std::string _profile;
+};
+
+DEFINE_SMARTPOINTER(RTDDReloadProfileResponseMessage);
+
+class SC_SYSTEM_CLIENT_API RTDDReloadProfileResponseMessage
+    : public Seiscomp::Core::Message
+{
+  DECLARE_SC_CLASS(RTDDReloadProfileResponseMessage)
+  DECLARE_SERIALIZATION;
+
+public:
+  RTDDReloadProfileResponseMessage() : _error("") {}
+
+  void setError(const std::string err) { _error = err; }
+  std::string getError() const { return _error; }
+  bool hasError() const { return !_error.empty(); }
+
+  //! Implemented interface from Message
+  virtual bool empty() const { return false; }
+
+private:
+  std::string _error;
 };
 
 } // namespace Seiscomp
