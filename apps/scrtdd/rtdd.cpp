@@ -1084,8 +1084,7 @@ bool RTDD::run()
     connection()->send(&msg);
     if (!connection()->send(&msg))
     {
-      SEISCOMP_ERROR("Error while sending relocation request message: %s",
-                     connection()->lastError().toString());
+      SEISCOMP_ERROR("Error while sending relocation request message");
       return false;
     }
     return true;
