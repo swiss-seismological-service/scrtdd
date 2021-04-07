@@ -5,7 +5,7 @@
 
 #include "catalog.h"
 #include "clustering.h"
-//#include <seiscomp/logging/log.h>
+#include <seiscomp/logging/log.h>
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/math/math.h>
 
@@ -131,6 +131,8 @@ vector<Origin> orgList = {
 
 BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
 {
+  //Logging::enableConsoleLogging(Logging::getAll());
+
   const Origin &org = orgList[orgIdx];
   const HDD::CatalogCPtr cat =
       buildCatalog(org.lat, org.lon, org.depth, 50, {1});
@@ -440,6 +442,8 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
 
 BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
 {
+  //Logging::enableConsoleLogging(Logging::getAll());
+
   const Origin &org = orgList[orgIdx];
   const HDD::CatalogCPtr cat =
       buildCatalog(org.lat, org.lon, org.depth, 70,
@@ -451,8 +455,6 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
 
   const Event &event = cat->getEvents().at(1);
   unordered_set<unsigned> neighbourIds;
-
-  //Logging::enableConsoleLogging(Logging::getAll());
 
   // test multiple ellipsoids
   HDD::NeighboursPtr neighbours;

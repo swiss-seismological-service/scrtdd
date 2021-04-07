@@ -3,8 +3,7 @@ SET(TESTS
 	ellipsoid.cpp
 	ttt.cpp
 	clustering.cpp
-	ddme.cpp
-	ddse.cpp
+	dd.cpp
 )
 
 INCLUDE_DIRECTORIES(${HDD_DIR})
