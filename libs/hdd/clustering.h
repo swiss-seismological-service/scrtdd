@@ -96,7 +96,7 @@ selectNeighbouringEvents(const CatalogCPtr &catalog,
                          const CatalogCPtr &refEvCatalog,
                          double minPhaseWeight   = 0,
                          double minESdis         = 0,
-                         double maxESdis         = -1,
+                         double maxESdis         = -1, // -1 = no limits
                          double minEStoIEratio   = 0,
                          unsigned minDTperEvt    = 1,
                          unsigned maxDTperEvt    = 0, // 0 = no limits

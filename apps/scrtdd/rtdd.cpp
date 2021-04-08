@@ -926,7 +926,8 @@ bool RTDD::validateParameters()
     }
     try
     {
-      prof->solverCfg.ttConstraint = configGetBool(prefix + "includeTravelTimeResiduals");
+      prof->solverCfg.ttConstraint =
+          configGetBool(prefix + "includeTravelTimeResiduals");
     }
     catch (...)
     {

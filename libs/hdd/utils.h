@@ -72,23 +72,42 @@ double computeMean(const std::vector<double> &values);
 double computeMeanAbsoluteDeviation(const std::vector<double> &values,
                                     const double mean);
 
-class Randomer
+class UniformRandomer
 {
 
 public:
-  Randomer(size_t min, size_t max, unsigned int seed = std::random_device{}())
-      : gen_{seed}, dist_{min, max}
+  UniformRandomer(size_t min, size_t max, unsigned int seed = std::random_device{}())
+      : _gen(seed), _dist(min, max)
   {}
 
   // if you want predictable numbers
-  void setSeed(unsigned int seed) { gen_.seed(seed); }
+  void setSeed(unsigned int seed) { _gen.seed(seed); }
 
-  size_t next() { return dist_(gen_); }
+  size_t next() { return _dist(_gen); }
 
 private:
   // random seed by default
-  std::mt19937 gen_;
-  std::uniform_int_distribution<size_t> dist_;
+  std::mt19937 _gen;
+  std::uniform_int_distribution<size_t> _dist;
+};
+
+class NormalRandomer
+{
+
+public:
+  NormalRandomer(double mean, double stdDev, unsigned int seed = std::random_device{}())
+      : _gen(seed), _dist(mean, stdDev)
+  {}
+
+  // if you want predictable numbers
+  void setSeed(unsigned int seed) { _gen.seed(seed); }
+
+  double next() { return _dist(_gen); }
+
+private:
+  // random seed by default
+  std::mt19937 _gen;
+  std::normal_distribution<double> _dist;
 };
 
 /*
