@@ -217,6 +217,26 @@ HDD::CatalogPtr buildCatalog(HDD::TravelTimeTablePtr &ttt,
   return cat;
 }
 
+HDD::CatalogPtr buildBackgroundCatalog(HDD::TravelTimeTablePtr &ttt,
+                                       int maxStations,
+                                       Core::Time time,
+                                       double lat,
+                                       double lon,
+                                       double depth,
+                                       int numEvents,
+                                       double extent)
+{
+  HDD::CatalogPtr cat(new HDD::Catalog());
+  addStationsToCatalog(cat, maxStations);
+  addEvents1ToCatalog(cat, ttt, time + Core::TimeSpan(1), lat, lon, depth,
+                      numEvents / 3, extent);
+  addEvents2ToCatalog(cat, ttt, time + Core::TimeSpan(2), lat, lon, depth,
+                      numEvents / 3, extent);
+  addEvents3ToCatalog(cat, ttt, time + Core::TimeSpan(3), lat, lon, depth,
+                      numEvents / 3, extent);
+  return cat;
+}
+
 HDD::CatalogPtr relocateCatalog(const HDD::CatalogCPtr cat,
                                 HDD::TravelTimeTablePtr &ttt,
                                 const string &workingDir)
@@ -240,10 +260,10 @@ HDD::CatalogPtr relocateCatalog(const HDD::CatalogCPtr cat,
   clusterCfg.xcorrMaxInterEvDist = 0;
 
   HDD::SolverOptions solverCfg;
-  solverCfg.algoIterations     = 20;
-  solverCfg.ttConstraint       = true;
-  solverCfg.dampingFactorStart = 0.;
-  solverCfg.dampingFactorEnd   = 0.;
+  solverCfg.algoIterations               = 20;
+  solverCfg.ttConstraint                 = true;
+  solverCfg.dampingFactorStart           = 0.;
+  solverCfg.dampingFactorEnd             = 0.;
   solverCfg.downWeightingByResidualStart = 0;
   solverCfg.downWeightingByResidualEnd   = 0;
 
@@ -274,16 +294,16 @@ HDD::CatalogCPtr relocateSingleEvent(const HDD::CatalogCPtr bgCat,
   HDD::ClusteringOptions clusterCfg;
   clusterCfg.numEllipsoids    = 5;
   clusterCfg.maxEllipsoidSize = 15;
-  clusterCfg.maxNumNeigh = 40;
+  clusterCfg.maxNumNeigh      = 40;
   // disable cross-correlation
   clusterCfg.xcorrMaxEvStaDist   = 0;
   clusterCfg.xcorrMaxInterEvDist = 0;
 
   HDD::SolverOptions solverCfg;
-  solverCfg.algoIterations     = 20;
-  solverCfg.ttConstraint       = true;
-  solverCfg.dampingFactorStart = 0.;
-  solverCfg.dampingFactorEnd   = 0.;
+  solverCfg.algoIterations               = 20;
+  solverCfg.ttConstraint                 = true;
+  solverCfg.dampingFactorStart           = 0.;
+  solverCfg.dampingFactorEnd             = 0.;
   solverCfg.downWeightingByResidualStart = 0;
   solverCfg.downWeightingByResidualEnd   = 0;
 
@@ -309,7 +329,7 @@ void testCatalogEqual(const HDD::CatalogCPtr cat1, const HDD::CatalogCPtr cat2)
   {
     const Event &ev1 = kv.second;
     BOOST_CHECK_EQUAL(cat2->getEvents().count(ev1.id), 1);
-    if ( cat2->getEvents().count(ev1.id) != 1)
+    if (cat2->getEvents().count(ev1.id) != 1)
     {
       continue;
     }
@@ -346,9 +366,11 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event, bdata::xrange(tttList.size()), tttIdx)
 
   // Test 2: all events at the center location, depth 1 km
   HDD::CatalogPtr cat = new HDD::Catalog(*baseCat);
+  HDD::NormalRandomer timeDist(0.1, 0.400, 0x1004); // sec
   for (const auto &kv : cat->getEvents())
   {
-    Event ev     = kv.second;
+    Event ev = kv.second;
+    ev.time += Core::TimeSpan(timeDist.next());
     ev.latitude  = clusterLat;
     ev.longitude = clusterLon;
     ev.depth     = 1;
@@ -363,7 +385,8 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event, bdata::xrange(tttList.size()), tttIdx)
   cat = new HDD::Catalog(*baseCat);
   for (const auto &kv : cat->getEvents())
   {
-    Event ev     = kv.second;
+    Event ev = kv.second;
+    ev.time += Core::TimeSpan(timeDist.next());
     ev.latitude  = clusterLat;
     ev.longitude = clusterLon;
     ev.depth     = 10;
@@ -376,10 +399,9 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event, bdata::xrange(tttList.size()), tttIdx)
 
   // Test 4: random changes to all events (mean of all changes is != 0)
   cat = new HDD::Catalog(*baseCat);
-  HDD::NormalRandomer latDist(0.003, 0.01, 0x1001);
-  HDD::NormalRandomer lonDist(-0.006, 0.02, 0x1002);
-  HDD::NormalRandomer depthDist(-0.3, 1.0, 0x1003); // km
-  HDD::NormalRandomer timeDist(0.1, 0.250, 0x1004); // sec
+  HDD::NormalRandomer latDist(0.0055, 0.02, 0x1001);
+  HDD::NormalRandomer lonDist(-0.011, 0.04, 0x1002);
+  HDD::NormalRandomer depthDist(-0.6, 2.0, 0x1003); // km
   for (const auto &kv : cat->getEvents())
   {
     Event ev = kv.second;
@@ -409,11 +431,12 @@ BOOST_DATA_TEST_CASE(test_dd_single_event,
   const double clusterLon      = 8.5;
   const double clusterDepth    = 5;
 
-  const HDD::CatalogCPtr backgroundCat = buildCatalog(
-      ttt, 8, clusterTime, clusterLat, clusterLon, clusterDepth, 66, 1.0);
+  const HDD::CatalogCPtr backgroundCat = buildBackgroundCatalog(
+      ttt, 8, clusterTime, clusterLat, clusterLon, clusterDepth, 21, 1.0);
+
 
   const HDD::CatalogCPtr realTimeCat = buildCatalog(
-      ttt, 8, clusterTime, clusterLat, clusterLon, clusterDepth, 66, 2.0);
+      ttt, 8, clusterTime, clusterLat, clusterLon, clusterDepth, 66, 1.0);
 
   // Test 1: no event changes
   string workingDir =
@@ -424,9 +447,11 @@ BOOST_DATA_TEST_CASE(test_dd_single_event,
 
   // Test 2: all events at the center location, depth 1 km
   HDD::CatalogPtr cat = new HDD::Catalog(*realTimeCat);
+  HDD::NormalRandomer timeDist(0.2, 0.500, 0x1004); // sec
   for (const auto &kv : cat->getEvents())
   {
-    Event ev     = kv.second;
+    Event ev = kv.second;
+    ev.time += Core::TimeSpan(timeDist.next());
     ev.latitude  = clusterLat;
     ev.longitude = clusterLon;
     ev.depth     = 1;
@@ -441,7 +466,8 @@ BOOST_DATA_TEST_CASE(test_dd_single_event,
   cat = new HDD::Catalog(*realTimeCat);
   for (const auto &kv : cat->getEvents())
   {
-    Event ev     = kv.second;
+    Event ev = kv.second;
+    ev.time += Core::TimeSpan(timeDist.next());
     ev.latitude  = clusterLat;
     ev.longitude = clusterLon;
     ev.depth     = 10;
@@ -454,10 +480,9 @@ BOOST_DATA_TEST_CASE(test_dd_single_event,
 
   // Test 4: random changes to all events (mean of all changes is != 0)
   cat = new HDD::Catalog(*realTimeCat);
-  HDD::NormalRandomer latDist(0.003, 0.01, 0x1001);
-  HDD::NormalRandomer lonDist(-0.006, 0.02, 0x1002);
-  HDD::NormalRandomer depthDist(-0.3, 1.0, 0x1003); // km
-  HDD::NormalRandomer timeDist(0.1, 0.250, 0x1004); // sec 
+  HDD::NormalRandomer latDist(0.006, 0.02, 0x1001);
+  HDD::NormalRandomer lonDist(-0.012, 0.04, 0x1002);
+  HDD::NormalRandomer depthDist(-0.6, 2.0, 0x1003); // km
   for (const auto &kv : cat->getEvents())
   {
     Event ev = kv.second;
