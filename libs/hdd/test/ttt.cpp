@@ -16,35 +16,40 @@ namespace bdata = boost::unit_test::data;
 
 namespace {
 
-vector<HDD::TravelTimeTablePtr> tttList = {
-    HDD::TravelTimeTable::create("LOCSAT", "iasp91"),
-    HDD::TravelTimeTable::create("libtau", "iasp91"),
-    HDD::TravelTimeTable::create(
-        "NonLinLoc",
-        "./data/nll/iasp91_2D_simple/model/iasp91.PHASE.mod;"
-        "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.time;"
-        "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.angle"),
-    HDD::TravelTimeTable::create(
-        "NonLinLoc",
-        "./data/nll/iasp91_2D_sdc/model/iasp91.PHASE.mod;"
-        "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.time;"
-        "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.angle"),
-    HDD::TravelTimeTable::create(
-        "NonLinLoc",
-        "./data/nll/iasp91_2D_global/model/iasp91.PHASE.mod;"
-        "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.time;"
-        "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.angle"),
-    HDD::TravelTimeTable::create(
-        "NonLinLoc",
-        "./data/nll/iasp91_3D_simple/model/iasp91.PHASE.mod;"
-        "./data/nll/iasp91_3D_simple/time/iasp91.PHASE.STATION.time;"
-        "./data/nll/iasp91_3D_simple/time/iasp91.PHASE.STATION.angle"),
-    HDD::TravelTimeTable::create(
-        "NonLinLoc",
-        "./data/nll/iasp91_3D_sdc/model/iasp91.PHASE.mod;"
-        "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.time;"
-        "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.angle")};
+struct TTTParams
+{
+  string type;
+  string model;
+};
 
+const vector<TTTParams> tttList = {
+    {"LOCSAT", "iasp91"},
+    {"libtau", "iasp91"},
+    {"NonLinLoc",
+     "./data/nll/iasp91_2D_simple/model/iasp91.PHASE.mod;"
+     "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.time;"
+     "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.angle"},
+    {"NonLinLoc",
+     "./data/nll/iasp91_2D_sdc/model/iasp91.PHASE.mod;"
+     "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.time;"
+     "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.angle"},
+    {"NonLinLoc",
+     "./data/nll/iasp91_2D_global/model/iasp91.PHASE.mod;"
+     "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.time;"
+     "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.angle"},
+    {"NonLinLoc",
+     "./data/nll/iasp91_3D_simple/model/iasp91.PHASE.mod;"
+     "./data/nll/iasp91_3D_simple/time/iasp91.PHASE.STATION.time;"
+     "./data/nll/iasp91_3D_simple/time/iasp91.PHASE.STATION.angle"},
+    {"NonLinLoc",
+     "./data/nll/iasp91_3D_sdc/model/iasp91.PHASE.mod;"
+     "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.time;"
+     "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.angle"}
+};
+
+// Those station parameters must be consistent with nonlinloc
+// grids control files
+// For tests with locsat it doesn't matter
 vector<HDD::Catalog::Station> stationList = {
     {"NET.ST01A", 47.1, 8.6, 250, "NET", "ST01A", ""},
     {"NET.ST02A", 47.1, 8.4, 295, "NET", "ST02A", ""},
@@ -64,30 +69,90 @@ struct Delta
 };
 
 vector<Delta> deltaList = {
-  //
-  {0.05, 0, 1}, {0.05, 0, 2}, {0.05, 0, 4}, {0.05, 0, 8}, {0.05, 0, 16},
-  {0, 0.05, 1}, {0, 0.05, 2}, {0, 0.05, 4}, {0, 0.05, 8}, {0, 0.05, 16},
-  {-0.05, 0, 1}, {-0.05, 0, 2}, {-0.05, 0, 4}, {-0.05, 0, 8}, {-0.05, 0,
-  16}, {0, -0.05, 1}, {0, -0.05, 2}, {0, -0.05, 4}, {0, -0.05, 8}, {0,
-  -0.05, 16}, {0.05, 0.05, 1}, {0.05, 0.05, 2}, {0.05, 0.05, 4}, {0.05,
-  0.05, 8}, {0.05, 0.05, 16},
-  {-0.05, -0.05, 1}, {-0.05, -0.05, 2}, {-0.05, -0.05, 4}, {-0.05, -0.05,
-  8}, {-0.05, -0.05, 16},
-  //
-  {0.1, 0, 1}, {0.1, 0, 2}, {0.1, 0, 4}, {0.1, 0, 8}, {0.1, 0, 16},
-  {0, 0.1, 1}, {0, 0.1, 2}, {0, 0.1, 4}, {0, 0.1, 8}, {0, 0.1, 16},
-  {-0.1, 0, 1}, {-0.1, 0, 2}, {-0.1, 0, 4}, {-0.1, 0, 8}, {-0.1, 0, 16},
-  {0, -0.1, 1}, {0, -0.1, 2}, {0, -0.1, 4}, {0, -0.1, 8}, {0, -0.1, 16},
-  //
-  {0.4, 0.4, 1}, {0.4, 0.4, 2}, {0.4, 0.4, 4}, {0.4, 0.4, 8}, {0.4, 0.4,
-  16},
-  {-0.4, -0.4, 1}, {-0.4, -0.4, 2}, {-0.4, -0.4, 4}, {-0.4, -0.4, 8}, {-0.4,
-  -0.4, 16},
-  //
-  {0.9, 0, 1}, {0.9, 0, 2}, {0.9, 0, 4}, {0.9, 0, 8}, {0.9, 0, 16},
-  {0, 0.9, 1}, {0, 0.9, 2}, {0, 0.9, 4}, {0, 0.9, 8}, {0, 0.9, 16},
-  {-0.9, 0, 1}, {-0.9, 0, 2}, {-0.9, 0, 4}, {-0.9, 0, 8}, {-0.9, 0, 16},
-  {0, -0.9, 1}, {0, -0.9, 2}, {0, -0.9, 4}, {0, -0.9, 8}, {0, -0.9, 16},
+    //
+    {0.05, 0, 1},
+    {0.05, 0, 2},
+    {0.05, 0, 4},
+    {0.05, 0, 8},
+    {0.05, 0, 16},
+    {0, 0.1, 1},
+    {0, 0.1, 2},
+    {0, 0.1, 4},
+    {0, 0.1, 8},
+    {0, 0.1, 16},
+    {-0.05, 0, 1},
+    {-0.05, 0, 2},
+    {-0.05, 0, 4},
+    {-0.05, 0, 8},
+    {-0.05, 0, 16},
+    {0, -0.1, 1},
+    {0, -0.1, 2},
+    {0, -0.1, 4},
+    {0, -0.1, 8},
+    {0, -0.1, 16},
+    {0.05, 0.1, 1},
+    {0.05, 0.1, 2},
+    {0.05, 0.1, 4},
+    {0.05, 0.1, 8},
+    {0.05, 0.1, 16},
+    {-0.05, -0.1, 1},
+    {-0.05, -0.1, 2},
+    {-0.05, -0.1, 4},
+    {-0.05, -0.1, 8},
+    {-0.05, -0.1, 16},
+    //
+    {0.1, 0, 1},
+    {0.1, 0, 2},
+    {0.1, 0, 4},
+    {0.1, 0, 8},
+    {0.1, 0, 16},
+    {0, 0.1, 1},
+    {0, 0.1, 2},
+    {0, 0.1, 4},
+    {0, 0.1, 8},
+    {0, 0.1, 16},
+    {-0.1, 0, 1},
+    {-0.1, 0, 2},
+    {-0.1, 0, 4},
+    {-0.1, 0, 8},
+    {-0.1, 0, 16},
+    {0, -0.1, 1},
+    {0, -0.1, 2},
+    {0, -0.1, 4},
+    {0, -0.1, 8},
+    {0, -0.1, 16},
+    //
+    {0.4, 0.4, 1},
+    {0.4, 0.4, 2},
+    {0.4, 0.4, 4},
+    {0.4, 0.4, 8},
+    {0.4, 0.4, 16},
+    {-0.4, -0.4, 1},
+    {-0.4, -0.4, 2},
+    {-0.4, -0.4, 4},
+    {-0.4, -0.4, 8},
+    {-0.4, -0.4, 16},
+    //
+    {0.7, 0, 1},
+    {0.7, 0, 2},
+    {0.7, 0, 4},
+    {0.7, 0, 8},
+    {0.7, 0, 16},
+    {0, 0.7, 1},
+    {0, 0.7, 2},
+    {0, 0.7, 4},
+    {0, 0.7, 8},
+    {0, 0.7, 16},
+    {-0.7, 0, 1},
+    {-0.7, 0, 2},
+    {-0.7, 0, 4},
+    {-0.7, 0, 8},
+    {-0.7, 0, 16},
+    {0, -0.7, 1},
+    {0, -0.7, 2},
+    {0, -0.7, 4},
+    {0, -0.7, 8},
+    {0, -0.7, 16},
 };
 
 } // namespace
@@ -122,7 +187,8 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
 
     for (size_t i = 0; i < tttList.size(); i++)
     {
-      HDD::TravelTimeTablePtr ttt = tttList[i];
+      HDD::TravelTimeTablePtr ttt =
+          HDD::TravelTimeTable::create(tttList[i].type, tttList[i].model);
       BOOST_REQUIRE(ttt);
       BOOST_CHECK_NO_THROW(ttt->compute(
           lat, lon, depth, station, "P", travelTimeP[i], takeOffAngleAzimP[i],
@@ -134,12 +200,11 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
 
     for (size_t i = 0; i < tttList.size(); i++)
     {
-      const HDD::TravelTimeTableCPtr &ttt = tttList[i];
       BOOST_TEST_MESSAGE(stringify(
           "TTT type %-9s [Travel time, Velocity, Take-Off Angle Azimuth and "
           "Dip] "
           "P [%5.2f %5.2f %4.f %4.f] S [%5.2f %5.2f %4.f %4.f]",
-          ttt->type.c_str(), travelTimeP[i], velocityAtSrcP[i],
+          tttList[i].type.c_str(), travelTimeP[i], velocityAtSrcP[i],
           rad2deg(takeOffAngleAzimP[i]), rad2deg(takeOffAngleDipP[i]),
           travelTimeS[i], velocityAtSrcS[i], rad2deg(takeOffAngleAzimS[i]),
           rad2deg(takeOffAngleDipS[i])));
@@ -149,16 +214,16 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
     {
       for (size_t j = i + 1; j < tttList.size(); j++)
       {
-        BOOST_CHECK_CLOSE(travelTimeP[i], travelTimeP[j], 10);
-        BOOST_CHECK_CLOSE(travelTimeS[i], travelTimeS[j], 10);
-        BOOST_CHECK_CLOSE(velocityAtSrcP[i], velocityAtSrcP[j], 1);
-        BOOST_CHECK_CLOSE(velocityAtSrcS[i], velocityAtSrcS[j], 1);
+        BOOST_CHECK_CLOSE(travelTimeP[i], travelTimeP[j], 12);
+        BOOST_CHECK_CLOSE(travelTimeS[i], travelTimeS[j], 12);
+        BOOST_CHECK_CLOSE(velocityAtSrcP[i], velocityAtSrcP[j], 5);
+        BOOST_CHECK_CLOSE(velocityAtSrcS[i], velocityAtSrcS[j], 5);
 
-        auto checkCloseAngles = [](double x, double y,
-                                   double degreeTol) {
-          double diffAngle = atan2(sin(x-y), cos(x-y));
-          diffAngle = rad2deg(diffAngle);
-          BOOST_TEST_MESSAGE(" x " << rad2deg(x) << " y " << rad2deg(y) << " delta " << diffAngle);
+        auto checkCloseAngles = [](double x, double y, double degreeTol) {
+          double diffAngle = atan2(sin(x - y), cos(x - y));
+          diffAngle        = rad2deg(diffAngle);
+          BOOST_TEST_MESSAGE(" x " << rad2deg(x) << " y " << rad2deg(y)
+                                   << " delta " << diffAngle);
           BOOST_CHECK_SMALL(diffAngle, degreeTol);
         };
 

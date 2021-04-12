@@ -338,8 +338,6 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
               neighbours->ids.insert(ev.id);
               neighbours->phases[ev.id] = evSelEntry.phases;
 
-              selectedEvents.erase(it);
-
               SEISCOMP_INFO("Neighbour: ellipsoid %2d quadrant %d #observs %2d "
                             "distance %5.2f azimuth %3.f depth-diff %6.3f "
                             "depth %5.3f event %s ",
@@ -348,6 +346,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
                             refEv.depth - ev.depth, ev.depth,
                             string(ev).c_str());
 
+              selectedEvents.erase(it);
               break;
             }
           }

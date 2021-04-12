@@ -196,7 +196,7 @@ void HypoDD::setWaveformDebug(bool debug)
 // eg 20111210115715_46343_007519_20111210115740_6666
 string HypoDD::generateWorkingSubDir(const Event &ev) const
 {
-  static Randomer ran(0, 1000);
+  static UniformRandomer ran(0, 1000);
   string id = stringify(
       "%s_%05d_%06d_%s_%04zu",
       ev.time.toString("%Y%m%d%H%M%S").c_str(),           // origin time

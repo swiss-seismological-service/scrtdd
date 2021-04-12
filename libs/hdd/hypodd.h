@@ -50,21 +50,22 @@ struct Config
     std::vector<std::string> components; // priority list of components to use
   };
   std::map<Catalog::Phase::Type, struct XCorr> xcorr = {
-      {Catalog::Phase::Type::P, {}}, {Catalog::Phase::Type::S, {}}};
+      {Catalog::Phase::Type::P, {0.50, -0.50, 0.50, 0.350, {"Z"}}},
+      {Catalog::Phase::Type::S, {0.50, -0.50, 0.75, 0.350, {"T", "Z"}}}};
 
   struct
   {
-    std::string filterStr = "";
-    double resampleFreq   = 0;
+    std::string filterStr = "ITAPER(1)>>BW_HLP(2,1,20)"; // "" -> no filtering
+    double resampleFreq   = 400;                         // 0 -> no resampling
   } wfFilter;
 
   struct
   {
-    double minSnr      = 0;
-    double noiseStart  = 0;
-    double noiseEnd    = 0;
-    double signalStart = 0;
-    double signalEnd   = 0;
+    double minSnr      = 2; // 0 -> no SNR check
+    double noiseStart  = -3.0;
+    double noiseEnd    = -0.350;
+    double signalStart = -0.350;
+    double signalEnd   = 0.350;
   } snr;
 
   struct
@@ -78,17 +79,20 @@ struct ClusteringOptions
 {
   // min weight of phases required (0-1)
   double minWeight = 0;
-  // min epi-sta to interevent distance ration required
+  // min hypocenter-station to interevent distance ration required
   double minEStoIEratio = 0;
-  double minESdist      = 0;  // min epi-sta distance required
-  double maxESdist      = -1; // max epi-sta distance allowed
-  unsigned minNumNeigh  = 1;  // min neighbors required
+  // min hypocenter-station distance required
+  double minESdist = 0;
+  // max hypocenter-station distance allowed
+  double maxESdist = -1; // -1 -> disable
+  // min neighbors required
+  unsigned minNumNeigh = 1;
   // max neighbors allowed (furthest events are discarded)
-  unsigned maxNumNeigh = 0;
+  unsigned maxNumNeigh = 0; // 0 -> disable
   // min differential times per event pair required (Including P+S)
   unsigned minDTperEvt = 1;
   // max differential times per event pair required (Including P+S)
-  unsigned maxDTperEvt = 0;
+  unsigned maxDTperEvt = 0; // 0 -> disable
   // From Waldhauser 2009: to assure a spatially homogeneous subsampling,
   // reference events are selected within each of five concentric, vertically
   // longated ellipsoidal layers of increasing thickness. Each layer has 8
@@ -96,24 +100,24 @@ struct ClusteringOptions
   unsigned numEllipsoids  = 5;
   double maxEllipsoidSize = 10; // km
 
-  //  cross-correlation observations specific (should be moved away)
-  double xcorrMaxEvStaDist   = -1; // max event to station distance
-  double xcorrMaxInterEvDist = -1; // max inter-event distance
+  // cross-correlation observations specific
+  double xcorrMaxEvStaDist   = -1; //max event to station distance -1 -> disable
+  double xcorrMaxInterEvDist = -1; //max inter-event distance -1 -> disable
 };
 
 struct SolverOptions
 {
   std::string type                    = "LSMR"; // LSMR or LSQR
   bool L2normalization                = true;
-  unsigned solverIterations           = 0;
+  unsigned solverIterations           = 0; // 0 -> auto
   unsigned algoIterations             = 20;
-  bool ttConstraint                   = true;
-  double dampingFactorStart           = 0.;
-  double dampingFactorEnd             = 0.;
-  double downWeightingByResidualStart = 0.;
-  double downWeightingByResidualEnd   = 0.;
+  bool ttConstraint                   = false;
+  double dampingFactorStart           = 0.3; // 0 -> disable damping factor
+  double dampingFactorEnd             = 0.3; // 0 -> disable damping factor
+  double downWeightingByResidualStart = 10.; // 0 -> disbale downweighting
+  double downWeightingByResidualEnd   = 3.;  // 0 -> disbale downweighting
   bool usePickUncertainty             = false;
-  double absTTDiffObsWeight           = 1.0;
+  double absTTDiffObsWeight           = 0.5;
   double xcorrObsWeight               = 1.0;
 };
 
