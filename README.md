@@ -84,6 +84,8 @@ Long story short:
 
 * Use the relocation output (`reloc-event.csv`, `reloc-phase.csv` and `reloc-stations.csv`) as you please
 
+To relocate external (non-SeisComP) data refer to [this paragraph](#134-relocating-external-data).
+
 ### The long story
 
 The multi-event relocation consists of two steps: selecting the candidate origins and using `scrtdd` to relocate those. For the former task an utility `sclistorg` might come in handy. For the latter we need to configure a `scrtdd` profile where the relocation options are stored and then run the command line option `--reloc-catalog`. That's it.
@@ -221,7 +223,8 @@ Then it is time to set the cross-correlation parameters, which require a more ca
 #### 1.3.1 Relocating a file containing a list of origin ids
 
 ```
-scrtdd --reloc-catalog myCatalog.csv --profile myProfile --verbosity=3 --console=1 [db options] 
+scrtdd --reloc-catalog myCatalog.csv --profile myProfile \
+       --verbosity=3 --console=1 [db options] 
 ```
 
 E.g. *file myCatalog.csv*
@@ -233,20 +236,50 @@ Origin/20180053105627.031726.697885
 [...]
 ```
  
-#### 1.3.2 Relocating the station.csv,event.csv,phase.csv triplets
+#### 1.3.2 Relocating the station.csv,event.csv,phase.csv triplet
 
 ```
 # station.csv,event.csv,phase.csv are generated with `scrtdd --dump-catalog`
-scrtdd --reloc-catalog station.csv,event.csv,phase.csv --profile myProfile --verbosity=3 --console=1 [db options] 
+scrtdd --reloc-catalog station.csv,event.csv,phase.csv --profile myProfile \
+       --verbosity=3 --console=1 [db options] 
 ```
 
-#### 1.3.3 Relocating an XML file
+#### 1.3.3 Relocating an XML/SCML file
 
+Events are stored in a XML files in [SCML format](https://www.seiscomp.de/doc/base/glossary.html#term-SCML). It is possible to convert between different formats with [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html).
 
 ```
-# events.xml contais the events data (scxmldump command) 
+# events.xml contais the events data (scxmldump command)
 # myCatalog.csv contains the origin ids inside events.xml we want relocate
-scrtdd --reloc-catalog myCatalog.csv --ep events.xml --profile myProfile --verbosity=3 --console=1 [db options] 
+scrtdd --reloc-catalog myCatalog.csv --ep events.xml --profile myProfile \
+       --verbosity=3 --console=1 [db options] 
+```
+
+#### 1.3.4 Relocating external data
+
+To relocate external (non SeisComP) data three pieces of information need to be provided: events data, waveform data and inventory information:
+
+* events data has to be provided in [SCML format](https://www.seiscomp.de/doc/base/glossary.html#term-SCML). It is possible to convert between different formats with [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html). Events data can be passed to `scrtdd` via `--ep events.xml` option together with `--reloc-catalog` option
+* alternatively the events data can be converted to a station.csv,event.csv,phase.csv file triplet, explained in the previous paragraphs and passed to `scrtdd` via `--reloc-catalog station.csv,event.csv,phase.csv` option
+* Waveform data can to be provided via `-I RecordStream` command line option and the RecordStream cab be any of the [SeisComP supported ones](https://www.seiscomp.de/doc/apps/global_recordstream.html#global-recordstream)
+* [Inventory information](https://www.seiscomp.de/doc/base/concepts/inventory.html) has be converted from an external format into SeisComP own station meta-data XML format called inventory ML. This can be passed to `scrtdd` via `--inventory-db inventory.xml` (or stored in the SeisComP database)
+
+
+Examples:
+
+```
+scrtdd --reloc-catalog station.csv,event.csv,phase.csv --profile myProfile \
+       -I sdsarchive:///home/sysop/seiscomp/var/lib/archive \
+       --inventory-db inventory.xml \
+       --verbosity=3 --console=1
+```
+
+```
+# myCatalog.csv contains the origin ids inside events.xml we want relocate
+scrtdd --reloc-catalog myCatalog.csv --ep events.xml --profile myProfile \
+       -I fdsnws://service.iris.edu:80/fdsnws/dataselect/1/query  \
+       --inventory-db inventory.xml \
+       --verbosity=3 --console=1
 ```
 
 ### 1.4 Review of results
@@ -434,7 +467,8 @@ SingleAndMultiEvent:
 If we want to process an origin we can run the following command and then check on `scolv` the relocated origin (the messaging system must be active). This is mostly useful when we want to relocate an origin on a running system and keep the relocation:
 
 ```
-scrtdd --origin-id someOriginId --verbosity=3 --console=1 [db options] 
+scrtdd --origin-id someOriginId \
+       --verbosity=3 --console=1 [db options] 
 ```
 
 #### 2.2.2 Relocate origin ID but do not send the relocation (debug)
@@ -442,7 +476,8 @@ scrtdd --origin-id someOriginId --verbosity=3 --console=1 [db options]
 As above but add `--test`
 
 ```
-scrtdd --origin-id someOriginId --test --verbosity=3 --console=1 [db options]
+scrtdd --origin-id someOriginId --test \
+       --verbosity=3 --console=1 [db options]
 ``` 
 
 #### 2.2.3 Relocate origin ID and store the result to XML file
@@ -450,7 +485,8 @@ scrtdd --origin-id someOriginId --test --verbosity=3 --console=1 [db options]
 For testing purpose we are more likely interested in not interfering with the database and the messaging system so we can use the `--ep` option and the relocated origin will be saved as a XML file. We can finally open the XML file with `scolv` for inspection:
 
 ```
-scrtdd --origin-id someOriginId --ep - --verbosity=3 --console=1 [db options] >  relocated-origin.xml
+scrtdd --origin-id someOriginId --ep - \
+       --verbosity=3 --console=1 [db options] >  relocated-origin.xml
 ```
 
 #### 2.2.4 Relocate XML file and store the result to XML file
@@ -458,7 +494,8 @@ scrtdd --origin-id someOriginId --ep - --verbosity=3 --console=1 [db options] > 
 Alternatively the `--ep` option (without `-O`) can process all origins contained in the input XML file:
 
 ```
-scrtdd --ep origin.xml --verbosity=3 --console=1 [db options] > relocated-origin.xml
+scrtdd --ep origin.xml --verbosity=3 --console=1 [db options] \
+  > relocated-origin.xml
 ```
 
 And we can use the `scxmldump` to dump an existing origin id to file:
