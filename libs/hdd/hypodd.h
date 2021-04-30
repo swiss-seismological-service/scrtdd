@@ -101,8 +101,8 @@ struct ClusteringOptions
   double maxEllipsoidSize = 10; // km
 
   // cross-correlation observations specific
-  double xcorrMaxEvStaDist   = -1; //max event to station distance -1 -> disable
-  double xcorrMaxInterEvDist = -1; //max inter-event distance -1 -> disable
+  double xcorrMaxEvStaDist   = -1; // max event to station distance -1 -> disable
+  double xcorrMaxInterEvDist = -1; // max inter-event distance -1 -> disable
 };
 
 struct SolverOptions

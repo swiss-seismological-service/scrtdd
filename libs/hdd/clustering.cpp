@@ -102,6 +102,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
   // Sort catalog events by distance and drop the ones further than the outmost
   // ellipsoid.
   //
+  multimap<double, unsigned> eventByDistance; // distance, eventid
   unordered_map<unsigned, double> distanceByEvent; // eventid, distance
   unordered_map<unsigned, double> azimuthByEvent;  // eventid, azimuth
 
@@ -121,7 +122,8 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
     double azimuth;
     double distance = computeDistance(refEv, event, &azimuth);
 
-    // keep a list of added events
+    // keep a list of events in range sorted by distance
+    eventByDistance.emplace(distance, event.id);
     distanceByEvent[event.id] = distance;
     azimuthByEvent[event.id]  = azimuth;
   }
@@ -160,10 +162,10 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
   unordered_set<string> includedStations;
   unordered_set<string> excludedStations;
 
-  for (const auto &kv : distanceByEvent)
+  for (const auto &kv : eventByDistance)
   {
-    const Event &event         = catalog->getEvents().at(kv.first);
-    const double eventDistance = kv.second;
+    const double eventDistance = kv.first;
+    const Event &event         = catalog->getEvents().at(kv.second);
 
     // Loop through event phases and keep track of the valid phases and their
     // station distance.
@@ -270,6 +272,14 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
     // add this event to the selected ones
     selectedEvents.emplace(eventDistance, evSelEntry);
     dtCountByEvent.emplace(event.id, numObservations);
+
+    // If ellipsoid algorithm is disabled and maxNumNeigh is set, then
+    // we can stop when we have found maxNumNeigh events
+    if (numEllipsoids <= 0 && maxNumNeigh > 0 &&
+        selectedEvents.size() >= maxNumNeigh)
+    {
+      break;
+    }
   }
 
   // Finally, build the catalog of neighboring events using either the
@@ -282,7 +292,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
     // If `numEllipsoids` is 0, disable the ellipsoid algorithm and simply
     // select events by means of the nearest neighbor algorithm. Since
     // `selectedEvents` is sorted by distance, we obtain closer events first.
-    for (auto kv : selectedEvents)
+    for (const auto &kv : selectedEvents)
     {
       const SelectedEventEntry &evSelEntry = kv.second;
       const Event &ev                      = evSelEntry.event;
@@ -291,13 +301,11 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
       neighbours->ids.insert(ev.id);
       neighbours->phases[ev.id] = evSelEntry.phases;
 
-      SEISCOMP_INFO("Neighbour: #obsers %2d distance %5.2f azimuth %3.f "
-                    "depth-diff %6.3f depth %5.3f event %s",
+      SEISCOMP_INFO("Neighbour: #phases %2d distance %5.2f azimuth %3.f "
+                    "depth-diff %6.3f event %s",
                     dtCountByEvent[ev.id], distanceByEvent[ev.id],
-                    azimuthByEvent[ev.id], refEv.depth - ev.depth, ev.depth,
+                    azimuthByEvent[ev.id], refEv.depth - ev.depth,
                     string(ev).c_str());
-
-      if (maxNumNeigh > 0 && neighbours->numNeighbours() >= maxNumNeigh) break;
     }
   }
   else
@@ -338,13 +346,11 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
               neighbours->ids.insert(ev.id);
               neighbours->phases[ev.id] = evSelEntry.phases;
 
-              SEISCOMP_INFO("Neighbour: ellipsoid %2d quadrant %d #observs %2d "
-                            "distance %5.2f azimuth %3.f depth-diff %6.3f "
-                            "depth %5.3f event %s ",
+              SEISCOMP_INFO("Neighbour: ellipsoid %2d quadrant %d #phases %2d "
+                            "distance %5.2f azimuth %3.f depth-diff %6.3f event %s",
                             elpsNum, quadrant, dtCountByEvent[ev.id],
                             distanceByEvent[ev.id], azimuthByEvent[ev.id],
-                            refEv.depth - ev.depth, ev.depth,
-                            string(ev).c_str());
+                            refEv.depth - ev.depth, string(ev).c_str());
 
               selectedEvents.erase(it);
               break;

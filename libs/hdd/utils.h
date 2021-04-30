@@ -76,7 +76,9 @@ class UniformRandomer
 {
 
 public:
-  UniformRandomer(size_t min, size_t max, unsigned int seed = std::random_device{}())
+  UniformRandomer(size_t min,
+                  size_t max,
+                  unsigned int seed = std::random_device{}())
       : _gen(seed), _dist(min, max)
   {}
 
@@ -95,7 +97,9 @@ class NormalRandomer
 {
 
 public:
-  NormalRandomer(double mean, double stdDev, unsigned int seed = std::random_device{}())
+  NormalRandomer(double mean,
+                 double stdDev,
+                 unsigned int seed = std::random_device{}())
       : _gen(seed), _dist(mean, stdDev)
   {}
 
