@@ -74,6 +74,20 @@ For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#
 
 ## 1. Multi-event relocation
 
+Long story short:
+
+* Use `sclistorg` command to select the events to be relocated. E.g. `sclistorg [options] > myCatalog.csv`
+
+* Create a `scrtdd` profile (e.g. use `scconfig` GUI). The profile will contain the settings for the relocation: the default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However with big datasets it is advised to set `doubleDifferenceObservations.maxNumNeigh` to some number and `doubleDifferenceObservations.numEllipsoids` to 0 to avoid huge processing time. Also it is a good choice to configure a custom velocity model (`solver.travelTimeTable`)
+
+* Use `scrtdd` to relocate the events. E.g. `scrtdd --reloc-catalog  myCatalog.csv --profile myProfile [db and waveforms options]`
+
+* Use the relocation output (`reloc-event.csv`, `reloc-phase.csv` and `reloc-stations.csv`) as you please
+
+To relocate external (non-SeisComP) data refer to [this paragraph](#134-relocating-external-data).
+
+### The long story
+
 The multi-event relocation consists of two steps: selecting the candidate origins and using `scrtdd` to relocate those. For the former task an utility `sclistorg` might come in handy. For the latter we need to configure a `scrtdd` profile where the relocation options are stored and then run the command line option `--reloc-catalog`. That's it.
 
 The output will be another catalog containing the relocated origins. The configuration is an easy task since the default options should already provide sensible solutions. The input origins might come from differnt sources: a SeisComP database (local or remote), a xml file, or a `scrtdd` specific format (station.csv,event.csv,phase.csv triplet, explained later).
@@ -133,9 +147,9 @@ Origins:
 
 ### 1.2 Preparing the candidate events
 
-Once we have the origin ids of the events we are going to relocate, we need to store them in a proper format that `scrtdd` understands.
+The origin ids of the events to be relocated must be stored in a format that `scrtdd` understands.
 
-The first option is to store them in a simple file containing the origing IDs. `scrtdd` will use the origin IDs to fetch all necessary information from the SeisComP database (local or even a remote machine).
+One of the compatible formats is a text file containing the origing IDs (`sclistorg` output is compatible with that). `scrtdd` will use the origin IDs in the file to fetch all necessary information from the SeisComP database.
 
 E.g. *file myCatalog.csv* (a mandatory column named `seiscompId` is required, but other column might be present too).
 
@@ -148,15 +162,13 @@ Origin/20190223103327.031726.346363
 [...]
 ```
 
-Once we have the file containing the origins we can proceed with the relocation. 
-
-There is another format we can use to specify the catalog. This format stores the full origins information to flat files, not only the origin ids. We can instruct `scrtdd` to generate this format like this:
+There is another format we can use to store a catalog. This format contains the full origins information, not only the origin ids. So, once the files are generated, there is no need to access the database anymore; so this format is quite fast to load. We can instruct `scrtdd` to generate such a format with the following command:
 
 ```
 scrtdd --dump-catalog myCatalog.csv --verbosity=3 --console=1 [db options]
 ```
 
-The above command will generate three files (*event.csv*, *phase.csv* and *stations.csv*) which contain all the information needed by `scrtdd` and avoid future database access for those events.
+The above command will generate three files (*event.csv*, *phase.csv* and *stations.csv*) which contain all the information needed by `scrtdd`. 
 
 E.g. *file event.csv*
 
@@ -191,6 +203,7 @@ eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,sta
 1,CHGRIMS,2014-01-10T04:47:01.597023Z,0.100,0.100,Pg,CH,GRIMS,,HHR,manual
 1,IVMRGE,2014-01-10T04:46:58.219541Z,0.100,0.100,Pg,IV,MRGE,,HHR,manual
 ```
+With this format it is possible to relocate events that are not stored in any SeisComP database, since all the origins information are contained in those files.
 
 Finally, the events to be relocated can also be stored in SeisComP XML format. Please refer to the official SeisComP  documentation of `scxmldump`, a very convenient tool for dumping events to XML file.
 
@@ -210,7 +223,8 @@ Then it is time to set the cross-correlation parameters, which require a more ca
 #### 1.3.1 Relocating a file containing a list of origin ids
 
 ```
-scrtdd --reloc-catalog myCatalog.csv --profile myProfile --verbosity=3 --console=1 [db options] 
+scrtdd --reloc-catalog myCatalog.csv --profile myProfile \
+       --verbosity=3 --console=1 [db options] 
 ```
 
 E.g. *file myCatalog.csv*
@@ -222,20 +236,50 @@ Origin/20180053105627.031726.697885
 [...]
 ```
  
-#### 1.3.2 Relocating the station.csv,event.csv,phase.csv triplets
+#### 1.3.2 Relocating the station.csv,event.csv,phase.csv triplet
 
 ```
 # station.csv,event.csv,phase.csv are generated with `scrtdd --dump-catalog`
-scrtdd --reloc-catalog station.csv,event.csv,phase.csv --profile myProfile --verbosity=3 --console=1 [db options] 
+scrtdd --reloc-catalog station.csv,event.csv,phase.csv --profile myProfile \
+       --verbosity=3 --console=1 [db options] 
 ```
 
-#### 1.3.3 Relocating an XML file
+#### 1.3.3 Relocating an XML/SCML file
 
+Events are stored in a XML files in [SCML format](https://www.seiscomp.de/doc/base/glossary.html#term-SCML). It is possible to convert between different formats with [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html).
 
 ```
-# events.xml contais the events data (scxmldump command) 
+# events.xml contais the events data (scxmldump command)
 # myCatalog.csv contains the origin ids inside events.xml we want relocate
-scrtdd --reloc-catalog myCatalog.csv --ep events.xml --profile myProfile --verbosity=3 --console=1 [db options] 
+scrtdd --reloc-catalog myCatalog.csv --ep events.xml --profile myProfile \
+       --verbosity=3 --console=1 [db options] 
+```
+
+#### 1.3.4 Relocating external data
+
+To relocate external (non SeisComP) data three pieces of information need to be provided: events data, waveform data and inventory information:
+
+* events data has to be provided in [SCML format](https://www.seiscomp.de/doc/base/glossary.html#term-SCML). It is possible to convert between different formats with [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html). Events data can be passed to `scrtdd` via `--ep events.xml` option together with `--reloc-catalog` option
+* alternatively the events data can be converted to a station.csv,event.csv,phase.csv file triplet, explained in the previous paragraphs and passed to `scrtdd` via `--reloc-catalog station.csv,event.csv,phase.csv` option
+* Waveform data can to be provided via `-I RecordStream` command line option and the RecordStream cab be any of the [SeisComP supported ones](https://www.seiscomp.de/doc/apps/global_recordstream.html#global-recordstream)
+* [Inventory information](https://www.seiscomp.de/doc/base/concepts/inventory.html) has be converted from an external format into SeisComP own station meta-data XML format called inventory ML. This can be passed to `scrtdd` via `--inventory-db inventory.xml` (or stored in the SeisComP database)
+
+
+Examples:
+
+```
+scrtdd --reloc-catalog station.csv,event.csv,phase.csv --profile myProfile \
+       -I sdsarchive:///home/sysop/seiscomp/var/lib/archive \
+       --inventory-db inventory.xml \
+       --verbosity=3 --console=1
+```
+
+```
+# myCatalog.csv contains the origin ids inside events.xml we want relocate
+scrtdd --reloc-catalog myCatalog.csv --ep events.xml --profile myProfile \
+       -I fdsnws://service.iris.edu:80/fdsnws/dataselect/1/query  \
+       --inventory-db inventory.xml \
+       --verbosity=3 --console=1
 ```
 
 ### 1.4 Review of results
@@ -340,6 +384,20 @@ For this purpose it might come in handy [this script](/data/scripts/generate-cat
  
 ## 2. Real-time single-event relocation
 
+Long story short:
+
+* Use the multi-event relocation feature to prepare a background catalog
+
+* Create a `scrtdd` profile (e.g. use `scconfig` GUI), set the profile background catalog and add the profile to the list of active real-time profiles (`activeProfiles` parameter). The default profile parameter values are meant to be a good starting choice, so there is no need to tweak them except for `doubleDifferenceObservations.maxNumNeigh` (set it to 40 or a multiple of 8). Also it is a good choice to configure a custom velocity model (`solver.travelTimeTable`)
+
+* Make sure to read "Avoiding Relocation Loops" paragraph to avoid a potential issue
+
+* Make sure to read "Waveform data and recordStream configuration" to avoid `scrtdd` getting stuck when reading waveforms from seedlink
+
+* Enable and start `scrtdd` (`seiscomp enable scrtdd`, `seiscomp start scrtdd`)
+
+### The long story
+
 In real-time processing `scrtdd` relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generate via multi-event relocation, which has already been coverred in the previous sections.
 
 To enable the real-time processing a profile should be created and enabled by including it in `scrtdd.activeProfiles` option. Note: we might want to copy the waveform cache folder from the background catalog profile to the new real-time profile in order to avoid re-downloading all the catalog waveforms (see the `Waveforms data caching` paragraph for more details).
@@ -409,7 +467,8 @@ SingleAndMultiEvent:
 If we want to process an origin we can run the following command and then check on `scolv` the relocated origin (the messaging system must be active). This is mostly useful when we want to relocate an origin on a running system and keep the relocation:
 
 ```
-scrtdd --origin-id someOriginId --verbosity=3 --console=1 [db options] 
+scrtdd --origin-id someOriginId \
+       --verbosity=3 --console=1 [db options] 
 ```
 
 #### 2.2.2 Relocate origin ID but do not send the relocation (debug)
@@ -417,7 +476,8 @@ scrtdd --origin-id someOriginId --verbosity=3 --console=1 [db options]
 As above but add `--test`
 
 ```
-scrtdd --origin-id someOriginId --test --verbosity=3 --console=1 [db options]
+scrtdd --origin-id someOriginId --test \
+       --verbosity=3 --console=1 [db options]
 ``` 
 
 #### 2.2.3 Relocate origin ID and store the result to XML file
@@ -425,7 +485,8 @@ scrtdd --origin-id someOriginId --test --verbosity=3 --console=1 [db options]
 For testing purpose we are more likely interested in not interfering with the database and the messaging system so we can use the `--ep` option and the relocated origin will be saved as a XML file. We can finally open the XML file with `scolv` for inspection:
 
 ```
-scrtdd --origin-id someOriginId --ep - --verbosity=3 --console=1 [db options] >  relocated-origin.xml
+scrtdd --origin-id someOriginId --ep - \
+       --verbosity=3 --console=1 [db options] >  relocated-origin.xml
 ```
 
 #### 2.2.4 Relocate XML file and store the result to XML file
@@ -433,7 +494,8 @@ scrtdd --origin-id someOriginId --ep - --verbosity=3 --console=1 [db options] > 
 Alternatively the `--ep` option (without `-O`) can process all origins contained in the input XML file:
 
 ```
-scrtdd --ep origin.xml --verbosity=3 --console=1 [db options] > relocated-origin.xml
+scrtdd --ep origin.xml --verbosity=3 --console=1 [db options] \
+  > relocated-origin.xml
 ```
 
 And we can use the `scxmldump` to dump an existing origin id to file:
@@ -485,34 +547,23 @@ scmag         LOCATION,RELOCATION, ...             ...
 
 ## 3. Cross-correlation
 
-Good cross-correlation results are needed to achieve high resolution double-difference observations, which in turn results in high quality relocations.
+Good cross-correlation results are needed to achieve high quality double-difference observations, which in turn results in high resolution relocations. The purpose of the cross-correlation is to find the exact time difference between two picks of an event pair at a common station.
 
-The configuration of cross-correlation parameters require some trial and error, but once they are properly tuned for the multi-event scenario they can be kept identical in the single-event relocation, except for the parameter `maxDelay` that should be increased in real-time relocation to accomodate the larger uncertainty of automatic picks (unless `scrtdd` is used to only relocate manually reviewed origins). 
-
-Here is an example configuration:
+The default values of the cross-correlation parameters are meant to be a good starting point, however it might be useful to optimize them in certain scenarios.
 
 ![Relocation options](/data/img/xcorr.png?raw=true "Relocation options")
 
+### 3.1 Eval-xcorr command
 
-### 3.1 Logs
+The `--eval-xcorr` command can be used to evaluate the cross-correlation parameter. 
 
-Some cross-correlation statistics are printed in both multi-event and single-event mode. Those can be seen in the log file or in the console output if `--console=1 --verbosity=3`) is used.
-
-```
-[info] Cross-correlation statistics: performed 40361, waveforms with Signal to Noise ratio too low 2435, waveforms not available 98
-[info] Total xcorr 40361 (P 59%, S 41%) success 28% (11499/40361). Successful P 22% (5300/23844). Successful S 38% (6199/16517)
-[info] xcorr on actual picks 24784/40361 (P 60%, S 40%) success 37% (9186/24784). Successful P 31% (4629/14761). Successful S 45% (4557/10023)
-[info] xcorr on theoretical picks 15577/40361 (P 58%, S 42%) success 15% (2313/15577). Successful P 7% (671/9083). Successful S 25% (1642/6494)
-```
-
-The statistics are broken down in actual picks and theoretical picks. This is because `scrtdd` computes theoretical picks that are cross-correlated together with detected picks. This is useful to increase the number of double-difference observations. See the [Phase update](#24-phase-update) paragraph for further details.
-
-
-### 3.2 Eval-xcorr command
-
-A more sophisticated method for evaluating the settings is the `--eval-xcorr` command (here we use `--verbosity=2` because the statistics are printed at this log level, useful to avoid being overwhelmed by too much information).
-
-`--eval-xcorr` allows to see how many phases have been cross-correlated (`#pha`), how many successfully (`pha good CC`,  correlation coefficient above the configured threshold), the average correlation coefficient (`coeff`), the average number of good matches per phases (`goodCC/ph`) and the average pick time difference detected by the cross-correlation (`time-diff`). Whenever sensible, it is also indicated the Mean Absolte Deviation of the value (`+/-`).
+`--eval-xcorr` allows to see:
+* `#pha`: how many phases have been cross-correlated
+* `pha good CC`: how many of those were successful (correlation coefficient above the configured threshold)
+* `coeff`: the average correlation coefficient
+* `goodCC/ph`: the average number of good matches per phase (each event phase appears in multiple double-difference observations, so multiple event pais, hence multiple cross-correlations)
+* `time-diff`: the average pick time difference detected by the cross-correlation
+* `+/-`: whenever sensible, it is also indicated the Mean Absolute Deviation of the value
 
 It is especially interesting to compare the results before/after the catalog has been relocated. The new statistics should show better performance for events close to each other and gradually worsen with increasing inter-event distance. That is an indirect measure of the quality of the relocation as explained in Waldhauser & Ellsworth's paper.
 
@@ -576,11 +627,9 @@ Station       #Phases GoodCC AvgCoeff(+/-) GoodCC/Ph(+/-) time-diff[msec] (+/-)
 [...]
 ```
 
+### 3.2 Cross-correlation parameters optimization
 
-
-### 3.3 Cross-correlation parameters optimization
-
-The `--eval-xcorr` option should be used to properly configure the cross-correlation parameters. The optimization process involves running `--eval-xcorr` with different configuration and analyzes the results. The goal is to have as many matches as possible (high `GoodCC`) but to avoid wrong/bad matches (low `time-diff` mean absolute deviation: `+/-`): but this is a trade-off.
+The `--eval-xcorr` option should be used to properly configure the cross-correlation parameters. The optimization process involves running `--eval-xcorr` with different configuration and analyzes the results. The goal is to have as many matches as possible (increase `GoodCC`) avoiding bad/false matches (very high values of `time-diff` are probably an indication of false matches): this is a trade-off.
 
 The configuration parameters that are relevant for this analysis are:
 * Cross-correlation coefficient threshold for P and S
@@ -590,7 +639,7 @@ The configuration parameters that are relevant for this analysis are:
 * Waveform filter (and resampling)
 * Clustering: number of neighbours
 
-The SNR is particularly important because scrtdd uses that to reject a pick derived via cross-correlation when the threshold is not reached. In general, we have to configure the SNR noise/signal windows so that it can give sensible values in 5 scenarios:
+The SNR is particularly important to reject bad picks that lead to bad cross-correlations. The SNR signal/noise windows should be chosen so that they satisfies ALL the following 5 conditions:
 
 * pick time too early (we want low SNR)
 * pick time too late (we want low SNR)
@@ -598,14 +647,24 @@ The SNR is particularly important because scrtdd uses that to reject a pick deri
 * pick time is early but acceptable (we want high SNR)
 * pick time is late but acceptable (we want high SNR)
 
-Given a user defined acceptable pick time error, the SNR signal/noise windows should be chosen satisfying all the scenarios from above.
-
-
 There are also few more parameters that are less relevant, but that might become important when relocating automatic origins (the automatic location might be very far from the final solution):
 * Cross-correlation maximum station distance
 * Cross-correlation maximum inter-event distance
 * Clustering: maximum inter-event distance
-* Clustering: station to inter-event distance ratio
+* Clustering: station to inter-event distance ratio  
+
+### 3.3 Logs
+
+Some cross-correlation statistics are printed in both multi-event and single-event mode. Those can be seen in the log file or in the console output if `--console=1 --verbosity=3`) is used.
+
+```
+[info] Cross-correlation statistics: performed 40361, waveforms with Signal to Noise ratio too low 2435, waveforms not available 98
+[info] Total xcorr 40361 (P 59%, S 41%) success 28% (11499/40361). Successful P 22% (5300/23844). Successful S 38% (6199/16517)
+[info] xcorr on actual picks 24784/40361 (P 60%, S 40%) success 37% (9186/24784). Successful P 31% (4629/14761). Successful S 45% (4557/10023)
+[info] xcorr on theoretical picks 15577/40361 (P 58%, S 42%) success 15% (2313/15577). Successful P 7% (671/9083). Successful S 25% (1642/6494)
+```
+
+The statistics are broken down in actual picks and theoretical picks. This is because `scrtdd` computes theoretical picks that are cross-correlated together with detected picks. This is useful to increase the number of double-difference observations. See the [Phase update](#24-phase-update) paragraph for further details. 
 
 ### 3.4 Waveforms inspection
 
@@ -678,7 +737,7 @@ For comparison we can always find the raw waveforms (not processed) fetched from
 
 ## 4. Waveform data and recordStream configuration
 
-SeisComP applications access waveform data through the RecordStream interface (see official SeisComP documentation for more details) and it is usually configured in *global.cfg*, where the user is able to define the service(s) through which SeisComP can access real-time and historical waveforms data (seedlink, fdsn, sds archive, etc). An hypothetical RecordStream configuration might look like this:
+SeisComP applications access waveform data through the RecordStream interface (see [official SeisComP documentation](https://www.seiscomp.de/doc/base/concepts/recordstream.html) for more details) and it is usually configured in *global.cfg* or passed via command line with `-I URI`. The RecordStream parameters define the service(s) through which SeisComP can access real-time and historical waveforms data (seedlink, fdsn, sds archive, [etc](https://www.seiscomp.de/doc/apps/global_recordstream.html)). An hypothetical RecordStream configuration might look like this:
 
 ```
 recordstream = combined://slink/localhost:18000;sdsarchive//mnt/miniseed
@@ -723,8 +782,6 @@ scrtdd --help
 
 ``` 
 
-e.g.
-
 ## 5. Relocation statistics
 
 ### 5.1 Single-event
@@ -754,7 +811,7 @@ Origin distace to neighbours centroid [km]: location=1.30 depth=3.01
 
 Their intent is to highlight how far the relocated event is to the neighbours centroid. The idea is that an event that falls within a cluster has a better chance to be properly relocated than an event that is far away from the neighbouring events.
 
-### 5.1 Multi-event
+### 5.2 Multi-event
 
 The above information are also stored in the output files (events.csv,phases.csv,station,csv) of the multi-event relocation and they can be used to compute useful statistics for an entire catalog.
 
@@ -794,6 +851,8 @@ scrtdd [some options] --verbosity=3 --console=1
 ```
 
 Verbosity 3 should be preferred to level 4, since the debug level 4 makes the logs hard to read due to the huge amount of information. Any useful information to the user is given at level 3 or above.
+
+### 6.1 Single-event
 
 A typical *single-event* relocation log looks like the followig;
 
@@ -846,7 +905,9 @@ Details of the solutions for each iteration of the solver
 [info/RTDD] Total Changes: location=0.35[km] depth=0.59[km] time=-0.133[sec] Rms=0.131[sec] (before/after 0.415/0.546)
 ```
 
-For *multi-event* relocations, a typical log looks like the following:
+### 6.2 Multi-event
+
+A typical *multi-event* relocation log looks like the following:
 
 ```
 [info/RTDD] Selecting Catalog Neighbouring Events 
@@ -966,11 +1027,18 @@ Last step is to copy the travel time tables to the SeisComP installation folder 
 ```
 cp mymodel* seiscomp_installation/share/locsat/tables/
 ```
+
+![LOCSAT TTT](/data/img/locsat-ttt.png?raw=true "LOCSAT TTT")
+
+
 ### 8.2 NonLinLoc
 
 Please refer to [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) documentation on how to generate grid files. Once you have them you can configure in `scrtdd` in travel time table options.
 
 The following geographic transformations (TRANS statement) are currently supported: GLOBAL 2D, SIMPLE 2D and 3D, SDS 2D and 3D. Also both float and double values are supported as well as byte swapping.
+
+![NLL TTT](/data/img/nll-ttt.png?raw=true "NLL TTT")
+
 
 ## 9. Scolv Locator plugin
 
