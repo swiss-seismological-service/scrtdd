@@ -703,10 +703,21 @@ void Solver::prepareDDSystem(bool useTTconstraint,
 
         if (!obprm.computeEvChanges) continue;
 
-        if (++ttconstraintIdx > _dd->numRowsG)
-          throw runtime_error("Solver: internal logic error");
+        const auto &it1 = _paramStats.find(evIdx);
+        if (it1 == _paramStats.end()) continue;
 
-        const ParamStats &prmSts = _paramStats.at(evIdx).at(phStaIdx);
+        const auto &it2 = it1->second.find(phStaIdx);
+        if (it2 == it1->second.end()) continue;
+
+        const ParamStats &prmSts = it2->second;
+
+        if (++ttconstraintIdx >= _dd->numRowsG)
+        {
+          string msg = stringify("Solver: internal logic error "
+                                 "(ttconstraintIdx=%u but _dd->numRowsG=%u)",
+                                 ttconstraintIdx, _dd->numRowsG);
+          throw runtime_error(msg.c_str());
+        }
 
         _dd->W[ttconstraintIdx] =
             (prmSts.finalTotalObs != 0)
@@ -719,6 +730,26 @@ void Solver::prepareDDSystem(bool useTTconstraint,
         _dd->evByObs[1][ttconstraintIdx] = -1;
         _dd->phStaByObs[ttconstraintIdx] = phStaIdx;
       }
+    }
+
+    // In case _obsParams contains more entries than required by 
+    // _observations we fill the remaining entries with defaults
+    while (++ttconstraintIdx < _dd->numRowsG )
+    {
+      _dd->W[ttconstraintIdx] = 0;
+      _dd->d[ttconstraintIdx] = 0;
+      _dd->evByObs[0][ttconstraintIdx] = -1;
+      _dd->evByObs[1][ttconstraintIdx] = -1;
+    }
+
+    // just a safety belt
+    if (ttconstraintNum != (ttconstraintIdx - _dd->nObs))
+    {
+      string msg =
+          stringify("Solver: internal logic error (ttconstraintNum=%u "
+                    "but only added %u constraints)",
+                    ttconstraintNum, (ttconstraintIdx + 1 - _dd->nObs));
+      throw runtime_error(msg.c_str());
     }
   }
 

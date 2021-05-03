@@ -102,7 +102,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
   // Sort catalog events by distance and drop the ones further than the outmost
   // ellipsoid.
   //
-  multimap<double, unsigned> eventByDistance; // distance, eventid
+  multimap<double, unsigned> eventByDistance;      // distance, eventid
   unordered_map<unsigned, double> distanceByEvent; // eventid, distance
   unordered_map<unsigned, double> azimuthByEvent;  // eventid, azimuth
 
@@ -346,11 +346,12 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
               neighbours->ids.insert(ev.id);
               neighbours->phases[ev.id] = evSelEntry.phases;
 
-              SEISCOMP_INFO("Neighbour: ellipsoid %2d quadrant %d #phases %2d "
-                            "distance %5.2f azimuth %3.f depth-diff %6.3f event %s",
-                            elpsNum, quadrant, dtCountByEvent[ev.id],
-                            distanceByEvent[ev.id], azimuthByEvent[ev.id],
-                            refEv.depth - ev.depth, string(ev).c_str());
+              SEISCOMP_INFO(
+                  "Neighbour: ellipsoid %2d quadrant %d #phases %2d "
+                  "distance %5.2f azimuth %3.f depth-diff %6.3f event %s",
+                  elpsNum, quadrant, dtCountByEvent[ev.id],
+                  distanceByEvent[ev.id], azimuthByEvent[ev.id],
+                  refEv.depth - ev.depth, string(ev).c_str());
 
               selectedEvents.erase(it);
               break;
