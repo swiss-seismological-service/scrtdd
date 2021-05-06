@@ -90,7 +90,7 @@ To relocate external (non-SeisComP) data refer to [this paragraph](#134-relocati
 
 The multi-event relocation consists of two steps: selecting the candidate origins and using `scrtdd` to relocate those. For the former task an utility `sclistorg` might come in handy. For the latter we need to configure a `scrtdd` profile where the relocation options are stored and then run the command line option `--reloc-catalog`. That's it.
 
-The output will be another catalog containing the relocated origins. The configuration is an easy task since the default options should already provide sensible solutions. The input origins might come from differnt sources: a SeisComP database (local or remote), a xml file, or a `scrtdd` specific format (station.csv,event.csv,phase.csv triplet, explained later).
+The output will be another catalog containing the relocated origins. The configuration is an easy task since the default options should already provide sensible solutions. The input origins might come from different sources: a SeisComP database (local or remote), a xml file, or a `scrtdd` specific format (station.csv,event.csv,phase.csv triplet, explained later).
 
 In multi-event mode there is no interaction neither with the running SeisComP modules nor with database (except for reading the inventory). It is a safe operation and allow for easy experimenting. The relocated events will be stored in plain text files, so that they can be analysed  externally to SeisComP, but they can also be stored back into the database. That is optional.
 
@@ -99,7 +99,7 @@ In multi-event mode there is no interaction neither with the running SeisComP mo
 
 ### 1.1 How to get the origin ids?
 
-There is a tool that is installed alongside `scrtdd`, called `sclistorg`, that is useful for listing origin ids satisfying certain criterias, such as time period, geographic area, author, agency and so on. E.g.
+There is a tool that is installed alongside `scrtdd`, called `sclistorg`, that is useful for listing origin ids satisfying certain criteria, such as time period, geographic area, author, agency and so on. E.g.
 
 ```sh
 # list the preferred origin ids for all events between 2018-11-27 and 2018-12-14
@@ -149,7 +149,7 @@ Origins:
 
 The origin ids of the events to be relocated must be stored in a format that `scrtdd` understands.
 
-One of the compatible formats is a text file containing the origing IDs (`sclistorg` output is compatible with that). `scrtdd` will use the origin IDs in the file to fetch all necessary information from the SeisComP database.
+One of the compatible formats is a text file containing the origin IDs (`sclistorg` output is compatible with that). `scrtdd` will use the origin IDs in the file to fetch all necessary information from the SeisComP database.
 
 E.g. *file myCatalog.csv* (a mandatory column named `seiscompId` is required, but other column might be present too).
 
@@ -378,7 +378,7 @@ Catalog:
 
 ### 1.6 Periodic update of the multi-event relocation
 
-For real-time monitoring it is useful to periodically update the multi-event relocation, so that the news events are continuously included in the double-difference inversion. This is not only useful for keeping track of what is happing in a region, but it is crucial for real-time relocation, where new origins are relocated using a background catalog: the more update the background catalog is, the bettter the results.
+For real-time monitoring it is useful to periodically update the multi-event relocation, so that the news events are continuously included in the double-difference inversion. This is not only useful for keeping track of what is happening in a region, but it is crucial for real-time relocation, where new origins are relocated using a background catalog: the more update the background catalog is, the better the results.
 
 For this purpose it might come in handy [this script](/data/scripts/generate-catalog.sh), that can be easily adapted to the specific use case.
  
@@ -398,7 +398,7 @@ Long story short:
 
 ### The long story
 
-In real-time processing `scrtdd` relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generate via multi-event relocation, which has already been coverred in the previous sections.
+In real-time processing `scrtdd` relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generate via multi-event relocation, which has already been covered in the previous sections.
 
 To enable the real-time processing a profile should be created and enabled by including it in `scrtdd.activeProfiles` option. Note: we might want to copy the waveform cache folder from the background catalog profile to the new real-time profile in order to avoid re-downloading all the catalog waveforms (see the `Waveforms data caching` paragraph for more details).
 
@@ -408,7 +408,7 @@ The easiest choice is to use as background catalog the relocated multi-event res
 
 ![Catalog selection option](/data/img/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
-However, it is also possible to import the catalog file triplet into the database and specify the origin ids as background catalog: we can transform the relocated catalog triplet reloc-event.csv, phase.csv,station.csv to XML format using the --dump-catalog-xml option and then insert the XML into the seiscomp database. While it is neat to have the background catalog in the seiscomp database, this approach is inconvenient in the common scenario where the background catalog is periodically re-generated.
+However, it is also possible to import the catalog file triplet into the database and specify the origin ids as background catalog: we can transform the relocated catalog triplet reloc-event.csv, phase.csv,station.csv to XML format using the --dump-catalog-xml option and then insert the XML into the seiscomp database. While it is neat to have the background catalog in the SeisComP database, this approach is inconvenient in the common scenario where the background catalog is periodically re-generated.
 
 ![Catalog selection option](/data/img/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
 
@@ -423,7 +423,7 @@ Real time relocation uses the same configuration we have seen in full catalog re
 
 If step2 completes successfully the relocated origin is sent to the messaging system.
 
-You can see below the most important parameters we want to configure. We enable the ellipsoid clustering algorithms selecting `numEllipsoids != 0` and we define the number of neighbour events used for relocation. We also increased `maxEllipsoidSize` in `doubleDifferenceObservationsNoXcorr` to accomodate the possible large error in the automatic origin locations.
+You can see below the most important parameters we want to configure. We enable the ellipsoid clustering algorithms selecting `numEllipsoids != 0` and we define the number of neighbouring  events used for relocation. We also increased `maxEllipsoidSize` in `doubleDifferenceObservationsNoXcorr` to accomodate the possible large error in the automatic origin locations.
  
 
 ![Relocation options](/data/img/step1options.png?raw=true "Relocation options")
