@@ -291,11 +291,6 @@ At this point we should check the relocated events (and logs) and see whether th
 **Notes**:
 Be aware that the first time you try to relocate a catalog it can be very slow because the waveforms have to be downloaded from the configured recordStream and saved to disk for the next runs, which will be much faster. 
 
-As an example you can see below two catalogs before and after `scrtdd` relocation:
-
-
-![Relocation example picture](/data/img/multiEventRelocationExample.png?raw=true "Relocation example")
-
 If we are going to create a profile for real-time relocation, only the output files reloc-event.csv reloc-phase.csv and reloc-stations.csv are required. A new profile has to be created and those output files will become the background catalog for the real-time/single-event relocation.
 
 ![Catalog selection option](/data/img/catalog-selection3.png?raw=true "Catalog selection from raw file format")
@@ -381,7 +376,19 @@ Catalog:
 For real-time monitoring it is useful to periodically update the multi-event relocation, so that the news events are continuously included in the double-difference inversion. This is not only useful for keeping track of what is happening in a region, but it is crucial for real-time relocation, where new origins are relocated using a background catalog: the more update the background catalog is, the better the results.
 
 For this purpose it might come in handy [this script](/data/scripts/generate-catalog.sh), that can be easily adapted to the specific use case.
- 
+
+### Examples
+
+Here are two catalogs before and after `scrtdd` relocation:
+
+![Relocation example picture](/data/img/multiEventRelocationExample.png?raw=true "Relocation example") 
+
+
+The unit testing folder contains the code to generate some tests with synthetic data:
+
+![Synthetic Data Relocation example picture](/data/img/multiEventRelocationSyntDataExample.png?raw=true "Synthetic Data Relocation example") 
+
+
 ## 2. Real-time single-event relocation
 
 Long story short:
@@ -505,14 +512,6 @@ And we can use the `scxmldump` to dump an existing origin id to file:
 scxmldump -fPAMF -p -O originId -o origin.xml --verbosity=3  --console=1
 ```
 
-#### 2.2.5 Notes
-
-Also, as explained in the cross-correlation settings paragraph, we can add the `--debug-wf` option to the above commands to dump and inspect the waveforms used during cross-correlation.
-
-As an example you can see below the single event relocation of several manually reviewed origins (when relocating automatic origins the quality and number of relocated origins is certainly lower).
-
-![Single event relocation example picture](/data/img/singleEventRelocationExample.png?raw=true "Single Event Relocation example")
-
 Once we are happy with the configuration we can simply enable and start `scrtdd` as any other SeisComP module and it will start relocating origins as soon as they arrive in the messsaging system.
 
 ### 2.3 Phase update
@@ -544,6 +543,16 @@ scevent       LOCATION,RELOCATION, ...             ...
 scamp         LOCATION,RELOCATION, ...             ...
 scmag         LOCATION,RELOCATION, ...             ...
 ```
+
+### Examples 
+
+Below the single-event relocation of several manually reviewed origins.
+
+![Single event relocation example picture](/data/img/singleEventRelocationExample.png?raw=true "Single Event Relocation example") 
+
+The unit testing folder contains the code to generate some tests with synthetic data.
+
+![Synthetic Data Relocation example picture](/data/img/singleEventRelocationSyntDataExample.png?raw=true "Synthetic Data Relocation example")
 
 ## 3. Cross-correlation
 
