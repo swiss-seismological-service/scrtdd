@@ -78,7 +78,7 @@ Long story short:
 
 * Use `sclistorg` command to select the events to be relocated. E.g. `sclistorg [options] > myCatalog.csv`
 
-* Create a `scrtdd` profile (e.g. use `scconfig` GUI). The profile will contain the settings for the relocation: the default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However with big datasets it is advised to set `doubleDifferenceObservations.maxNumNeigh` to some number and `doubleDifferenceObservations.numEllipsoids` to 0 to avoid huge processing time. Also it is a good choice to configure a custom velocity model (`solver.travelTimeTable`)
+* Create a `scrtdd` profile (e.g. use `scconfig` GUI). The profile will contain the settings for the relocation: the default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However it is a good choice to configure a custom velocity model (`solver.travelTimeTable`)
 
 * Use `scrtdd` to relocate the events. E.g. `scrtdd --reloc-catalog  myCatalog.csv --profile myProfile [db and waveforms options]`
 
@@ -210,15 +210,11 @@ Finally, the events to be relocated can also be stored in SeisComP XML format. P
 
 ### 1.3 Relocating the candidate events
 
-Before performing the relocation we need to create a new profile in the `scrtdd` configuration where it is possible to select the values for the relocation steps: clustering, cross-correlation and solver.
+Before performing the relocation we need to create a new profile in the `scrtdd` configuration where it is possible to select the values for the relocation steps: dubble-differene system creation, cross-correlation and solver.
 
 ![Profile options](/data/img/configOverview.png?raw=true "Profile options")
 
-`doubleDifferenceObservations` controls the creation of catalog absolute travel time entries (dt.ct file in HypoDD terminology) and cross-correlated differential travel times for pairs of events (dt.cc file in HypoDD terminology). The clustering options should work just fine with the default values, however some adjustments are worth it. For example, we force to have only well connected events (`minNumNeigh` and `minObservationPerEvPair`), which helps in avoiding an ill-defined double difference system that can be hard to solve. Then, we minimize `maxNumNeigh` to reduce computation time (we can get very good results without using all the possible neighbours for every event). Finally, we like to disable the ellipsoid algorithms (`numEllipsoids=0`) since that is mostly useful in single event relocation.
-
-![Relocation options](/data/img/multiEventStep2options.png?raw=true "Relocation options")
-
-Then it is time to set the cross-correlation parameters, which require a more careful selection and they are described in a dedicated paragraph. Finally, when the configuration is ready, we can relocate the catalog with the following commands...
+The default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However it is a good choice to configure a custom velocity model (`solver.travelTimeTable`). The cross-correlation parameters are described in a dedicated paragraph. Finally, when the configuration is ready, we can relocate the catalog with the following commands...
 
 #### 1.3.1 Relocating a file containing a list of origin ids
 
@@ -286,12 +282,12 @@ scrtdd --reloc-catalog myCatalog.csv --ep events.xml --profile myProfile \
 
 Independently on how the input events are provided, `scrtdd` will output a set of files *reloc-event.csv*, *reloc-phase.csv* and *reloc-stations.csv*, these contain the relocated catalog.
 
-At this point we should check the relocated events (and logs) and see whether the results make sense and are satisfactory. Usually we want to keep tuning the `scrtdd` settings and relocate the catalog multiple times until we are sure we reached the best relocations. Having a good background catalog is the base for good real-time relocations.
+At this point we should check the relocated events which contains several statistics and the logs to see whether the results make sense and are satisfactory. Usually we want to keep tuning the `scrtdd` settings and relocate the catalog multiple times until we are sure we reached the best relocations. Having a good background catalog is the base for good real-time relocations.
 
 **Notes**:
 Be aware that the first time you try to relocate a catalog it can be very slow because the waveforms have to be downloaded from the configured recordStream and saved to disk for the next runs, which will be much faster. 
 
-If we are going to create a profile for real-time relocation, only the output files reloc-event.csv reloc-phase.csv and reloc-stations.csv are required. A new profile has to be created and those output files will become the background catalog for the real-time/single-event relocation.
+To enable `scrtdd` in real-time the output files reloc-event.csv reloc-phase.csv and reloc-stations.csv are required as they will become the background catalog for the real-time/single-event relocation.
 
 ![Catalog selection option](/data/img/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
@@ -395,19 +391,25 @@ Long story short:
 
 * Use the multi-event relocation feature to prepare a background catalog
 
-* Create a `scrtdd` profile (e.g. use `scconfig` GUI), set the profile background catalog and add the profile to the list of active real-time profiles (`activeProfiles` parameter). The default profile parameter values are meant to be a good starting choice, so there is no need to tweak them except for `doubleDifferenceObservations.maxNumNeigh` (set it to 40 or a multiple of 8). Also it is a good choice to configure a custom velocity model (`solver.travelTimeTable`)
+* Create a `scrtdd` profile or use the same profile used for generating the background catalog, then set the profile background catalog and add the profile to the list of active real-time profiles (`activeProfiles` parameter). The default profile parameter values are meant to be a good starting choice, so there is no need to tweak them heavily. However it is a good choice to configure a custom velocity model (`solver.travelTimeTable`)
 
 * Make sure to read "Avoiding Relocation Loops" paragraph to avoid a potential issue
-
-* Make sure to read "Waveform data and recordStream configuration" to avoid `scrtdd` getting stuck when reading waveforms from seedlink
 
 * Enable and start `scrtdd` (`seiscomp enable scrtdd`, `seiscomp start scrtdd`)
 
 ### The long story
 
+To enable the real-time processing a profile should be created and enabled by including it in `scrtdd.activeProfiles` option.
+ 
 In real-time processing `scrtdd` relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generate via multi-event relocation, which has already been covered in the previous sections.
 
-To enable the real-time processing a profile should be created and enabled by including it in `scrtdd.activeProfiles` option. Note: we might want to copy the waveform cache folder from the background catalog profile to the new real-time profile in order to avoid re-downloading all the catalog waveforms (see the `Waveforms data caching` paragraph for more details).
+Real time relocation uses the same configuration we have seen in full catalog relocation, but real time relocation is done in two steps:
+
+**Step 1**: location refinement. In this step `scrtdd` performs a preliminary relocation of the origin where the differential travel times in the double-difference system are derived from the pick times.
+
+**Step 2**: the refined location computed in the previous step is used as starting location to perform a more precise relocation using cross-correlation to refine the differential travel times. If step1 fails, step2 is attempted anyway.
+
+If step2 completes successfully the relocated origin is sent to the messaging system. 
 
 ### 2.1. Selecting a background catalog from existing origins
 
@@ -421,20 +423,6 @@ However, it is also possible to import the catalog file triplet into the databas
 
  
 ### 2.2 Testing
-
-Real time relocation uses the same configuration we have seen in full catalog relocation, but real time relocation is done in two steps, each one controlled by a specific configuration.
-
-**Step 1**: location refinement. In this step `scrtdd` performs a preliminary relocation of the origin using only catalog absolute travel time entries (dt.ct only).
-
-**Step 2**: the refined location computed in the previous step is used as starting location to perform a more precise relocation using both catalog absolute travel times (dt.ct) and differential travel times from cross-correlation (dt.cc). If step1 fails, step2 is attempted anyway.
-
-If step2 completes successfully the relocated origin is sent to the messaging system.
-
-You can see below the most important parameters we want to configure. We enable the ellipsoid clustering algorithms selecting `numEllipsoids != 0` and we define the number of neighbouring  events used for relocation. We also increased `maxEllipsoidSize` in `doubleDifferenceObservationsNoXcorr` to accomodate the possible large error in the automatic origin locations.
- 
-
-![Relocation options](/data/img/step1options.png?raw=true "Relocation options")
-![Relocation options](/data/img/step2options.png?raw=true "Relocation options")
 
 You might consider testing the configuration relocating some existing events to make sure the parameters are suitable for your use case. To test the real time relocation there are two command line options which relocate existing origins:
 

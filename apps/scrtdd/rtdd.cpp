@@ -513,185 +513,195 @@ bool RTDD::validateParameters()
     }
 
     prefix = string("profile.") + prof->name +
-             ".doubleDifferenceObservationsNoXcorr.clustering.";
+             ".doubleDifferenceSystem.eventPairsSelection.";
     try
     {
-      prof->ddObservations1.minNumNeigh = configGetInt(prefix + "minNumNeigh");
+      prof->singleEventClustering.minDTperEvt =
+          configGetInt(prefix + "minNumPhases");
+      prof->multiEventClustering.minDTperEvt =
+          configGetInt(prefix + "minNumPhases");
     }
     catch (...)
     {
-      prof->ddObservations1.minNumNeigh = 1;
+      prof->singleEventClustering.minDTperEvt = 1;
+      prof->multiEventClustering.minDTperEvt  = 1;
     }
     try
     {
-      prof->ddObservations1.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
+      prof->singleEventClustering.minNumNeigh =
+          configGetInt(prefix + "minNumNeighbours");
+      prof->multiEventClustering.minNumNeigh =
+          configGetInt(prefix + "minNumNeighbours");
     }
     catch (...)
     {
-      prof->ddObservations1.maxNumNeigh = 0;
-    }
-    try
-    {
-      prof->ddObservations1.minDTperEvt =
-          configGetInt(prefix + "minObservationPerEvtPair");
-    }
-    catch (...)
-    {
-      prof->ddObservations1.minDTperEvt = 1;
-    }
-    try
-    {
-      prof->ddObservations1.maxDTperEvt =
-          configGetInt(prefix + "maxObservationPerEvtPair");
-    }
-    catch (...)
-    {
-      prof->ddObservations1.maxDTperEvt = 0;
+      prof->singleEventClustering.minNumNeigh = 1;
+      prof->multiEventClustering.minNumNeigh  = 1;
     }
 
     prefix = string("profile.") + prof->name +
-             ".doubleDifferenceObservationsNoXcorr.clustering."
-             "neighboringEventSelection.";
+             ".doubleDifferenceSystem.phaseSelection.";
+
     try
     {
-      prof->ddObservations1.numEllipsoids =
-          configGetInt(prefix + "numEllipsoids");
+      prof->singleEventClustering.maxDTperEvt =
+          configGetInt(prefix + "maxNumPhases");
+      prof->multiEventClustering.maxDTperEvt =
+          configGetInt(prefix + "maxNumPhases");
     }
     catch (...)
     {
-      prof->ddObservations1.numEllipsoids = 5;
-    }
-    try
-    {
-      prof->ddObservations1.maxEllipsoidSize =
-          configGetDouble(prefix + "maxEllipsoidSize");
-    }
-    catch (...)
-    {
-      prof->ddObservations1.maxEllipsoidSize = 5;
+      prof->singleEventClustering.maxDTperEvt = 0;
+      prof->multiEventClustering.maxDTperEvt  = 0;
     }
 
-    prefix = string("profile.") + prof->name +
-             ".doubleDifferenceObservationsNoXcorr.clustering.phaseSelection.";
     try
     {
-      prof->ddObservations1.minESdist =
+      prof->singleEventClustering.minESdist =
+          configGetDouble(prefix + "minStationDistance");
+      prof->multiEventClustering.minESdist =
           configGetDouble(prefix + "minStationDistance");
     }
     catch (...)
     {
-      prof->ddObservations1.minESdist = 0;
+      prof->singleEventClustering.minESdist = 0;
+      prof->multiEventClustering.minESdist  = 0;
     }
+
     try
     {
-      prof->ddObservations1.maxESdist =
+      prof->singleEventClustering.maxESdist =
+          configGetDouble(prefix + "maxStationDistance");
+      prof->multiEventClustering.maxESdist =
           configGetDouble(prefix + "maxStationDistance");
     }
     catch (...)
     {
-      prof->ddObservations1.maxESdist = 0;
+      prof->singleEventClustering.maxESdist = 0;
+      prof->multiEventClustering.maxESdist  = 0;
     }
+
     try
     {
-      prof->ddObservations1.minEStoIEratio =
+      prof->singleEventClustering.minEStoIEratio =
+          configGetDouble(prefix + "minStationToEventPairDistRatio");
+      prof->multiEventClustering.minEStoIEratio =
           configGetDouble(prefix + "minStationToEventPairDistRatio");
     }
     catch (...)
     {
-      prof->ddObservations1.minEStoIEratio = 0;
+      prof->singleEventClustering.minEStoIEratio = 0;
+      prof->multiEventClustering.minEStoIEratio  = 0;
     }
 
     prefix = string("profile.") + prof->name +
-             ".doubleDifferenceObservations.clustering.";
+             ".doubleDifferenceSystem.neighboringEventSelection.singleEvent.";
+
     try
     {
-      prof->ddObservations2.minNumNeigh = configGetInt(prefix + "minNumNeigh");
+      prof->singleEventClustering.maxNumNeigh =
+          configGetInt(prefix + "maxNumNeighbours");
     }
     catch (...)
     {
-      prof->ddObservations2.minNumNeigh = 1;
-    }
-    try
-    {
-      prof->ddObservations2.maxNumNeigh = configGetInt(prefix + "maxNumNeigh");
-    }
-    catch (...)
-    {
-      prof->ddObservations2.maxNumNeigh = 0;
-    }
-    try
-    {
-      prof->ddObservations2.minDTperEvt =
-          configGetInt(prefix + "minObservationPerEvtPair");
-    }
-    catch (...)
-    {
-      prof->ddObservations2.minDTperEvt = 1;
-    }
-    try
-    {
-      prof->ddObservations2.maxDTperEvt =
-          configGetInt(prefix + "maxObservationPerEvtPair");
-    }
-    catch (...)
-    {
-      prof->ddObservations2.maxDTperEvt = 0;
+      prof->singleEventClustering.maxNumNeigh = 80;
     }
 
-    prefix =
-        string("profile.") + prof->name +
-        ".doubleDifferenceObservations.clustering.neighboringEventSelection.";
     try
     {
-      prof->ddObservations2.numEllipsoids =
+      prof->singleEventClustering.numEllipsoids =
           configGetInt(prefix + "numEllipsoids");
     }
     catch (...)
     {
-      prof->ddObservations2.numEllipsoids = 5;
+      prof->singleEventClustering.numEllipsoids = 5;
     }
     try
     {
-      prof->ddObservations2.maxEllipsoidSize =
+      prof->singleEventClustering.maxEllipsoidSize =
           configGetDouble(prefix + "maxEllipsoidSize");
     }
     catch (...)
     {
-      prof->ddObservations2.maxEllipsoidSize = 5;
+      prof->singleEventClustering.maxEllipsoidSize = 5;
     }
 
     prefix = string("profile.") + prof->name +
-             ".doubleDifferenceObservations.clustering.phaseSelection.";
+             ".doubleDifferenceSystem.neighboringEventSelection.multiEvent.";
     try
     {
-      prof->ddObservations2.minESdist =
-          configGetDouble(prefix + "minStationDistance");
+      prof->multiEventClustering.maxNumNeigh =
+          configGetInt(prefix + "maxNumNeighbours");
     }
     catch (...)
     {
-      prof->ddObservations2.minESdist = 0;
+      prof->multiEventClustering.maxNumNeigh = 30;
+    }
+
+    try
+    {
+      prof->multiEventClustering.numEllipsoids =
+          configGetInt(prefix + "numEllipsoids");
+    }
+    catch (...)
+    {
+      prof->multiEventClustering.numEllipsoids = 0;
     }
     try
     {
-      prof->ddObservations2.maxESdist =
+      prof->multiEventClustering.maxEllipsoidSize =
+          configGetDouble(prefix + "maxEllipsoidSize");
+    }
+    catch (...)
+    {
+      prof->multiEventClustering.maxEllipsoidSize = 5;
+    }
+    prefix = string("profile.") + prof->name + ".crossCorrelation.";
+    try
+    {
+      prof->singleEventClustering.xcorrMaxEvStaDist =
+          configGetDouble(prefix + "maxStationDistance");
+      prof->multiEventClustering.xcorrMaxEvStaDist =
           configGetDouble(prefix + "maxStationDistance");
     }
     catch (...)
     {
-      prof->ddObservations2.maxESdist = 0;
+      prof->singleEventClustering.xcorrMaxEvStaDist = 85;
+      prof->multiEventClustering.xcorrMaxEvStaDist  = 85;
     }
     try
     {
-      prof->ddObservations2.minEStoIEratio =
-          configGetDouble(prefix + "minStationToEventPairDistRatio");
+      prof->singleEventClustering.xcorrMaxInterEvDist =
+          configGetDouble(prefix + "maxInterEventDistance");
+      prof->multiEventClustering.xcorrMaxInterEvDist =
+          configGetDouble(prefix + "maxInterEventDistance");
     }
     catch (...)
     {
-      prof->ddObservations2.minEStoIEratio = 0;
+      prof->singleEventClustering.xcorrMaxInterEvDist = -1;
+      prof->multiEventClustering.xcorrMaxInterEvDist  = -1;
     }
 
-    prefix = string("profile.") + prof->name +
-             ".doubleDifferenceObservations.crosscorrelation.p-phase.";
+    try
+    {
+      prof->useTheoreticalAuto =
+          configGetBool(prefix + "theoreticalPhaseAutoOrigin");
+    }
+    catch (...)
+    {
+      prof->useTheoreticalAuto = true;
+    }
+    try
+    {
+      prof->useTheoreticalManual =
+          configGetBool(prefix + "theoreticalPhaseManualOrigin");
+    }
+    catch (...)
+    {
+      prof->useTheoreticalManual = false;
+    }
+
+    prefix = string("profile.") + prof->name + ".crossCorrelation.p-phase.";
     try
     {
       prof->ddCfg.xcorr[PhaseType::P].startOffset =
@@ -738,8 +748,7 @@ bool RTDD::validateParameters()
       prof->ddCfg.xcorr[PhaseType::P].components = {"Z"};
     }
 
-    prefix = string("profile.") + prof->name +
-             ".doubleDifferenceObservations.crosscorrelation.s-phase.";
+    prefix = string("profile.") + prof->name + ".crossCorrelation.s-phase.";
     try
     {
       prof->ddCfg.xcorr[PhaseType::S].startOffset =
@@ -787,47 +796,7 @@ bool RTDD::validateParameters()
     }
 
     prefix = string("profile.") + prof->name +
-             ".doubleDifferenceObservations.crosscorrelation.options.";
-    try
-    {
-      prof->ddObservations2.xcorrMaxEvStaDist =
-          configGetDouble(prefix + "maxStationDistance");
-    }
-    catch (...)
-    {
-      prof->ddObservations2.xcorrMaxEvStaDist = 85;
-    }
-    try
-    {
-      prof->ddObservations2.xcorrMaxInterEvDist =
-          configGetDouble(prefix + "maxInterEventDistance");
-    }
-    catch (...)
-    {
-      prof->ddObservations2.xcorrMaxInterEvDist = -1;
-    }
-
-    try
-    {
-      prof->useTheoreticalAuto =
-          configGetBool(prefix + "theoreticalPhaseAutoOrigin");
-    }
-    catch (...)
-    {
-      prof->useTheoreticalAuto = true;
-    }
-    try
-    {
-      prof->useTheoreticalManual =
-          configGetBool(prefix + "theoreticalPhaseManualOrigin");
-    }
-    catch (...)
-    {
-      prof->useTheoreticalManual = false;
-    }
-
-    prefix = string("profile.") + prof->name +
-             ".doubleDifferenceObservations.waveformFiltering.";
+             ".crossCorrelation.waveformFiltering.";
     try
     {
       prof->ddCfg.wfFilter.filterStr = configGetString(prefix + "filterString");
@@ -846,8 +815,7 @@ bool RTDD::validateParameters()
       prof->ddCfg.wfFilter.resampleFreq = 400;
     }
 
-    prefix =
-        string("profile.") + prof->name + ".doubleDifferenceObservations.snr.";
+    prefix = string("profile.") + prof->name + ".crossCorrelation.snr.";
     try
     {
       prof->ddCfg.snr.minSnr = configGetDouble(prefix + "minSnr");
@@ -1001,10 +969,10 @@ bool RTDD::validateParameters()
     prof->ddCfg.recordStreamURL = recordStreamURL();
 
     // no reason to make those configurable
-    prof->ddObservations1.minWeight  = 0;
-    prof->ddObservations2.minWeight  = 0;
-    prof->solverCfg.L2normalization  = true;
-    prof->solverCfg.solverIterations = 0;
+    prof->singleEventClustering.minWeight = 0;
+    prof->multiEventClustering.minWeight  = 0;
+    prof->solverCfg.L2normalization       = true;
+    prof->solverCfg.solverIterations      = 0;
 
     _profiles.push_back(prof);
   }
@@ -2457,8 +2425,8 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   else
     hypodd->setUseArtificialPhases(this->useTheoreticalAuto);
 
-  return hypodd->relocateSingleEvent(orgToRelocate, ddObservations1,
-                                     ddObservations2, solverCfg);
+  return hypodd->relocateSingleEvent(orgToRelocate, singleEventClustering,
+                                     singleEventClustering, solverCfg);
 }
 
 HDD::CatalogPtr RTDD::Profile::relocateCatalog()
@@ -2471,7 +2439,7 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog()
   }
   lastUsage = Core::Time::GMT();
   hypodd->setUseArtificialPhases(this->useTheoreticalManual);
-  return hypodd->relocateMultiEvents(ddObservations2, solverCfg);
+  return hypodd->relocateMultiEvents(multiEventClustering, solverCfg);
 }
 
 void RTDD::Profile::evalXCorr()
@@ -2484,7 +2452,7 @@ void RTDD::Profile::evalXCorr()
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::GMT();
-  hypodd->evalXCorr(ddObservations2);
+  hypodd->evalXCorr(multiEventClustering);
 }
 
 // End Profile class

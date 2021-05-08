@@ -732,12 +732,12 @@ void Solver::prepareDDSystem(bool useTTconstraint,
       }
     }
 
-    // In case _obsParams contains more entries than required by 
+    // In case _obsParams contains more entries than required by
     // _observations we fill the remaining entries with defaults
-    while (++ttconstraintIdx < _dd->numRowsG )
+    while (++ttconstraintIdx < _dd->numRowsG)
     {
-      _dd->W[ttconstraintIdx] = 0;
-      _dd->d[ttconstraintIdx] = 0;
+      _dd->W[ttconstraintIdx]          = 0;
+      _dd->d[ttconstraintIdx]          = 0;
       _dd->evByObs[0][ttconstraintIdx] = -1;
       _dd->evByObs[1][ttconstraintIdx] = -1;
     }

@@ -191,8 +191,8 @@ private:
     std::string phaFile;
     RegionPtr region;
     HDD::Config ddCfg;
-    HDD::ClusteringOptions ddObservations1;
-    HDD::ClusteringOptions ddObservations2;
+    HDD::ClusteringOptions singleEventClustering;
+    HDD::ClusteringOptions multiEventClustering;
     HDD::SolverOptions solverCfg;
     bool useTheoreticalAuto;
     bool useTheoreticalManual;
