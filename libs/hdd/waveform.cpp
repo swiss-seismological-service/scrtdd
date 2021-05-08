@@ -1145,6 +1145,11 @@ ExtraLenLoader::traceTimeWindowToLoad(const Core::TimeWindow &neededTW,
       twToLoad.setEndTime(pickTime + additionalTime);
   }
 
+  // round the start/end time to the nearest second
+  twToLoad.setStartTime(Core::Time(twToLoad.startTime().seconds(), 0));
+  twToLoad.setEndTime(twToLoad.endTime().microseconds() > 0
+                          ? Core::Time(twToLoad.endTime().seconds() + 1, 0)
+                          : Core::Time(twToLoad.endTime().seconds(), 0));
   return twToLoad;
 }
 

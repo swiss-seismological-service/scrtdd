@@ -1089,8 +1089,8 @@ bool RTDD::run()
     if (!catalog || !profile) return false;
     profile->load(query(), &_cache, _eventParameters.get(),
                   _config.workingDirectory, !_config.saveProcessingFiles,
-                  _config.cacheWaveforms, true, _config.dumpWaveforms, false,
-                  catalog);
+                  _config.cacheWaveforms, _config.cacheAllWaveforms,
+                  _config.dumpWaveforms, false, catalog);
     profile->evalXCorr();
     return true;
   }
@@ -1210,8 +1210,8 @@ bool RTDD::run()
     if (!catalog || !profile) return false;
     profile->load(query(), &_cache, _eventParameters.get(),
                   _config.workingDirectory, !_config.saveProcessingFiles,
-                  _config.cacheWaveforms, true, _config.dumpWaveforms, false,
-                  catalog);
+                  _config.cacheWaveforms, _config.cacheAllWaveforms,
+                  _config.dumpWaveforms, false, catalog);
     try
     {
       HDD::CatalogPtr relocatedCat = profile->relocateCatalog();
