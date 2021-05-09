@@ -23,6 +23,7 @@
 #include <seiscomp3/core/recordsequence.h>
 #include <seiscomp3/core/strings.h>
 #include <seiscomp3/datamodel/utils.h>
+#include <seiscomp3/io/recordstream.h>
 
 #include <stdexcept>
 #include <unordered_map>
@@ -38,9 +39,32 @@ readWaveformFromRecordStream(const std::string &recordStreamURL,
                              const std::string &networkCode,
                              const std::string &stationCode,
                              const std::string &locationCode,
-                             const std::string &channelCode);
+                             const std::string &channelCode,
+                             double tolerance,
+                             double minAvailability);
 
-bool merge(GenericRecord &trace, const RecordSequence &seq);
+bool projectionRequired(const Core::TimeWindow &tw,
+                        const Catalog::Phase &ph,
+                        const Catalog::Event &ev,
+                        DataModel::ThreeComponents &tc,
+                        DataModel::SensorLocation *&loc);
+
+GenericRecordPtr projectWaveform(const Core::TimeWindow &tw,
+                                 const Catalog::Phase &ph,
+                                 const Catalog::Event &ev,
+                                 double tolerance,
+                                 double minAvailability,
+                                 const GenericRecordCPtr &tr1,
+                                 const GenericRecordCPtr &tr2,
+                                 const GenericRecordCPtr &tr3,
+                                 const DataModel::ThreeComponents &tc,
+                                 const DataModel::SensorLocation *loc);
+
+GenericRecordPtr contiguousRecord(const RecordSequence &seq,
+                                  const Core::TimeWindow &tw,
+                                  double tolerance,
+                                  double minAvailability);
+
 bool trim(GenericRecord &trace, const Core::TimeWindow &tw);
 
 void filter(GenericRecord &trace,
@@ -91,26 +115,20 @@ class Loader : public Core::BaseObject
 {
 
 public:
-  Loader(const std::string &recordStream) : Loader(recordStream, false, false)
-  {}
-
-  Loader(LoaderPtr auxLdr) : Loader(auxLdr, false, false) {}
+  Loader(const std::string &recordStream) : _recordStreamURL(recordStream) {}
 
   virtual ~Loader() {}
 
   virtual GenericRecordCPtr get(const Core::TimeWindow &tw,
                                 const Catalog::Phase &ph,
-                                const Catalog::Event &ev,
-                                bool demeaning               = false,
-                                const std::string &filterStr = "",
-                                double resampleFreq          = 0);
+                                const Catalog::Event &ev);
 
-  virtual bool isCached(const Core::TimeWindow &tw,
-                        const Catalog::Phase &ph,
-                        const Catalog::Event &ev)
-  {
-    return false;
-  }
+  virtual GenericRecordCPtr get(const Core::TimeWindow &tw,
+                                const Catalog::Phase &ph,
+                                const Catalog::Event &ev,
+                                bool demeaning,
+                                const std::string &filterStr,
+                                double resampleFreq);
 
   // empty string disables debugging
   void setDebugDirectory(const std::string &directory = "")
@@ -118,78 +136,60 @@ public:
     _wfDebugDir = directory;
   }
 
-  // counters
   unsigned _counters_wf_no_avail   = 0;
-  unsigned _counters_wf_cached     = 0;
   unsigned _counters_wf_downloaded = 0;
 
 protected:
-  Loader(const std::string &recordStream, bool doCaching, bool cacheProcessed)
-      : _recordStreamURL(recordStream), _doCaching(doCaching),
-        _cacheProcessed(cacheProcessed)
-  {}
+  GenericRecordPtr process(const GenericRecordCPtr &trace,
+                           bool demeaning,
+                           const std::string &filterStr,
+                           double resampleFreq);
 
-  Loader(LoaderPtr auxLdr, bool doCaching, bool cacheProcessed)
-      : _auxLdr(auxLdr), _doCaching(doCaching), _cacheProcessed(cacheProcessed)
-  {
-    if (_doCaching && !_cacheProcessed && _auxLdr->_cacheProcessed)
-    {
-      throw std::runtime_error(
-          "Cannot set processed cache as auxiliary of an unprocessed cache");
-    }
-  }
-
-  virtual GenericRecordCPtr getFromCache(const Core::TimeWindow &tw,
-                                         const std::string &networkCode,
-                                         const std::string &stationCode,
-                                         const std::string &locationCode,
-                                         const std::string &channelCode)
-  {
-    return nullptr;
-  }
-
-  virtual void storeInCache(const Core::TimeWindow &tw,
-                            const std::string &networkCode,
-                            const std::string &stationCode,
-                            const std::string &locationCode,
-                            const std::string &channelCode,
-                            const GenericRecordCPtr &trace)
-  {}
-
-  GenericRecordPtr readAndProjectWaveform(const Core::TimeWindow &tw,
-                                          const Catalog::Phase &ph,
-                                          const Catalog::Event &ev);
-
-  LoaderPtr _auxLdr;
   const std::string _recordStreamURL;
-  const bool _doCaching;
-  const bool _cacheProcessed;
-
   std::string _wfDebugDir;
+
+  static constexpr double _tolerance       = 0.1;
+  static constexpr double _minAvailability = 0.95;
+};
+
+class CompositeLoader : public Loader
+{
+
+public:
+  CompositeLoader(LoaderPtr auxLdr) : Loader("") { setAuxLoader(auxLdr); }
+
+  virtual ~CompositeLoader() {}
+
+  void setAuxLoader(LoaderPtr auxLdr)
+  {
+    if (!auxLdr) throw std::runtime_error("Auxiliary loader cannot be null");
+    _auxLdr = auxLdr;
+  }
+
+protected:
+  LoaderPtr _auxLdr;
 };
 
 DEFINE_SMARTPOINTER(DiskCachedLoader);
 
-class DiskCachedLoader : public Loader
+class DiskCachedLoader : public CompositeLoader
 {
 public:
-  DiskCachedLoader(const std::string &recordStream,
-                   bool cacheProcessed,
-                   const std::string &cacheDir)
-      : Loader(recordStream, true, cacheProcessed), _cacheDir(cacheDir)
-  {}
-
-  DiskCachedLoader(LoaderPtr auxLdr,
-                   bool cacheProcessed,
-                   const std::string &cacheDir)
-      : Loader(auxLdr, true, cacheProcessed), _cacheDir(cacheDir)
+  DiskCachedLoader(LoaderPtr auxLdr, const std::string &cacheDir)
+      : CompositeLoader(auxLdr), _cacheDir(cacheDir)
   {}
 
   virtual ~DiskCachedLoader() {}
 
-  virtual bool isCached(const Core::TimeWindow &tw,
-                        const Catalog::Phase &ph,
-                        const Catalog::Event &ev);
+  virtual GenericRecordCPtr get(const Core::TimeWindow &tw,
+                                const Catalog::Phase &ph,
+                                const Catalog::Event &ev);
+
+  bool isCached(const Core::TimeWindow &tw,
+                const Catalog::Phase &ph,
+                const Catalog::Event &ev);
+
+  unsigned _counters_wf_cached = 0;
 
 protected:
   virtual GenericRecordCPtr getFromCache(const Core::TimeWindow &tw,
@@ -217,23 +217,32 @@ protected:
 
 DEFINE_SMARTPOINTER(MemCachedLoader);
 
-class MemCachedLoader : public Loader
+class MemCachedLoader : public CompositeLoader
 {
-
 public:
-  MemCachedLoader(const std::string &recordStream, bool cacheProcessed)
-      : Loader(recordStream, true, cacheProcessed)
-  {}
-
-  MemCachedLoader(LoaderPtr auxLdr, bool cacheProcessed)
-      : Loader(auxLdr, true, cacheProcessed)
-  {}
+  MemCachedLoader(LoaderPtr auxLdr) : CompositeLoader(auxLdr) {}
 
   virtual ~MemCachedLoader() {}
 
-  virtual bool isCached(const Core::TimeWindow &tw,
-                        const Catalog::Phase &ph,
-                        const Catalog::Event &ev);
+  virtual GenericRecordCPtr get(const Core::TimeWindow &tw,
+                                const Catalog::Phase &ph,
+                                const Catalog::Event &ev)
+  {
+    throw std::runtime_error("Cannot return unprocessed data");
+  }
+
+  virtual GenericRecordCPtr get(const Core::TimeWindow &tw,
+                                const Catalog::Phase &ph,
+                                const Catalog::Event &ev,
+                                bool demeaning,
+                                const std::string &filterStr,
+                                double resampleFreq);
+
+  bool isCached(const Core::TimeWindow &tw,
+                const Catalog::Phase &ph,
+                const Catalog::Event &ev);
+
+  unsigned _counters_wf_cached = 0;
 
 protected:
   virtual GenericRecordCPtr getFromCache(const Core::TimeWindow &tw,
@@ -254,74 +263,69 @@ protected:
 
 DEFINE_SMARTPOINTER(ExtraLenLoader);
 
-class ExtraLenLoader : public Loader
+class ExtraLenLoader : public CompositeLoader
 {
 public:
-  ExtraLenLoader(const std::string &recordStream, double traceMinLen)
-      : Loader(recordStream), _traceMinLen(traceMinLen)
+  ExtraLenLoader(LoaderPtr auxLdr, double traceMinLen)
+      : ExtraLenLoader(auxLdr, traceMinLen / 2, traceMinLen / 2)
   {}
 
-  ExtraLenLoader(LoaderPtr auxLdr, double traceMinLen)
-      : Loader(auxLdr), _traceMinLen(traceMinLen)
+  ExtraLenLoader(LoaderPtr auxLdr, double beforePickLen, double afterPickLen)
+      : CompositeLoader(auxLdr), _beforePickLen(beforePickLen),
+        _afterPickLen(afterPickLen)
   {}
 
   virtual ~ExtraLenLoader() {}
 
   virtual GenericRecordCPtr get(const Core::TimeWindow &tw,
                                 const Catalog::Phase &ph,
-                                const Catalog::Event &ev,
-                                bool demeaning               = false,
-                                const std::string &filterStr = "",
-                                double resampleFreq          = 0);
+                                const Catalog::Event &ev);
 
   Core::TimeWindow traceTimeWindowToLoad(const Core::TimeWindow &neededTW,
                                          const Core::Time &pickTime) const;
 
 protected:
-  double _traceMinLen; // secs
+  double _beforePickLen; // secs
+  double _afterPickLen;  // secs
 };
 
 DEFINE_SMARTPOINTER(SnrFilteredLoader);
 
-class SnrFilteredLoader : public Loader
+class SnrFilteredLoader : public CompositeLoader
 {
 
 public:
-  SnrFilteredLoader(const std::string &recordStream,
-                    double minSnr,
-                    double noiseStart,
-                    double noiseEnd,
-                    double signalStart,
-                    double signalEnd)
-      : Loader(recordStream), _snr{minSnr, noiseStart, noiseEnd, signalStart,
-                                   signalEnd}
-  {}
-
   SnrFilteredLoader(LoaderPtr auxLdr,
                     double minSnr,
                     double noiseStart,
                     double noiseEnd,
                     double signalStart,
                     double signalEnd)
-      : Loader(auxLdr), _snr{minSnr, noiseStart, noiseEnd, signalStart,
-                             signalEnd}
+      : CompositeLoader(auxLdr), _snr{minSnr, noiseStart, noiseEnd, signalStart,
+                                      signalEnd}
   {}
 
   virtual ~SnrFilteredLoader() {}
 
-  GenericRecordCPtr get(const Core::TimeWindow &tw,
-                        const Catalog::Phase &ph,
-                        const Catalog::Event &ev,
-                        bool demeaning               = false,
-                        const std::string &filterStr = "",
-                        double resampleFreq          = 0);
+  virtual GenericRecordCPtr get(const Core::TimeWindow &tw,
+                                const Catalog::Phase &ph,
+                                const Catalog::Event &ev)
+  {
+    throw std::runtime_error("Cannot compute SNR on unprocessed data");
+  }
+
+  virtual GenericRecordCPtr get(const Core::TimeWindow &tw,
+                                const Catalog::Phase &ph,
+                                const Catalog::Event &ev,
+                                bool demeaning,
+                                const std::string &filterStr,
+                                double resampleFreq);
 
   Core::TimeWindow snrTimeWindow(const Core::Time &pickTime) const;
 
   bool goodSnr(const GenericRecordCPtr &trace,
                const Core::Time &pickTime) const;
 
-  // counters
   unsigned _counters_wf_snr_low = 0;
 
 protected:
@@ -336,6 +340,30 @@ protected:
 
   std::unordered_set<std::string> _snrGoodWfs;
   std::unordered_set<std::string> _snrExcludedWfs;
+};
+
+DEFINE_SMARTPOINTER(BatchLoader);
+
+class BatchLoader : public Loader
+{
+public:
+  BatchLoader(const std::string &recordStream);
+
+  virtual ~BatchLoader() {}
+
+  virtual GenericRecordCPtr get(const Core::TimeWindow &tw,
+                                const Catalog::Phase &ph,
+                                const Catalog::Event &ev);
+
+  void load();
+
+protected:
+  bool _dataLoaded;
+  IO::RecordStreamPtr _rs;
+  std::unordered_multimap<std::string,
+                          std::pair<const Core::TimeWindow, TimeWindowBuffer>>
+      _streamMap;
+  std::unordered_map<std::string, GenericRecordCPtr> _waveforms;
 };
 
 } // namespace Waveform

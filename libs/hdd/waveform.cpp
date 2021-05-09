@@ -23,6 +23,7 @@
 #include <cfenv>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <seiscomp3/client/inventory.h>
 #include <seiscomp3/core/datetime.h>
 #include <seiscomp3/datamodel/station.h>
@@ -111,7 +112,9 @@ GenericRecordPtr readWaveformFromRecordStream(const string &recordStreamURL,
                                               const string &networkCode,
                                               const string &stationCode,
                                               const string &locationCode,
-                                              const string &channelCode)
+                                              const string &channelCode,
+                                              double tolerance,
+                                              double minAvailability)
 {
   IO::RecordStreamPtr rs = IO::RecordStream::Open(recordStreamURL.c_str());
   if (rs == nullptr)
@@ -123,152 +126,75 @@ GenericRecordPtr readWaveformFromRecordStream(const string &recordStreamURL,
   rs->setTimeWindow(tw);
   rs->addStream(networkCode, stationCode, locationCode, channelCode);
 
-  // store each record in a RecordSequence
   IO::RecordInput inp(rs.get(), Array::DOUBLE, Record::DATA_ONLY);
-  std::shared_ptr<RecordSequence> seq(new TimeWindowBuffer(tw));
+  TimeWindowBuffer seq(tw, tolerance);
   RecordPtr rec;
   while (rec = inp.next())
   {
-    seq->feed(rec.get());
+    seq.feed(rec.get());
   }
   rs->close();
 
-  if (seq->empty())
-  {
-    string msg = stringify(
-        "Data could not be loaded (stream %s.%s.%s.%s from %s length %.2f sec)",
-        networkCode.c_str(), stationCode.c_str(), locationCode.c_str(),
-        channelCode.c_str(), tw.startTime().iso().c_str(), tw.length());
-    throw runtime_error(msg);
-  }
+  GenericRecordPtr trace =
+      contiguousRecord(seq, tw, tolerance, minAvailability);
 
-  GenericRecordPtr trace = new GenericRecord();
-
-  if (!merge(*trace, *seq))
+  if (!trace)
   {
-    string msg = stringify(
-        "Data records could not be merged into a single trace "
-        "(%s.%s.%s.%s from %s length %.2f sec)",
-        networkCode.c_str(), stationCode.c_str(), locationCode.c_str(),
-        channelCode.c_str(), tw.startTime().iso().c_str(), tw.length());
-    throw runtime_error(msg);
-  }
-
-  if (!trim(*trace, tw))
-  {
-    string msg = stringify("Incomplete trace, not enough data for requested"
-                           " time window (%s.%s.%s.%s from %s length %.2f sec)",
-                           networkCode.c_str(), stationCode.c_str(),
-                           locationCode.c_str(), channelCode.c_str(),
-                           tw.startTime().iso().c_str(), tw.length());
+    string msg =
+        stringify("Cannnot load trace, data availability %.2f%%"
+                  "(stream %s.%s.%s.%s from %s length %.2f sec)",
+                  seq.availability(), networkCode.c_str(), stationCode.c_str(),
+                  locationCode.c_str(), channelCode.c_str(),
+                  tw.startTime().iso().c_str(), tw.length());
     throw runtime_error(msg);
   }
 
   return trace;
 }
 
-bool merge(GenericRecord &trace, const RecordSequence &seq)
+GenericRecordPtr contiguousRecord(const RecordSequence &seq,
+                                  const Core::TimeWindow &tw,
+                                  double tolerance,
+                                  double minAvailability)
 {
-  if (seq.empty())
+  if (seq.availability(tw) < minAvailability)
   {
-    return false;
+    return nullptr;
   }
 
-  RecordCPtr first = seq.front();
-  RecordCPtr last;
-  double samplingFrequency = first->samplingFrequency();
-  Core::TimeSpan maxAllowedGap, maxAllowedOverlap;
+  GenericRecordPtr trace(seq.contiguousRecord<double>(&tw, false));
 
-  maxAllowedGap     = Core::TimeSpan((double)(0.5 / samplingFrequency));
-  maxAllowedOverlap = Core::TimeSpan((double)(-0.5 / samplingFrequency));
-
-  trace.setNetworkCode(first->networkCode());
-  trace.setStationCode(first->stationCode());
-  trace.setLocationCode(first->locationCode());
-  trace.setChannelCode(first->channelCode());
-
-  trace.setStartTime(first->startTime());
-  trace.setSamplingFrequency(samplingFrequency);
-
-  Array::DataType datatype = first->data()->dataType();
-  Array *arr = ArrayFactory::Create(datatype, datatype, 0, nullptr);
-
-  for (const RecordCPtr &rec : seq)
+  if (!trim(*trace, tw))
   {
-    if (rec->samplingFrequency() != samplingFrequency)
-    {
-      SEISCOMP_DEBUG(
-          "%s.%s.%s.%s: record sampling frequencies are not consistent: %f != "
-          "%f",
-          trace.networkCode().c_str(), trace.stationCode().c_str(),
-          trace.locationCode().c_str(), trace.channelCode().c_str(),
-          samplingFrequency, rec->samplingFrequency());
-      return false;
-    }
-
-    // check for gaps and overlaps
-    if (last)
-    {
-      Core::TimeSpan diff = rec->startTime() - last->endTime();
-      if (diff > maxAllowedGap)
-      {
-        SEISCOMP_DEBUG("%s.%s.%s.%s: gap detected of %d.%06ds",
-                       trace.networkCode().c_str(), trace.stationCode().c_str(),
-                       trace.locationCode().c_str(),
-                       trace.channelCode().c_str(), (int)diff.seconds(),
-                       (int)diff.microseconds());
-        return false;
-      }
-
-      if (diff < maxAllowedOverlap)
-      {
-        SEISCOMP_DEBUG("%s.%s.%s.%s: overlap detected of %fs",
-                       trace.networkCode().c_str(), trace.stationCode().c_str(),
-                       trace.locationCode().c_str(),
-                       trace.channelCode().c_str(), (double)diff);
-        return false;
-      }
-    }
-
-    arr->append(rec->data());
-
-    last = rec;
+    return nullptr;
   }
 
-  trace.setData(arr);
-
-  return true;
+  return trace;
 }
 
 bool trim(GenericRecord &trace, const Core::TimeWindow &tw)
 {
-  int ofs     = (int)(double(tw.startTime() - trace.startTime()) *
-                  trace.samplingFrequency());
-  int samples = (int)(tw.length() * trace.samplingFrequency());
+  if (trace.timeWindow() == tw) return true;
+
+  int startOfs = std::floor(double(tw.startTime() - trace.startTime()) *
+                            trace.samplingFrequency());
+  int endOfs   = std::ceil(double(tw.endTime() - trace.startTime()) *
+                         trace.samplingFrequency());
+
+  // one sample tolerance
+  if (startOfs == -1) startOfs++;
+  if (endOfs == trace.data()->size() + 1) endOfs--;
 
   // not enough data at start of time window
-  if (ofs < 0)
-  {
-    SEISCOMP_DEBUG("%s: need %d more samples in past", trace.streamID().c_str(),
-                   -ofs);
-    return false;
-  }
+  if (startOfs < 0) return false;
 
   // not enough data at end of time window
-  if (ofs + samples > trace.data()->size())
-  {
-    SEISCOMP_DEBUG("%s: need %d more samples past the end",
-                   trace.streamID().c_str(),
-                   -(trace.data()->size() - samples - ofs));
-    return false;
-  }
+  if (endOfs > trace.data()->size()) return false;
 
-  ArrayPtr sliced = trace.data()->slice(ofs, ofs + samples);
-
+  ArrayPtr sliced = trace.data()->slice(startOfs, endOfs);
   trace.setStartTime(trace.startTime() +
-                     Core::TimeSpan(ofs / trace.samplingFrequency()));
+                     Core::TimeSpan(startOfs / trace.samplingFrequency()));
   trace.setData(sliced.get());
-
   return true;
 }
 
@@ -689,64 +615,68 @@ double computeSnr(const GenericRecordCPtr &tr,
   return signalMax / noiseMax;
 }
 
-GenericRecordPtr Loader::readAndProjectWaveform(const Core::TimeWindow &tw,
-                                                const Catalog::Phase &ph,
-                                                const Catalog::Event &ev)
+bool projectionRequired(const Core::TimeWindow &tw,
+                        const Catalog::Phase &ph,
+                        const Catalog::Event &ev,
+                        DataModel::ThreeComponents &tc,
+                        DataModel::SensorLocation *&loc)
 {
-  string wfDesc = stringify("Waveform Projection for '%s'", string(ph).c_str());
-
   string channelCodeRoot = getBandAndInstrumentCodes(ph.channelCode);
   string component       = getOrientationCode(ph.channelCode);
-  bool allComponents     = false;
-  DataModel::ThreeComponents tc;
-  DataModel::SensorLocation *loc = Catalog::findSensorLocation(
-      ph.networkCode, ph.stationCode, ph.locationCode, tw.startTime());
+
+  if (std::set<string>{"Z", "N", "E", "R", "T"}.count(component) == 0)
+  {
+    // unknown projection
+    return false;
+  }
+
+  loc = Catalog::findSensorLocation(ph.networkCode, ph.stationCode,
+                                    ph.locationCode, tw.startTime());
 
   if (loc)
   {
-    //
-    // Check if the projection is actually required; return `nullptr` and
-    // do not throw if that's not the case.
-    //
-
-    allComponents =
+    bool hasThreeComponents =
         getThreeComponents(tc, loc, channelCodeRoot.c_str(), tw.startTime());
 
     if ((tc.comps[ThreeComponents::Vertical] &&
-         tc.comps[ThreeComponents::Vertical]->code() == ph.channelCode) ||
+         (tc.comps[ThreeComponents::Vertical]->code() == ph.channelCode)) ||
         (tc.comps[ThreeComponents::FirstHorizontal] &&
-         tc.comps[ThreeComponents::FirstHorizontal]->code() ==
-             ph.channelCode) ||
+         (tc.comps[ThreeComponents::FirstHorizontal]->code() ==
+          ph.channelCode)) ||
         (tc.comps[ThreeComponents::SecondHorizontal] &&
-         tc.comps[ThreeComponents::SecondHorizontal]->code() == ph.channelCode))
+         (tc.comps[ThreeComponents::SecondHorizontal]->code() ==
+          ph.channelCode)))
     {
-      string msg = stringify("Projection not required (%s)", wfDesc.c_str());
-      throw runtime_error(msg);
+      return false;
     }
 
-    if (std::set<string>{"Z", "N", "E", "R", "T"}.count(component) == 0)
-    {
-      string msg = stringify("Unkwown projection component '%s' (%s)",
-                             component.c_str(), wfDesc.c_str());
-      throw runtime_error(msg);
-    }
+    return hasThreeComponents;
   }
 
-  if (!loc || !allComponents)
+  SEISCOMP_DEBUG("Unable to fetch orientation information (%s)",
+                 string(ph).c_str());
+  return false;
+}
+
+GenericRecordPtr projectWaveform(const Core::TimeWindow &tw,
+                                 const Catalog::Phase &ph,
+                                 const Catalog::Event &ev,
+                                 double tolerance,
+                                 double minAvailability,
+                                 const GenericRecordCPtr &tr1,
+                                 const GenericRecordCPtr &tr2,
+                                 const GenericRecordCPtr &tr3,
+                                 const DataModel::ThreeComponents &tc,
+                                 const DataModel::SensorLocation *loc)
+{
+  if (!tr1 || !tr2 || !tr3)
   {
-    string msg = stringify("Unable to fetch orientation information (%s)",
-                           wfDesc.c_str());
-    throw runtime_error(msg);
+    throw runtime_error(
+        "Cannot perform projection without all 3 components data");
   }
 
-  //
-  // load data and perform the projection
-  //
-  SEISCOMP_DEBUG("Loading the 3 components waveforms (%s %s %s) to perform the "
-                 "projection ...",
-                 tc.comps[ThreeComponents::Vertical]->code().c_str(),
-                 tc.comps[ThreeComponents::FirstHorizontal]->code().c_str(),
-                 tc.comps[ThreeComponents::SecondHorizontal]->code().c_str());
+  string channelCodeRoot = getBandAndInstrumentCodes(ph.channelCode);
+  string component       = getOrientationCode(ph.channelCode);
 
   // orientation ZNE
   Math::Matrix3d orientationZNE;
@@ -787,7 +717,7 @@ GenericRecordPtr Loader::readAndProjectWaveform(const Core::TimeWindow &tw,
 
     SEISCOMP_DEBUG("Performing ZNE projection (channelCode %s -> %s) for %s",
                    chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(),
-                   wfDesc.c_str());
+                   string(ph).c_str());
   }
   else if (component == "R" || component == "T")
   {
@@ -801,50 +731,12 @@ GenericRecordPtr Loader::readAndProjectWaveform(const Core::TimeWindow &tw,
 
     SEISCOMP_DEBUG("Performing ZRT projection (channelCode %s -> %s) for %s",
                    chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(),
-                   wfDesc.c_str());
+                   string(ph).c_str());
   }
   else
   {
     throw runtime_error("Internal logic error: This shouldn't happend.");
   }
-
-  //
-  // Load the components
-  //
-  auto loadWaveform = [this](
-                          const string &networkCode, const string &stationCode,
-                          const string &locationCode, const string &channelCode,
-                          const Core::TimeWindow &tw) {
-    GenericRecordCPtr trace;
-    if (_doCaching && !_cacheProcessed)
-    {
-      trace =
-          getFromCache(tw, networkCode, stationCode, locationCode, channelCode);
-      if (trace) _counters_wf_cached++;
-    }
-    if (!trace)
-    {
-      trace =
-          readWaveformFromRecordStream(_recordStreamURL, tw, networkCode,
-                                       stationCode, locationCode, channelCode);
-      _counters_wf_downloaded++;
-    }
-    if (trace && _doCaching && !_cacheProcessed)
-    {
-      storeInCache(tw, networkCode, stationCode, locationCode, channelCode,
-                   trace);
-    }
-    return trace;
-  };
-  GenericRecordCPtr tr1 =
-      loadWaveform(ph.networkCode, ph.stationCode, ph.locationCode,
-                   tc.comps[ThreeComponents::Vertical]->code(), tw);
-  GenericRecordCPtr tr2 =
-      loadWaveform(ph.networkCode, ph.stationCode, ph.locationCode,
-                   tc.comps[ThreeComponents::FirstHorizontal]->code(), tw);
-  GenericRecordCPtr tr3 =
-      loadWaveform(ph.networkCode, ph.stationCode, ph.locationCode,
-                   tc.comps[ThreeComponents::SecondHorizontal]->code(), tw);
 
   // The wrapper will direct 3 codes into the right slots using the
   // Stream configuration class and will finally use the transformation
@@ -877,59 +769,116 @@ GenericRecordPtr Loader::readAndProjectWaveform(const Core::TimeWindow &tw,
   {
   public:
     DataStorer(const string &channelCode,
-               const Core::TimeWindow &tw,
-               map<string, string> chCodeMap)
-        : chMap(chCodeMap[channelCode], channelCode),
-          _seq(new TimeWindowBuffer(tw))
+               const Core::TimeWindow &tw_,
+               map<string, string> chCodeMap,
+               double tolerance_,
+               double minAvailability_)
+        : chMap(chCodeMap[channelCode], channelCode), tw(tw_),
+          tolerance(tolerance_), minAvailability(minAvailability_),
+          seq(tw, tolerance)
     {}
 
     bool store(const Record *rec)
     {
-      if (rec->channelCode() == chMap.first) _seq->feed(rec);
+      lock_guard<mutex> lock(_mtx);
+      if (rec->channelCode() == chMap.first) seq.feed(rec);
       return true;
     }
 
+    GenericRecordPtr get()
+    {
+      lock_guard<mutex> lock(_mtx);
+      GenericRecordPtr trace =
+          contiguousRecord(seq, tw, tolerance, minAvailability);
+      if (trace) trace->setChannelCode(chMap.second);
+      return trace;
+    }
+
+  private:
     const std::pair<string, string> chMap;
-    std::shared_ptr<RecordSequence> _seq;
+    const Core::TimeWindow tw;
+    const double tolerance;
+    const double minAvailability;
+    TimeWindowBuffer seq;
+    std::mutex _mtx;
   };
 
-  DataStorer projectedData(ph.channelCode, tw, chCodeMap);
+  DataStorer projectedData(ph.channelCode, tw, chCodeMap, tolerance,
+                           minAvailability);
 
   // configure callback (called after a transformed record was created)
-  // op.setStoreFunc(boost::bind(&RecordSequence::feed, seq, _1));
-  op.setStoreFunc(boost::bind(&DataStorer::store, projectedData, _1));
-
+  op.setStoreFunc([&projectedData](const Record *rec) -> bool {
+    return projectedData.store(rec);
+  });
   op.feed(tr1.get());
   op.feed(tr2.get());
   op.feed(tr3.get());
 
-  std::shared_ptr<RecordSequence> seq = projectedData._seq;
-
-  if (seq->empty())
+  GenericRecordPtr trace = projectedData.get();
+  if (!trace)
   {
     string msg =
-        stringify("No data after the projection for %s", wfDesc.c_str());
+        stringify("No enough data for projection (%s)", string(ph).c_str());
     throw runtime_error(msg);
   }
+  return trace;
+}
 
-  GenericRecordPtr trace = new GenericRecord();
+GenericRecordCPtr Loader::get(const Core::TimeWindow &tw,
+                              const Catalog::Phase &ph,
+                              const Catalog::Event &ev)
+{
+  GenericRecordCPtr trace;
 
-  if (!merge(*trace, *seq))
+  if (!_recordStreamURL.empty())
   {
-    string msg =
-        stringify("Data records could not be merged into a single trace (%s)",
-                  wfDesc.c_str());
-    throw runtime_error(msg);
+    DataModel::ThreeComponents tc;
+    DataModel::SensorLocation *loc;
+    bool projection = projectionRequired(tw, ph, ev, tc, loc);
+    if (!projection)
+    {
+      try
+      {
+        trace = readWaveformFromRecordStream(
+            _recordStreamURL, tw, ph.networkCode, ph.stationCode,
+            ph.locationCode, ph.channelCode, _tolerance, _minAvailability);
+        _counters_wf_downloaded++;
+      }
+      catch (exception &e)
+      {
+        SEISCOMP_DEBUG("%s", e.what());
+      }
+    }
+    else
+    {
+      // If the waveform is not available, possibly a projection 123->ZNE
+      // or ZNE->ZRT is required.
+      auto loadWaveform = [this, &tw, &ph](const string &channelCode) {
+        GenericRecordCPtr trace = readWaveformFromRecordStream(
+            _recordStreamURL, tw, ph.networkCode, ph.stationCode,
+            ph.locationCode, channelCode, _tolerance, _minAvailability);
+        _counters_wf_downloaded++;
+        return trace;
+      };
+      try
+      {
+        GenericRecordCPtr tr1 =
+            loadWaveform(tc.comps[ThreeComponents::Vertical]->code());
+        GenericRecordCPtr tr2 =
+            loadWaveform(tc.comps[ThreeComponents::FirstHorizontal]->code());
+        GenericRecordCPtr tr3 =
+            loadWaveform(tc.comps[ThreeComponents::SecondHorizontal]->code());
+        trace = projectWaveform(tw, ph, ev, _tolerance, _minAvailability, tr1,
+                                tr2, tr3, tc, loc);
+      }
+      catch (exception &e)
+      {
+        SEISCOMP_DEBUG("%s", e.what());
+      }
+    }
   }
 
-  trace->setChannelCode(ph.channelCode);
-
-  if (!trim(*trace, tw))
-  {
-    string msg =
-        stringify("Incomplete trace, not enough data (%s)", wfDesc.c_str());
-    throw runtime_error(msg);
-  }
+  if (!trace) _counters_wf_no_avail++;
 
   return trace;
 }
@@ -941,101 +890,119 @@ GenericRecordCPtr Loader::get(const Core::TimeWindow &tw,
                               const std::string &filterStr,
                               double resampleFreq)
 {
-  GenericRecordCPtr trace;
-  bool isProcessed;
-  bool isCached;
+  GenericRecordCPtr trace = get(tw, ph, ev);
+  if (trace) trace = process(trace, demeaning, filterStr, resampleFreq);
+  return trace;
+}
 
-  if (_doCaching)
+GenericRecordPtr Loader::process(const GenericRecordCPtr &trace,
+                                 bool demeaning,
+                                 const std::string &filterStr,
+                                 double resampleFreq)
+{
+  GenericRecordPtr nonConstTrace(new GenericRecord(*trace));
+  try
   {
-    trace = getFromCache(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                         ph.channelCode);
+    filter(*nonConstTrace, demeaning, filterStr, resampleFreq);
+    return nonConstTrace;
+  }
+  catch (exception &e)
+  {
+    SEISCOMP_WARNING("Errow while filtering waveform: %s", e.what());
+    return nullptr;
+  }
+}
+
+GenericRecordCPtr DiskCachedLoader::get(const Core::TimeWindow &tw,
+                                        const Catalog::Phase &ph,
+                                        const Catalog::Event &ev)
+{
+  GenericRecordCPtr trace = getFromCache(tw, ph.networkCode, ph.stationCode,
+                                         ph.locationCode, ph.channelCode);
+  if (trace)
+  {
+    _counters_wf_cached++;
+    return trace;
+  }
+
+  DataModel::ThreeComponents tc;
+  DataModel::SensorLocation *loc;
+  bool projection = projectionRequired(tw, ph, ev, tc, loc);
+  if (!projection)
+  {
+    trace = _auxLdr->get(tw, ph, ev);
     if (trace)
     {
-      isCached    = true;
-      isProcessed = _cacheProcessed;
-      _counters_wf_cached++;
+      storeInCache(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+                   ph.channelCode, trace);
     }
+    return trace;
   }
 
-  // if the trace is not cached, try loading it
-  if (!trace)
+  auto loadWaveform = [this, &tw, &ph, &ev](const string &channelCode) {
+    GenericRecordCPtr trace = getFromCache(tw, ph.networkCode, ph.stationCode,
+                                           ph.locationCode, channelCode);
+    if (trace)
+    {
+      _counters_wf_cached++;
+      return trace;
+    }
+    Catalog::Phase tmpPh = ph;
+    tmpPh.channelCode    = channelCode;
+    trace                = _auxLdr->get(tw, tmpPh, ev);
+    if (trace)
+    {
+      storeInCache(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+                   channelCode, trace);
+    }
+    return trace;
+  };
+  GenericRecordCPtr tr1 =
+      loadWaveform(tc.comps[ThreeComponents::Vertical]->code());
+  GenericRecordCPtr tr2 =
+      loadWaveform(tc.comps[ThreeComponents::FirstHorizontal]->code());
+  GenericRecordCPtr tr3 =
+      loadWaveform(tc.comps[ThreeComponents::SecondHorizontal]->code());
+  try
+  {
+    trace = projectWaveform(tw, ph, ev, _tolerance, _minAvailability, tr1, tr2,
+                            tr3, tc, loc);
+  }
+  catch (exception &e)
+  {
+    SEISCOMP_DEBUG("%s", e.what());
+  }
+  return trace;
+}
+
+GenericRecordCPtr MemCachedLoader::get(const Core::TimeWindow &tw,
+                                       const Catalog::Phase &ph,
+                                       const Catalog::Event &ev,
+                                       bool demeaning,
+                                       const std::string &filterStr,
+                                       double resampleFreq)
+{
+  bool isCached;
+  GenericRecordCPtr trace = getFromCache(tw, ph.networkCode, ph.stationCode,
+                                         ph.locationCode, ph.channelCode);
+  if (trace)
+  {
+    isCached = true;
+    _counters_wf_cached++;
+  }
+  else
   {
     isCached = false;
-    if (_auxLdr)
-    {
-      // load trace from the auxiliary loader
-      trace = _auxLdr->get(tw, ph, ev, demeaning, filterStr, resampleFreq);
-      isProcessed = true;
-    }
-    else if (!_recordStreamURL.empty())
-    {
-      // load trace from the configured record stream
-      try
-      {
-        trace = readWaveformFromRecordStream(_recordStreamURL, tw,
-                                             ph.networkCode, ph.stationCode,
-                                             ph.locationCode, ph.channelCode);
-        _counters_wf_downloaded++;
-      }
-      catch (exception &e)
-      {
-        SEISCOMP_DEBUG("%s", e.what());
-        try
-        {
-          // If the waveform is not available, possibly a projection 123->ZNE
-          // or ZNE->ZRT is required.
-          trace = readAndProjectWaveform(tw, ph, ev);
-          // raw traces are cached by `readAndProjectWaveform()`
-          if (!_cacheProcessed) isCached = true;
-        }
-        catch (exception &e)
-        {
-          SEISCOMP_DEBUG("%s", e.what());
-        }
-      }
-      isProcessed = false;
-      if (!trace) _counters_wf_no_avail++;
-    }
+    trace    = _auxLdr->get(tw, ph, ev, demeaning, filterStr, resampleFreq);
   }
 
-  if (trace)
+  if (trace && !isCached)
   {
-    // cache unprocessed trace
-    if (_doCaching && !isCached && !_cacheProcessed && !isProcessed)
-    {
-      storeInCache(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                   ph.channelCode, trace);
-    }
+    storeInCache(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+                 ph.channelCode, trace);
 
-    // process trace
-    if (!isProcessed)
-    {
-      GenericRecordPtr nonConstTrace(new GenericRecord(*trace));
-      try
-      {
-        filter(*nonConstTrace, demeaning, filterStr, resampleFreq);
-        isProcessed = true;
-        trace       = nonConstTrace;
-      }
-      catch (exception &e)
-      {
-        SEISCOMP_WARNING("Errow while filtering waveform: %s", e.what());
-        trace = nullptr;
-      }
-    }
-  }
-
-  if (trace)
-  {
-    // cache processed trace
-    if (_doCaching && !isCached && _cacheProcessed && isProcessed)
-    {
-      storeInCache(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                   ph.channelCode, trace);
-    }
-
-    // Dump waveforms loaded initially (debugging).
-    if (!_wfDebugDir.empty() && _doCaching && !isCached && isProcessed)
+    // Dump waveforms when loaded the first time for debugging
+    if (!_wfDebugDir.empty())
     {
       string ext = (ph.procInfo.source == Catalog::Phase::Source::THEORETICAL)
                        ? "theoretical"
@@ -1134,15 +1101,16 @@ ExtraLenLoader::traceTimeWindowToLoad(const Core::TimeWindow &neededTW,
   Core::TimeWindow twToLoad = neededTW;
 
   // Make sure to load at least `_traceMinLenh` seconds of the waveform.
-  if (_traceMinLen > 0)
+  if (_beforePickLen > 0 || _afterPickLen > 0)
   {
-    const Core::TimeSpan additionalTime(_traceMinLen / 2);
+    const Core::TimeSpan additionalTimeBefore(_beforePickLen);
+    const Core::TimeSpan additionalTimeAfter(_afterPickLen);
 
-    if (twToLoad.startTime() > pickTime - additionalTime)
-      twToLoad.setStartTime(pickTime - additionalTime);
+    if (twToLoad.startTime() > pickTime - additionalTimeBefore)
+      twToLoad.setStartTime(pickTime - additionalTimeBefore);
 
-    if (twToLoad.endTime() < pickTime + additionalTime)
-      twToLoad.setEndTime(pickTime + additionalTime);
+    if (twToLoad.endTime() < pickTime + additionalTimeAfter)
+      twToLoad.setEndTime(pickTime + additionalTimeAfter);
   }
 
   // round the start/end time to the nearest second
@@ -1155,14 +1123,10 @@ ExtraLenLoader::traceTimeWindowToLoad(const Core::TimeWindow &neededTW,
 
 GenericRecordCPtr ExtraLenLoader::get(const Core::TimeWindow &tw,
                                       const Catalog::Phase &ph,
-                                      const Catalog::Event &ev,
-                                      bool demeaning,
-                                      const std::string &filterStr,
-                                      double resampleFreq)
+                                      const Catalog::Event &ev)
 {
   const Core::TimeWindow twToLoad = traceTimeWindowToLoad(tw, ph.time);
-  GenericRecordCPtr trace =
-      Loader::get(twToLoad, ph, ev, demeaning, filterStr, resampleFreq);
+  GenericRecordCPtr trace         = _auxLdr->get(twToLoad, ph, ev);
   if (trace && twToLoad != tw)
   {
     GenericRecordPtr nonConstTrace(new GenericRecord(*trace));
@@ -1212,7 +1176,7 @@ GenericRecordCPtr SnrFilteredLoader::get(const Core::TimeWindow &tw,
 
   const Core::TimeWindow twToLoad = tw | snrTimeWindow(ph.time);
   GenericRecordCPtr trace =
-      Loader::get(twToLoad, ph, ev, demeaning, filterStr, resampleFreq);
+      _auxLdr->get(twToLoad, ph, ev, demeaning, filterStr, resampleFreq);
 
   if (!trace) return nullptr;
 
@@ -1248,6 +1212,146 @@ GenericRecordCPtr SnrFilteredLoader::get(const Core::TimeWindow &tw,
   }
 
   return trace;
+}
+
+BatchLoader::BatchLoader(const std::string &recordStream) : Loader(recordStream)
+{
+  _dataLoaded = false;
+  _rs         = IO::RecordStream::Open(_recordStreamURL.c_str());
+  if (_rs == nullptr)
+  {
+    SEISCOMP_ERROR("Cannot open RecordStream: %s", _recordStreamURL.c_str());
+  }
+}
+
+GenericRecordCPtr BatchLoader::get(const Core::TimeWindow &tw,
+                                   const Catalog::Phase &ph,
+                                   const Catalog::Event &ev)
+{
+  DataModel::ThreeComponents tc;
+  DataModel::SensorLocation *loc;
+  bool projection = projectionRequired(tw, ph, ev, tc, loc);
+
+  if (!_dataLoaded)
+  {
+    if (_rs)
+    {
+      auto requestTrace = [this, &tw, &ph](const string &channelCode) {
+        string streamID = ph.networkCode + "." + ph.stationCode + "." +
+                          ph.locationCode + "." + channelCode;
+        auto eqlrng = _streamMap.equal_range(streamID);
+        for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+        {
+          const pair<const Core::TimeWindow, TimeWindowBuffer>& pair = it->second;
+          if ( pair.first == tw ) return;
+        }
+        _rs->addStream(ph.networkCode, ph.stationCode, ph.locationCode,
+                       channelCode, tw.startTime(), tw.endTime());
+        pair<const Core::TimeWindow, TimeWindowBuffer> pair(
+            tw, TimeWindowBuffer(tw, _tolerance));
+        _streamMap.emplace(streamID, pair);
+      };
+
+      if (!projection)
+      {
+        requestTrace(ph.channelCode);
+      }
+      else
+      {
+        requestTrace(tc.comps[ThreeComponents::Vertical]->code());
+        requestTrace(tc.comps[ThreeComponents::FirstHorizontal]->code());
+        requestTrace(tc.comps[ThreeComponents::SecondHorizontal]->code());
+      }
+    }
+    return nullptr;
+  }
+  else
+  {
+    GenericRecordCPtr trace;
+
+    auto getTrace = [this, &tw, &ph](const string &channelCode) {
+      const string wfId = waveformId(tw, ph.networkCode, ph.stationCode,
+                                     ph.locationCode, channelCode);
+      const auto it     = _waveforms.find(wfId);
+      return it != _waveforms.end() ? it->second : nullptr;
+    };
+
+    if (!projection)
+    {
+      trace = getTrace(ph.channelCode);
+    }
+    else
+    {
+      GenericRecordCPtr tr1 =
+          getTrace(tc.comps[ThreeComponents::Vertical]->code());
+      GenericRecordCPtr tr2 =
+          getTrace(tc.comps[ThreeComponents::FirstHorizontal]->code());
+      GenericRecordCPtr tr3 =
+          getTrace(tc.comps[ThreeComponents::SecondHorizontal]->code());
+      try
+      {
+        trace = projectWaveform(tw, ph, ev, _tolerance, _minAvailability, tr1,
+                                tr2, tr3, tc, loc);
+      }
+      catch (exception &e)
+      {
+        SEISCOMP_DEBUG("%s", e.what());
+      }
+    }
+    return trace;
+  }
+}
+
+void BatchLoader::load()
+{
+  if (_dataLoaded || !_rs) return;
+
+  if (!_streamMap.empty())
+  {
+    IO::RecordInput inp(_rs.get(), Array::DOUBLE, Record::DATA_ONLY);
+    RecordPtr rec;
+    while (rec = inp.next())
+    {
+      auto eqlrng = _streamMap.equal_range(rec->streamID());
+      for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+      {
+        pair<const Core::TimeWindow, TimeWindowBuffer> &pair = it->second;
+        TimeWindowBuffer &seq                                = pair.second;
+        seq.feed(rec.get());
+      }
+    }
+    _rs->close();
+
+    for (auto &kv : _streamMap)
+    {
+      const string &streamID                               = kv.first;
+      pair<const Core::TimeWindow, TimeWindowBuffer> &pair = kv.second;
+      const Core::TimeWindow &tw                           = pair.first;
+      TimeWindowBuffer &seq                                = pair.second;
+      GenericRecordPtr trace =
+          contiguousRecord(seq, tw, _tolerance, _minAvailability);
+      if (!trace)
+      {
+        SEISCOMP_DEBUG("Cannnot load trace, data availability %.2f%%"
+                       "(stream %s from %s length %.2f sec)",
+                       seq.availability(), streamID.c_str(),
+                       tw.startTime().iso().c_str(), tw.length());
+        _counters_wf_no_avail++;
+        continue;
+      }
+      const string wfId =
+          waveformId(tw, trace->networkCode(), trace->stationCode(),
+                     trace->locationCode(), trace->channelCode());
+      _waveforms[wfId] = trace;
+      _counters_wf_downloaded++;
+    }
+    SEISCOMP_INFO("Downloaded %u/%lu waveforms, not available %u",
+                  _counters_wf_downloaded, _streamMap.size(),
+                  _counters_wf_no_avail);
+    _streamMap.clear();
+  }
+  _dataLoaded = true;
+  _rs         = nullptr;
 }
 
 } // namespace Waveform

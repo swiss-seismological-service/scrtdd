@@ -2377,7 +2377,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
 
     if (preloadData)
     {
-      hypodd->preloadData();
+      hypodd->preloadWaveforms();
     }
   }
   catch (exception &e)

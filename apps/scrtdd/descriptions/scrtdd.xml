@@ -31,7 +31,7 @@
       </group>
       <group name="cron">
         <parameter name="delayTimes" type="list:int" default="10" unit="sec">
-          <description>Specifies a delay time in seconds, relative to origin time, to trigger the processing. This can be a single value or a list of delay times. The list case can be useful when a quick solution is wanted but more data (e.g. waveforms) becomes available at a later time. In this scenario multiple times are configured, so that an early solution is attempted and a more refined one is computed later. Example: "60, 120, 300, 3600"</description>
+          <description>Specifies a delay time in seconds, relative to origin time, to trigger the processing. This can be a single value or a list of delay times. The list case can be useful when a quick solution is wanted but more waveforms data becomes available at a later time. In this scenario multiple times are configured, so that a first solution is attempted early and a more refined one is computed later. Example: "60, 120, 300, 3600"</description>
         </parameter>
         <parameter name="logging" type="boolean" default="true">
           <description>Enables/disables updating of a cron log file. This file will be created at ~/.seiscomp3/log/[appname].sched and contains information about the scheduled events and the processing queue.</description>

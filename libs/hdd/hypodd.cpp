@@ -131,41 +131,46 @@ void HypoDD::setUseCatalogWaveformDiskCache(bool cache)
 
 void HypoDD::createWaveformCache()
 {
-  _wfDiskCache = nullptr;
-  _wfSnrFilter = nullptr;
-  _wfMemCache  = nullptr;
+
+  _wfAccess.loader    = nullptr;
+  _wfAccess.diskCache = nullptr;
+  _wfAccess.extraLen  = nullptr;
+  _wfAccess.snrFilter = nullptr;
+  _wfAccess.memCache  = nullptr;
+
+  _wfAccess.loader = new Waveform::Loader(_cfg.recordStreamURL);
 
   if (_useCatalogWaveformDiskCache)
   {
-    _wfDiskCache =
-        new Waveform::DiskCachedLoader(_cfg.recordStreamURL, false, _cacheDir);
-    Waveform::ExtraLenLoaderPtr extLen =
-        new Waveform::ExtraLenLoader(_wfDiskCache, DISK_TRACE_MIN_LEN);
+    _wfAccess.diskCache =
+        new Waveform::DiskCachedLoader(_wfAccess.loader, _cacheDir);
+    _wfAccess.extraLen =
+        new Waveform::ExtraLenLoader(_wfAccess.diskCache, DISK_TRACE_MIN_LEN);
 
     if (_cfg.snr.minSnr > 0)
     {
-      _wfSnrFilter = new Waveform::SnrFilteredLoader(
-          extLen, _cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
-          _cfg.snr.signalStart, _cfg.snr.signalEnd);
-      _wfMemCache = new Waveform::MemCachedLoader(_wfSnrFilter, true);
+      _wfAccess.snrFilter = new Waveform::SnrFilteredLoader(
+          _wfAccess.extraLen, _cfg.snr.minSnr, _cfg.snr.noiseStart,
+          _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd);
+      _wfAccess.memCache = new Waveform::MemCachedLoader(_wfAccess.snrFilter);
     }
     else
     {
-      _wfMemCache = new Waveform::MemCachedLoader(extLen, true);
+      _wfAccess.memCache = new Waveform::MemCachedLoader(_wfAccess.extraLen);
     }
   }
   else
   {
     if (_cfg.snr.minSnr > 0)
     {
-      _wfSnrFilter = new Waveform::SnrFilteredLoader(
-          _cfg.recordStreamURL, _cfg.snr.minSnr, _cfg.snr.noiseStart,
+      _wfAccess.snrFilter = new Waveform::SnrFilteredLoader(
+          _wfAccess.loader, _cfg.snr.minSnr, _cfg.snr.noiseStart,
           _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd);
-      _wfMemCache = new Waveform::MemCachedLoader(_wfSnrFilter, true);
+      _wfAccess.memCache = new Waveform::MemCachedLoader(_wfAccess.snrFilter);
     }
     else
     {
-      _wfMemCache = new Waveform::MemCachedLoader(_cfg.recordStreamURL, true);
+      _wfAccess.memCache = new Waveform::MemCachedLoader(_wfAccess.loader);
     }
   }
 }
@@ -186,9 +191,9 @@ void HypoDD::setWaveformDebug(bool debug)
     }
   }
 
-  if (_wfSnrFilter)
-    _wfSnrFilter->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
-  _wfMemCache->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
+  if (_wfAccess.snrFilter)
+    _wfAccess.snrFilter->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
+  _wfAccess.memCache->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
 }
 
 // Creates dir name from event. This id has the following format:
@@ -208,7 +213,7 @@ string HypoDD::generateWorkingSubDir(const Event &ev) const
   return id;
 }
 
-void HypoDD::preloadData()
+void HypoDD::preloadWaveforms()
 {
   resetCounters();
 
@@ -232,7 +237,7 @@ void HypoDD::preloadData()
         Phase tmpPh = phase;
         tmpPh.channelCode =
             getBandAndInstrumentCodes(tmpPh.channelCode) + component;
-        getWaveform(tw, event, tmpPh, _wfMemCache);
+        getWaveform(tw, event, tmpPh, _wfAccess.memCache);
       }
 
       numPhases++;
@@ -1461,32 +1466,26 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
       string(refEv).c_str());
 
   //
-  // Prepare the waveform loaders for temporary/real-time waveforms.
+  // Prepare the waveform loaders for single-event. Since they are
+  // temporary and discarded after the relocation we don't want to
+  // make use of the background catalog caching
   //
-  Waveform::LoaderPtr actualDiskLdr =
-      new Waveform::DiskCachedLoader(_cfg.recordStreamURL, false, _tmpCacheDir);
-  Waveform::LoaderPtr diskLdr =
-      new Waveform::ExtraLenLoader(actualDiskLdr, DISK_TRACE_MIN_LEN);
+  Waveform::LoaderPtr seLdr = preloadNonCatalogWaveforms(
+      catalog, neighbours, refEv, xcorrMaxEvStaDist, xcorrMaxInterEvDist);
 
-  Waveform::LoaderPtr memLdr =
-      (_useCatalogWaveformDiskCache && _waveformCacheAll)
-          ? new Waveform::MemCachedLoader(diskLdr, true)
-          : new Waveform::MemCachedLoader(_cfg.recordStreamURL, true);
+  Waveform::LoaderPtr seWfLdr = seLdr;
+  if (_cfg.snr.minSnr > 0)
+  {
+    seWfLdr = new Waveform::SnrFilteredLoader(
+        seWfLdr, _cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
+        _cfg.snr.signalStart, _cfg.snr.signalEnd);
+    if (_waveformDebug) seWfLdr->setDebugDirectory(_wfDebugDir);
+  }
+  seWfLdr = new Waveform::MemCachedLoader(seWfLdr);
+  if (_waveformDebug) seWfLdr->setDebugDirectory(_wfDebugDir);
 
-  Waveform::SnrFilteredLoaderPtr actualSnrLdr =
-      (_useCatalogWaveformDiskCache && _waveformCacheAll)
-          ? new Waveform::SnrFilteredLoader(
-                diskLdr, _cfg.snr.minSnr, _cfg.snr.noiseStart,
-                _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd)
-          : new Waveform::SnrFilteredLoader(
-                _cfg.recordStreamURL, _cfg.snr.minSnr, _cfg.snr.noiseStart,
-                _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd);
-  Waveform::LoaderPtr snrLdr =
-      new Waveform::MemCachedLoader(actualSnrLdr, true);
-
-  memLdr->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
-  actualSnrLdr->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
-  snrLdr->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
+  Waveform::LoaderPtr seWfLdrNoSnr = new Waveform::MemCachedLoader(seLdr);
+  if (_waveformDebug) seWfLdrNoSnr->setDebugDirectory(_wfDebugDir);
 
   // keep track of the `refEv` distance to stations
   multimap<double, string> stationByDistance; // <distance, stationid>
@@ -1507,30 +1506,20 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
     double stationDistance = computeDistance(refEv, station);
     if (stationDistance > xcorrMaxEvStaDist && xcorrMaxEvStaDist >= 0) continue;
 
+    //
     // select appropriate waveform loader for refPhase
+    //
     Waveform::LoaderPtr refLdr;
-    Core::TimeWindow snrWin;
     if (refPhase.procInfo.source == Phase::Source::CATALOG)
-      refLdr = _wfMemCache;
-    else if (_cfg.snr.minSnr <= 0)
-      refLdr = memLdr;
+      refLdr = _wfAccess.memCache;
     else if (refPhase.isManual)
-      refLdr = snrLdr;
-    else // not from catalog, not manual, and _cfg.snr.minSnr > 0
+      refLdr = seWfLdr;
+    else // not from catalog, not manual
     {
-      // For "untrusted" phases (i.e. non-manual or not coming from the
-      // catalog) the SNR is checked AFTER loading the cross-correlation, i.e.
+      // For "untrusted" phases the SNR is checked AFTER the cross-correlation
       // once the pick time has been adjusted using the lag computed by the
       // cross-corr against a "trusted" phase (manual or catalog).
-      // Also compute a large enough waveform to avoid reloading `refPhase` at
-      // every new neighbour, since the pick time (and thus the SNR window)
-      // changes at every iteration of the cross-correlation.
-      const auto xcorrCfg = _cfg.xcorr.at(refPhase.procInfo.type);
-      snrWin              = _wfSnrFilter->snrTimeWindow(refPhase.time -
-                                           Core::TimeSpan(xcorrCfg.maxDelay)) |
-               _wfSnrFilter->snrTimeWindow(refPhase.time +
-                                           Core::TimeSpan(xcorrCfg.maxDelay));
-      refLdr = new Waveform::ExtraLenLoader(memLdr, snrWin.length());
+      refLdr = seWfLdrNoSnr;
     }
 
     //
@@ -1562,8 +1551,8 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
               "Internal logic error: phase is not from catalog");
 
         double coeff, lag;
-        if (xcorrPhases(refEv, refPhase, refLdr, event, phase, _wfMemCache,
-                        coeff, lag))
+        if (xcorrPhases(refEv, refPhase, refLdr, event, phase,
+                        _wfAccess.memCache, coeff, lag))
         {
           bool goodSNR = true;
 
@@ -1574,6 +1563,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
               refPhase.procInfo.source != Phase::Source::CATALOG)
           {
             const auto xcorrCfg = _cfg.xcorr.at(refPhase.procInfo.type);
+
             // Make sure that at least one of the components allowed for this
             // phase type has a good SNR.
             goodSNR = false;
@@ -1582,11 +1572,14 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
               Phase tmpPh = refPhase;
               tmpPh.channelCode =
                   getBandAndInstrumentCodes(tmpPh.channelCode) + component;
-              GenericRecordCPtr trace = refLdr->get(snrWin, tmpPh, refEv, true,
-                                                    _cfg.wfFilter.filterStr,
-                                                    _cfg.wfFilter.resampleFreq);
-              Core::Time adjustedPickTime = tmpPh.time - Core::TimeSpan(lag);
-              if (trace && _wfSnrFilter->goodSnr(trace, adjustedPickTime))
+              Core::Time adjustedPickTime = refPhase.time - Core::TimeSpan(lag);
+              Core::TimeWindow snrWin =
+                  _wfAccess.snrFilter->snrTimeWindow(adjustedPickTime);
+              GenericRecordCPtr trace = seWfLdrNoSnr->get(
+                  snrWin, tmpPh, refEv, true, _cfg.wfFilter.filterStr,
+                  _cfg.wfFilter.resampleFreq);
+              if (trace &&
+                  _wfAccess.snrFilter->goodSnr(trace, adjustedPickTime))
               {
                 goodSNR = true;
                 break;
@@ -1626,7 +1619,8 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
   }
 
   // keep track of couters
-  updateCounters(actualDiskLdr, actualSnrLdr, memLdr);
+  updateCounters(nullptr, nullptr,
+                 dynamic_cast<Waveform::SnrFilteredLoader *>(seWfLdr.get()));
 
   // print some useful information
   for (const auto &kv : stationByDistance)
@@ -1668,6 +1662,111 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
       }
     }
   }
+}
+
+Waveform::LoaderPtr
+HypoDD::preloadNonCatalogWaveforms(CatalogPtr &catalog,
+                                   const NeighboursPtr &neighbours,
+                                   const Event &refEv,
+                                   double xcorrMaxEvStaDist,
+                                   double xcorrMaxInterEvDist) const
+{
+  //
+  // For single-event relocation in real-time we want to load the waveforms
+  // in batch otherwise the seedlink server gets stuck and becomes unresponsive
+  // due to the multiple connections requests, one for each event phase
+  //
+  Waveform::BatchLoaderPtr batchLoader =
+      new Waveform::BatchLoader(_cfg.recordStreamURL);
+
+  Waveform::LoaderPtr returnedLdr = batchLoader;
+
+  // make sure to use disk cache if enabled for non catalog phases
+  Waveform::DiskCachedLoaderPtr diskLoader;
+  if (_useCatalogWaveformDiskCache && _waveformCacheAll)
+  {
+    diskLoader  = new Waveform::DiskCachedLoader(batchLoader, _tmpCacheDir);
+    returnedLdr = new Waveform::ExtraLenLoader(diskLoader, DISK_TRACE_MIN_LEN);
+  }
+
+  // Load a large enough waveform to be able to check the SNR after
+  // the updating of the pick time
+  if (_cfg.snr.minSnr > 0)
+  {
+    double maxDelay = std::max({_cfg.xcorr.at(Phase::Type::P).maxDelay,
+                                _cfg.xcorr.at(Phase::Type::S).maxDelay});
+    double extraBefore =
+        std::min({_cfg.snr.noiseStart, _cfg.snr.signalStart}) - maxDelay;
+    extraBefore = extraBefore > 0 ? 0 : std::abs(extraBefore);
+    double extraAfter =
+        std::max({_cfg.snr.noiseEnd, _cfg.snr.signalEnd}) + maxDelay;
+    extraAfter = extraAfter < 0 ? 0 : extraAfter;
+    returnedLdr =
+        new Waveform::ExtraLenLoader(returnedLdr, extraBefore, extraAfter);
+  }
+
+  //
+  // loop through reference event phases
+  //
+  auto eqlrngRef = catalog->getPhases().equal_range(refEv.id);
+  for (auto itRef = eqlrngRef.first; itRef != eqlrngRef.second; ++itRef)
+  {
+    const Phase &refPhase  = itRef->second;
+    const Station &station = catalog->getStations().at(refPhase.stationId);
+
+    // We deal only with real-time event data
+    if (refPhase.procInfo.source == Phase::Source::CATALOG) continue;
+
+    //
+    // skip stations too far away
+    //
+    double stationDistance = computeDistance(refEv, station);
+    if (stationDistance > xcorrMaxEvStaDist && xcorrMaxEvStaDist >= 0) continue;
+
+    //
+    // loop through neighbouring events and cross-correlate with `refPhase`
+    //
+    for (unsigned neighEvId : neighbours->ids)
+    {
+      const Event &event = catalog->getEvents().at(neighEvId);
+
+      //
+      // skip events too far away
+      //
+      double interEventDistance = computeDistance(refEv, event);
+      if (interEventDistance > xcorrMaxInterEvDist && xcorrMaxInterEvDist >= 0)
+        continue;
+
+      if (neighbours->has(neighEvId, refPhase.stationId,
+                          refPhase.procInfo.type))
+      {
+        //
+        // For each match load the reference event phase waveforms
+        //
+        Core::TimeWindow tw = xcorrTimeWindowLong(refPhase);
+        const auto xcorrCfg = _cfg.xcorr.at(refPhase.procInfo.type);
+
+        for (string component : xcorrCfg.components)
+        {
+          Phase tmpPh = refPhase;
+          tmpPh.channelCode =
+              getBandAndInstrumentCodes(tmpPh.channelCode) + component;
+
+          // This doesn't really load the trace but force the request to reach
+          // the loader, which will load all the traces later
+          returnedLdr->get(tw, tmpPh, refEv);
+        }
+      }
+    }
+  }
+
+  // This will actually dowanload the waveworms all at once
+  batchLoader->load();
+
+  // keep track of couters
+  updateCounters(batchLoader, diskLoader, nullptr);
+
+  return returnedLdr;
 }
 
 /*
@@ -1753,45 +1852,37 @@ void HypoDD::fixPhases(CatalogPtr &catalog,
 void HypoDD::resetCounters()
 {
   _counters = {0};
-  if (_wfDiskCache)
+  if (_wfAccess.loader)
   {
-    _wfDiskCache->_counters_wf_no_avail   = 0;
-    _wfDiskCache->_counters_wf_cached     = 0;
-    _wfDiskCache->_counters_wf_downloaded = 0;
+    _wfAccess.loader->_counters_wf_no_avail   = 0;
+    _wfAccess.loader->_counters_wf_downloaded = 0;
   }
-  if (_wfSnrFilter)
+  if (_wfAccess.diskCache)
   {
-    _wfSnrFilter->_counters_wf_no_avail   = 0;
-    _wfSnrFilter->_counters_wf_cached     = 0;
-    _wfSnrFilter->_counters_wf_downloaded = 0;
-    _wfSnrFilter->_counters_wf_snr_low    = 0; //! do not forget this
+    _wfAccess.diskCache->_counters_wf_cached = 0;
   }
-  _wfMemCache->_counters_wf_no_avail   = 0;
-  _wfMemCache->_counters_wf_cached     = 0;
-  _wfMemCache->_counters_wf_downloaded = 0;
+  if (_wfAccess.snrFilter)
+  {
+    _wfAccess.snrFilter->_counters_wf_snr_low = 0;
+  }
 }
 
-void HypoDD::updateCounters(Waveform::LoaderPtr diskCache,
-                            Waveform::SnrFilteredLoaderPtr snrFilter,
-                            Waveform::LoaderPtr memCache) const
+void HypoDD::updateCounters() const
 {
+  updateCounters(_wfAccess.loader, _wfAccess.diskCache, _wfAccess.snrFilter);
+}
+
+void HypoDD::updateCounters(Waveform::LoaderPtr loader,
+                            Waveform::DiskCachedLoaderPtr diskCache,
+                            Waveform::SnrFilteredLoaderPtr snrFilter) const
+{
+  if (loader)
+  {
+    _counters.wf_downloaded += loader->_counters_wf_downloaded;
+    _counters.wf_no_avail += loader->_counters_wf_no_avail;
+  }
+  if (diskCache) _counters.wf_disk_cached += diskCache->_counters_wf_cached;
   if (snrFilter) _counters.wf_snr_low += snrFilter->_counters_wf_snr_low;
-  if (diskCache)
-  {
-    _counters.wf_downloaded += diskCache->_counters_wf_downloaded;
-    _counters.wf_no_avail += diskCache->_counters_wf_no_avail;
-    _counters.wf_disk_cached += diskCache->_counters_wf_cached;
-  }
-  if (snrFilter)
-  {
-    _counters.wf_downloaded += snrFilter->_counters_wf_downloaded;
-    _counters.wf_no_avail += snrFilter->_counters_wf_no_avail;
-  }
-  if (memCache)
-  {
-    _counters.wf_downloaded += memCache->_counters_wf_downloaded;
-    _counters.wf_no_avail += memCache->_counters_wf_no_avail;
-  }
 }
 
 void HypoDD::printCounters() const
@@ -2127,7 +2218,7 @@ GenericRecordCPtr HypoDD::getWaveform(const Core::TimeWindow &tw,
 
   // Check if we have already excluded the trace because we couldn't load it
   // (-> save time).
-  if (_unloadableWfs.find(wfId) != _unloadableWfs.end())
+  if (_wfAccess.unloadableWfs.find(wfId) != _wfAccess.unloadableWfs.end())
   {
     return nullptr;
   }
@@ -2138,7 +2229,7 @@ GenericRecordCPtr HypoDD::getWaveform(const Core::TimeWindow &tw,
 
   if (!trace)
   {
-    _unloadableWfs.insert(wfId);
+    _wfAccess.unloadableWfs.insert(wfId);
     return nullptr;
   }
 

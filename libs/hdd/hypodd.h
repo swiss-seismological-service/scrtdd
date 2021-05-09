@@ -132,7 +132,7 @@ public:
          const std::string &workingDir);
   virtual ~HypoDD();
 
-  void preloadData();
+  void preloadWaveforms();
 
   CatalogCPtr getCatalog() { return _srcCat; }
   void setCatalog(const CatalogCPtr &catalog);
@@ -309,15 +309,19 @@ private:
                                 const Catalog::Phase &ph,
                                 Waveform::LoaderPtr wfLoader);
 
+  Waveform::LoaderPtr
+  preloadNonCatalogWaveforms(CatalogPtr &catalog,
+                             const NeighboursPtr &neighbours,
+                             const Catalog::Event &refEv,
+                             double xcorrMaxEvStaDist,
+                             double xcorrMaxInterEvDist) const;
+
   void resetCounters();
   void printCounters() const;
-  void updateCounters() const
-  {
-    updateCounters(_wfDiskCache, _wfSnrFilter, _wfMemCache);
-  }
-  void updateCounters(Waveform::LoaderPtr diskCache,
-                      Waveform::SnrFilteredLoaderPtr snrFilter,
-                      Waveform::LoaderPtr memCache) const;
+  void updateCounters() const;
+  void updateCounters(Waveform::LoaderPtr loader,
+                      Waveform::DiskCachedLoaderPtr diskCache,
+                      Waveform::SnrFilteredLoaderPtr snrFilter) const;
 
 private:
   bool _workingDirCleanup = true;
@@ -339,11 +343,15 @@ private:
 
   HDD::TravelTimeTablePtr _ttt;
 
-  Waveform::DiskCachedLoaderPtr _wfDiskCache;
-  Waveform::SnrFilteredLoaderPtr _wfSnrFilter;
-  Waveform::MemCachedLoaderPtr _wfMemCache;
-
-  std::unordered_set<std::string> _unloadableWfs;
+  struct
+  {
+    Waveform::LoaderPtr loader;
+    Waveform::DiskCachedLoaderPtr diskCache;
+    Waveform::ExtraLenLoaderPtr extraLen;
+    Waveform::SnrFilteredLoaderPtr snrFilter;
+    Waveform::MemCachedLoaderPtr memCache;
+    std::unordered_set<std::string> unloadableWfs;
+  } _wfAccess;
 
   struct
   {
