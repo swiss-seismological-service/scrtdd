@@ -737,10 +737,19 @@ For comparison we can always find the raw waveforms (not processed) fetched from
 SeisComP applications access waveform data through the RecordStream interface (see [official SeisComP documentation](https://www.seiscomp.de/doc/base/concepts/recordstream.html) for more details) and it is usually configured in *global.cfg* or passed via command line with `-I URI`. The RecordStream parameters define the service(s) through which SeisComP can access real-time and historical waveforms data (seedlink, fdsn, sds archive, [etc](https://www.seiscomp.de/doc/apps/global_recordstream.html)). A hypothetical RecordStream configuration might look like this:
 
 ```
-recordstream = combined://slink/localhost:18000;sdsarchive//mnt/miniseed
+recordstream = combined://slink/localhost:18000;sdsarchive//path/to/miniseed
 ```
 
-This configuration is a combination of seedlink and sds archive, which is very useful because `scrtdd` catalog waveforms can be retrieved via sds while real-time event data can be fetched via seedlink (much faster since recent data is probably already in memory).
+This configuration is a combination of seedlink and sds archive, which allows `scrtdd` to retrieve catalog waveforms via sds and real-time event data via seedlink.
+
+Please note that depending on the responsiveness of the seedlink server the real-time relocations may incur in delays. A couple of configuration options allow to control those delays: *timeout* and *retries*
+
+e.g. Below we force a timeout of 30 seconds (default is 5 minutes) and do not try to reconnect (`scrtdd` will proceed with the available data):
+
+```
+recordstream = combined://slink/localhost:18000?timeout=30&retries=0;sdsarchive//path/to/miniseed
+```
+
 
 ### 4.1 Waveforms data caching
 
