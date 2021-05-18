@@ -513,7 +513,7 @@ bool RTDD::validateParameters()
     }
 
     prefix = string("profile.") + prof->name +
-             ".doubleDifferenceSystem.eventPairsSelection.";
+             ".doubleDifferenceSystem.eventFiltering.";
     try
     {
       prof->singleEventClustering.minDTperEvt =
@@ -540,7 +540,7 @@ bool RTDD::validateParameters()
     }
 
     prefix = string("profile.") + prof->name +
-             ".doubleDifferenceSystem.phaseSelection.";
+             ".doubleDifferenceSystem.phaseFiltering.";
 
     try
     {
@@ -595,7 +595,7 @@ bool RTDD::validateParameters()
     }
 
     prefix = string("profile.") + prof->name +
-             ".doubleDifferenceSystem.neighboringEventSelection.singleEvent.";
+             ".doubleDifferenceSystem.eventPairSelection.singleEvent.";
 
     try
     {
@@ -627,7 +627,7 @@ bool RTDD::validateParameters()
     }
 
     prefix = string("profile.") + prof->name +
-             ".doubleDifferenceSystem.neighboringEventSelection.multiEvent.";
+             ".doubleDifferenceSystem.eventPairSelection.multiEvent.";
     try
     {
       prof->multiEventClustering.maxNumNeigh =

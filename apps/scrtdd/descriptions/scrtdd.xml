@@ -72,7 +72,7 @@
           </group>
           <group name="doubleDifferenceSystem">
             <description>These options control selection of event pairs and phases within a pair, to be used in the creation of double-difference equation system. For each event pair, when a phase exists for both paired events at a common station an equation is added to the system.</description> 
-            <group name="eventPairsSelection">
+            <group name="eventFiltering">
               <description>Control the selection of events to use for the pairs of the DD system.</description>
               <parameter name="minNumPhases" type="int">
                 <description>Minimum number of phases at common stations required by event pairs. Event pairs not satisfying this condition will not be used. Useful to include only well connected neighbours.</description>
@@ -81,7 +81,7 @@
                 <description>Minimum number of neighbours required to by both events in the pairs. Useful to avoid inclusion of poorly constrained events.</description>
               </parameter>
             </group>
-            <group name="phaseSelection">
+            <group name="phaseFiltering">
               <description>Control the selection of phases to use for the event pairs of the DD system.</description> 
               <parameter name="maxNumPhases" type="int">
                 <description>Maximum number of phases at common stations used in the event pairs. If this value is set, closer stations will have higher precedence over further ones. A value of 0 disables this limit.</description>
@@ -97,7 +97,7 @@
               </parameter>
             </group>
  
-            <group name="neighboringEventSelection">
+            <group name="eventPairSelection">
               <description>This option controls how neighbouring events are selected. In the simpliest form 'numEllipsoids' is set to 0 and the neighbours are selected on the nearest neighbour basis within a search distance of 'maxEllipsoidSize'. This is the preferred choice for multi-event mode. When 'numEllipsoids' is not 0, the ellipsoid selection algorithm is used. From Waldhauser 2009: "to assure a spatially homogeneous subsampling, reference events are selected within each of five concentric, vertically elongated ellipsoidal layers of increasing thickness. The dimension of the ellipsoid is based on the assumed error in the routine locations and the maximum interevent distance over which model errors can still be effectively minimized (see Waldhauser, 2001). The layers are twice as thick at the poles than they are at the equator to accommodate the generally larger error in the depth of the routine location of a new event. Each layer is split up into its eight quadrants (or cells), and the neighboring events are selected from each of the 40 cells." Neighbours are selected for each ellipsoid/quadrant combination in a round robin fashion until 'maxNumNeigh' is reached.</description>
               <group name="singleEvent">
                 <description>This configuration is used in single-event relocation</description>
@@ -178,7 +178,7 @@
             </group>
             <group name="waveformFiltering">
               <description>Filter waveforms before performing the cross-correlation</description>
-              <parameter name="filterString" type="string" default="ITAPER(1)&gt;&gt;BW_HLP(2,1,20)">
+              <parameter name="filterString" type="string" default="&quot;ITAPER(1)&gt;&gt;BW_HLP(2,1,20)&quot;">
                 <description>SeisComP string based filter definition. Set to "" to disable filtering.</description>
               </parameter>
               <parameter name="resampling" type="double" default="400" unit="Hz">

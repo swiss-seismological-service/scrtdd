@@ -2307,11 +2307,8 @@ struct XCorrEvalStats
 };
 } // namespace
 
-void HypoDD::evalXCorr(const ClusteringOptions &clustOpt)
+void HypoDD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
 {
-  bool theoretical =
-      false; // this is useful for testing theoretical phase detections
-
   XCorrEvalStats totalStats, pPhaseStats, sPhaseStats;
   map<string, XCorrEvalStats> statsByStation;      // key station id
   map<int, XCorrEvalStats> statsByInterEvDistance; // key distance
