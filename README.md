@@ -78,7 +78,7 @@ Long story short:
 
 * Use `sclistorg` command to select the events to be relocated. E.g. `sclistorg [options] > myCatalog.csv`
 
-* Create a `scrtdd` profile (e.g. use `scconfig` GUI). The profile will contain the settings for the relocation: the default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However with big datasets it is advised to set `doubleDifferenceObservations.maxNumNeigh` to some number and `doubleDifferenceObservations.numEllipsoids` to 0 to avoid huge processing time. Also it is a good choice to configure a custom velocity model (`solver.travelTimeTable`)
+* Create a `scrtdd` profile (e.g. use `scconfig` GUI). The profile will contain the settings for the relocation: the default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However it is a good choice to configure a custom velocity model (`solver.travelTimeTable`)
 
 * Use `scrtdd` to relocate the events. E.g. `scrtdd --reloc-catalog  myCatalog.csv --profile myProfile [db and waveforms options]`
 
@@ -90,7 +90,7 @@ To relocate external (non-SeisComP) data refer to [this paragraph](#134-relocati
 
 The multi-event relocation consists of two steps: selecting the candidate origins and using `scrtdd` to relocate those. For the former task an utility `sclistorg` might come in handy. For the latter we need to configure a `scrtdd` profile where the relocation options are stored and then run the command line option `--reloc-catalog`. That's it.
 
-The output will be another catalog containing the relocated origins. The configuration is an easy task since the default options should already provide sensible solutions. The input origins might come from differnt sources: a SeisComP database (local or remote), a xml file, or a `scrtdd` specific format (station.csv,event.csv,phase.csv triplet, explained later).
+The output will be another catalog containing the relocated origins. The configuration is an easy task since the default options should already provide sensible solutions. The input origins might come from different sources: a SeisComP database (local or remote), a xml file, or a `scrtdd` specific format (station.csv,event.csv,phase.csv triplet, explained later).
 
 In multi-event mode there is no interaction neither with the running SeisComP modules nor with database (except for reading the inventory). It is a safe operation and allow for easy experimenting. The relocated events will be stored in plain text files, so that they can be analysed  externally to SeisComP, but they can also be stored back into the database. That is optional.
 
@@ -99,7 +99,7 @@ In multi-event mode there is no interaction neither with the running SeisComP mo
 
 ### 1.1 How to get the origin ids?
 
-There is a tool that is installed alongside `scrtdd`, called `sclistorg`, that is useful for listing origin ids satisfying certain criterias, such as time period, geographic area, author, agency and so on. E.g.
+There is a tool that is installed alongside `scrtdd`, called `sclistorg`, that is useful for listing origin ids satisfying certain criteria, such as time period, geographic area, author, agency and so on. E.g.
 
 ```sh
 # list the preferred origin ids for all events between 2018-11-27 and 2018-12-14
@@ -149,7 +149,7 @@ Origins:
 
 The origin ids of the events to be relocated must be stored in a format that `scrtdd` understands.
 
-One of the compatible formats is a text file containing the origing IDs (`sclistorg` output is compatible with that). `scrtdd` will use the origin IDs in the file to fetch all necessary information from the SeisComP database.
+One of the compatible formats is a text file containing the origin IDs (`sclistorg` output is compatible with that). `scrtdd` will use the origin IDs in the file to fetch all necessary information from the SeisComP database.
 
 E.g. *file myCatalog.csv* (a mandatory column named `seiscompId` is required, but other column might be present too).
 
@@ -210,15 +210,11 @@ Finally, the events to be relocated can also be stored in SeisComP XML format. P
 
 ### 1.3 Relocating the candidate events
 
-Before performing the relocation we need to create a new profile in the `scrtdd` configuration where it is possible to select the values for the relocation steps: clustering, cross-correlation and solver.
+Before performing the relocation we need to create a new profile in the `scrtdd` configuration where it is possible to select the values for the relocation steps: dubble-differene system creation, cross-correlation and solver.
 
 ![Profile options](/data/img/configOverview.png?raw=true "Profile options")
 
-`doubleDifferenceObservations` controls the creation of catalog absolute travel time entries (dt.ct file in HypoDD terminology) and cross-correlated differential travel times for pairs of events (dt.cc file in HypoDD terminology). The clustering options should work just fine with the default values, however some adjustments are worth it. For example, we force to have only well connected events (`minNumNeigh` and `minObservationPerEvPair`), which helps in avoiding an ill-defined double difference system that can be hard to solve. Then, we minimize `maxNumNeigh` to reduce computation time (we can get very good results without using all the possible neighbours for every event). Finally, we like to disable the ellipsoid algorithms (`numEllipsoids=0`) since that is mostly useful in single event relocation.
-
-![Relocation options](/data/img/multiEventStep2options.png?raw=true "Relocation options")
-
-Then it is time to set the cross-correlation parameters, which require a more careful selection and they are described in a dedicated paragraph. Finally, when the configuration is ready, we can relocate the catalog with the following commands...
+The default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However it is a good choice to configure a custom velocity model (`solver.travelTimeTable`). The cross-correlation parameters are described in a dedicated paragraph. Finally, when the configuration is ready, we can relocate the catalog with the following commands...
 
 #### 1.3.1 Relocating a file containing a list of origin ids
 
@@ -286,17 +282,12 @@ scrtdd --reloc-catalog myCatalog.csv --ep events.xml --profile myProfile \
 
 Independently on how the input events are provided, `scrtdd` will output a set of files *reloc-event.csv*, *reloc-phase.csv* and *reloc-stations.csv*, these contain the relocated catalog.
 
-At this point we should check the relocated events (and logs) and see whether the results make sense and are satisfactory. Usually we want to keep tuning the `scrtdd` settings and relocate the catalog multiple times until we are sure we reached the best relocations. Having a good background catalog is the base for good real-time relocations.
+At this point we should check the relocated events which contains several statistics and the logs to see whether the results make sense and are satisfactory. Usually we want to keep tuning the `scrtdd` settings and relocate the catalog multiple times until we are sure we reached the best relocations. Having a good background catalog is the base for good real-time relocations.
 
 **Notes**:
 Be aware that the first time you try to relocate a catalog it can be very slow because the waveforms have to be downloaded from the configured recordStream and saved to disk for the next runs, which will be much faster. 
 
-As an example you can see below two catalogs before and after `scrtdd` relocation:
-
-
-![Relocation example picture](/data/img/multiEventRelocationExample.png?raw=true "Relocation example")
-
-If we are going to create a profile for real-time relocation, only the output files reloc-event.csv reloc-phase.csv and reloc-stations.csv are required. A new profile has to be created and those output files will become the background catalog for the real-time/single-event relocation.
+To enable `scrtdd` in real-time the output files reloc-event.csv reloc-phase.csv and reloc-stations.csv are required as they will become the background catalog for the real-time/single-event relocation.
 
 ![Catalog selection option](/data/img/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
@@ -378,29 +369,47 @@ Catalog:
 
 ### 1.6 Periodic update of the multi-event relocation
 
-For real-time monitoring it is useful to periodically update the multi-event relocation, so that the news events are continuously included in the double-difference inversion. This is not only useful for keeping track of what is happing in a region, but it is crucial for real-time relocation, where new origins are relocated using a background catalog: the more update the background catalog is, the bettter the results.
+For real-time monitoring it is useful to periodically update the multi-event relocation, so that the news events are continuously included in the double-difference inversion. This is not only useful for keeping track of what is happening in a region, but it is crucial for real-time relocation, where new origins are relocated using a background catalog: the more update the background catalog is, the better the results.
 
 For this purpose it might come in handy [this script](/data/scripts/generate-catalog.sh), that can be easily adapted to the specific use case.
- 
+
+### Examples
+
+Here are two catalogs before and after `scrtdd` relocation:
+
+![Relocation example picture](/data/img/multiEventRelocationExample.png?raw=true "Relocation example") 
+
+
+The unit testing folder contains the code to generate some tests with synthetic data:
+
+![Synthetic Data Relocation example picture](/data/img/multiEventRelocationSyntDataExample.png?raw=true "Synthetic Data Relocation example") 
+
+
 ## 2. Real-time single-event relocation
 
 Long story short:
 
 * Use the multi-event relocation feature to prepare a background catalog
 
-* Create a `scrtdd` profile (e.g. use `scconfig` GUI), set the profile background catalog and add the profile to the list of active real-time profiles (`activeProfiles` parameter). The default profile parameter values are meant to be a good starting choice, so there is no need to tweak them except for `doubleDifferenceObservations.maxNumNeigh` (set it to 40 or a multiple of 8). Also it is a good choice to configure a custom velocity model (`solver.travelTimeTable`)
+* Create a `scrtdd` profile or use the same profile used for generating the background catalog, then set the profile background catalog and add the profile to the list of active real-time profiles (`activeProfiles` parameter). The default profile parameter values are meant to be a good starting choice, so there is no need to tweak them heavily. However it is a good choice to configure a custom velocity model (`solver.travelTimeTable`)
 
 * Make sure to read "Avoiding Relocation Loops" paragraph to avoid a potential issue
-
-* Make sure to read "Waveform data and recordStream configuration" to avoid `scrtdd` getting stuck when reading waveforms from seedlink
 
 * Enable and start `scrtdd` (`seiscomp enable scrtdd`, `seiscomp start scrtdd`)
 
 ### The long story
 
-In real-time processing `scrtdd` relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generate via multi-event relocation, which has already been coverred in the previous sections.
+To enable the real-time processing a profile should be created and enabled by including it in `scrtdd.activeProfiles` option.
+ 
+In real-time processing `scrtdd` relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generate via multi-event relocation, which has already been covered in the previous sections.
 
-To enable the real-time processing a profile should be created and enabled by including it in `scrtdd.activeProfiles` option. Note: we might want to copy the waveform cache folder from the background catalog profile to the new real-time profile in order to avoid re-downloading all the catalog waveforms (see the `Waveforms data caching` paragraph for more details).
+Real time relocation uses the same configuration we have seen in full catalog relocation, but real time relocation is done in two steps:
+
+**Step 1**: location refinement. In this step `scrtdd` performs a preliminary relocation of the origin where the differential travel times in the double-difference system are derived from the pick times.
+
+**Step 2**: the refined location computed in the previous step is used as starting location to perform a more precise relocation using cross-correlation to refine the differential travel times. If step1 fails, step2 is attempted anyway.
+
+If step2 completes successfully the relocated origin is sent to the messaging system. 
 
 ### 2.1. Selecting a background catalog from existing origins
 
@@ -408,26 +417,12 @@ The easiest choice is to use as background catalog the relocated multi-event res
 
 ![Catalog selection option](/data/img/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
-However, it is also possible to import the catalog file triplet into the database and specify the origin ids as background catalog: we can transform the relocated catalog triplet reloc-event.csv, phase.csv,station.csv to XML format using the --dump-catalog-xml option and then insert the XML into the seiscomp database. While it is neat to have the background catalog in the seiscomp database, this approach is inconvenient in the common scenario where the background catalog is periodically re-generated.
+However, it is also possible to import the catalog file triplet into the database and specify the origin ids as background catalog: we can transform the relocated catalog triplet reloc-event.csv, phase.csv,station.csv to XML format using the --dump-catalog-xml option and then insert the XML into the seiscomp database. While it is neat to have the background catalog in the SeisComP database, this approach is inconvenient in the common scenario where the background catalog is periodically re-generated.
 
 ![Catalog selection option](/data/img/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
 
  
 ### 2.2 Testing
-
-Real time relocation uses the same configuration we have seen in full catalog relocation, but real time relocation is done in two steps, each one controlled by a specific configuration.
-
-**Step 1**: location refinement. In this step `scrtdd` performs a preliminary relocation of the origin using only catalog absolute travel time entries (dt.ct only).
-
-**Step 2**: the refined location computed in the previous step is used as starting location to perform a more precise relocation using both catalog absolute travel times (dt.ct) and differential travel times from cross-correlation (dt.cc). If step1 fails, step2 is attempted anyway.
-
-If step2 completes successfully the relocated origin is sent to the messaging system.
-
-You can see below the most important parameters we want to configure. We enable the ellipsoid clustering algorithms selecting `numEllipsoids != 0` and we define the number of neighbour events used for relocation. We also increased `maxEllipsoidSize` in `doubleDifferenceObservationsNoXcorr` to accomodate the possible large error in the automatic origin locations.
- 
-
-![Relocation options](/data/img/step1options.png?raw=true "Relocation options")
-![Relocation options](/data/img/step2options.png?raw=true "Relocation options")
 
 You might consider testing the configuration relocating some existing events to make sure the parameters are suitable for your use case. To test the real time relocation there are two command line options which relocate existing origins:
 
@@ -505,14 +500,6 @@ And we can use the `scxmldump` to dump an existing origin id to file:
 scxmldump -fPAMF -p -O originId -o origin.xml --verbosity=3  --console=1
 ```
 
-#### 2.2.5 Notes
-
-Also, as explained in the cross-correlation settings paragraph, we can add the `--debug-wf` option to the above commands to dump and inspect the waveforms used during cross-correlation.
-
-As an example you can see below the single event relocation of several manually reviewed origins (when relocating automatic origins the quality and number of relocated origins is certainly lower).
-
-![Single event relocation example picture](/data/img/singleEventRelocationExample.png?raw=true "Single Event Relocation example")
-
 Once we are happy with the configuration we can simply enable and start `scrtdd` as any other SeisComP module and it will start relocating origins as soon as they arrive in the messsaging system.
 
 ### 2.3 Phase update
@@ -544,6 +531,16 @@ scevent       LOCATION,RELOCATION, ...             ...
 scamp         LOCATION,RELOCATION, ...             ...
 scmag         LOCATION,RELOCATION, ...             ...
 ```
+
+### Examples 
+
+Below the single-event relocation of several manually reviewed origins.
+
+![Single event relocation example picture](/data/img/singleEventRelocationExample.png?raw=true "Single Event Relocation example") 
+
+The unit testing folder contains the code to generate some tests with synthetic data.
+
+![Synthetic Data Relocation example picture](/data/img/singleEventRelocationSyntDataExample.png?raw=true "Synthetic Data Relocation example")
 
 ## 3. Cross-correlation
 
@@ -737,23 +734,23 @@ For comparison we can always find the raw waveforms (not processed) fetched from
 
 ## 4. Waveform data and recordStream configuration
 
-SeisComP applications access waveform data through the RecordStream interface (see [official SeisComP documentation](https://www.seiscomp.de/doc/base/concepts/recordstream.html) for more details) and it is usually configured in *global.cfg* or passed via command line with `-I URI`. The RecordStream parameters define the service(s) through which SeisComP can access real-time and historical waveforms data (seedlink, fdsn, sds archive, [etc](https://www.seiscomp.de/doc/apps/global_recordstream.html)). An hypothetical RecordStream configuration might look like this:
+SeisComP applications access waveform data through the RecordStream interface (see [official SeisComP documentation](https://www.seiscomp.de/doc/base/concepts/recordstream.html) for more details) and it is usually configured in *global.cfg* or passed via command line with `-I URI`. The RecordStream parameters define the service(s) through which SeisComP can access real-time and historical waveforms data (seedlink, fdsn, sds archive, [etc](https://www.seiscomp.de/doc/apps/global_recordstream.html)). A hypothetical RecordStream configuration might look like this:
 
 ```
-recordstream = combined://slink/localhost:18000;sdsarchive//mnt/miniseed
+recordstream = combined://slink/localhost:18000;sdsarchive//path/to/miniseed
 ```
 
-This configuration is a combination of seedlink and sds archive, which is very useful because `scrtdd` catalog waveforms can be retrieved via sds while real-time event data can be fetched via seedlink (much faster since recent data is probably already in memory).
+This configuration is a combination of seedlink and sds archive, which allows `scrtdd` to retrieve catalog waveforms via sds and real-time event data via seedlink.
 
-Please note that seedlink service might delay the relocation of incoming origins due to timeouts. For this reason we suggest to specify the configuration options: *timeout* and *retries*
+Please note that depending on the responsiveness of the seedlink server the real-time relocations may incur in delays. A couple of configuration options allow to control those delays: *timeout* and *retries*
 
-e.g. Below we force a timeout of 1 seconds (default is 5 minutes) and do not try to reconnect (`scrtdd` will deal with what data is available):
+e.g. Below we force a timeout of 30 seconds (default is 5 minutes) and do not try to reconnect (`scrtdd` will proceed with the available data):
 
 ```
-recordstream = combined://slink/localhost:18000?timeout=1&retries=0;sdsarchive//rz_nas/miniseed
+recordstream = combined://slink/localhost:18000?timeout=30&retries=0;sdsarchive//path/to/miniseed
 ```
 
- 
+
 ### 4.1 Waveforms data caching
 
 Unless the recordStream points to a local disk storage, downloading waveforms might require a lot of time. For this reason `scrtdd` store the waveforms to disk (called waveform cache) after downloading them. However only the catalog phase waveforms are used over and over again, that's not the same for the real-time events waveforms that are never saved since their waveforms are used just once. The cache folder is `workingDirectory/profileName/wfcache/` (e.g. /installation/path/seiscomp/var/lib/rtdd/myProfile/wfcache/). 

@@ -70,9 +70,7 @@ if [ $? -ne 0 ] || [ ! -f reloc-event.csv ] || [ ! -f reloc-phase.csv ] || [ ! -
 fi
 
 #
-# Copy relocated catalog to real-time rtDD configuration (it might be a good idea
-# to soft-link the waveform cache folders of the real-time and background catalog
-# rtDD profiles)
+# Copy relocated catalog to real-time rtDD configuration
 #
 RTDD_BGCAT_DIR=~/.seiscomp/scrtdd/myRealTimeProfile/bgCat
 

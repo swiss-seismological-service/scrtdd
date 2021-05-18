@@ -60,7 +60,7 @@ public:
   };
   DEFINE_SMARTPOINTER(Region);
 
-  virtual const char *version() { return "1.3.6"; }
+  virtual const char *version() { return "1.4.0"; }
 
 protected:
   void createCommandLineDescription();
@@ -191,8 +191,8 @@ private:
     std::string phaFile;
     RegionPtr region;
     HDD::Config ddCfg;
-    HDD::ClusteringOptions ddObservations1;
-    HDD::ClusteringOptions ddObservations2;
+    HDD::ClusteringOptions singleEventClustering;
+    HDD::ClusteringOptions multiEventClustering;
     HDD::SolverOptions solverCfg;
     bool useTheoreticalAuto;
     bool useTheoreticalManual;
