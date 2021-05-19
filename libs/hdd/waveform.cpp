@@ -16,6 +16,7 @@
 
 #include "waveform.h"
 #include "utils.h"
+#include "sccatalog.h"
 
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
@@ -630,8 +631,8 @@ bool projectionRequired(const Core::TimeWindow &tw,
     return false;
   }
 
-  loc = Catalog::findSensorLocation(ph.networkCode, ph.stationCode,
-                                    ph.locationCode, tw.startTime());
+  loc = ScCatalog::findSensorLocation(ph.networkCode, ph.stationCode,
+                                      ph.locationCode, tw.startTime());
 
   if (loc)
   {
@@ -1242,8 +1243,9 @@ GenericRecordCPtr BatchLoader::get(const Core::TimeWindow &tw,
         auto eqlrng = _streamMap.equal_range(streamID);
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
-          const pair<const Core::TimeWindow, TimeWindowBuffer>& pair = it->second;
-          if ( pair.first == tw ) return;
+          const pair<const Core::TimeWindow, TimeWindowBuffer> &pair =
+              it->second;
+          if (pair.first == tw) return;
         }
         _rs->addStream(ph.networkCode, ph.stationCode, ph.locationCode,
                        channelCode, tw.startTime(), tw.endTime());
@@ -1345,7 +1347,7 @@ void BatchLoader::load()
       _waveforms[wfId] = trace;
       _counters_wf_downloaded++;
     }
-    SEISCOMP_INFO("Downloaded %u/%lu waveforms, not available %u",
+    SEISCOMP_INFO("Fetched %u/%lu waveforms, not available %u",
                   _counters_wf_downloaded, _streamMap.size(),
                   _counters_wf_no_avail);
     _streamMap.clear();

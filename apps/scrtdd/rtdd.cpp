@@ -2452,7 +2452,7 @@ void RTDD::Profile::evalXCorr()
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::GMT();
-  hypodd->evalXCorr(multiEventClustering);
+  hypodd->evalXCorr(multiEventClustering, false);
 }
 
 // End Profile class

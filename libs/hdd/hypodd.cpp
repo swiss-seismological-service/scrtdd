@@ -16,6 +16,7 @@
 
 #include "hypodd.h"
 #include "utils.h"
+#include "sccatalog.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/range/iterator_range_core.hpp>
@@ -2008,8 +2009,8 @@ bool HypoDD::xcorrPhases(const Event &event1,
   {
     DataModel::ThreeComponents dummy;
     DataModel::SensorLocation *loc2 =
-        Catalog::findSensorLocation(phase2.networkCode, phase2.stationCode,
-                                    phase2.locationCode, phase2.time);
+        ScCatalog::findSensorLocation(phase2.networkCode, phase2.stationCode,
+                                      phase2.locationCode, phase2.time);
     if (loc2 &&
         getThreeComponents(dummy, loc2, channelCodeRoot1.c_str(), phase2.time))
     {
@@ -2022,8 +2023,8 @@ bool HypoDD::xcorrPhases(const Event &event1,
   {
     DataModel::ThreeComponents dummy;
     DataModel::SensorLocation *loc1 =
-        Catalog::findSensorLocation(phase1.networkCode, phase1.stationCode,
-                                    phase1.locationCode, phase1.time);
+        ScCatalog::findSensorLocation(phase1.networkCode, phase1.stationCode,
+                                      phase1.locationCode, phase1.time);
     if (loc1 &&
         getThreeComponents(dummy, loc1, channelCodeRoot2.c_str(), phase1.time))
     {

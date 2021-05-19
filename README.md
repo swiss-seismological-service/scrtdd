@@ -742,12 +742,10 @@ recordstream = combined://slink/localhost:18000;sdsarchive//path/to/miniseed
 
 This configuration is a combination of seedlink and sds archive, which allows `scrtdd` to retrieve catalog waveforms via sds and real-time event data via seedlink.
 
-Please note that depending on the responsiveness of the seedlink server the real-time relocations may incur in delays. A couple of configuration options allow to control those delays: *timeout* and *retries*
-
-e.g. Below we force a timeout of 30 seconds (default is 5 minutes) and do not try to reconnect (`scrtdd` will proceed with the available data):
+Please note that depending on the responsiveness of the seedlink server the real-time relocations may incur in delays. A couple of configuration options allow to control those delays: *timeout* and *retries*. The example below forces a timeout of 5 seconds (default is 5 minutes) and to not reconnect. In case of a timeout, `scrtdd` will proceed with the available data, without further delays:
 
 ```
-recordstream = combined://slink/localhost:18000?timeout=30&retries=0;sdsarchive//path/to/miniseed
+recordstream = combined://slink/localhost:18000?timeout=5&retries=0;sdsarchive//path/to/miniseed
 ```
 
 

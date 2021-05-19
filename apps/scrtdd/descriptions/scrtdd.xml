@@ -78,7 +78,7 @@
                 <description>Minimum number of phases at common stations required by event pairs. Event pairs not satisfying this condition will not be used. Useful to include only well connected neighbours.</description>
               </parameter> 
               <parameter name="minNumNeighbours" type="int">
-                <description>Minimum number of neighbours required to by both events in the pairs. Useful to avoid inclusion of poorly constrained events.</description>
+                <description>Minimum number of neighbours required by both events in the pairs. Useful to avoid inclusion of poorly constrained events.</description>
               </parameter>
             </group>
             <group name="phaseFiltering">
