@@ -23,7 +23,7 @@
       </parameter>
       <group name="performance">
         <parameter name="profileTimeAlive" type="int" default="3600" unit="sec">
-          <description>Defines how long the real-time profile data should be kept in memory (in seconds). This is useful to release memory (e.g. catalog waveform data) after a period of inactivity. When a profile is then reloaded into memory because a new origin arrived, the background catalog is reloaded as well (useful in case the background catalog has changed since last time).</description>
+          <description>Defines how long the real-time profile data should be kept in memory (in seconds). This is useful to release memory (catalog waveform data) after a period of inactivity, at the cost of having to reload the catalog (load and process waveforms) when a new origin arrives. A negative value force the profiles to stay always in memory.</description>
         </parameter>
         <parameter name="cacheWaveforms" type="boolean" default="true">
           <description>Save catalog waveforms to local disk after they have been loaded the first time. This avoids re-reading them from the configured recordStream in the future since this operation is dramatically slow (unless the recordStream points to a local disk source, in which case there is no advantage over caching the waveforms). Note: It is safe to delete the cache folder, in which case the waveforms will be loaded and saved again on disk the next time the profile is loaded (they will be read again from the configured recordStream).</description>
