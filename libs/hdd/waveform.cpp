@@ -15,8 +15,8 @@
  ***************************************************************************/
 
 #include "waveform.h"
-#include "utils.h"
 #include "sccatalog.h"
+#include "utils.h"
 
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>

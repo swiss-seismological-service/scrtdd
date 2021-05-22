@@ -15,8 +15,8 @@
  ***************************************************************************/
 
 #include "hypodd.h"
-#include "utils.h"
 #include "sccatalog.h"
+#include "utils.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/range/iterator_range_core.hpp>
@@ -197,9 +197,6 @@ void HypoDD::setWaveformDebug(bool debug)
   _wfAccess.memCache->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
 }
 
-// Creates dir name from event. This id has the following format:
-// OriginTime_Lat_Lon_CreationDate_Random
-// eg 20111210115715_46343_007519_20111210115740_6666
 string HypoDD::generateWorkingSubDir(const Event &ev) const
 {
   static UniformRandomer ran(0, 1000);
@@ -216,9 +213,12 @@ string HypoDD::generateWorkingSubDir(const Event &ev) const
 
 void HypoDD::preloadWaveforms()
 {
+  SEISCOMP_INFO("Preloading catalog waveform data (%lu events to load)",
+                _bgCat->getEvents().size());
+
   resetCounters();
 
-  unsigned numPhases = 0, numSPhases = 0;
+  unsigned numPhases = 0, numSPhases = 0, numEvents = 0;
 
   //
   // preload waveforms on disk and cache them in memory (pre-processed)
@@ -243,6 +243,12 @@ void HypoDD::preloadWaveforms()
 
       numPhases++;
       if (phase.procInfo.type == Phase::Type::S) numSPhases++;
+    }
+
+    if (++numEvents % (_bgCat->getEvents().size() / 100) == 0)
+    {
+      SEISCOMP_INFO("Loaded waveforms of %lu%% events",
+                    (numEvents / _bgCat->getEvents().size()) * 100);
     }
   }
 
@@ -1426,6 +1432,8 @@ XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
   XCorrCache xcorr;
   resetCounters();
 
+  unsigned long performed = 0;
+
   for (const NeighboursPtr &neighbours : neighCluster)
   {
     const Event &refEv = catalog->getEvents().at(neighbours->refEvId);
@@ -1444,6 +1452,9 @@ XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
     // on cross-correlation results. Also, drop theoretical phases wihout any
     // good cross-correlation result.
     fixPhases(catalog, refEv, xcorr);
+
+    SEISCOMP_INFO("Cross-correlation completion %.1f%%",
+                  (++performed / (double)neighCluster.size()) * 100);
   }
 
   printCounters();
