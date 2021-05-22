@@ -2425,8 +2425,13 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   else
     hypodd->setUseArtificialPhases(this->useTheoreticalAuto);
 
-  return hypodd->relocateSingleEvent(orgToRelocate, singleEventClustering,
-                                     singleEventClustering, solverCfg);
+  HDD::CatalogPtr rel = hypodd->relocateSingleEvent(
+      orgToRelocate, singleEventClustering, singleEventClustering, solverCfg);
+
+  hypodd
+      ->unloadTTT(); // free memory and file descriptors (mostly for NLL grids)
+
+  return rel;
 }
 
 HDD::CatalogPtr RTDD::Profile::relocateCatalog()

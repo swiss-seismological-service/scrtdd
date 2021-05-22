@@ -134,6 +134,8 @@ public:
 
   void preloadWaveforms();
 
+  void unloadTTT() { _ttt = nullptr; }
+
   CatalogCPtr getCatalog() { return _srcCat; }
   void setCatalog(const CatalogCPtr &catalog);
 

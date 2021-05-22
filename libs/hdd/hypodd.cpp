@@ -88,8 +88,6 @@ HypoDD::HypoDD(const CatalogCPtr &catalog,
   setUseCatalogWaveformDiskCache(true);
   setWaveformCacheAll(false);
   setWaveformDebug(false);
-
-  _ttt = TravelTimeTable::create(_cfg.ttt.type, _cfg.ttt.model);
 }
 
 HypoDD::~HypoDD()
@@ -247,8 +245,8 @@ void HypoDD::preloadWaveforms()
 
     if (++numEvents % (_bgCat->getEvents().size() / 100) == 0)
     {
-      SEISCOMP_INFO("Loaded waveforms of %lu%% events",
-                    (numEvents / _bgCat->getEvents().size()) * 100);
+      SEISCOMP_INFO("Loaded %lu%% of waveforms",
+                    (numEvents * 100 / _bgCat->getEvents().size()));
     }
   }
 
@@ -269,6 +267,8 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
                                        const SolverOptions &solverOpt)
 {
   SEISCOMP_INFO("Starting HypoDD relocator in multiple events mode");
+
+  if (!_ttt) _ttt = TravelTimeTable::create(_cfg.ttt.type, _cfg.ttt.model);
 
   CatalogPtr catToReloc(new Catalog(*_bgCat));
 
@@ -403,6 +403,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
                                        const ClusteringOptions &clustOpt2,
                                        const SolverOptions &solverOpt)
 {
+  if (!_ttt) _ttt = TravelTimeTable::create(_cfg.ttt.type, _cfg.ttt.model);
+
   const CatalogCPtr bgCat = _bgCat;
 
   // there must be only one event in the catalog, the origin to relocate
