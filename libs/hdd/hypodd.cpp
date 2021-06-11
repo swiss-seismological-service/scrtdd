@@ -15,6 +15,7 @@
  ***************************************************************************/
 
 #include "hypodd.h"
+#include "sccatalog.h"
 #include "utils.h"
 
 #include <boost/filesystem.hpp>
@@ -87,8 +88,6 @@ HypoDD::HypoDD(const CatalogCPtr &catalog,
   setUseCatalogWaveformDiskCache(true);
   setWaveformCacheAll(false);
   setWaveformDebug(false);
-
-  _ttt = TravelTimeTable::create(_cfg.ttt.type, _cfg.ttt.model);
 }
 
 HypoDD::~HypoDD()
@@ -196,9 +195,6 @@ void HypoDD::setWaveformDebug(bool debug)
   _wfAccess.memCache->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
 }
 
-// Creates dir name from event. This id has the following format:
-// OriginTime_Lat_Lon_CreationDate_Random
-// eg 20111210115715_46343_007519_20111210115740_6666
 string HypoDD::generateWorkingSubDir(const Event &ev) const
 {
   static UniformRandomer ran(0, 1000);
@@ -215,9 +211,12 @@ string HypoDD::generateWorkingSubDir(const Event &ev) const
 
 void HypoDD::preloadWaveforms()
 {
+  SEISCOMP_INFO("Preloading catalog waveform data (%lu events to load)",
+                _bgCat->getEvents().size());
+
   resetCounters();
 
-  unsigned numPhases = 0, numSPhases = 0;
+  unsigned numPhases = 0, numSPhases = 0, numEvents = 0;
 
   //
   // preload waveforms on disk and cache them in memory (pre-processed)
@@ -243,6 +242,12 @@ void HypoDD::preloadWaveforms()
       numPhases++;
       if (phase.procInfo.type == Phase::Type::S) numSPhases++;
     }
+
+    if (++numEvents % (_bgCat->getEvents().size() / 100) == 0)
+    {
+      SEISCOMP_INFO("Loaded %lu%% of waveforms",
+                    (numEvents * 100 / _bgCat->getEvents().size()));
+    }
   }
 
   updateCounters();
@@ -262,6 +267,8 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
                                        const SolverOptions &solverOpt)
 {
   SEISCOMP_INFO("Starting HypoDD relocator in multiple events mode");
+
+  if (!_ttt) _ttt = TravelTimeTable::create(_cfg.ttt.type, _cfg.ttt.model);
 
   CatalogPtr catToReloc(new Catalog(*_bgCat));
 
@@ -396,6 +403,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
                                        const ClusteringOptions &clustOpt2,
                                        const SolverOptions &solverOpt)
 {
+  if (!_ttt) _ttt = TravelTimeTable::create(_cfg.ttt.type, _cfg.ttt.model);
+
   const CatalogCPtr bgCat = _bgCat;
 
   // there must be only one event in the catalog, the origin to relocate
@@ -1425,6 +1434,8 @@ XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
   XCorrCache xcorr;
   resetCounters();
 
+  unsigned long performed = 0;
+
   for (const NeighboursPtr &neighbours : neighCluster)
   {
     const Event &refEv = catalog->getEvents().at(neighbours->refEvId);
@@ -1443,6 +1454,9 @@ XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
     // on cross-correlation results. Also, drop theoretical phases wihout any
     // good cross-correlation result.
     fixPhases(catalog, refEv, xcorr);
+
+    SEISCOMP_INFO("Cross-correlation completion %.1f%%",
+                  (++performed / (double)neighCluster.size()) * 100);
   }
 
   printCounters();
@@ -2008,8 +2022,8 @@ bool HypoDD::xcorrPhases(const Event &event1,
   {
     DataModel::ThreeComponents dummy;
     DataModel::SensorLocation *loc2 =
-        Catalog::findSensorLocation(phase2.networkCode, phase2.stationCode,
-                                    phase2.locationCode, phase2.time);
+        ScCatalog::findSensorLocation(phase2.networkCode, phase2.stationCode,
+                                      phase2.locationCode, phase2.time);
     if (loc2 &&
         getThreeComponents(dummy, loc2, channelCodeRoot1.c_str(), phase2.time))
     {
@@ -2022,8 +2036,8 @@ bool HypoDD::xcorrPhases(const Event &event1,
   {
     DataModel::ThreeComponents dummy;
     DataModel::SensorLocation *loc1 =
-        Catalog::findSensorLocation(phase1.networkCode, phase1.stationCode,
-                                    phase1.locationCode, phase1.time);
+        ScCatalog::findSensorLocation(phase1.networkCode, phase1.stationCode,
+                                      phase1.locationCode, phase1.time);
     if (loc1 &&
         getThreeComponents(dummy, loc1, channelCodeRoot2.c_str(), phase1.time))
     {

@@ -1183,13 +1183,14 @@ bool RTDD::run()
       return false;
     }
 
+    ProfilePtr profile      = getProfile(_config.forceProfile);
     DataModel::EventParametersPtr evParam = new DataModel::EventParameters();
     for (const auto &kv : cat->getEvents())
     {
       HDD::CatalogPtr ev = cat->extractEvent(kv.second.id, true);
       DataModel::OriginPtr newOrg;
       std::vector<DataModel::PickPtr> newOrgPicks;
-      convertOrigin(ev, nullptr, nullptr, newOrg, newOrgPicks);
+      convertOrigin(ev, profile, nullptr, newOrg, newOrgPicks);
       evParam->add(newOrg.get());
       for (DataModel::PickPtr p : newOrgPicks) evParam->add(p.get());
     }
@@ -2424,8 +2425,13 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   else
     hypodd->setUseArtificialPhases(this->useTheoreticalAuto);
 
-  return hypodd->relocateSingleEvent(orgToRelocate, singleEventClustering,
-                                     singleEventClustering, solverCfg);
+  HDD::CatalogPtr rel = hypodd->relocateSingleEvent(
+      orgToRelocate, singleEventClustering, singleEventClustering, solverCfg);
+
+  hypodd
+      ->unloadTTT(); // free memory and file descriptors (mostly for NLL grids)
+
+  return rel;
 }
 
 HDD::CatalogPtr RTDD::Profile::relocateCatalog()
@@ -2451,7 +2457,7 @@ void RTDD::Profile::evalXCorr()
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::GMT();
-  hypodd->evalXCorr(multiEventClustering);
+  hypodd->evalXCorr(multiEventClustering, false);
 }
 
 // End Profile class

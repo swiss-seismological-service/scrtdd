@@ -105,6 +105,15 @@ public:
            DataSource &dataSrc);
   void add(const std::vector<std::string> &ids, DataSource &dataSrc);
   void add(const std::string &idFile, DataSource &dataSrc);
+
+  //
+  // static
+  //
+  static DataModel::SensorLocation *
+  findSensorLocation(const std::string &networkCode,
+                     const std::string &stationCode,
+                     const std::string &locationCode,
+                     const Core::Time &atTime);
 };
 
 } // namespace HDD

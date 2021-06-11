@@ -134,6 +134,8 @@ public:
 
   void preloadWaveforms();
 
+  void unloadTTT() { _ttt = nullptr; }
+
   CatalogCPtr getCatalog() { return _srcCat; }
   void setCatalog(const CatalogCPtr &catalog);
 
@@ -143,7 +145,7 @@ public:
                                  const ClusteringOptions &clustOpt1,
                                  const ClusteringOptions &clustOpt2,
                                  const SolverOptions &solverOpt);
-  void evalXCorr(const ClusteringOptions &clustOpt, bool theoretical=false);
+  void evalXCorr(const ClusteringOptions &clustOpt, bool theoretical);
 
   void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
   bool workingDirCleanup() const { return _workingDirCleanup; }

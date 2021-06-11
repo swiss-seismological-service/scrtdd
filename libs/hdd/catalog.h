@@ -260,12 +260,6 @@ public:
                             const std::vector<std::string> &PphaseToKeep,
                             const std::vector<std::string> &SphaseToKeep);
 
-  static DataModel::SensorLocation *
-  findSensorLocation(const std::string &networkCode,
-                     const std::string &stationCode,
-                     const std::string &locationCode,
-                     const Core::Time &atTime);
-
   static constexpr double DEFAULT_MANUAL_PICK_UNCERTAINTY    = 0.030;
   static constexpr double DEFAULT_AUTOMATIC_PICK_UNCERTAINTY = 0.100;
 
