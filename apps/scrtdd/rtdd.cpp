@@ -1184,13 +1184,14 @@ bool RTDD::run()
       return false;
     }
 
+    ProfilePtr profile      = getProfile(_config.forceProfile);
     DataModel::EventParametersPtr evParam = new DataModel::EventParameters();
     for (const auto &kv : cat->getEvents())
     {
       HDD::CatalogPtr ev = cat->extractEvent(kv.second.id, true);
       DataModel::OriginPtr newOrg;
       std::vector<DataModel::PickPtr> newOrgPicks;
-      convertOrigin(ev, nullptr, nullptr, newOrg, newOrgPicks);
+      convertOrigin(ev, profile, nullptr, newOrg, newOrgPicks);
       evParam->add(newOrg.get());
       for (DataModel::PickPtr p : newOrgPicks) evParam->add(p.get());
     }
