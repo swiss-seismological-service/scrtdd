@@ -64,6 +64,10 @@ public:
     DataModel::PublicObject *getObject(const Seiscomp::Core::RTTI &classType,
                                        const std::string &publicID);
 
+    void loadMagnitudes(DataModel::Origin *org,
+                        bool loadStationMagnitudeContributions,
+                        bool loadStationMagnitudes);
+
     void loadArrivals(DataModel::Origin *org);
 
     DataModel::Event *getParentEvent(const std::string &originID);
@@ -101,10 +105,12 @@ public:
   {}
 
   // populate from seiscomp data format
-  void add(const std::vector<DataModel::OriginPtr> &origins,
-           DataSource &dataSrc);
-  void add(const std::vector<std::string> &ids, DataSource &dataSrc);
-  void add(const std::string &idFile, DataSource &dataSrc);
+  std::unordered_map<unsigned, DataModel::OriginPtr>
+  add(const std::vector<DataModel::OriginPtr> &origins, DataSource &dataSrc);
+  std::unordered_map<unsigned, DataModel::OriginPtr>
+  add(const std::vector<std::string> &ids, DataSource &dataSrc);
+  std::unordered_map<unsigned, DataModel::OriginPtr>
+  add(const std::string &idFile, DataSource &dataSrc);
 
   //
   // static

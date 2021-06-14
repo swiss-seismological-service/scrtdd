@@ -116,23 +116,35 @@ ScCatalog::DataSource::getObject(const Core::RTTI &classType,
 
 void ScCatalog::DataSource::loadArrivals(DataModel::Origin *org)
 {
-  bool found = false;
-
-  if (_eventParameters && !found)
+  if (_query)
   {
-    DataModel::Origin *epOrg = _eventParameters->findOrigin(org->publicID());
-    if (epOrg)
-    {
-      found = true;
-      for (size_t i = 0; i < epOrg->arrivalCount(); i++)
-        org->add(DataModel::Arrival::Cast(epOrg->arrival(i)->clone()));
-    }
+    if (org->arrivalCount() == 0) _query->loadArrivals(org);
   }
+}
 
-  if (_query && !found)
+void ScCatalog::DataSource::loadMagnitudes(
+    DataModel::Origin *org,
+    bool loadStationMagnitudeContributions,
+    bool loadStationMagnitudes)
+{
+  if (_query)
   {
-    found = true;
-    _query->loadArrivals(org);
+    if (org->magnitudeCount() == 0) _query->loadMagnitudes(org);
+
+    if (loadStationMagnitudeContributions)
+    {
+      for (size_t i = 0; i < org->magnitudeCount(); i++)
+      {
+        DataModel::Magnitude *mag = org->magnitude(i);
+        if (mag->stationMagnitudeContributionCount() == 0)
+          _query->loadStationMagnitudeContributions(mag);
+      }
+    }
+
+    if (loadStationMagnitudes && org->stationMagnitudeCount() == 0)
+    {
+      _query->loadStationMagnitudes(org);
+    }
   }
 }
 
@@ -162,13 +174,14 @@ ScCatalog::DataSource::getParentEvent(const std::string &originID)
   return ret;
 }
 
-void ScCatalog::add(const std::vector<DataModel::OriginPtr> &origins,
-                    DataSource &dataSrc)
+std::unordered_map<unsigned, DataModel::OriginPtr>
+ScCatalog::add(const std::vector<DataModel::OriginPtr> &origins,
+               DataSource &dataSrc)
 {
+  std::unordered_map<unsigned, DataModel::OriginPtr> idmap;
   for (DataModel::OriginPtr org : origins)
   {
-    if (org->arrivalCount() == 0)
-      dataSrc.loadArrivals(org.get()); // try to load arrivals
+    dataSrc.loadArrivals(org.get());
 
     if (org->arrivalCount() == 0)
     {
@@ -299,10 +312,13 @@ void ScCatalog::add(const std::vector<DataModel::OriginPtr> &origins,
       ph.isManual = (pick->evaluationMode() == Seiscomp::DataModel::MANUAL);
       this->addPhase(ph);
     }
+    idmap[newEventId] = org;
   }
+  return idmap;
 }
 
-void ScCatalog::add(const std::vector<std::string> &ids, DataSource &dataSrc)
+std::unordered_map<unsigned, DataModel::OriginPtr>
+ScCatalog::add(const std::vector<std::string> &ids, DataSource &dataSrc)
 {
   vector<DataModel::OriginPtr> origins;
 
@@ -317,10 +333,11 @@ void ScCatalog::add(const std::vector<std::string> &ids, DataSource &dataSrc)
     origins.push_back(org);
   }
 
-  add(origins, dataSrc);
+  return add(origins, dataSrc);
 }
 
-void ScCatalog::add(const std::string &idFile, DataSource &dataSrc)
+std::unordered_map<unsigned, DataModel::OriginPtr>
+ScCatalog::add(const std::string &idFile, DataSource &dataSrc)
 {
   if (!Util::fileExists(idFile))
   {
@@ -337,7 +354,7 @@ void ScCatalog::add(const std::string &idFile, DataSource &dataSrc)
     ids.push_back(id);
   }
 
-  add(ids, dataSrc);
+  return add(ids, dataSrc);
 }
 
 /*

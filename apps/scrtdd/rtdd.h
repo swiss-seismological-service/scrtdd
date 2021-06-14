@@ -29,6 +29,7 @@
 
 #include "app.h"
 #include "hypodd.h"
+#include "sccatalog.h"
 
 #define SEISCOMP_COMPONENT RTDD
 #include <seiscomp3/logging/log.h>
@@ -105,14 +106,19 @@ private:
                       std::vector<DataModel::PickPtr> &newOrgPicks);
 
   void convertOrigin(const HDD::CatalogCPtr &relocatedOrg,
-                     ProfilePtr profile,           // can be nullptr
-                     const DataModel::Origin *org, // can be nullptr
+                     ProfilePtr profile,
+                     DataModel::Origin *org,
+                     bool includeMagnitude,
+                     bool fullMagnitude,
+                     bool includeExistingPicks,
                      DataModel::OriginPtr &newOrg,
                      std::vector<DataModel::PickPtr> &newOrgPicks);
 
   void removedFromCache(DataModel::PublicObject *);
 
-  HDD::Catalog *getCatalog(const std::string &catalogPath);
+  HDD::Catalog *
+  getCatalog(const std::string &catalogPath,
+             std::unordered_map<unsigned, DataModel::OriginPtr> *idmap = nullptr);
   ProfilePtr getProfile(const std::string &profile);
   ProfilePtr getProfile(const DataModel::Origin *origin,
                         const std::string &forceProfile = "");
@@ -149,7 +155,6 @@ private:
     std::string relocateCatalog;
     std::string dumpCatalog;
     std::string mergeCatalogs;
-    std::string dumpCatalogXML;
     std::string evalXCorr;
     std::string reloadProfileMsg;
     bool loadProfile;

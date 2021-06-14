@@ -59,10 +59,12 @@ echo "Relocating events..."
 
 #depending on the size of the logs, many files will be generated in the form scrtdd.log scrtdd.log.1 scrtdd.log.2 ...
 RTDDLOG_FILE=scrtdd.log
+XMLRELOC_FILE=relocated.xml
 
 $seiscomp_exec scrtdd -d $CATALOG_DB --reloc-catalog $ID_FILE \
        --profile myMultiEventProfile \
-       --verbosity=3 --log-file $RTDDLOG_FILE
+       --verbosity=3 --log-file $RTDDLOG_FILE \
+       --xmlout > $XMLRELOC_FILE
 
 if [ $? -ne 0 ] || [ ! -f reloc-event.csv ] || [ ! -f reloc-phase.csv ] || [ ! -f reloc-station.csv ]; then
   echo "Catalog not relocated: stop here"
@@ -89,17 +91,8 @@ $seiscomp_exec scrtdd --send-reload-profile-msg myRealTimeProfile --user rtddBgC
 #
 if [ -n "${DESTINATION_DB}" ]; then
 
-  #
-  # Convert catalog to Seiscomp XML
-  #
-  XMLRELOC_FILE=relocated.xml
-
-  echo "Converting relocated events to XML file $XMLRELOC_FILE..."
-
-  $seiscomp_exec scrtdd --dump-catalog-xml reloc-station.csv,reloc-event.csv,reloc-phase.csv > $XMLRELOC_FILE
-
-  if [ $? -ne 0 ] || [ ! -f $RELOC_FILE ]; then
-    echo "Cannot convert the relocated catalog to XML: stop here"
+  if [ $? -ne 0 ] || [ ! -f $XMLRELOC_FILE ]; then
+    echo "Cannot find the relocated XML catalog: stop here"
     exit 1
   fi
 
