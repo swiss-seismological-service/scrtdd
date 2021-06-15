@@ -90,7 +90,9 @@ HypoDD::HypoDD(const CatalogCPtr &catalog,
   setWaveformDebug(false);
 }
 
-HypoDD::~HypoDD()
+HypoDD::~HypoDD() { clearWorkingDir(); }
+
+void HypoDD::clearWorkingDir()
 {
   // delete everything located in the working directory except for the cache
   // directory
@@ -130,7 +132,7 @@ void HypoDD::setUseCatalogWaveformDiskCache(bool cache)
 
 void HypoDD::createWaveformCache()
 {
-
+  _wfAccess.unloadableWfs.clear();
   _wfAccess.loader    = nullptr;
   _wfAccess.diskCache = nullptr;
   _wfAccess.extraLen  = nullptr;

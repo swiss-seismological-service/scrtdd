@@ -130,9 +130,13 @@ public:
   HypoDD(const CatalogCPtr &catalog,
          const Config &cfg,
          const std::string &workingDir);
-  virtual ~HypoDD();
+  ~HypoDD();
+
+  void clearWorkingDir();
 
   void preloadWaveforms();
+
+  void unloadWaveforms() { createWaveformCache(); }
 
   void unloadTTT() { _ttt = nullptr; }
 

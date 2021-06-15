@@ -116,15 +116,19 @@ private:
 
   void removedFromCache(DataModel::PublicObject *);
 
-  HDD::Catalog *
-  getCatalog(const std::string &catalogPath,
-             std::unordered_map<unsigned, DataModel::OriginPtr> *idmap = nullptr);
+  HDD::Catalog *getCatalog(
+      const std::string &catalogPath,
+      std::unordered_map<unsigned, DataModel::OriginPtr> *idmap = nullptr);
   ProfilePtr getProfile(const std::string &profile);
   ProfilePtr getProfile(const DataModel::Origin *origin,
                         const std::string &forceProfile = "");
   ProfilePtr getProfile(double latitude,
                         double longitude,
                         const std::string &forceProfile = "");
+
+  void loadProfile(ProfilePtr profile,
+                   bool preloadData,
+                   const HDD::CatalogCPtr &alternativeCatalog = nullptr);
 
   std::vector<DataModel::OriginPtr> fetchOrigins(const std::string &idFile,
                                                  std::string options);
@@ -157,7 +161,7 @@ private:
     std::string mergeCatalogs;
     std::string evalXCorr;
     std::string reloadProfileMsg;
-    bool loadProfile;
+    bool loadProfileWf;
 
     // cron
     int wakeupInterval;
@@ -182,6 +186,7 @@ private:
               const HDD::CatalogCPtr &alternativeCatalog = nullptr);
     void unload();
     bool isLoaded() { return loaded; }
+    void freeResources();
     Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
     HDD::CatalogPtr relocateSingleEvent(DataModel::Origin *org);
     HDD::CatalogPtr relocateCatalog();

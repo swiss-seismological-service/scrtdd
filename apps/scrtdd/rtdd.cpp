@@ -243,7 +243,7 @@ RTDD::Config::Config()
   cacheAllWaveforms    = false;
   debugWaveforms       = false;
 
-  loadProfile     = false;
+  loadProfileWf   = false;
   forceProcessing = false;
   testMode        = false;
   dumpWaveforms   = false;
@@ -313,7 +313,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
       "ids) or a file triplet (station.csv,event.csv,phase.csv). Use in "
       "combination with --profile",
       true);
-  NEW_OPT_CLI(_config.loadProfile, "Mode", "load-profile-wf",
+  NEW_OPT_CLI(_config.loadProfileWf, "Mode", "load-profile-wf",
               "Load catalog waveforms from the configured recordstream and "
               "save them into the profile working directory. Use in "
               "combination with --profile",
@@ -395,7 +395,7 @@ bool RTDD::validateParameters()
   // disable messaging (offline mode) with certain command line options
   if (!_config.eventXML.empty() || !_config.dumpCatalog.empty() ||
       !_config.mergeCatalogs.empty() || !_config.evalXCorr.empty() ||
-      !_config.relocateCatalog.empty() || _config.loadProfile ||
+      !_config.relocateCatalog.empty() || _config.loadProfileWf ||
       (!_config.originIDs.empty() && _config.testMode))
   {
     SEISCOMP_INFO("Disable messaging");
@@ -1075,22 +1075,17 @@ bool RTDD::run()
     HDD::CatalogPtr catalog = getCatalog(_config.evalXCorr);
     ProfilePtr profile      = getProfile(_config.forceProfile);
     if (!catalog || !profile) return false;
-    profile->load(query(), &_cache, _eventParameters.get(),
-                  _config.workingDirectory, !_config.saveProcessingFiles,
-                  _config.cacheWaveforms, _config.cacheAllWaveforms,
-                  _config.dumpWaveforms, false, catalog);
+    loadProfile(profile, false, catalog);
     profile->evalXCorr();
     return true;
   }
 
   // load catalog waveforms and exit
-  if (_config.loadProfile)
+  if (_config.loadProfileWf)
   {
     ProfilePtr profile = getProfile(_config.forceProfile);
     if (!profile) return false;
-    profile->load(query(), &_cache, _eventParameters.get(),
-                  _config.workingDirectory, !_config.saveProcessingFiles, true,
-                  _config.cacheAllWaveforms, _config.dumpWaveforms, true);
+    loadProfile(profile, true);
     return true;
   }
 
@@ -1153,11 +1148,7 @@ bool RTDD::run()
     HDD::CatalogPtr catalog = getCatalog(_config.relocateCatalog, &idmap);
     ProfilePtr profile      = getProfile(_config.forceProfile);
     if (!catalog || !profile) return false;
-    profile->load(query(), &_cache, _eventParameters.get(),
-                  _config.workingDirectory, !_config.saveProcessingFiles,
-                  _config.cacheWaveforms, _config.cacheAllWaveforms,
-                  _config.dumpWaveforms, false, catalog);
-
+    loadProfile(profile, false, catalog);
     HDD::CatalogPtr relocatedCat;
     try
     {
@@ -1446,24 +1437,20 @@ void RTDD::checkProfileStatus()
 {
   for (ProfilePtr currProfile : _profiles)
   {
-    if (_config.profileTimeAlive < 0) // never clean up profiles, force loading
+    // if profiles are always alive load them and preload waveforms
+    if (_config.profileTimeAlive < 0)
     {
-      if (!currProfile->isLoaded())
-      {
-        currProfile->load(
-            query(), &_cache, _eventParameters.get(), _config.workingDirectory,
-            !_config.saveProcessingFiles, _config.cacheWaveforms,
-            _config.cacheAllWaveforms, _config.dumpWaveforms, true);
-      }
+      if (!currProfile->isLoaded()) loadProfile(currProfile, true);
     }
     else // periodic clean up of profiles
     {
       Core::TimeSpan expired = Core::TimeSpan(_config.profileTimeAlive);
       if (currProfile->isLoaded() && currProfile->inactiveTime() > expired)
       {
-        SEISCOMP_INFO("Profile %s inactive for more than %f seconds: unload it",
-                      currProfile->name.c_str(), expired.length());
-        currProfile->unload();
+        SEISCOMP_INFO(
+            "Profile %s inactive for more than %f seconds: free resources",
+            currProfile->name.c_str(), expired.length());
+        currProfile->freeResources();
       }
     }
   }
@@ -1820,10 +1807,7 @@ void RTDD::relocateOrigin(DataModel::Origin *org,
                           DataModel::OriginPtr &newOrg,
                           std::vector<DataModel::PickPtr> &newOrgPicks)
 {
-  profile->load(query(), &_cache, _eventParameters.get(),
-                _config.workingDirectory, !_config.saveProcessingFiles,
-                _config.cacheWaveforms, _config.cacheAllWaveforms,
-                _config.dumpWaveforms, false);
+  if (!profile->isLoaded()) loadProfile(profile, false);
   HDD::CatalogPtr relocatedOrg = profile->relocateSingleEvent(org);
   bool includeMagnitude        = org->evaluationMode() == DataModel::MANUAL;
   convertOrigin(relocatedOrg, profile, org, includeMagnitude, true, false,
@@ -2116,7 +2100,7 @@ RTDD::getCatalog(const std::string &catalogPath,
     {
       CatalogDataSrc dataSrc(query(), &_cache, _eventParameters.get());
       HDD::ScCatalog *cat = new HDD::ScCatalog();
-      auto _map = cat->add(tokens[0], dataSrc);
+      auto _map           = cat->add(tokens[0], dataSrc);
       if (idmap) *idmap = _map;
       return cat;
     }
@@ -2343,6 +2327,16 @@ std::vector<DataModel::OriginPtr> RTDD::fetchOrigins(const std::string &idFile,
   return origins;
 }
 
+void RTDD::loadProfile(ProfilePtr profile,
+                       bool preloadData,
+                       const HDD::CatalogCPtr &alternativeCatalog)
+{
+  profile->load(query(), &_cache, _eventParameters.get(),
+                _config.workingDirectory, !_config.saveProcessingFiles,
+                _config.cacheWaveforms, _config.cacheAllWaveforms,
+                _config.dumpWaveforms, preloadData, alternativeCatalog);
+}
+
 // Profile class
 
 RTDD::Profile::Profile() { loaded = false; }
@@ -2411,6 +2405,15 @@ void RTDD::Profile::load(DatabaseQuery *query,
   lastUsage = Core::Time::GMT();
 
   SEISCOMP_INFO("Profile %s loaded into memory", name.c_str());
+}
+
+void RTDD::Profile::freeResources()
+{
+  if (!loaded) return;
+  hypodd->unloadTTT();
+  hypodd->unloadWaveforms();
+  hypodd->clearWorkingDir();
+  lastUsage = Core::Time::GMT();
 }
 
 void RTDD::Profile::unload()
