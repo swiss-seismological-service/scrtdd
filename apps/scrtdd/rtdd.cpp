@@ -2333,7 +2333,7 @@ void RTDD::loadProfile(ProfilePtr profile,
                        const HDD::CatalogCPtr &alternativeCatalog)
 {
   profile->load(query(), &_cache, _eventParameters.get(),
-                _config.workingDirectory, !_config.saveProcessingFiles,
+                _config.workingDirectory, _config.saveProcessingFiles,
                 _config.cacheWaveforms, _config.cacheAllWaveforms,
                 _config.dumpWaveforms, preloadData, alternativeCatalog);
 }
@@ -2347,7 +2347,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
                          PublicObjectTimeSpanBuffer *cache,
                          EventParameters *eventParameters,
                          const string &workingDir,
-                         bool cleanupWorkingDir,
+                         bool saveProcessingFiles,
                          bool cacheWaveforms,
                          bool cacheAllWaveforms,
                          bool debugWaveforms,
@@ -2385,7 +2385,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
     }
 
     hypodd = new HDD::HypoDD(ddbgc, ddCfg, pWorkingDir);
-    hypodd->setWorkingDirCleanup(cleanupWorkingDir);
+    hypodd->setSaveProcessing(saveProcessingFiles);
     hypodd->setUseCatalogWaveformDiskCache(cacheWaveforms);
     hypodd->setWaveformCacheAll(cacheAllWaveforms);
     hypodd->setWaveformDebug(debugWaveforms);
@@ -2413,7 +2413,6 @@ void RTDD::Profile::freeResources()
   if (!loaded) return;
   hypodd->unloadTTT();
   hypodd->unloadWaveforms();
-  hypodd->clearWorkingDir();
   lastUsage = Core::Time::GMT();
 }
 

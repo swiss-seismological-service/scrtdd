@@ -246,7 +246,7 @@ HDD::CatalogPtr relocateCatalog(const HDD::CatalogCPtr cat,
   ddCfg.ttt.model = ttt->model;
 
   HDD::HypoDDPtr hypodd = new HDD::HypoDD(cat, ddCfg, workingDir);
-  hypodd->setWorkingDirCleanup(false);
+  hypodd->setSaveProcessing(true);
   hypodd->setUseCatalogWaveformDiskCache(false);
   hypodd->setWaveformCacheAll(false);
   hypodd->setWaveformDebug(false);
@@ -285,7 +285,7 @@ HDD::CatalogCPtr relocateSingleEvent(const HDD::CatalogCPtr bgCat,
   ddCfg.ttt.model = ttt->model;
 
   HDD::HypoDDPtr hypodd = new HDD::HypoDD(bgCat, ddCfg, workingDir);
-  hypodd->setWorkingDirCleanup(false);
+  hypodd->setSaveProcessing(true);
   hypodd->setUseCatalogWaveformDiskCache(false);
   hypodd->setWaveformCacheAll(false);
   hypodd->setWaveformDebug(false);

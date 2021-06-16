@@ -90,33 +90,6 @@ HypoDD::HypoDD(const CatalogCPtr &catalog,
   setWaveformDebug(false);
 }
 
-HypoDD::~HypoDD() { clearWorkingDir(); }
-
-void HypoDD::clearWorkingDir()
-{
-  // delete everything located in the working directory except for the cache
-  // directory
-  if (_workingDirCleanup)
-  {
-    for (auto &entry : boost::make_iterator_range(
-             boost::filesystem::directory_iterator(_workingDir), {}))
-    {
-      if (!boost::filesystem::equivalent(entry, _cacheDir) &&
-          !boost::filesystem::equivalent(entry, _tmpCacheDir) &&
-          !boost::filesystem::equivalent(entry, _wfDebugDir))
-      {
-        SEISCOMP_INFO("Deleting %s", entry.path().string().c_str());
-        try
-        {
-          boost::filesystem::remove_all(entry);
-        }
-        catch (...)
-        {}
-      }
-    }
-  }
-}
-
 void HypoDD::setCatalog(const CatalogCPtr &catalog)
 {
   _srcCat = catalog;
@@ -274,22 +247,24 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
 
   CatalogPtr catToReloc(new Catalog(*_bgCat));
 
-  // create working directory (used to be a working directory, now it's just
-  // logs/debug)
-  string catalogWorkingDir =
-      (boost::filesystem::path(_workingDir) / "catalog").string();
-  if (!Util::pathExists(catalogWorkingDir))
+  // prepare a folder for debug files
+  string catalogWorkingDir = (boost::filesystem::path(_workingDir) / "catalog").string();
+  if (_saveProcessing)
   {
-    if (!Util::createPath(catalogWorkingDir))
+    if (!Util::pathExists(catalogWorkingDir))
     {
-      string msg = "Unable to create working directory: " + catalogWorkingDir;
-      throw runtime_error(msg);
+      if (!Util::createPath(catalogWorkingDir))
+      {
+        string msg = "Unable to create working directory: " + catalogWorkingDir;
+        throw runtime_error(msg);
+      }
     }
+    SEISCOMP_INFO("Working dir %s", catalogWorkingDir.c_str());
   }
 
   // prepare file logger
   std::shared_ptr<Logging::Output> processingInfoOutput;
-  if (!_workingDirCleanup)
+  if (_saveProcessing)
   {
     processingInfoOutput =
         std::shared_ptr<Logging::Output>(new Logging::FileOutput(
@@ -316,8 +291,7 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
 
   SEISCOMP_INFO("Found %lu event clusters", clusters.size());
 
-  // write catalog for debugging purposes
-  if (!_workingDirCleanup)
+  if (_saveProcessing)
   {
     catToReloc->writeToFile(
         (boost::filesystem::path(catalogWorkingDir) / "starting-event.csv")
@@ -340,7 +314,7 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
     SEISCOMP_INFO("Relocating cluster %u (%lu events)", clusterId + 1,
                   neighCluster.size());
 
-    if (!_workingDirCleanup)
+    if (_saveProcessing)
     {
       CatalogPtr catToDump(new Catalog());
       for (const NeighboursPtr &n : neighCluster)
@@ -369,7 +343,7 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
 
     relocatedCatalog->add(*relocatedCluster, true);
 
-    if (!_workingDirCleanup)
+    if (_saveProcessing)
     {
       string prefix = "relocated-cluster-" + to_string(clusterId + 1);
       relocatedCluster->writeToFile(
@@ -383,8 +357,7 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
     }
   }
 
-  // write catalog for debugging purposes
-  if (!_workingDirCleanup)
+  if (_saveProcessing)
   {
     relocatedCatalog->writeToFile(
         (boost::filesystem::path(catalogWorkingDir) / "relocated-event.csv")
@@ -394,8 +367,6 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
         (boost::filesystem::path(catalogWorkingDir) / "relocated-station.csv")
             .string());
   }
-
-  if (_workingDirCleanup) boost::filesystem::remove_all(catalogWorkingDir);
 
   return relocatedCatalog;
 }
@@ -422,28 +393,31 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
       evToRelocate.time.iso().c_str(),
       std::distance(evToRelocatePhases.first, evToRelocatePhases.second));
 
-  // Create working directory (used to be a working directory, now it's just
-  // logs/debug).
-  string subFolder;
-  do
+  // prepare a folder for debug files
+  string baseWorkingDir;
+  if (_saveProcessing)
   {
-    subFolder = generateWorkingSubDir(evToRelocate);
-    subFolder = (boost::filesystem::path(_workingDir) / subFolder).string();
-  } while (Util::pathExists(subFolder));
+    do
+    {
+      baseWorkingDir = generateWorkingSubDir(evToRelocate);
+      baseWorkingDir = (boost::filesystem::path(_workingDir) / baseWorkingDir).string();
+    } while (Util::pathExists(baseWorkingDir));
 
-  if (!Util::createPath(subFolder))
-  {
-    string msg = "Unable to create working directory: " + subFolder;
-    throw runtime_error(msg);
+    if (!Util::createPath(baseWorkingDir))
+    {
+      string msg = "Unable to create working directory: " + baseWorkingDir;
+      throw runtime_error(msg);
+    }
+    SEISCOMP_INFO("Working dir %s", baseWorkingDir.c_str());
   }
 
   // prepare file logger
   std::shared_ptr<Logging::Output> processingInfoOutput;
-  if (!_workingDirCleanup)
+  if (_saveProcessing)
   {
     processingInfoOutput =
         std::shared_ptr<Logging::Output>(new Logging::FileOutput(
-            (boost::filesystem::path(subFolder) / "info.log")
+            (boost::filesystem::path(baseWorkingDir) / "info.log")
                 .string()
                 .c_str()));
     processingInfoOutput->subscribe(Seiscomp::Logging::_SCInfoChannel);
@@ -455,7 +429,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
       "Performing step 1: initial location refinement (no cross-correlation)");
 
   string eventWorkingDir =
-      (boost::filesystem::path(subFolder) / "step1").string();
+      (boost::filesystem::path(baseWorkingDir) / "step1").string();
 
   CatalogPtr evToRelocateCat =
       Catalog::filterPhasesAndSetWeights(*singleEvent, Phase::Source::RT_EVENT,
@@ -483,7 +457,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
 
   SEISCOMP_INFO("Performing step 2: relocation with cross-correlation");
 
-  eventWorkingDir = (boost::filesystem::path(subFolder) / "step2").string();
+  eventWorkingDir = (boost::filesystem::path(baseWorkingDir) / "step2").string();
 
   CatalogPtr relocatedEvWithXcorr =
       relocateEventSingleStep(bgCat, evToRelocateCat, eventWorkingDir,
@@ -526,8 +500,6 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
 
   if (!relocatedEvWithXcorr) throw runtime_error("Failed origin relocation");
 
-  if (_workingDirCleanup) boost::filesystem::remove_all(subFolder);
-
   return relocatedEvWithXcorr;
 }
 
@@ -539,14 +511,15 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
                                            bool doXcorr,
                                            bool computeTheoreticalPhases)
 {
-  if (!Util::createPath(workingDir))
+  if (_saveProcessing)
   {
-    string msg = "Unable to create working directory: " + workingDir;
-    throw runtime_error(msg);
-  }
+    if (!Util::createPath(workingDir))
+    {
+      string msg = "Unable to create working directory: " + workingDir;
+      throw runtime_error(msg);
+    } 
+    SEISCOMP_INFO("Working dir %s", workingDir.c_str());
 
-  if (!_workingDirCleanup)
-  {
     evToRelocateCat->writeToFile(
         (boost::filesystem::path(workingDir) / "single-event.csv").string(),
         (boost::filesystem::path(workingDir) / "single-event-phase.csv")
@@ -582,8 +555,7 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
         catalog->add(evToRelocate.id, *evToRelocateCat, false);
     neighbours->refEvId = evToRelocateNewId;
 
-    // write catalog for debugging purposes
-    if (!_workingDirCleanup)
+    if (_saveProcessing)
     {
       catalog->writeToFile(
           (boost::filesystem::path(workingDir) / "starting-event.csv").string(),
@@ -606,8 +578,7 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
     // the actual relocation
     relocatedEvCat = relocate(catalog, {neighbours}, solverOpt, true, xcorr);
 
-    // write catalog for debugging purpose
-    if (!_workingDirCleanup)
+    if (_saveProcessing)
     {
       relocatedEvCat->writeToFile(
           (boost::filesystem::path(workingDir) / "relocated-event.csv")

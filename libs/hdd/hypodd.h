@@ -130,9 +130,7 @@ public:
   HypoDD(const CatalogCPtr &catalog,
          const Config &cfg,
          const std::string &workingDir);
-  ~HypoDD();
-
-  void clearWorkingDir();
+  ~HypoDD() {}
 
   void preloadWaveforms();
 
@@ -151,8 +149,8 @@ public:
                                  const SolverOptions &solverOpt);
   void evalXCorr(const ClusteringOptions &clustOpt, bool theoretical);
 
-  void setWorkingDirCleanup(bool cleanup) { _workingDirCleanup = cleanup; }
-  bool workingDirCleanup() const { return _workingDirCleanup; }
+  void setSaveProcessing(bool dump) { _saveProcessing = dump; }
+  bool saveProcessing() const { return _saveProcessing; }
 
   void setUseCatalogWaveformDiskCache(bool cache);
   bool useCatalogWaveformDiskCache() const
@@ -330,7 +328,7 @@ private:
                       Waveform::SnrFilteredLoaderPtr snrFilter) const;
 
 private:
-  bool _workingDirCleanup = true;
+  bool _saveProcessing = true;
   std::string _workingDir;
   std::string _cacheDir;
   std::string _tmpCacheDir;

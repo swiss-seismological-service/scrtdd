@@ -178,7 +178,7 @@ private:
               DataModel::PublicObjectTimeSpanBuffer *cache,
               DataModel::EventParameters *eventParameters,
               const std::string &workingDir,
-              bool cleanupWorkingDir,
+              bool saveProcessingFiles,
               bool cacheWaveforms,
               bool cacheAllWaveforms,
               bool debugWaveforms,
