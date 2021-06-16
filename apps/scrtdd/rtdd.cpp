@@ -1067,6 +1067,13 @@ bool RTDD::run()
     }
     ar >> _eventParameters;
     ar.close();
+
+    if (!_eventParameters)
+    {
+      SEISCOMP_ERROR("Event parameters is empty (%s)",
+                     _config.eventXML.c_str());
+      return false;
+    }
   }
 
   // evaluate cross-correlation settings and exit
@@ -1168,7 +1175,7 @@ bool RTDD::run()
     if (commandline().hasOption("xmlout"))
     {
       DataModel::EventParametersPtr evParam = new DataModel::EventParameters();
-      evParam->SetRegistrationEnabled(false);
+      evParam->SetRegistrationEnabled(false); // allow to add objects with existing publicIDs
       for (const auto &kv : relocatedCat->getEvents())
       {
         HDD::CatalogPtr ev = relocatedCat->extractEvent(kv.second.id, true);
@@ -1205,6 +1212,7 @@ bool RTDD::run()
     {
       // no XML input, only XML output
       _eventParameters = new DataModel::EventParameters();
+      _config.testMode = true; // we won't send any message
     }
 
     _config.forceProcessing  = true; // force process of any origin
@@ -1230,7 +1238,7 @@ bool RTDD::run()
     }
 
     // output relocation to xml (--ep option provided)
-    if (!_config.eventXML.empty())
+    if (_eventParameters)
     {
       IO::XMLArchive ar;
       ar.create("-");
@@ -1245,13 +1253,6 @@ bool RTDD::run()
   // relocate all origins in xml file and exit
   if (!_config.eventXML.empty())
   {
-    if (!_eventParameters)
-    {
-      SEISCOMP_ERROR("No event parameters found in %s",
-                     _config.eventXML.c_str());
-      return false;
-    }
-
     _config.forceProcessing  = true; // force process of any origin
     _config.profileTimeAlive = 3600; // do not preload profile
 

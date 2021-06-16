@@ -419,6 +419,8 @@ However, if the catalog is generated in XML format, it can be imported in the Se
 
 While it is neat to have the background catalog in the SeisComP database, this approach has few limitations. First it may take a lot of time for `scrtdd` to load a big catalog from the database comparing to loading it from files. Also, since the background catalog should be periodically updated, old events are continuosly updated with new origins, which can lead to a not optimal database performance-wise.
 
+Once the background catalog is configured `scrtdd` can be enabled and started as any other SeisComP module.  New origins will be relocated as soon as they arrive in the messsaging system.
+
 ### 2.2 Testing
 
 You might consider testing the configuration relocating some existing events to make sure the parameters are suitable for your use case. To test the real time relocation there are two command line options which relocate existing origins:
@@ -493,15 +495,6 @@ Similarly to other SeisComP commands the `--ep` option can be used for full offl
 scrtdd --ep origin.xml --verbosity=3 --console=1 [db options] \
   > relocated-origin.xml
 ```
-
-And we can use the `scxmldump` to dump an existing origin id to file:
-
-```
-# dump origin
-scxmldump -fPAMF -p -O originId -o origin.xml --verbosity=3  --console=1
-```
-
-Once we are happy with the configuration we can simply enable and start `scrtdd` as any other SeisComP module and it will start relocating origins as soon as they arrive in the messsaging system.
 
 ### 2.3 Phase update
 
