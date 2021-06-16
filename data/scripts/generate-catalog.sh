@@ -105,8 +105,6 @@ if [ -n "${DESTINATION_DB}" ]; then
     exit 1
   fi
 
-  # No need to keep the xml file since we can easily re-create it
-  rm -f $XMLRELOC_FILE 
 fi
 
 #
