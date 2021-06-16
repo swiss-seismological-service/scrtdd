@@ -199,7 +199,7 @@ void HypoDD::setWaveformDebug(bool debug)
 
 string HypoDD::generateWorkingSubDir(const Event &ev) const
 {
-  static UniformRandomer ran(0, 1000);
+  static UniformRandomer ran(0, 9999);
   string id = stringify(
       "%s_%05d_%06d_%s_%04zu",
       ev.time.toString("%Y%m%d%H%M%S").c_str(),           // origin time
@@ -424,15 +424,17 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
 
   // Create working directory (used to be a working directory, now it's just
   // logs/debug).
-  string subFolder = generateWorkingSubDir(evToRelocate);
-  subFolder = (boost::filesystem::path(_workingDir) / subFolder).string();
-  if (!Util::pathExists(subFolder))
+  string subFolder;
+  do
   {
-    if (!Util::createPath(subFolder))
-    {
-      string msg = "Unable to create working directory: " + subFolder;
-      throw runtime_error(msg);
-    }
+    subFolder = generateWorkingSubDir(evToRelocate);
+    subFolder = (boost::filesystem::path(_workingDir) / subFolder).string();
+  } while (Util::pathExists(subFolder));
+
+  if (!Util::createPath(subFolder))
+  {
+    string msg = "Unable to create working directory: " + subFolder;
+    throw runtime_error(msg);
   }
 
   // prepare file logger

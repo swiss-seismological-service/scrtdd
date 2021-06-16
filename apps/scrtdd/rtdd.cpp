@@ -1175,7 +1175,7 @@ bool RTDD::run()
     if (commandline().hasOption("xmlout"))
     {
       DataModel::EventParametersPtr evParam = new DataModel::EventParameters();
-      evParam->SetRegistrationEnabled(false); // allow to add objects with existing publicIDs
+      evParam->SetRegistrationEnabled(false); // allow existing publicIDs
       for (const auto &kv : relocatedCat->getEvents())
       {
         HDD::CatalogPtr ev = relocatedCat->extractEvent(kv.second.id, true);
