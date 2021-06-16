@@ -1899,6 +1899,7 @@ void RTDD::convertOrigin(
           DataModel::StationMagnitude *newStaMag =
               DataModel::StationMagnitude::Create();
           *newStaMag                      = *staMag;
+          newOrg->add(newStaMag);
           staMagIdMap[staMag->publicID()] = newStaMag->publicID();
         }
       }
