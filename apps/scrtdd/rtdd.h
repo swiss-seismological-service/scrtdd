@@ -29,6 +29,7 @@
 
 #include "app.h"
 #include "hypodd.h"
+#include "sccatalog.h"
 
 #define SEISCOMP_COMPONENT RTDD
 #include <seiscomp3/logging/log.h>
@@ -60,7 +61,7 @@ public:
   };
   DEFINE_SMARTPOINTER(Region);
 
-  virtual const char *version() { return "1.4.1"; }
+  virtual const char *version() { return "1.5.0"; }
 
 protected:
   void createCommandLineDescription();
@@ -105,20 +106,29 @@ private:
                       std::vector<DataModel::PickPtr> &newOrgPicks);
 
   void convertOrigin(const HDD::CatalogCPtr &relocatedOrg,
-                     ProfilePtr profile,           // can be nullptr
-                     const DataModel::Origin *org, // can be nullptr
+                     ProfilePtr profile,
+                     DataModel::Origin *org,
+                     bool includeMagnitude,
+                     bool fullMagnitude,
+                     bool includeExistingPicks,
                      DataModel::OriginPtr &newOrg,
                      std::vector<DataModel::PickPtr> &newOrgPicks);
 
   void removedFromCache(DataModel::PublicObject *);
 
-  HDD::Catalog *getCatalog(const std::string &catalogPath);
+  HDD::Catalog *getCatalog(
+      const std::string &catalogPath,
+      std::unordered_map<unsigned, DataModel::OriginPtr> *idmap = nullptr);
   ProfilePtr getProfile(const std::string &profile);
   ProfilePtr getProfile(const DataModel::Origin *origin,
                         const std::string &forceProfile = "");
   ProfilePtr getProfile(double latitude,
                         double longitude,
                         const std::string &forceProfile = "");
+
+  void loadProfile(ProfilePtr profile,
+                   bool preloadData,
+                   const HDD::CatalogCPtr &alternativeCatalog = nullptr);
 
   std::vector<DataModel::OriginPtr> fetchOrigins(const std::string &idFile,
                                                  std::string options);
@@ -149,10 +159,9 @@ private:
     std::string relocateCatalog;
     std::string dumpCatalog;
     std::string mergeCatalogs;
-    std::string dumpCatalogXML;
     std::string evalXCorr;
     std::string reloadProfileMsg;
-    bool loadProfile;
+    bool loadProfileWf;
 
     // cron
     int wakeupInterval;
@@ -169,7 +178,7 @@ private:
               DataModel::PublicObjectTimeSpanBuffer *cache,
               DataModel::EventParameters *eventParameters,
               const std::string &workingDir,
-              bool cleanupWorkingDir,
+              bool saveProcessingFiles,
               bool cacheWaveforms,
               bool cacheAllWaveforms,
               bool debugWaveforms,
@@ -177,6 +186,7 @@ private:
               const HDD::CatalogCPtr &alternativeCatalog = nullptr);
     void unload();
     bool isLoaded() { return loaded; }
+    void freeResources();
     Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
     HDD::CatalogPtr relocateSingleEvent(DataModel::Origin *org);
     HDD::CatalogPtr relocateCatalog();

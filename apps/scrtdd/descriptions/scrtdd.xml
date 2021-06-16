@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <seiscomp>
   <module name="scrtdd" category="Processing" inherit-global-bindings="true">
-    <description>Double-Difference relocation module for real-time and catalogs relocation</description>
+    <description>
+      Double-Difference relocation module for real-time and catalogs relocation.
+      Please see https://github.com/swiss-seismological-service/scrtdd for the documentation.
+    </description>
     <configuration>
       <parameter name="onlyPreferredOrigins" type="boolean" default="true">
         <description>Relocate only preferred origins. When disabled scrtdd listens to LOCATION group and tries to relocate any origin. When enabled scrtdd listens to EVENT group and tries to relocate the preferred origin of an event.</description>
@@ -302,25 +305,50 @@
         <optionReference>records#record-file</optionReference>
         <optionReference>records#record-type</optionReference>
       </group>
-      <group name="SingleEvent">
-        <option long-flag="origin-id" flag="O" argument="origin-id">
-          <description>Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed according tothe matching profile region unless the --profile option is used.</description>
-        </option>
-      </group>
-      <group name="MultiEvents">
+      <group name="Mode">
         <option long-flag="reloc-catalog" argument="profile">
           <description>Relocate the catalog passed as argument in multi-event mode. The input can be a single file (containing seiscomp origin ids) or a file triplet (station.csv,event.csv,phase.csv). For events stored in a XML file add the --ep option.</description>
         </option>
-      </group>
-      <group name="SingleAndMultiEvent">
-        <option long-flag="reloc-catalog" argument="profile">
-          <description>Event parameters XML file for offline processing of contained origins (implies --test option). Each contained origin will be processed in signle-event mode unless --reloc-catalog is provided, which enable multi-evet mode. In combination with --origin-id a XML output is gemerated</description>
+        <option long-flag="origin-id" flag="O" argument="origin-id">
+          <description>Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed according tothe matching profile region unless the --profile option is used.</description>
         </option>
-      </group>
-      <group name="Mode">
+        <option long-flag="ep" argument="scxml-file">
+          <description>Event parameters XML file for offline processing of contained origins (implies --test option). Each contained origin will be processed in signle-event mode unless --reloc-catalog is provided, which enable multi-evet mode.</description>
+        </option>      
         <option long-flag="eval-xcorr" argument="profile">
           <description>Evaluate cross-correlation settings for the given profile.</description>
         </option>
+        <option long-flag="load-profile-wf" argument="profile">
+          <description>Load catalog waveforms from the configured recordstream and save them into the profile working directory.</description>
+        </option>
+        <option long-flag="dump-config">
+          <description>Dump the configuration and exit</description>
+        </option>
+        <option long-flag="send-reload-profile-msg">
+          <description>Send a message to any running scrtdd module requesting to reload a specific profile passed as argument.</description>
+        </option>        
+      </group>
+      <group name="Catalog">
+        <option long-flag="dump-catalog" argument="catalog-file">
+          <description>Dump the seiscomp event/origin id file passed as argument into a catalog file triplet (station.csv,event.csv,phase.cs v).</description>
+        </option>
+        <option long-flag="dump-catalog-options" argument="type,evalmode,includeCreator,excludeCreator,region">
+          <description>Allows the --dump-catalog option to accept event ids besides origin ids. For each event id an origin will be selected following the provided options whose format is: 'type,evalmode,include Creator,excludeCreator,region', where type=preferred|last|first evalmode=any|onlyManual|onlyAutomatic includeCreator=any|author|methodID excludeCreator=none|author|methodID region=any|profileName e.g. to select preferred origins of the input event ids that lie within the region defined for 'myProfile' use 'preferred,any,any,none ,myProfile'</description>
+        </option>
+        <option long-flag="merge-catalogs" argument="catalog-files">
+          <description>Merge in a single catalog all the catalog file triplets (station1.csv,event1.csv,phase1.csv,sta tion2.csv,event2.csv,phase2.csv,...) passed as arguments.</description>
+        </option>
+        <option long-flag="merge-catalogs-keepid" argument="catalog-files">
+          <description>Similar to the --merge-catalogs option but events keep their ids. If multiple events share the same id, subsequent events will be discarded.</description>
+        </option>
+      </group>
+      <group name="ModeOptions">
+        <option long-flag="profile" argument="profile"> 
+          <description>To be used in combination with other options: select the profile configuration to use.</description>
+        </option>  
+        <option long-flag="xmlout">
+          <description>Enable XML output when combined with --reloc-catalog or --oring-id options.</description>
+        </option>      
         <option long-flag="test">
           <description>Test mode, no messages are sent</description>
         </option>
@@ -330,33 +358,10 @@
         <option long-flag="cache-wf-all">
           <description>All waveforms will be saved to disk cache, even temporarily ones. Normally only catalog phase waveforms are cached to disk. This is useful to speed up debugging/testing when the same origins are repeatedly processed.</description>
         </option>
-        <option long-flag="load-profile-wf" argument="profile">
-          <description>Load catalog waveforms from the configured recordstream and save them into the profile working directory.</description>
-        </option>
         <option long-flag="expiry" flag="x" argument="hours">
           <description>Defines the time span in hours after which objects expire.</description>
         </option>
-        <option long-flag="dump-config">
-          <description>Dump the configuration and exit</description>
-        </option>
-      </group>
-      <group name="Catalog">
-        <option long-flag="dump-catalog" argument="catalog-file">
-          <description>Dump the seiscomp event/origin id file passed as argument into a catalog file triplet (station.csv,event.csv,phase.cs v).</description>
-        </option>
-        <option long-flag="dump-catalog-options" argument="type,evalmode,includeCreator,excludeCreator,region">
-          <description>Allows the --dump-catalog option to accept event ids besides origin ids. For each event id an origin will be selected following the provided options whose format is: 'type,evalmode,include Creator,excludeCreator,region', where type=preferred|last|first evalmode=any|onlyManual|onlyAutomatic includeCreator=any|author|methodID excludeCreator=none|author|methodID region=any|profileName e.g. to select preferred origins of the input event ids that lie within the region defined for 'myProfile' use 'preferred,any,any,none ,myProfile'</description>
-        </option>
-        <option long-flag="dump-catalog-xml" argument="catalog-files">
-          <description>Convert the input catalog into XML format. The input can be a single file (containing seiscomp origin ids) or a catalog file triplet (station.csv,event.csv,phase.csv).</description>
-        </option>
-        <option long-flag="merge-catalogs" argument="catalog-files">
-          <description>Merge in a single catalog all the catalog file triplets (station1.csv,event1.csv,phase1.csv,sta tion2.csv,event2.csv,phase2.csv,...) passed as arguments.</description>
-        </option>
-        <option long-flag="merge-catalogs-keepid" argument="catalog-files">
-          <description>Similar to the --merge-catalogs option but events keep their ids. If multiple events share the same id, subsequent events will be discarded.</description>
-        </option>
-      </group>
+      </group>     
     </command-line>
   </module>
 </seiscomp>

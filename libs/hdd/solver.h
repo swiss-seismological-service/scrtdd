@@ -124,7 +124,7 @@ class Solver : public Core::BaseObject
 
 public:
   Solver(std::string type) : _type(type) {}
-  virtual ~Solver() {}
+  ~Solver() {}
 
   void reset() { *this = Solver(_type); }
 

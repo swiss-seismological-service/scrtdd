@@ -294,21 +294,18 @@ To enable `scrtdd` in real-time the output files reloc-event.csv reloc-phase.csv
 
 ### 1.5 Useful options
 
-In addition to the options we have already seen, there are also some other interesting catalog related options.
+In addition to the options we have already seen, there are also some other useful ones.
 
-`--dump-catalog-xml` converts a catalog to XML format, which is useful to insert the XML file in the SeisComP database or to share the catalog in a standard format.
- 
+`--xmlout` option can be used in combination with `--reloc-catalog` to generate a XML output, which is useful to later insert the relocated catalog in a SeisComP database (e.g. scdb command).
 
 E.g.
 ```
-scrtdd --dump-catalog-xml station.csv,event.csv,phase.csv > mycatalog.xml
-```
-or
-```
-scrtdd --dump-catalog-xml myCatalog.csv > mycatalog.xml
+scrtdd --reloc-catalog myCatalog.csv --profile myProfile \
+       --verbosity=3 --console=1 [db options]
+       --xmlout > relocated-catalog.xml
 ```
 
-`--merge-catalogs` and `--merge-catalogs-keepid` are useful to merge several catalogs into a single one. The difference between the two options is that `--merge-catalogs-keepid` properly handles repeated events. E.g.
+`--merge-catalogs` and `--merge-catalogs-keepid` are useful to merge several catalogs into a single one. 
 
 ```
 scrtdd --merge-catalogs station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,phase2.csv
@@ -319,48 +316,47 @@ Here is a list of all the options we have seen so far:
 ```
 scrtdd --help
 
-MultiEvents:
+Mode:
+
   --reloc-catalog arg                   Relocate the catalog passed as argument
                                         in multi-event mode. The input can be a
                                         single file (containing seiscomp origin
-                                        ids) or a file triplet 
-                                        (station.csv,event.csv,phase.csv). For 
-                                        events stored in a XML files add the 
-                                        --ep option. Use in combination with 
+                                        ids) or a file triplet
+                                        (station.csv,event.csv,phase.csv). For
+                                        events stored in a XML files add the
+                                        --ep option. Use in combination with
                                         --profile
 
-SingleAndMultiEvent:
-  --ep arg                              Event parameters XML file for offline 
-                                        processing of contained origins 
+  --ep arg                              Event parameters XML file for offline
+                                        processing of contained origins
                                         (implies --test option). Each contained
-                                        origin will be processed in 
-                                        signle-event mode unless 
-                                        --reloc-catalog is provided, which 
-                                        enable multi-event mode.  In combination
-                                        with --origin-id a XML output is 
-                                        generated
+                                        origin will be processed in
+                                        signle-event mode unless
+                                        --reloc-catalog is provided, which
+                                        enable multi-event mode.
+
+ModeOptions:
 
   --profile arg                         To be used in combination with other 
                                         options: select the profile 
                                         configuration to use
 
+  --xmlout                              Enable XML output when combined with 
+                                        --reloc-catalog or --oring-id options
+
 Catalog:
+
   --dump-catalog arg                    Dump the seiscomp event/origin id file 
                                         passed as argument into a catalog file 
                                         triplet (station.csv,event.csv,phase.cs
                                         v).
-
-  --dump-catalog-xml arg                Convert the input catalog into XML 
-                                        format. The input can be a single file 
-                                        (containing seiscomp origin ids) or a 
-                                        catalog file triplet 
-                                        (station.csv,event.csv,phase.csv).
 
   --merge-catalogs arg                  Merge in a single catalog all the 
                                         catalog file triplets 
                                         (station1.csv,event1.csv,phase1.csv,sta
                                         tion2.csv,event2.csv,phase2.csv,...) 
                                         passed as arguments.
+
   --merge-catalogs-keepid arg           Similar to the --merge-catalogs option 
                                         but events keep their ids. If multiple 
                                         events share the same id, subsequent 
@@ -411,17 +407,20 @@ Real time relocation uses the same configuration we have seen in full catalog re
 
 If step2 completes successfully the relocated origin is sent to the messaging system. 
 
-### 2.1. Selecting a background catalog from existing origins
+### 2.1. Configuring a background catalog
 
 The easiest choice is to use as background catalog the relocated multi-event results; the triplet *reloc-event.csv*, *phase.csv*, *station.csv*:
 
 ![Catalog selection option](/data/img/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
-However, it is also possible to import the catalog file triplet into the database and specify the origin ids as background catalog: we can transform the relocated catalog triplet reloc-event.csv, phase.csv,station.csv to XML format using the --dump-catalog-xml option and then insert the XML into the seiscomp database. While it is neat to have the background catalog in the SeisComP database, this approach is inconvenient in the common scenario where the background catalog is periodically re-generated.
+However, if the catalog is generated in XML format, it can be imported in the SeisComP database. In this case the background catalog can be a file containing just the origin ids. 
 
 ![Catalog selection option](/data/img/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
 
- 
+While it is neat to have the background catalog in the SeisComP database, this approach has few limitations. First it may take a lot of time for `scrtdd` to load a big catalog from the database comparing to loading it from files. Also, since the background catalog should be periodically updated, old events are continuosly updated with new origins, which can lead to a not optimal database performance-wise.
+
+Once the background catalog is configured `scrtdd` can be enabled and started as any other SeisComP module.  New origins will be relocated as soon as they arrive in the messsaging system.
+
 ### 2.2 Testing
 
 You might consider testing the configuration relocating some existing events to make sure the parameters are suitable for your use case. To test the real time relocation there are two command line options which relocate existing origins:
@@ -429,7 +428,8 @@ You might consider testing the configuration relocating some existing events to 
 ```
 scrtdd --help
 
-SingleEvent:
+Mode:
+
   -O [ --origin-id ] arg                Relocate  the origin (or multiple 
                                         comma-separated origins) in 
                                         signle-event mode and send a message. 
@@ -437,24 +437,26 @@ SingleEvent:
                                         accordingly to the matching profile 
                                         region unless the --profile option  is 
                                         used.
-
-  --test                                Test mode, no messages are sent when 
-                                        relocating a single event
-
-SingleAndMultiEvent:
   --ep arg                              Event parameters XML file for offline 
                                         processing of contained origins 
                                         (implies --test option). Each contained
                                         origin will be processed in 
                                         signle-event mode unless 
                                         --reloc-catalog is provided, which 
-                                        enable multi-event mode.  In combination
-                                        with --origin-id a XML output is 
-                                        gemerated
+                                        enable multi-event mode.
 
-  --profile arg                         To be used in combination with other 
+ModeOptions:
+
+   --profile arg                        To be used in combination with other 
                                         options: select the profile 
                                         configuration to use
+
+  --test                                Test mode, no messages are sent when 
+                                        relocating a single event
+
+  --xmlout                              Enable XML output when combined with 
+                                        --reloc-catalog or --oring-id options
+
 ```
 
 #### 2.2.1 Relocate origin ID and send the relocation to the messaging system for further processing
@@ -468,7 +470,7 @@ scrtdd --origin-id someOriginId \
 
 #### 2.2.2 Relocate origin ID but do not send the relocation (debug)
 
-As above but add `--test`
+As above but add `--test` and the origin will not be sent to the messaging system. Useful for troubleshooting when the `scrtdd.saveProcessingFiles` option is enabled to verify the relocation files in `scrtdd.workingDirectory`.
 
 ```
 scrtdd --origin-id someOriginId --test \
@@ -477,30 +479,22 @@ scrtdd --origin-id someOriginId --test \
 
 #### 2.2.3 Relocate origin ID and store the result to XML file
 
-For testing purpose we are more likely interested in not interfering with the database and the messaging system so we can use the `--ep` option and the relocated origin will be saved as a XML file. We can finally open the XML file with `scolv` for inspection:
+Adding the `--xmlout` option allows to save the origin as a XML file. We can finally open the ile with `scolv` for inspection:
 
 ```
-scrtdd --origin-id someOriginId --ep - \
-       --verbosity=3 --console=1 [db options] >  relocated-origin.xml
+scrtdd --origin-id someOriginId --xmlout \
+       --verbosity=3 --console=1 [db options] \
+  >  relocated-origin.xml
 ```
 
 #### 2.2.4 Relocate XML file and store the result to XML file
 
-Alternatively the `--ep` option (without `-O`) can process all origins contained in the input XML file:
+Similarly to other SeisComP commands the `--ep` option can be used for full offline processing. All origins contained in the input XML file are relocated.
 
 ```
 scrtdd --ep origin.xml --verbosity=3 --console=1 [db options] \
   > relocated-origin.xml
 ```
-
-And we can use the `scxmldump` to dump an existing origin id to file:
-
-```
-# dump origin
-scxmldump -fPAMF -p -O originId -o origin.xml --verbosity=3  --console=1
-```
-
-Once we are happy with the configuration we can simply enable and start `scrtdd` as any other SeisComP module and it will start relocating origins as soon as they arrive in the messsaging system.
 
 ### 2.3 Phase update
 
@@ -835,17 +829,17 @@ ddObs_finalResidualMedian
 ddObs_finalResidualMAD 
 ```
 
-## 6. Troubleshooting - Logs
+## 6. Troubleshooting
 
-Check log file: ~/.seiscomp/log/scrtdd.log 
-
-Alternatively, when running `scrtdd` from the command line use the following options to see the logs on the console:
+Log files are located in ~/.seiscomp/log/scrtdd.log. Alternatively, when running `scrtdd` from the command line, the following options can be used to see the logs on the console:
 
 ```
 scrtdd [some options] --verbosity=3 --console=1
 ```
 
-Verbosity 3 should be preferred to level 4, since the debug level 4 makes the logs hard to read due to the huge amount of information. Any useful information to the user is given at level 3 or above.
+Verbosity 3 should be preferred to level 4, since the debug level 4 makes the logs hard to read due to the huge amount of information.
+
+Also, enabling the `scrtdd.saveProcessingFiles` option makes `scrtdd` generates multiple information files inside `scrtdd.workingDirectory`. Those files can be useful for carefull inspections of the relocations.
 
 ### 6.1 Single-event
 
