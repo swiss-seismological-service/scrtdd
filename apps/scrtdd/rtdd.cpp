@@ -1045,12 +1045,12 @@ bool RTDD::run()
   {
     RTDDReloadProfileRequestMessage msg;
     msg.setProfile(_config.reloadProfileMsg);
-    connection()->send(&msg);
-    if (!connection()->send(&msg))
+    if (!connection()->send("SERVICE_REQUEST", &msg))
     {
       SEISCOMP_ERROR("Error while sending relocation request message");
       return false;
     }
+    SEISCOMP_INFO("Relocation request message successfully sent");
     return true;
   }
 
@@ -1318,7 +1318,7 @@ void RTDD::handleMessage(Core::Message *msg)
       resp.setError(
           stringify("Unknown profile '%s'", reload_req->getProfile().c_str()));
     }
-    if (!connection()->send(&resp))
+    if (!connection()->send("SERVICE_PROVIDE", &resp))
       SEISCOMP_ERROR("Failed sending profile reload response");
   }
 
@@ -1437,12 +1437,11 @@ void RTDD::checkProfileStatus()
 {
   for (ProfilePtr currProfile : _profiles)
   {
-    // if profiles are always alive load them and preload waveforms
-    if (_config.profileTimeAlive < 0)
-    {
-      if (!currProfile->isLoaded()) loadProfile(currProfile, true);
-    }
-    else // periodic clean up of profiles
+    if (!currProfile->isLoaded())
+      loadProfile(currProfile, (_config.profileTimeAlive < 0));
+
+    // periodic clean up of profiles
+    if (_config.profileTimeAlive >= 0)
     {
       Core::TimeSpan expired = Core::TimeSpan(_config.profileTimeAlive);
       if (currProfile->isLoaded() && currProfile->inactiveTime() > expired)
@@ -1807,7 +1806,8 @@ void RTDD::relocateOrigin(DataModel::Origin *org,
                           DataModel::OriginPtr &newOrg,
                           std::vector<DataModel::PickPtr> &newOrgPicks)
 {
-  if (!profile->isLoaded()) loadProfile(profile, false);
+  if (!profile->isLoaded())
+    loadProfile(profile, (_config.profileTimeAlive < 0));
   HDD::CatalogPtr relocatedOrg = profile->relocateSingleEvent(org);
   bool includeMagnitude        = org->evaluationMode() == DataModel::MANUAL;
   convertOrigin(relocatedOrg, profile, org, includeMagnitude, true, false,
@@ -1897,7 +1897,7 @@ void RTDD::convertOrigin(
           DataModel::StationMagnitude *staMag = org->stationMagnitude(i);
           DataModel::StationMagnitude *newStaMag =
               DataModel::StationMagnitude::Create();
-          *newStaMag                      = *staMag;
+          *newStaMag = *staMag;
           newOrg->add(newStaMag);
           staMagIdMap[staMag->publicID()] = newStaMag->publicID();
         }
@@ -2175,6 +2175,17 @@ RTDD::ProfilePtr RTDD::getProfile(double latitude,
   return currProfile;
 }
 
+
+void RTDD::loadProfile(ProfilePtr profile,
+                       bool preloadData,
+                       const HDD::CatalogCPtr &alternativeCatalog)
+{
+  profile->load(query(), &_cache, _eventParameters.get(),
+                _config.workingDirectory, _config.saveProcessingFiles,
+                _config.cacheWaveforms, _config.cacheAllWaveforms,
+                _config.dumpWaveforms, preloadData, alternativeCatalog);
+}
+
 std::vector<DataModel::OriginPtr> RTDD::fetchOrigins(const std::string &idFile,
                                                      std::string options)
 {
@@ -2326,16 +2337,6 @@ std::vector<DataModel::OriginPtr> RTDD::fetchOrigins(const std::string &idFile,
   }
 
   return origins;
-}
-
-void RTDD::loadProfile(ProfilePtr profile,
-                       bool preloadData,
-                       const HDD::CatalogCPtr &alternativeCatalog)
-{
-  profile->load(query(), &_cache, _eventParameters.get(),
-                _config.workingDirectory, _config.saveProcessingFiles,
-                _config.cacheWaveforms, _config.cacheAllWaveforms,
-                _config.dumpWaveforms, preloadData, alternativeCatalog);
 }
 
 // Profile class

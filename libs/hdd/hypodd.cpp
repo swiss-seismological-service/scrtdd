@@ -248,7 +248,8 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   CatalogPtr catToReloc(new Catalog(*_bgCat));
 
   // prepare a folder for debug files
-  string catalogWorkingDir = (boost::filesystem::path(_workingDir) / "catalog").string();
+  string catalogWorkingDir =
+      (boost::filesystem::path(_workingDir) / "catalog").string();
   if (_saveProcessing)
   {
     if (!Util::pathExists(catalogWorkingDir))
@@ -400,7 +401,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
     do
     {
       baseWorkingDir = generateWorkingSubDir(evToRelocate);
-      baseWorkingDir = (boost::filesystem::path(_workingDir) / baseWorkingDir).string();
+      baseWorkingDir =
+          (boost::filesystem::path(_workingDir) / baseWorkingDir).string();
     } while (Util::pathExists(baseWorkingDir));
 
     if (!Util::createPath(baseWorkingDir))
@@ -457,7 +459,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
 
   SEISCOMP_INFO("Performing step 2: relocation with cross-correlation");
 
-  eventWorkingDir = (boost::filesystem::path(baseWorkingDir) / "step2").string();
+  eventWorkingDir =
+      (boost::filesystem::path(baseWorkingDir) / "step2").string();
 
   CatalogPtr relocatedEvWithXcorr =
       relocateEventSingleStep(bgCat, evToRelocateCat, eventWorkingDir,
@@ -517,7 +520,7 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
     {
       string msg = "Unable to create working directory: " + workingDir;
       throw runtime_error(msg);
-    } 
+    }
     SEISCOMP_INFO("Working dir %s", workingDir.c_str());
 
     evToRelocateCat->writeToFile(
