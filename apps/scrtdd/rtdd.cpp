@@ -1045,8 +1045,7 @@ bool RTDD::run()
   {
     RTDDReloadProfileRequestMessage msg;
     msg.setProfile(_config.reloadProfileMsg);
-    connection()->send(&msg);
-    if (!connection()->send(&msg))
+    if (!connection()->send("SERVICE_REQUEST", &msg))
     {
       SEISCOMP_ERROR("Error while sending relocation request message: %s",
                      connection()->lastError().toString());
@@ -1320,7 +1319,7 @@ void RTDD::handleMessage(Core::Message *msg)
       resp.setError(
           stringify("Unknown profile '%s'", reload_req->getProfile().c_str()));
     }
-    if (!connection()->send(&resp))
+    if (!connection()->send("SERVICE_PROVIDE", &resp))
       SEISCOMP_ERROR("Failed sending profile reload response");
   }
 
