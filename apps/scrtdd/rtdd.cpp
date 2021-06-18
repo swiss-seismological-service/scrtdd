@@ -1919,8 +1919,13 @@ void RTDD::convertOrigin(
             DataModel::StationMagnitudeContribution *newContrib =
                 new DataModel::StationMagnitudeContribution();
             *newContrib = *contrib;
-            newContrib->setStationMagnitudeID(
-                staMagIdMap.at(contrib->stationMagnitudeID()));
+            try
+            {
+              newContrib->setStationMagnitudeID(
+                  staMagIdMap.at(contrib->stationMagnitudeID()));
+            }
+            catch (...)
+            {}
             newMag->add(newContrib);
           }
         }
@@ -2175,7 +2180,6 @@ RTDD::ProfilePtr RTDD::getProfile(double latitude,
 
   return currProfile;
 }
-
 
 void RTDD::loadProfile(ProfilePtr profile,
                        bool preloadData,
