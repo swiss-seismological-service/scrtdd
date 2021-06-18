@@ -66,11 +66,10 @@ For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#
 * [2.Real-time single-event relocation](#2-real-time-single-event-relocation)
 * [3.Cross-correlation](#3-cross-correlation)
 * [4.Waveform data and recordStream configuration](#4-waveform-data-and-recordstream-configuration)
-* [5.Relocation statistics](#5-relocation-statistics)
-* [6.Troubleshooting - Logs](#6-troubleshooting---logs) 
-* [7.Database connection and relocating events on remote machines](#7-database-connection-and-relocating-events-on-remote-machines)
-* [8.Custom velocity models - LOCSAT NonLinLoc](#8-custom-velocity-models---locsat-nonlinloc)
-* [9.Scolv Locator plugin](#9-scolv-locator-plugin) 
+* [5.Database connection](#5-database-connection)
+* [6.Troubleshooting](#6-troubleshooting) 
+* [7.Custom velocity models](#7-custom-velocity-models)
+* [8.Scolv Locator plugin](#8-scolv-locator-plugin) 
 
 ## 1. Multi-event relocation
 
@@ -745,14 +744,14 @@ recordstream = combined://slink/localhost:18000?timeout=5&retries=0;sdsarchive//
 
 ### 4.1 Waveforms data caching
 
-Unless the recordStream points to a local disk storage, downloading waveforms might require a lot of time. For this reason `scrtdd` store the waveforms to disk (called waveform cache) after downloading them. However only the catalog phase waveforms are used over and over again, that's not the same for the real-time events waveforms that are never saved since their waveforms are used just once. The cache folder is `workingDirectory/profileName/wfcache/` (e.g. /installation/path/seiscomp/var/lib/rtdd/myProfile/wfcache/). 
+Unless the recordStream points to a local disk storage, downloading waveforms might require a lot of time. For this reason `scrtdd` stores the waveforms to disk (called waveform cache) after downloading them. This applies only to the catalog event waveforms, which are used over and over again. That's not true for the real-time events, whose waveforms are used just once and never cached. The cache folder is `workingDirectory/profileName/wfcache/`.
 
 However, for certain situations (e.g. debugging) it might be useful to cache all the waveforms, even the ones that are normally not cached. For those special cases the option --cache-wf-all can be used (stored in `workingDirectory/profileName/tmpcache/` which can be deleted afterwards).
 
 
 ### 4.2 Catalog waveforms preloading
 
-When `scrtdd` starts for the first time it loads all the catalog waveforms and stores them to disk. In this way, the waveforms become quickly available in real-time without the need to access the recordStream. However, if the option `performance.profileTimeAlive` is greater than 0, the catalog waveforms will be loaded only when needed (on a new origin arrival) and and not when `scrtdd` starts. In this case we might decide to pre-download all waveforms anyway, before starting the module, using the following option:
+When `scrtdd` starts for the first time it loads all the catalog waveforms and stores them to disk. However, if the option `performance.profileTimeAlive` is greater than 0, the catalog waveforms will be loaded only when needed (lazy loading) and not at start time. We can also force `scrtdd` to pre-download all waveforms using the following option:
 
 ```
 scrtdd --load-profile-wf --profile myprofile
@@ -769,65 +768,26 @@ scrtdd --help
                                         options: select the profile 
                                         configuration to use
 
-``` 
-
-## 5. Relocation statistics
-
-### 5.1 Single-event
-
-`scrtdd` adds two comments to each relocated origin: `scrtddSourceOrigin` and `scrtddRelocationReport`. They can be both visualized in `scolv` (see official SeisComP documentation on how to do so), or they can be seen on the logs.
-
-`scrtddSourceOrigin` contains the id of the origin that triggered the relocation. `scrtddRelocationReport` contains a summary of the relocation process. E.g.
-
-```
-Origin changes: location=0.23[km] depth=1.40[km] time=-0.147[sec]
-Rms change [sec]: -0.153 (before/after 0.502/0.349)
-Neighbours=80 Used Phases: P=37 S=16
-Stations distance [km]: min=15.9 median=57.0 max=99.8
-Neighbours mean distace to centroid [km]: location=5.11 depth=5.06
-Origin distace to neighbours centroid [km]: location=1.30 depth=3.01
-DD observations: 687 (CC P/S 141/47 TT P/S 375/124)
-DD observations residuals [msec]: before=-106+/-21.6 after=9+/-26.2
 ```
 
-To allow a comparison of the RMS before and after the relocation `scrtdd` computes the RMS before and after the relocation. Without that it would be hard to compare the RMSs. Each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a certain travel time table, that might not be the same as `scrtdd`. Moreover a locator might apply a specific logic on the RMS computation that prevents a comparison between different locators. For example NonLinLoc locator weighs the residuals by each pick weight and the wighting scheme is decided by NonLinLoc.
+## 5. Database connection
 
-The following two lines can be a little cryptic to interpret: 
-```
-Neighbours mean distace to centroid [km]: location=5.11 depth=5.06
-Origin distace to neighbours centroid [km]: location=1.30 depth=3.01
-```
+When SeisComP modules need to access the database for reading or writing data (events, picks, magnitudes, etc) they use the connection string configured in either `global.cfg` (which is inherited by every module) or in `scmaster.cfg`, in which case is scmaster module that passes the database connection string to every module when they connect to the messaging system (usually at module startup).
 
-Their intent is to highlight how far the relocated event is to the neighbours centroid. The idea is that an event that falls within a cluster has a better chance to be properly relocated than an event that is far away from the neighbouring events.
-
-### 5.2 Multi-event
-
-The above information are also stored in the output files (events.csv,phases.csv,station,csv) of the multi-event relocation and they can be used to compute useful statistics for an entire catalog.
+However, when running `scrtdd` from the command line, it doesn't connect to the messaging system and if the database connection is specified via `scmaster.cfg`, the information never reaches `scrtdd`. In this case the database connection must be passed as a command line option:
 
 ```
-startRms
-locChange
-depthChange
-timeChange
-numNeighbours
-neigh_meanDistToCentroid
-neigh_centroidToEventDist
-neigh_meanDepthDistToCentroid
-neigh_centroidToEventDepthDist
-ph_usedP
-ph_usedS
-ph_stationDistMin
-ph_stationDistMedian
-ph_stationDistMax
-ddObs_numTTp
-ddObs_numTTs
-ddObs_numCCp
-ddObs_numCCs
-ddObs_startResidualMedian
-ddObs_startResidualMAD
-ddObs_finalResidualMedian
-ddObs_finalResidualMAD 
+scrtdd [some options] -d  mysql://user:password@host/seiscompDbName
 ```
+
+or in case of a Postgresql database:
+
+```
+scrtdd [some options] --plugins dbpostgresql -d postgresql://user:password@host/seiscompDbName
+```
+
+It is worth noting that this feature allows `scrtdd` to connect to remote seiscomp databases too and relocate events stored in other machines without interfering with the real-time processing happening there.
+ 
 
 ## 6. Troubleshooting
 
@@ -925,28 +885,63 @@ Details of the solutions for each iteration of the solver
 [...] 
 ```
 
-## 7. Database connection and relocating events on remote machines
+### 6.3 Relocation statistics
 
-When SeisComP modules need to access the database for reading or writing data (events, picks, magnitudes, etc) they use the connection string configured in either `global.cfg` (which is inherited by every module) or in `scmaster.cfg`, in which case is scmaster module that passes the database connection string to every module when they connect to the messaging system (usually at module startup).
+`scrtdd` adds two comments to each relocated origin: `scrtddSourceOrigin` and `scrtddRelocationReport`. They can be both visualized in `scolv` (see official SeisComP documentation on how to do so), or they can be seen on the logs.
 
-However, when running `scrtdd` from the command line, it doesn't connect to the messaging system and if the database connection is specified via `scmaster.cfg`, the information never reaches `scrtdd`. In this case the database connection must be passed as a command line option:
-
-```
-scrtdd [some options] -d  mysql://user:password@host/seiscompDbName
-```
-
-or in case of a Postgresql database:
+`scrtddSourceOrigin` contains the id of the origin that triggered the relocation. `scrtddRelocationReport` contains a summary of the relocation process. E.g.
 
 ```
-scrtdd [some options] --plugins dbpostgresql -d postgresql://user:password@host/seiscompDbName
+Origin changes: location=0.23[km] depth=1.40[km] time=-0.147[sec]
+Rms change [sec]: -0.153 (before/after 0.502/0.349)
+Neighbours=80 Used Phases: P=37 S=16
+Stations distance [km]: min=15.9 median=57.0 max=99.8
+Neighbours mean distace to centroid [km]: location=5.11 depth=5.06
+Origin distace to neighbours centroid [km]: location=1.30 depth=3.01
+DD observations: 687 (CC P/S 141/47 TT P/S 375/124)
+DD observations residuals [msec]: before=-106+/-21.6 after=9+/-26.2
 ```
 
-It is worth noting that this feature allows `scrtdd` to connect to remote seiscomp databases too and relocate events stored in other machines without interfering with the real-time processing happening there.
+To allow a comparison of the RMS before and after the relocation `scrtdd` computes the RMS before and after the relocation. Without that it would be hard to compare the RMSs. Each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a certain travel time table, that might not be the same as `scrtdd`. Moreover a locator might apply a specific logic on the RMS computation that prevents a comparison between different locators. For example NonLinLoc locator weighs the residuals by each pick weight and the wighting scheme is decided by NonLinLoc.
 
+The following two lines can be a little cryptic to interpret: 
+```
+Neighbours mean distace to centroid [km]: location=5.11 depth=5.06
+Origin distace to neighbours centroid [km]: location=1.30 depth=3.01
+```
 
-## 8. Custom velocity models - LOCSAT NonLinLoc
+Their intent is to highlight how far the relocated event is to the neighbours centroid. The idea is that an event that falls within a cluster has a better chance to be properly relocated than an event that is far away from the neighbouring events.
 
-### 8.1 LOCSAT
+The above information is also stored in the output files (events.csv,phases.csv,station,csv) of the multi-event relocation and it can be used to compute useful statistics for an entire catalog. Those are the column names containing the information:
+
+```
+startRms
+locChange
+depthChange
+timeChange
+numNeighbours
+neigh_meanDistToCentroid
+neigh_centroidToEventDist
+neigh_meanDepthDistToCentroid
+neigh_centroidToEventDepthDist
+ph_usedP
+ph_usedS
+ph_stationDistMin
+ph_stationDistMedian
+ph_stationDistMax
+ddObs_numTTp
+ddObs_numTTs
+ddObs_numCCp
+ddObs_numCCs
+ddObs_startResidualMedian
+ddObs_startResidualMAD
+ddObs_finalResidualMedian
+ddObs_finalResidualMAD 
+```
+
+## 7. Custom velocity models
+
+### 7.1 LOCSAT
 
 In the `scrtdd` configuration it is possible to select any travel time table installed in SeisComP; this means the default SeisComP travel time tables and any other tables installed by the user. Although, this is a general SeisComP topic and we suggest to refer to the official SeisComP documentation, here is a quick recipe for generating your own travel time table from a custom velocity model.
 
@@ -1020,7 +1015,7 @@ cp mymodel* seiscomp_installation/share/locsat/tables/
 ![LOCSAT TTT](/data/img/locsat-ttt.png?raw=true "LOCSAT TTT")
 
 
-### 8.2 NonLinLoc
+### 7.2 NonLinLoc
 
 Please refer to [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) documentation on how to generate grid files. Once you have them you can configure in `scrtdd` in travel time table options.
 
@@ -1029,7 +1024,7 @@ The following geographic transformations (TRANS statement) are currently support
 ![NLL TTT](/data/img/nll-ttt.png?raw=true "NLL TTT")
 
 
-## 9. Scolv Locator plugin
+## 8. Scolv Locator plugin
 
 A (re)locator plugin is also available in the code, which makes `scrtdd` available via `scolv`. To enable this plugin just add `rtddloc` to the list of plugins in the global configuration.
 
