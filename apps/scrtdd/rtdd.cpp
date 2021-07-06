@@ -1154,6 +1154,15 @@ bool RTDD::run()
     HDD::CatalogPtr catalog = getCatalog(_config.relocateCatalog, &idmap);
     ProfilePtr profile      = getProfile(_config.forceProfile);
     if (!catalog || !profile) return false;
+
+    // if the input catalog is a list of origin ids, then dump its data
+    if (!idmap.empty())
+    {
+      catalog->writeToFile("event.csv", "phase.csv", "station.csv");
+      SEISCOMP_INFO(
+          "Wrote input catalog files event.csv, phase.csv, station.csv");
+    }
+
     loadProfile(profile, false, catalog);
     HDD::CatalogPtr relocatedCat;
     try
@@ -1161,8 +1170,8 @@ bool RTDD::run()
       relocatedCat = profile->relocateCatalog();
       relocatedCat->writeToFile("reloc-event.csv", "reloc-phase.csv",
                                 "reloc-station.csv");
-      SEISCOMP_INFO("Wrote files reloc-event.csv, reloc-phase.csv, "
-                    "reloc-station.csv");
+      SEISCOMP_INFO("Wrote relocated catalog files reloc-event.csv, "
+                    "reloc-phase.csv, reloc-station.csv");
     }
     catch (exception &e)
     {
@@ -1173,6 +1182,7 @@ bool RTDD::run()
     // output relocation to xml
     if (commandline().hasOption("xmlout"))
     {
+      SEISCOMP_INFO("Converting relocated catalog to XML...");
       DataModel::EventParametersPtr evParam = new DataModel::EventParameters();
       evParam->SetRegistrationEnabled(false); // allow existing publicIDs
       for (const auto &kv : relocatedCat->getEvents())
