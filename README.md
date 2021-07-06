@@ -81,7 +81,9 @@ Long story short:
 
 * Use `scrtdd` to relocate the events. E.g. `scrtdd --reloc-catalog  myCatalog.csv --profile myProfile [db and waveforms options]`
 
-* Use the relocation output (`reloc-event.csv`, `reloc-phase.csv` and `reloc-stations.csv`) as you please
+* Use the relocation output (`reloc-event.csv`, `reloc-phase.csv` and `reloc-stations.csv` or the SCML file `relocated.xml`) as you please
+
+Here is an [example script](/data/scripts/multi-event.sh).
 
 To relocate external (non-SeisComP) data refer to [this paragraph](#134-relocating-external-data).
 
