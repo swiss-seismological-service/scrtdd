@@ -8,8 +8,16 @@ seiscomp_exec="/usr/local/bin/seiscomp exec"
 #   sqlite3:///home/sysop/database.sqlite
 CATALOG_DB="dbtype://user:password@host/database"
 
-# Database to import the relocated catalog to (empty -> no import)
+# Database to which import the relocated catalog (if empty -> no import)
 DESTINATION_DB=""
+
+# Folder to which copy the relocated catalog, the real-time rtDD configuration
+# should point to this catalog (if empty -> no copy)
+RTDD_BGCAT_DIR=""
+
+RTDD_PROFILE="myProfile"
+
+LOGFLAG="--console=1 --verbosity=3"
 
 # 
 # Create a working directory for this relocation
@@ -35,7 +43,7 @@ fi
 cd $WORKINGDIR
 
 #
-# Downloads the events
+# Downloads the events (configure sclistorg options as you please)
 #
 echo "Downloading events from $CATALOG_DB)..."
 
@@ -45,6 +53,7 @@ $seiscomp_exec sclistorg -d $CATALOG_DB \
           --begin "2000-01-01 00:00:00" \
           --end "$(date "+%Y-%m-%d %H:%M:00" -d $NOW)" \
           --org-type preferred \
+          $LOGFLAG \
    > $ID_FILE
 
 if [ $? -ne 0 ] || [ ! -f $ID_FILE ]; then
@@ -61,8 +70,9 @@ echo "Relocating events..."
 RTDDLOG_FILE=scrtdd.log
 XMLRELOC_FILE=relocated.xml
 
-$seiscomp_exec scrtdd -d $CATALOG_DB --reloc-catalog $ID_FILE \
-       --profile myMultiEventProfile \
+$seiscomp_exec scrtdd -d $CATALOG_DB \
+       --reloc-catalog $ID_FILE \
+       --profile $RTDD_PROFILE \
        --verbosity=3 --log-file $RTDDLOG_FILE \
        --xmlout > $XMLRELOC_FILE
 
@@ -74,37 +84,44 @@ fi
 #
 # Copy relocated catalog to real-time rtDD configuration
 #
-RTDD_BGCAT_DIR=~/.seiscomp/scrtdd/myRealTimeProfile/bgCat
+if [ -n "${RTDD_BGCAT_DIR}" ]; then
 
-echo "Copying reloc-station.csv reloc-phase.csv reloc-event.csv to $RTDD_BGCAT_DIR"
+  echo "Copying reloc-station.csv reloc-phase.csv reloc-event.csv to $RTDD_BGCAT_DIR"
+  
+  cp -b -S .old -f reloc-station.csv reloc-phase.csv reloc-event.csv $RTDD_BGCAT_DIR/
+  if [ $? -ne 0 ]; then
+    echo "Cannot copy the relocated catalog to $RTDD_BGCAT_DIR: stop here"
+    exit 1
+  fi
 
-cp -b -S .old -f reloc-station.csv reloc-phase.csv reloc-event.csv $RTDD_BGCAT_DIR/
-if [ $? -ne 0 ]; then
-  echo "Cannot copy the relocated catalog to $RTDD_BGCAT_DIR: stop here"
-  exit 1
+  # Force scrtdd to reload the profile background catalog
+  $seiscomp_exec scrtdd --send-reload-profile-msg $RTDD_PROFILE --user rtddBgCatUpdate $LOGFLAG
 fi
-# Force scrtdd to reload the profile background catalog
-$seiscomp_exec scrtdd --send-reload-profile-msg myRealTimeProfile --user rtddBgCatUpdated
 
 #
-# Import the relocated catalog in a database (if destination db is defined)
+# Import the relocated catalog into the destination database
 #
 if [ -n "${DESTINATION_DB}" ]; then
 
   if [ $? -ne 0 ] || [ ! -f $XMLRELOC_FILE ]; then
-    echo "Cannot find the relocated XML catalog: stop here"
+    echo "Cannot find the relocated XML catalog $XMLRELOC_FILE: stop here"
     exit 1
   fi
 
-  echo "Importing $XMLRELOC_FILE to $DESTINATION_DB ..."
+  # Optional: run scevent on $XMLRELOC_FILE
+  # $seiscomp_exec scevent --ep $XMLRELOC_FILE  > relocated-with-events.xml
 
-  $seiscomp_exec scdb -i  $XMLRELOC_FILE -d $DESTINATION_DB
+  # Optional: clean the database from the previous data
+  # $seiscomp_exec scdbstrip -d $DESTINATION_DB $LOGFLAG --days 0
+  # $seiscomp_exec scdbstrip -d $DESTINATION_DB $LOGFLAG --days 0 --check --clean-unused
+
+  echo "Importing $XMLRELOC_FILE into $DESTINATION_DB ..."
+
+  $seiscomp_exec scdb -i $XMLRELOC_FILE -d $DESTINATION_DB $LOGFLAG
 
   if [ $? -ne 0 ]; then
-    echo "Cannot import the relocated catalog: stop here"
-    exit 1
+    echo "Errors while importing the relocated catalog into database"
   fi
-
 fi
 
 #
