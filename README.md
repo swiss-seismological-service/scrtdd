@@ -83,7 +83,7 @@ Long story short:
 
 * Use the relocation output (`reloc-event.csv`, `reloc-phase.csv` and `reloc-stations.csv` or the SCML file `relocated.xml`) as you please
 
-Here is an [example script](/data/scripts/multi-event.sh).
+As an example you may want to have a look at `multi-event.sh` script in [this folder](/data/scripts/).
 
 To relocate external (non-SeisComP) data refer to [this paragraph](#134-relocating-external-data).
 
@@ -364,11 +364,9 @@ Catalog:
                                         events will be discarded.
 ```
 
-### 1.6 Periodic update of the multi-event relocation
+### 1.6 A continuously updated multi-event relocated catalog
 
-For real-time monitoring it is useful to periodically update the multi-event relocation, so that the news events are continuously included in the double-difference inversion. This is not only useful for keeping track of what is happening in a region, but it is crucial for real-time relocation, where new origins are relocated using a background catalog: the more update the background catalog is, the better the results.
-
-For this purpose it might come in handy [this script](/data/scripts/generate-catalog.sh), that can be easily adapted to the specific use case.
+For real-time monitoring it is useful to periodically run the multi-event relocation, so that the news events are continuously included in the double-difference inversion. This is not only useful for keeping track of what is happening in a region, but it is crucial for real-time relocation, where new origins are relocated using a background catalog: the more updated the background catalog is, the better the results. For this purpose it might come in handy the `generate-background-catalog.sh` script in [this folder](/data/scripts/), that can be easily adapted to the specific use case and it is useful to periodically generate a multi-event relocated catalog.
 
 ### Examples
 
