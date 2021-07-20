@@ -8,6 +8,11 @@ seiscomp_exec="/usr/local/bin/seiscomp exec"
 #   sqlite3:///home/sysop/database.sqlite
 CATALOG_DB="dbtype://user:password@host/database"
 
+
+# Define RecordStream interface for accessing waveform data.
+# e.g."fdsnws://service.iris.edu:80/fdsnws/dataselect/1/query"
+RECORD_STREAM="[service://]location[#type]"
+
 echo "Downloading events from $CATALOG_DB..."
 
 $seiscomp_exec sclistorg -d $CATALOG_DB \
@@ -23,7 +28,7 @@ $seiscomp_exec sclistorg -d $CATALOG_DB \
 
 echo "Relocating events..."
 
-$seiscomp_exec scrtdd -d $CATALOG_DB \
+$seiscomp_exec scrtdd -d $CATALOG_DB -I $RECORD_STREAM \
        --reloc-catalog catalog-ids.csv \
        --profile myProfile \
        --verbosity=3 --log-file scrtdd.log \
