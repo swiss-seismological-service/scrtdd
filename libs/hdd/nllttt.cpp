@@ -152,11 +152,11 @@ NllTravelTimeTable::NllTravelTimeTable(const std::string &type,
                   model.c_str());
     throw runtime_error(msg.c_str());
   }
-  _velGridPath   = tokens[0];
-  _timeGridPath  = tokens[1];
-  _angleGridPath = tokens[2];
+  _velGridPath   = tokens.at(0);
+  _timeGridPath  = tokens.at(1);
+  _angleGridPath = tokens.at(2);
   _swapBytes     = false;
-  if (tokens.size() > 3 && tokens[3] == "swapBytes")
+  if (tokens.size() > 3 && tokens.at(3) == "swapBytes")
   {
     _swapBytes = true;
   }
@@ -345,37 +345,39 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
     std::vector<std::string> tokens(splitString(line, regex));
 
     // remove the first empty element if the line start with spaces
-    if (!tokens.empty() && tokens[0].empty()) tokens.erase(tokens.begin());
+    if (!tokens.empty() && tokens.at(0).empty()) tokens.erase(tokens.begin());
 
     // skip empty lines
     if (tokens.empty()) continue;
 
-    if (tokens.size() == 10 || tokens.size() == 11) // should be line 1
+    if (parsedLines == 0 &&
+        (tokens.size() == 10 || tokens.size() == 11)) // should be line 1
     {
-      info.numx      = std::stoull(tokens[0]);
-      info.numy      = std::stoull(tokens[1]);
-      info.numz      = std::stoull(tokens[2]);
-      info.origx     = std::stod(tokens[3]);
-      info.origy     = std::stod(tokens[4]);
-      info.origz     = std::stod(tokens[5]);
-      info.dx        = std::stod(tokens[6]);
-      info.dy        = std::stod(tokens[7]);
-      info.dz        = std::stod(tokens[8]);
-      info.type      = tokens[9];
-      info.useDouble = (tokens.size() == 11) ? (tokens[10] == "DOUBLE") : false;
+      info.numx  = std::stoull(tokens.at(0));
+      info.numy  = std::stoull(tokens.at(1));
+      info.numz  = std::stoull(tokens.at(2));
+      info.origx = std::stod(tokens.at(3));
+      info.origy = std::stod(tokens.at(4));
+      info.origz = std::stod(tokens.at(5));
+      info.dx    = std::stod(tokens.at(6));
+      info.dy    = std::stod(tokens.at(7));
+      info.dz    = std::stod(tokens.at(8));
+      info.type  = tokens.at(9);
+      info.useDouble =
+          (tokens.size() == 11) ? (tokens.at(10) == "DOUBLE") : false;
       ++parsedLines;
     }
-    else if (tokens.size() == 4 &&
+    else if (parsedLines == 1 && tokens.size() == 4 &&
              (gridType == Type::time || gridType == Type::angle))
     {
-      // this should be line 2
-      info.label = tokens[0];
-      info.srcex = std::stod(tokens[1]);
-      info.srcey = std::stod(tokens[2]);
-      info.srcez = std::stod(tokens[3]);
+      // this should be line 2 (if present)
+      info.label = tokens.at(0);
+      info.srcex = std::stod(tokens.at(1));
+      info.srcey = std::stod(tokens.at(2));
+      info.srcez = std::stod(tokens.at(3));
       ++parsedLines;
     }
-    else if (tokens[0] == "TRANSFORM" || tokens[0] == "TRANS")
+    else if (tokens.at(0) == "TRANSFORM" || tokens.at(0) == "TRANS")
     {
       info.transform = std::unique_ptr<Transform>(new Transform(tokens));
       ++parsedLines;
@@ -958,12 +960,12 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
 {
   Info info;
 
-  if (tokens[0] != "TRANSFORM" && tokens[0] != "TRANS")
+  if (tokens.at(0) != "TRANSFORM" && tokens.at(0) != "TRANS")
   {
     throw runtime_error("Malformed transform line");
   }
 
-  info.type = tokens[1];
+  info.type = tokens.at(1);
 
   if (info.type == "GLOBAL" || info.type == "NONE")
   {
@@ -973,9 +975,9 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
   }
   else if (info.type == "SIMPLE" || info.type == "SDC")
   {
-    info.orig_lat  = std::stod(tokens[3]);
-    info.orig_long = std::stod(tokens[5]);
-    info.rot       = std::stod(tokens[7]);
+    info.orig_lat  = std::stod(tokens.at(3));
+    info.orig_long = std::stod(tokens.at(5));
+    info.rot       = std::stod(tokens.at(7));
     info.angle     = -deg2rad(info.rot);
     info.cosang    = std::cos(info.angle);
     info.sinang    = std::sin(info.angle);
