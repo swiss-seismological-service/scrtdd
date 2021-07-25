@@ -18,6 +18,8 @@
 #include "log.h"
 #include "utils.h"
 
+#include "../3rd-party/gmt/map_project.h"
+
 #include <array>
 #include <cstring>
 
@@ -956,7 +958,8 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
     info.cosang = std::cos(info.angle);
     info.sinang = std::sin(info.angle);
   }
-  else if (info.type == "SIMPLE" || info.type == "SDC")
+
+  else if (info.type == "SDC" || info.type == "SIMPLE")
   {
     info.orig_lat  = std::stod(tokens.at(3));
     info.orig_long = std::stod(tokens.at(5));
@@ -995,6 +998,84 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
       info.sdc_xlnkm = bc / std::cos(dlt1);
     }
   }
+
+  else if (info.type == "AZIMUTHAL_EQUIDIST")
+  {
+    info.ref_ellip = std::stod(tokens.at(3));
+    info.orig_lat  = std::stod(tokens.at(5));
+    info.orig_long = std::stod(tokens.at(7));
+    info.rot       = std::stod(tokens.at(9));
+    info.angle     = -degToRad(info.rot);
+    info.cosang    = std::cos(info.angle);
+    info.sinang    = std::sin(info.angle);
+
+    if (info.orig_lat > 90 || info.orig_lat < -90)
+    {
+      throw Exception("Origin latitude must be in range -90,90");
+    }
+    if (info.orig_long > 180 || info.orig_long < -180)
+    {
+      throw Exception("Origin longitude must be in range -180,180");
+    }
+    if (info.rot > 360 || info.rot < -360)
+    {
+      throw Exception("Rotation must be in range -360,360");
+    }
+    //TODO vazeqdist(0, double &lon0, double &lat0);
+  }
+  else if (info.type == "TRANS_MERC")
+  {
+    info.ref_ellip = std::stod(tokens.at(3));
+    info.orig_lat  = std::stod(tokens.at(5));
+    info.orig_long = std::stod(tokens.at(7));
+    info.rot       = std::stod(tokens.at(9));
+    info.angle     = -degToRad(info.rot);
+    info.cosang    = std::cos(info.angle);
+    info.sinang    = std::sin(info.angle);
+
+    if (info.orig_lat > 90 || info.orig_lat < -90)
+    {
+      throw Exception("Origin latitude must be in range -90,90");
+    }
+    if (info.orig_long > 180 || info.orig_long < -180)
+    {
+      throw Exception("Origin longitude must be in range -180,180");
+    }
+    if (info.rot > 360 || info.rot < -360)
+    {
+      throw Exception("Rotation must be in range -360,360");
+    }
+    //TODO vtm(0, double &lon0, double &lat0);
+  }
+
+  else if (info.type == "LAMBERT")
+  {
+    info.ref_ellip = std::stod(tokens.at(3));
+    info.orig_lat  = std::stod(tokens.at(5));
+    info.orig_long = std::stod(tokens.at(7));
+    info.pha       = std::stod(tokens.at(9)); //added
+    info.phb       = std::stod(tokens.at(11)); //added    
+    info.rot       = std::stod(tokens.at(13));
+    info.angle     = -degToRad(info.rot);
+    info.cosang    = std::cos(info.angle);
+    info.sinang    = std::sin(info.angle);
+
+    if (info.orig_lat > 90 || info.orig_lat < -90)
+    {
+      throw Exception("Origin latitude must be in range -90,90");
+    }
+    if (info.orig_long > 180 || info.orig_long < -180)
+    {
+      throw Exception("Origin longitude must be in range -180,180");
+    }
+    if (info.rot > 360 || info.rot < -360)
+    {
+      throw Exception("Rotation must be in range -360,360");
+    }
+    map_setup_proxy(0, (char*)"WGS-84"); //would need to convert std::string to char* array to add options
+    vlamb(0, info.orig_long, info.orig_lat, info.pha, info.phb);
+  }
+
   else
   {
     string msg = strf("Unsupported transform %s", info.type.c_str());
@@ -1039,6 +1120,49 @@ void Transform::fromLatLon(double lat,
     xLoc = xtemp * info.cosang - ytemp * info.sinang;
     yLoc = ytemp * info.cosang + xtemp * info.sinang;
   }
+
+  else if (info.type == "LAMBERT")
+  {
+    double xtemp = lon - info.orig_long;
+    if (xtemp > 180.0) xtemp -= 360.0;
+    if (xtemp < -180.0) xtemp += 360.0;
+    double ytemp = lat - info.orig_lat;
+
+    lamb(0, xtemp, ytemp, &xLoc, &yLoc);
+    xLoc /= 1000.;
+    yLoc /= 1000.;
+    xLoc = xLoc * info.cosang - yLoc * info.sinang;
+    yLoc = yLoc * info.cosang + xLoc * info.sinang;
+    
+  }
+
+  else if (info.type == "TRANS_MERC")
+  {
+    double xtemp = lon - info.orig_long;
+    if (xtemp > 180.0) xtemp -= 360.0;
+    if (xtemp < -180.0) xtemp += 360.0;
+    double ytemp = lat - info.orig_lat;
+
+    tvm(0, xtemp, ytemp, &xLoc, &yLoc);
+    xLoc /= 1000.;
+    yLoc /= 1000.;
+    xLoc = xLoc * info.cosang - yLoc * info.sinang;
+    yLoc = yLoc * info.cosang + xLoc * info.sinang;
+  }
+
+  else if (info.type == "AZIMUTHAL_EQUIDIST")
+  {
+    double xtemp = lon - info.orig_long;
+    if (xtemp > 180.0) xtemp -= 360.0;
+    if (xtemp < -180.0) xtemp += 360.0;
+    double ytemp = lat - info.orig_lat;
+
+    azeqdist(0, xtemp, ytemp, &xLoc, &yLoc);
+    xLoc /= 1000.;
+    yLoc /= 1000.;
+    xLoc = xLoc * info.cosang - yLoc * info.sinang;
+    yLoc = yLoc * info.cosang + xLoc * info.sinang;
+  }  
   else // this never happens
   {
     string msg = strf("Unsupported transform %s", info.type.c_str());
@@ -1082,6 +1206,45 @@ void Transform::toLatLon(double xLoc,
     else if (lon > 180.0)
       lon -= 360.0;
   }
+  else if (info.type == "LAMBERT")
+  {
+    double xtemp = xLoc * info.cosang + yLoc * info.sinang;
+    double ytemp = yLoc * info.cosang - xLoc * info.sinang;
+
+    ilamb(0, &lon, &lat, xtemp * 1000.0, ytemp * 1000.0); // hardwired n_proj with 0 (WGS84) for now
+    lon          = info.orig_long + lon;
+    lat          = info.orig_lat + lat;
+    if (lon < -180.0)
+      lon += 360.0;
+    else if (lon > 180.0)
+      lon -= 360.0;
+  }
+  else if (info.type == "TRANS_MERC")
+  {
+    double xtemp = xLoc * info.cosang + yLoc * info.sinang;
+    double ytemp = yLoc * info.cosang - xLoc * info.sinang;
+
+    itvm(0, &lon, &lat, xtemp, ytemp); // hardwired n_proj with 0 (WGS84) for now
+    lon          = info.orig_long + lon;
+    lat          = info.orig_lat + lat;
+    if (lon < -180.0)
+      lon += 360.0;
+    else if (lon > 180.0)
+      lon -= 360.0;
+  }  
+  else if (info.type == "AZIUMUTHAL_EQUIDIST")
+  {
+    double xtemp = xLoc * info.cosang + yLoc * info.sinang;
+    double ytemp = yLoc * info.cosang - xLoc * info.sinang;
+
+    iazeqdist(0, &lon, &lat, xtemp, ytemp); // hardwired n_proj with 0 (WGS84) for now
+    lon          = info.orig_long + lon;
+    lat          = info.orig_lat + lat;
+    if (lon < -180.0)
+      lon += 360.0;
+    else if (lon > 180.0)
+      lon -= 360.0;
+  }
   else // this never happens
   {
     string msg = strf("Unsupported transform %s", info.type.c_str());
@@ -1091,7 +1254,8 @@ void Transform::toLatLon(double xLoc,
 
 double Transform::fromLatLonAngle(double latlonAngle) const
 {
-  if (info.type == "SIMPLE" || info.type == "SDC")
+  if (info.type == "SIMPLE" || info.type == "SDC" || info.type == "LAMBERT" 
+    || info.type == "AZIMUTHAL_EQUIDIST" || info.type == "TRANS_MERC")
   {
     double angle = latlonAngle + info.rot;
     if (angle < 0.0)
@@ -1113,7 +1277,8 @@ double Transform::fromLatLonAngle(double latlonAngle) const
 
 double Transform::toLatLonAngle(double rectAngle) const
 {
-  if (info.type == "SIMPLE" || info.type == "SDC")
+  if (info.type == "SIMPLE" || info.type == "SDC" || info.type == "LAMBERT" 
+    || info.type == "AZIMUTHAL_EQUIDIST" || info.type == "TRANS_MERC")
   {
     double angle = rectAngle - info.rot;
     if (angle < 0.0)
