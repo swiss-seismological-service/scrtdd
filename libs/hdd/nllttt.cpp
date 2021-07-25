@@ -973,7 +973,7 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
     info.cosang = std::cos(info.angle);
     info.sinang = std::sin(info.angle);
   }
-  else if (info.type == "SIMPLE" || info.type == "SDC")
+  else if (info.type == "SIMPLE" || info.type == "SDC" || info.type == "LAMBERT")
   {
     info.orig_lat  = std::stod(tokens.at(3));
     info.orig_long = std::stod(tokens.at(5));
@@ -1011,6 +1011,24 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
       double bc      = r * del;
       info.sdc_xlnkm = bc / std::cos(dlt1);
     }
+
+    if (info.type == "LAMBERT") // needs work here
+    {
+      //  conversion factor for latitude
+      double dlt1 =
+          std::atan(MAP_TRANS_SDC_DRLT * std::tan(deg2rad(info.orig_lat)));
+      double dlt2    = std::atan(MAP_TRANS_SDC_DRLT *
+                              std::tan(deg2rad(info.orig_lat + 1.0)));
+      double del     = dlt2 - dlt1;
+      double r       = ERAD * (1.0 - square(std::sin(dlt1)) * FLATTENING);
+      info.sdc_xltkm = r * del;
+      //  conversion factor for longitude
+      del            = std::acos(1.0 -
+                      (1.0 - std::cos(deg2rad(1))) * square(std::cos(dlt1)));
+      double bc      = r * del;
+      info.sdc_xlnkm = bc / std::cos(dlt1);
+    }    
+    
   }
   else
   {
@@ -1056,6 +1074,28 @@ void Transform::fromLatLon(double lat,
     xLoc = xtemp * info.cosang - ytemp * info.sinang;
     yLoc = ytemp * info.cosang + xtemp * info.sinang;
   }
+  else if (info.type == "LAMBERT") //work in progress
+  {
+    double xtemp = lon - info.orig_long;
+    if (xtemp > 180.0) xtemp -= 360.0;
+    if (xtemp < -180.0) xtemp += 360.0;
+    double ytemp = lat - info.orig_lat;
+
+    double xlt1 = std::atan(MAP_TRANS_SDC_DRLT *
+                            std::tan(deg2rad(lat + info.orig_lat) / 2.0));
+    xtemp       = xtemp * info.sdc_xlnkm * std::cos(xlt1);
+    ytemp       = ytemp * info.sdc_xltkm;
+
+    xLoc = xtemp * info.cosang - ytemp * info.sinang;
+    yLoc = ytemp * info.cosang + xtemp * info.sinang;
+    
+    //added
+    lamb(n_proj, dlong, dlat, &xtemp, &ytemp);
+    xtemp /= 1000.0; /* m -> km */
+    ytemp /= 1000.0; /* m -> km */
+    *pxrect = xtemp * map_cosang[n_proj] - ytemp * map_sinang[n_proj];
+    *pyrect = ytemp * map_cosang[n_proj] + xtemp * map_sinang[n_proj];
+  }  
   else // this never happens
   {
     string msg = stringify("Unsupported transform %s", info.type.c_str());
@@ -1099,6 +1139,21 @@ void Transform::toLatLon(double xLoc,
     else if (lon > 180.0)
       lon -= 360.0;
   }
+  else if (info.type == "LAMBERT") //work in progress
+  {
+    double xtemp = xLoc * info.cosang + yLoc * info.sinang;
+    double ytemp = yLoc * info.cosang - xLoc * info.sinang;
+    ytemp        = ytemp / info.sdc_xltkm;
+    lat          = info.orig_lat + ytemp;
+    double xlt1  = std::atan(MAP_TRANS_SDC_DRLT *
+                            std::tan(deg2rad(lat + info.orig_lat) / 2.0));
+    xtemp        = xtemp / (info.sdc_xlnkm * std::cos(xlt1));
+    lon          = info.orig_long + xtemp;
+    if (lon < -180.0)
+      lon += 360.0;
+    else if (lon > 180.0)
+      lon -= 360.0;
+  }  
   else // this never happens
   {
     string msg = stringify("Unsupported transform %s", info.type.c_str());
@@ -1108,7 +1163,7 @@ void Transform::toLatLon(double xLoc,
 
 double Transform::fromLatLonAngle(double latlonAngle) const
 {
-  if (info.type == "SIMPLE" || info.type == "SDC")
+  if (info.type == "SIMPLE" || info.type == "SDC" || info.type == "LAMBERT")
   {
     double angle = latlonAngle + info.rot;
     if (angle < 0.0)
@@ -1130,7 +1185,7 @@ double Transform::fromLatLonAngle(double latlonAngle) const
 
 double Transform::toLatLonAngle(double rectAngle) const
 {
-  if (info.type == "SIMPLE" || info.type == "SDC")
+  if (info.type == "SIMPLE" || info.type == "SDC" || info.type == "LAMBERT")
   {
     double angle = rectAngle - info.rot;
     if (angle < 0.0)
