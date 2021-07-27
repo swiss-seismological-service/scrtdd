@@ -19,7 +19,7 @@
 </pre>
 # Description
 
-rtDD is a [SeisComP](<https://github.com/SeisComP>) extension module that implements both Real-Time Double-Difference Event relocation and classic offline Multi-Event Double-Difference relocation.
+rtDD is a [SeisComP](<https://github.com/SeisComP>) extension module that implements Double-Difference event relocation both in Real-Time, one event at the time, and classic offline mode, where an earthquake catalog is relocated as a whole.
 
 The actual methods are based on the paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser and "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Waldhauser & Ellsworth.
 
@@ -75,17 +75,17 @@ For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#
 
 Long story short:
 
-* Use `sclistorg` command to select the events to be relocated. E.g. `sclistorg [options] > myCatalog.csv`
+* Use `sclistorg` command to select an event catalog from a SeisComP database.
 
-* Create a `scrtdd` profile (e.g. use `scconfig` GUI). The profile will contain the settings for the relocation: the default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However it is a good choice to configure a custom velocity model (`solver.travelTimeTable`)
+* Create a `scrtdd` profile (e.g. use `scconfig` GUI, which defines the settings for the relocation. The default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However it is a good choice to configure a custom velocity model.
 
-* Use `scrtdd` to relocate the events. E.g. `scrtdd --reloc-catalog  myCatalog.csv --profile myProfile [db and waveforms options]`
+* Use `scrtdd --reloc-catalog` option to relocate the events.
 
 * Use the relocation output (`reloc-event.csv`, `reloc-phase.csv` and `reloc-stations.csv` or the SCML file `relocated.xml`) as you please
 
 As an example you may want to have a look at `multi-event.sh` script in [this folder](/data/scripts/).
 
-To relocate external (non-SeisComP) data refer to [this paragraph](#134-relocating-external-data).
+To relocate events not stored in a SeisComP database, refer to [this paragraph](#134-relocating-external-data).
 
 ### The long story
 
@@ -93,9 +93,9 @@ The multi-event relocation consists of two steps: selecting the candidate origin
 
 The output will be another catalog containing the relocated origins. The configuration is an easy task since the default options should already provide sensible solutions. The input origins might come from different sources: a SeisComP database (local or remote), a xml file, or a `scrtdd` specific format (station.csv,event.csv,phase.csv triplet, explained later).
 
-In multi-event mode there is no interaction neither with the running SeisComP modules nor with database (except for reading the inventory). It is a safe operation and allow for easy experimenting. The relocated events will be stored in plain text files, so that they can be analysed  externally to SeisComP, but they can also be stored back into the database. That is optional.
+In multi-event mode there is no interaction neither with the running SeisComP modules. It is a safe operation and allow for easy experimenting. The relocated events will be stored in plain text files, so that they can be analysed  externally to SeisComP, but they can also be stored back into the database. That is optional.
 
-`scrtdd` supports also the standard options (`--inventory-db inventory.xml --config-db config.xml`) that allows to read the station inventory from plain files, making the database fully optional.
+`scrtdd` supports also the standard options (`--inventory-db inventory.xml --config-db config.xml`) that allows to read the station inventory from plain files, making the database fully optional when the event catalog is provided as plain files.
 
 
 ### 1.1 How to get the origin ids?
@@ -366,7 +366,7 @@ Catalog:
 
 ### 1.6 A continuously updated multi-event relocated catalog
 
-For real-time monitoring it is useful to periodically run the multi-event relocation, so that the news events are continuously included in the double-difference inversion. This is not only useful for keeping track of what is happening in a region, but it is crucial for real-time relocation, where new origins are relocated using a background catalog: the more updated the background catalog is, the better the results. For this purpose it might come in handy the `generate-background-catalog.sh` script in [this folder](/data/scripts/), that can be easily adapted to the specific use case and it is useful to periodically generate a multi-event relocated catalog.
+Thanks to the integration in SeisComP it is quite easy to use `scrtdd` to periodically generate a double-difference catalog of a region, so that recent events are continuously included in the double-difference inversion. This is not only useful for having up-to-date snapshots of high quality earthquakes locations for a region, but it is crucial for real-time double-difference inversion, where new origins are relocated against a reference (background) catalog: the more updated the background catalog is, the better the results. This is especially important when monitoring regions where the historical seismicity unknown. For this purpose it might come in handy the `generate-background-catalog.sh` script in [this folder](/data/scripts/), that can be easily adapted to the specific use case and it is useful to periodically generate a multi-event relocated catalog.
 
 ### Examples
 
@@ -537,7 +537,7 @@ The unit testing folder contains the code to generate some tests with synthetic 
 
 ## 3. Cross-correlation
 
-Good cross-correlation results are needed to achieve high quality double-difference observations, which in turn results in high resolution relocations. The purpose of the cross-correlation is to find the exact time difference between two picks of an event pair at a common station.
+Good cross-correlation results are needed to achieve high quality double-difference observations, which in turn results in high resolution relocations. The purpose of the cross-correlation is to find the exact time difference between two picks of an event pair at a common station. The cross-correlation is automatically performed by `scrtdd` before the double-difference inversion.
 
 The default values of the cross-correlation parameters are meant to be a good starting point, however it might be useful to optimize them in certain scenarios.
 
