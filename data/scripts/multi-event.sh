@@ -16,12 +16,10 @@ RECORD_STREAM="[service://]location[#type]"
 echo "Downloading events from $CATALOG_DB..."
 
 $seiscomp_exec sclistorg -d $CATALOG_DB \
-          --begin "2009-01-01 00:00:00" \
-          --end "2019-01-01 00:00:00" \
           --org-type preferred \
           --manual-only \
-          --inc-agency "MyAgency" \
-          --ev-type "earthquake,quarry blast,explosion,induced earthquake" \
+          --begin "2009-01-01 00:00:00" \
+          --end "2019-01-01 00:00:00" \
           --area 46.58,8.32,46.67,8.46 \
           --verbosity=3 --log-file sclistorg.log \
    > catalog-ids.csv
