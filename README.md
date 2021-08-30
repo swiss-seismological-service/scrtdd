@@ -17,6 +17,9 @@
  *                                                                         *
  ***************************************************************************/
 </pre>
+
+[![DOI](https://zenodo.org/badge/246001157.svg)](https://zenodo.org/badge/latestdoi/246001157)
+
 # Description
 
 rtDD is a [SeisComP](<https://github.com/SeisComP>) extension module that implements Double-Difference event relocation both in Real-Time, one event at the time, and classic offline mode, where an earthquake catalog is relocated as a whole.
