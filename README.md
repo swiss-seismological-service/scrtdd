@@ -363,22 +363,21 @@ Catalog:
                                         events share the same id, subsequent 
                                         events will be discarded.
 ```
+#### Examples
 
-### 1.6 A continuously updated multi-event relocated catalog
-
-Thanks to the integration in SeisComP it is quite easy to use `scrtdd` to periodically generate a double-difference catalog of a region, so that recent events are continuously included in the double-difference inversion. This is not only useful for having up-to-date snapshots of high quality earthquakes locations for a region, but it is crucial for real-time double-difference inversion, where new origins are relocated against a reference (background) catalog: the more updated the background catalog is, the better the results. This is especially important when monitoring regions where the historical seismicity unknown. For this purpose it might come in handy the `generate-background-catalog.sh` script in [this folder](/data/scripts/), that can be easily adapted to the specific use case and it is useful to periodically generate a multi-event relocated catalog.
-
-### Examples
-
-Here are two catalogs before and after `scrtdd` relocation:
+Here are a few catalogs before and after `scrtdd` relocation:
 
 ![Relocation example picture](/data/img/multiEventRelocationExample.png?raw=true "Relocation example") 
-
 
 The unit testing folder contains the code to generate some tests with synthetic data:
 
 ![Synthetic Data Relocation example picture](/data/img/multiEventRelocationSyntDataExample.png?raw=true "Synthetic Data Relocation example") 
 
+### 1.6 A continuously updated multi-event relocated catalog
+
+Thanks to the integration in SeisComP it is quite easy to use `scrtdd` to periodically generate a double-difference catalog of a region, so that recent events are continuously included in the double-difference inversion. This is not only useful for having up-to-date snapshots of high quality earthquakes locations for a region, but it is crucial for real-time double-difference inversion, where new origins are relocated against a reference (background) catalog: the more updated the background catalog is, the better the results. This is especially important when monitoring regions where the historical seismicity unknown. For this purpose it might come in handy the `generate-background-catalog.sh` script in [this folder](/data/scripts/), that can be easily adapted to the specific use case and it is useful to periodically generate a multi-event relocated catalog, which can be also displayed in an interactive map, given a web server is available.
+
+![Relocation example picture](/data/img/multiEventRelocationContinuousExample.png?raw=true "Continuously updated relocation example") 
 
 ## 2. Real-time single-event relocation
 
