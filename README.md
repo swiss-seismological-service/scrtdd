@@ -174,38 +174,40 @@ scrtdd --dump-catalog myCatalog.csv --verbosity=3 --console=1 [db options]
 
 The above command will generate three files (*event.csv*, *phase.csv* and *stations.csv*) which contain all the information needed by `scrtdd`. 
 
-E.g. *file event.csv*
+E.g. *file event.csv* (`magnitude` and `rms` columns are currently not used and their value is not relevant)
 
 ```
-id,isotime,latitude,longitude,depth,magnitude,horizontal_err,vertical_err,rms
-1,2014-01-10T04:46:47.689331Z,46.262846,7.400132,8.6855,1.63,0.0000,0.0000,0.1815
-2,2014-01-19T05:24:26.754208Z,46.264482,7.404143,8.4316,0.94,0.0000,0.0000,0.1740
-3,2014-02-21T04:05:27.03289Z,46.266118,7.402066,7.3145,0.37,0.0000,0.0000,0.1177
-4,2014-04-02T17:05:28.141739Z,46.262846,7.408248,7.0098,0.42,0.0000,0.0000,0.1319
+id,isotime,latitude,longitude,depth,magnitude,rms
+1,2019-11-05T00:54:21.256705Z,46.318264,7.365509,4.7881,3.32,0.174
+2,2019-11-05T01:03:06.484287Z,46.320718,7.365435,4.2041,0.64,0.138
+3,2019-11-05T01:06:27.140654Z,46.325626,7.356148,3.9756,0.84,0.083
+4,2019-11-05T01:12:25.753816Z,46.325012,7.353627,3.7090,0.39,0.144
 ```
 
 E.g. *file station.csv*
 
 ```
 id,latitude,longitude,elevation,networkCode,stationCode,locationCode
-4DAG01,46.457412,8.079460,2358.0,4D,AG01,
-4DAG02,46.460620,8.078122,2375.0,4D,AG02,
-4DAG03,46.458288,8.075408,2369.0,4D,AG03,00
-4DBSG1,46.107760,7.732020,3378.0,4D,BSG1,AB
+4D.MH36.A,45.980278,7.670195,3463.0,4D,MH36,A
+4D.MH48.A,45.978720,7.663000,4003.0,4D,MH48,A
+4D.RA43.,46.585719,8.383171,2320.4,4D,RA43,
+8D.AMIDI.,45.903349,6.885881,2250.0,8D,AMIDI,00
+8D.NVL3.,46.371345,6.873937,379.0,8D,NVL3,
 ```
 
-E.g. *file phase.csv*
+E.g. *file phase.csv* (`lowerUncertainty` and `upperUncertainty` are used only when `profile.myProfile.solver.aPrioriWeights.usePickUncertainties` is set to `true`)
 
 ```
 eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode,evalMode
-1,CHSIMPL,2014-01-10T04:47:02.000765Z,0.100,0.100,Sg,CH,SIMPL,,HHT,manual
-1,CHNALPS,2014-01-10T04:47:06.78218Z,0.100,0.100,P1,CH,NALPS,,HHR,manual
-1,CHBNALP,2014-01-10T04:47:05.918759Z,0.200,0.200,P1,CH,BNALP,,HHZ,automatic
-1,CHFUSIO,2014-01-10T04:47:04.812236Z,0.100,0.100,Pg,CH,FUSIO,,HHR,manual
-1,FRRSL,2014-01-10T04:47:13.089093Z,0.200,0.200,Sg,FR,RSL,00,HHT,manual
-1,FRRSL,2014-01-10T04:47:02.689842Z,0.050,0.050,Pg,FR,RSL,00,HHZ,automatic
-1,CHGRIMS,2014-01-10T04:47:01.597023Z,0.100,0.100,Pg,CH,GRIMS,,HHR,manual
-1,IVMRGE,2014-01-10T04:46:58.219541Z,0.100,0.100,Pg,IV,MRGE,,HHR,manual
+1,8D.RAW2.,2019-11-05T00:54:22.64478Z,0.025,0.025,Pg,8D,RAW2,,HHZ,automatic
+1,8D.RAW2.,2019-11-05T00:54:23.58254Z,0.100,0.100,Sg,8D,RAW2,,HHT,manual
+1,CH.SAYF2.,2019-11-05T00:54:22.7681Z,0.025,0.025,Pg,CH,SAYF2,,HGZ,manual
+1,CH.STSW2.,2019-11-05T00:54:24.007619Z,0.050,0.050,Sg,CH,STSW2,,HGT,manual
+2,8D.RAW2.,2019-11-05T01:03:08.867835Z,0.050,0.050,S,8D,RAW2,,HHT,manual
+2,CH.SAYF2.,2019-11-05T01:03:07.977432Z,0.025,0.025,P,CH,SAYF2,,HGZ,manual
+2,CH.SAYF2.,2019-11-05T01:03:08.9947Z,0.050,0.050,Sg,CH,SAYF2,,HGT,automatic
+2,CH.STSW2.,2019-11-05T01:03:09.12808Z,0.050,0.050,P,CH,STSW2,,HGR,manual
+2,CH.SENIN.,2019-11-05T01:03:09.409276Z,0.025,0.025,Sg,CH,SENIN,,HHT,automatic
 ```
 With this format it is possible to relocate events that are not stored in any SeisComP database, since all the origins information are contained in those files.
 
