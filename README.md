@@ -80,7 +80,7 @@ Long story short:
 
 * Use `sclistorg` command to select an event catalog from a SeisComP database.
 
-* Create a `scrtdd` profile (e.g. use `scconfig` GUI, which defines the settings for the relocation. The default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However it is a good choice to configure a custom velocity model.
+* Create a `scrtdd` profile (e.g. use `scconfig` GUI) which defines the settings for the relocation. The default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However it is a good choice to configure a custom velocity model.
 
 * Use `scrtdd --reloc-catalog` option to relocate the events.
 
