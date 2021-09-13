@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <seiscomp>
-  <module name="scrtdd" category="Processing" inherit-global-bindings="true">
+  <module name="scrtdd" category="Processing" inherit-global-bindings="false">
     <description>
       Double-Difference relocation module for real-time and catalogs relocation.
       Please see https://github.com/swiss-seismological-service/scrtdd for the documentation.
