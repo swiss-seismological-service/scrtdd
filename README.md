@@ -187,27 +187,27 @@ id,isotime,latitude,longitude,depth,magnitude,rms
 E.g. *file station.csv*
 
 ```
-id,latitude,longitude,elevation,networkCode,stationCode,locationCode
-4D.MH36.A,45.980278,7.670195,3463.0,4D,MH36,A
-4D.MH48.A,45.978720,7.663000,4003.0,4D,MH48,A
-4D.RA43.,46.585719,8.383171,2320.4,4D,RA43,
-8D.AMIDI.00,45.903349,6.885881,2250.0,8D,AMIDI,00
-8D.NVL3.,46.371345,6.873937,379.0,8D,NVL3,
+latitude,longitude,elevation,networkCode,stationCode,locationCode
+45.980278,7.670195,3463.0,4D,MH36,A
+45.978720,7.663000,4003.0,4D,MH48,A
+46.585719,8.383171,2320.4,4D,RA43,
+45.903349,6.885881,2250.0,8D,AMIDI,00
+46.371345,6.873937,379.0,8D,NVL3,
 ```
 
 E.g. *file phase.csv* (`lowerUncertainty` and `upperUncertainty` are used only when `profile.myProfile.solver.aPrioriWeights.usePickUncertainties` is set to `true`)
 
 ```
-eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode,evalMode
-1,8D.RAW2.,2019-11-05T00:54:22.64478Z,0.025,0.025,Pg,8D,RAW2,,HHZ,automatic
-1,8D.RAW2.,2019-11-05T00:54:23.58254Z,0.100,0.100,Sg,8D,RAW2,,HHT,manual
-1,CH.SAYF2.,2019-11-05T00:54:22.7681Z,0.025,0.025,Pg,CH,SAYF2,,HGZ,manual
-1,CH.STSW2.,2019-11-05T00:54:24.007619Z,0.050,0.050,Sg,CH,STSW2,,HGT,manual
-2,8D.RAW2.,2019-11-05T01:03:08.867835Z,0.050,0.050,S,8D,RAW2,,HHT,manual
-2,CH.SAYF2.,2019-11-05T01:03:07.977432Z,0.025,0.025,P,CH,SAYF2,,HGZ,manual
-2,CH.SAYF2.,2019-11-05T01:03:08.9947Z,0.050,0.050,Sg,CH,SAYF2,,HGT,automatic
-2,CH.STSW2.,2019-11-05T01:03:09.12808Z,0.050,0.050,P,CH,STSW2,,HGR,manual
-2,CH.SENIN.,2019-11-05T01:03:09.409276Z,0.025,0.025,Sg,CH,SENIN,,HHT,automatic
+eventId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode,evalMode
+1,2019-11-05T00:54:22.64478Z,0.025,0.025,Pg,8D,RAW2,,HHZ,automatic
+1,2019-11-05T00:54:23.58254Z,0.100,0.100,Sg,8D,RAW2,,HHT,manual
+1,2019-11-05T00:54:22.7681Z,0.025,0.025,Pg,CH,SAYF2,,HGZ,manual
+1,2019-11-05T00:54:24.007619Z,0.050,0.050,Sg,CH,STSW2,,HGT,manual
+2,2019-11-05T01:03:08.867835Z,0.050,0.050,S,8D,RAW2,,HHT,manual
+2,2019-11-05T01:03:07.977432Z,0.025,0.025,P,CH,SAYF2,,HGZ,manual
+2,2019-11-05T01:03:08.9947Z,0.050,0.050,Sg,CH,SAYF2,,HGT,automatic
+2,2019-11-05T01:03:09.12808Z,0.050,0.050,P,CH,STSW2,,HGR,manual
+2,2019-11-05T01:03:09.409276Z,0.025,0.025,Sg,CH,SENIN,,HHT,automatic
 ```
 With this format it is possible to relocate events that are not stored in any SeisComP database, since all the origins information are contained in those files.
 
