@@ -259,7 +259,6 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
   setInterpretNotifierEnabled(true);
 
   setLoadInventoryEnabled(true);
-  setLoadConfigModuleEnabled(true);
 
   setPrimaryMessagingGroup("LOCATION");
 
@@ -406,7 +405,8 @@ bool RTDD::validateParameters()
   _config.workingDirectory =
       env->absolutePath(configGetPath("workingDirectory"));
 
-  bool profilesOK = true;
+  bool profilesOK       = true;
+  bool profileRequireDB = false;
 
   // make sure to load the profile passed via command line too
   std::vector<string> profilesToLoad(_config.activeProfiles);
@@ -485,6 +485,7 @@ bool RTDD::validateParameters()
       {
         prof->eventIDFile =
             env->absolutePath(configGetPath(prefix + "eventFile"));
+        profileRequireDB = true;
       }
       catch (...)
       {}
@@ -973,8 +974,11 @@ bool RTDD::validateParameters()
   }
 
   // disable the database if the inventory is provided by XML file
-  // and the --ep option is present too
-  if (!isInventoryDatabaseEnabled() && !_config.eventXML.empty())
+  // and certain command line options are present too
+  if (!isInventoryDatabaseEnabled() && !profileRequireDB &&
+      (!_config.eventXML.empty() || !_config.mergeCatalogs.empty() ||
+       !_config.evalXCorr.empty() || !_config.relocateCatalog.empty() ||
+       _config.loadProfileWf))
   {
     SEISCOMP_INFO("Disable database connection");
     setDatabaseEnabled(false, false);

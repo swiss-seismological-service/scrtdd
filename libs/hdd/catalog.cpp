@@ -135,13 +135,13 @@ Catalog::Catalog(const string &stationFile,
   for (const auto &row : stations)
   {
     Station sta;
-    sta.id            = row.at("id");
-    sta.latitude      = std::stod(row.at("latitude"));
-    sta.longitude     = std::stod(row.at("longitude"));
-    sta.elevation     = std::stod(row.at("elevation"));
-    sta.networkCode   = row.at("networkCode");
-    sta.stationCode   = row.at("stationCode");
-    sta.locationCode  = row.at("locationCode");
+    sta.latitude     = std::stod(row.at("latitude"));
+    sta.longitude    = std::stod(row.at("longitude"));
+    sta.elevation    = std::stod(row.at("elevation"));
+    sta.networkCode  = row.at("networkCode");
+    sta.stationCode  = row.at("stationCode");
+    sta.locationCode = row.at("locationCode");
+    sta.id = sta.networkCode + "." + sta.stationCode + "." + sta.locationCode;
     _stations[sta.id] = sta;
   }
 
@@ -205,17 +205,18 @@ Catalog::Catalog(const string &stationFile,
   for (const auto &row : phases)
   {
     Phase ph;
-    ph.eventId               = std::stoul(row.at("eventId"));
-    ph.stationId             = row.at("stationId");
-    ph.time                  = Core::Time::FromString(row.at("isotime").c_str(),
+    ph.eventId          = std::stoul(row.at("eventId"));
+    ph.time             = Core::Time::FromString(row.at("isotime").c_str(),
                                      "%FT%T.%fZ"); // iso format
-    ph.lowerUncertainty      = std::stod(row.at("lowerUncertainty"));
-    ph.upperUncertainty      = std::stod(row.at("upperUncertainty"));
-    ph.type                  = row.at("type");
-    ph.networkCode           = row.at("networkCode");
-    ph.stationCode           = row.at("stationCode");
-    ph.locationCode          = row.at("locationCode");
-    ph.channelCode           = row.at("channelCode");
+    ph.lowerUncertainty = std::stod(row.at("lowerUncertainty"));
+    ph.upperUncertainty = std::stod(row.at("upperUncertainty"));
+    ph.type             = row.at("type");
+    ph.networkCode      = row.at("networkCode");
+    ph.stationCode      = row.at("stationCode");
+    ph.locationCode     = row.at("locationCode");
+    ph.channelCode      = row.at("channelCode");
+    ph.stationId =
+        ph.networkCode + "." + ph.stationCode + "." + ph.locationCode;
     ph.isManual              = row.at("evalMode") == "manual";
     ph.relocInfo.isRelocated = false;
     if (loadRelocationInfo && (row.count("usedInReloc") != 0) &&
@@ -531,7 +532,7 @@ void Catalog::writeToFile(string eventFile,
    */
   ofstream phStream(phaseFile);
 
-  phStream << "eventId,stationId,isotime,lowerUncertainty,upperUncertainty,"
+  phStream << "eventId,isotime,lowerUncertainty,upperUncertainty,"
               "type,networkCode,stationCode,locationCode,channelCode,evalMode";
   if (relocInfo)
   {
@@ -547,11 +548,10 @@ void Catalog::writeToFile(string eventFile,
   {
     const Catalog::Phase &ph = kv.second;
     phStream << stringify(
-        "%u,%s,%s,%.3f,%.3f,%s,%s,%s,%s,%s,%s", ph.eventId,
-        ph.stationId.c_str(), ph.time.iso().c_str(), ph.lowerUncertainty,
-        ph.upperUncertainty, ph.type.c_str(), ph.networkCode.c_str(),
-        ph.stationCode.c_str(), ph.locationCode.c_str(), ph.channelCode.c_str(),
-        (ph.isManual ? "manual" : "automatic"));
+        "%u,%s,%.3f,%.3f,%s,%s,%s,%s,%s,%s", ph.eventId, ph.time.iso().c_str(),
+        ph.lowerUncertainty, ph.upperUncertainty, ph.type.c_str(),
+        ph.networkCode.c_str(), ph.stationCode.c_str(), ph.locationCode.c_str(),
+        ph.channelCode.c_str(), (ph.isManual ? "manual" : "automatic"));
 
     if (relocInfo)
     {
@@ -577,7 +577,7 @@ void Catalog::writeToFile(string eventFile,
    */
   ofstream staStream(stationFile);
   staStream
-      << "id,latitude,longitude,elevation,networkCode,stationCode,locationCode"
+      << "latitude,longitude,elevation,networkCode,stationCode,locationCode"
       << endl;
 
   const map<string, Catalog::Station> orderedStations(_stations.begin(),
@@ -585,8 +585,8 @@ void Catalog::writeToFile(string eventFile,
   for (const auto &kv : orderedStations)
   {
     const Catalog::Station &sta = kv.second;
-    staStream << stringify("%s,%.6f,%.6f,%.1f,%s,%s,%s", sta.id.c_str(),
-                           sta.latitude, sta.longitude, sta.elevation,
+    staStream << stringify("%.6f,%.6f,%.1f,%s,%s,%s", sta.latitude,
+                           sta.longitude, sta.elevation,
                            sta.networkCode.c_str(), sta.stationCode.c_str(),
                            sta.locationCode.c_str())
               << endl;

@@ -80,7 +80,7 @@ Long story short:
 
 * Use `sclistorg` command to select an event catalog from a SeisComP database.
 
-* Create a `scrtdd` profile (e.g. use `scconfig` GUI, which defines the settings for the relocation. The default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However it is a good choice to configure a custom velocity model.
+* Create a `scrtdd` profile (e.g. use `scconfig` GUI) which defines the settings for the relocation. The default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However, it is a good choice to configure a custom velocity model.
 
 * Use `scrtdd --reloc-catalog` option to relocate the events.
 
@@ -174,38 +174,40 @@ scrtdd --dump-catalog myCatalog.csv --verbosity=3 --console=1 [db options]
 
 The above command will generate three files (*event.csv*, *phase.csv* and *stations.csv*) which contain all the information needed by `scrtdd`. 
 
-E.g. *file event.csv*
+E.g. *file event.csv* (`magnitude` and `rms` columns are currently not used and their value is not relevant)
 
 ```
-id,isotime,latitude,longitude,depth,magnitude,horizontal_err,vertical_err,rms
-1,2014-01-10T04:46:47.689331Z,46.262846,7.400132,8.6855,1.63,0.0000,0.0000,0.1815
-2,2014-01-19T05:24:26.754208Z,46.264482,7.404143,8.4316,0.94,0.0000,0.0000,0.1740
-3,2014-02-21T04:05:27.03289Z,46.266118,7.402066,7.3145,0.37,0.0000,0.0000,0.1177
-4,2014-04-02T17:05:28.141739Z,46.262846,7.408248,7.0098,0.42,0.0000,0.0000,0.1319
+id,isotime,latitude,longitude,depth,magnitude,rms
+1,2019-11-05T00:54:21.256705Z,46.318264,7.365509,4.7881,3.32,0.174
+2,2019-11-05T01:03:06.484287Z,46.320718,7.365435,4.2041,0.64,0.138
+3,2019-11-05T01:06:27.140654Z,46.325626,7.356148,3.9756,0.84,0.083
+4,2019-11-05T01:12:25.753816Z,46.325012,7.353627,3.7090,0.39,0.144
 ```
 
 E.g. *file station.csv*
 
 ```
-id,latitude,longitude,elevation,networkCode,stationCode,locationCode
-4DAG01,46.457412,8.079460,2358.0,4D,AG01,
-4DAG02,46.460620,8.078122,2375.0,4D,AG02,
-4DAG03,46.458288,8.075408,2369.0,4D,AG03,00
-4DBSG1,46.107760,7.732020,3378.0,4D,BSG1,AB
+latitude,longitude,elevation,networkCode,stationCode,locationCode
+45.980278,7.670195,3463.0,4D,MH36,A
+45.978720,7.663000,4003.0,4D,MH48,A
+46.585719,8.383171,2320.4,4D,RA43,
+45.903349,6.885881,2250.0,8D,AMIDI,00
+46.371345,6.873937,379.0,8D,NVL3,
 ```
 
-E.g. *file phase.csv*
+E.g. *file phase.csv* (`lowerUncertainty` and `upperUncertainty` are used only when `profile.myProfile.solver.aPrioriWeights.usePickUncertainties` is set to `true`)
 
 ```
-eventId,stationId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode,evalMode
-1,CHSIMPL,2014-01-10T04:47:02.000765Z,0.100,0.100,Sg,CH,SIMPL,,HHT,manual
-1,CHNALPS,2014-01-10T04:47:06.78218Z,0.100,0.100,P1,CH,NALPS,,HHR,manual
-1,CHBNALP,2014-01-10T04:47:05.918759Z,0.200,0.200,P1,CH,BNALP,,HHZ,automatic
-1,CHFUSIO,2014-01-10T04:47:04.812236Z,0.100,0.100,Pg,CH,FUSIO,,HHR,manual
-1,FRRSL,2014-01-10T04:47:13.089093Z,0.200,0.200,Sg,FR,RSL,00,HHT,manual
-1,FRRSL,2014-01-10T04:47:02.689842Z,0.050,0.050,Pg,FR,RSL,00,HHZ,automatic
-1,CHGRIMS,2014-01-10T04:47:01.597023Z,0.100,0.100,Pg,CH,GRIMS,,HHR,manual
-1,IVMRGE,2014-01-10T04:46:58.219541Z,0.100,0.100,Pg,IV,MRGE,,HHR,manual
+eventId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode,evalMode
+1,2019-11-05T00:54:22.64478Z,0.025,0.025,Pg,8D,RAW2,,HHZ,automatic
+1,2019-11-05T00:54:23.58254Z,0.100,0.100,Sg,8D,RAW2,,HHT,manual
+1,2019-11-05T00:54:22.7681Z,0.025,0.025,Pg,CH,SAYF2,,HGZ,manual
+1,2019-11-05T00:54:24.007619Z,0.050,0.050,Sg,CH,STSW2,,HGT,manual
+2,2019-11-05T01:03:08.867835Z,0.050,0.050,S,8D,RAW2,,HHT,manual
+2,2019-11-05T01:03:07.977432Z,0.025,0.025,P,CH,SAYF2,,HGZ,manual
+2,2019-11-05T01:03:08.9947Z,0.050,0.050,Sg,CH,SAYF2,,HGT,automatic
+2,2019-11-05T01:03:09.12808Z,0.050,0.050,P,CH,STSW2,,HGR,manual
+2,2019-11-05T01:03:09.409276Z,0.025,0.025,Sg,CH,SENIN,,HHT,automatic
 ```
 With this format it is possible to relocate events that are not stored in any SeisComP database, since all the origins information are contained in those files.
 
@@ -214,11 +216,11 @@ Finally, the events to be relocated can also be stored in SeisComP XML format. P
 
 ### 1.3 Relocating the candidate events
 
-Before performing the relocation we need to create a new profile in the `scrtdd` configuration where it is possible to select the values for the relocation steps: dubble-differene system creation, cross-correlation and solver.
+Before performing the relocation we need to create a new profile in the `scrtdd` configuration where it is possible to select the values for the relocation steps: double-difference system creation, cross-correlation and solver.
 
 ![Profile options](/data/img/configOverview.png?raw=true "Profile options")
 
-The default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However it is a good choice to configure a custom velocity model (`solver.travelTimeTable`). The cross-correlation parameters are described in a dedicated paragraph. Finally, when the configuration is ready, we can relocate the catalog with the following commands...
+The default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However, it is a good choice to configure a custom velocity model (`solver.travelTimeTable`). The cross-correlation parameters are described in a dedicated paragraph. Finally, when the configuration is ready, we can relocate the catalog with the following commands...
 
 #### 1.3.1 Relocating a file containing a list of origin ids
 
@@ -246,7 +248,7 @@ scrtdd --reloc-catalog station.csv,event.csv,phase.csv --profile myProfile \
 
 #### 1.3.3 Relocating an XML/SCML file
 
-Events are stored in a XML files in [SCML format](https://www.seiscomp.de/doc/base/glossary.html#term-SCML). It is possible to convert between different formats with [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html).
+Events are stored in a XML file in [SCML format](https://www.seiscomp.de/doc/base/glossary.html#term-SCML). It is possible to convert between different formats with [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html).
 
 ```
 # events.xml contais the events data (scxmldump command)
@@ -261,7 +263,7 @@ To relocate external (non SeisComP) data three pieces of information need to be 
 
 * events data has to be provided in [SCML format](https://www.seiscomp.de/doc/base/glossary.html#term-SCML). It is possible to convert between different formats with [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html). Events data can be passed to `scrtdd` via `--ep events.xml` option together with `--reloc-catalog` option
 * alternatively the events data can be converted to a station.csv,event.csv,phase.csv file triplet, explained in the previous paragraphs and passed to `scrtdd` via `--reloc-catalog station.csv,event.csv,phase.csv` option
-* Waveform data can to be provided via `-I RecordStream` command line option and the RecordStream cab be any of the [SeisComP supported ones](https://www.seiscomp.de/doc/apps/global_recordstream.html#global-recordstream)
+* Waveform data can to be provided via `-I RecordStream` command line option and the RecordStream can be any of the [SeisComP supported ones](https://www.seiscomp.de/doc/apps/global_recordstream.html#global-recordstream)
 * [Inventory information](https://www.seiscomp.de/doc/base/concepts/inventory.html) has be converted from an external format into SeisComP own station meta-data XML format called inventory ML. This can be passed to `scrtdd` via `--inventory-db inventory.xml` (or stored in the SeisComP database)
 
 
@@ -388,7 +390,7 @@ Long story short:
 
 * Use the multi-event relocation feature to prepare a background catalog
 
-* Create a `scrtdd` profile or use the same profile used for generating the background catalog, then set the profile background catalog and add the profile to the list of active real-time profiles (`activeProfiles` parameter). The default profile parameter values are meant to be a good starting choice, so there is no need to tweak them heavily. However it is a good choice to configure a custom velocity model (`solver.travelTimeTable`)
+* Create a `scrtdd` profile or use the same profile used for generating the background catalog, then set the profile background catalog and add the profile to the list of active real-time profiles (`activeProfiles` parameter). The default profile parameter values are meant to be a good starting choice, so there is no need to tweak them heavily. However, it is a good choice to configure a custom velocity model (`solver.travelTimeTable`)
 
 * Make sure to read "Avoiding Relocation Loops" paragraph to avoid a potential issue
 
@@ -398,7 +400,7 @@ Long story short:
 
 To enable the real-time processing a profile should be created and enabled by including it in `scrtdd.activeProfiles` option.
  
-In real-time processing `scrtdd` relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generate via multi-event relocation, which has already been covered in the previous sections.
+In real-time processing `scrtdd` relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generated via multi-event relocation, which has already been covered in the previous sections.
 
 Real time relocation uses the same configuration we have seen in full catalog relocation, but real time relocation is done in two steps:
 
@@ -418,9 +420,9 @@ However, if the catalog is generated in XML format, it can be imported in the Se
 
 ![Catalog selection option](/data/img/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
 
-While it is neat to have the background catalog in the SeisComP database, this approach has few limitations. First it may take a lot of time for `scrtdd` to load a big catalog from the database comparing to loading it from files. Also, since the background catalog should be periodically updated, old events are continuosly updated with new origins, which can lead to a not optimal database performance-wise.
+While it is neat to have the background catalog in the SeisComP database, this approach has few limitations. First it may take a lot of time for `scrtdd` to load a big catalog from the database comparing to loading it from files. Also, since the background catalog should be periodically updated, old events are continuously updated with new origins, which can lead to a not optimal database performance-wise.
 
-Once the background catalog is configured `scrtdd` can be enabled and started as any other SeisComP module.  New origins will be relocated as soon as they arrive in the messsaging system.
+Once the background catalog is configured `scrtdd` can be enabled and started as any other SeisComP module.  New origins will be relocated as soon as they arrive in the messaging system.
 
 ### 2.2 Testing
 
@@ -511,7 +513,7 @@ Manual picks are never modified.
 
 ### 2.4 Avoiding Relocation Loops
 
-`scrtdd` listens and sends messages to the LOCATION group. In a default installation where the only locator is `scautoloc` that's not an issue: `scautoloc` will send an origin to LOCATION and `scrtdd` will receive it and send an updated origin to LOCATION.  However, when thare are multiple (re)locators (e.g. scanloc, screloc) that listen to LOCATION and send their own updated origin to LOCATION too, then an infinite loop happens! In this case a new messaging group needs to be created, e.g. RELOCATION, so that the origins flow from LOCATION to RELOCATION without going back.
+`scrtdd` listens and sends messages to the LOCATION group. In a default installation where the only locator is `scautoloc` that's not an issue: `scautoloc` will send an origin to LOCATION and `scrtdd` will receive it and send an updated origin to LOCATION.  However, when there are multiple (re)locators (e.g. scanloc, screloc) that listen to LOCATION and send their own updated origin to LOCATION too, then an infinite loop happens! In this case a new messaging group needs to be created, e.g. RELOCATION, so that the origins flow from LOCATION to RELOCATION without going back.
 
  E.g. of a properly configured system:
 
@@ -672,7 +674,7 @@ scrtdd --help
 
 Simply adding `--debug-wf` to the command line will make `scrtdd` dump to disk miniseed files for inspection (e.g. `scrttv` waveformfile.mseed). Just make sure to delete the folder before using this option to make sure to not look at previous relocation output. This option can be added to any `scrtdd` commands (e.g. `--relocate-profile`, `--ev`, `--origin-id` ) but it is mostly useful when relocating a single event mode because in multi-event mode there will be way too many waveforms to be able to check them all manually, although we can still do some random check to get an overall feeling of the filtering and SNR.
 
-The generated waveforms will be stored in `workingDirectory/profileName/wfdebug/` (e.g. `~/seiscomp3/var/lib/rtdd/myProfile/wfdebug/`) after filtering and resampling, that is the same wavforms used for the cross-correlation. The file names follow the patterns:
+The generated waveforms will be stored in `workingDirectory/profileName/wfdebug/` (e.g. `~/seiscomp3/var/lib/rtdd/myProfile/wfdebug/`) after filtering and resampling, that is the same waveforms used for the cross-correlation. The file names follow the patterns:
 
 * *evNumber.NET.STATION.phaseTime.manual.mseed*       (e.g. ev56.CH.SAYF2.S.manual.mseed)       - event 56 manual S phase on CH.SAYF2 station
 * *evNumber.NET.STATION.phaseTime.automatic.mseed*    (e.g  ev4.CH.SAYF2.P.automatic.mseed)     - event 4 automatic P phase on CH.SAYF2 station
@@ -774,7 +776,7 @@ scrtdd --help
 
 ## 5. Database connection
 
-When SeisComP modules need to access the database for reading or writing data (events, picks, magnitudes, etc) they use the connection string configured in either `global.cfg` (which is inherited by every module) or in `scmaster.cfg`, in which case is scmaster module that passes the database connection string to every module when they connect to the messaging system (usually at module startup).
+When SeisComP modules need to access the database for reading or writing data (events, picks, magnitudes, etc.) they use the connection string configured in either `global.cfg` (which is inherited by every module) or in `scmaster.cfg`, in which case is scmaster module that passes the database connection string to every module when they connect to the messaging system (usually at module startup).
 
 However, when running `scrtdd` from the command line, it doesn't connect to the messaging system and if the database connection is specified via `scmaster.cfg`, the information never reaches `scrtdd`. In this case the database connection must be passed as a command line option:
 
@@ -801,11 +803,11 @@ scrtdd [some options] --verbosity=3 --console=1
 
 Verbosity 3 should be preferred to level 4, since the debug level 4 makes the logs hard to read due to the huge amount of information.
 
-Also, enabling the `scrtdd.saveProcessingFiles` option makes `scrtdd` generates multiple information files inside `scrtdd.workingDirectory`. Those files can be useful for carefull inspections of the relocations.
+Also, enabling the `scrtdd.saveProcessingFiles` option makes `scrtdd` generates multiple information files inside `scrtdd.workingDirectory`. Those files can be useful for careful inspections of the relocations.
 
 ### 6.1 Single-event
 
-A typical *single-event* relocation log looks like the followig;
+A typical *single-event* relocation log looks like the following;
 
 ```
 [info/RTDD] Performing step 1: initial location refinement (no cross correlation)
@@ -904,7 +906,7 @@ DD observations: 687 (CC P/S 141/47 TT P/S 375/124)
 DD observations residuals [msec]: before=-106+/-21.6 after=9+/-26.2
 ```
 
-To allow a comparison of the RMS before and after the relocation `scrtdd` computes the RMS before and after the relocation. Without that it would be hard to compare the RMSs. Each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a certain travel time table, that might not be the same as `scrtdd`. Moreover a locator might apply a specific logic on the RMS computation that prevents a comparison between different locators. For example NonLinLoc locator weighs the residuals by each pick weight and the wighting scheme is decided by NonLinLoc.
+To allow a comparison of the RMS before and after the relocation `scrtdd` computes the RMS before and after the relocation. Without that it would be hard to compare the RMSs. Each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a certain travel time table, that might not be the same as `scrtdd`. Moreover, a locator might apply a specific logic on the RMS computation that prevents a comparison between different locators. For example NonLinLoc locator weighs the residuals by each pick weight and the wighting scheme is decided by NonLinLoc.
 
 The following two lines can be a little cryptic to interpret: 
 ```
@@ -991,7 +993,7 @@ n # P,S travel-time tables resolution for mymodel
   95.00 100.00 105.00 110.00 115.00 120.00 125.00 130.00 135.00 140.00
 ```
 
-Finally we can generate the travel time tables:
+Finally, we can generate the travel time tables:
 
 ```
 ./TauP-installation/bin/taup_table -mod mymodel -ph ttp+ -locsat -header mymodel.header -o mymodel.P
@@ -1021,7 +1023,7 @@ cp mymodel* seiscomp_installation/share/locsat/tables/
 
 Please refer to [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) documentation on how to generate grid files. Once you have them you can configure in `scrtdd` in travel time table options.
 
-The following geographic transformations (TRANS statement) are currently supported: GLOBAL 2D, SIMPLE 2D and 3D, SDS 2D and 3D. Also both float and double values are supported as well as byte swapping.
+The following geographic transformations (TRANS statement) are currently supported: GLOBAL 2D, SIMPLE 2D and 3D, SDS 2D and 3D. Also, both float and double values are supported as well as byte swapping.
 
 ![NLL TTT](/data/img/nll-ttt.png?raw=true "NLL TTT")
 
@@ -1032,7 +1034,7 @@ A (re)locator plugin is also available in the code, which makes `scrtdd` availab
 
 ![Locator plugin](/data/img/locator-plugin.png?raw=true "Locator plugin")
 
-Please note that this plugin is not strictly required since `scrtdd` would relocated any manaul origins anyway (if configured to do so) and the relocated origin will appear on `scolv` as soon as ready.
+Please note that this plugin is not strictly required since `scrtdd` would relocated any manual origins anyway (if configured to do so) and the relocated origin will appear on `scolv` as soon as ready.
 
 Also `scolv` doesn't allow to create new picks when performing a relocation, so `scrtdd` plugin disable the cross-correlation on theoretical picks since those picks will not be reported on `scolv`.
 
