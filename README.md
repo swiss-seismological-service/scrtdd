@@ -98,7 +98,7 @@ The output will be another catalog containing the relocated origins. The configu
 
 In multi-event mode there is no interaction neither with the running SeisComP modules. It is a safe operation and allow for easy experimenting. The relocated events will be stored in plain text files, so that they can be analysed  externally to SeisComP, but they can also be stored back into the database. That is optional.
 
-`scrtdd` supports also the standard options (`--inventory-db inventory.xml --config-db config.xml`) that allows to read the station inventory from plain files, making the database fully optional when the event catalog is provided as plain files.
+`scrtdd` supports also the standard option `--inventory-db inventory.xml` that allows to read the station inventory from plain files, making the database fully optional when the event catalog is provided as plain files.
 
 
 ### 1.1 How to get the origin ids?
