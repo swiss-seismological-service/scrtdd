@@ -258,7 +258,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
   setAutoApplyNotifierEnabled(true);
   setInterpretNotifierEnabled(true);
 
-  setLoadInventoryEnabled(true);
+  setLoadStationsEnabled(true);
 
   setPrimaryMessagingGroup("LOCATION");
 
