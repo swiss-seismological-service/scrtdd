@@ -263,7 +263,7 @@ To relocate external (non SeisComP) data three pieces of information need to be 
 
 * Events data has to be provided in [SCML format](https://www.seiscomp.de/doc/base/glossary.html#term-SCML). It is possible to convert between different formats with [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html). Events data can be passed to `scrtdd` via `--ep events.xml` option together with `--reloc-catalog` option
 * alternatively the events data can be converted to a station.csv,event.csv,phase.csv file triplet, explained in the previous paragraphs and passed to `scrtdd` via `--reloc-catalog station.csv,event.csv,phase.csv` option
-* Waveform data can to be provided via `-I RecordStream` command line option and the RecordStream can be any of the [SeisComP supported ones](https://www.seiscomp.de/doc/apps/global_recordstream.html#global-recordstream)
+* Waveform data can to be provided via `-I RecordStream` command line option and the RecordStream can be any of the [SeisComP supported ones](https://www.seiscomp.de/doc/apps/global_recordstream.html#global-recordstream). If the RecordStream is not provided and the waveform data not found, then `scrtdd` will proceed with the relocation computing the differential times from the picks times and it will not refine those via cross-correlation.
 * [Inventory information](https://www.seiscomp.de/doc/base/concepts/inventory.html) has be converted from an external format into SeisComP own station meta-data XML format called inventory ML. This can be passed to `scrtdd` via `--inventory-db inventory.xml` (or stored in the SeisComP database). When the events are provided as station.csv,event.csv,phase.csv file triplet, the inventory can be passed as empty.
 
 
