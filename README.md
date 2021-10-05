@@ -261,13 +261,13 @@ scrtdd --reloc-catalog myCatalog.csv --ep events.xml --profile myProfile \
 
 To relocate external (non SeisComP) data three pieces of information need to be provided: events data, waveform data and inventory information:
 
-* events data has to be provided in [SCML format](https://www.seiscomp.de/doc/base/glossary.html#term-SCML). It is possible to convert between different formats with [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html). Events data can be passed to `scrtdd` via `--ep events.xml` option together with `--reloc-catalog` option
+* Events data has to be provided in [SCML format](https://www.seiscomp.de/doc/base/glossary.html#term-SCML). It is possible to convert between different formats with [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html). Events data can be passed to `scrtdd` via `--ep events.xml` option together with `--reloc-catalog` option
 * alternatively the events data can be converted to a station.csv,event.csv,phase.csv file triplet, explained in the previous paragraphs and passed to `scrtdd` via `--reloc-catalog station.csv,event.csv,phase.csv` option
 * Waveform data can to be provided via `-I RecordStream` command line option and the RecordStream can be any of the [SeisComP supported ones](https://www.seiscomp.de/doc/apps/global_recordstream.html#global-recordstream)
-* [Inventory information](https://www.seiscomp.de/doc/base/concepts/inventory.html) has be converted from an external format into SeisComP own station meta-data XML format called inventory ML. This can be passed to `scrtdd` via `--inventory-db inventory.xml` (or stored in the SeisComP database)
+* [Inventory information](https://www.seiscomp.de/doc/base/concepts/inventory.html) has be converted from an external format into SeisComP own station meta-data XML format called inventory ML. This can be passed to `scrtdd` via `--inventory-db inventory.xml` (or stored in the SeisComP database). When the events are provided as station.csv,event.csv,phase.csv file triplet, the inventory can be passed as empty.
 
 
-Examples:
+Relocating a catalog in **"station.csv,event.csv,phase.csv"** file triplet format:
 
 ```
 scrtdd --reloc-catalog station.csv,event.csv,phase.csv --profile myProfile \
@@ -275,6 +275,20 @@ scrtdd --reloc-catalog station.csv,event.csv,phase.csv --profile myProfile \
        --inventory-db inventory.xml \
        --verbosity=3 --console=1
 ```
+
+The inventory can optionally be empty, but in this case the waveform projection is not available (123->ZNE->ZRT) because that requires information not present in station.csv. That means the cross-correlation can be only performed on  existing components (e.g. no cross-correlation of S phases on the T component).
+
+This is an **empty inventory**:
+
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<seiscomp xmlns="http://geofon.gfz-potsdam.de/ns/seiscomp3-schema/0.11" version="0.11">
+  <Inventory>
+  </Inventory>
+</seiscomp>
+```
+
+Relocating a catalog in **SCML format** (the inventory is always required):
 
 ```
 # myCatalog.csv contains the origin ids inside events.xml we want relocate
