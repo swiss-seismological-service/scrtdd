@@ -258,7 +258,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
   setAutoApplyNotifierEnabled(true);
   setInterpretNotifierEnabled(true);
 
-  setLoadInventoryEnabled(true);
+  setLoadStationsEnabled(true);
 
   setPrimaryMessagingGroup("LOCATION");
 
@@ -890,12 +890,21 @@ bool RTDD::validateParameters()
     }
     try
     {
-      prof->solverCfg.ttConstraint =
-          configGetBool(prefix + "includeTravelTimeResiduals");
+      prof->solverCfg.absLocConstraintStart =
+          configGetDouble(prefix + "absoluteLocationConstraint.startingValue");
     }
     catch (...)
     {
-      prof->solverCfg.ttConstraint = false;
+      prof->solverCfg.absLocConstraintStart = 0;
+    }
+    try
+    {
+      prof->solverCfg.absLocConstraintEnd =
+          configGetDouble(prefix + "absoluteLocationConstraint.finalValue");
+    }
+    catch (...)
+    {
+      prof->solverCfg.absLocConstraintEnd = 0;
     }
     try
     {

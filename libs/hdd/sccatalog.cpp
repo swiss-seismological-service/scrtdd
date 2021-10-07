@@ -370,7 +370,7 @@ ScCatalog::findSensorLocation(const std::string &networkCode,
   DataModel::Inventory *inv = Client::Inventory::Instance()->inventory();
   if (!inv)
   {
-    SEISCOMP_ERROR("Inventory not available");
+    SEISCOMP_DEBUG("Inventory not available");
     return nullptr;
   }
 

@@ -153,7 +153,7 @@ public:
                             double velocityAtSrc);
 
   void solve(unsigned numIterations    = 0,
-             bool useTTconstraint      = false,
+             double ttConstraint       = 0,
              double dampingFactor      = 0,
              double residualDownWeight = 0,
              bool normalizeG           = true);
@@ -184,13 +184,13 @@ private:
   computeResidualWeights(const std::vector<double> &residuals,
                          const double alpha) const;
 
-  void prepareDDSystem(bool useTTconstraint,
+  void prepareDDSystem(double ttConstraint,
                        double dampingFactor,
                        double residualDownWeight);
 
   template <class T>
   void _solve(unsigned numIterations,
-              bool useTTconstraint,
+              double ttConstraint,
               double dampingFactor,
               double residualDownWeight,
               bool normalizeG);

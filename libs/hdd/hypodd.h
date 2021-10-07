@@ -107,13 +107,14 @@ struct ClusteringOptions
 
 struct SolverOptions
 {
-  std::string type                    = "LSMR"; // LSMR or LSQR
-  bool L2normalization                = true;
-  unsigned solverIterations           = 0; // 0 -> auto
-  unsigned algoIterations             = 20;
-  bool ttConstraint                   = false;
-  double dampingFactorStart           = 0.3; // 0 -> disable damping factor
-  double dampingFactorEnd             = 0.3; // 0 -> disable damping factor
+  std::string type             = "LSMR"; // LSMR or LSQR
+  bool L2normalization         = true;
+  unsigned solverIterations    = 0; // 0 -> auto
+  unsigned algoIterations      = 20;
+  double absLocConstraintStart = 0; // 0 -> disable absolute location constraint
+  double absLocConstraintEnd   = 0; // 0 -> disable absolute location constraint
+  double dampingFactorStart    = 0.3;        // 0 -> disable damping factor
+  double dampingFactorEnd      = 0.3;        // 0 -> disable damping factor
   double downWeightingByResidualStart = 10.; // 0 -> disbale downweighting
   double downWeightingByResidualEnd   = 3.;  // 0 -> disbale downweighting
   bool usePickUncertainty             = false;

@@ -563,7 +563,7 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
   return weights;
 }
 
-void Solver::prepareDDSystem(bool useTTconstraint,
+void Solver::prepareDDSystem(double ttConstraint,
                              double dampingFactor,
                              double residualDownWeight)
 {
@@ -571,7 +571,7 @@ void Solver::prepareDDSystem(bool useTTconstraint,
 
   // Count how many travel time constraints we need in the DD system.
   unsigned ttconstraintNum = 0;
-  if (useTTconstraint)
+  if (ttConstraint > 0)
   {
     for (const auto &kv1 : _obsParams)
       for (const auto &kv2 : kv1.second)
@@ -689,7 +689,7 @@ void Solver::prepareDDSystem(bool useTTconstraint,
   }
 
   // add travel time residual constraints after DD observations
-  if (useTTconstraint)
+  if (ttConstraint > 0)
   {
     unsigned ttconstraintIdx = _dd->nObs - 1;
     for (const auto &kv1 : _obsParams)
@@ -720,10 +720,10 @@ void Solver::prepareDDSystem(bool useTTconstraint,
         }
 
         _dd->W[ttconstraintIdx] =
-            (prmSts.finalTotalObs != 0)
-                ? (prmSts.totalFinalWeight /
-                   (prmSts.finalTotalObs * evObsParamMap.size()))
-                : 0;
+            ttConstraint *
+            (prmSts.finalTotalObs != 0
+                 ? (prmSts.totalFinalWeight / prmSts.finalTotalObs)
+                 : 0);
         _dd->d[ttconstraintIdx] =
             -obprm.travelTimeResidual * _dd->W[ttconstraintIdx];
         _dd->evByObs[0][ttconstraintIdx] = evIdx;
@@ -788,7 +788,7 @@ void Solver::prepareDDSystem(bool useTTconstraint,
 }
 
 void Solver::solve(unsigned numIterations,
-                   bool useTTconstraint,
+                   double ttConstraint,
                    double dampingFactor,
                    double residualDownWeight,
                    bool normalizeG)
@@ -800,12 +800,12 @@ void Solver::solve(unsigned numIterations,
 
   if (_type == "LSQR")
   {
-    _solve<lsqrBase>(numIterations, useTTconstraint, dampingFactor,
+    _solve<lsqrBase>(numIterations, ttConstraint, dampingFactor,
                      residualDownWeight, normalizeG);
   }
   else if (_type == "LSMR")
   {
-    _solve<lsmrBase>(numIterations, useTTconstraint, dampingFactor,
+    _solve<lsmrBase>(numIterations, ttConstraint, dampingFactor,
                      residualDownWeight, normalizeG);
   }
   else
@@ -817,12 +817,12 @@ void Solver::solve(unsigned numIterations,
 
 template <class T>
 void Solver::_solve(unsigned numIterations,
-                    bool useTTconstraint,
+                    double ttConstraint,
                     double dampingFactor,
                     double residualDownWeight,
                     bool normalizeG)
 {
-  prepareDDSystem(useTTconstraint, dampingFactor, residualDownWeight);
+  prepareDDSystem(ttConstraint, dampingFactor, residualDownWeight);
 
   Adapter<T> solver;
   solver.setDDSytem(_dd);

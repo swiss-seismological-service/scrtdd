@@ -261,7 +261,8 @@ HDD::CatalogPtr relocateCatalog(const HDD::CatalogCPtr cat,
 
   HDD::SolverOptions solverCfg;
   solverCfg.algoIterations               = 20;
-  solverCfg.ttConstraint                 = true;
+  solverCfg.absLocConstraintStart        = 1.0;
+  solverCfg.absLocConstraintEnd          = 1.0;
   solverCfg.dampingFactorStart           = 0.;
   solverCfg.dampingFactorEnd             = 0.;
   solverCfg.downWeightingByResidualStart = 0;
@@ -301,7 +302,8 @@ HDD::CatalogCPtr relocateSingleEvent(const HDD::CatalogCPtr bgCat,
 
   HDD::SolverOptions solverCfg;
   solverCfg.algoIterations               = 20;
-  solverCfg.ttConstraint                 = true;
+  solverCfg.absLocConstraintStart        = 1.0;
+  solverCfg.absLocConstraintEnd          = 1.0;
   solverCfg.dampingFactorStart           = 0.;
   solverCfg.dampingFactorEnd             = 0.;
   solverCfg.downWeightingByResidualStart = 0;

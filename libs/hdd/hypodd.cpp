@@ -630,14 +630,17 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
     double downWeightingByResidual =
         interpolate(solverOpt.downWeightingByResidualStart,
                     solverOpt.downWeightingByResidualEnd);
+    double absLocConstraint   = interpolate(solverOpt.absLocConstraintStart,
+                                          solverOpt.absLocConstraintEnd);
     double absTTDiffObsWeight = interpolate(1.0, solverOpt.absTTDiffObsWeight);
     double xcorrObsWeight     = interpolate(1.0, solverOpt.xcorrObsWeight);
 
     SEISCOMP_INFO("Solving iteration %u num events %lu. Parameters: "
                   "observWeight TT/CC=%.2f/%.2f dampingFactor=%.2f "
-                  "downWeightingByResidual=%.2f ",
+                  "downWeightingByResidual=%.2f absLocConstraint=%.2f",
                   iteration, neighCluster.size(), absTTDiffObsWeight,
-                  xcorrObsWeight, dampingFactor, downWeightingByResidual);
+                  xcorrObsWeight, dampingFactor, downWeightingByResidual,
+                  absLocConstraint);
 
     // create a solver and then add observations
     Solver solver(solverOpt.type);
@@ -659,9 +662,8 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
     //
     try
     {
-      solver.solve(solverOpt.solverIterations, solverOpt.ttConstraint,
-                   dampingFactor, downWeightingByResidual,
-                   solverOpt.L2normalization);
+      solver.solve(solverOpt.solverIterations, absLocConstraint, dampingFactor,
+                   downWeightingByResidual, solverOpt.L2normalization);
     }
     catch (exception &e)
     {
