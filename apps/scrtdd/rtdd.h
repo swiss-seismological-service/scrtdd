@@ -61,7 +61,7 @@ public:
   };
   DEFINE_SMARTPOINTER(Region);
 
-  virtual const char *version() { return "1.5.8"; }
+  virtual const char *version() { return "1.5.8+"; }
 
 protected:
   void createCommandLineDescription();
