@@ -167,15 +167,7 @@ Catalog::Catalog(const string &stationFile,
       ev.relocInfo.locChange         = std::stod(row.at("locChange"));
       ev.relocInfo.depthChange       = std::stod(row.at("depthChange"));
       ev.relocInfo.timeChange        = std::stod(row.at("timeChange"));
-      ev.relocInfo.neighbours.amount = std::stoul(row.at("numNeighbours"));
-      ev.relocInfo.neighbours.meanDistToCentroid =
-          std::stod(row.at("neigh_meanDistToCentroid"));
-      ev.relocInfo.neighbours.meanDepthDistToCentroid =
-          std::stod(row.at("neigh_meanDepthDistToCentroid"));
-      ev.relocInfo.neighbours.eventDistToCentroid =
-          std::stod(row.at("neigh_centroidToEventDist"));
-      ev.relocInfo.neighbours.eventDepthDistToCentroid =
-          std::stod(row.at("neigh_centroidToEventDepthDist"));
+      ev.relocInfo.numNeighbours     = std::stoul(row.at("numNeighbours"));
       ev.relocInfo.phases.usedP = std::stoul(row.at("ph_usedP"));
       ev.relocInfo.phases.usedS = std::stoul(row.at("ph_usedS"));
       ev.relocInfo.phases.stationDistMin =
@@ -471,10 +463,7 @@ void Catalog::writeToFile(string eventFile,
   evStreamReloc
       << evStreamNoReloc.str()
       << ",relocated,startRms,locChange,depthChange,timeChange,numNeighbours,"
-         "neigh_meanDistToCentroid,neigh_centroidToEventDist,"
-         "neigh_meanDepthDistToCentroid,neigh_centroidToEventDepthDist,"
-         "ph_usedP,ph_usedS,"
-         "ph_stationDistMin,ph_stationDistMedian,ph_stationDistMax,"
+         "ph_usedP,ph_usedS,ph_stationDistMin,ph_stationDistMedian,ph_stationDistMax,"
          "ddObs_numTTp,ddObs_numTTs,ddObs_numCCp,ddObs_numCCs,"
          "ddObs_startResidualMedian,ddObs_startResidualMAD,"
          "ddObs_finalResidualMedian,ddObs_finalResidualMAD"
@@ -496,21 +485,16 @@ void Catalog::writeToFile(string eventFile,
 
     if (!ev.relocInfo.isRelocated)
     {
-      evStreamReloc << ",false,,,,,,,,,,,,,,,,,,,,,,";
+      evStreamReloc << ",false,,,,,,,,,,,,,,,,,,";
     }
     else
     {
       relocInfo = true;
       evStreamReloc << stringify(
-          ",true,%.3f,%.3f,%.3f,%.3f,%u,%.3f,%.3f,%.3f,%.3f,"
-          "%u,%u,%.3f,%.3f,%.3f,%u,%u,%u,%u,%.4f,%.4f,%.4f,%.4f",
+          ",true,%.3f,%.3f,%.3f,%.3f,%u,%u,%u,%.3f,%.3f,%.3f,%u,%u,%u,%u,%.4f,%.4f,%.4f,%.4f",
           ev.relocInfo.startRms, ev.relocInfo.locChange,
           ev.relocInfo.depthChange, ev.relocInfo.timeChange,
-          ev.relocInfo.neighbours.amount,
-          ev.relocInfo.neighbours.meanDistToCentroid,
-          ev.relocInfo.neighbours.eventDistToCentroid,
-          ev.relocInfo.neighbours.meanDepthDistToCentroid,
-          ev.relocInfo.neighbours.eventDepthDistToCentroid,
+          ev.relocInfo.numNeighbours,
           ev.relocInfo.phases.usedP, ev.relocInfo.phases.usedS,
           ev.relocInfo.phases.stationDistMin,
           ev.relocInfo.phases.stationDistMedian,

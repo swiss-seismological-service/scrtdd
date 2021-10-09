@@ -696,21 +696,15 @@ string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
       "Rms change [sec]: %.3f (before/after %.3f/%.3f) "
       "Neighbours=%u Used Phases: P=%u S=%u "
       "Stations distance [km]: min=%.1f median=%.1f max=%.1f "
-      "Neighbours mean distace to centroid [km]: location=%.2f depth=%.2f "
-      "Origin distace to neighbours centroid [km]: location=%.2f depth=%.2f "
       "DD observations: %u (CC P/S %u/%u TT P/S %u/%u) "
       "DD observations residuals [msec]: before=%.f+/-%.1f after=%.f+/-%.1f",
       event.relocInfo.locChange, event.relocInfo.depthChange,
       event.relocInfo.timeChange, (event.rms - event.relocInfo.startRms),
-      event.relocInfo.startRms, event.rms, event.relocInfo.neighbours.amount,
+      event.relocInfo.startRms, event.rms, event.relocInfo.numNeighbours,
       event.relocInfo.phases.usedP, event.relocInfo.phases.usedS,
       event.relocInfo.phases.stationDistMin,
       event.relocInfo.phases.stationDistMedian,
       event.relocInfo.phases.stationDistMax,
-      event.relocInfo.neighbours.meanDistToCentroid,
-      event.relocInfo.neighbours.meanDepthDistToCentroid,
-      event.relocInfo.neighbours.eventDistToCentroid,
-      event.relocInfo.neighbours.eventDepthDistToCentroid,
       (event.relocInfo.ddObs.numCCp + event.relocInfo.ddObs.numCCs +
        event.relocInfo.ddObs.numTTp + event.relocInfo.ddObs.numTTs),
       event.relocInfo.ddObs.numCCp, event.relocInfo.ddObs.numCCs,
@@ -940,8 +934,8 @@ CatalogPtr HypoDD::updateRelocatedEvents(
     event.time += Core::TimeSpan(deltaTT);
     event.rms                    = 0;
     event.relocInfo.isRelocated  = true;
+    event.relocInfo.numNeighbours = 0;
     event.relocInfo.phases       = {0};
-    event.relocInfo.neighbours   = {0};
     event.relocInfo.ddObs.numTTp = 0;
     event.relocInfo.ddObs.numTTs = 0;
     event.relocInfo.ddObs.numCCp = 0;
@@ -1033,7 +1027,7 @@ CatalogPtr HypoDD::updateRelocatedEvents(
     event.relocInfo.ddObs.finalResidualMedian = residualMedian;
     event.relocInfo.ddObs.finalResidualMAD    = residualMAD;
 
-    event.relocInfo.neighbours.amount = finalNeighbours->numNeighbours();
+    event.relocInfo.numNeighbours = finalNeighbours->numNeighbours();
     finalNeighCluster[finalNeighbours->refEvId] = finalNeighbours;
   }
 
@@ -1153,40 +1147,6 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
     auto min_max = std::minmax_element(stationDist.begin(), stationDist.end());
     finalEvent.relocInfo.phases.stationDistMin = *min_max.first;
     finalEvent.relocInfo.phases.stationDistMax = *min_max.second;
-
-    //
-    // compute starting neighbours to starting event distance
-    //
-    vector<double> latDiff, lonDiff, depthDiff;
-    for (unsigned neighEvId : neighbours->ids)
-    {
-      const Event &neighEv = startCatalog->getEvents().at(neighEvId);
-      latDiff.push_back(startEvent.latitude - neighEv.latitude);
-      lonDiff.push_back(startEvent.longitude - neighEv.longitude);
-      depthDiff.push_back(startEvent.depth - neighEv.depth);
-    }
-    double meanLatDiff   = computeMean(latDiff);
-    double meanLonDiff   = computeMean(lonDiff);
-    double meanDepthDiff = computeMean(depthDiff);
-    double centroidLat   = startEvent.latitude + meanLatDiff;
-    double centroidLon   = startEvent.longitude + meanLonDiff;
-    // double centroidDepth = startEvent.depth + meanDepthDiff; not used
-
-    finalEvent.relocInfo.neighbours.eventDistToCentroid = computeDistance(
-        startEvent.latitude, startEvent.longitude, centroidLat, centroidLon);
-    finalEvent.relocInfo.neighbours.eventDepthDistToCentroid = meanDepthDiff;
-    finalEvent.relocInfo.neighbours.meanDepthDistToCentroid =
-        computeMeanAbsoluteDeviation(depthDiff, meanDepthDiff);
-
-    finalEvent.relocInfo.neighbours.meanDistToCentroid = 0;
-    for (unsigned neighEvId : neighbours->ids)
-    {
-      const Event &neighEv = startCatalog->getEvents().at(neighEvId);
-      finalEvent.relocInfo.neighbours.meanDistToCentroid += computeDistance(
-          neighEv.latitude, neighEv.longitude, centroidLat, centroidLon);
-    }
-    finalEvent.relocInfo.neighbours.meanDistToCentroid /=
-        neighbours->numNeighbours();
 
     tmpCat->updateEvent(finalEvent, false);
     catalogToReturn->add(finalEvent.id, *tmpCat, true);

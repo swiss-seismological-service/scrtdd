@@ -905,7 +905,7 @@ Details of the solutions for each iteration of the solver
 
 ### 6.3 Relocation statistics
 
-`scrtdd` adds two comments to each relocated origin: `scrtddSourceOrigin` and `scrtddRelocationReport`. They can be both visualized in `scolv` (see official SeisComP documentation on how to do so), or they can be seen on the logs.
+`scrtdd` adds two comments to each relocated origin: `scrtddSourceOrigin` and `scrtddRelocationReport`. They can be both visualized in `scolv` (see official SeisComP documentation on how to visualize comments as additional columns), or they can be seen on the logs.
 
 `scrtddSourceOrigin` contains the id of the origin that triggered the relocation. `scrtddRelocationReport` contains a summary of the relocation process. E.g.
 
@@ -914,23 +914,13 @@ Origin changes: location=0.23[km] depth=1.40[km] time=-0.147[sec]
 Rms change [sec]: -0.153 (before/after 0.502/0.349)
 Neighbours=80 Used Phases: P=37 S=16
 Stations distance [km]: min=15.9 median=57.0 max=99.8
-Neighbours mean distace to centroid [km]: location=5.11 depth=5.06
-Origin distace to neighbours centroid [km]: location=1.30 depth=3.01
 DD observations: 687 (CC P/S 141/47 TT P/S 375/124)
 DD observations residuals [msec]: before=-106+/-21.6 after=9+/-26.2
 ```
 
-To allow a comparison of the RMS before and after the relocation `scrtdd` computes the RMS before and after the relocation. Without that it would be hard to compare the RMSs. Each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a certain travel time table, that might not be the same as `scrtdd`. Moreover, a locator might apply a specific logic on the RMS computation that prevents a comparison between different locators. For example NonLinLoc locator weighs the residuals by each pick weight and the wighting scheme is decided by NonLinLoc.
+`scrtdd` computes the RMS after but also before the relocation, to allow for a comparison of the RMS change. The computation of the initial RMS is required for a sensible comparison. It is not possible to look at the RMS of the starting origin, since each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a travel time table that might not be the same as `scrtdd`. Moreover, a locator might apply a specific logic to the RMS computation, which prevents a comparison between RMS computed by different locators. For example NonLinLoc locator weighs the residuals used in the RMS by each pick weight and the wighting scheme is decided by NonLinLoc. That makes the RMS unsuitable for cross-locator comparisons.
 
-The following two lines can be a little cryptic to interpret: 
-```
-Neighbours mean distace to centroid [km]: location=5.11 depth=5.06
-Origin distace to neighbours centroid [km]: location=1.30 depth=3.01
-```
-
-Their intent is to highlight how far the relocated event is to the neighbours centroid. The idea is that an event that falls within a cluster has a better chance to be properly relocated than an event that is far away from the neighbouring events.
-
-The above information is also stored in the output files (events.csv,phases.csv,station,csv) of the multi-event relocation and it can be used to compute useful statistics for an entire catalog. Those are the column names containing the information:
+All the above information is also stored in the output files (events.csv,phases.csv,station,csv) of the multi-event relocation and it can be used to compute useful statistics for an entire catalog. Those are the column names containing the information:
 
 ```
 startRms
@@ -938,10 +928,6 @@ locChange
 depthChange
 timeChange
 numNeighbours
-neigh_meanDistToCentroid
-neigh_centroidToEventDist
-neigh_meanDepthDistToCentroid
-neigh_centroidToEventDepthDist
 ph_usedP
 ph_usedS
 ph_stationDistMin
