@@ -74,15 +74,7 @@ public:
       double locChange;
       double depthChange;
       double timeChange;
-
-      struct
-      {
-        unsigned amount;
-        double meanDistToCentroid;
-        double meanDepthDistToCentroid;
-        double eventDistToCentroid;
-        double eventDepthDistToCentroid;
-      } neighbours;
+      unsigned numNeighbours;
 
       struct
       {

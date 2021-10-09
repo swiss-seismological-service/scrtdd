@@ -131,8 +131,7 @@
           </group>
 
           <group name="crossCorrelation">
-           <description>cross-correlation is used to improve the quality of the differential travel times between event pairs in the of double-difference system</description> 
-
+           <description>cross-correlation is used to improve the differential travel times used in the double-difference system. Each equation in the system has an observed differential time derived from the phases absolute travel times of the event pair in the equation. The cross-correlation is performed between the phases waveforms of the event pair and the resulting lag used as differential time, whether the correlation coefficient exceeds the configured threshold.</description> 
             <parameter name="maxStationDistance" type="double" default="85" unit="km">
               <description>Max distance (km) between event and station allowed. Phases belonging to further stations will not be used in cross-correlation. Set it to -1 to remove limits.</description>
             </parameter>
@@ -225,7 +224,7 @@
               </parameter>
             </group>
             <group name="dampingFactor">
-              <description>Setting a value different than 0 enables the solver to use a damped (regularized) least squares system. A too high value prevents the solver from changing the events locations, while a too low value allows the event clusters to shift away from their true absolute location.</description>
+              <description>Setting a value different than 0 enables the solver to use a damped (regularized) least squares system. A too high value prevents the solver from changing the events locations, while a too low value allows the event cluster(s) to shift away from their initial absolute location, which might result in a larger events RMS.</description>
               <parameter name="startingValue" type="double" default="0.3">
                 <description>Value for the first iteration of the solver.</description>
               </parameter>
@@ -234,7 +233,7 @@
               </parameter>
             </group>
             <group name="absoluteLocationConstraint">
-              <description>When a value greater than 0 is used, then additional equations are included in the double-difference system (one equation for each event phase) that constrain the absolute travel time residuals (RMS) of the phases of the events being relocated. This forces the solver to find a solution that tries to improve the relative locations while positioning the cluster(s) in the absolute location that minimize the overall RMS. However this is a trade-off and giving too much weight to the absolute location constraint prevents the solver from improving the relative locations. The value specified in here is the weight to be given to the equations that constrain the absolute travel time residuals.</description>
+              <description>When a value greater than 0 is used, then additional equations are included in the double-difference system (one equation for each event phase) whose purpose is to constrain the absolute travel time residuals of the events being relocated. This forces the solver to find a solution that improves the events relative locations while positioning the cluster(s) in the absolute location that minimize the events RMS. However this is a trade-off and giving too much weight to the absolute location constraint prevents the solver from improving the relative locations. When using this feature the damping factor value can be decreased. The value specified in here is the weight to be given to the equations that constrain the absolute travel time residuals. A good starting point for testing the optimal values, is to set it to 0.3 and the damping factor to 0.03</description>
               <parameter name="startingValue" type="double" default="0.0">
                 <description>Value for the first iteration of the solver.</description>
               </parameter>
