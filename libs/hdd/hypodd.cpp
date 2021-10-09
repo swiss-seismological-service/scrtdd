@@ -697,7 +697,7 @@ string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
       "Neighbours=%u Used Phases: P=%u S=%u "
       "Stations distance [km]: min=%.1f median=%.1f max=%.1f "
       "DD observations: %u (CC P/S %u/%u TT P/S %u/%u) "
-      "DD observations residuals [msec]: before=%.f+/-%.1f after=%.f+/-%.1f",
+      "DD residuals [msec]: before=%.f+/-%.1f after=%.f+/-%.1f",
       event.relocInfo.locChange, event.relocInfo.depthChange,
       event.relocInfo.timeChange, (event.rms - event.relocInfo.startRms),
       event.relocInfo.startRms, event.rms, event.relocInfo.numNeighbours,

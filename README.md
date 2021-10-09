@@ -839,10 +839,8 @@ Details of the solutions for each iteration of the solver
             Rms change [sec]: 0.100 (before/after 0.415/0.516)
             Neighbours=70 Used Phases: P=13 S=20
             Stations distance [km]: min=4.5 median=36.6 max=65.7
-            Neighbours mean distace to centroid [km]: location=6.97 depth=1.95
-            Origin distace to neighbours centroid [km]: location=1.32 depth=-2.46 
             DD observations: 696 (CC P/S 0/0 TT P/S 285/411)
-            DD observations residuals [msec]: before=-59+/-38.5 after=8+/-11.8
+            DD residuals [msec]: before=-59+/-38.5 after=8+/-11.8
 
 [info/RTDD] Performing step 2: relocation with cross correlation
 [info/RTDD] Selecting Neighbouring Events for event 11371 lat 46.899737 lon 9.111036 depth 1.3489
@@ -865,10 +863,8 @@ Details of the solutions for each iteration of the solver
             Rms change [sec]: 0.038 (before/after 0.509/0.546)
             Neighbours=46 Used Phases: P=12 S=19 
             Stations distance [km]: min=8.7 median=36.9 max=65.7
-            Neighbours mean distace to centroid [km]: location=5.40 depth=1.86
-            Origin distace to neighbours centroid [km]: location=2.10 depth=-1.39 
             DD observations: 532 (CC P/S 103/164 TT P/S 117/148) 
-            DD observations residuals [msec]: before=-59+/-38.5 after=8+/-18.3
+            DD residuals [msec]: before=-59+/-38.5 after=8+/-18.3
 [info/RTDD] Total Changes: location=0.35[km] depth=0.59[km] time=-0.133[sec] Rms=0.131[sec] (before/after 0.415/0.546)
 ```
 
@@ -915,12 +911,12 @@ Rms change [sec]: -0.153 (before/after 0.502/0.349)
 Neighbours=80 Used Phases: P=37 S=16
 Stations distance [km]: min=15.9 median=57.0 max=99.8
 DD observations: 687 (CC P/S 141/47 TT P/S 375/124)
-DD observations residuals [msec]: before=-106+/-21.6 after=9+/-26.2
+DD residuals [msec]: before=-106+/-21.6 after=9+/-26.2
 ```
 
 `scrtdd` computes the RMS after but also before the relocation, to allow for a comparison of the RMS change. The computation of the initial RMS is required for a sensible comparison. It is not possible to look at the RMS of the starting origin, since each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a travel time table that might not be the same as `scrtdd`. Moreover, a locator might apply a specific logic to the RMS computation, which prevents a comparison between RMS computed by different locators. For example NonLinLoc locator weighs the residuals used in the RMS by each pick weight and the wighting scheme is decided by NonLinLoc. That makes the RMS unsuitable for cross-locator comparisons.
 
-All the above information is also stored in the output files (events.csv,phases.csv,station,csv) of the multi-event relocation and it can be used to compute useful statistics for an entire catalog. Those are the column names containing the information:
+All the above information is also stored in the output files (events.csv,phases.csv,station,csv) of the multi-event relocation and it can be used to compute useful statistics for an entire catalog. Those are the column names containing the information (MAD=median absolute deviation):
 
 ```
 startRms
