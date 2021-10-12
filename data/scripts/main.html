@@ -206,7 +206,7 @@ function loadData() {
     return {
       lat   : +data.latitude,
       lon   : +data.longitude,
-      desc  : data.id,
+      desc  : data.networkCode + "." + data.stationCode + "." + data.locationCode,
       group : "stations"
     };
   }).then(function(data){
