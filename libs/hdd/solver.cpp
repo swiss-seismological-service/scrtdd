@@ -833,10 +833,10 @@ void Solver::_solve(unsigned numIterations,
   solver.SetDamp(dampingFactor);
   solver.SetMaximumNumberOfIterations(numIterations ? numIterations
                                                     : _dd->numColsG / 2);
-  const double eps = 1e-15;
+  const double eps = std::numeric_limits<double>::epsilon();
   solver.SetEpsilon(eps);
-  solver.SetToleranceA(1e-16);
-  solver.SetToleranceB(1e-16);
+  solver.SetToleranceA(1e-12);
+  solver.SetToleranceB(1e-12);
   solver.SetUpperLimitOnConditional(1.0 / (10 * sqrt(eps)));
 
   std::ostringstream solverLogs;
