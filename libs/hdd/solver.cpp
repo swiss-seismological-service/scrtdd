@@ -835,8 +835,8 @@ void Solver::_solve(unsigned numIterations,
                                                     : _dd->numColsG / 2);
   const double eps = std::numeric_limits<double>::epsilon();
   solver.SetEpsilon(eps);
-  solver.SetToleranceA(1e-12);
-  solver.SetToleranceB(1e-12);
+  solver.SetToleranceA(1e-6); // we use [km] and [sec] in the DD system, so
+  solver.SetToleranceB(1e-6); // this tolerance looks like enough (mm and usec)
   solver.SetUpperLimitOnConditional(1.0 / (10 * sqrt(eps)));
 
   std::ostringstream solverLogs;
