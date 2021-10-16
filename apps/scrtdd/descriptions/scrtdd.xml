@@ -133,10 +133,10 @@
           <group name="crossCorrelation">
            <description>cross-correlation is used to improve the differential travel times used in the double-difference system. Each equation in the system has an observed differential time derived from the phases absolute travel times of the event pair in the equation. The cross-correlation is performed between the phases waveforms of the event pair and the resulting lag used as differential time, whether the correlation coefficient exceeds the configured threshold.</description> 
             <parameter name="maxStationDistance" type="double" default="85" unit="km">
-              <description>Max distance (km) between event and station allowed. Phases belonging to further stations will not be used in cross-correlation. Set it to -1 to remove limits.</description>
+              <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between event and station for a cross-correlation to happen. Phases belonging to further stations will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 skips all cross-correlations.</description> 
             </parameter>
             <parameter name="maxInterEventDistance" type="double" default="-1" unit="km">
-              <description>Max distance (km) between events allowed. Event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Set it to -1 to remove limits.</description>
+              <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between events for a cross-correlation to happen. Phases of event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 skips all cross-correlations.</description>
             </parameter>
             <parameter name="theoreticalPhaseAutoOrigin" type="boolean" default="true">
               <description>The cross-correlation is used to detect phases at stations with no associated picks. This option is applied to automatic origins.</description>
