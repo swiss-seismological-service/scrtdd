@@ -519,8 +519,8 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->singleEventClustering.minDTperEvt = 1;
-      prof->multiEventClustering.minDTperEvt  = 1;
+      prof->singleEventClustering.minDTperEvt = 4;
+      prof->multiEventClustering.minDTperEvt  = 4;
     }
     try
     {
@@ -531,8 +531,8 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->singleEventClustering.minNumNeigh = 1;
-      prof->multiEventClustering.minNumNeigh  = 1;
+      prof->singleEventClustering.minNumNeigh = 4;
+      prof->multiEventClustering.minNumNeigh  = 4;
     }
 
     prefix = string("profile.") + prof->name +
@@ -586,8 +586,8 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->singleEventClustering.minEStoIEratio = 0;
-      prof->multiEventClustering.minEStoIEratio  = 0;
+      prof->singleEventClustering.minEStoIEratio = 2;
+      prof->multiEventClustering.minEStoIEratio  = 2;
     }
 
     prefix = string("profile.") + prof->name +
