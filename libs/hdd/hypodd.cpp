@@ -1035,7 +1035,7 @@ CatalogPtr HypoDD::updateRelocatedEvents(
   const double allRmsMAD = computeMedianAbsoluteDeviation(allRms, allRmsMedian);
 
   SEISCOMP_INFO(
-      "Successfully relocated %u events. RMS median %.4f [sec] median "
+      "Successfully relocated %u events, RMS median %.4f [sec] median "
       "absolute deviation %.4f [sec]",
       relocatedEvs, allRmsMedian, allRmsMAD);
 

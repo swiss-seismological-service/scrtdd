@@ -541,7 +541,7 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
   const double median = computeMedian(residuals);
   const double MAD    = computeMedianAbsoluteDeviation(residuals, median);
 
-  SEISCOMP_INFO("Solver: #observations %lu residual median %.1f [msec] "
+  SEISCOMP_INFO("Solver: num DD %lu residual median %.1f [msec] "
                 "MedianAbsoluteDeviation %.1f [msec]",
                 _observations.size(), median * 1000, MAD * 1000);
 
@@ -776,7 +776,7 @@ void Solver::prepareDDSystem(double ttConstraint,
     const double MAD    = computeMedianAbsoluteDeviation(decileRes, median);
 
     SEISCOMP_INFO(
-        "Solver: Inter-event dist %.2f-%-.2f [km] #observations %lu residual "
+        "Solver: Inter-event dist %.2f-%-.2f [km] num DD %lu residual "
         "median %4.1f [msec] MedianAbsoluteDeviation %4.1f [msec]",
         startingDist, finalDist, decileRes.size(), median * 1000, MAD * 1000);
   }
