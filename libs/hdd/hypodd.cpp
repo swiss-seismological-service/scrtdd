@@ -705,14 +705,14 @@ string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
       event.relocInfo.phases.stationDistMin,
       event.relocInfo.phases.stationDistMedian,
       event.relocInfo.phases.stationDistMax,
-      (event.relocInfo.ddObs.numCCp + event.relocInfo.ddObs.numCCs +
-       event.relocInfo.ddObs.numTTp + event.relocInfo.ddObs.numTTs),
-      event.relocInfo.ddObs.numCCp, event.relocInfo.ddObs.numCCs,
-      event.relocInfo.ddObs.numTTp, event.relocInfo.ddObs.numTTs,
-      event.relocInfo.ddObs.startResidualMedian * 1000,
-      event.relocInfo.ddObs.startResidualMAD * 1000,
-      event.relocInfo.ddObs.finalResidualMedian * 1000,
-      event.relocInfo.ddObs.finalResidualMAD * 1000);
+      (event.relocInfo.dd.numCCp + event.relocInfo.dd.numCCs +
+       event.relocInfo.dd.numTTp + event.relocInfo.dd.numTTs),
+      event.relocInfo.dd.numCCp, event.relocInfo.dd.numCCs,
+      event.relocInfo.dd.numTTp, event.relocInfo.dd.numTTs,
+      event.relocInfo.dd.startResidualMedian * 1000,
+      event.relocInfo.dd.startResidualMAD * 1000,
+      event.relocInfo.dd.finalResidualMedian * 1000,
+      event.relocInfo.dd.finalResidualMAD * 1000);
 }
 
 /*
@@ -936,10 +936,10 @@ CatalogPtr HypoDD::updateRelocatedEvents(
     event.relocInfo.isRelocated  = true;
     event.relocInfo.numNeighbours = 0;
     event.relocInfo.phases       = {0};
-    event.relocInfo.ddObs.numTTp = 0;
-    event.relocInfo.ddObs.numTTs = 0;
-    event.relocInfo.ddObs.numCCp = 0;
-    event.relocInfo.ddObs.numCCs = 0;
+    event.relocInfo.dd.numTTp = 0;
+    event.relocInfo.dd.numTTs = 0;
+    event.relocInfo.dd.numCCp = 0;
+    event.relocInfo.dd.numCCs = 0;
 
     set<unsigned> neighbourIds;
     vector<double> obsResiduals;
@@ -994,14 +994,14 @@ CatalogPtr HypoDD::updateRelocatedEvents(
       if (phase.procInfo.type == Phase::Type::P)
       {
         event.relocInfo.phases.usedP++;
-        event.relocInfo.ddObs.numCCp += phase.relocInfo.numCCObs;
-        event.relocInfo.ddObs.numTTp += phase.relocInfo.numTTObs;
+        event.relocInfo.dd.numCCp += phase.relocInfo.numCCObs;
+        event.relocInfo.dd.numTTp += phase.relocInfo.numTTObs;
       }
       if (phase.procInfo.type == Phase::Type::S)
       {
         event.relocInfo.phases.usedS++;
-        event.relocInfo.ddObs.numCCs += phase.relocInfo.numCCObs;
-        event.relocInfo.ddObs.numTTs += phase.relocInfo.numTTObs;
+        event.relocInfo.dd.numCCs += phase.relocInfo.numCCObs;
+        event.relocInfo.dd.numTTs += phase.relocInfo.numTTObs;
       }
 
       for (unsigned nId : neighbourIds)
@@ -1021,11 +1021,11 @@ CatalogPtr HypoDD::updateRelocatedEvents(
         computeMedianAbsoluteDeviation(obsResiduals, residualMedian);
     if (isFirstIteration)
     {
-      event.relocInfo.ddObs.startResidualMedian = residualMedian;
-      event.relocInfo.ddObs.startResidualMAD    = residualMAD;
+      event.relocInfo.dd.startResidualMedian = residualMedian;
+      event.relocInfo.dd.startResidualMAD    = residualMAD;
     }
-    event.relocInfo.ddObs.finalResidualMedian = residualMedian;
-    event.relocInfo.ddObs.finalResidualMAD    = residualMAD;
+    event.relocInfo.dd.finalResidualMedian = residualMedian;
+    event.relocInfo.dd.finalResidualMAD    = residualMAD;
 
     event.relocInfo.numNeighbours = finalNeighbours->numNeighbours();
     finalNeighCluster[finalNeighbours->refEvId] = finalNeighbours;

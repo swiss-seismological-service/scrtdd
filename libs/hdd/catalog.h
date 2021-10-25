@@ -95,7 +95,7 @@ public:
         double startResidualMAD;
         double finalResidualMedian;
         double finalResidualMAD;
-      } ddObs;
+      } dd; // double-difference
 
     } relocInfo;
 
