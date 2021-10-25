@@ -2107,7 +2107,8 @@ void RTDD::convertOrigin(
   oq.setUsedPhaseCount(usedPhaseCount);
   oq.setAssociatedStationCount(associatedStations.size());
   oq.setUsedStationCount(usedStations.size());
-  oq.setStandardError(event.relocInfo.isRelocated ? event.relocInfo.finalRms : 0);
+  oq.setStandardError(event.relocInfo.isRelocated ? event.relocInfo.finalRms
+                                                  : 0);
   oq.setMedianDistance(meanDist);
   oq.setMinimumDistance(minDist);
   oq.setMaximumDistance(maxDist);

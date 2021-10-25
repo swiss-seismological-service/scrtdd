@@ -161,15 +161,15 @@ Catalog::Catalog(const string &stationFile,
     if (loadRelocationInfo && (row.count("relocated") != 0) &&
         strToBool(row.at("relocated")))
     {
-      ev.relocInfo.isRelocated       = true;
-      ev.relocInfo.startRms          = std::stod(row.at("startRms"));
-      ev.relocInfo.finalRms          = std::stod(row.at("finalRms"));
-      ev.relocInfo.locChange         = std::stod(row.at("locChange"));
-      ev.relocInfo.depthChange       = std::stod(row.at("depthChange"));
-      ev.relocInfo.timeChange        = std::stod(row.at("timeChange"));
-      ev.relocInfo.numNeighbours     = std::stoul(row.at("numNeighbours"));
-      ev.relocInfo.phases.usedP = std::stoul(row.at("ph_usedP"));
-      ev.relocInfo.phases.usedS = std::stoul(row.at("ph_usedS"));
+      ev.relocInfo.isRelocated   = true;
+      ev.relocInfo.startRms      = std::stod(row.at("startRms"));
+      ev.relocInfo.finalRms      = std::stod(row.at("finalRms"));
+      ev.relocInfo.locChange     = std::stod(row.at("locChange"));
+      ev.relocInfo.depthChange   = std::stod(row.at("depthChange"));
+      ev.relocInfo.timeChange    = std::stod(row.at("timeChange"));
+      ev.relocInfo.numNeighbours = std::stoul(row.at("numNeighbours"));
+      ev.relocInfo.phases.usedP  = std::stoul(row.at("ph_usedP"));
+      ev.relocInfo.phases.usedS  = std::stoul(row.at("ph_usedS"));
       ev.relocInfo.phases.stationDistMin =
           std::stod(row.at("ph_stationDistMin"));
       ev.relocInfo.phases.stationDistMedian =
@@ -460,14 +460,15 @@ void Catalog::writeToFile(string eventFile,
   stringstream evStreamReloc;
 
   evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude";
-  evStreamReloc
-      << evStreamNoReloc.str()
-      << ",relocated,startRms,finalRms,locChange,depthChange,timeChange,numNeighbours,"
-         "ph_usedP,ph_usedS,ph_stationDistMin,ph_stationDistMedian,ph_stationDistMax,"
-         "dd_numTTp,dd_numTTs,dd_numCCp,dd_numCCs,"
-         "dd_startResidualMedian,dd_startResidualMAD,"
-         "dd_finalResidualMedian,dd_finalResidualMAD"
-      << endl;
+  evStreamReloc << evStreamNoReloc.str()
+                << ",relocated,startRms,finalRms,locChange,depthChange,"
+                   "timeChange,numNeighbours,"
+                   "ph_usedP,ph_usedS,ph_stationDistMin,ph_stationDistMedian,"
+                   "ph_stationDistMax,"
+                   "dd_numTTp,dd_numTTs,dd_numCCp,dd_numCCs,"
+                   "dd_startResidualMedian,dd_startResidualMAD,"
+                   "dd_finalResidualMedian,dd_finalResidualMAD"
+                << endl;
   evStreamNoReloc << endl;
 
   bool relocInfo = false;
@@ -491,18 +492,17 @@ void Catalog::writeToFile(string eventFile,
     {
       relocInfo = true;
       evStreamReloc << stringify(
-          ",true,%.3f,%.3f,%.3f,%.3f,%.3f,%u,%u,%u,%.3f,%.3f,%.3f,%u,%u,%u,%u,%.4f,%.4f,%.4f,%.4f",
+          ",true,%.3f,%.3f,%.3f,%.3f,%.3f,%u,%u,%u,%.3f,%.3f,%.3f,%u,%u,%u,%u,%"
+          ".4f,%.4f,%.4f,%.4f",
           ev.relocInfo.startRms, ev.relocInfo.finalRms, ev.relocInfo.locChange,
           ev.relocInfo.depthChange, ev.relocInfo.timeChange,
-          ev.relocInfo.numNeighbours,
-          ev.relocInfo.phases.usedP, ev.relocInfo.phases.usedS,
-          ev.relocInfo.phases.stationDistMin,
+          ev.relocInfo.numNeighbours, ev.relocInfo.phases.usedP,
+          ev.relocInfo.phases.usedS, ev.relocInfo.phases.stationDistMin,
           ev.relocInfo.phases.stationDistMedian,
           ev.relocInfo.phases.stationDistMax, ev.relocInfo.dd.numTTp,
           ev.relocInfo.dd.numTTs, ev.relocInfo.dd.numCCp,
           ev.relocInfo.dd.numCCs, ev.relocInfo.dd.startResidualMedian,
-          ev.relocInfo.dd.startResidualMAD,
-          ev.relocInfo.dd.finalResidualMedian,
+          ev.relocInfo.dd.startResidualMAD, ev.relocInfo.dd.finalResidualMedian,
           ev.relocInfo.dd.finalResidualMAD);
     }
     evStreamReloc << endl;
