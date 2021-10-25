@@ -91,7 +91,6 @@ void addEventToCatalog(HDD::CatalogPtr &cat,
   ev.longitude           = lon;
   ev.depth               = depth;
   ev.magnitude           = 1.0;
-  ev.rms                 = 0;
   const unsigned eventId = cat->addEvent(ev);
 
   for (const auto &kv : cat->getStations())

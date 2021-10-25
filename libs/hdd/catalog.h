@@ -65,12 +65,12 @@ public:
     double longitude;
     double depth; // km
     double magnitude;
-    double rms;
 
     struct
     {
       bool isRelocated = false;
       double startRms;
+      double finalRms;
       double locChange;
       double depthChange;
       double timeChange;
@@ -105,7 +105,7 @@ public:
     {
       return (time == other.time) && (latitude == other.latitude) &&
              (longitude == other.longitude) && (depth == other.depth) &&
-             (magnitude == other.magnitude) && (rms == other.rms);
+             (magnitude == other.magnitude);
     }
     bool operator!=(const Event &other) const { return !operator==(other); }
     operator std::string() const { return std::to_string(id); }

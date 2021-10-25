@@ -493,8 +493,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
     SEISCOMP_INFO("Total Changes: location=%.2f[km] depth=%.2f[km] "
                   "time=%.3f[sec] Rms=%.3f[sec] (before/after %.3f/%.3f)",
                   ev.relocInfo.locChange, ev.relocInfo.depthChange,
-                  ev.relocInfo.timeChange, (ev.rms - ev.relocInfo.startRms),
-                  ev.relocInfo.startRms, ev.rms);
+                  ev.relocInfo.timeChange, (ev.relocInfo.finalRms - ev.relocInfo.startRms),
+                  ev.relocInfo.startRms, ev.relocInfo.finalRms);
   }
   else
   {
@@ -699,8 +699,8 @@ string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
       "DD observations: %u (CC P/S %u/%u TT P/S %u/%u) "
       "DD residuals [msec]: before=%.f+/-%.1f after=%.f+/-%.1f",
       event.relocInfo.locChange, event.relocInfo.depthChange,
-      event.relocInfo.timeChange, (event.rms - event.relocInfo.startRms),
-      event.relocInfo.startRms, event.rms, event.relocInfo.numNeighbours,
+      event.relocInfo.timeChange, (event.relocInfo.finalRms - event.relocInfo.startRms),
+      event.relocInfo.startRms, event.relocInfo.finalRms, event.relocInfo.numNeighbours,
       event.relocInfo.phases.usedP, event.relocInfo.phases.usedS,
       event.relocInfo.phases.stationDistMin,
       event.relocInfo.phases.stationDistMedian,
@@ -932,7 +932,7 @@ CatalogPtr HypoDD::updateRelocatedEvents(
     event.longitude += deltaLon;
     event.depth += deltaDepth;
     event.time += Core::TimeSpan(deltaTT);
-    event.rms                    = 0;
+    event.relocInfo.finalRms                    = 0;
     event.relocInfo.isRelocated  = true;
     event.relocInfo.numNeighbours = 0;
     event.relocInfo.phases       = {0};
@@ -989,7 +989,7 @@ CatalogPtr HypoDD::updateRelocatedEvents(
         phase.relocInfo.finalResidual = 0;
       }
 
-      event.rms +=
+      event.relocInfo.finalRms +=
           (phase.relocInfo.finalResidual * phase.relocInfo.finalResidual);
       if (phase.procInfo.type == Phase::Type::P)
       {
@@ -1012,8 +1012,8 @@ CatalogPtr HypoDD::updateRelocatedEvents(
 
     if (rmsCount > 0)
     {
-      event.rms = std::sqrt(event.rms / rmsCount);
-      allRms.push_back(event.rms);
+      event.relocInfo.finalRms = std::sqrt(event.relocInfo.finalRms / rmsCount);
+      allRms.push_back(event.relocInfo.finalRms);
     }
 
     double residualMedian = computeMedian(obsResiduals);

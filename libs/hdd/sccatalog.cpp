@@ -197,14 +197,6 @@ ScCatalog::add(const std::vector<DataModel::OriginPtr> &origins,
     ev.latitude  = org->latitude();
     ev.longitude = org->longitude();
     ev.depth     = org->depth(); // km
-    try
-    {
-      ev.rms = org->quality().standardError();
-    }
-    catch (...)
-    {
-      ev.rms = 0;
-    }
 
     DataModel::MagnitudePtr mag;
     // try to fetch preferred magnitude of the event

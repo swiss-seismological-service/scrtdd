@@ -191,7 +191,7 @@ function loadData() {
               + "<br>Depth km " + data.depth
               + "<br>Depth change km " + data.depthChange
               + "<br>Epicenter change km " + data.locChange
-              + "<br>Rms change sec " + (parseFloat(data.rms) - parseFloat(data.startRms)).toFixed(3)
+              + "<br>Rms change sec " + (parseFloat(data.finalRms) - parseFloat(data.startRms)).toFixed(3)
               + "<br>Used phases P " + data.ph_usedP + " S " + data.ph_usedS
               + "<br>Used neighbours " + data.numNeighbours, 
       group : "medd-events"

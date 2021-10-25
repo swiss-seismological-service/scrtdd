@@ -174,14 +174,14 @@ scrtdd --dump-catalog myCatalog.csv --verbosity=3 --console=1 [db options]
 
 The above command will generate three files (*event.csv*, *phase.csv* and *stations.csv*) which contain all the information needed by `scrtdd`. 
 
-E.g. *file event.csv* (`magnitude` and `rms` columns are currently not used and their value is not relevant)
+E.g. *file event.csv* (`magnitude` column is currently not used and the value is not relevant)
 
 ```
-id,isotime,latitude,longitude,depth,magnitude,rms
-1,2019-11-05T00:54:21.256705Z,46.318264,7.365509,4.7881,3.32,0.174
-2,2019-11-05T01:03:06.484287Z,46.320718,7.365435,4.2041,0.64,0.138
-3,2019-11-05T01:06:27.140654Z,46.325626,7.356148,3.9756,0.84,0.083
-4,2019-11-05T01:12:25.753816Z,46.325012,7.353627,3.7090,0.39,0.144
+id,isotime,latitude,longitude,depth,magnitude
+1,2019-11-05T00:54:21.256705Z,46.318264,7.365509,4.7881,3.32
+2,2019-11-05T01:03:06.484287Z,46.320718,7.365435,4.2041,0.64
+3,2019-11-05T01:06:27.140654Z,46.325626,7.356148,3.9756,0.84
+4,2019-11-05T01:12:25.753816Z,46.325012,7.353627,3.7090,0.39
 ```
 
 E.g. *file station.csv*
@@ -308,7 +308,7 @@ Independently on how the input events are provided, `scrtdd` will output a set o
 To be good, the new locations must have improved the relative locations (the DD residuals should decrease after the inversion), without introducing absolute location errors (the events RMS should not increase, otherwise the damping factor was too low) or even improving the absolute locations if the `absoluteLocationConstraint` option was used. This information can be found in the logs, where the solver prints, at each iteration, the residuals of the double-difference system and the travel time RMS of the events. Moreover the *reloc-event.csv* file contains the information too, which allows to plot the distribution of DD residuals and events RMS before and after the relocation for comparison (see columns `rms`, `startRms`, `ddObs_startResidualMedian`, `ddObs_startResidualMAD`, `ddObs_finalResidualMedian`, `ddObs_finalResidualMAD` where MAD is Median Absolute Deviation).
 
 **Note**:
-`scrtdd` computes the RMS after (`rms` column) but also before (`startRms` column) the relocation. The computation of the initial RMS is required for a sensible comparison of RMSs. Each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a travel time table that might not be the same as `scrtdd`. Moreover, a locator might apply a specific logic to the RMS computation, which prevents a comparison between RMS computed by different locators. For example NonLinLoc locator weighs the residuals used in the RMS by pick weight, and the weighting scheme is decided by NonLinLoc. That makes the RMS unsuitable for cross-locator comparisons.
+`scrtdd` computes the RMS after (`finalRms` column) but also before (`startRms` column) the relocation. The computation of the initial RMS is required for a sensible comparison of RMSs. Each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a travel time table that might not be the same as `scrtdd`. Moreover, a locator might apply a specific logic to the RMS computation, which prevents a comparison across locators. For example NonLinLoc locator weighs the residuals by pick weight, and the weighting scheme is decided by NonLinLoc, making the resulting RMS unsuitable for comparison.
  
 
 Log files are located in ~/.seiscomp/log/scrtdd.log, or alternatively, when running `scrtdd` from the command line, the following options can be used to see the logs on the console:

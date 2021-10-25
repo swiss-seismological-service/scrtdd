@@ -157,13 +157,13 @@ Catalog::Catalog(const string &stationFile,
     ev.longitude             = std::stod(row.at("longitude"));
     ev.depth                 = std::stod(row.at("depth"));
     ev.magnitude             = std::stod(row.at("magnitude"));
-    ev.rms                   = std::stod(row.at("rms"));
     ev.relocInfo.isRelocated = false;
     if (loadRelocationInfo && (row.count("relocated") != 0) &&
         strToBool(row.at("relocated")))
     {
       ev.relocInfo.isRelocated       = true;
       ev.relocInfo.startRms          = std::stod(row.at("startRms"));
+      ev.relocInfo.finalRms          = std::stod(row.at("finalRms"));
       ev.relocInfo.locChange         = std::stod(row.at("locChange"));
       ev.relocInfo.depthChange       = std::stod(row.at("depthChange"));
       ev.relocInfo.timeChange        = std::stod(row.at("timeChange"));
@@ -459,10 +459,10 @@ void Catalog::writeToFile(string eventFile,
   stringstream evStreamNoReloc;
   stringstream evStreamReloc;
 
-  evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude,rms";
+  evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude";
   evStreamReloc
       << evStreamNoReloc.str()
-      << ",relocated,startRms,locChange,depthChange,timeChange,numNeighbours,"
+      << ",relocated,startRms,finalRms,locChange,depthChange,timeChange,numNeighbours,"
          "ph_usedP,ph_usedS,ph_stationDistMin,ph_stationDistMedian,ph_stationDistMax,"
          "ddObs_numTTp,ddObs_numTTs,ddObs_numCCp,ddObs_numCCs,"
          "ddObs_startResidualMedian,ddObs_startResidualMAD,"
@@ -476,23 +476,23 @@ void Catalog::writeToFile(string eventFile,
     const Catalog::Event &ev = kv.second;
 
     stringstream evStream;
-    evStream << stringify("%u,%s,%.6f,%.6f,%.4f,%.2f,%.3f", ev.id,
+    evStream << stringify("%u,%s,%.6f,%.6f,%.4f,%.2f", ev.id,
                           ev.time.iso().c_str(), ev.latitude, ev.longitude,
-                          ev.depth, ev.magnitude, ev.rms);
+                          ev.depth, ev.magnitude);
 
     evStreamNoReloc << evStream.str() << endl;
     evStreamReloc << evStream.str();
 
     if (!ev.relocInfo.isRelocated)
     {
-      evStreamReloc << ",false,,,,,,,,,,,,,,,,,,";
+      evStreamReloc << ",false,,,,,,,,,,,,,,,,,,,";
     }
     else
     {
       relocInfo = true;
       evStreamReloc << stringify(
-          ",true,%.3f,%.3f,%.3f,%.3f,%u,%u,%u,%.3f,%.3f,%.3f,%u,%u,%u,%u,%.4f,%.4f,%.4f,%.4f",
-          ev.relocInfo.startRms, ev.relocInfo.locChange,
+          ",true,%.3f,%.3f,%.3f,%.3f,%.3f,%u,%u,%u,%.3f,%.3f,%.3f,%u,%u,%u,%u,%.4f,%.4f,%.4f,%.4f",
+          ev.relocInfo.startRms, ev.relocInfo.finalRms, ev.relocInfo.locChange,
           ev.relocInfo.depthChange, ev.relocInfo.timeChange,
           ev.relocInfo.numNeighbours,
           ev.relocInfo.phases.usedP, ev.relocInfo.phases.usedS,
