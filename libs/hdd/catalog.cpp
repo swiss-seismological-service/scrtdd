@@ -214,13 +214,13 @@ Catalog::Catalog(const string &stationFile,
     if (loadRelocationInfo && (row.count("usedInReloc") != 0) &&
         strToBool(row.at("usedInReloc")))
     {
-      ph.relocInfo.isRelocated   = true;
-      ph.procInfo.weight         = std::stod(row.at("startWeight"));
-      ph.relocInfo.finalWeight   = std::stod(row.at("finalWeight"));
+      ph.relocInfo.isRelocated     = true;
+      ph.procInfo.weight           = std::stod(row.at("startWeight"));
+      ph.relocInfo.finalWeight     = std::stod(row.at("finalWeight"));
       ph.relocInfo.startTTResidual = std::stod(row.at("startTTResidual"));
       ph.relocInfo.finalTTResidual = std::stod(row.at("finalTTResidual"));
-      ph.relocInfo.numTTObs      = std::stoul(row.at("numTTObs"));
-      ph.relocInfo.numCCObs      = std::stoul(row.at("numCCObs"));
+      ph.relocInfo.numTTObs        = std::stoul(row.at("numTTObs"));
+      ph.relocInfo.numCCObs        = std::stoul(row.at("numCCObs"));
       ph.relocInfo.startMeanDDResidual =
           std::stod(row.at("startMeanDDResidual"));
       ph.relocInfo.finalMeanDDResidual =

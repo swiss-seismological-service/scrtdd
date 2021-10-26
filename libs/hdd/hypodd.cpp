@@ -960,8 +960,8 @@ CatalogPtr HypoDD::updateRelocatedEvents(
 
       if (!solver.getObservationParamsChanges(
               event.id, station.id, phaseTypeAsChar, startTTObs, startCCObs,
-              finalTotalObs, meanAPrioriWeight, meanFinalWeight,
-              meanDDResidual, neighbourIds))
+              finalTotalObs, meanAPrioriWeight, meanFinalWeight, meanDDResidual,
+              neighbourIds))
       {
         continue;
       }
