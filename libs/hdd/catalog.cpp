@@ -217,14 +217,14 @@ Catalog::Catalog(const string &stationFile,
       ph.relocInfo.isRelocated   = true;
       ph.procInfo.weight         = std::stod(row.at("startWeight"));
       ph.relocInfo.finalWeight   = std::stod(row.at("finalWeight"));
-      ph.relocInfo.startResidual = std::stod(row.at("startTTTResidual"));
-      ph.relocInfo.finalResidual = std::stod(row.at("finalTTTResidual"));
+      ph.relocInfo.startTTResidual = std::stod(row.at("startTTResidual"));
+      ph.relocInfo.finalTTResidual = std::stod(row.at("finalTTResidual"));
       ph.relocInfo.numTTObs      = std::stoul(row.at("numTTObs"));
       ph.relocInfo.numCCObs      = std::stoul(row.at("numCCObs"));
-      ph.relocInfo.startMeanObsResidual =
-          std::stod(row.at("startMeanObsResidual"));
-      ph.relocInfo.finalMeanObsResidual =
-          std::stod(row.at("finalMeanObsResidual"));
+      ph.relocInfo.startMeanDDResidual =
+          std::stod(row.at("startMeanDDResidual"));
+      ph.relocInfo.finalMeanDDResidual =
+          std::stod(row.at("finalMeanDDResidual"));
     }
     _phases.emplace(ph.eventId, ph);
   }
@@ -520,9 +520,9 @@ void Catalog::writeToFile(string eventFile,
               "type,networkCode,stationCode,locationCode,channelCode,evalMode";
   if (relocInfo)
   {
-    phStream << ",usedInReloc,startTTTResidual,finalTTTResidual,"
+    phStream << ",usedInReloc,startTTResidual,finalTTResidual,"
                 "startWeight,finalWeight,numTTObs,numCCObs,"
-                "startMeanObsResidual,finalMeanObsResidual";
+                "startMeanDDResidual,finalMeanDDResidual";
   }
   phStream << endl;
 
@@ -547,10 +547,10 @@ void Catalog::writeToFile(string eventFile,
       {
         phStream << stringify(
             ",true,%.3f,%.3f,%.2f,%.2f,%u,%u,%.4f,%.4f",
-            ph.relocInfo.startResidual, ph.relocInfo.finalResidual,
+            ph.relocInfo.startTTResidual, ph.relocInfo.finalTTResidual,
             ph.procInfo.weight, ph.relocInfo.finalWeight, ph.relocInfo.numTTObs,
-            ph.relocInfo.numCCObs, ph.relocInfo.startMeanObsResidual,
-            ph.relocInfo.finalMeanObsResidual);
+            ph.relocInfo.numCCObs, ph.relocInfo.startMeanDDResidual,
+            ph.relocInfo.finalMeanDDResidual);
       }
     }
     phStream << endl;

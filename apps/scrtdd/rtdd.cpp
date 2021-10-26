@@ -2051,7 +2051,7 @@ void RTDD::convertOrigin(
                                                   : 0.);
     newArr->setTimeUsed(phaseUsed);
     newArr->setTimeResidual(
-        phase.relocInfo.isRelocated ? phase.relocInfo.finalResidual : 0.);
+        phase.relocInfo.isRelocated ? phase.relocInfo.finalTTResidual : 0.);
 
     auto search = relocatedOrg->getStations().find(phase.stationId);
     if (search == relocatedOrg->getStations().end())

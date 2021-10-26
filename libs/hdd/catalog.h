@@ -149,13 +149,13 @@ public:
     struct
     {
       bool isRelocated = false;
-      double startResidual;
-      double finalResidual;
+      double startTTResidual;
+      double finalTTResidual;
       double finalWeight;
       unsigned numTTObs;
       unsigned numCCObs;
-      double startMeanObsResidual;
-      double finalMeanObsResidual;
+      double startMeanDDResidual;
+      double finalMeanDDResidual;
     } relocInfo;
 
     // Compare attributes when the id is not known (works between multiple

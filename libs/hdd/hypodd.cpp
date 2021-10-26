@@ -956,12 +956,12 @@ CatalogPtr HypoDD::updateRelocatedEvents(
       phase.relocInfo.isRelocated = false;
 
       unsigned startTTObs, startCCObs, finalTotalObs;
-      double meanObsResidual, meanAPrioriWeight, meanFinalWeight;
+      double meanDDResidual, meanAPrioriWeight, meanFinalWeight;
 
       if (!solver.getObservationParamsChanges(
               event.id, station.id, phaseTypeAsChar, startTTObs, startCCObs,
               finalTotalObs, meanAPrioriWeight, meanFinalWeight,
-              meanObsResidual, neighbourIds))
+              meanDDResidual, neighbourIds))
       {
         continue;
       }
@@ -974,25 +974,24 @@ CatalogPtr HypoDD::updateRelocatedEvents(
       phase.relocInfo.numTTObs = startTTObs;
       phase.relocInfo.numCCObs = startCCObs;
       if (isFirstIteration)
-        phase.relocInfo.startMeanObsResidual = meanObsResidual;
-      phase.relocInfo.finalMeanObsResidual = meanObsResidual;
-      obsResiduals.push_back(meanObsResidual);
+        phase.relocInfo.startMeanDDResidual = meanDDResidual;
+      phase.relocInfo.finalMeanDDResidual = meanDDResidual;
+      obsResiduals.push_back(meanDDResidual);
 
       if (obsparams.add(_ttt, event, station, phase, true))
       {
         double travelTime =
             obsparams.get(event.id, station.id, phaseTypeAsChar).travelTime;
-        phase.relocInfo.finalResidual =
+        phase.relocInfo.finalTTResidual =
             travelTime - (phase.time - event.time).length();
         rmsCount++;
       }
       else
       {
-        phase.relocInfo.finalResidual = 0;
+        phase.relocInfo.finalTTResidual = 0;
       }
 
-      event.relocInfo.finalRms +=
-          (phase.relocInfo.finalResidual * phase.relocInfo.finalResidual);
+      event.relocInfo.finalRms += square(phase.relocInfo.finalTTResidual);
       if (phase.procInfo.type == Phase::Type::P)
       {
         event.relocInfo.phases.usedP++;
@@ -1099,7 +1098,7 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
                       travelTime);
         double residual =
             travelTime - (finalPhase.time - startEvent.time).length();
-        finalPhase.relocInfo.startResidual = residual;
+        finalPhase.relocInfo.startTTResidual = residual;
         tmpCat->updatePhase(finalPhase, false);
         finalEvent.relocInfo.startRms += residual * residual;
         rmsCount++;
