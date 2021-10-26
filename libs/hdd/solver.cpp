@@ -541,7 +541,7 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
   const double median = computeMedian(residuals);
   const double MAD    = computeMedianAbsoluteDeviation(residuals, median);
 
-  SEISCOMP_INFO("Solver: #observations %lu residual median %.1f [msec] "
+  SEISCOMP_INFO("Solver: num DD %lu residual median %.1f [msec] "
                 "MedianAbsoluteDeviation %.1f [msec]",
                 _observations.size(), median * 1000, MAD * 1000);
 
@@ -776,7 +776,7 @@ void Solver::prepareDDSystem(double ttConstraint,
     const double MAD    = computeMedianAbsoluteDeviation(decileRes, median);
 
     SEISCOMP_INFO(
-        "Solver: Inter-event dist %.2f-%-.2f [km] #observations %lu residual "
+        "Solver: Inter-event dist %.2f-%-.2f [km] num DD %lu residual "
         "median %4.1f [msec] MedianAbsoluteDeviation %4.1f [msec]",
         startingDist, finalDist, decileRes.size(), median * 1000, MAD * 1000);
   }
@@ -833,10 +833,10 @@ void Solver::_solve(unsigned numIterations,
   solver.SetDamp(dampingFactor);
   solver.SetMaximumNumberOfIterations(numIterations ? numIterations
                                                     : _dd->numColsG / 2);
-  const double eps = 1e-15;
+  const double eps = std::numeric_limits<double>::epsilon();
   solver.SetEpsilon(eps);
-  solver.SetToleranceA(1e-16);
-  solver.SetToleranceB(1e-16);
+  solver.SetToleranceA(1e-6); // we use [km] and [sec] in the DD system, so
+  solver.SetToleranceB(1e-6); // this tolerance looks like enough (mm and usec)
   solver.SetUpperLimitOnConditional(1.0 / (10 * sqrt(eps)));
 
   std::ostringstream solverLogs;

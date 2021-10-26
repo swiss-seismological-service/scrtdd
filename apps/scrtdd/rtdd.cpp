@@ -519,8 +519,8 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->singleEventClustering.minDTperEvt = 1;
-      prof->multiEventClustering.minDTperEvt  = 1;
+      prof->singleEventClustering.minDTperEvt = 4;
+      prof->multiEventClustering.minDTperEvt  = 4;
     }
     try
     {
@@ -531,8 +531,8 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->singleEventClustering.minNumNeigh = 1;
-      prof->multiEventClustering.minNumNeigh  = 1;
+      prof->singleEventClustering.minNumNeigh = 4;
+      prof->multiEventClustering.minNumNeigh  = 4;
     }
 
     prefix = string("profile.") + prof->name +
@@ -586,8 +586,8 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->singleEventClustering.minEStoIEratio = 0;
-      prof->multiEventClustering.minEStoIEratio  = 0;
+      prof->singleEventClustering.minEStoIEratio = 2;
+      prof->multiEventClustering.minEStoIEratio  = 2;
     }
 
     prefix = string("profile.") + prof->name +
@@ -2050,7 +2050,7 @@ void RTDD::convertOrigin(
                                                   : 0.);
     newArr->setTimeUsed(phaseUsed);
     newArr->setTimeResidual(
-        phase.relocInfo.isRelocated ? phase.relocInfo.finalResidual : 0.);
+        phase.relocInfo.isRelocated ? phase.relocInfo.finalTTResidual : 0.);
 
     auto search = relocatedOrg->getStations().find(phase.stationId);
     if (search == relocatedOrg->getStations().end())
@@ -2106,7 +2106,8 @@ void RTDD::convertOrigin(
   oq.setUsedPhaseCount(usedPhaseCount);
   oq.setAssociatedStationCount(associatedStations.size());
   oq.setUsedStationCount(usedStations.size());
-  oq.setStandardError(event.rms);
+  oq.setStandardError(event.relocInfo.isRelocated ? event.relocInfo.finalRms
+                                                  : 0);
   oq.setMedianDistance(meanDist);
   oq.setMinimumDistance(minDist);
   oq.setMaximumDistance(maxDist);

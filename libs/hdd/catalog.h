@@ -65,12 +65,12 @@ public:
     double longitude;
     double depth; // km
     double magnitude;
-    double rms;
 
     struct
     {
       bool isRelocated = false;
       double startRms;
+      double finalRms;
       double locChange;
       double depthChange;
       double timeChange;
@@ -95,7 +95,7 @@ public:
         double startResidualMAD;
         double finalResidualMedian;
         double finalResidualMAD;
-      } ddObs;
+      } dd; // double-difference
 
     } relocInfo;
 
@@ -105,7 +105,7 @@ public:
     {
       return (time == other.time) && (latitude == other.latitude) &&
              (longitude == other.longitude) && (depth == other.depth) &&
-             (magnitude == other.magnitude) && (rms == other.rms);
+             (magnitude == other.magnitude);
     }
     bool operator!=(const Event &other) const { return !operator==(other); }
     operator std::string() const { return std::to_string(id); }
@@ -149,13 +149,13 @@ public:
     struct
     {
       bool isRelocated = false;
-      double startResidual;
-      double finalResidual;
+      double startTTResidual;
+      double finalTTResidual;
       double finalWeight;
       unsigned numTTObs;
       unsigned numCCObs;
-      double startMeanObsResidual;
-      double finalMeanObsResidual;
+      double startMeanDDResidual;
+      double finalMeanDDResidual;
     } relocInfo;
 
     // Compare attributes when the id is not known (works between multiple

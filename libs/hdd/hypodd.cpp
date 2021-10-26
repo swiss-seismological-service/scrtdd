@@ -493,8 +493,9 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
     SEISCOMP_INFO("Total Changes: location=%.2f[km] depth=%.2f[km] "
                   "time=%.3f[sec] Rms=%.3f[sec] (before/after %.3f/%.3f)",
                   ev.relocInfo.locChange, ev.relocInfo.depthChange,
-                  ev.relocInfo.timeChange, (ev.rms - ev.relocInfo.startRms),
-                  ev.relocInfo.startRms, ev.rms);
+                  ev.relocInfo.timeChange,
+                  (ev.relocInfo.finalRms - ev.relocInfo.startRms),
+                  ev.relocInfo.startRms, ev.relocInfo.finalRms);
   }
   else
   {
@@ -697,22 +698,23 @@ string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
       "Neighbours=%u Used Phases: P=%u S=%u "
       "Stations distance [km]: min=%.1f median=%.1f max=%.1f "
       "DD observations: %u (CC P/S %u/%u TT P/S %u/%u) "
-      "DD observations residuals [msec]: before=%.f+/-%.1f after=%.f+/-%.1f",
+      "DD residuals [msec]: before=%.f+/-%.1f after=%.f+/-%.1f",
       event.relocInfo.locChange, event.relocInfo.depthChange,
-      event.relocInfo.timeChange, (event.rms - event.relocInfo.startRms),
-      event.relocInfo.startRms, event.rms, event.relocInfo.numNeighbours,
-      event.relocInfo.phases.usedP, event.relocInfo.phases.usedS,
-      event.relocInfo.phases.stationDistMin,
+      event.relocInfo.timeChange,
+      (event.relocInfo.finalRms - event.relocInfo.startRms),
+      event.relocInfo.startRms, event.relocInfo.finalRms,
+      event.relocInfo.numNeighbours, event.relocInfo.phases.usedP,
+      event.relocInfo.phases.usedS, event.relocInfo.phases.stationDistMin,
       event.relocInfo.phases.stationDistMedian,
       event.relocInfo.phases.stationDistMax,
-      (event.relocInfo.ddObs.numCCp + event.relocInfo.ddObs.numCCs +
-       event.relocInfo.ddObs.numTTp + event.relocInfo.ddObs.numTTs),
-      event.relocInfo.ddObs.numCCp, event.relocInfo.ddObs.numCCs,
-      event.relocInfo.ddObs.numTTp, event.relocInfo.ddObs.numTTs,
-      event.relocInfo.ddObs.startResidualMedian * 1000,
-      event.relocInfo.ddObs.startResidualMAD * 1000,
-      event.relocInfo.ddObs.finalResidualMedian * 1000,
-      event.relocInfo.ddObs.finalResidualMAD * 1000);
+      (event.relocInfo.dd.numCCp + event.relocInfo.dd.numCCs +
+       event.relocInfo.dd.numTTp + event.relocInfo.dd.numTTs),
+      event.relocInfo.dd.numCCp, event.relocInfo.dd.numCCs,
+      event.relocInfo.dd.numTTp, event.relocInfo.dd.numTTs,
+      event.relocInfo.dd.startResidualMedian * 1000,
+      event.relocInfo.dd.startResidualMAD * 1000,
+      event.relocInfo.dd.finalResidualMedian * 1000,
+      event.relocInfo.dd.finalResidualMAD * 1000);
 }
 
 /*
@@ -932,14 +934,14 @@ CatalogPtr HypoDD::updateRelocatedEvents(
     event.longitude += deltaLon;
     event.depth += deltaDepth;
     event.time += Core::TimeSpan(deltaTT);
-    event.rms                    = 0;
-    event.relocInfo.isRelocated  = true;
+    event.relocInfo.finalRms      = 0;
+    event.relocInfo.isRelocated   = true;
     event.relocInfo.numNeighbours = 0;
-    event.relocInfo.phases       = {0};
-    event.relocInfo.ddObs.numTTp = 0;
-    event.relocInfo.ddObs.numTTs = 0;
-    event.relocInfo.ddObs.numCCp = 0;
-    event.relocInfo.ddObs.numCCs = 0;
+    event.relocInfo.phases        = {0};
+    event.relocInfo.dd.numTTp     = 0;
+    event.relocInfo.dd.numTTs     = 0;
+    event.relocInfo.dd.numCCp     = 0;
+    event.relocInfo.dd.numCCs     = 0;
 
     set<unsigned> neighbourIds;
     vector<double> obsResiduals;
@@ -954,12 +956,12 @@ CatalogPtr HypoDD::updateRelocatedEvents(
       phase.relocInfo.isRelocated = false;
 
       unsigned startTTObs, startCCObs, finalTotalObs;
-      double meanObsResidual, meanAPrioriWeight, meanFinalWeight;
+      double meanDDResidual, meanAPrioriWeight, meanFinalWeight;
 
       if (!solver.getObservationParamsChanges(
               event.id, station.id, phaseTypeAsChar, startTTObs, startCCObs,
               finalTotalObs, meanAPrioriWeight, meanFinalWeight,
-              meanObsResidual, neighbourIds))
+              meanDDResidual, neighbourIds))
       {
         continue;
       }
@@ -972,36 +974,35 @@ CatalogPtr HypoDD::updateRelocatedEvents(
       phase.relocInfo.numTTObs = startTTObs;
       phase.relocInfo.numCCObs = startCCObs;
       if (isFirstIteration)
-        phase.relocInfo.startMeanObsResidual = meanObsResidual;
-      phase.relocInfo.finalMeanObsResidual = meanObsResidual;
-      obsResiduals.push_back(meanObsResidual);
+        phase.relocInfo.startMeanDDResidual = meanDDResidual;
+      phase.relocInfo.finalMeanDDResidual = meanDDResidual;
+      obsResiduals.push_back(meanDDResidual);
 
       if (obsparams.add(_ttt, event, station, phase, true))
       {
         double travelTime =
             obsparams.get(event.id, station.id, phaseTypeAsChar).travelTime;
-        phase.relocInfo.finalResidual =
+        phase.relocInfo.finalTTResidual =
             travelTime - (phase.time - event.time).length();
         rmsCount++;
       }
       else
       {
-        phase.relocInfo.finalResidual = 0;
+        phase.relocInfo.finalTTResidual = 0;
       }
 
-      event.rms +=
-          (phase.relocInfo.finalResidual * phase.relocInfo.finalResidual);
+      event.relocInfo.finalRms += square(phase.relocInfo.finalTTResidual);
       if (phase.procInfo.type == Phase::Type::P)
       {
         event.relocInfo.phases.usedP++;
-        event.relocInfo.ddObs.numCCp += phase.relocInfo.numCCObs;
-        event.relocInfo.ddObs.numTTp += phase.relocInfo.numTTObs;
+        event.relocInfo.dd.numCCp += phase.relocInfo.numCCObs;
+        event.relocInfo.dd.numTTp += phase.relocInfo.numTTObs;
       }
       if (phase.procInfo.type == Phase::Type::S)
       {
         event.relocInfo.phases.usedS++;
-        event.relocInfo.ddObs.numCCs += phase.relocInfo.numCCObs;
-        event.relocInfo.ddObs.numTTs += phase.relocInfo.numTTObs;
+        event.relocInfo.dd.numCCs += phase.relocInfo.numCCObs;
+        event.relocInfo.dd.numTTs += phase.relocInfo.numTTObs;
       }
 
       for (unsigned nId : neighbourIds)
@@ -1012,8 +1013,8 @@ CatalogPtr HypoDD::updateRelocatedEvents(
 
     if (rmsCount > 0)
     {
-      event.rms = std::sqrt(event.rms / rmsCount);
-      allRms.push_back(event.rms);
+      event.relocInfo.finalRms = std::sqrt(event.relocInfo.finalRms / rmsCount);
+      allRms.push_back(event.relocInfo.finalRms);
     }
 
     double residualMedian = computeMedian(obsResiduals);
@@ -1021,11 +1022,11 @@ CatalogPtr HypoDD::updateRelocatedEvents(
         computeMedianAbsoluteDeviation(obsResiduals, residualMedian);
     if (isFirstIteration)
     {
-      event.relocInfo.ddObs.startResidualMedian = residualMedian;
-      event.relocInfo.ddObs.startResidualMAD    = residualMAD;
+      event.relocInfo.dd.startResidualMedian = residualMedian;
+      event.relocInfo.dd.startResidualMAD    = residualMAD;
     }
-    event.relocInfo.ddObs.finalResidualMedian = residualMedian;
-    event.relocInfo.ddObs.finalResidualMAD    = residualMAD;
+    event.relocInfo.dd.finalResidualMedian = residualMedian;
+    event.relocInfo.dd.finalResidualMAD    = residualMAD;
 
     event.relocInfo.numNeighbours = finalNeighbours->numNeighbours();
     finalNeighCluster[finalNeighbours->refEvId] = finalNeighbours;
@@ -1035,7 +1036,7 @@ CatalogPtr HypoDD::updateRelocatedEvents(
   const double allRmsMAD = computeMedianAbsoluteDeviation(allRms, allRmsMedian);
 
   SEISCOMP_INFO(
-      "Successfully relocated %u events. RMS median %.4f [sec] median "
+      "Successfully relocated %u events, RMS median %.4f [sec] median "
       "absolute deviation %.4f [sec]",
       relocatedEvs, allRmsMedian, allRmsMAD);
 
@@ -1097,7 +1098,7 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
                       travelTime);
         double residual =
             travelTime - (finalPhase.time - startEvent.time).length();
-        finalPhase.relocInfo.startResidual = residual;
+        finalPhase.relocInfo.startTTResidual = residual;
         tmpCat->updatePhase(finalPhase, false);
         finalEvent.relocInfo.startRms += residual * residual;
         rmsCount++;
