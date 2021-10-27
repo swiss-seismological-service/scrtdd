@@ -32,24 +32,45 @@ rtDD also supports [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) 
 
 ## Compile
 
-In order to use this module the sources have to be compiled to an executable. Merge the scrtdd code into the *SeisComP* sources and compile *SeisComP* as usual.
+In order to use this module the sources have to be merged into the *SeisComP* sources, then *SeisComP* can be compiled as usual.
 
-#### AGPL SeisComP
+#### AGPL SeisComP (version 4+)
 
-Instructions for the *new AGPL seiscomp*:
+For checking out and compiling SeisComP, please refer to https://github.com/SeisComP/seiscomp
+
 <pre>
 # get SeisComP
 git clone https://github.com/SeisComP/seiscomp.git seiscomp
+cd seiscomp/src/base
+git clone https://github.com/SeisComP/common
+git clone https://github.com/SeisComP/main
+[...etc...]
+
 # merge rtdd to SeisComP
 cd seiscomp/src/extras
 git clone https://github.com/swiss-seismological-service/scrtdd.git
 cd scrtdd
+
 # now checkout the tag pointing to the latest version: vX.Y.Z (e.g. v1.3.0)
 git checkout vX.Y.Z
 </pre>
-For compiling SeisComP, please refer to https://github.com/SeisComP/seiscomp#build
+
+To update an existing version to a new one:
+
+<pre>
+# go to scrtdd folder
+cd seiscomp/src/extras/scrtdd
+
+# dowload changes on the upstream scrtdd
+git fetch origin -p --tags
+
+# checkout the new version
+git checkout vX.Y.Z
+</pre>
 
 #### Old versions of Seiscomp3
+
+For  compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#compiling
 
 <pre>
 # get Seiscomp3
@@ -61,7 +82,6 @@ cd src/rtdd-addons
 # now checkout the tag pointing to the latest version: vX.Y.Z_sc3 (_sc3 for Seiscomp3 compatible versions)
 git checkout vX.Y.Z_sc3
 </pre>
-For compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#compiling
 
 # Getting Started
 
