@@ -355,6 +355,10 @@ public:
                                 const Catalog::Phase &ph,
                                 const Catalog::Event &ev);
 
+  void request(const Core::TimeWindow &tw,
+               const Catalog::Phase &ph,
+               const Catalog::Event &ev);
+
   void load();
 
 protected:

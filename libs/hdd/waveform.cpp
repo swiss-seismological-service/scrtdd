@@ -976,45 +976,6 @@ GenericRecordCPtr DiskCachedLoader::get(const Core::TimeWindow &tw,
   return trace;
 }
 
-GenericRecordCPtr MemCachedLoader::get(const Core::TimeWindow &tw,
-                                       const Catalog::Phase &ph,
-                                       const Catalog::Event &ev,
-                                       bool demeaning,
-                                       const std::string &filterStr,
-                                       double resampleFreq)
-{
-  bool isCached;
-  GenericRecordCPtr trace = getFromCache(tw, ph.networkCode, ph.stationCode,
-                                         ph.locationCode, ph.channelCode);
-  if (trace)
-  {
-    isCached = true;
-    _counters_wf_cached++;
-  }
-  else
-  {
-    isCached = false;
-    trace    = _auxLdr->get(tw, ph, ev, demeaning, filterStr, resampleFreq);
-  }
-
-  if (trace && !isCached)
-  {
-    storeInCache(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                 ph.channelCode, trace);
-
-    // Dump waveforms when loaded the first time for debugging
-    if (!_wfDebugDir.empty())
-    {
-      string ext = (ph.procInfo.source == Catalog::Phase::Source::THEORETICAL)
-                       ? "theoretical"
-                       : (ph.isManual ? "manual" : "automatic");
-      writeTrace(trace, waveformDebugPath(_wfDebugDir, ev, ph, ext));
-    }
-  }
-
-  return trace;
-}
-
 bool DiskCachedLoader::isCached(const Core::TimeWindow &tw,
                                 const Catalog::Phase &ph,
                                 const Catalog::Event &ev)
@@ -1060,6 +1021,45 @@ std::string DiskCachedLoader::waveformPath(const std::string &cacheDir,
       waveformId(tw, networkCode, stationCode, locationCode, channelCode) +
       ".mseed";
   return (boost::filesystem::path(cacheDir) / cacheFile).string();
+}
+
+GenericRecordCPtr MemCachedLoader::get(const Core::TimeWindow &tw,
+                                       const Catalog::Phase &ph,
+                                       const Catalog::Event &ev,
+                                       bool demeaning,
+                                       const std::string &filterStr,
+                                       double resampleFreq)
+{
+  bool isCached;
+  GenericRecordCPtr trace = getFromCache(tw, ph.networkCode, ph.stationCode,
+                                         ph.locationCode, ph.channelCode);
+  if (trace)
+  {
+    isCached = true;
+    _counters_wf_cached++;
+  }
+  else
+  {
+    isCached = false;
+    trace    = _auxLdr->get(tw, ph, ev, demeaning, filterStr, resampleFreq);
+  }
+
+  if (trace && !isCached)
+  {
+    storeInCache(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+                 ph.channelCode, trace);
+
+    // Dump waveforms when loaded the first time for debugging
+    if (!_wfDebugDir.empty())
+    {
+      string ext = (ph.procInfo.source == Catalog::Phase::Source::THEORETICAL)
+                       ? "theoretical"
+                       : (ph.isManual ? "manual" : "automatic");
+      writeTrace(trace, waveformDebugPath(_wfDebugDir, ev, ph, ext));
+    }
+  }
+
+  return trace;
 }
 
 bool MemCachedLoader::isCached(const Core::TimeWindow &tw,
@@ -1229,78 +1229,92 @@ GenericRecordCPtr BatchLoader::get(const Core::TimeWindow &tw,
                                    const Catalog::Phase &ph,
                                    const Catalog::Event &ev)
 {
+  if (!_dataLoaded)
+  {
+    request(tw, ph, ev);
+    return nullptr;
+  }
+
   DataModel::ThreeComponents tc;
   DataModel::SensorLocation *loc;
   bool projection = projectionRequired(tw, ph, ev, tc, loc);
 
-  if (!_dataLoaded)
-  {
-    if (_rs)
-    {
-      auto requestTrace = [this, &tw, &ph](const string &channelCode) {
-        string streamID = ph.networkCode + "." + ph.stationCode + "." +
-                          ph.locationCode + "." + channelCode;
-        auto eqlrng = _streamMap.equal_range(streamID);
-        for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-        {
-          const pair<const Core::TimeWindow, TimeWindowBuffer> &pair =
-              it->second;
-          if (pair.first == tw) return;
-        }
-        _rs->addStream(ph.networkCode, ph.stationCode, ph.locationCode,
-                       channelCode, tw.startTime(), tw.endTime());
-        pair<const Core::TimeWindow, TimeWindowBuffer> pair(
-            tw, TimeWindowBuffer(tw, _tolerance));
-        _streamMap.emplace(streamID, pair);
-      };
+  GenericRecordCPtr trace;
 
-      if (!projection)
-      {
-        requestTrace(ph.channelCode);
-      }
-      else
-      {
-        requestTrace(tc.comps[ThreeComponents::Vertical]->code());
-        requestTrace(tc.comps[ThreeComponents::FirstHorizontal]->code());
-        requestTrace(tc.comps[ThreeComponents::SecondHorizontal]->code());
-      }
-    }
-    return nullptr;
+  auto getTrace = [this, &tw, &ph](const string &channelCode) {
+    const string wfId = waveformId(tw, ph.networkCode, ph.stationCode,
+                                   ph.locationCode, channelCode);
+    const auto it     = _waveforms.find(wfId);
+    return it != _waveforms.end() ? it->second : nullptr;
+  };
+
+  if (!projection)
+  {
+    trace = getTrace(ph.channelCode);
   }
   else
   {
-    GenericRecordCPtr trace;
+    GenericRecordCPtr tr1 =
+        getTrace(tc.comps[ThreeComponents::Vertical]->code());
+    GenericRecordCPtr tr2 =
+        getTrace(tc.comps[ThreeComponents::FirstHorizontal]->code());
+    GenericRecordCPtr tr3 =
+        getTrace(tc.comps[ThreeComponents::SecondHorizontal]->code());
+    try
+    {
+      trace = projectWaveform(tw, ph, ev, _tolerance, _minAvailability, tr1,
+                              tr2, tr3, tc, loc);
+    }
+    catch (exception &e)
+    {
+      SEISCOMP_DEBUG("%s", e.what());
+    }
+  }
+  return trace;
+}
 
-    auto getTrace = [this, &tw, &ph](const string &channelCode) {
-      const string wfId = waveformId(tw, ph.networkCode, ph.stationCode,
-                                     ph.locationCode, channelCode);
-      const auto it     = _waveforms.find(wfId);
-      return it != _waveforms.end() ? it->second : nullptr;
+void BatchLoader::request(const Core::TimeWindow &tw,
+                          const Catalog::Phase &ph,
+                          const Catalog::Event &ev)
+{
+  if (_dataLoaded)
+  {
+    throw runtime_error(
+        "Cannot request more traces after they have been loaded");
+  }
+
+  DataModel::ThreeComponents tc;
+  DataModel::SensorLocation *loc;
+  bool projection = projectionRequired(tw, ph, ev, tc, loc);
+
+  if (_rs)
+  {
+    auto requestTrace = [this, &tw, &ph](const string &channelCode) {
+      string streamID = ph.networkCode + "." + ph.stationCode + "." +
+                        ph.locationCode + "." + channelCode;
+      auto eqlrng = _streamMap.equal_range(streamID);
+      for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+      {
+        const pair<const Core::TimeWindow, TimeWindowBuffer> &pair = it->second;
+        if (pair.first == tw) return;
+      }
+      _rs->addStream(ph.networkCode, ph.stationCode, ph.locationCode,
+                     channelCode, tw.startTime(), tw.endTime());
+      pair<const Core::TimeWindow, TimeWindowBuffer> pair(
+          tw, TimeWindowBuffer(tw, _tolerance));
+      _streamMap.emplace(streamID, pair);
     };
 
     if (!projection)
     {
-      trace = getTrace(ph.channelCode);
+      requestTrace(ph.channelCode);
     }
     else
     {
-      GenericRecordCPtr tr1 =
-          getTrace(tc.comps[ThreeComponents::Vertical]->code());
-      GenericRecordCPtr tr2 =
-          getTrace(tc.comps[ThreeComponents::FirstHorizontal]->code());
-      GenericRecordCPtr tr3 =
-          getTrace(tc.comps[ThreeComponents::SecondHorizontal]->code());
-      try
-      {
-        trace = projectWaveform(tw, ph, ev, _tolerance, _minAvailability, tr1,
-                                tr2, tr3, tc, loc);
-      }
-      catch (exception &e)
-      {
-        SEISCOMP_DEBUG("%s", e.what());
-      }
+      requestTrace(tc.comps[ThreeComponents::Vertical]->code());
+      requestTrace(tc.comps[ThreeComponents::FirstHorizontal]->code());
+      requestTrace(tc.comps[ThreeComponents::SecondHorizontal]->code());
     }
-    return trace;
   }
 }
 
