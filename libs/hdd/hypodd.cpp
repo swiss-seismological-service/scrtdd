@@ -1441,21 +1441,23 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
   // temporary and discarded after the relocation we don't want to
   // make use of the background catalog caching
   //
-  Waveform::LoaderPtr seLdr = preloadNonCatalogWaveforms(
+  Waveform::LoaderPtr preLdr = preloadNonCatalogWaveforms(
       catalog, neighbours, refEv, xcorrMaxEvStaDist, xcorrMaxInterEvDist);
 
-  Waveform::LoaderPtr seWfLdr = seLdr;
+  Waveform::LoaderPtr seWfLdr = preLdr;
+  Waveform::SnrFilteredLoaderPtr snrLdr; // usefulto keep track of stats
   if (_cfg.snr.minSnr > 0)
   {
     seWfLdr = new Waveform::SnrFilteredLoader(
         seWfLdr, _cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
         _cfg.snr.signalStart, _cfg.snr.signalEnd);
     if (_waveformDebug) seWfLdr->setDebugDirectory(_wfDebugDir);
+    snrLdr = seWfLdr;
   }
   seWfLdr = new Waveform::MemCachedLoader(seWfLdr);
   if (_waveformDebug) seWfLdr->setDebugDirectory(_wfDebugDir);
 
-  Waveform::LoaderPtr seWfLdrNoSnr = new Waveform::MemCachedLoader(seLdr);
+  Waveform::LoaderPtr seWfLdrNoSnr = new Waveform::MemCachedLoader(preLdr);
   if (_waveformDebug) seWfLdrNoSnr->setDebugDirectory(_wfDebugDir);
 
   // keep track of the `refEv` distance to stations
@@ -1589,9 +1591,8 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
     }
   }
 
-  // keep track of couters
-  updateCounters(nullptr, nullptr,
-                 dynamic_cast<Waveform::SnrFilteredLoader *>(seWfLdr.get()));
+  // keep track of counters
+  updateCounters(nullptr, nullptr, snrLdr);
 
   // print some useful information
   for (const auto &kv : stationByDistance)
@@ -1650,14 +1651,13 @@ HypoDD::preloadNonCatalogWaveforms(CatalogPtr &catalog,
   Waveform::BatchLoaderPtr batchLoader =
       new Waveform::BatchLoader(_cfg.recordStreamURL);
 
-  Waveform::LoaderPtr returnedLdr = batchLoader;
+  Waveform::LoaderPtr retLdr = batchLoader;
 
-  // make sure to use disk cache if enabled for non catalog phases
   Waveform::DiskCachedLoaderPtr diskLoader;
   if (_useCatalogWaveformDiskCache && _waveformCacheAll)
   {
-    diskLoader  = new Waveform::DiskCachedLoader(batchLoader, _tmpCacheDir);
-    returnedLdr = new Waveform::ExtraLenLoader(diskLoader, DISK_TRACE_MIN_LEN);
+    diskLoader = new Waveform::DiskCachedLoader(batchLoader, _tmpCacheDir);
+    retLdr     = new Waveform::ExtraLenLoader(diskLoader, DISK_TRACE_MIN_LEN);
   }
 
   // Load a large enough waveform to be able to check the SNR after
@@ -1672,8 +1672,7 @@ HypoDD::preloadNonCatalogWaveforms(CatalogPtr &catalog,
     double extraAfter =
         std::max({_cfg.snr.noiseEnd, _cfg.snr.signalEnd}) + maxDelay;
     extraAfter = extraAfter < 0 ? 0 : extraAfter;
-    returnedLdr =
-        new Waveform::ExtraLenLoader(returnedLdr, extraBefore, extraAfter);
+    retLdr     = new Waveform::ExtraLenLoader(retLdr, extraBefore, extraAfter);
   }
 
   //
@@ -1725,7 +1724,7 @@ HypoDD::preloadNonCatalogWaveforms(CatalogPtr &catalog,
 
           // This doesn't really load the trace but force the request to reach
           // the loader, which will load all the traces later
-          returnedLdr->get(tw, tmpPh, refEv);
+          retLdr->get(tw, tmpPh, refEv);
         }
       }
     }
@@ -1737,7 +1736,7 @@ HypoDD::preloadNonCatalogWaveforms(CatalogPtr &catalog,
   // keep track of couters
   updateCounters(batchLoader, diskLoader, nullptr);
 
-  return returnedLdr;
+  return retLdr;
 }
 
 /*
