@@ -16,6 +16,7 @@
 
 #include "sccatalog.h"
 #include "csvreader.h"
+#include "utils.h"
 
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
@@ -334,7 +335,7 @@ ScCatalog::add(const std::string &idFile, DataSource &dataSrc)
   if (!Util::fileExists(idFile))
   {
     string msg = "File " + idFile + " does not exist";
-    throw runtime_error(msg);
+    throw Exception(msg);
   }
 
   vector<string> ids;

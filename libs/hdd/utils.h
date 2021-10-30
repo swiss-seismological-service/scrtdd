@@ -22,6 +22,7 @@
 #include <random>
 #include <regex>
 #include <seiscomp3/core/strings.h>
+#include <stdexcept>
 #include <vector>
 
 namespace Seiscomp {
@@ -160,6 +161,12 @@ private:
   unsigned _currentIdx = 0;
   std::unordered_map<T, unsigned> _to;
   std::unordered_map<unsigned, T> _from;
+};
+
+class Exception : public std::runtime_error
+{
+public:
+  Exception(const std::string &message) : std::runtime_error(message) {}
 };
 
 } // namespace HDD

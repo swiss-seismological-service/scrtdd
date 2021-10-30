@@ -173,7 +173,7 @@ public:
 private:
   void createWaveformCache();
 
-  std::string generateWorkingSubDir(const string &prefix) const;
+  std::string generateWorkingSubDir(const std::string &prefix) const;
   std::string generateWorkingSubDir(const Catalog::Event &ev) const;
 
   CatalogPtr relocateEventSingleStep(const CatalogCPtr bgCat,

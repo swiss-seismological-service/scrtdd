@@ -124,7 +124,7 @@ public:
                            int quadrant /* 1-8 */)
   {
     if (quadrant < 1 || quadrant > 8)
-      throw std::invalid_argument("quadrant should be between 1 and 8");
+      throw Exception("quadrant should be between 1 and 8");
 
     if (depth < ellip.depth && std::set<int>{1, 2, 3, 4}.count(quadrant) != 0)
       return false;

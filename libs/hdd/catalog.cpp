@@ -16,6 +16,7 @@
 
 #include "catalog.h"
 #include "csvreader.h"
+#include "utils.h"
 
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
@@ -114,19 +115,19 @@ Catalog::Catalog(const string &stationFile,
   if (!Util::fileExists(stationFile))
   {
     string msg = "File " + stationFile + " does not exist";
-    throw runtime_error(msg);
+    throw Exception(msg);
   }
 
   if (!Util::fileExists(eventFile))
   {
     string msg = "File " + eventFile + " does not exist";
-    throw runtime_error(msg);
+    throw Exception(msg);
   }
 
   if (!Util::fileExists(phaFile))
   {
     string msg = "File " + phaFile + " does not exist";
-    throw runtime_error(msg);
+    throw Exception(msg);
   }
 
   vector<unordered_map<string, string>> stations =
@@ -252,7 +253,7 @@ CatalogPtr Catalog::extractEvent(unsigned eventId, bool keepEvId) const
   if (search == this->getEvents().end())
   {
     string msg = stringify("Cannot find event id %u in the catalog.", eventId);
-    throw runtime_error(msg);
+    throw Exception(msg);
   }
 
   const Catalog::Event &event = search->second;
@@ -292,7 +293,7 @@ unsigned Catalog::add(unsigned evId, const Catalog &evCat, bool keepEvId)
   if (keepEvId)
   {
     if (_events.find(event.id) != _events.end())
-      throw runtime_error("Cannot add event, internal logic error");
+      throw Exception("Cannot add event, internal logic error");
     _events[event.id] = event;
     newEventId        = event.id;
   }

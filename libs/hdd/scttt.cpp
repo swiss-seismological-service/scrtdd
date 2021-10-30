@@ -132,7 +132,7 @@ double ScTravelTimeTable::velocityAtSource(double eventDepth,
 
   if (!std::isfinite(binVelocity))
   {
-    throw runtime_error("Unable to compute velocity at source");
+    throw Exception("Unable to compute velocity at source");
   }
 
   // store the value

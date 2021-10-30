@@ -121,7 +121,7 @@ GenericRecordPtr readWaveformFromRecordStream(const string &recordStreamURL,
   if (rs == nullptr)
   {
     string msg = "Cannot open RecordStream: " + recordStreamURL;
-    throw runtime_error(msg);
+    throw Exception(msg);
   }
 
   rs->setTimeWindow(tw);
@@ -147,7 +147,7 @@ GenericRecordPtr readWaveformFromRecordStream(const string &recordStreamURL,
                   seq.availability(), networkCode.c_str(), stationCode.c_str(),
                   locationCode.c_str(), channelCode.c_str(),
                   tw.startTime().iso().c_str(), tw.length());
-    throw runtime_error(msg);
+    throw Exception(msg);
   }
 
   return trace;
@@ -221,7 +221,7 @@ void filter(GenericRecord &trace,
     {
       string msg = stringify("Filter creation failed %s: %s", filterStr.c_str(),
                              filterError.c_str());
-      throw runtime_error(msg);
+      throw Exception(msg);
     }
     filter->setSamplingFrequency(trace.samplingFrequency());
     filter->apply(data->size(), data->typedData());
@@ -672,8 +672,7 @@ GenericRecordPtr projectWaveform(const Core::TimeWindow &tw,
 {
   if (!tr1 || !tr2 || !tr3)
   {
-    throw runtime_error(
-        "Cannot perform projection without all 3 components data");
+    throw Exception("Cannot perform projection without all 3 components data");
   }
 
   string channelCodeRoot = getBandAndInstrumentCodes(ph.channelCode);
@@ -736,7 +735,7 @@ GenericRecordPtr projectWaveform(const Core::TimeWindow &tw,
   }
   else
   {
-    throw runtime_error("Internal logic error: This shouldn't happend.");
+    throw Exception("Internal logic error: This shouldn't happend.");
   }
 
   // The wrapper will direct 3 codes into the right slots using the
@@ -820,7 +819,7 @@ GenericRecordPtr projectWaveform(const Core::TimeWindow &tw,
   {
     string msg =
         stringify("No enough data for projection (%s)", string(ph).c_str());
-    throw runtime_error(msg);
+    throw Exception(msg);
   }
   return trace;
 }
@@ -1279,8 +1278,7 @@ void BatchLoader::request(const Core::TimeWindow &tw,
 {
   if (_dataLoaded)
   {
-    throw runtime_error(
-        "Cannot request more traces after they have been loaded");
+    throw Exception("Cannot request more traces after they have been loaded");
   }
 
   DataModel::ThreeComponents tc;

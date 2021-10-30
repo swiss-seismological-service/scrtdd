@@ -51,7 +51,7 @@ TravelTimeTable *TravelTimeTable::create(const std::string &type,
   {
     string msg = stringify("Cannot load travel time table: unknown type %s",
                            type.c_str());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
   return ttt;
 }

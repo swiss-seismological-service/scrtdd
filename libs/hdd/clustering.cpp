@@ -369,7 +369,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
         stringify("Skipping event %s, insufficient number of neighbors (%d)",
                   string(refEv).c_str(), neighbours->numNeighbours());
     SEISCOMP_DEBUG("%s", msg.c_str());
-    throw runtime_error(msg);
+    throw Exception(msg);
   }
 
   return neighbours;

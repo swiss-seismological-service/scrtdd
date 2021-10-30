@@ -29,6 +29,7 @@
 
 using namespace std;
 using Seiscomp::Core::stringify;
+using Seiscomp::HDD::Exception;
 using Seiscomp::HDD::square;
 
 namespace {
@@ -120,7 +121,7 @@ public:
       string msg =
           stringify("Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m,
                     n, _dd->numRowsG, _dd->numColsG);
-      throw std::runtime_error(msg.c_str());
+      throw Exception(msg);
     }
 
     for (unsigned int ob = 0; ob < _dd->numRowsG; ob++)
@@ -172,7 +173,7 @@ public:
       string msg =
           stringify("Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m,
                     n, _dd->numRowsG, _dd->numColsG);
-      throw std::runtime_error(msg.c_str());
+      throw Exception(msg);
     }
 
     for (unsigned int ob = 0; ob < _dd->numRowsG; ob++)
@@ -716,7 +717,7 @@ void Solver::prepareDDSystem(double ttConstraint,
           string msg = stringify("Solver: internal logic error "
                                  "(ttconstraintIdx=%u but _dd->numRowsG=%u)",
                                  ttconstraintIdx, _dd->numRowsG);
-          throw runtime_error(msg.c_str());
+          throw Exception(msg);
         }
 
         _dd->W[ttconstraintIdx] =
@@ -749,7 +750,7 @@ void Solver::prepareDDSystem(double ttConstraint,
           stringify("Solver: internal logic error (ttconstraintNum=%u "
                     "but only added %u constraints)",
                     ttconstraintNum, (ttconstraintIdx + 1 - _dd->nObs));
-      throw runtime_error(msg.c_str());
+      throw Exception(msg);
     }
   }
 
@@ -795,7 +796,7 @@ void Solver::solve(unsigned numIterations,
 {
   if (_observations.size() == 0)
   {
-    throw runtime_error("Solver: no observations given");
+    throw Exception("Solver: no observations given");
   }
 
   if (_type == "LSQR")
@@ -810,7 +811,7 @@ void Solver::solve(unsigned numIterations,
   }
   else
   {
-    throw runtime_error(
+    throw Exception(
         "Solver: invalid type, only LSQR and LSMR are valid methods");
   }
 }
@@ -856,7 +857,7 @@ void Solver::_solve(unsigned numIterations,
     _dd        = nullptr;
     string msg = stringify("Solver: no solution found (%s)",
                            solver.GetStoppingReasonMessage().c_str());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg);
   }
 
   if (normalizeG)
@@ -868,7 +869,7 @@ void Solver::_solve(unsigned numIterations,
 
   if (_eventDeltas.empty())
   {
-    throw runtime_error("Solver: no event has been relocated");
+    throw Exception("Solver: no event has been relocated");
   }
 }
 

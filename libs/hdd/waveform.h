@@ -18,6 +18,7 @@
 #define __HDD_WAVEFORM_H__
 
 #include "catalog.h"
+#include "utils.h"
 
 #include <seiscomp3/core/genericrecord.h>
 #include <seiscomp3/core/recordsequence.h>
@@ -162,7 +163,7 @@ public:
 
   void setAuxLoader(LoaderPtr auxLdr)
   {
-    if (!auxLdr) throw std::runtime_error("Auxiliary loader cannot be null");
+    if (!auxLdr) throw Exception("Auxiliary loader cannot be null");
     _auxLdr = auxLdr;
   }
 
@@ -228,7 +229,7 @@ public:
                                 const Catalog::Phase &ph,
                                 const Catalog::Event &ev)
   {
-    throw std::runtime_error("Cannot return unprocessed data");
+    throw Exception("Cannot return unprocessed data");
   }
 
   virtual GenericRecordCPtr get(const Core::TimeWindow &tw,
@@ -311,7 +312,7 @@ public:
                                 const Catalog::Phase &ph,
                                 const Catalog::Event &ev)
   {
-    throw std::runtime_error("Cannot compute SNR on unprocessed data");
+    throw Exception("Cannot compute SNR on unprocessed data");
   }
 
   virtual GenericRecordCPtr get(const Core::TimeWindow &tw,

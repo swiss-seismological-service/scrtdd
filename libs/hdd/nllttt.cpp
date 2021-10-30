@@ -150,7 +150,7 @@ NllTravelTimeTable::NllTravelTimeTable(const std::string &type,
     string msg =
         stringify("Error while initialzing NLL grids: invalid table model (%s)",
                   model.c_str());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
   _velGridPath   = tokens.at(0);
   _timeGridPath  = tokens.at(1);
@@ -178,7 +178,7 @@ void NllTravelTimeTable::compute(double eventLat,
     if (_unloadableGrids.find(timeGId) != _unloadableGrids.end())
     {
       string msg = stringify("Time grid (%s) not avaliable", timeGId.c_str());
-      throw runtime_error(msg.c_str());
+      throw Exception(msg.c_str());
     }
 
     try
@@ -191,7 +191,7 @@ void NllTravelTimeTable::compute(double eventLat,
     catch (exception &e)
     {
       _unloadableGrids.insert(timeGId);
-      throw runtime_error(e.what());
+      throw Exception(e.what());
     }
   }
 
@@ -220,7 +220,7 @@ void NllTravelTimeTable::compute(double eventLat,
     if (_unloadableGrids.find(velGId) != _unloadableGrids.end())
     {
       string msg = stringify("Vel grid (%s) not avaliable", velGId.c_str());
-      throw runtime_error(msg.c_str());
+      throw Exception(msg.c_str());
     }
 
     try
@@ -231,7 +231,7 @@ void NllTravelTimeTable::compute(double eventLat,
     catch (exception &e)
     {
       _unloadableGrids.insert(velGId);
-      throw runtime_error(e.what());
+      throw Exception(e.what());
     }
   }
 
@@ -317,7 +317,7 @@ Grid::Grid(Type gridType,
   {
     string msg =
         stringify("Cannot find grid data file %s", info.bufFilePath.c_str());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
 }
 
@@ -390,7 +390,7 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
   {
     string msg =
         stringify("Cannot load grid header file %s", info.hdrFilePath.c_str());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
 
   // make sure that dx for 2D grids is non-zero
@@ -398,7 +398,7 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
 
   if (info.useDouble && info.swapBytes)
   {
-    throw runtime_error(
+    throw Exception(
         "Grid files with DOUBLE values and byte swapping are not supported");
   }
 
@@ -447,7 +447,7 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
 {
   if (!isIndexInside(ix, iy, iz))
   {
-    throw runtime_error("Requested index is out of grid boundaries");
+    throw Exception("Requested index is out of grid boundaries");
   }
 
   if (!_bufReader.is_open())
@@ -470,7 +470,7 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
     _bufReader.close();
     string msg = stringify("Error while reading grid file %s (%s)",
                            info.bufFilePath.c_str(), e.what());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
 
   if (info.swapBytes && sizeof(GRID_FLOAT_TYPE) == 4)
@@ -512,7 +512,7 @@ void Grid::getValuesAt3DLocation(double xloc,
                            xloc, yloc, zloc, info.hdrFilePath.c_str(),
                            info.origx, info.origy, info.origz, info.dx, info.dy,
                            info.dz, info.numx, info.numy, info.numz);
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
 
   /* calculate grid locations at the vertex of the cube containing the point */
@@ -572,7 +572,7 @@ void Grid::getValuesAt2DLocation(double yloc,
                            xloc, yloc, zloc, info.hdrFilePath.c_str(),
                            info.origx, info.origy, info.origz, info.dx, info.dy,
                            info.dz, info.numx, info.numy, info.numz);
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
 
   /* calculate grid locations at the face of the cube containing the point */
@@ -685,7 +685,7 @@ TimeGrid::TimeGrid(const std::string &basePath,
   {
     string msg = stringify("Unrecognized time grid type %s (%s)",
                            info.type.c_str(), info.hdrFilePath.c_str());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
 }
 
@@ -720,7 +720,7 @@ GRID_FLOAT_TYPE TimeGrid::interpolateValues3D(double xdiff,
   if (vval000 < 0.0 || vval010 < 0.0 || vval100 < 0.0 || vval110 < 0.0 ||
       vval001 < 0.0 || vval011 < 0.0 || vval101 < 0.0 || vval111 < 0.0)
   {
-    throw runtime_error("Negative times found in the grid file");
+    throw Exception("Negative times found in the grid file");
   }
   return interpolateCubeLagrange(xdiff, ydiff, zdiff, vval000, vval001, vval010,
                                  vval011, vval100, vval101, vval110, vval111);
@@ -736,7 +736,7 @@ GRID_FLOAT_TYPE TimeGrid::interpolateValues2D(double xdiff,
 {
   if (vval00 < 0.0 || vval01 < 0.0 || vval10 < 0.0 || vval11 < 0.0)
   {
-    throw runtime_error("Negative times found in the grid file");
+    throw Exception("Negative times found in the grid file");
   }
   return interpolateSquareLagrange(xdiff, zdiff, vval00, vval01, vval10,
                                    vval11);
@@ -752,7 +752,7 @@ AngleGrid::AngleGrid(const std::string &basePath,
   {
     string msg =
         stringify("Unrecognized angle grid type %s", info.type.c_str());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
 
   //
@@ -762,8 +762,7 @@ AngleGrid::AngleGrid(const std::string &basePath,
   //
   if (sizeof(TakeOffAngles) != sizeof(float))
   {
-    throw runtime_error(
-        "Internal error: sizeof(TakeOffAngles) != sizeof(float)");
+    throw Exception("Internal error: sizeof(TakeOffAngles) != sizeof(float)");
   }
 
   unsigned short quality  = 0x06;
@@ -784,15 +783,14 @@ AngleGrid::AngleGrid(const std::string &basePath,
 
   if (std::memcmp(&test, reference, 4) != 0)
   {
-    throw runtime_error(
-        "Internal error: TakeOffAngles memory mapping is not ok");
+    throw Exception("Internal error: TakeOffAngles memory mapping is not ok");
   }
 
   // assumes angle files store floats only (never double)
   if (info.useDouble)
   {
-    throw runtime_error("Angle grid files with DOUBLE values are not "
-                        "supported, only FLOAT allowed");
+    throw Exception("Angle grid files with DOUBLE values are not "
+                    "supported, only FLOAT allowed");
   }
 }
 
@@ -866,7 +864,7 @@ VelGrid::VelGrid(const std::string &basePath,
     string msg = stringify(
         "Velocity grid must have xNum greater than 2, found %llu (%s)",
         info.numx, info.hdrFilePath.c_str());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
 
   if (info.type == "VELOCITY_METERS")
@@ -893,7 +891,7 @@ VelGrid::VelGrid(const std::string &basePath,
   {
     string msg =
         stringify("Unrecognized velocity grid type %s", info.type.c_str());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
 }
 
@@ -930,7 +928,7 @@ GRID_FLOAT_TYPE VelGrid::interpolateValues3D(double xdiff,
   if (vval000 < 0.0 || vval010 < 0.0 || vval100 < 0.0 || vval110 < 0.0 ||
       vval001 < 0.0 || vval011 < 0.0 || vval101 < 0.0 || vval111 < 0.0)
   {
-    throw runtime_error("Negative velocities found in the grid file");
+    throw Exception("Negative velocities found in the grid file");
   }
   return interpolateCubeLagrange(xdiff, ydiff, zdiff, vval000, vval001, vval010,
                                  vval011, vval100, vval101, vval110, vval111);
@@ -946,7 +944,7 @@ GRID_FLOAT_TYPE VelGrid::interpolateValues2D(double xdiff,
 {
   if (vval00 < 0.0 || vval01 < 0.0 || vval10 < 0.0 || vval11 < 0.0)
   {
-    throw runtime_error("Negative velocities found in the grid file");
+    throw Exception("Negative velocities found in the grid file");
   }
   return interpolateSquareLagrange(xdiff, zdiff, vval00, vval01, vval10,
                                    vval11);
@@ -962,7 +960,7 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
 
   if (tokens.at(0) != "TRANSFORM" && tokens.at(0) != "TRANS")
   {
-    throw runtime_error("Malformed transform line");
+    throw Exception("Malformed transform line");
   }
 
   info.type = tokens.at(1);
@@ -984,15 +982,15 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
 
     if (info.orig_lat > 90 || info.orig_lat < -90)
     {
-      throw runtime_error("Origin latitude must be in range -90,90");
+      throw Exception("Origin latitude must be in range -90,90");
     }
     if (info.orig_long > 180 || info.orig_long < -180)
     {
-      throw runtime_error("Origin longitude must be in range -180,180");
+      throw Exception("Origin longitude must be in range -180,180");
     }
     if (info.rot > 360 || info.rot < -360)
     {
-      throw runtime_error("Rotation must be in range -360,360");
+      throw Exception("Rotation must be in range -360,360");
     }
 
     if (info.type == "SDC")
@@ -1015,7 +1013,7 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
   else
   {
     string msg = stringify("Unsupported transform %s", info.type.c_str());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
   return info;
 }
@@ -1059,7 +1057,7 @@ void Transform::fromLatLon(double lat,
   else // this never happens
   {
     string msg = stringify("Unsupported transform %s", info.type.c_str());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
 }
 
@@ -1102,7 +1100,7 @@ void Transform::toLatLon(double xLoc,
   else // this never happens
   {
     string msg = stringify("Unsupported transform %s", info.type.c_str());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
 }
 
@@ -1124,7 +1122,7 @@ double Transform::fromLatLonAngle(double latlonAngle) const
   else // this never happens
   {
     string msg = stringify("Unsupported transform %s", info.type.c_str());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
 }
 
@@ -1146,7 +1144,7 @@ double Transform::toLatLonAngle(double rectAngle) const
   else // this never happens
   {
     string msg = stringify("Unsupported transform %s", info.type.c_str());
-    throw runtime_error(msg.c_str());
+    throw Exception(msg.c_str());
   }
 }
 

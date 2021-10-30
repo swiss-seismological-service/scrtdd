@@ -59,7 +59,7 @@ HypoDD::HypoDD(const CatalogCPtr &catalog,
     if (!Util::createPath(_workingDir))
     {
       string msg = "Unable to create working directory: " + _workingDir;
-      throw runtime_error(msg);
+      throw Exception(msg);
     }
   }
 
@@ -69,7 +69,7 @@ HypoDD::HypoDD(const CatalogCPtr &catalog,
     if (!Util::createPath(_cacheDir))
     {
       string msg = "Unable to create cache directory: " + _cacheDir;
-      throw runtime_error(msg);
+      throw Exception(msg);
     }
   }
 
@@ -79,7 +79,7 @@ HypoDD::HypoDD(const CatalogCPtr &catalog,
     if (!Util::createPath(_tmpCacheDir))
     {
       string msg = "Unable to create cache directory: " + _tmpCacheDir;
-      throw runtime_error(msg);
+      throw Exception(msg);
     }
   }
 
@@ -160,7 +160,7 @@ void HypoDD::setWaveformDebug(bool debug)
       {
         string msg =
             "Unable to create waveform debug directory: " + _wfDebugDir;
-        throw runtime_error(msg);
+        throw Exception(msg);
       }
     }
   }
@@ -189,7 +189,7 @@ string HypoDD::generateWorkingSubDir(const Event &ev) const
       stringify("singleevent_%s_%05d_%06d",
                 ev.time.toString("%Y%m%d%H%M%S").c_str(), // origin time
                 int(ev.latitude * 1000),                  // Latitude
-                int(ev.longitude * 1000),                 // Longitude
+                int(ev.longitude * 1000)                  // Longitude
       );
   return generateWorkingSubDir(prefix);
 }
@@ -273,7 +273,7 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
       if (!Util::createPath(catalogWorkingDir))
       {
         string msg = "Unable to create working directory: " + catalogWorkingDir;
-        throw runtime_error(msg);
+        throw Exception(msg);
       }
     }
     SEISCOMP_INFO("Working dir %s", catalogWorkingDir.c_str());
@@ -424,7 +424,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
     if (!Util::createPath(baseWorkingDir))
     {
       string msg = "Unable to create working directory: " + baseWorkingDir;
-      throw runtime_error(msg);
+      throw Exception(msg);
     }
     SEISCOMP_INFO("Working dir %s", baseWorkingDir.c_str());
   }
@@ -518,7 +518,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
     SEISCOMP_ERROR("Failed to perform step 2 origin relocation");
   }
 
-  if (!relocatedEvWithXcorr) throw runtime_error("Failed origin relocation");
+  if (!relocatedEvWithXcorr) throw Exception("Failed origin relocation");
 
   return relocatedEvWithXcorr;
 }
@@ -536,7 +536,7 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
     if (!Util::createPath(workingDir))
     {
       string msg = "Unable to create working directory: " + workingDir;
-      throw runtime_error(msg);
+      throw Exception(msg);
     }
     SEISCOMP_INFO("Working dir %s", workingDir.c_str());
 
@@ -1448,11 +1448,11 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
   Waveform::SnrFilteredLoaderPtr snrLdr; // usefulto keep track of stats
   if (_cfg.snr.minSnr > 0)
   {
-    seWfLdr = new Waveform::SnrFilteredLoader(
+    snrLdr = new Waveform::SnrFilteredLoader(
         seWfLdr, _cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
         _cfg.snr.signalStart, _cfg.snr.signalEnd);
-    if (_waveformDebug) seWfLdr->setDebugDirectory(_wfDebugDir);
-    snrLdr = seWfLdr;
+    if (_waveformDebug) snrLdr->setDebugDirectory(_wfDebugDir);
+    seWfLdr = snrLdr;
   }
   seWfLdr = new Waveform::MemCachedLoader(seWfLdr);
   if (_waveformDebug) seWfLdr->setDebugDirectory(_wfDebugDir);
@@ -1520,8 +1520,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
         // In single-event mode `refPhase` is real-time and `phase` is from the
         // catalog. In multi-event mode both are from the catalog.
         if (phase.procInfo.source != Phase::Source::CATALOG)
-          throw runtime_error(
-              "Internal logic error: phase is not from catalog");
+          throw Exception("Internal logic error: phase is not from catalog");
 
         double coeff, lag;
         if (xcorrPhases(refEv, refPhase, refLdr, event, phase,
