@@ -170,18 +170,28 @@ void HypoDD::setWaveformDebug(bool debug)
   _wfAccess.memCache->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
 }
 
-string HypoDD::generateWorkingSubDir(const Event &ev) const
+string HypoDD::generateWorkingSubDir(const string &prefix) const
 {
-  static UniformRandomer ran(0, 9999);
-  string id = stringify(
-      "%s_%05d_%06d_%s_%04zu",
-      ev.time.toString("%Y%m%d%H%M%S").c_str(),           // origin time
-      int(ev.latitude * 1000),                            // Latitude
-      int(ev.longitude * 1000),                           // Longitude
-      Core::Time::GMT().toString("%Y%m%d%H%M%S").c_str(), // creation time
-      ran.next()                                          // random number
+  Core::Time now = Core::Time::GMT();
+  UniformRandomer ran(0, 9999);
+  ran.setSeed(now.microseconds());
+  string id = stringify("%s_%s_%04zu",
+                        prefix.c_str(),                       // prefix
+                        now.toString("%Y%m%d%H%M%S").c_str(), // creation time
+                        ran.next()                            // random number
   );
   return id;
+}
+
+string HypoDD::generateWorkingSubDir(const Event &ev) const
+{
+  string prefix =
+      stringify("singleevent_%s_%05d_%06d",
+                ev.time.toString("%Y%m%d%H%M%S").c_str(), // origin time
+                int(ev.latitude * 1000),                  // Latitude
+                int(ev.longitude * 1000),                 // Longitude
+      );
+  return generateWorkingSubDir(prefix);
 }
 
 void HypoDD::preloadWaveforms()
@@ -248,8 +258,14 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   CatalogPtr catToReloc(new Catalog(*_bgCat));
 
   // prepare a folder for debug files
-  string catalogWorkingDir =
-      (boost::filesystem::path(_workingDir) / "catalog").string();
+  string catalogWorkingDir;
+  do
+  {
+    catalogWorkingDir = generateWorkingSubDir("multievent");
+    catalogWorkingDir =
+        (boost::filesystem::path(_workingDir) / catalogWorkingDir).string();
+  } while (Util::pathExists(catalogWorkingDir));
+
   if (_saveProcessing)
   {
     if (!Util::pathExists(catalogWorkingDir))
