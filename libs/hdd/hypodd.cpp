@@ -106,46 +106,46 @@ void HypoDD::setUseCatalogWaveformDiskCache(bool cache)
 void HypoDD::createWaveformCache()
 {
   _wfAccess.unloadableWfs.clear();
-  _wfAccess.loader    = nullptr;
+  _wfAccess.loader    = new Waveform::Loader(_cfg.recordStreamURL);
   _wfAccess.diskCache = nullptr;
   _wfAccess.extraLen  = nullptr;
   _wfAccess.snrFilter = nullptr;
   _wfAccess.memCache  = nullptr;
 
-  _wfAccess.loader = new Waveform::Loader(_cfg.recordStreamURL);
+  Waveform::LoaderPtr current = _wfAccess.loader;
 
   if (_useCatalogWaveformDiskCache)
   {
-    _wfAccess.diskCache =
-        new Waveform::DiskCachedLoader(_wfAccess.loader, _cacheDir);
+    _wfAccess.diskCache = new Waveform::DiskCachedLoader(current, _cacheDir);
     _wfAccess.extraLen =
         new Waveform::ExtraLenLoader(_wfAccess.diskCache, DISK_TRACE_MIN_LEN);
+    current = _wfAccess.extraLen;
+  }
 
-    if (_cfg.snr.minSnr > 0)
-    {
-      _wfAccess.snrFilter = new Waveform::SnrFilteredLoader(
-          _wfAccess.extraLen, _cfg.snr.minSnr, _cfg.snr.noiseStart,
-          _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd);
-      _wfAccess.memCache = new Waveform::MemCachedLoader(_wfAccess.snrFilter);
-    }
-    else
-    {
-      _wfAccess.memCache = new Waveform::MemCachedLoader(_wfAccess.extraLen);
-    }
+  if (_cfg.snr.minSnr > 0)
+  {
+    _wfAccess.snrFilter = new Waveform::SnrFilteredLoader(
+        current, _cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
+        _cfg.snr.signalStart, _cfg.snr.signalEnd);
+    current = _wfAccess.snrFilter;
+  }
+
+  _wfAccess.memCache = new Waveform::MemCachedLoader(current);
+}
+
+void HypoDD::replaceWaveformCacheLoader(Waveform::LoaderPtr baseLdr)
+{
+  if (_useCatalogWaveformDiskCache)
+  {
+    _wfAccess.diskCache->setAuxLoader(baseLdr);
+  }
+  else if (_cfg.snr.minSnr > 0)
+  {
+    _wfAccess.snrFilter->setAuxLoader(baseLdr);
   }
   else
   {
-    if (_cfg.snr.minSnr > 0)
-    {
-      _wfAccess.snrFilter = new Waveform::SnrFilteredLoader(
-          _wfAccess.loader, _cfg.snr.minSnr, _cfg.snr.noiseStart,
-          _cfg.snr.noiseEnd, _cfg.snr.signalStart, _cfg.snr.signalEnd);
-      _wfAccess.memCache = new Waveform::MemCachedLoader(_wfAccess.snrFilter);
-    }
-    else
-    {
-      _wfAccess.memCache = new Waveform::MemCachedLoader(_wfAccess.loader);
-    }
+    _wfAccess.memCache->setAuxLoader(baseLdr);
   }
 }
 
@@ -237,15 +237,14 @@ void HypoDD::preloadWaveforms()
 
   updateCounters();
   SEISCOMP_INFO(
-      "Finished preloading catalog waveform data: total phases %u (P %.f%%, S "
-      "%.f%%) phases with Signal to Noise ratio too low %u (%.f%%), "
-      "phases data not available %u (%.f%%), "
-      "(waveforms downloaded %u, waveforms loaded from disk cache %u)",
-      numPhases, ((numPhases - numSPhases) * 100. / numPhases),
-      (numSPhases * 100. / numPhases), _counters.wf_snr_low,
-      (_counters.wf_snr_low * 100. / numPhases), _counters.wf_no_avail,
-      (_counters.wf_no_avail * 100. / numPhases), _counters.wf_downloaded,
-      _counters.wf_disk_cached);
+      "Finished preloading catalog waveform data: total events %lu total "
+      "phases "
+      "%u (P %.f%%, S %.f%%). Waveforms downloaded %u, no available %u, loaded "
+      "from disk cache %u, Signal to Noise ratio too low %u",
+      _bgCat->getEvents().size(), numPhases,
+      ((numPhases - numSPhases) * 100. / numPhases),
+      (numSPhases * 100. / numPhases), _counters.wf_downloaded,
+      _counters.wf_no_avail, _counters.wf_disk_cached, _counters.wf_snr_low);
 }
 
 CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
@@ -2187,7 +2186,8 @@ bool HypoDD::_xcorrPhases(const Event &event1,
 GenericRecordCPtr HypoDD::getWaveform(const Core::TimeWindow &tw,
                                       const Catalog::Event &ev,
                                       const Catalog::Phase &ph,
-                                      Waveform::LoaderPtr wfLoader)
+                                      Waveform::LoaderPtr wfLoader,
+                                      bool skipUnloadableCheck)
 {
   string wfDesc = stringify(
       "Waveform for Phase '%s' and Time slice from %s length %.2f sec",
@@ -2197,7 +2197,8 @@ GenericRecordCPtr HypoDD::getWaveform(const Core::TimeWindow &tw,
 
   // Check if we have already excluded the trace because we couldn't load it
   // (-> save time).
-  if (_wfAccess.unloadableWfs.find(wfId) != _wfAccess.unloadableWfs.end())
+  if (!skipUnloadableCheck &&
+      _wfAccess.unloadableWfs.find(wfId) != _wfAccess.unloadableWfs.end())
   {
     return nullptr;
   }
@@ -2206,7 +2207,7 @@ GenericRecordCPtr HypoDD::getWaveform(const Core::TimeWindow &tw,
   GenericRecordCPtr trace = wfLoader->get(
       tw, ph, ev, true, _cfg.wfFilter.filterStr, _cfg.wfFilter.resampleFreq);
 
-  if (!trace)
+  if (!skipUnloadableCheck && !trace)
   {
     _wfAccess.unloadableWfs.insert(wfId);
     return nullptr;
