@@ -75,10 +75,12 @@ For  compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3
 <pre>
 # get Seiscomp3
 git clone https://github.com/SeisComP3/seiscomp3.git sc3-src
+
 # merge rtdd to Seiscomp3
 cd sc3-src
 git submodule add -f https://github.com/swiss-seismological-service/scrtdd.git src/rtdd-addons
 cd src/rtdd-addons
+
 # now checkout the tag pointing to the latest version: vX.Y.Z_sc3 (_sc3 for Seiscomp3 compatible versions)
 git checkout vX.Y.Z_sc3
 </pre>
@@ -89,7 +91,7 @@ git checkout vX.Y.Z_sc3
 * [2.Real-time single-event relocation](#2-real-time-single-event-relocation)
 * [3.Cross-correlation](#3-cross-correlation)
 * [4.A continuously updated multi-event relocated catalog](#4-a-continuously-updated-multi-event-relocated-catalog)
-* [5.Waveform data and recordStream configuration](#5-waveform-data-and-recordstream-configuration)
+* [5.Waveform data and RecordStream configuration](#5-waveform-data-and-recordstream-configuration)
 * [6.Database connection](#6-database-connection) 
 * [7.Custom velocity models](#7-custom-velocity-models)
 * [8.Scolv Locator plugin](#8-scolv-locator-plugin) 
@@ -112,16 +114,24 @@ To relocate events not stored in a SeisComP database, refer to [this paragraph](
 
 ### The long story
 
-The multi-event relocation consists of two steps: selecting the candidate origins and using `scrtdd` to relocate those. For the former task an utility `sclistorg` might come in handy. For the latter we need to configure a `scrtdd` profile where the relocation options are stored and then run the command line option `--reloc-catalog`. That's it.
+To relocate a catalog (multi-event) three pieces of information need to be provided: events data, waveform data and inventory information:
 
-The output will be another catalog containing the relocated origins. The configuration is an easy task since the default options should already provide sensible solutions. The input origins might come from different sources: a SeisComP database (local or remote), a xml file, or a `scrtdd` specific format (station.csv,event.csv,phase.csv triplet, explained later).
+Events data can be provided in three ways:
+* A flat file triple `station.csv,event.csv,phase.csv`, which is explained later.
+* A file containing the origin ids of events stored in a SeisComP database. In this case an utility `sclistorg` might come in handy to fetch those ids. `sclistorg` is distributed with `scrtdd` and it is explained later.
+* A file in [SCML format](https://www.seiscomp.de/doc/base/glossary.html#term-SCML), which is a flavor of QuakeML. It is possible to convert between formats with [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html).
 
-In multi-event mode there is no interaction neither with the running SeisComP modules. It is a safe operation and allow for easy experimenting. The relocated events will be stored in plain text files, so that they can be analysed  externally to SeisComP, but they can also be stored back into the database. That is optional.
+Waveform data can to be provided in several formats. See [Waveform data and recordStream configuration](#5-waveform-data-and-recordstream-configuration)) for more information. The first time you try to relocate a catalog downloading the waveforms might takes some time, but then they are stored in a disk cache that avoids further downloading. Also, If the waveforms are not available (e.g. RecordStream not configured), then `scrtdd` will proceed with the relocation anyway, but without refining the differential times via cross-correlation. 
 
-`scrtdd` supports also the standard option `--inventory-db inventory.xml` that allows to read the station inventory from plain files, making the database fully optional when the event catalog is provided as plain files.
+[Inventory information](https://www.seiscomp.de/doc/base/concepts/inventory.html) can be stored in a SeisComP database or provided via command line (`--inventory-db inventory.xml`). In the latter case the inventory has be in SeisComP own station meta-data XML format called inventory ML (the SeisComP documentation provide information on how to convert from standard formats like FDSN StationXML or dataless SEED). When the events are provided as station.csv,event.csv,phase.csv file triplet, the inventory can be passed as an empty inventory ML.
 
+The multi-event relocation itself consists in running the command `scrtdd --reloc-catalog [options]` with appropirate options, discussed later.
 
-### 1.1 How to get the origin ids?
+The output will be another catalog containing the relocated origins. Depending on the command line options this catalog is stored in plain text files or SCML format (which can be converted to QuakeML).
+
+In multi-event mode there is no interaction with the running SeisComP modules and nothing is writted to the database. It is a safe operation and allow for easy experimentation. However, the SCML output can be stored into the SeisComP database if required. That is optional.
+
+### 1.1 Event catalog from SeisComP origin ids
 
 There is a tool that is installed alongside `scrtdd`, called `sclistorg`, that is useful for listing origin ids satisfying certain criteria, such as time period, geographic area, author, agency and so on. E.g.
 
@@ -169,7 +179,7 @@ Origins:
                                 provided: MinLat,MinLon,MaxLat,MaxLon
 ```
 
-### 1.2 Preparing the candidate events
+### 1.2 Formats of Events Catalog
 
 The origin ids of the events to be relocated must be stored in a format that `scrtdd` understands.
 
@@ -242,9 +252,6 @@ Before performing the relocation we need to create a new profile in the `scrtdd`
 
 The default values provided by `scrtdd` are meant to be a good starting choice, so there is no need to tweak every parameter. However, it is a good choice to configure a custom velocity model (`solver.travelTimeTable`). The cross-correlation parameters are described in a dedicated paragraph. Finally, when the configuration is ready, we can relocate the catalog with the following commands...
 
-**Notes**:
-Be aware that the first time you try to relocate a catalog it can be very slow because the waveforms have to be downloaded from the configured recordStream and saved to disk for the next runs, which will be much faster. 
-
 #### 1.3.1 Relocating a file containing a list of origin ids
 
 ```
@@ -271,7 +278,7 @@ scrtdd --reloc-catalog station.csv,event.csv,phase.csv --profile myProfile \
 
 #### 1.3.3 Relocating an XML/SCML file
 
-Events are stored in a XML file in [SCML format](https://www.seiscomp.de/doc/base/glossary.html#term-SCML). It is possible to convert between different formats with [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html).
+Events are stored in a [SCML format](https://www.seiscomp.de/doc/base/glossary.html#term-SCML). It is possible to convert between different formats with [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html).
 
 ```
 # events.xml contais the events data (scxmldump command)
@@ -282,15 +289,12 @@ scrtdd --reloc-catalog myCatalog.csv --ep events.xml --profile myProfile \
 
 #### 1.3.4 Relocating external data
 
-To relocate external (non SeisComP) data three pieces of information need to be provided: events data, waveform data and inventory information:
+The easiest way to relocate external (non SeisComP) data is to provide the event catalog in the `station.csv,event.csv,phase.csv` file triplet format explained above. Alternatively it can be converted from a standard QuakeML to SeisComP ML using [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html).
+The waveform data can to be provided via `-I RecordStream` command line option, which support several formats (see [Waveform data and recordStream configuration](#5-waveform-data-and-recordstream-configuration) for more details).
+The inventory can be provided via command line `--inventory-db inventory.xml`. The inventory has be in SeisComP own format called inventory ML, (the SeisComP documentation provide information on how to convert from standard formats like FDSN StationXML or dataless SEED). When the events are provided as station.csv,event.csv,phase.csv file triplet, the inventory can be passed as an empty inventory ML.
+ 
 
-* Events data has to be provided in [SCML format](https://www.seiscomp.de/doc/base/glossary.html#term-SCML). It is possible to convert between different formats with [sccnv command](https://www.seiscomp.de/doc/apps/sccnv.html). Events data can be passed to `scrtdd` via `--ep events.xml` option together with `--reloc-catalog` option
-* alternatively the events data can be converted to a station.csv,event.csv,phase.csv file triplet, explained in the previous paragraphs and passed to `scrtdd` via `--reloc-catalog station.csv,event.csv,phase.csv` option
-* Waveform data can to be provided via `-I RecordStream` command line option and the RecordStream can be any of the [SeisComP supported ones](https://www.seiscomp.de/doc/apps/global_recordstream.html#global-recordstream). If the RecordStream is not provided and the waveform data not found, then `scrtdd` will proceed with the relocation computing the differential times from the picks times and it will not refine those via cross-correlation.
-* [Inventory information](https://www.seiscomp.de/doc/base/concepts/inventory.html) has be converted from an external format into SeisComP own station meta-data XML format called inventory ML. This can be passed to `scrtdd` via `--inventory-db inventory.xml` (or stored in the SeisComP database). When the events are provided as station.csv,event.csv,phase.csv file triplet, the inventory can be passed as empty.
-
-
-Relocating a catalog in **"station.csv,event.csv,phase.csv"** file triplet format:
+Relocating a catalog in **"station.csv,event.csv,phase.csv"** file triplet format. In this example the data is stored in sds miniseed archive:
 
 ```
 scrtdd --reloc-catalog station.csv,event.csv,phase.csv --profile myProfile \
@@ -311,7 +315,7 @@ This is an **empty inventory**:
 </seiscomp>
 ```
 
-Relocating a catalog in **SCML format** (the inventory is always required):
+Relocating a catalog in **SCML format** (the inventory is always required). The catalog and inventory were downloaded from FDSN and converted to SeisComP ML. The waveform data is fetched from FDSN :
 
 ```
 # myCatalog.csv contains the origin ids inside events.xml we want relocate
@@ -878,9 +882,13 @@ Thanks to the integration in SeisComP it is quite easy to use `scrtdd` to period
 ![Relocation example picture](/data/img/multiEventRelocationContinuousExample.png?raw=true "Continuously updated relocation example") 
 
 
-## 5. Waveform data and recordStream configuration
+## 5. Waveform data and RecordStream configuration
 
-SeisComP applications access waveform data through the RecordStream interface (see [official SeisComP documentation](https://www.seiscomp.de/doc/base/concepts/recordstream.html) for more details) and it is usually configured in *global.cfg* or passed via command line with `-I URI`. The RecordStream parameters define the service(s) through which SeisComP can access real-time and historical waveforms data (seedlink, fdsn, sds archive, [etc](https://www.seiscomp.de/doc/apps/global_recordstream.html)). A hypothetical RecordStream configuration might look like this:
+SeisComP applications access waveform data through the RecordStream interface (see [official SeisComP documentation](https://www.seiscomp.de/doc/base/concepts/recordstream.html) for more details) and it can be configured in *global.cfg* or passed via command line with `-I URI`. The RecordStream parameters define the service(s) through which SeisComP can access real-time and historical waveforms data (seedlink, fdsn, sds archive, [etc](https://www.seiscomp.de/doc/apps/global_recordstream.html)). 
+
+### 5.1 RecordStream configuration for Single-Event (real-time)
+
+A hypothetical RecordStream configuration might look like this:
 
 ```
 recordstream = combined://slink/localhost:18000;sdsarchive//path/to/miniseed
@@ -893,16 +901,54 @@ Please note that depending on the responsiveness of the seedlink server the real
 ```
 recordstream = combined://slink/localhost:18000?timeout=5&retries=0;sdsarchive//path/to/miniseed
 ```
+ 
+### 5.2 RecordStream configuration for Multi-Event
 
+To access the catalog waveforms a RecorStream that connects to a historical archive is requieted. Common formats are fdsn and sds archive. However it is also common for users to have multiple mseed files not arranged in a specific archive.
 
-### 5.1 Waveforms data caching
+Example of accessing waveforms from a FDSN service:
 
-Unless the recordStream points to a local disk storage, downloading waveforms might require a lot of time. For this reason `scrtdd` stores the waveforms to disk (called waveform cache) after downloading them. This applies only to the catalog event waveforms, which are used over and over again. That's not true for the real-time events, whose waveforms are used just once and never cached. The cache folder is `workingDirectory/profileName/wfcache/`.
+```
+scrtdd -I fdsnws://service.iris.edu:80/fdsnws/dataselect/1/query [...options...]
+```
+
+Example of accessing waveforms from a sds service:
+
+```
+scrtdd -I  sdsarchive:///path/to/archive [...options...]
+```
+
+If the waveforms are store in multiple miniseed files, those could be concatenated in a single file and passed to scrtdd like the following, but it would be very slow:
+
+```
+cat file1.mseed file2.mseed ... fileX.mseed > data.mseed
+scrtdd -I file://data.mseed [...options...]
+```
+
+A better approach would be to convert the miniseed files to a sds archive:
+
+```
+cat file1.mseed file2.mseed ... fileX.mseed > data.mseed
+
+# sort records and remove duplicates (https://www.seiscomp.de/doc/apps/scmssort.html)
+scmssort -u -E -v data.mseed > sorted.mseed
+
+# creates the sds archive (https://www.seiscomp.de/doc/apps/scart.html)
+mkdir my-sdsarchive
+scart  -I file://sorted.mseed ./my-sdsarchive
+
+# use the sds archive
+scrtdd -I  sdsarchive://./my-sdsarchive [...options...]
+```
+
+### 5.3 Waveforms data caching
+
+Unless the recordStream points to a local disk storage, downloading waveforms might require a lot of time. For this reason `scrtdd` stores the waveforms to disk (called waveform cache) after downloading them. This applies only to the catalog event waveforms, which are used over and over again. That's not true for the real-time events, whose waveforms are used just once and never cached. The cache folder is `workingDirectory/profileName/wfcache/` and the `workingDirectory` is configurable.
 
 However, for certain situations (e.g. debugging) it might be useful to cache all the waveforms, even the ones that are normally not cached. For those special cases the option --cache-wf-all can be used (stored in `workingDirectory/profileName/tmpcache/` which can be deleted afterwards).
 
 
-### 5.2 Catalog waveforms preloading
+### 5.4 Catalog waveforms preloading
 
 When `scrtdd` starts for the first time it loads all the catalog waveforms and stores them to disk. However, if the option `performance.profileTimeAlive` is greater than 0, the catalog waveforms will be loaded only when needed (lazy loading) and not at start time. We can also force `scrtdd` to pre-download all waveforms using the following option:
 
