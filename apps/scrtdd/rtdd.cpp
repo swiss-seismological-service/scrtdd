@@ -1177,7 +1177,7 @@ bool RTDD::run()
           "Wrote input catalog files event.csv, phase.csv, station.csv");
     }
 
-    loadProfile(profile, false, catalog);
+    loadProfile(profile, true, catalog);
     HDD::CatalogPtr relocatedCat;
     try
     {
