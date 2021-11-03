@@ -347,20 +347,13 @@ A typical *multi-event* relocation log looks like the following:
 
 ```
 [info/RTDD] Selecting Catalog Neighbouring Events 
-[...]
-     Details of the Neighbouring Events selection [very very long]
-[...]
 [info/RTDD] Found 3 event clusters
 [info/RTDD] Relocating cluster 1 (134 events)
-[info/RTDD] Computing cross-correlation differential travel times for event 134
-[...]
-     Details of cross-correlation [very very long]
-[...]   
 [info/RTDD] Cross-correlation performed 75917, phases with SNR ratio too low 1040, phases not available 12 (waveforms downloaded 0, waveforms loaded from disk cache 6325)
 [info/RTDD] Total xcorr 75917 (P 62%, S 38%) success 87% (66110/75917). Successful P 81% (37825/46816). Successful S 97% (28285/29101)
 [info/RTDD] Building and solving double-difference system...
 [...]
-     Details of the solutions for each iteration of the solver
+     Details of the DD residuals and event RMS for each iteration of the solver
 [...] 
 [info/RTDD] Successfully relocated 134 events. RMS median 0.3288 [sec] median absolute deviation 0.0170 [sec]
 [info/RTDD] Events RMS before relocation: median 0.3431 median absolute deviation 0.0318
@@ -705,25 +698,25 @@ Good cross-correlation results are needed to achieve high quality double-differe
 
 The `--eval-xcorr` command can be used to evaluate the cross-correlation parameter. 
 
-`--eval-xcorr` allows to see:
+It is especially interesting to compare the results before/after the catalog has been relocated. The new statistics should show better performance for events close to each other and gradually worsen with increasing inter-event distance. That is an indirect measure of the quality of the relocation.
+
+```
+scrtdd --eval-xcorr station.csv,event.csv,phase.csv --profile myProfile --verbosity=3 --console=1
+```
+
+ `--eval-xcorr` allows to see:
 * `#pha`: how many phases have been cross-correlated
 * `pha good CC`: how many of those were successful (correlation coefficient above the configured threshold)
 * `coeff`: the average correlation coefficient
 * `goodCC/ph`: the average number of good matches per phase (each event phase appears in multiple double-difference observations, so multiple event pais, hence multiple cross-correlations)
 * `time-diff`: the average pick time difference detected by the cross-correlation
-* `+/-`: whenever sensible, it is also indicated the Mean Absolute Deviation of the value
-
-It is especially interesting to compare the results before/after the catalog has been relocated. The new statistics should show better performance for events close to each other and gradually worsen with increasing inter-event distance. That is an indirect measure of the quality of the relocation as explained in Waldhauser & Ellsworth's paper.
-
-```
-scrtdd --eval-xcorr station.csv,event.csv,phase.csv --profile myProfile --verbosity=2 --console=1
-```
+* `+/-`: whenever sensible, it is also indicated the Mean Absolute Deviation of the value 
 
 Example output:
 
 ```
 [...]
-13:13:17 [warning] <FINAL STATS>
+13:13:17 [info] <FINAL STATS>
 Cumulative stats: #pha 196006 pha good CC  72% coeff 0.72 (+/-0.09) goodCC/ph  9.9 (+/-4.2) time-diff [msec]  -0 (+/-52)
 Cumulative stats P ph: #pha 118343 pha good CC  68% coeff 0.72 (+/-0.10) goodCC/ph  9.7 (+/-4.5) time-diff [msec]   0 (+/-52)
 Cumulative stats S ph: #pha  77663 pha good CC  76% coeff 0.72 (+/-0.08) goodCC/ph 10.3 (+/-4.1) time-diff [msec]  -1 (+/-52)

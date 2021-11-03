@@ -352,7 +352,8 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
     // theoretical phases.
     const XCorrCache xcorr = buildXCorrCache(
         catToReloc, neighCluster, _useArtificialPhases,
-        clustOpt.xcorrMaxEvStaDist, clustOpt.xcorrMaxInterEvDist);
+        clustOpt.xcorrMaxEvStaDist, clustOpt.xcorrMaxInterEvDist,
+        Seiscomp::Logging::_SCDebugChannel);
 
     // the actual relocation
     CatalogPtr relocatedCluster =
@@ -565,7 +566,7 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
         clustOpt.minESdist, clustOpt.maxESdist, clustOpt.minEStoIEratio,
         clustOpt.minDTperEvt, clustOpt.maxDTperEvt, clustOpt.minNumNeigh,
         clustOpt.maxNumNeigh, clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize,
-        keepUnmatchedPhases);
+        keepUnmatchedPhases, Seiscomp::Logging::_SCInfoChannel);
 
     //
     // prepare catalog to relocate
@@ -592,7 +593,8 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
       // phases.
       xcorr = buildXCorrCache(catalog, {neighbours}, computeTheoreticalPhases,
                               clustOpt.xcorrMaxEvStaDist,
-                              clustOpt.xcorrMaxInterEvDist);
+                              clustOpt.xcorrMaxInterEvDist,
+                              Seiscomp::Logging::_SCInfoChannel);
     }
 
     // the actual relocation
@@ -1386,7 +1388,8 @@ XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
                                    const std::list<NeighboursPtr> &neighCluster,
                                    bool computeTheoreticalPhases,
                                    double xcorrMaxEvStaDist,
-                                   double xcorrMaxInterEvDist)
+                                   double xcorrMaxInterEvDist,
+                                   Logging::Channel *logChannel)
 {
   XCorrCache xcorr;
   resetCounters();
@@ -1405,12 +1408,12 @@ XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
     }
 
     buildXcorrDiffTTimePairs(catalog, neighbours, refEv, xcorrMaxEvStaDist,
-                             xcorrMaxInterEvDist, xcorr);
+                             xcorrMaxInterEvDist, xcorr, logChannel);
 
     // Update theoretical and automatic phase pick time and uncertainties based
     // on cross-correlation results. Also, drop theoretical phases wihout any
     // good cross-correlation result.
-    fixPhases(catalog, refEv, xcorr);
+    fixPhases(catalog, refEv, xcorr, logChannel);
 
     SEISCOMP_INFO("Cross-correlation completion %.1f%%",
                   (++performed / (double)neighCluster.size()) * 100);
@@ -1430,9 +1433,11 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
                                       const Event &refEv,
                                       double xcorrMaxEvStaDist,
                                       double xcorrMaxInterEvDist,
-                                      XCorrCache &xcorr)
+                                      XCorrCache &xcorr,
+                                      Logging::Channel *logChannel)
 {
-  SEISCOMP_INFO(
+  SEISCOMP_LOG(
+      logChannel,
       "Computing cross-correlation differential travel times for event %s",
       string(refEv).c_str());
 
@@ -1604,7 +1609,8 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
 
     if (!goodPXcorr && !goodSXcorr)
     {
-      SEISCOMP_INFO(
+      SEISCOMP_LOG(
+          logChannel,
           "xcorr: event %5s sta %4s %5s dist %7.2f [km] - low corr coeff pairs",
           string(refEv).c_str(), station.networkCode.c_str(),
           station.stationCode.c_str(), stationDistance);
@@ -1614,22 +1620,24 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
       if (goodPXcorr)
       {
         const auto &pdata = xcorr.get(refEv.id, station.id, Phase::Type::P);
-        SEISCOMP_INFO("xcorr: event %5s sta %4s %5s dist %7.2f [km] - "
-                      "%d P phases, mean coeff %.2f lag %.2f (events: %s)",
-                      string(refEv).c_str(), station.networkCode.c_str(),
-                      station.stationCode.c_str(), stationDistance,
-                      pdata.ccCount, pdata.mean_coeff, pdata.mean_lag,
-                      pdata.peersStr.c_str());
+        SEISCOMP_LOG(logChannel,
+                     "xcorr: event %5s sta %4s %5s dist %7.2f [km] - "
+                     "%d P phases, mean coeff %.2f lag %.2f (events: %s)",
+                     string(refEv).c_str(), station.networkCode.c_str(),
+                     station.stationCode.c_str(), stationDistance,
+                     pdata.ccCount, pdata.mean_coeff, pdata.mean_lag,
+                     pdata.peersStr.c_str());
       }
       if (goodSXcorr)
       {
         const auto &sdata = xcorr.get(refEv.id, station.id, Phase::Type::S);
-        SEISCOMP_INFO("xcorr: event %5s sta %4s %5s dist %7.2f [km] - "
-                      "%d S phases, mean coeff %.2f lag %.2f (events: %s)",
-                      string(refEv).c_str(), station.networkCode.c_str(),
-                      station.stationCode.c_str(), stationDistance,
-                      sdata.ccCount, sdata.mean_coeff, sdata.mean_lag,
-                      sdata.peersStr.c_str());
+        SEISCOMP_LOG(logChannel,
+                     "xcorr: event %5s sta %4s %5s dist %7.2f [km] - "
+                     "%d S phases, mean coeff %.2f lag %.2f (events: %s)",
+                     string(refEv).c_str(), station.networkCode.c_str(),
+                     station.stationCode.c_str(), stationDistance,
+                     sdata.ccCount, sdata.mean_coeff, sdata.mean_lag,
+                     sdata.peersStr.c_str());
       }
     }
   }
@@ -1745,7 +1753,8 @@ HypoDD::preloadNonCatalogWaveforms(CatalogPtr &catalog,
  */
 void HypoDD::fixPhases(CatalogPtr &catalog,
                        const Event &refEv,
-                       XCorrCache &xcorr)
+                       XCorrCache &xcorr,
+                       Logging::Channel *logChannel)
 {
   unsigned totP = 0, totS = 0;
   unsigned newP = 0, newS = 0;
@@ -1812,10 +1821,11 @@ void HypoDD::fixPhases(CatalogPtr &catalog,
     catalog->updatePhase(ph, true);
   }
 
-  SEISCOMP_INFO("Event %s total phases %u (%u P and %u S): created %u (%u P "
-                "and %u S) from theoretical picks",
-                string(refEv).c_str(), (totP + totS), totP, totS, (newP + newS),
-                newP, newS);
+  SEISCOMP_LOG(logChannel,
+               "Event %s total phases %u (%u P and %u S): created %u (%u P "
+               "and %u S) from theoretical picks",
+               string(refEv).c_str(), (totP + totS), totP, totS, (newP + newS),
+               newP, newS);
 }
 
 void HypoDD::resetCounters()
@@ -2326,7 +2336,7 @@ void HypoDD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
       log += stringify("%-12s %s\n", kv.first.c_str(),
                        kv.second.describe().c_str());
     }
-    SEISCOMP_WARNING("%s", log.c_str());
+    SEISCOMP_INFO("%s", log.c_str());
   };
 
   resetCounters();
@@ -2344,7 +2354,8 @@ void HypoDD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
           _bgCat, event, _bgCat, clustOpt.minWeight, clustOpt.minESdist,
           clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
           clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
-          clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, false);
+          clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, false,
+          Seiscomp::Logging::_SCDebugChannel);
     }
     catch (...)
     {
@@ -2370,14 +2381,15 @@ void HypoDD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
     XCorrCache xcorr;
     buildXcorrDiffTTimePairs(catalog, neighbours, event,
                              clustOpt.xcorrMaxEvStaDist,
-                             clustOpt.xcorrMaxInterEvDist, xcorr);
+                             clustOpt.xcorrMaxInterEvDist, xcorr,
+                             Seiscomp::Logging::_SCDebugChannel);
 
     // Update theoretical and automatic phase pick time and uncertainties based
     // on cross-correlation results. Drop theoretical phases wihout any good
     // cross-correlation result.
     if (theoretical)
     {
-      fixPhases(catalog, event, xcorr);
+      fixPhases(catalog, event, xcorr, Seiscomp::Logging::_SCDebugChannel);
     }
 
     //
@@ -2481,8 +2493,8 @@ void HypoDD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
         }
       }
 
-    SEISCOMP_WARNING("Event %-5s mag %3.1f %s", string(event).c_str(),
-                     event.magnitude, evStats.describeShort().c_str());
+    SEISCOMP_INFO("Event %-5s mag %3.1f %s", string(event).c_str(),
+                  event.magnitude, evStats.describeShort().c_str());
 
     if (++loop % 100 == 0)
     {

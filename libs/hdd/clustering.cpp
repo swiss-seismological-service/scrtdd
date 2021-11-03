@@ -65,16 +65,19 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
                                        unsigned maxNumNeigh,
                                        unsigned numEllipsoids,
                                        double maxEllipsoidSize,
-                                       bool keepUnmatched)
+                                       bool keepUnmatched,
+                                       Logging::Channel *logChannel)
 {
-  SEISCOMP_INFO(
+  SEISCOMP_LOG(
+      logChannel,
       "Selecting Neighbouring Events for event %s lat %.6f lon %.6f depth %.4f",
       string(refEv).c_str(), refEv.latitude, refEv.longitude, refEv.depth);
 
   // Optimization: make code faster but the result will be the same.
   if (maxNumNeigh <= 0)
   {
-    SEISCOMP_INFO("Disabling ellipsoid algorithm since maxNumNeigh is not set");
+    SEISCOMP_LOG(logChannel,
+                 "Disabling ellipsoid algorithm since maxNumNeigh is not set");
     numEllipsoids = 0;
   }
 
@@ -301,11 +304,12 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
       neighbours->ids.insert(ev.id);
       neighbours->phases[ev.id] = evSelEntry.phases;
 
-      SEISCOMP_INFO("Neighbour: #phases %2d distance %5.2f azimuth %3.f "
-                    "depth-diff %6.3f event %s",
-                    dtCountByEvent[ev.id], distanceByEvent[ev.id],
-                    azimuthByEvent[ev.id], refEv.depth - ev.depth,
-                    string(ev).c_str());
+      SEISCOMP_LOG(logChannel,
+                   "Neighbour: #phases %2d distance %5.2f azimuth %3.f "
+                   "depth-diff %6.3f event %s",
+                   dtCountByEvent[ev.id], distanceByEvent[ev.id],
+                   azimuthByEvent[ev.id], refEv.depth - ev.depth,
+                   string(ev).c_str());
     }
   }
   else
@@ -346,7 +350,8 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
               neighbours->ids.insert(ev.id);
               neighbours->phases[ev.id] = evSelEntry.phases;
 
-              SEISCOMP_INFO(
+              SEISCOMP_LOG(
+                  logChannel,
                   "Neighbour: ellipsoid %2d quadrant %d #phases %2d "
                   "distance %5.2f azimuth %3.f depth-diff %6.3f event %s",
                   elpsNum, quadrant, dtCountByEvent[ev.id],
@@ -368,7 +373,7 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
     string msg =
         stringify("Skipping event %s, insufficient number of neighbors (%d)",
                   string(refEv).c_str(), neighbours->numNeighbours());
-    SEISCOMP_DEBUG("%s", msg.c_str());
+    SEISCOMP_LOG(logChannel, "%s", msg.c_str());
     throw Exception(msg);
   }
 
@@ -415,7 +420,8 @@ list<NeighboursPtr> selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
         neighbours = selectNeighbouringEvents(
             validCatalog, event, validCatalog, minPhaseWeight, minESdist,
             maxESdist, minEStoIEratio, minDTperEvt, maxDTperEvt, minNumNeigh,
-            maxNumNeigh, numEllipsoids, maxEllipsoidSize, keepUnmatched);
+            maxNumNeigh, numEllipsoids, maxEllipsoidSize, keepUnmatched,
+            Seiscomp::Logging::_SCDebugChannel);
       }
       catch (...)
       {}
