@@ -89,8 +89,8 @@ git checkout vX.Y.Z_sc3
 
 * [1.Multi-event relocation](#1-multi-event-relocationi)
 * [2.Real-time single-event relocation](#2-real-time-single-event-relocation)
-* [3.Cross-correlation](#3-cross-correlation)
-* [4.A continuously updated multi-event relocated catalog](#4-a-continuously-updated-multi-event-relocated-catalog)
+* [3.A continuously updated multi-event relocated catalog](#3-a-continuously-updated-multi-event-relocated-catalog)
+* [4.Cross-correlation](#4-cross-correlation)
 * [5.Waveform data and RecordStream configuration](#5-waveform-data-and-recordstream-configuration)
 * [6.Database connection](#6-database-connection) 
 * [7.Custom velocity models](#7-custom-velocity-models)
@@ -690,11 +690,18 @@ The unit testing folder contains the code to generate some tests with synthetic 
 
 ![Synthetic Data Relocation example picture](/data/img/singleEventRelocationSyntDataExample.png?raw=true "Synthetic Data Relocation example")
 
-## 3. Cross-correlation
+## 3. A continuously updated multi-event relocated catalog
+
+Thanks to the integration in SeisComP it is quite easy to use `scrtdd` to periodically generate a double-difference catalog of a region, so that recent events are continuously included in the double-difference inversion. This is not only useful for having up-to-date snapshots of high quality earthquakes locations for a region (multi-event), but it is crucial for real-time double-difference inversion, where new origins are relocated against a reference (background) catalog. This is especially important when monitoring regions where the historical seismicity is not known. For this purpose it might come in handy the `generate-background-catalog.sh` script in [this folder](/data/scripts/), that can be easily adapted to the specific use case and it is useful to periodically generate a multi-event relocated catalog, which can be also displayed in an interactive map, given a web server is available.
+
+![Relocation example picture](/data/img/multiEventRelocationContinuousExample.png?raw=true "Continuously updated relocation example") 
+
+ 
+## 4. Cross-correlation
 
 Good cross-correlation results are needed to achieve high quality double-difference observations, which in turn results in high resolution relocations. The purpose of the cross-correlation is to find the exact time difference between two picks of an event pair at a common station. The cross-correlation is automatically performed by `scrtdd` before the double-difference inversion.
 
-### 3.1 Eval-xcorr command
+### 4.1 Eval-xcorr command
 
 The `--eval-xcorr` command can be used to evaluate the cross-correlation parameter. 
 
@@ -768,7 +775,7 @@ Station       #Phases GoodCC AvgCoeff(+/-) GoodCC/Ph(+/-) time-diff[msec] (+/-)
 [...]
 ```
 
-### 3.2 Cross-correlation parameters optimization
+### 4.2 Cross-correlation parameters optimization
 
 The `--eval-xcorr` option should be used to properly configure the cross-correlation parameters. The optimization process involves running `--eval-xcorr` with different configuration and analyzes the results. The goal is to have as many matches as possible (increase `GoodCC`) avoiding bad/false matches (very high values of `time-diff` are probably an indication of false matches): this is a trade-off.
 
@@ -794,7 +801,7 @@ There are also few more parameters that are less relevant, but that might become
 * Clustering: maximum inter-event distance
 * Clustering: station to inter-event distance ratio  
 
-### 3.3 Logs
+### 4.3 Logs
 
 Some cross-correlation statistics are printed in both multi-event and single-event mode. Those can be seen in the log file or in the console output if `--console=1 --verbosity=3`) is used.
 
@@ -807,7 +814,7 @@ Some cross-correlation statistics are printed in both multi-event and single-eve
 
 The statistics are broken down in actual picks and theoretical picks. This is because `scrtdd` computes theoretical picks that are cross-correlated together with detected picks. This is useful to increase the number of double-difference observations. See the [Phase update](#24-phase-update) paragraph for further details. 
 
-### 3.4 Waveforms inspection
+### 4.4 Waveforms inspection
 
 A more in-depth source of information for waveform filtering and SNR options comes from this option:
 
@@ -875,12 +882,6 @@ Also, `scrtdd` logs tell us the details of the cross-correlation, so that we can
 For comparison we can always find the raw waveforms (not processed) fetched from the configured recordStream and used as a cache in `workingDirectory/profileName/wfcache/` (e.g. `~/seiscomp3/var/lib/rtdd/myProfile/wfcache/`):
 * `NET.ST.LOC.CH.startime-endtime.mseed`
 
-## 4. A continuously updated multi-event relocated catalog
-
-Thanks to the integration in SeisComP it is quite easy to use `scrtdd` to periodically generate a double-difference catalog of a region, so that recent events are continuously included in the double-difference inversion. This is not only useful for having up-to-date snapshots of high quality earthquakes locations for a region (multi-event), but it is crucial for real-time double-difference inversion, where new origins are relocated against a reference (background) catalog. This is especially important when monitoring regions where the historical seismicity is not known. For this purpose it might come in handy the `generate-background-catalog.sh` script in [this folder](/data/scripts/), that can be easily adapted to the specific use case and it is useful to periodically generate a multi-event relocated catalog, which can be also displayed in an interactive map, given a web server is available.
-
-![Relocation example picture](/data/img/multiEventRelocationContinuousExample.png?raw=true "Continuously updated relocation example") 
-
 
 ## 5. Waveform data and RecordStream configuration
 
@@ -904,7 +905,7 @@ recordstream = combined://slink/localhost:18000?timeout=5&retries=0;sdsarchive//
  
 ### 5.2 RecordStream configuration for Multi-Event
 
-To access the catalog waveforms a RecorStream that connects to a historical archive is requieted. Common formats are fdsn and sds archive. However it is also common for users to have multiple mseed files not arranged in a specific archive.
+To access the catalog waveforms a RecorStream that connects to a historical archive is required. Common formats are fdsn and sds archive. However it is also common for users to have multiple mseed files not arranged in any specific way.
 
 Example of accessing waveforms from a FDSN service:
 
@@ -918,24 +919,23 @@ Example of accessing waveforms from a sds service:
 scrtdd -I  sdsarchive:///path/to/archive [...options...]
 ```
 
-If the waveforms are store in multiple miniseed files, those could be concatenated in a single file and passed to scrtdd like the following, but it would be very slow:
-
-```
-cat file1.mseed file2.mseed ... fileX.mseed > data.mseed
-scrtdd -I file://data.mseed [...options...]
-```
-
-A better approach would be to convert the miniseed files to a sds archive:
+If the waveforms are store in multiple miniseed files, those could be concatenated in a single file and passed to scrtdd like the following, but it might be slow depending on the file size:
 
 ```
 cat file1.mseed file2.mseed ... fileX.mseed > data.mseed
 
 # sort records and remove duplicates (https://www.seiscomp.de/doc/apps/scmssort.html)
-scmssort -u -E -v data.mseed > sorted.mseed
+scmssort -u -E -v data.mseed > sorted.mseed 
 
+scrtdd -I file://sorted.mseed [...options...]
+```
+
+A better approach would be to convert the sorted miniseed file to a sds archive and use that archive as waveform data source:
+
+```
 # creates the sds archive (https://www.seiscomp.de/doc/apps/scart.html)
 mkdir my-sdsarchive
-scart  -I file://sorted.mseed ./my-sdsarchive
+scart  -I file://./sorted.mseed ./my-sdsarchive
 
 # use the sds archive
 scrtdd -I  sdsarchive://./my-sdsarchive [...options...]
@@ -950,10 +950,10 @@ However, for certain situations (e.g. debugging) it might be useful to cache all
 
 ### 5.4 Catalog waveforms preloading
 
-When `scrtdd` starts for the first time it loads all the catalog waveforms and stores them to disk. However, if the option `performance.profileTimeAlive` is greater than 0, the catalog waveforms will be loaded only when needed (lazy loading) and not at start time. We can also force `scrtdd` to pre-download all waveforms using the following option:
+When `scrtdd` starts for real-time processing (`seiscomp start scrtdd`) it loads all the catalog waveforms and stores them to disk (if they are not already there) if the option `performance.profileTimeAlive` is 0. Otherwise the catalog waveforms will be loaded only when needed (lazy loading), that is during cross-correlations of real-time events against the background catalog. We can however force `scrtdd` to pre-download all waveforms before starting the module using the following option:
 
 ```
-scrtdd --load-profile-wf --profile myprofile
+scrtdd --load-profile-wf --profile myprofile [-I RecordStream]
 ```
 
 ```
