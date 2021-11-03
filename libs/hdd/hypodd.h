@@ -134,7 +134,7 @@ public:
          const std::string &workingDir);
   ~HypoDD() {}
 
-  void preloadWaveforms();
+  void preloadWaveforms(unsigned batchSize = 1);
 
   void unloadWaveforms() { createWaveformCache(); }
 

@@ -194,48 +194,123 @@ string HypoDD::generateWorkingSubDir(const Event &ev) const
   return generateWorkingSubDir(prefix);
 }
 
-void HypoDD::preloadWaveforms()
+void HypoDD::preloadWaveforms(unsigned batchSize)
 {
-  SEISCOMP_INFO("Preloading catalog waveform data (%lu events to load)",
+  //
+  // preload waveforms, store them on disk and cache them in memory
+  // (already processed).
+  // For better performance we want to load waveforms in batch
+  // (batchloader)
+  //
+  SEISCOMP_INFO("Loading catalog waveform data (%lu events to load)",
                 _bgCat->getEvents().size());
 
   resetCounters();
 
-  unsigned numPhases = 0, numSPhases = 0, numEvents = 0;
+  auto forEventWaveforms =
+      [this](
+          const Event &event, unsigned &numPhases, unsigned &numSPhases,
+          std::function<void(const Core::TimeWindow &, const Catalog::Event &,
+                             const Catalog::Phase &)> func) {
+        auto eqlrng = _bgCat->getPhases().equal_range(event.id);
+        for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+        {
+          const Phase &phase  = it->second;
+          Core::TimeWindow tw = xcorrTimeWindowLong(phase);
+          const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
 
-  //
-  // preload waveforms on disk and cache them in memory (pre-processed)
-  //
-  for (const auto &kv : _bgCat->getEvents())
+          for (string component : xcorrCfg.components)
+          {
+            Phase tmpPh = phase;
+            tmpPh.channelCode =
+                getBandAndInstrumentCodes(tmpPh.channelCode) + component;
+            func(tw, event, tmpPh);
+          }
+
+          numPhases++;
+          if (phase.procInfo.type == Phase::Type::S) numSPhases++;
+        }
+      };
+
+  auto cacheWaveform = [this](const Core::TimeWindow &tw,
+                              const Catalog::Event &ev,
+                              const Catalog::Phase &ph) {
+    getWaveform(tw, ev, ph, _wfAccess.memCache);
+  };
+
+  unsigned numPhases = 0, numSPhases = 0;
+
+  if (batchSize == 1)
   {
-    const Event &event = kv.second;
-    auto eqlrng        = _bgCat->getPhases().equal_range(event.id);
-    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+    for (const auto &kv : _bgCat->getEvents())
     {
-      const Phase &phase  = it->second;
-      Core::TimeWindow tw = xcorrTimeWindowLong(phase);
-      const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
+      const Event &event = kv.second;
+      forEventWaveforms(event, numPhases, numSPhases, cacheWaveform);
+    }
+  }
+  else
+  {
+    unsigned loadedPhases = 0, numEvents = 0;
+    std::list<std::reference_wrapper<const Event>> requestedEvents;
 
-      for (string component : xcorrCfg.components)
+    Waveform::BatchLoaderPtr batchLoader =
+        new Waveform::BatchLoader(_cfg.recordStreamURL);
+    replaceWaveformCacheLoader(batchLoader);
+
+    for (const auto &kv : _bgCat->getEvents())
+    {
+      const Event &event = kv.second;
+
+      // the following doesn't load anything, instead it records in BatchLoader
+      // the waveforms we want to download
+      auto requestWaveform = [this](const Core::TimeWindow &tw,
+                                    const Catalog::Event &ev,
+                                    const Catalog::Phase &ph) {
+        getWaveform(tw, ev, ph, _wfAccess.memCache, true);
+      };
+
+      forEventWaveforms(event, numPhases, numSPhases, requestWaveform);
+      requestedEvents.push_back(event);
+      numEvents++;
+
+      if (numEvents == _bgCat->getEvents().size() || // last loop
+          (numPhases - loadedPhases) >= batchSize)
       {
-        Phase tmpPh = phase;
-        tmpPh.channelCode =
-            getBandAndInstrumentCodes(tmpPh.channelCode) + component;
-        getWaveform(tw, event, tmpPh, _wfAccess.memCache);
+        SEISCOMP_INFO("Fetching next batch of waveforms...");
+
+        // This will actually dowanload the waveworms
+        batchLoader->load();
+
+        // now process and load the waveforms into memory
+        auto cacheWaveform = [this](const Core::TimeWindow &tw,
+                                    const Catalog::Event &ev,
+                                    const Catalog::Phase &ph) {
+          getWaveform(tw, ev, ph, _wfAccess.memCache);
+        };
+
+        unsigned discard;
+        for (const Event &event : requestedEvents)
+        {
+          forEventWaveforms(event, loadedPhases, discard, cacheWaveform);
+        }
+        requestedEvents.clear();
+
+        updateCounters(batchLoader, nullptr, nullptr);
+
+        batchLoader = new Waveform::BatchLoader(_cfg.recordStreamURL);
+        replaceWaveformCacheLoader(batchLoader);
+
+        SEISCOMP_INFO("Loaded %lu%% of catalog phase waveforms",
+                      (numEvents * 100 / _bgCat->getEvents().size()));
       }
-
-      numPhases++;
-      if (phase.procInfo.type == Phase::Type::S) numSPhases++;
     }
 
-    if (++numEvents % (_bgCat->getEvents().size() / 100) == 0)
-    {
-      SEISCOMP_INFO("Loaded %lu%% of waveforms",
-                    (numEvents * 100 / _bgCat->getEvents().size()));
-    }
+    // restore proper loader
+    replaceWaveformCacheLoader(new Waveform::Loader(_cfg.recordStreamURL));
   }
 
   updateCounters();
+
   SEISCOMP_INFO(
       "Finished preloading catalog waveform data: total events %lu total "
       "phases "
