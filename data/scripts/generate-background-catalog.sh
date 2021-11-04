@@ -115,7 +115,7 @@ if [ -n "${WEB_DIR}" ]; then
   cp -f event.csv  $WEB_DIR/event.csv
   cp -f station.csv  $WEB_DIR/station.csv
   cp -f reloc-event.csv $WEB_DIR/me-dd-event.csv
-  cp -f ../main.html $WEB_DIR/
+  cp -f ../relocation-map.html $WEB_DIR/
   date > $WEB_DIR/LAST_RUN
 fi
 
