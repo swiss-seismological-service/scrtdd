@@ -30,6 +30,8 @@ The double-difference equation system solver uses [LSQR by Chris Paige, Michael 
 
 rtDD also supports [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) grid file format alongside the travel time formats natively supported by SeisComP (LOCSAT and libtau). A feature that enables 3D velocity models within the tool.
 
+rtDD acknowledges support from [Geothermica](http://www.geothermica.eu/)
+
 ## Compile
 
 In order to use this module the sources have to be merged into the *SeisComP* sources, then *SeisComP* can be compiled as usual.
