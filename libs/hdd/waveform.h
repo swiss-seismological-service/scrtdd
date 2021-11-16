@@ -365,9 +365,7 @@ public:
 protected:
   bool _dataLoaded;
   IO::RecordStreamPtr _rs;
-  std::unordered_multimap<std::string,
-                          std::pair<const Core::TimeWindow, TimeWindowBuffer>>
-      _streamMap;
+  std::unordered_multimap<std::string, TimeWindowBuffer> _streamMap;
   std::unordered_map<std::string, GenericRecordCPtr> _waveforms;
 };
 

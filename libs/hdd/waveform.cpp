@@ -1293,14 +1293,12 @@ void BatchLoader::request(const Core::TimeWindow &tw,
       auto eqlrng = _streamMap.equal_range(streamID);
       for (auto it = eqlrng.first; it != eqlrng.second; ++it)
       {
-        const pair<const Core::TimeWindow, TimeWindowBuffer> &pair = it->second;
-        if (pair.first == tw) return;
+        const TimeWindowBuffer &seq = it->second;
+        if (seq.timeWindowToStore() == tw) return;
       }
       _rs->addStream(ph.networkCode, ph.stationCode, ph.locationCode,
                      channelCode, tw.startTime(), tw.endTime());
-      pair<const Core::TimeWindow, TimeWindowBuffer> pair(
-          tw, TimeWindowBuffer(tw, _tolerance));
-      _streamMap.emplace(streamID, pair);
+      _streamMap.emplace(streamID, TimeWindowBuffer(tw, _tolerance));
     };
 
     if (!projection)
@@ -1329,8 +1327,7 @@ void BatchLoader::load()
       auto eqlrng = _streamMap.equal_range(rec->streamID());
       for (auto it = eqlrng.first; it != eqlrng.second; ++it)
       {
-        pair<const Core::TimeWindow, TimeWindowBuffer> &pair = it->second;
-        TimeWindowBuffer &seq                                = pair.second;
+        TimeWindowBuffer &seq = it->second;
         seq.feed(rec.get());
       }
     }
@@ -1338,10 +1335,9 @@ void BatchLoader::load()
 
     for (auto &kv : _streamMap)
     {
-      const string &streamID                               = kv.first;
-      pair<const Core::TimeWindow, TimeWindowBuffer> &pair = kv.second;
-      const Core::TimeWindow &tw                           = pair.first;
-      TimeWindowBuffer &seq                                = pair.second;
+      const string &streamID      = kv.first;
+      const TimeWindowBuffer &seq = kv.second;
+      const Core::TimeWindow &tw  = seq.timeWindowToStore();
       GenericRecordPtr trace =
           contiguousRecord(seq, tw, _tolerance, _minAvailability);
       if (!trace)
