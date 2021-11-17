@@ -1217,11 +1217,6 @@ GenericRecordCPtr SnrFilteredLoader::get(const Core::TimeWindow &tw,
 BatchLoader::BatchLoader(const std::string &recordStream) : Loader(recordStream)
 {
   _dataLoaded = false;
-  _rs         = IO::RecordStream::Open(_recordStreamURL.c_str());
-  if (_rs == nullptr)
-  {
-    SEISCOMP_ERROR("Cannot open RecordStream: %s", _recordStreamURL.c_str());
-  }
 }
 
 GenericRecordCPtr BatchLoader::get(const Core::TimeWindow &tw,
@@ -1285,54 +1280,126 @@ void BatchLoader::request(const Core::TimeWindow &tw,
   DataModel::SensorLocation *loc;
   bool projection = projectionRequired(tw, ph, ev, tc, loc);
 
-  if (_rs)
-  {
-    auto requestTrace = [this, &tw, &ph](const string &channelCode) {
-      string streamID = ph.networkCode + "." + ph.stationCode + "." +
-                        ph.locationCode + "." + channelCode;
-      auto eqlrng = _streamMap.equal_range(streamID);
-      for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-      {
-        const TimeWindowBuffer &seq = it->second;
-        if (seq.timeWindowToStore() == tw) return;
-      }
-      _rs->addStream(ph.networkCode, ph.stationCode, ph.locationCode,
-                     channelCode, tw.startTime(), tw.endTime());
-      _streamMap.emplace(streamID, TimeWindowBuffer(tw, _tolerance));
-    };
+  auto requestTrace = [this, &tw, &ph](const string &channelCode) {
+    string streamID = ph.networkCode + "." + ph.stationCode + "." +
+                      ph.locationCode + "." + channelCode;
+    auto eqlrng = _streamMap.equal_range(streamID);
+    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+    {
+      const TimeWindowBuffer &seq = it->second;
+      if (seq.timeWindowToStore() == tw) return; // skip duplicated requests
+    }
+    _streamMap.emplace(streamID, TimeWindowBuffer(tw, _tolerance));
+  };
 
-    if (!projection)
-    {
-      requestTrace(ph.channelCode);
-    }
-    else
-    {
-      requestTrace(tc.comps[ThreeComponents::Vertical]->code());
-      requestTrace(tc.comps[ThreeComponents::FirstHorizontal]->code());
-      requestTrace(tc.comps[ThreeComponents::SecondHorizontal]->code());
-    }
+  if (!projection)
+  {
+    requestTrace(ph.channelCode);
+  }
+  else
+  {
+    requestTrace(tc.comps[ThreeComponents::Vertical]->code());
+    requestTrace(tc.comps[ThreeComponents::FirstHorizontal]->code());
+    requestTrace(tc.comps[ThreeComponents::SecondHorizontal]->code());
   }
 }
 
 void BatchLoader::load()
 {
-  if (_dataLoaded || !_rs) return;
+  if (_dataLoaded) return;
 
   if (!_streamMap.empty())
   {
-    IO::RecordInput inp(_rs.get(), Array::DOUBLE, Record::DATA_ONLY);
-    RecordPtr rec;
-    while (rec = inp.next())
-    {
-      auto eqlrng = _streamMap.equal_range(rec->streamID());
-      for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-      {
-        TimeWindowBuffer &seq = it->second;
-        seq.feed(rec.get());
-      }
-    }
-    _rs->close();
+    auto tmpMap = _streamMap;
 
+    //
+    // The reason of this loop is that RecordStream can only handle one single
+    // time window per stream
+    //
+    while (!tmpMap.empty())
+    {
+      _rs = IO::RecordStream::Open(_recordStreamURL.c_str());
+      if (_rs == nullptr)
+      {
+        SEISCOMP_ERROR("Cannot open RecordStream: %s",
+                       _recordStreamURL.c_str());
+        break;
+      }
+
+      //
+      // Convert multiple time windows requests close to each others to a
+      // single RecordStream request on the stream
+      //
+      for (auto it = tmpMap.begin(), end = tmpMap.end();
+           it != end;) // loop by stream
+      {
+        const string streamID = it->first;
+        auto eqlrng           = tmpMap.equal_range(streamID);
+        Core::TimeWindow contiguousRequest;
+        for (auto it2 = eqlrng.first;
+             it2 != eqlrng.second;) // loop by stream windows
+        {
+          const TimeWindowBuffer &seq = it2->second;
+          const Core::TimeWindow &tw  = seq.timeWindowToStore();
+          bool requested              = false;
+
+          if (it2 == eqlrng.first)
+          {
+            contiguousRequest = tw;
+            requested         = true;
+          }
+          else if (contiguousRequest.overlaps(tw))
+          {
+            contiguousRequest = contiguousRequest.merge(tw);
+            requested         = true;
+          }
+          else if (contiguousRequest.endTime() <= tw.startTime() &&
+                   contiguousRequest.contiguous(tw, 60))
+          {
+            contiguousRequest = contiguousRequest.merge(tw);
+            requested         = true;
+          }
+          else if (contiguousRequest.startTime() >= tw.endTime() &&
+                   tw.contiguous(contiguousRequest, 60))
+          {
+            contiguousRequest = contiguousRequest.merge(tw);
+            requested         = true;
+          }
+
+          if (requested)
+            it2 = tmpMap.erase(it2);
+          else
+            it2++;
+        }
+        static const std::regex dot("\\.", std::regex::optimize);
+        const std::vector<std::string> tokens(splitString(streamID, dot));
+        _rs->addStream(tokens.at(0), tokens.at(1), tokens.at(2), tokens.at(3),
+                       contiguousRequest.startTime(),
+                       contiguousRequest.endTime());
+        it = eqlrng.second;
+      }
+
+      //
+      // Collect data records and feed them to the corresponding
+      // TimeWindowBuffer
+      //
+      IO::RecordInput inp(_rs.get(), Array::DOUBLE, Record::DATA_ONLY);
+      RecordPtr rec;
+      while (rec = inp.next())
+      {
+        auto eqlrng = _streamMap.equal_range(rec->streamID());
+        for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+        {
+          TimeWindowBuffer &seq = it->second;
+          seq.feed(rec.get());
+        }
+      }
+      _rs->close();
+    }
+
+    //
+    // Convert data records to contiguous waveforms
+    //
     for (auto &kv : _streamMap)
     {
       const string &streamID      = kv.first;
@@ -1360,6 +1427,7 @@ void BatchLoader::load()
                   _counters_wf_no_avail);
     _streamMap.clear();
   }
+
   _dataLoaded = true;
   _rs         = nullptr;
 }
