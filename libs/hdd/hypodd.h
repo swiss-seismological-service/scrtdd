@@ -173,6 +173,7 @@ public:
 
 private:
   void createWaveformCache();
+  void replaceWaveformCacheLoader(Waveform::LoaderPtr baseLdr);
 
   std::string generateWorkingSubDir(const std::string &prefix) const;
   std::string generateWorkingSubDir(const Catalog::Event &ev) const;
@@ -317,7 +318,8 @@ private:
   GenericRecordCPtr getWaveform(const Core::TimeWindow &tw,
                                 const Catalog::Event &ev,
                                 const Catalog::Phase &ph,
-                                Waveform::LoaderPtr wfLoader);
+                                Waveform::LoaderPtr wfLoader,
+                                bool skipUnloadableCheck = false);
 
   Waveform::LoaderPtr
   preloadNonCatalogWaveforms(CatalogPtr &catalog,
