@@ -1177,7 +1177,11 @@ bool RTDD::run()
           "Wrote input catalog files event.csv, phase.csv, station.csv");
     }
 
-    loadProfile(profile, true, catalog);
+    bool preloadData = profile->multiEventClustering.xcorrMaxEvStaDist != 0 &&
+                       profile->multiEventClustering.xcorrMaxInterEvDist != 0;
+
+    loadProfile(profile, preloadData, catalog);
+
     HDD::CatalogPtr relocatedCat;
     try
     {
