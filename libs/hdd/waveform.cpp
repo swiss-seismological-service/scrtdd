@@ -1286,10 +1286,12 @@ void BatchLoader::request(const Core::TimeWindow &tw,
     auto eqlrng = _streamMap.equal_range(streamID);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
-      const TimeWindowBuffer &seq = it->second;
-      if (seq.timeWindowToStore() == tw) return; // skip duplicated requests
+      pair<const Core::TimeWindow, TimeWindowBuffer> &pair = it->second;
+      if (pair.first == tw) return; // skip duplicated requests
     }
-    _streamMap.emplace(streamID, TimeWindowBuffer(tw, _tolerance));
+    pair<const Core::TimeWindow, TimeWindowBuffer> pair(
+        tw, TimeWindowBuffer(tw, _tolerance));
+    _streamMap.emplace(streamID, pair);
   };
 
   if (!projection)
@@ -1310,7 +1312,13 @@ void BatchLoader::load()
 
   if (!_streamMap.empty())
   {
-    auto tmpMap = _streamMap;
+    std::unordered_multimap<std::string, const Core::TimeWindow> tmpMap;
+    for (const auto &kv : _streamMap)
+    {
+      const string &streamID                                     = kv.first;
+      const pair<const Core::TimeWindow, TimeWindowBuffer> &pair = kv.second;
+      tmpMap.emplace(streamID, pair.first);
+    }
 
     //
     // The reason of this loop is that RecordStream can only handle one single
@@ -1334,14 +1342,13 @@ void BatchLoader::load()
            it != end;) // loop by stream
       {
         const string streamID = it->first;
-        auto eqlrng           = tmpMap.equal_range(streamID);
         Core::TimeWindow contiguousRequest;
+        auto eqlrng = tmpMap.equal_range(streamID);
         for (auto it2 = eqlrng.first;
              it2 != eqlrng.second;) // loop by stream windows
         {
-          const TimeWindowBuffer &seq = it2->second;
-          const Core::TimeWindow &tw  = seq.timeWindowToStore();
-          bool requested              = false;
+          const Core::TimeWindow &tw = it2->second;
+          bool requested             = false;
 
           if (it2 == eqlrng.first)
           {
@@ -1390,7 +1397,8 @@ void BatchLoader::load()
         auto eqlrng = _streamMap.equal_range(rec->streamID());
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
-          TimeWindowBuffer &seq = it->second;
+          pair<const Core::TimeWindow, TimeWindowBuffer> &pair = it->second;
+          TimeWindowBuffer &seq                                = pair.second;
           seq.feed(rec.get());
         }
       }
@@ -1402,9 +1410,10 @@ void BatchLoader::load()
     //
     for (auto &kv : _streamMap)
     {
-      const string &streamID      = kv.first;
-      const TimeWindowBuffer &seq = kv.second;
-      const Core::TimeWindow &tw  = seq.timeWindowToStore();
+      const string &streamID                               = kv.first;
+      pair<const Core::TimeWindow, TimeWindowBuffer> &pair = kv.second;
+      const Core::TimeWindow &tw                           = pair.first;
+      TimeWindowBuffer &seq                                = pair.second;
       GenericRecordPtr trace =
           contiguousRecord(seq, tw, _tolerance, _minAvailability);
       if (!trace)
