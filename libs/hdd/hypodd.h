@@ -25,7 +25,6 @@
 #include "xcorrcache.ipp"
 
 #include <seiscomp3/core/baseobject.h>
-#include <seiscomp3/logging/defs.h>
 
 #include <map>
 #include <unordered_map>
@@ -276,22 +275,19 @@ private:
   XCorrCache buildXCorrCache(CatalogPtr &catalog,
                              const std::list<NeighboursPtr> &neighbourCats,
                              bool computeTheoreticalPhases,
-                             double xcorrMaxEvStaDist               = -1,
-                             double xcorrMaxInterEvDist             = -1,
-                             Seiscomp::Logging::Channel *logChannel = nullptr);
+                             double xcorrMaxEvStaDist   = -1,
+                             double xcorrMaxInterEvDist = -1);
 
   void buildXcorrDiffTTimePairs(CatalogPtr &catalog,
                                 const NeighboursPtr &neighbours,
                                 const Catalog::Event &refEv,
                                 double xcorrMaxEvStaDist,   // -1 to disable
                                 double xcorrMaxInterEvDist, // -1 to disable
-                                XCorrCache &xcorr,
-                                Seiscomp::Logging::Channel *logChannel);
+                                XCorrCache &xcorr);
 
   void fixPhases(CatalogPtr &catalog,
                  const Catalog::Event &refEv,
-                 XCorrCache &xcorr,
-                 Seiscomp::Logging::Channel *logChannel);
+                 XCorrCache &xcorr);
 
   bool xcorrPhases(const Catalog::Event &event1,
                    const Catalog::Phase &phase1,

@@ -18,12 +18,9 @@
 #define __HDD_CLUSTERING_H__
 
 #include "catalog.h"
-
-#include <seiscomp3/core/baseobject.h>
-#include <seiscomp3/logging/defs.h>
-
 #include <deque>
 #include <list>
+#include <seiscomp3/core/baseobject.h>
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
@@ -107,8 +104,7 @@ selectNeighbouringEvents(const CatalogCPtr &catalog,
                          unsigned maxNumNeigh    = 0, // 0 = no limits
                          unsigned numEllipsoids  = 5,
                          double maxEllipsoidSize = 10,
-                         bool keepUnmatched      = false,
-                         Seiscomp::Logging::Channel *logChannel = nullptr);
+                         bool keepUnmatched      = false);
 
 std::list<NeighboursPtr>
 selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
