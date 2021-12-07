@@ -58,13 +58,12 @@ using PhaseType      = Seiscomp::HDD::Catalog::Phase::Type;
 using PhaseSrc       = Seiscomp::HDD::Catalog::Phase::Source;
 using CatalogDataSrc = Seiscomp::HDD::ScCatalog::DataSource;
 
-namespace Seiscomp {
-
 #define NEW_OPT(var, ...) addOption(&var, __VA_ARGS__)
 #define NEW_OPT_CLI(var, ...) addOption(&var, nullptr, __VA_ARGS__)
 
 namespace {
 
+using namespace Seiscomp;
 using Seiscomp::Core::fromString;
 
 template <class T>
@@ -213,6 +212,15 @@ bool startsWith(const string &haystack,
   return _haystack.compare(0, _needle.length(), _needle) == 0;
 }
 
+std::vector<std::string> splitString(const std::string &str,
+                                     const std::string &split)
+{
+  std::vector<std::string> tokens;
+  boost::split(tokens, str, boost::is_any_of(split), 
+               boost::token_compress_on);
+  return tokens;
+}
+
 double normalizeAz(double az)
 {
   if (az < 0)
@@ -230,6 +238,8 @@ double normalizeLon(double lon)
 }
 
 } // unnamed namespace
+
+namespace Seiscomp {
 
 RTDD::Config::Config()
 {
@@ -402,11 +412,20 @@ bool RTDD::validateParameters()
     _config.testMode = true; // we won't send any message
   }
 
+  bool profileRequireDB = false;
+  if ( !_config.evalXCorr.empty() &&
+       ::splitString(_config.evalXCorr, ",").size() == 1) // single file containing origin ids 
+  {
+    profileRequireDB = true;
+  }
+  if ( !_config.relocateCatalog.empty() &&
+       ::splitString(_config.relocateCatalog, ",").size() == 1) // single file containing origin ids 
+  {
+    profileRequireDB = true;
+  }
+
   _config.workingDirectory =
       env->absolutePath(configGetPath("workingDirectory"));
-
-  bool profilesOK       = true;
-  bool profileRequireDB = false;
 
   // make sure to load the profile passed via command line too
   std::vector<string> profilesToLoad(_config.activeProfiles);
@@ -417,6 +436,7 @@ bool RTDD::validateParameters()
     profilesToLoad.push_back(_config.forceProfile);
   }
 
+  bool profilesOK       = true;
   for (const string &profileName : profilesToLoad)
   {
 
@@ -1135,10 +1155,7 @@ bool RTDD::run()
   {
     bool keepEvId = commandline().hasOption("merge-catalogs-keepid");
 
-    std::vector<std::string> tokens;
-    boost::split(tokens, _config.mergeCatalogs, boost::is_any_of(","),
-                 boost::token_compress_on);
-
+    std::vector<std::string> tokens = ::splitString(_config.mergeCatalogs, ",");
     if ((tokens.size() % 3) != 0)
     {
       SEISCOMP_ERROR("--merge-catalogs accepts catalog event triplets only");
@@ -1246,9 +1263,7 @@ bool RTDD::run()
     _config.profileTimeAlive = 3600; // do not preload profile
 
     // split multiple origins
-    std::vector<std::string> ids;
-    boost::split(ids, _config.originIDs, boost::is_any_of(","),
-                 boost::token_compress_on);
+    std::vector<std::string> ids = ::splitString(_config.originIDs, ",");
     for (const string &originID : ids)
     {
       OriginPtr org = _cache.get<Origin>(originID);
@@ -2125,10 +2140,7 @@ HDD::Catalog *
 RTDD::getCatalog(const std::string &catalogPath,
                  std::unordered_map<unsigned, DataModel::OriginPtr> *idmap)
 {
-  std::vector<std::string> tokens;
-  boost::split(tokens, catalogPath, boost::is_any_of(","),
-               boost::token_compress_on);
-
+  std::vector<std::string> tokens = ::splitString(catalogPath, ",");
   try
   {
     if (tokens.size() == 1) // single file containing origin ids
@@ -2227,9 +2239,7 @@ std::vector<DataModel::OriginPtr> RTDD::fetchOrigins(const std::string &idFile,
     throw runtime_error("File " + idFile + " does not exist");
   }
 
-  std::vector<std::string> tokens;
-  boost::split(tokens, options, boost::is_any_of(","),
-               boost::token_compress_on);
+  std::vector<std::string> tokens = ::splitString(options, ",");
   if ((tokens.size() % 5) != 0)
   {
     throw runtime_error("--dump-catalog-options format is: "
