@@ -9,57 +9,14 @@
 #include <seiscomp3/math/math.h>
 #include <vector>
 
+#include "common.ipp"
+
 using namespace std;
 using namespace Seiscomp;
 using Seiscomp::Core::stringify;
 namespace bdata = boost::unit_test::data;
 
 namespace {
-
-struct TTTParams
-{
-  string type;
-  string model;
-};
-
-const vector<TTTParams> tttList = {
-    {"LOCSAT", "iasp91"},
-    {"libtau", "iasp91"},
-    {"NonLinLoc",
-     "./data/nll/iasp91_2D_simple/model/iasp91.PHASE.mod;"
-     "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.time;"
-     "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.angle"},
-    {"NonLinLoc",
-     "./data/nll/iasp91_2D_sdc/model/iasp91.PHASE.mod;"
-     "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.time;"
-     "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.angle"},
-    {"NonLinLoc",
-     "./data/nll/iasp91_2D_global/model/iasp91.PHASE.mod;"
-     "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.time;"
-     "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.angle"},
-    {"NonLinLoc",
-     "./data/nll/iasp91_3D_simple/model/iasp91.PHASE.mod;"
-     "./data/nll/iasp91_3D_simple/time/iasp91.PHASE.STATION.time;"
-     "./data/nll/iasp91_3D_simple/time/iasp91.PHASE.STATION.angle"},
-    {"NonLinLoc",
-     "./data/nll/iasp91_3D_sdc/model/iasp91.PHASE.mod;"
-     "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.time;"
-     "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.angle"}
-};
-
-// Those station parameters must be consistent with nonlinloc
-// grids control files
-// For tests with locsat it doesn't matter
-vector<HDD::Catalog::Station> stationList = {
-    {"NET.ST01A", 47.1, 8.6, 250, "NET", "ST01A", ""},
-    {"NET.ST02A", 47.1, 8.4, 295, "NET", "ST02A", ""},
-    {"NET.ST03A", 46.9, 8.4, 301, "NET", "ST03A", ""},
-    {"NET.ST04A", 46.9, 8.6, 395, "NET", "ST04A", ""},
-    {"NET.ST01B", 47.0, 8.7, 212, "NET", "ST01B", ""},
-    {"NET.ST02B", 47.0, 8.3, 346, "NET", "ST02B", ""},
-    {"NET.ST03B", 47.2, 8.5, 351, "NET", "ST03B", ""},
-    {"NET.ST04B", 46.8, 8.5, 268, "NET", "ST04B", ""},
-};
 
 struct Delta
 {
