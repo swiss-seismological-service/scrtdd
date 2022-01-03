@@ -27,7 +27,7 @@
 namespace Seiscomp {
 namespace HDD {
 
-template <class T> inline T square(T x) { return x * x; }
+template <typename T> inline T square(T x) { return x * x; }
 
 template <typename... Args> std::string strf(Args &&... args)
 {

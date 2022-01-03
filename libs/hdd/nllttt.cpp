@@ -438,7 +438,7 @@ bool Grid::isIndexInside(unsigned long long ix,
  * (e.g. grids stored on a network folder) prove an additional
  * caching layer to be necessary
  */
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
                                       unsigned long long iy,
                                       unsigned long long iz)
@@ -484,7 +484,7 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
   return value;
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 void Grid::getValuesAt3DLocation(double xloc,
                                  double yloc,
                                  double zloc,
@@ -547,7 +547,7 @@ void Grid::getValuesAt3DLocation(double xloc,
   vval111 = getValueAtIndex<GRID_FLOAT_TYPE>(ix1, iy1, iz1);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 void Grid::getValuesAt2DLocation(double yloc,
                                  double zloc,
                                  double &ydiff,
@@ -599,7 +599,7 @@ void Grid::getValuesAt2DLocation(double yloc,
   vval11 = getValueAtIndex<GRID_FLOAT_TYPE>(ix0, iy1, iz1);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE Grid::getValue(
     double lat,
     double lon,
@@ -617,7 +617,7 @@ GRID_FLOAT_TYPE Grid::getValue(
   }
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE Grid::getValue3D(
     double lat,
     double lon,
@@ -639,7 +639,7 @@ GRID_FLOAT_TYPE Grid::getValue3D(
                              vval011, vval100, vval101, vval110, vval111);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE Grid::getValue2D(
     double lat,
     double lon,
@@ -701,7 +701,7 @@ double TimeGrid::getTime(double lat, double lon, double depth)
   }
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE TimeGrid::interpolateValues3D(double xdiff,
                                               double ydiff,
                                               double zdiff,
@@ -724,7 +724,7 @@ GRID_FLOAT_TYPE TimeGrid::interpolateValues3D(double xdiff,
                                  vval011, vval100, vval101, vval110, vval111);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE TimeGrid::interpolateValues2D(double xdiff,
                                               double zdiff,
                                               GRID_FLOAT_TYPE vval00,
@@ -820,7 +820,7 @@ void AngleGrid::getAngles(
   dip = deg2rad(dip);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE AngleGrid::interpolateValues3D(double xdiff,
                                                double ydiff,
                                                double zdiff,
@@ -838,7 +838,7 @@ GRID_FLOAT_TYPE AngleGrid::interpolateValues3D(double xdiff,
                                QUALITY_CUTOFF);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE AngleGrid::interpolateValues2D(double xdiff,
                                                double zdiff,
                                                GRID_FLOAT_TYPE vval00,
@@ -908,7 +908,7 @@ double VelGrid::getVel(double lat, double lon, double depth)
   return convertUnits(velAtSrc);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE VelGrid::interpolateValues3D(double xdiff,
                                              double ydiff,
                                              double zdiff,
@@ -930,7 +930,7 @@ GRID_FLOAT_TYPE VelGrid::interpolateValues3D(double xdiff,
                                  vval011, vval100, vval101, vval110, vval111);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE VelGrid::interpolateValues2D(double xdiff,
                                              double zdiff,
                                              GRID_FLOAT_TYPE vval00,

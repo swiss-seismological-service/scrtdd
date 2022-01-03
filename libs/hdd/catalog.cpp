@@ -45,7 +45,7 @@ using namespace Seiscomp;
 
 namespace {
 
-template <class Map, class Val>
+template <typename Map, class Val>
 typename Map::iterator searchByValue(Map &SearchMap, const Val &SearchVal)
 {
   typename Map::iterator iRet = SearchMap.end();
@@ -61,7 +61,7 @@ typename Map::iterator searchByValue(Map &SearchMap, const Val &SearchVal)
   return iRet;
 }
 
-template <class Map, class Val>
+template <typename Map, class Val>
 typename Map::const_iterator searchByValue(const Map &SearchMap,
                                            const Val &SearchVal)
 {

@@ -36,7 +36,7 @@ namespace {
  * Common DDSystem adapter for both LSQR and LSMR solvers
  * T can be `lsqrBase` or `lsmrBase`.
  */
-template <class T> class Adapter : public T
+template <typename T> class Adapter : public T
 {
 
 public:
@@ -813,7 +813,7 @@ void Solver::solve(unsigned numIterations,
   }
 }
 
-template <class T>
+template <typename T>
 void Solver::_solve(unsigned numIterations,
                     double ttConstraint,
                     double dampingFactor,

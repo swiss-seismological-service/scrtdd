@@ -188,7 +188,7 @@ private:
                        double dampingFactor,
                        double residualDownWeight);
 
-  template <class T>
+  template <typename T>
   void _solve(unsigned numIterations,
               double ttConstraint,
               double dampingFactor,

@@ -216,14 +216,14 @@ public:
   double getTime(double lat, double lon, double depth);
 
 protected:
-  template <class GRID_FLOAT_TYPE>
+  template <typename GRID_FLOAT_TYPE>
   static GRID_FLOAT_TYPE interpolateValues2D(double xdiff,
                                              double zdiff,
                                              GRID_FLOAT_TYPE vval00,
                                              GRID_FLOAT_TYPE vval01,
                                              GRID_FLOAT_TYPE vval10,
                                              GRID_FLOAT_TYPE vval11);
-  template <class GRID_FLOAT_TYPE>
+  template <typename GRID_FLOAT_TYPE>
   static GRID_FLOAT_TYPE interpolateValues3D(double xdiff,
                                              double ydiff,
                                              double zdiff,
@@ -257,14 +257,14 @@ public:
   static const unsigned QUALITY_CUTOFF = 5;
 
 protected:
-  template <class GRID_FLOAT_TYPE>
+  template <typename GRID_FLOAT_TYPE>
   static GRID_FLOAT_TYPE interpolateValues2D(double xdiff,
                                              double zdiff,
                                              GRID_FLOAT_TYPE vval00,
                                              GRID_FLOAT_TYPE vval01,
                                              GRID_FLOAT_TYPE vval10,
                                              GRID_FLOAT_TYPE vval11);
-  template <class GRID_FLOAT_TYPE>
+  template <typename GRID_FLOAT_TYPE>
   static GRID_FLOAT_TYPE interpolateValues3D(double xdiff,
                                              double ydiff,
                                              double zdiff,
@@ -290,14 +290,14 @@ public:
   double getVel(double lat, double lon, double depth);
 
 protected:
-  template <class GRID_FLOAT_TYPE>
+  template <typename GRID_FLOAT_TYPE>
   static GRID_FLOAT_TYPE interpolateValues2D(double xdiff,
                                              double zdiff,
                                              GRID_FLOAT_TYPE vval00,
                                              GRID_FLOAT_TYPE vval01,
                                              GRID_FLOAT_TYPE vval10,
                                              GRID_FLOAT_TYPE vval11);
-  template <class GRID_FLOAT_TYPE>
+  template <typename GRID_FLOAT_TYPE>
   static GRID_FLOAT_TYPE interpolateValues3D(double xdiff,
                                              double ydiff,
                                              double zdiff,
