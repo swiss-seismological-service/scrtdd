@@ -25,7 +25,6 @@
 #include <fstream>
 #include <iostream>
 #include <mutex>
-#include <seiscomp3/client/inventory.h>
 #include <seiscomp3/core/datetime.h>
 #include <seiscomp3/datamodel/station.h>
 #include <seiscomp3/io/recordinput.h>
@@ -43,7 +42,6 @@ using namespace std;
 using namespace Seiscomp;
 using namespace Seiscomp::Processing;
 using DataModel::ThreeComponents;
-using Seiscomp::Core::stringify;
 using Catalog = HDD::Catalog;
 
 namespace {
@@ -64,10 +62,10 @@ string waveformDebugPath(const string &wfDebugDir,
                          const Catalog::Phase &ph,
                          const std::string &ext)
 {
-  string debugFile =
-      stringify("ev%u.%s.%s.%s.%s.%s.%s.mseed", ev.id, ph.networkCode.c_str(),
-                ph.stationCode.c_str(), ph.locationCode.c_str(),
-                ph.channelCode.c_str(), ph.type.c_str(), ext.c_str());
+  string debugFile = Seiscomp::HDD::strf(
+      "ev%u.%s.%s.%s.%s.%s.%s.mseed", ev.id, ph.networkCode.c_str(),
+      ph.stationCode.c_str(), ph.locationCode.c_str(), ph.channelCode.c_str(),
+      ph.type.c_str(), ext.c_str());
   return (boost::filesystem::path(wfDebugDir) / debugFile).string();
 }
 
@@ -95,10 +93,9 @@ std::string waveformId(const Core::TimeWindow &tw,
                        const std::string &locationCode,
                        const std::string &channelCode)
 {
-  return Core::stringify("%s.%s.%s.%s.%s.%s", networkCode.c_str(),
-                         stationCode.c_str(), locationCode.c_str(),
-                         channelCode.c_str(), tw.startTime().iso().c_str(),
-                         tw.endTime().iso().c_str());
+  return strf("%s.%s.%s.%s.%s.%s", networkCode.c_str(), stationCode.c_str(),
+              locationCode.c_str(), channelCode.c_str(),
+              tw.startTime().iso().c_str(), tw.endTime().iso().c_str());
 }
 
 std::string waveformId(const HDD::Catalog::Phase &ph,
@@ -142,11 +139,11 @@ GenericRecordPtr readWaveformFromRecordStream(const string &recordStreamURL,
   if (!trace)
   {
     string msg =
-        stringify("Cannnot load trace, data availability %.2f%%"
-                  "(stream %s.%s.%s.%s from %s length %.2f sec)",
-                  seq.availability(), networkCode.c_str(), stationCode.c_str(),
-                  locationCode.c_str(), channelCode.c_str(),
-                  tw.startTime().iso().c_str(), tw.length());
+        strf("Cannnot load trace, data availability %.2f%%"
+             "(stream %s.%s.%s.%s from %s length %.2f sec)",
+             seq.availability(), networkCode.c_str(), stationCode.c_str(),
+             locationCode.c_str(), channelCode.c_str(),
+             tw.startTime().iso().c_str(), tw.length());
     throw Exception(msg);
   }
 
@@ -219,8 +216,8 @@ void filter(GenericRecord &trace,
         Math::Filtering::InPlaceFilter<double>::Create(filterStr, &filterError);
     if (!filter)
     {
-      string msg = stringify("Filter creation failed %s: %s", filterStr.c_str(),
-                             filterError.c_str());
+      string msg = strf("Filter creation failed %s: %s", filterStr.c_str(),
+                        filterError.c_str());
       throw Exception(msg);
     }
     filter->setSamplingFrequency(trace.samplingFrequency());
@@ -817,8 +814,7 @@ GenericRecordPtr projectWaveform(const Core::TimeWindow &tw,
   GenericRecordPtr trace = projectedData.get();
   if (!trace)
   {
-    string msg =
-        stringify("No enough data for projection (%s)", string(ph).c_str());
+    string msg = strf("No enough data for projection (%s)", string(ph).c_str());
     throw Exception(msg);
   }
   return trace;

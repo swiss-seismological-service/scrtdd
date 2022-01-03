@@ -19,7 +19,6 @@
 
 #include <array>
 #include <cstring>
-#include <seiscomp3/core/strings.h>
 #include <seiscomp3/math/math.h>
 #include <seiscomp3/utils/files.h>
 #include <stdexcept>
@@ -28,7 +27,6 @@
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
-using Seiscomp::Core::stringify;
 using TakeOffAngles = Seiscomp::HDD::NLL::AngleGrid::TakeOffAngles;
 
 namespace {
@@ -148,8 +146,8 @@ NllTravelTimeTable::NllTravelTimeTable(const std::string &type,
   if (tokens.size() != 3 && tokens.size() != 4)
   {
     string msg =
-        stringify("Error while initialzing NLL grids: invalid table model (%s)",
-                  model.c_str());
+        strf("Error while initialzing NLL grids: invalid table model (%s)",
+             model.c_str());
     throw Exception(msg.c_str());
   }
   _velGridPath   = tokens.at(0);
@@ -177,7 +175,7 @@ void NllTravelTimeTable::compute(double eventLat,
     // Check if we have already excluded the grid because we couldn't load it
     if (_unloadableGrids.find(timeGId) != _unloadableGrids.end())
     {
-      string msg = stringify("Time grid (%s) not avaliable", timeGId.c_str());
+      string msg = strf("Time grid (%s) not avaliable", timeGId.c_str());
       throw Exception(msg.c_str());
     }
 
@@ -219,7 +217,7 @@ void NllTravelTimeTable::compute(double eventLat,
     // Check if we have already excluded the grid because we couldn't load it
     if (_unloadableGrids.find(velGId) != _unloadableGrids.end())
     {
-      string msg = stringify("Vel grid (%s) not avaliable", velGId.c_str());
+      string msg = strf("Vel grid (%s) not avaliable", velGId.c_str());
       throw Exception(msg.c_str());
     }
 
@@ -316,7 +314,7 @@ Grid::Grid(Type gridType,
   if (!Util::fileExists(info.bufFilePath))
   {
     string msg =
-        stringify("Cannot find grid data file %s", info.bufFilePath.c_str());
+        strf("Cannot find grid data file %s", info.bufFilePath.c_str());
     throw Exception(msg.c_str());
   }
 }
@@ -389,7 +387,7 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
       (gridType == Type::velocity && parsedLines != 2))
   {
     string msg =
-        stringify("Cannot load grid header file %s", info.hdrFilePath.c_str());
+        strf("Cannot load grid header file %s", info.hdrFilePath.c_str());
     throw Exception(msg.c_str());
   }
 
@@ -468,8 +466,8 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
   catch (exception &e)
   {
     _bufReader.close();
-    string msg = stringify("Error while reading grid file %s (%s)",
-                           info.bufFilePath.c_str(), e.what());
+    string msg = strf("Error while reading grid file %s (%s)",
+                      info.bufFilePath.c_str(), e.what());
     throw Exception(msg.c_str());
   }
 
@@ -504,14 +502,14 @@ void Grid::getValuesAt3DLocation(double xloc,
 {
   if (!isLocationInside(xloc, yloc, zloc))
   {
-    string msg = stringify("Requested location is out of grid boundaries "
-                           "(xloc %.2f yloc %.2f zloc %.2f - grid %s "
-                           "origx %.3f origy %.3f origz %.3f "
-                           "dx %.2f dy %.2f dz %.2f "
-                           "numx %u numy %u numz %u)",
-                           xloc, yloc, zloc, info.hdrFilePath.c_str(),
-                           info.origx, info.origy, info.origz, info.dx, info.dy,
-                           info.dz, info.numx, info.numy, info.numz);
+    string msg = strf("Requested location is out of grid boundaries "
+                      "(xloc %.2f yloc %.2f zloc %.2f - grid %s "
+                      "origx %.3f origy %.3f origz %.3f "
+                      "dx %.2f dy %.2f dz %.2f "
+                      "numx %u numy %u numz %u)",
+                      xloc, yloc, zloc, info.hdrFilePath.c_str(), info.origx,
+                      info.origy, info.origz, info.dx, info.dy, info.dz,
+                      info.numx, info.numy, info.numz);
     throw Exception(msg.c_str());
   }
 
@@ -564,14 +562,14 @@ void Grid::getValuesAt2DLocation(double yloc,
 
   if (!isLocationInside(xloc, yloc, zloc))
   {
-    string msg = stringify("Requested location is out of grid boundaries "
-                           "(xloc %.2f yloc %.2f zloc %.2f - grid %s "
-                           "origx %.3f origy %.3f origz %.3f "
-                           "dx %.2f dy %.2f dz %.2f "
-                           "numx %u numy %u numz %u)",
-                           xloc, yloc, zloc, info.hdrFilePath.c_str(),
-                           info.origx, info.origy, info.origz, info.dx, info.dy,
-                           info.dz, info.numx, info.numy, info.numz);
+    string msg = strf("Requested location is out of grid boundaries "
+                      "(xloc %.2f yloc %.2f zloc %.2f - grid %s "
+                      "origx %.3f origy %.3f origz %.3f "
+                      "dx %.2f dy %.2f dz %.2f "
+                      "numx %u numy %u numz %u)",
+                      xloc, yloc, zloc, info.hdrFilePath.c_str(), info.origx,
+                      info.origy, info.origz, info.dx, info.dy, info.dz,
+                      info.numx, info.numy, info.numz);
     throw Exception(msg.c_str());
   }
 
@@ -683,8 +681,8 @@ TimeGrid::TimeGrid(const std::string &basePath,
 {
   if (info.type != "TIME" && info.type != "TIME2D")
   {
-    string msg = stringify("Unrecognized time grid type %s (%s)",
-                           info.type.c_str(), info.hdrFilePath.c_str());
+    string msg = strf("Unrecognized time grid type %s (%s)", info.type.c_str(),
+                      info.hdrFilePath.c_str());
     throw Exception(msg.c_str());
   }
 }
@@ -750,8 +748,7 @@ AngleGrid::AngleGrid(const std::string &basePath,
 {
   if (info.type != "ANGLE" && info.type != "ANGLE2D")
   {
-    string msg =
-        stringify("Unrecognized angle grid type %s", info.type.c_str());
+    string msg = strf("Unrecognized angle grid type %s", info.type.c_str());
     throw Exception(msg.c_str());
   }
 
@@ -861,9 +858,9 @@ VelGrid::VelGrid(const std::string &basePath,
 {
   if (info.numx < 2)
   {
-    string msg = stringify(
-        "Velocity grid must have xNum greater than 2, found %llu (%s)",
-        info.numx, info.hdrFilePath.c_str());
+    string msg =
+        strf("Velocity grid must have xNum greater than 2, found %llu (%s)",
+             info.numx, info.hdrFilePath.c_str());
     throw Exception(msg.c_str());
   }
 
@@ -889,8 +886,7 @@ VelGrid::VelGrid(const std::string &basePath,
     convertUnits = [](double vel) -> double { return vel; };
   else
   {
-    string msg =
-        stringify("Unrecognized velocity grid type %s", info.type.c_str());
+    string msg = strf("Unrecognized velocity grid type %s", info.type.c_str());
     throw Exception(msg.c_str());
   }
 }
@@ -1012,7 +1008,7 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
   }
   else
   {
-    string msg = stringify("Unsupported transform %s", info.type.c_str());
+    string msg = strf("Unsupported transform %s", info.type.c_str());
     throw Exception(msg.c_str());
   }
   return info;
@@ -1056,7 +1052,7 @@ void Transform::fromLatLon(double lat,
   }
   else // this never happens
   {
-    string msg = stringify("Unsupported transform %s", info.type.c_str());
+    string msg = strf("Unsupported transform %s", info.type.c_str());
     throw Exception(msg.c_str());
   }
 }
@@ -1099,7 +1095,7 @@ void Transform::toLatLon(double xLoc,
   }
   else // this never happens
   {
-    string msg = stringify("Unsupported transform %s", info.type.c_str());
+    string msg = strf("Unsupported transform %s", info.type.c_str());
     throw Exception(msg.c_str());
   }
 }
@@ -1121,7 +1117,7 @@ double Transform::fromLatLonAngle(double latlonAngle) const
   }
   else // this never happens
   {
-    string msg = stringify("Unsupported transform %s", info.type.c_str());
+    string msg = strf("Unsupported transform %s", info.type.c_str());
     throw Exception(msg.c_str());
   }
 }
@@ -1143,7 +1139,7 @@ double Transform::toLatLonAngle(double rectAngle) const
   }
   else // this never happens
   {
-    string msg = stringify("Unsupported transform %s", info.type.c_str());
+    string msg = strf("Unsupported transform %s", info.type.c_str());
     throw Exception(msg.c_str());
   }
 }

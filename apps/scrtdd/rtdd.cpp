@@ -216,8 +216,7 @@ std::vector<std::string> splitString(const std::string &str,
                                      const std::string &split)
 {
   std::vector<std::string> tokens;
-  boost::split(tokens, str, boost::is_any_of(split), 
-               boost::token_compress_on);
+  boost::split(tokens, str, boost::is_any_of(split), boost::token_compress_on);
   return tokens;
 }
 
@@ -413,13 +412,15 @@ bool RTDD::validateParameters()
   }
 
   bool profileRequireDB = false;
-  if ( !_config.evalXCorr.empty() &&
-       ::splitString(_config.evalXCorr, ",").size() == 1) // single file containing origin ids 
+  if (!_config.evalXCorr.empty() &&
+      ::splitString(_config.evalXCorr, ",").size() ==
+          1) // single file containing origin ids
   {
     profileRequireDB = true;
   }
-  if ( !_config.relocateCatalog.empty() &&
-       ::splitString(_config.relocateCatalog, ",").size() == 1) // single file containing origin ids 
+  if (!_config.relocateCatalog.empty() &&
+      ::splitString(_config.relocateCatalog, ",").size() ==
+          1) // single file containing origin ids
   {
     profileRequireDB = true;
   }
@@ -436,7 +437,7 @@ bool RTDD::validateParameters()
     profilesToLoad.push_back(_config.forceProfile);
   }
 
-  bool profilesOK       = true;
+  bool profilesOK = true;
   for (const string &profileName : profilesToLoad)
   {
 

@@ -17,7 +17,6 @@
 #include "scttt.h"
 #include "utils.h"
 
-#include <seiscomp3/core/strings.h>
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/math/math.h>
 #include <sstream>
@@ -27,7 +26,6 @@
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
-using Seiscomp::Core::stringify;
 
 namespace Seiscomp {
 namespace HDD {

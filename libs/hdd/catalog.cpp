@@ -42,7 +42,6 @@
 
 using namespace std;
 using namespace Seiscomp;
-using Seiscomp::Core::stringify;
 
 namespace {
 
@@ -252,7 +251,7 @@ CatalogPtr Catalog::extractEvent(unsigned eventId, bool keepEvId) const
   auto search = this->getEvents().find(eventId);
   if (search == this->getEvents().end())
   {
-    string msg = stringify("Cannot find event id %u in the catalog.", eventId);
+    string msg = strf("Cannot find event id %u in the catalog.", eventId);
     throw Exception(msg);
   }
 
@@ -478,9 +477,8 @@ void Catalog::writeToFile(string eventFile,
     const Catalog::Event &ev = kv.second;
 
     stringstream evStream;
-    evStream << stringify("%u,%s,%.6f,%.6f,%.4f,%.2f", ev.id,
-                          ev.time.iso().c_str(), ev.latitude, ev.longitude,
-                          ev.depth, ev.magnitude);
+    evStream << strf("%u,%s,%.6f,%.6f,%.4f,%.2f", ev.id, ev.time.iso().c_str(),
+                     ev.latitude, ev.longitude, ev.depth, ev.magnitude);
 
     evStreamNoReloc << evStream.str() << endl;
     evStreamReloc << evStream.str();
@@ -492,7 +490,7 @@ void Catalog::writeToFile(string eventFile,
     else
     {
       relocInfo = true;
-      evStreamReloc << stringify(
+      evStreamReloc << strf(
           ",true,%.3f,%.3f,%.3f,%.3f,%.3f,%u,%u,%u,%.3f,%.3f,%.3f,%u,%u,%u,%u,%"
           ".4f,%.4f,%.4f,%.4f",
           ev.relocInfo.startRms, ev.relocInfo.finalRms, ev.relocInfo.locChange,
@@ -532,7 +530,7 @@ void Catalog::writeToFile(string eventFile,
   for (const auto &kv : orderedPhases)
   {
     const Catalog::Phase &ph = kv.second;
-    phStream << stringify(
+    phStream << strf(
         "%u,%s,%.3f,%.3f,%s,%s,%s,%s,%s,%s", ph.eventId, ph.time.iso().c_str(),
         ph.lowerUncertainty, ph.upperUncertainty, ph.type.c_str(),
         ph.networkCode.c_str(), ph.stationCode.c_str(), ph.locationCode.c_str(),
@@ -546,7 +544,7 @@ void Catalog::writeToFile(string eventFile,
       }
       else
       {
-        phStream << stringify(
+        phStream << strf(
             ",true,%.3f,%.3f,%.2f,%.2f,%u,%u,%.4f,%.4f",
             ph.relocInfo.startTTResidual, ph.relocInfo.finalTTResidual,
             ph.procInfo.weight, ph.relocInfo.finalWeight, ph.relocInfo.numTTObs,
@@ -570,10 +568,9 @@ void Catalog::writeToFile(string eventFile,
   for (const auto &kv : orderedStations)
   {
     const Catalog::Station &sta = kv.second;
-    staStream << stringify("%.6f,%.6f,%.1f,%s,%s,%s", sta.latitude,
-                           sta.longitude, sta.elevation,
-                           sta.networkCode.c_str(), sta.stationCode.c_str(),
-                           sta.locationCode.c_str())
+    staStream << strf("%.6f,%.6f,%.1f,%s,%s,%s", sta.latitude, sta.longitude,
+                      sta.elevation, sta.networkCode.c_str(),
+                      sta.stationCode.c_str(), sta.locationCode.c_str())
               << endl;
   }
 }

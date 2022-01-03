@@ -19,7 +19,6 @@
 #include "scttt.h"
 #include "utils.h"
 
-#include <seiscomp3/core/strings.h>
 #include <seiscomp3/math/math.h>
 #include <sstream>
 #include <stdexcept>
@@ -28,7 +27,6 @@
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
-using Seiscomp::Core::stringify;
 
 namespace Seiscomp {
 namespace HDD {
@@ -49,8 +47,8 @@ TravelTimeTable *TravelTimeTable::create(const std::string &type,
 
   if (ttt == nullptr)
   {
-    string msg = stringify("Cannot load travel time table: unknown type %s",
-                           type.c_str());
+    string msg =
+        strf("Cannot load travel time table: unknown type %s", type.c_str());
     throw Exception(msg.c_str());
   }
   return ttt;

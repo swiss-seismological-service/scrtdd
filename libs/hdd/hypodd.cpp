@@ -26,7 +26,6 @@
 #include <iostream>
 #include <seiscomp3/client/inventory.h>
 #include <seiscomp3/core/datetime.h>
-#include <seiscomp3/core/strings.h>
 #include <seiscomp3/core/typedarray.h>
 #include <seiscomp3/io/recordinput.h>
 #include <seiscomp3/utils/files.h>
@@ -38,7 +37,6 @@
 
 using namespace std;
 using namespace Seiscomp;
-using Seiscomp::Core::stringify;
 using Event   = HDD::Catalog::Event;
 using Phase   = HDD::Catalog::Phase;
 using Station = HDD::Catalog::Station;
@@ -175,22 +173,21 @@ string HypoDD::generateWorkingSubDir(const string &prefix) const
   Core::Time now = Core::Time::GMT();
   UniformRandomer ran(0, 9999);
   ran.setSeed(now.microseconds());
-  string id = stringify("%s_%s_%04zu",
-                        prefix.c_str(),                       // prefix
-                        now.toString("%Y%m%d%H%M%S").c_str(), // creation time
-                        ran.next()                            // random number
+  string id = strf("%s_%s_%04zu",
+                   prefix.c_str(),                       // prefix
+                   now.toString("%Y%m%d%H%M%S").c_str(), // creation time
+                   ran.next()                            // random number
   );
   return id;
 }
 
 string HypoDD::generateWorkingSubDir(const Event &ev) const
 {
-  string prefix =
-      stringify("singleevent_%s_%05d_%06d",
-                ev.time.toString("%Y%m%d%H%M%S").c_str(), // origin time
-                int(ev.latitude * 1000),                  // Latitude
-                int(ev.longitude * 1000)                  // Longitude
-      );
+  string prefix = strf("singleevent_%s_%05d_%06d",
+                       ev.time.toString("%Y%m%d%H%M%S").c_str(), // origin time
+                       int(ev.latitude * 1000),                  // Latitude
+                       int(ev.longitude * 1000)                  // Longitude
+  );
   return generateWorkingSubDir(prefix);
 }
 
@@ -752,29 +749,29 @@ string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
   const Event &event = relocatedEv->getEvents().begin()->second;
   if (!event.relocInfo.isRelocated) return "Event not relocated";
 
-  return stringify(
-      "Origin changes: location=%.2f[km] depth=%.2f[km] time=%.3f[sec] "
-      "Rms change [sec]: %.3f (before/after %.3f/%.3f) "
-      "Neighbours=%u Used Phases: P=%u S=%u "
-      "Stations distance [km]: min=%.1f median=%.1f max=%.1f "
-      "DD observations: %u (CC P/S %u/%u TT P/S %u/%u) "
-      "DD residuals [msec]: before=%.f+/-%.1f after=%.f+/-%.1f",
-      event.relocInfo.locChange, event.relocInfo.depthChange,
-      event.relocInfo.timeChange,
-      (event.relocInfo.finalRms - event.relocInfo.startRms),
-      event.relocInfo.startRms, event.relocInfo.finalRms,
-      event.relocInfo.numNeighbours, event.relocInfo.phases.usedP,
-      event.relocInfo.phases.usedS, event.relocInfo.phases.stationDistMin,
-      event.relocInfo.phases.stationDistMedian,
-      event.relocInfo.phases.stationDistMax,
-      (event.relocInfo.dd.numCCp + event.relocInfo.dd.numCCs +
-       event.relocInfo.dd.numTTp + event.relocInfo.dd.numTTs),
-      event.relocInfo.dd.numCCp, event.relocInfo.dd.numCCs,
-      event.relocInfo.dd.numTTp, event.relocInfo.dd.numTTs,
-      event.relocInfo.dd.startResidualMedian * 1000,
-      event.relocInfo.dd.startResidualMAD * 1000,
-      event.relocInfo.dd.finalResidualMedian * 1000,
-      event.relocInfo.dd.finalResidualMAD * 1000);
+  return strf("Origin changes: location=%.2f[km] depth=%.2f[km] time=%.3f[sec] "
+              "Rms change [sec]: %.3f (before/after %.3f/%.3f) "
+              "Neighbours=%u Used Phases: P=%u S=%u "
+              "Stations distance [km]: min=%.1f median=%.1f max=%.1f "
+              "DD observations: %u (CC P/S %u/%u TT P/S %u/%u) "
+              "DD residuals [msec]: before=%.f+/-%.1f after=%.f+/-%.1f",
+              event.relocInfo.locChange, event.relocInfo.depthChange,
+              event.relocInfo.timeChange,
+              (event.relocInfo.finalRms - event.relocInfo.startRms),
+              event.relocInfo.startRms, event.relocInfo.finalRms,
+              event.relocInfo.numNeighbours, event.relocInfo.phases.usedP,
+              event.relocInfo.phases.usedS,
+              event.relocInfo.phases.stationDistMin,
+              event.relocInfo.phases.stationDistMedian,
+              event.relocInfo.phases.stationDistMax,
+              (event.relocInfo.dd.numCCp + event.relocInfo.dd.numCCs +
+               event.relocInfo.dd.numTTp + event.relocInfo.dd.numTTs),
+              event.relocInfo.dd.numCCp, event.relocInfo.dd.numCCs,
+              event.relocInfo.dd.numTTp, event.relocInfo.dd.numTTs,
+              event.relocInfo.dd.startResidualMedian * 1000,
+              event.relocInfo.dd.startResidualMAD * 1000,
+              event.relocInfo.dd.finalResidualMedian * 1000,
+              event.relocInfo.dd.finalResidualMAD * 1000);
 }
 
 /*
@@ -1421,7 +1418,7 @@ Phase HypoDD::createThoreticalPhase(const Station &station,
   refEvNewPhase.upperUncertainty = Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
   refEvNewPhase.procInfo.weight  = Catalog::computePickWeight(refEvNewPhase);
   refEvNewPhase.procInfo.source  = Phase::Source::THEORETICAL;
-  refEvNewPhase.type = stringify("%ct", static_cast<char>(phaseType));
+  refEvNewPhase.type             = strf("%ct", static_cast<char>(phaseType));
 
   return refEvNewPhase;
 }
@@ -1659,21 +1656,21 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
       {
         const auto &pdata = xcorr.get(refEv.id, station.id, Phase::Type::P);
         SEISCOMP_DEBUG("xcorr: event %5s sta %4s %5s dist %7.2f [km] - "
-                      "%d P phases, mean coeff %.2f lag %.2f (events: %s)",
-                      string(refEv).c_str(), station.networkCode.c_str(),
-                      station.stationCode.c_str(), stationDistance,
-                      pdata.ccCount, pdata.mean_coeff, pdata.mean_lag,
-                      pdata.peersStr.c_str());
+                       "%d P phases, mean coeff %.2f lag %.2f (events: %s)",
+                       string(refEv).c_str(), station.networkCode.c_str(),
+                       station.stationCode.c_str(), stationDistance,
+                       pdata.ccCount, pdata.mean_coeff, pdata.mean_lag,
+                       pdata.peersStr.c_str());
       }
       if (goodSXcorr)
       {
         const auto &sdata = xcorr.get(refEv.id, station.id, Phase::Type::S);
         SEISCOMP_DEBUG("xcorr: event %5s sta %4s %5s dist %7.2f [km] - "
-                      "%d S phases, mean coeff %.2f lag %.2f (events: %s)",
-                      string(refEv).c_str(), station.networkCode.c_str(),
-                      station.stationCode.c_str(), stationDistance,
-                      sdata.ccCount, sdata.mean_coeff, sdata.mean_lag,
-                      sdata.peersStr.c_str());
+                       "%d S phases, mean coeff %.2f lag %.2f (events: %s)",
+                       string(refEv).c_str(), station.networkCode.c_str(),
+                       station.stationCode.c_str(), stationDistance,
+                       sdata.ccCount, sdata.mean_coeff, sdata.mean_lag,
+                       sdata.peersStr.c_str());
       }
     }
   }
@@ -1829,7 +1826,7 @@ void HypoDD::fixPhases(CatalogPtr &catalog,
     newPhase.upperUncertainty = pdata.max_lag - pdata.mean_lag;
     newPhase.procInfo.weight  = Catalog::computePickWeight(newPhase);
     newPhase.procInfo.source  = Phase::Source::XCORR;
-    newPhase.type = stringify("%cx", static_cast<char>(newPhase.procInfo.type));
+    newPhase.type = strf("%cx", static_cast<char>(newPhase.procInfo.type));
 
     if (phase.procInfo.source == Phase::Source::THEORETICAL)
     {
@@ -1857,9 +1854,9 @@ void HypoDD::fixPhases(CatalogPtr &catalog,
   }
 
   SEISCOMP_DEBUG("Event %s total phases %u (%u P and %u S): created %u (%u P "
-                "and %u S) from theoretical picks",
-                string(refEv).c_str(), (totP + totS), totP, totS, (newP + newS),
-                newP, newS);
+                 "and %u S) from theoretical picks",
+                 string(refEv).c_str(), (totP + totS), totP, totS,
+                 (newP + newS), newP, newS);
 }
 
 void HypoDD::resetCounters()
@@ -2224,9 +2221,9 @@ GenericRecordCPtr HypoDD::getWaveform(const Core::TimeWindow &tw,
                                       Waveform::LoaderPtr wfLoader,
                                       bool skipUnloadableCheck)
 {
-  string wfDesc = stringify(
-      "Waveform for Phase '%s' and Time slice from %s length %.2f sec",
-      string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
+  string wfDesc =
+      strf("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
+           string(ph).c_str(), tw.startTime().iso().c_str(), tw.length());
 
   const string wfId = Waveform::waveformId(ph, tw);
 
@@ -2294,14 +2291,14 @@ struct XCorrEvalStats
     double meanCoeffMAD = computeMeanAbsoluteDeviation(ccCoeff, meanCoeff);
     double meanCount    = computeMean(ccCount);
     double meanCountMAD = computeMeanAbsoluteDeviation(ccCount, meanCount);
-    string log = stringify("#pha %6d pha good CC %3.f%% coeff %.2f (+/-%.2f) "
-                           "goodCC/ph %4.1f (+/-%.1f)",
-                           total, (goodCC * 100. / total), meanCoeff,
-                           meanCoeffMAD, meanCount, meanCountMAD);
+    string log        = strf("#pha %6d pha good CC %3.f%% coeff %.2f (+/-%.2f) "
+                      "goodCC/ph %4.1f (+/-%.1f)",
+                      total, (goodCC * 100. / total), meanCoeff, meanCoeffMAD,
+                      meanCount, meanCountMAD);
     double meanDev    = computeMean(timeDiff);
     double meanDevMAD = computeMeanAbsoluteDeviation(timeDiff, meanDev);
-    log += stringify(" time-diff [msec] %3.f (+/-%.f)", meanDev * 1000,
-                     meanDevMAD * 1000);
+    log += strf(" time-diff [msec] %3.f (+/-%.f)", meanDev * 1000,
+                meanDevMAD * 1000);
     return log;
   }
 
@@ -2311,12 +2308,12 @@ struct XCorrEvalStats
     double meanCoeffMAD = computeMeanAbsoluteDeviation(ccCoeff, meanCoeff);
     double meanCount    = computeMean(ccCount);
     double meanCountMAD = computeMeanAbsoluteDeviation(ccCount, meanCount);
-    string log = stringify("%9d %5.f%% % 4.2f (%4.2f)   %4.1f (%4.1f)", total,
-                           (goodCC * 100. / total), meanCoeff, meanCoeffMAD,
-                           meanCount, meanCountMAD);
+    string log        = strf("%9d %5.f%% % 4.2f (%4.2f)   %4.1f (%4.1f)", total,
+                      (goodCC * 100. / total), meanCoeff, meanCoeffMAD,
+                      meanCount, meanCountMAD);
     double meanDev    = computeMean(timeDiff);
     double meanDevMAD = computeMeanAbsoluteDeviation(timeDiff, meanDev);
-    log += stringify("%8.f (%3.f)", meanDev * 1000, meanDevMAD * 1000);
+    log += strf("%8.f (%3.f)", meanDev * 1000, meanDevMAD * 1000);
     return log;
   }
 };
@@ -2333,44 +2330,41 @@ void HypoDD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
 
   auto printStats = [&](string title) {
     string log = title + "\n";
-    log +=
-        stringify("Cumulative stats: %s\n", totalStats.describeShort().c_str());
-    log += stringify("Cumulative stats P ph: %s\n",
-                     pPhaseStats.describeShort().c_str());
-    log += stringify("Cumulative stats S ph: %s\n",
-                     sPhaseStats.describeShort().c_str());
+    log += strf("Cumulative stats: %s\n", totalStats.describeShort().c_str());
+    log += strf("Cumulative stats P ph: %s\n",
+                pPhaseStats.describeShort().c_str());
+    log += strf("Cumulative stats S ph: %s\n",
+                sPhaseStats.describeShort().c_str());
 
-    log += stringify(
+    log += strf(
         "Cross-correlated phases by inter-event distance in %.2f km step\n",
         EV_DIST_STEP);
-    log += stringify(" EvDist [km]  #Phases GoodCC AvgCoeff(+/-) "
-                     "GoodCC/Ph(+/-) time-diff[msec] (+/-)\n");
+    log += strf(" EvDist [km]  #Phases GoodCC AvgCoeff(+/-) "
+                "GoodCC/Ph(+/-) time-diff[msec] (+/-)\n");
     for (const auto &kv : statsByInterEvDistance)
     {
-      log += stringify("%5.2f-%-5.2f %s\n", kv.first * EV_DIST_STEP,
-                       (kv.first + 1) * EV_DIST_STEP,
-                       kv.second.describe().c_str());
+      log += strf("%5.2f-%-5.2f %s\n", kv.first * EV_DIST_STEP,
+                  (kv.first + 1) * EV_DIST_STEP, kv.second.describe().c_str());
     }
 
-    log += stringify("Cross-correlated phases by event to station distance in "
-                     "%.2f km step\n",
-                     STA_DIST_STEP);
-    log += stringify("StaDist [km]  #Phases GoodCC AvgCoeff(+/-) "
-                     "GoodCC/Ph(+/-) time-diff[msec] (+/-)\n");
+    log += strf("Cross-correlated phases by event to station distance in "
+                "%.2f km step\n",
+                STA_DIST_STEP);
+    log += strf("StaDist [km]  #Phases GoodCC AvgCoeff(+/-) "
+                "GoodCC/Ph(+/-) time-diff[msec] (+/-)\n");
     for (const auto &kv : statsByStaDistance)
     {
-      log += stringify("%3d-%-3d     %s\n", int(kv.first * STA_DIST_STEP),
-                       int((kv.first + 1) * STA_DIST_STEP),
-                       kv.second.describe().c_str());
+      log += strf("%3d-%-3d     %s\n", int(kv.first * STA_DIST_STEP),
+                  int((kv.first + 1) * STA_DIST_STEP),
+                  kv.second.describe().c_str());
     }
 
-    log += stringify("Cross-correlations by station\n");
-    log += stringify("Station       #Phases GoodCC AvgCoeff(+/-) "
-                     "GoodCC/Ph(+/-) time-diff[msec] (+/-)\n");
+    log += strf("Cross-correlations by station\n");
+    log += strf("Station       #Phases GoodCC AvgCoeff(+/-) "
+                "GoodCC/Ph(+/-) time-diff[msec] (+/-)\n");
     for (const auto &kv : statsByStation)
     {
-      log += stringify("%-12s %s\n", kv.first.c_str(),
-                       kv.second.describe().c_str());
+      log += strf("%-12s %s\n", kv.first.c_str(), kv.second.describe().c_str());
     }
     SEISCOMP_INFO("%s", log.c_str());
   };

@@ -27,7 +27,6 @@
 #include <iostream>
 #include <seiscomp3/client/inventory.h>
 #include <seiscomp3/core/datetime.h>
-#include <seiscomp3/core/strings.h>
 #include <seiscomp3/datamodel/amplitude.h>
 #include <seiscomp3/datamodel/event.h>
 #include <seiscomp3/datamodel/magnitude.h>
@@ -41,7 +40,6 @@
 
 using namespace std;
 using namespace Seiscomp;
-using Seiscomp::Core::stringify;
 
 namespace {
 

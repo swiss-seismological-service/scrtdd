@@ -18,14 +18,11 @@
 #include "ellipsoid.ipp"
 #include "utils.h"
 
-#include <seiscomp3/core/strings.h>
-
 #define SEISCOMP_COMPONENT HDD
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
 using namespace Seiscomp;
-using Seiscomp::Core::stringify;
 using Event   = HDD::Catalog::Event;
 using Phase   = HDD::Catalog::Phase;
 using Station = HDD::Catalog::Station;
@@ -74,7 +71,8 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
   // Optimization: make code faster but the result will be the same.
   if (maxNumNeigh <= 0)
   {
-    SEISCOMP_DEBUG("Disabling ellipsoid algorithm since maxNumNeigh is not set");
+    SEISCOMP_DEBUG(
+        "Disabling ellipsoid algorithm since maxNumNeigh is not set");
     numEllipsoids = 0;
   }
 
@@ -302,10 +300,10 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
       neighbours->phases[ev.id] = evSelEntry.phases;
 
       SEISCOMP_DEBUG("Neighbour: #phases %2d distance %5.2f azimuth %3.f "
-                    "depth-diff %6.3f event %s",
-                    dtCountByEvent[ev.id], distanceByEvent[ev.id],
-                    azimuthByEvent[ev.id], refEv.depth - ev.depth,
-                    string(ev).c_str());
+                     "depth-diff %6.3f event %s",
+                     dtCountByEvent[ev.id], distanceByEvent[ev.id],
+                     azimuthByEvent[ev.id], refEv.depth - ev.depth,
+                     string(ev).c_str());
     }
   }
   else
@@ -366,8 +364,8 @@ NeighboursPtr selectNeighbouringEvents(const CatalogCPtr &catalog,
   if (neighbours->numNeighbours() < minNumNeigh)
   {
     string msg =
-        stringify("Skipping event %s, insufficient number of neighbors (%d)",
-                  string(refEv).c_str(), neighbours->numNeighbours());
+        strf("Skipping event %s, insufficient number of neighbors (%d)",
+             string(refEv).c_str(), neighbours->numNeighbours());
     SEISCOMP_DEBUG("%s", msg.c_str());
     throw Exception(msg);
   }

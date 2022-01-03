@@ -23,6 +23,13 @@ using namespace std;
 namespace Seiscomp {
 namespace HDD {
 
+std::vector<std::string> splitString(const std::string &str,
+                                     const std::regex &regex)
+{
+  return {std::sregex_token_iterator{str.begin(), str.end(), regex, -1},
+          std::sregex_token_iterator()};
+}
+
 /*
  * Compute distance in km between two points and optionally
  * `azimuth` and `backazimuth`.

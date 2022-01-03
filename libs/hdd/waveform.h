@@ -22,7 +22,6 @@
 
 #include <seiscomp3/core/genericrecord.h>
 #include <seiscomp3/core/recordsequence.h>
-#include <seiscomp3/core/strings.h>
 #include <seiscomp3/datamodel/utils.h>
 #include <seiscomp3/io/recordstream.h>
 

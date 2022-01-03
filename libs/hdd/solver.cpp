@@ -18,7 +18,6 @@
 #include "lsmr.h"
 #include "lsqr.h"
 
-#include <seiscomp3/core/strings.h>
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/math/math.h>
 #include <sstream>
@@ -28,7 +27,6 @@
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
-using Seiscomp::Core::stringify;
 using Seiscomp::HDD::Exception;
 using Seiscomp::HDD::square;
 
@@ -118,9 +116,9 @@ public:
   {
     if (m != _dd->numRowsG || n != _dd->numColsG)
     {
-      string msg =
-          stringify("Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m,
-                    n, _dd->numRowsG, _dd->numColsG);
+      string msg = Seiscomp::HDD::strf(
+          "Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m, n,
+          _dd->numRowsG, _dd->numColsG);
       throw Exception(msg);
     }
 
@@ -170,9 +168,9 @@ public:
   {
     if (m != _dd->numRowsG || n != _dd->numColsG)
     {
-      string msg =
-          stringify("Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m,
-                    n, _dd->numRowsG, _dd->numColsG);
+      string msg = Seiscomp::HDD::strf(
+          "Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m, n,
+          _dd->numRowsG, _dd->numColsG);
       throw Exception(msg);
     }
 
@@ -714,9 +712,9 @@ void Solver::prepareDDSystem(double ttConstraint,
 
         if (++ttconstraintIdx >= _dd->numRowsG)
         {
-          string msg = stringify("Solver: internal logic error "
-                                 "(ttconstraintIdx=%u but _dd->numRowsG=%u)",
-                                 ttconstraintIdx, _dd->numRowsG);
+          string msg = strf("Solver: internal logic error "
+                            "(ttconstraintIdx=%u but _dd->numRowsG=%u)",
+                            ttconstraintIdx, _dd->numRowsG);
           throw Exception(msg);
         }
 
@@ -746,10 +744,9 @@ void Solver::prepareDDSystem(double ttConstraint,
     // just a safety belt
     if (ttconstraintNum != (ttconstraintIdx - _dd->nObs))
     {
-      string msg =
-          stringify("Solver: internal logic error (ttconstraintNum=%u "
-                    "but only added %u constraints)",
-                    ttconstraintNum, (ttconstraintIdx + 1 - _dd->nObs));
+      string msg = strf("Solver: internal logic error (ttconstraintNum=%u "
+                        "but only added %u constraints)",
+                        ttconstraintNum, (ttconstraintIdx + 1 - _dd->nObs));
       throw Exception(msg);
     }
   }
@@ -855,8 +852,8 @@ void Solver::_solve(unsigned numIterations,
   if (solver.GetStoppingReason() == 4)
   {
     _dd        = nullptr;
-    string msg = stringify("Solver: no solution found (%s)",
-                           solver.GetStoppingReasonMessage().c_str());
+    string msg = strf("Solver: no solution found (%s)",
+                      solver.GetStoppingReasonMessage().c_str());
     throw Exception(msg);
   }
 

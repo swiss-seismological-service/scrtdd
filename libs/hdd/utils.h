@@ -21,7 +21,6 @@
 #include <initializer_list>
 #include <random>
 #include <regex>
-#include <seiscomp3/core/strings.h>
 #include <stdexcept>
 #include <vector>
 
@@ -30,12 +29,13 @@ namespace HDD {
 
 template <class T> inline T square(T x) { return x * x; }
 
-inline std::vector<std::string> splitString(const std::string &str,
-                                            const std::regex &regex)
+template <typename... Args> std::string strf(Args &&... args)
 {
-  return {std::sregex_token_iterator{str.begin(), str.end(), regex, -1},
-          std::sregex_token_iterator()};
+  return Seiscomp::Core::stringify(std::forward<Args>(args)...);
 }
+
+std::vector<std::string> splitString(const std::string &str,
+                                     const std::regex &regex);
 
 double computeDistance(double lat1,
                        double lon1,
