@@ -22,7 +22,7 @@
 #include "solver.h"
 #include "ttt.h"
 #include "waveform.h"
-#include "xcorrcache.ipp"
+#include "xcorrcache.h"
 
 #include <seiscomp3/core/baseobject.h>
 

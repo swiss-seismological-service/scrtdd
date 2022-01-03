@@ -15,7 +15,7 @@
  ***************************************************************************/
 
 #include "clustering.h"
-#include "ellipsoid.ipp"
+#include "ellipsoid.h"
 #include "utils.h"
 
 #define SEISCOMP_COMPONENT HDD

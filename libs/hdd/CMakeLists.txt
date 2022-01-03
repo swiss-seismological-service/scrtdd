@@ -18,8 +18,8 @@ SET(HDD_SOURCES
 )
 
 SET(HDD_HEADERS
-	ellipsoid.ipp
-	xcorrcache.ipp
+	ellipsoid.h
+	xcorrcache.h
 	utils.h
 	clustering.h
 	solver.h

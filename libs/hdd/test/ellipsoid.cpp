@@ -4,7 +4,7 @@
 #include <boost/test/data/test_case.hpp>
 
 #include "catalog.h"
-#include "ellipsoid.ipp"
+#include "ellipsoid.h"
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/math/math.h>
 
