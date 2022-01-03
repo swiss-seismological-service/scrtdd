@@ -74,6 +74,14 @@ class HddEllipsoid : public Core::BaseObject
 {
 
 public:
+  HddEllipsoid(const HddEllipsoid &other) = default;
+  HddEllipsoid &operator=(const HddEllipsoid &other) = default;
+
+  HddEllipsoid(HddEllipsoid &&other) = default;
+  HddEllipsoid &operator=(HddEllipsoid &&other) = default;
+
+  ~HddEllipsoid() = default;
+
   HddEllipsoid(double vertical_axis_len, double lat, double lon, double depth)
       : HddEllipsoid(vertical_axis_len / 2., vertical_axis_len, lat, lon, depth)
   {}

@@ -29,7 +29,6 @@
 
 #include "app.h"
 #include "hypodd.h"
-#include "sccatalog.h"
 
 #define SEISCOMP_COMPONENT RTDD
 #include <seiscomp3/logging/log.h>
@@ -132,7 +131,6 @@ private:
 
   std::vector<DataModel::OriginPtr> fetchOrigins(const std::string &idFile,
                                                  std::string options);
-
   struct Config
   {
     Config();

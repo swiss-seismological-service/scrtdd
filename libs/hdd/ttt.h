@@ -103,7 +103,10 @@ protected:
   TravelTimeTable(const std::string &t, const std::string &m)
       : type(t), model(m)
   {}
-  virtual ~TravelTimeTable() {}
+  virtual ~TravelTimeTable() = default;
+
+  TravelTimeTable(const TravelTimeTable &other) = delete;
+  TravelTimeTable &operator=(const TravelTimeTable &other) = delete;
 };
 
 } // namespace HDD

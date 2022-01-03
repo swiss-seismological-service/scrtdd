@@ -37,7 +37,13 @@ namespace NLL {
 struct Transform
 {
   Transform(const std::vector<std::string> &tokens);
-  ~Transform() {}
+  ~Transform() = default;
+
+  Transform(const Transform &other) = default;
+  Transform &operator=(const Transform &other) = default;
+
+  Transform(Transform &&other) = default;
+  Transform &operator=(Transform &&other) = default;
 
   void fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const;
   void toLatLon(double xLoc, double yLoc, double &lat, double &lon) const;
@@ -94,7 +100,11 @@ public:
        const Catalog::Station &station,
        const std::string &phaseType,
        bool swapBytes);
-  virtual ~Grid() {}
+
+  virtual ~Grid() = default;
+
+  Grid(const Grid &other) = delete;
+  Grid &operator=(const Grid &other) = delete;
 
   bool isLocationInside(double xloc, double yloc, double zloc) const;
   bool isIndexInside(unsigned long long ix,
@@ -213,6 +223,8 @@ public:
            const Catalog::Station &station,
            const std::string &phaseType,
            bool swapBytes);
+  virtual ~TimeGrid() = default;
+
   double getTime(double lat, double lon, double depth);
 
 protected:
@@ -244,6 +256,7 @@ public:
             const Catalog::Station &station,
             const std::string &phaseType,
             bool swapBytes);
+  virtual ~AngleGrid() = default;
   void
   getAngles(double lat, double lon, double depth, double &azim, double &dip);
 
@@ -285,7 +298,8 @@ public:
           const Catalog::Station &station,
           const std::string &phaseType,
           bool swapBytes);
-  virtual bool is3D() const { return info.numx > 2; }
+  virtual ~VelGrid() = default;
+  bool is3D() const override { return info.numx > 2; }
 
   double getVel(double lat, double lon, double depth);
 
@@ -321,24 +335,25 @@ class NllTravelTimeTable : public TravelTimeTable
 {
 public:
   NllTravelTimeTable(const std::string &type, const std::string &model);
-  virtual ~NllTravelTimeTable() {}
 
-  virtual void compute(double eventLat,
-                       double eventLon,
-                       double eventDepth,
-                       const Catalog::Station &station,
-                       const std::string &phaseType,
-                       double &travelTime);
+  virtual ~NllTravelTimeTable() = default;
 
-  virtual void compute(double eventLat,
-                       double eventLon,
-                       double eventDepth,
-                       const Catalog::Station &station,
-                       const std::string &phaseType,
-                       double &travelTime,
-                       double &takeOffAngleAzim,
-                       double &takeOffAngleDip,
-                       double &velocityAtSrc);
+  void compute(double eventLat,
+               double eventLon,
+               double eventDepth,
+               const Catalog::Station &station,
+               const std::string &phaseType,
+               double &travelTime) override;
+
+  void compute(double eventLat,
+               double eventLon,
+               double eventDepth,
+               const Catalog::Station &station,
+               const std::string &phaseType,
+               double &travelTime,
+               double &takeOffAngleAzim,
+               double &takeOffAngleDip,
+               double &velocityAtSrc) override;
 
 private:
   std::string _velGridPath;
@@ -350,6 +365,7 @@ private:
   std::unordered_map<std::string, AngleGridPtr> _angleGrids;
   std::unordered_set<std::string> _unloadableGrids;
 };
+
 } // namespace NLL
 } // namespace HDD
 } // namespace Seiscomp

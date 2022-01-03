@@ -8,7 +8,6 @@ SET(HDD_SOURCES
 	solver.cpp
 	csvreader.cpp
 	catalog.cpp
-	sccatalog.cpp
 	waveform.cpp
 	clustering.cpp
 	ttt.cpp
@@ -29,7 +28,6 @@ SET(HDD_HEADERS
 	waveform.h
 	csvreader.h
 	catalog.h
-	sccatalog.h
 	hypodd.h
 )
 

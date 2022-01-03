@@ -15,7 +15,6 @@
  ***************************************************************************/
 
 #include "waveform.h"
-#include "sccatalog.h"
 #include "utils.h"
 
 #include <boost/bind.hpp>
@@ -628,8 +627,8 @@ bool projectionRequired(const Core::TimeWindow &tw,
     return false;
   }
 
-  loc = ScCatalog::findSensorLocation(ph.networkCode, ph.stationCode,
-                                      ph.locationCode, tw.startTime());
+  loc = findSensorLocation(ph.networkCode, ph.stationCode, ph.locationCode,
+                           tw.startTime());
 
   if (loc)
   {

@@ -21,7 +21,6 @@
 #include <cstring>
 #include <seiscomp3/math/math.h>
 #include <seiscomp3/utils/files.h>
-#include <stdexcept>
 
 #define SEISCOMP_COMPONENT HDD
 #include <seiscomp3/logging/log.h>

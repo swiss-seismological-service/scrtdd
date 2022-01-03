@@ -107,7 +107,6 @@ struct DDSystem : public Core::BaseObject
     delete[] W;
   }
 
-private:
   DDSystem(const DDSystem &other) = delete;
   DDSystem operator=(const DDSystem &other) = delete;
 };
@@ -124,9 +123,10 @@ class Solver : public Core::BaseObject
 
 public:
   Solver(std::string type) : _type(type) {}
-  ~Solver() {}
+  ~Solver() = default;
 
-  void reset() { *this = Solver(_type); }
+  Solver(const Solver &other) = delete;
+  Solver operator=(const Solver &other) = delete;
 
   void addObservation(unsigned evId1,
                       unsigned evId2,

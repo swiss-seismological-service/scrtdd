@@ -15,7 +15,6 @@
  ***************************************************************************/
 
 #include "hypodd.h"
-#include "sccatalog.h"
 #include "utils.h"
 
 #include <boost/filesystem.hpp>
@@ -29,7 +28,6 @@
 #include <seiscomp3/core/typedarray.h>
 #include <seiscomp3/io/recordinput.h>
 #include <seiscomp3/utils/files.h>
-#include <stdexcept>
 
 #define SEISCOMP_COMPONENT HDD
 #include <seiscomp3/logging/file.h>
@@ -2018,8 +2016,8 @@ bool HypoDD::xcorrPhases(const Event &event1,
   {
     DataModel::ThreeComponents dummy;
     DataModel::SensorLocation *loc2 =
-        ScCatalog::findSensorLocation(phase2.networkCode, phase2.stationCode,
-                                      phase2.locationCode, phase2.time);
+        findSensorLocation(phase2.networkCode, phase2.stationCode,
+                           phase2.locationCode, phase2.time);
     if (loc2 &&
         getThreeComponents(dummy, loc2, channelCodeRoot1.c_str(), phase2.time))
     {
@@ -2032,8 +2030,8 @@ bool HypoDD::xcorrPhases(const Event &event1,
   {
     DataModel::ThreeComponents dummy;
     DataModel::SensorLocation *loc1 =
-        ScCatalog::findSensorLocation(phase1.networkCode, phase1.stationCode,
-                                      phase1.locationCode, phase1.time);
+        findSensorLocation(phase1.networkCode, phase1.stationCode,
+                           phase1.locationCode, phase1.time);
     if (loc1 &&
         getThreeComponents(dummy, loc1, channelCodeRoot2.c_str(), phase1.time))
     {

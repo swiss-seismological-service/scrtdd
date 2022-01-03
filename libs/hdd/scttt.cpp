@@ -20,7 +20,6 @@
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/math/math.h>
 #include <sstream>
-#include <stdexcept>
 
 #define SEISCOMP_COMPONENT HDD
 #include <seiscomp3/logging/log.h>

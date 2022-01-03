@@ -24,6 +24,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include <seiscomp3/datamodel/databasequery.h>
+
 namespace Seiscomp {
 namespace HDD {
 
@@ -36,6 +38,11 @@ template <typename... Args> std::string strf(Args &&... args)
 
 std::vector<std::string> splitString(const std::string &str,
                                      const std::regex &regex);
+
+DataModel::SensorLocation *findSensorLocation(const std::string &networkCode,
+                                              const std::string &stationCode,
+                                              const std::string &locationCode,
+                                              const Core::Time &atTime);
 
 double computeDistance(double lat1,
                        double lon1,

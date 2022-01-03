@@ -15,8 +15,12 @@
  ***************************************************************************/
 
 #include "utils.h"
+#include <seiscomp3/client/inventory.h>
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/math/math.h>
+
+#define SEISCOMP_COMPONENT HDD
+#include <seiscomp3/logging/log.h>
 
 using namespace std;
 
@@ -131,6 +135,32 @@ double computeMeanAbsoluteDeviation(const std::vector<double> &values,
     absoluteDeviations[i] = std::abs(values[i] - mean);
   }
   return computeMean(absoluteDeviations);
+}
+
+DataModel::SensorLocation *findSensorLocation(const std::string &networkCode,
+                                              const std::string &stationCode,
+                                              const std::string &locationCode,
+                                              const Core::Time &atTime)
+{
+  DataModel::Inventory *inv = Client::Inventory::Instance()->inventory();
+  if (!inv)
+  {
+    SEISCOMP_DEBUG("Inventory not available");
+    return nullptr;
+  }
+
+  DataModel::InventoryError error;
+  DataModel::SensorLocation *loc = DataModel::getSensorLocation(
+      inv, networkCode, stationCode, locationCode, atTime, &error);
+
+  if (!loc)
+  {
+    SEISCOMP_DEBUG(
+        "Unable to fetch SensorLocation information (%s.%s.%s at %s): %s",
+        networkCode.c_str(), stationCode.c_str(), locationCode.c_str(),
+        atTime.iso().c_str(), error.toString());
+  }
+  return loc;
 }
 
 } // namespace HDD

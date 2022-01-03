@@ -88,24 +88,6 @@ bool strToBool(const std::string &s)
 namespace Seiscomp {
 namespace HDD {
 
-Catalog::Catalog()
-    : Catalog(unordered_map<string, Station>(),
-              map<unsigned, Event>(),
-              unordered_multimap<unsigned, Phase>())
-{}
-
-Catalog::Catalog(const unordered_map<string, Station> &stations,
-                 const map<unsigned, Event> &events,
-                 const unordered_multimap<unsigned, Phase> &phases)
-    : _stations(stations), _events(events), _phases(phases)
-{}
-
-Catalog::Catalog(unordered_map<string, Station> &&stations,
-                 map<unsigned, Event> &&events,
-                 unordered_multimap<unsigned, Phase> &&phases)
-    : _stations(stations), _events(events), _phases(phases)
-{}
-
 Catalog::Catalog(const string &stationFile,
                  const string &eventFile,
                  const string &phaFile,

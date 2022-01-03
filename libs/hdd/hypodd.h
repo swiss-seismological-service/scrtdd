@@ -131,7 +131,10 @@ public:
   HypoDD(const CatalogCPtr &catalog,
          const Config &cfg,
          const std::string &workingDir);
-  ~HypoDD() {}
+  ~HypoDD() = default;
+
+  HypoDD(const HypoDD &other) = delete;
+  HypoDD &operator=(const HypoDD &other) = delete;
 
   void preloadWaveforms();
 

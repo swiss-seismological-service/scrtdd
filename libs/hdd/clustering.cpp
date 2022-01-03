@@ -392,7 +392,7 @@ list<NeighboursPtr> selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
   list<NeighboursPtr> neighboursList;
 
   // for each event find the neighbours
-  CatalogPtr validCatalog = new Catalog(*catalog);
+  CatalogPtr validCatalog(new Catalog(*catalog));
   list<unsigned> todoEvents;
   for (const auto &kv : validCatalog->getEvents())
     todoEvents.push_back(kv.first);

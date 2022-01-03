@@ -33,24 +33,24 @@ public:
   ScTravelTimeTable(const std::string &type,
                     const std::string &model,
                     double depthVelResolution = 0.1);
-  virtual ~ScTravelTimeTable() {}
+  virtual ~ScTravelTimeTable() = default;
 
-  virtual void compute(double eventLat,
-                       double eventLon,
-                       double eventDepth,
-                       const Catalog::Station &station,
-                       const std::string &phaseType,
-                       double &travelTime,
-                       double &takeOfAngleAzim,
-                       double &takeOfAngleDip,
-                       double &velocityAtSrc);
+  void compute(double eventLat,
+               double eventLon,
+               double eventDepth,
+               const Catalog::Station &station,
+               const std::string &phaseType,
+               double &travelTime,
+               double &takeOfAngleAzim,
+               double &takeOfAngleDip,
+               double &velocityAtSrc) override;
 
-  virtual void compute(double eventLat,
-                       double eventLon,
-                       double eventDepth,
-                       const Catalog::Station &station,
-                       const std::string &phaseType,
-                       double &travelTime);
+  void compute(double eventLat,
+               double eventLon,
+               double eventDepth,
+               const Catalog::Station &station,
+               const std::string &phaseType,
+               double &travelTime) override;
 
 private:
   double velocityAtSource(double eventDepth, const std::string &phaseType);
