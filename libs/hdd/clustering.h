@@ -18,9 +18,7 @@
 #define __HDD_CLUSTERING_H__
 
 #include "catalog.h"
-#include <deque>
 #include <list>
-#include <seiscomp3/core/baseobject.h>
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
@@ -28,15 +26,11 @@
 namespace Seiscomp {
 namespace HDD {
 
-DEFINE_SMARTPOINTER(Neighbours);
-
 // DD background catalog
-struct Neighbours : public Core::BaseObject
+struct Neighbours
 {
   unsigned refEvId;
-
-  std::unordered_set<unsigned> ids; // neighbouring event id
-
+  std::unordered_set<unsigned> ids;                  // neighbouring event id
   std::unordered_map<unsigned,                       // indexed by event id
                      std::unordered_map<std::string, // indexed by station id
                                         std::set<Catalog::Phase::Type>>>
@@ -48,11 +42,6 @@ struct Neighbours : public Core::BaseObject
   {
     ids.insert(neighbourId);
     phases[neighbourId][stationId].insert(phase);
-  }
-
-  std::unordered_set<unsigned>::size_type numNeighbours() const
-  {
-    return ids.size();
   }
 
   bool has(unsigned neighbourId) const
@@ -86,14 +75,14 @@ struct Neighbours : public Core::BaseObject
   std::unordered_map<std::string, std::set<Catalog::Phase::Type>>
   allPhases() const;
 
-  CatalogPtr toCatalog(const CatalogCPtr &catalog,
-                       bool includeRefEv = false) const;
+  std::unique_ptr<Catalog> toCatalog(const Catalog &catalog,
+                      bool includeRefEv = false) const;
 };
 
-NeighboursPtr
-selectNeighbouringEvents(const CatalogCPtr &catalog,
+std::unique_ptr<Neighbours>
+selectNeighbouringEvents(const Catalog &catalog,
                          const Catalog::Event &refEv,
-                         const CatalogCPtr &refEvCatalog,
+                         const Catalog &refEvCatalog,
                          double minPhaseWeight   = 0,
                          double minESdis         = 0,
                          double maxESdis         = -1, // -1 = no limits
@@ -106,8 +95,8 @@ selectNeighbouringEvents(const CatalogCPtr &catalog,
                          double maxEllipsoidSize = 10,
                          bool keepUnmatched      = false);
 
-std::list<NeighboursPtr>
-selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
+std::vector<std::unique_ptr<Neighbours>>
+selectNeighbouringEventsCatalog(const Catalog &catalog,
                                 double minPhaseWeight,
                                 double minESdis,
                                 double maxESdis,
@@ -120,8 +109,8 @@ selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
                                 double maxEllipsoidSize,
                                 bool keepUnmatched);
 
-std::deque<std::list<NeighboursPtr>>
-clusterizeNeighbouringEvents(const std::list<NeighboursPtr> &neighboursList);
+std::list <std::vector<std::unique_ptr<Neighbours>>>
+clusterizeNeighbouringEvents(std::vector<std::unique_ptr<Neighbours>> &neighboursList);
 
 } // namespace HDD
 } // namespace Seiscomp

@@ -218,7 +218,7 @@ std::pair<double, double> getPickUncertainty(DataModel::Pick *pick)
 }
 
 std::unordered_map<unsigned, DataModel::OriginPtr>
-addToCatalog(HDD::Catalog* cat,
+addToCatalog(HDD::Catalog& cat,
                   const std::vector<DataModel::OriginPtr> &origins,
                   DataSource &dataSrc)
 {
@@ -265,7 +265,7 @@ addToCatalog(HDD::Catalog* cat,
     SEISCOMP_DEBUG("Adding origin '%s' to the Catalog",
                    org->publicID().c_str());
 
-    unsigned newEventId = cat->addEvent(ev);
+    unsigned newEventId = cat.addEvent(ev);
 
     // add phases
     for (size_t i = 0; i < org->arrivalCount(); ++i)
@@ -304,8 +304,8 @@ addToCatalog(HDD::Catalog* cat,
       {}
 
       // add station if not already there
-      if (cat->searchStation(sta.networkCode, sta.stationCode, sta.locationCode) ==
-          cat->getStations().end())
+      if (cat.searchStation(sta.networkCode, sta.stationCode, sta.locationCode) ==
+          cat.getStations().end())
       {
         DataModel::SensorLocation *loc = HDD::findSensorLocation(
             sta.networkCode, sta.stationCode, sta.locationCode, pick->time());
@@ -325,10 +325,10 @@ addToCatalog(HDD::Catalog* cat,
         sta.latitude  = loc->latitude();
         sta.longitude = loc->longitude();
         sta.elevation = loc->elevation(); // meter
-        cat->addStation(sta);
+        cat.addStation(sta);
       }
       // the station must be available at this point
-      sta = cat->searchStation(sta.networkCode, sta.stationCode, sta.locationCode)
+      sta = cat.searchStation(sta.networkCode, sta.stationCode, sta.locationCode)
                 ->second;
 
       // get uncertainty
@@ -346,7 +346,7 @@ addToCatalog(HDD::Catalog* cat,
       ph.locationCode     = pick->waveformID().locationCode();
       ph.channelCode      = pick->waveformID().channelCode();
       ph.isManual = (pick->evaluationMode() == Seiscomp::DataModel::MANUAL);
-      cat->addPhase(ph);
+      cat.addPhase(ph);
     }
     idmap[newEventId] = org;
   }
@@ -354,7 +354,7 @@ addToCatalog(HDD::Catalog* cat,
 }
 
 std::unordered_map<unsigned, DataModel::OriginPtr>
-addToCatalog(HDD::Catalog* cat,
+addToCatalog(HDD::Catalog& cat,
                   const std::vector<std::string> &ids,
                   DataSource &dataSrc)
 {
@@ -375,7 +375,7 @@ addToCatalog(HDD::Catalog* cat,
 }
 
 std::unordered_map<unsigned, DataModel::OriginPtr>
-addToCatalog(HDD::Catalog* cat,
+addToCatalog(HDD::Catalog& cat,
                   const std::string &idFile,
                   DataSource &dataSrc)
 {
@@ -1444,10 +1444,10 @@ bool RTDD::run()
   // evaluate cross-correlation settings and exit
   if (!_config.evalXCorr.empty())
   {
-    HDD::CatalogPtr catalog = getCatalog(_config.evalXCorr);
+    unique_ptr<HDD::Catalog> catalog = getCatalog(_config.evalXCorr);
     ProfilePtr profile      = getProfile(_config.forceProfile);
     if (!catalog || !profile) return false;
-    loadProfile(profile, false, catalog);
+    loadProfile(profile, false, catalog.get());
     profile->evalXCorr();
     return true;
   }
@@ -1464,20 +1464,20 @@ bool RTDD::run()
   // dump catalog and exit
   if (!_config.dumpCatalog.empty())
   {
-    HDD::CatalogPtr cat(new HDD::Catalog());
+    HDD::Catalog cat;
     DataSource dataSrc(query(), &_cache, _eventParameters.get());
     if (commandline().hasOption("dump-catalog-options"))
     {
       string options = commandline().option<string>("dump-catalog-options");
       vector<DataModel::OriginPtr> origins =
           fetchOrigins(_config.dumpCatalog, options);
-      addToCatalog(cat.get(), origins, dataSrc);
+      addToCatalog(cat, origins, dataSrc);
     }
     else
     {
-      addToCatalog(cat.get(),_config.dumpCatalog, dataSrc);
+      addToCatalog(cat,_config.dumpCatalog, dataSrc);
     }
-    cat->writeToFile("event.csv", "phase.csv", "station.csv");
+    cat.writeToFile("event.csv", "phase.csv", "station.csv");
     SEISCOMP_INFO("Wrote files event.csv, phase.csv, station.csv");
     return true;
   }
@@ -1494,16 +1494,15 @@ bool RTDD::run()
       return false;
     }
 
-    HDD::CatalogPtr outCat = new HDD::Catalog();
+    HDD::Catalog outCat;
     for (size_t i = 0; i < tokens.size(); i += 3)
     {
       SEISCOMP_INFO("Reading and merging %s, %s, %s", tokens[i + 0].c_str(),
                     tokens[i + 1].c_str(), tokens[i + 2].c_str());
-      HDD::CatalogPtr cat =
-          new HDD::Catalog(tokens[i + 0], tokens[i + 1], tokens[i + 2], true);
-      outCat->add(*cat, keepEvId);
+      HDD::Catalog cat(tokens[i + 0], tokens[i + 1], tokens[i + 2], true);
+      outCat.add(cat, keepEvId);
     }
-    outCat->writeToFile("merged-event.csv", "merged-phase.csv",
+    outCat.writeToFile("merged-event.csv", "merged-phase.csv",
                         "merged-station.csv");
     SEISCOMP_INFO(
         "Wrote files merged-event.csv, merged-phase.csv, merged-station.csv");
@@ -1514,7 +1513,7 @@ bool RTDD::run()
   if (!_config.relocateCatalog.empty())
   {
     std::unordered_map<unsigned, DataModel::OriginPtr> idmap;
-    HDD::CatalogPtr catalog = getCatalog(_config.relocateCatalog, &idmap);
+    unique_ptr<HDD::Catalog> catalog = getCatalog(_config.relocateCatalog, &idmap);
     ProfilePtr profile      = getProfile(_config.forceProfile);
     if (!catalog || !profile) return false;
 
@@ -1529,9 +1528,9 @@ bool RTDD::run()
     bool preloadData = profile->multiEventClustering.xcorrMaxEvStaDist != 0 &&
                        profile->multiEventClustering.xcorrMaxInterEvDist != 0;
 
-    loadProfile(profile, preloadData, catalog);
+    loadProfile(profile, preloadData, catalog.get());
 
-    HDD::CatalogPtr relocatedCat;
+    unique_ptr<HDD::Catalog> relocatedCat;
     try
     {
       relocatedCat = profile->relocateCatalog();
@@ -1554,7 +1553,7 @@ bool RTDD::run()
       evParam->SetRegistrationEnabled(false); // allow existing publicIDs
       for (const auto &kv : relocatedCat->getEvents())
       {
-        HDD::CatalogPtr ev = relocatedCat->extractEvent(kv.second.id, true);
+        unique_ptr<HDD::Catalog> ev = relocatedCat->extractEvent(kv.second.id, true);
         DataModel::OriginPtr srcOrg;
         try
         {
@@ -1565,7 +1564,7 @@ bool RTDD::run()
 
         DataModel::OriginPtr newOrg;
         std::vector<DataModel::PickPtr> newOrgPicks;
-        convertOrigin(ev, profile, srcOrg.get(), true, false, true, newOrg,
+        convertOrigin(*ev, profile, srcOrg.get(), true, false, true, newOrg,
                       newOrgPicks);
 
         evParam->add(newOrg.get());
@@ -2183,14 +2182,14 @@ void RTDD::relocateOrigin(DataModel::Origin *org,
 {
   if (!profile->isLoaded())
     loadProfile(profile, (_config.profileTimeAlive < 0));
-  HDD::CatalogPtr relocatedOrg = profile->relocateSingleEvent(org);
+  unique_ptr<HDD::Catalog> relocatedOrg = profile->relocateSingleEvent(org);
   bool includeMagnitude        = org->evaluationMode() == DataModel::MANUAL;
-  convertOrigin(relocatedOrg, profile, org, includeMagnitude, true, false,
+  convertOrigin(*relocatedOrg, profile, org, includeMagnitude, true, false,
                 newOrg, newOrgPicks);
 }
 
 void RTDD::convertOrigin(
-    const HDD::CatalogCPtr &relocatedOrg,
+    const HDD::Catalog &relocatedOrg,
     ProfilePtr profile,     // can be nullptr
     DataModel::Origin *org, // can be nullptr
     bool includeMagnitude,
@@ -2202,7 +2201,7 @@ void RTDD::convertOrigin(
   DataSource dataSrc(query(), &_cache, _eventParameters.get());
 
   // there must be only one event in the catalog, the relocated origin
-  const HDD::Catalog::Event &event = relocatedOrg->getEvents().begin()->second;
+  const HDD::Catalog::Event &event = relocatedOrg.getEvents().begin()->second;
 
   newOrg = Origin::Create();
 
@@ -2236,7 +2235,7 @@ void RTDD::convertOrigin(
     newOrg->add(comment);
   }
 
-  auto evPhases = relocatedOrg->getPhases().equal_range(
+  auto evPhases = relocatedOrg.getPhases().equal_range(
       event.id); // phases of relocated event
   int usedPhaseCount = 0;
   double meanDist    = 0;
@@ -2404,8 +2403,8 @@ void RTDD::convertOrigin(
     newArr->setTimeResidual(
         phase.relocInfo.isRelocated ? phase.relocInfo.finalTTResidual : 0.);
 
-    auto search = relocatedOrg->getStations().find(phase.stationId);
-    if (search == relocatedOrg->getStations().end())
+    auto search = relocatedOrg.getStations().find(phase.stationId);
+    if (search == relocatedOrg.getStations().end())
     {
       SEISCOMP_WARNING("Cannot find station id '%s' referenced by phase '%s'."
                        "Cannot add Arrival to relocated origin",
@@ -2468,7 +2467,7 @@ void RTDD::convertOrigin(
   newOrg->setQuality(oq);
 }
 
-HDD::Catalog *
+std::unique_ptr<HDD::Catalog>
 RTDD::getCatalog(const std::string &catalogPath,
                  std::unordered_map<unsigned, DataModel::OriginPtr> *idmap)
 {
@@ -2478,14 +2477,14 @@ RTDD::getCatalog(const std::string &catalogPath,
     if (tokens.size() == 1) // single file containing origin ids
     {
       DataSource dataSrc(query(), &_cache, _eventParameters.get());
-      HDD::Catalog *cat = new HDD::Catalog();
-      auto _map         = addToCatalog(cat, tokens[0], dataSrc);
+      unique_ptr<HDD::Catalog> cat(new HDD::Catalog());
+      auto _map         = addToCatalog(*cat, tokens[0], dataSrc);
       if (idmap) *idmap = _map;
       return cat;
     }
     else if (tokens.size() == 3) // triplet: station.csv,event.csv,phase.csv
     {
-      return new HDD::Catalog(tokens[0], tokens[1], tokens[2], true);
+      return unique_ptr<HDD::Catalog>(new HDD::Catalog(tokens[0], tokens[1], tokens[2], true));
     }
   }
   catch (...)
@@ -2555,7 +2554,7 @@ RTDD::ProfilePtr RTDD::getProfile(double latitude,
 
 void RTDD::loadProfile(ProfilePtr profile,
                        bool preloadData,
-                       const HDD::CatalogCPtr &alternativeCatalog)
+                       const HDD::Catalog * alternativeCatalog)
 {
   profile->load(query(), &_cache, _eventParameters.get(),
                 _config.workingDirectory, _config.saveProcessingFiles,
@@ -2728,7 +2727,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
                          bool cacheAllWaveforms,
                          bool debugWaveforms,
                          bool preloadData,
-                         const HDD::CatalogCPtr &alternativeCatalog)
+                         const HDD::Catalog * alternativeCatalog)
 {
   if (loaded) return;
 
@@ -2743,32 +2742,30 @@ void RTDD::Profile::load(DatabaseQuery *query,
   try
   {
     // load the catalog
-    HDD::CatalogCPtr ddbgc;
+    HDD::Catalog ddbgc;
     if (alternativeCatalog) // force this catalog
     {
-      ddbgc = alternativeCatalog;
+      ddbgc = *alternativeCatalog;
     }
     else if (!eventIDFile.empty()) // catalog is a list of origin ids
     {
       DataSource dataSrc(query, cache, eventParameters);
-      HDD::CatalogPtr tmp(new HDD::Catalog());
-      addToCatalog(tmp.get(), eventIDFile, dataSrc);
-      ddbgc = tmp;
+      addToCatalog(ddbgc, eventIDFile, dataSrc);
     }
     else // catalog is extended format station.csv,event.csv,phase.csv
     {
-      ddbgc = new HDD::Catalog(stationFile, eventFile, phaFile);
+      ddbgc = HDD::Catalog(stationFile, eventFile, phaFile);
     }
 
-    hypodd = new HDD::HypoDD(ddbgc, ddCfg, pWorkingDir);
-    hypodd->setSaveProcessing(saveProcessingFiles);
-    hypodd->setUseCatalogWaveformDiskCache(cacheWaveforms);
-    hypodd->setWaveformCacheAll(cacheAllWaveforms);
-    hypodd->setWaveformDebug(debugWaveforms);
+    dd.reset(new HDD::HypoDD(ddbgc, ddCfg, pWorkingDir));
+    dd->setSaveProcessing(saveProcessingFiles);
+    dd->setUseCatalogWaveformDiskCache(cacheWaveforms);
+    dd->setWaveformCacheAll(cacheAllWaveforms);
+    dd->setWaveformDebug(debugWaveforms);
 
     if (preloadData)
     {
-      hypodd->preloadWaveforms();
+      dd->preloadWaveforms();
     }
   }
   catch (exception &e)
@@ -2787,20 +2784,21 @@ void RTDD::Profile::load(DatabaseQuery *query,
 void RTDD::Profile::freeResources()
 {
   if (!loaded) return;
-  hypodd->unloadTTT();
-  hypodd->unloadWaveforms();
+  dd->unloadTTT();
+  dd->unloadWaveforms();
   lastUsage = Core::Time::GMT();
 }
 
 void RTDD::Profile::unload()
 {
   SEISCOMP_INFO("Unloading profile %s", name.c_str());
-  hypodd.reset();
+  dd.reset();
   loaded    = false;
   lastUsage = Core::Time::GMT();
 }
 
-HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
+std::unique_ptr<HDD::Catalog>
+RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
 {
   if (!loaded)
   {
@@ -2814,26 +2812,25 @@ HDD::CatalogPtr RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
 
   // we pass the stations information from the background catalog, to avoid
   // wasting time accessing the inventory again for information we already have
-  HDD::CatalogPtr orgToRelocate = new HDD::Catalog(
-      hypodd->getCatalog()->getStations(), map<unsigned, HDD::Catalog::Event>(),
+  HDD::Catalog orgToRelocate(dd->getCatalog().getStations(), map<unsigned, HDD::Catalog::Event>(),
       unordered_multimap<unsigned, HDD::Catalog::Phase>());
-  addToCatalog(orgToRelocate.get(), {org}, dataSrc);
+  addToCatalog(orgToRelocate, {org}, dataSrc);
 
   if (org->evaluationMode() == DataModel::MANUAL)
-    hypodd->setUseArtificialPhases(this->useTheoreticalManual);
+    dd->setUseArtificialPhases(this->useTheoreticalManual);
   else
-    hypodd->setUseArtificialPhases(this->useTheoreticalAuto);
+    dd->setUseArtificialPhases(this->useTheoreticalAuto);
 
-  HDD::CatalogPtr rel = hypodd->relocateSingleEvent(
+  unique_ptr<HDD::Catalog> rel = dd->relocateSingleEvent(
       orgToRelocate, singleEventClustering, singleEventClustering, solverCfg);
 
-  hypodd
-      ->unloadTTT(); // free memory and file descriptors (mostly for NLL grids)
+  dd->unloadTTT(); // free memory and file descriptors (mostly for NLL grids)
 
   return rel;
 }
 
-HDD::CatalogPtr RTDD::Profile::relocateCatalog()
+std::unique_ptr<HDD::Catalog>
+RTDD::Profile::relocateCatalog()
 {
   if (!loaded)
   {
@@ -2842,8 +2839,8 @@ HDD::CatalogPtr RTDD::Profile::relocateCatalog()
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::GMT();
-  hypodd->setUseArtificialPhases(this->useTheoreticalManual);
-  return hypodd->relocateMultiEvents(multiEventClustering, solverCfg);
+  dd->setUseArtificialPhases(this->useTheoreticalManual);
+  return dd->relocateMultiEvents(multiEventClustering, solverCfg);
 }
 
 void RTDD::Profile::evalXCorr()
@@ -2856,7 +2853,7 @@ void RTDD::Profile::evalXCorr()
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::GMT();
-  hypodd->evalXCorr(multiEventClustering, false);
+  dd->evalXCorr(multiEventClustering, false);
 }
 
 // End Profile class

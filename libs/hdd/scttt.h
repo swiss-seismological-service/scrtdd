@@ -19,7 +19,6 @@
 
 #include "ttt.h"
 
-#include <seiscomp3/core/baseobject.h>
 #include <seiscomp3/seismology/ttt.h>
 
 #include <unordered_map>

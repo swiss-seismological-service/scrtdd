@@ -37,12 +37,12 @@ namespace {
  */
 template <typename T> class Adapter : public T
 {
+private:
+  Seiscomp::HDD::DDSystem& _dd; // doesn't own the DDSystem
 
 public:
-  Adapter() {}
-  virtual ~Adapter() {}
-
-  void setDDSytem(const Seiscomp::HDD::DDSystemPtr &dd) { _dd = dd; }
+  Adapter(Seiscomp::HDD::DDSystem &dd) : _dd(dd) {}
+  virtual ~Adapter() = default;
 
   /*
    * Scale G by normalizing the L2-norm of each column as suggested
@@ -50,42 +50,42 @@ public:
    */
   void L2normalize()
   {
-    std::fill_n(_dd->L2NScaler, _dd->numColsG, 0.);
+    std::fill_n(_dd.L2NScaler, _dd.numColsG, 0.);
 
-    for (unsigned int ob = 0; ob < _dd->numRowsG; ob++)
+    for (unsigned int ob = 0; ob < _dd.numRowsG; ob++)
     {
-      const double obsW = _dd->W[ob];
+      const double obsW = _dd.W[ob];
       if (obsW == 0.) continue;
 
       const unsigned phStaIdx =
-          _dd->phStaByObs[ob]; // station for this observation
+          _dd.phStaByObs[ob]; // station for this observation
 
-      const int evIdx1 = _dd->evByObs[0][ob]; // event 1 for this observation
+      const int evIdx1 = _dd.evByObs[0][ob]; // event 1 for this observation
       if (evIdx1 >= 0)
       {
-        const unsigned idxG     = evIdx1 * _dd->nPhStas + phStaIdx;
+        const unsigned idxG     = evIdx1 * _dd.nPhStas + phStaIdx;
         const unsigned evOffset = evIdx1 * 4;
-        _dd->L2NScaler[evOffset + 0] += square(_dd->G[idxG][0] * obsW);
-        _dd->L2NScaler[evOffset + 1] += square(_dd->G[idxG][1] * obsW);
-        _dd->L2NScaler[evOffset + 2] += square(_dd->G[idxG][2] * obsW);
-        _dd->L2NScaler[evOffset + 3] += square(_dd->G[idxG][3] * obsW);
+        _dd.L2NScaler[evOffset + 0] += square(_dd.G[idxG][0] * obsW);
+        _dd.L2NScaler[evOffset + 1] += square(_dd.G[idxG][1] * obsW);
+        _dd.L2NScaler[evOffset + 2] += square(_dd.G[idxG][2] * obsW);
+        _dd.L2NScaler[evOffset + 3] += square(_dd.G[idxG][3] * obsW);
       }
 
-      const int evIdx2 = _dd->evByObs[1][ob]; // event 2 for this observation
+      const int evIdx2 = _dd.evByObs[1][ob]; // event 2 for this observation
       if (evIdx2 >= 0)
       {
-        const unsigned idxG     = evIdx2 * _dd->nPhStas + phStaIdx;
+        const unsigned idxG     = evIdx2 * _dd.nPhStas + phStaIdx;
         const unsigned evOffset = evIdx2 * 4;
-        _dd->L2NScaler[evOffset + 0] += square(_dd->G[idxG][0] * obsW);
-        _dd->L2NScaler[evOffset + 1] += square(_dd->G[idxG][1] * obsW);
-        _dd->L2NScaler[evOffset + 2] += square(_dd->G[idxG][2] * obsW);
-        _dd->L2NScaler[evOffset + 3] += square(_dd->G[idxG][3] * obsW);
+        _dd.L2NScaler[evOffset + 0] += square(_dd.G[idxG][0] * obsW);
+        _dd.L2NScaler[evOffset + 1] += square(_dd.G[idxG][1] * obsW);
+        _dd.L2NScaler[evOffset + 2] += square(_dd.G[idxG][2] * obsW);
+        _dd.L2NScaler[evOffset + 3] += square(_dd.G[idxG][3] * obsW);
       }
     }
 
-    for (unsigned col = 0; col < _dd->numColsG; col++)
+    for (unsigned col = 0; col < _dd.numColsG; col++)
     {
-      _dd->L2NScaler[col] = 1. / std::sqrt(_dd->L2NScaler[col]);
+      _dd.L2NScaler[col] = 1. / std::sqrt(_dd.L2NScaler[col]);
     }
   }
 
@@ -94,12 +94,12 @@ public:
    */
   void L2DeNormalize()
   {
-    for (unsigned evOffset = 0; evOffset < _dd->numColsG; evOffset += 4)
+    for (unsigned evOffset = 0; evOffset < _dd.numColsG; evOffset += 4)
     {
-      _dd->m[evOffset + 0] *= _dd->L2NScaler[evOffset + 0];
-      _dd->m[evOffset + 1] *= _dd->L2NScaler[evOffset + 1];
-      _dd->m[evOffset + 2] *= _dd->L2NScaler[evOffset + 2];
-      _dd->m[evOffset + 3] *= _dd->L2NScaler[evOffset + 3];
+      _dd.m[evOffset + 0] *= _dd.L2NScaler[evOffset + 0];
+      _dd.m[evOffset + 1] *= _dd.L2NScaler[evOffset + 1];
+      _dd.m[evOffset + 2] *= _dd.L2NScaler[evOffset + 2];
+      _dd.m[evOffset + 3] *= _dd.L2NScaler[evOffset + 3];
     }
   }
 
@@ -113,45 +113,45 @@ public:
    */
   void Aprod1(unsigned int m, unsigned int n, const double *x, double *y) const
   {
-    if (m != _dd->numRowsG || n != _dd->numColsG)
+    if (m != _dd.numRowsG || n != _dd.numColsG)
     {
       string msg = Seiscomp::HDD::strf(
           "Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m, n,
-          _dd->numRowsG, _dd->numColsG);
+          _dd.numRowsG, _dd.numColsG);
       throw Exception(msg);
     }
 
-    for (unsigned int ob = 0; ob < _dd->numRowsG; ob++)
+    for (unsigned int ob = 0; ob < _dd.numRowsG; ob++)
     {
-      if (_dd->W[ob] == 0.) continue;
+      if (_dd.W[ob] == 0.) continue;
 
       const unsigned phStaIdx =
-          _dd->phStaByObs[ob]; // station for this observation
+          _dd.phStaByObs[ob]; // station for this observation
       double sum = 0;
 
-      const int evIdx1 = _dd->evByObs[0][ob]; // event 1 for this observation
+      const int evIdx1 = _dd.evByObs[0][ob]; // event 1 for this observation
       if (evIdx1 >= 0)
       {
-        const unsigned idxG     = evIdx1 * _dd->nPhStas + phStaIdx;
+        const unsigned idxG     = evIdx1 * _dd.nPhStas + phStaIdx;
         const unsigned evOffset = evIdx1 * 4;
-        sum += _dd->G[idxG][0] * _dd->L2NScaler[evOffset + 0] * x[evOffset + 0];
-        sum += _dd->G[idxG][1] * _dd->L2NScaler[evOffset + 1] * x[evOffset + 1];
-        sum += _dd->G[idxG][2] * _dd->L2NScaler[evOffset + 2] * x[evOffset + 2];
-        sum += _dd->G[idxG][3] * _dd->L2NScaler[evOffset + 3] * x[evOffset + 3];
+        sum += _dd.G[idxG][0] * _dd.L2NScaler[evOffset + 0] * x[evOffset + 0];
+        sum += _dd.G[idxG][1] * _dd.L2NScaler[evOffset + 1] * x[evOffset + 1];
+        sum += _dd.G[idxG][2] * _dd.L2NScaler[evOffset + 2] * x[evOffset + 2];
+        sum += _dd.G[idxG][3] * _dd.L2NScaler[evOffset + 3] * x[evOffset + 3];
       }
 
-      const int evIdx2 = _dd->evByObs[1][ob]; // event 2 for this observation
+      const int evIdx2 = _dd.evByObs[1][ob]; // event 2 for this observation
       if (evIdx2 >= 0)
       {
-        const unsigned idxG     = evIdx2 * _dd->nPhStas + phStaIdx;
+        const unsigned idxG     = evIdx2 * _dd.nPhStas + phStaIdx;
         const unsigned evOffset = evIdx2 * 4;
-        sum -= _dd->G[idxG][0] * _dd->L2NScaler[evOffset + 0] * x[evOffset + 0];
-        sum -= _dd->G[idxG][1] * _dd->L2NScaler[evOffset + 1] * x[evOffset + 1];
-        sum -= _dd->G[idxG][2] * _dd->L2NScaler[evOffset + 2] * x[evOffset + 2];
-        sum -= _dd->G[idxG][3] * _dd->L2NScaler[evOffset + 3] * x[evOffset + 3];
+        sum -= _dd.G[idxG][0] * _dd.L2NScaler[evOffset + 0] * x[evOffset + 0];
+        sum -= _dd.G[idxG][1] * _dd.L2NScaler[evOffset + 1] * x[evOffset + 1];
+        sum -= _dd.G[idxG][2] * _dd.L2NScaler[evOffset + 2] * x[evOffset + 2];
+        sum -= _dd.G[idxG][3] * _dd.L2NScaler[evOffset + 3] * x[evOffset + 3];
       }
 
-      y[ob] += _dd->W[ob] * sum;
+      y[ob] += _dd.W[ob] * sum;
     }
   }
 
@@ -165,48 +165,45 @@ public:
    */
   void Aprod2(unsigned int m, unsigned int n, double *x, const double *y) const
   {
-    if (m != _dd->numRowsG || n != _dd->numColsG)
+    if (m != _dd.numRowsG || n != _dd.numColsG)
     {
       string msg = Seiscomp::HDD::strf(
           "Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m, n,
-          _dd->numRowsG, _dd->numColsG);
+          _dd.numRowsG, _dd.numColsG);
       throw Exception(msg);
     }
 
-    for (unsigned int ob = 0; ob < _dd->numRowsG; ob++)
+    for (unsigned int ob = 0; ob < _dd.numRowsG; ob++)
     {
-      const double wY = y[ob] * _dd->W[ob];
+      const double wY = y[ob] * _dd.W[ob];
       if (wY == 0.) continue;
 
       const unsigned phStaIdx =
-          _dd->phStaByObs[ob]; // station for this observation
+          _dd.phStaByObs[ob]; // station for this observation
 
-      const int evIdx1 = _dd->evByObs[0][ob]; // event 1 for this observation
+      const int evIdx1 = _dd.evByObs[0][ob]; // event 1 for this observation
       if (evIdx1 >= 0)
       {
-        const unsigned idxG     = evIdx1 * _dd->nPhStas + phStaIdx;
+        const unsigned idxG     = evIdx1 * _dd.nPhStas + phStaIdx;
         const unsigned evOffset = evIdx1 * 4;
-        x[evOffset + 0] += _dd->G[idxG][0] * _dd->L2NScaler[evOffset + 0] * wY;
-        x[evOffset + 1] += _dd->G[idxG][1] * _dd->L2NScaler[evOffset + 1] * wY;
-        x[evOffset + 2] += _dd->G[idxG][2] * _dd->L2NScaler[evOffset + 2] * wY;
-        x[evOffset + 3] += _dd->G[idxG][3] * _dd->L2NScaler[evOffset + 3] * wY;
+        x[evOffset + 0] += _dd.G[idxG][0] * _dd.L2NScaler[evOffset + 0] * wY;
+        x[evOffset + 1] += _dd.G[idxG][1] * _dd.L2NScaler[evOffset + 1] * wY;
+        x[evOffset + 2] += _dd.G[idxG][2] * _dd.L2NScaler[evOffset + 2] * wY;
+        x[evOffset + 3] += _dd.G[idxG][3] * _dd.L2NScaler[evOffset + 3] * wY;
       }
 
-      const int evIdx2 = _dd->evByObs[1][ob]; // event 2 for this observation
+      const int evIdx2 = _dd.evByObs[1][ob]; // event 2 for this observation
       if (evIdx2 >= 0)
       {
-        const unsigned idxG     = evIdx2 * _dd->nPhStas + phStaIdx;
+        const unsigned idxG     = evIdx2 * _dd.nPhStas + phStaIdx;
         const unsigned evOffset = evIdx2 * 4;
-        x[evOffset + 0] -= _dd->G[idxG][0] * _dd->L2NScaler[evOffset + 0] * wY;
-        x[evOffset + 1] -= _dd->G[idxG][1] * _dd->L2NScaler[evOffset + 1] * wY;
-        x[evOffset + 2] -= _dd->G[idxG][2] * _dd->L2NScaler[evOffset + 2] * wY;
-        x[evOffset + 3] -= _dd->G[idxG][3] * _dd->L2NScaler[evOffset + 3] * wY;
+        x[evOffset + 0] -= _dd.G[idxG][0] * _dd.L2NScaler[evOffset + 0] * wY;
+        x[evOffset + 1] -= _dd.G[idxG][1] * _dd.L2NScaler[evOffset + 1] * wY;
+        x[evOffset + 2] -= _dd.G[idxG][2] * _dd.L2NScaler[evOffset + 2] * wY;
+        x[evOffset + 3] -= _dd.G[idxG][3] * _dd.L2NScaler[evOffset + 3] * wY;
       }
     }
   }
-
-private:
-  Seiscomp::HDD::DDSystemPtr _dd;
 };
 
 } // namespace
@@ -577,7 +574,7 @@ void Solver::prepareDDSystem(double ttConstraint,
   }
 
   // allocate DD system memory
-  _dd = DDSystemPtr(new DDSystem(_observations.size(), _eventIdConverter.size(),
+  _dd.reset(new DDSystem(_observations.size(), _eventIdConverter.size(),
                                  _phStaIdConverter.size(), ttconstraintNum));
 
   // initialize `m` and `L2NScaler`
@@ -821,8 +818,7 @@ void Solver::_solve(unsigned numIterations,
 {
   prepareDDSystem(ttConstraint, dampingFactor, residualDownWeight);
 
-  Adapter<T> solver;
-  solver.setDDSytem(_dd);
+  Adapter<T> solver(*_dd); // keeps only a reference to _dd, doesn't copy it!!!
   if (normalizeG)
   {
     solver.L2normalize();

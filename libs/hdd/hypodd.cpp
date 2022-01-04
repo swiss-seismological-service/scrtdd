@@ -43,7 +43,7 @@ using HDD::Waveform::getBandAndInstrumentCodes;
 namespace Seiscomp {
 namespace HDD {
 
-HypoDD::HypoDD(const CatalogCPtr &catalog,
+HypoDD::HypoDD(const Catalog &catalog,
                const Config &cfg,
                const string &workingDir)
     : _workingDir(workingDir), _cfg(cfg)
@@ -86,11 +86,11 @@ HypoDD::HypoDD(const CatalogCPtr &catalog,
   setWaveformDebug(false);
 }
 
-void HypoDD::setCatalog(const CatalogCPtr &catalog)
+void HypoDD::setCatalog(const Catalog &catalog)
 {
   _srcCat = catalog;
-  _bgCat  = Catalog::filterPhasesAndSetWeights(
-      *_srcCat, Phase::Source::CATALOG, _cfg.validPphases, _cfg.validSphases);
+  _bgCat  = *Catalog::filterPhasesAndSetWeights(
+      _srcCat, Phase::Source::CATALOG, _cfg.validPphases, _cfg.validSphases);
 }
 
 void HypoDD::setUseCatalogWaveformDiskCache(bool cache)
@@ -198,7 +198,7 @@ void HypoDD::preloadWaveforms()
   // (batchloader)
   //
   SEISCOMP_INFO("Loading catalog waveform data (%lu events to load)",
-                _bgCat->getEvents().size());
+                _bgCat.getEvents().size());
 
   resetCounters();
 
@@ -207,7 +207,7 @@ void HypoDD::preloadWaveforms()
           const Event &event, unsigned &numPhases, unsigned &numSPhases,
           std::function<void(const Core::TimeWindow &, const Catalog::Event &,
                              const Catalog::Phase &)> func) {
-        auto eqlrng = _bgCat->getPhases().equal_range(event.id);
+        auto eqlrng = _bgCat.getPhases().equal_range(event.id);
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
           const Phase &phase  = it->second;
@@ -229,7 +229,7 @@ void HypoDD::preloadWaveforms()
 
   unsigned numPhases = 0, numSPhases = 0, numEvents = 0;
 
-  for (const auto &kv : _bgCat->getEvents())
+  for (const auto &kv : _bgCat.getEvents())
   {
     const Event &event = kv.second;
 
@@ -263,11 +263,11 @@ void HypoDD::preloadWaveforms()
     updateCounters(batchLoader, nullptr, nullptr);
 
     const unsigned onePercent =
-        _bgCat->getEvents().size() < 100 ? 1 : (_bgCat->getEvents().size() / 100);
+        _bgCat.getEvents().size() < 100 ? 1 : (_bgCat.getEvents().size() / 100);
     if (++numEvents % onePercent == 0)
     {
       SEISCOMP_INFO("Loaded %.1f%% of catalog phase waveforms",
-                    (numEvents * 100.0 / _bgCat->getEvents().size()));
+                    (numEvents * 100.0 / _bgCat.getEvents().size()));
     }
   }
 
@@ -281,20 +281,20 @@ void HypoDD::preloadWaveforms()
       "phases %u (P %.f%%, S %.f%%). Waveforms downloaded %u, not available "
       "%u, "
       "loaded from disk cache %u, Signal to Noise ratio too low %u",
-      _bgCat->getEvents().size(), numPhases,
+      _bgCat.getEvents().size(), numPhases,
       ((numPhases - numSPhases) * 100. / numPhases),
       (numSPhases * 100. / numPhases), _counters.wf_downloaded,
       _counters.wf_no_avail, _counters.wf_disk_cached, _counters.wf_snr_low);
 }
 
-CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
+unique_ptr<Catalog> HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
                                        const SolverOptions &solverOpt)
 {
   SEISCOMP_INFO("Starting HypoDD relocator in multiple events mode");
 
   if (!_ttt) _ttt = TravelTimeTable::create(_cfg.ttt.type, _cfg.ttt.model);
 
-  CatalogPtr catToReloc(new Catalog(*_bgCat));
+  Catalog catToReloc(_bgCat);
 
   // prepare a folder for debug files
   string catalogWorkingDir;
@@ -319,21 +319,19 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   }
 
   // prepare file logger
-  std::shared_ptr<Logging::Output> processingInfoOutput;
   if (_saveProcessing)
   {
-    processingInfoOutput =
-        std::shared_ptr<Logging::Output>(new Logging::FileOutput(
+    Logging::FileOutput processingInfoOutput(
             (boost::filesystem::path(catalogWorkingDir) / "info.log")
                 .string()
-                .c_str()));
-    processingInfoOutput->subscribe(Seiscomp::Logging::_SCInfoChannel);
-    processingInfoOutput->subscribe(Seiscomp::Logging::_SCWarningChannel);
-    processingInfoOutput->subscribe(Seiscomp::Logging::_SCErrorChannel);
+                .c_str());
+    processingInfoOutput.subscribe(Seiscomp::Logging::_SCInfoChannel);
+    processingInfoOutput.subscribe(Seiscomp::Logging::_SCWarningChannel);
+    processingInfoOutput.subscribe(Seiscomp::Logging::_SCErrorChannel);
   }
 
   // find Neighbours for each event in the catalog
-  list<NeighboursPtr> allNeighbours = selectNeighbouringEventsCatalog(
+  vector<unique_ptr<Neighbours>> allNeighbours = selectNeighbouringEventsCatalog(
       catToReloc, clustOpt.minWeight, clustOpt.minESdist, clustOpt.maxESdist,
       clustOpt.minEStoIEratio, clustOpt.minDTperEvt, clustOpt.maxDTperEvt,
       clustOpt.minNumNeigh, clustOpt.maxNumNeigh, clustOpt.numEllipsoids,
@@ -342,14 +340,13 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   // Organize the neighbours by not connected clusters. In addition,
   // don't report the same pair multiple times (e.g. ev1-ev2 and ev2-ev1)
   // since we only need one observation per pair in the DD solver.
-  deque<list<NeighboursPtr>> clusters =
-      clusterizeNeighbouringEvents(allNeighbours);
+  list<vector<unique_ptr<Neighbours>>> clusters = clusterizeNeighbouringEvents(allNeighbours);
 
   SEISCOMP_INFO("Found %lu event clusters", clusters.size());
 
   if (_saveProcessing)
   {
-    catToReloc->writeToFile(
+    catToReloc.writeToFile(
         (boost::filesystem::path(catalogWorkingDir) / "starting-event.csv")
             .string(),
         (boost::filesystem::path(catalogWorkingDir) / "starting-phase.csv")
@@ -361,22 +358,21 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   //
   // relocate one cluster a time
   //
-  CatalogPtr relocatedCatalog(new Catalog());
+  unique_ptr<Catalog> relocatedCatalog(new Catalog());
 
-  for (unsigned clusterId = 0; clusterId < clusters.size(); clusterId++)
+  unsigned clusterId = 1;
+  for (const vector<unique_ptr<Neighbours>> &neighCluster : clusters)
   {
-    const list<NeighboursPtr> &neighCluster = clusters[clusterId];
-
-    SEISCOMP_INFO("Relocating cluster %u (%lu events)", clusterId + 1,
+    SEISCOMP_INFO("Relocating cluster %u (%lu events)", clusterId,
                   neighCluster.size());
 
     if (_saveProcessing)
     {
-      CatalogPtr catToDump(new Catalog());
-      for (const NeighboursPtr &n : neighCluster)
-        catToDump->add(n->refEvId, *catToReloc, true);
-      string prefix = "cluster-" + to_string(clusterId + 1);
-      catToDump->writeToFile(
+      Catalog catToDump;
+      for (const unique_ptr<Neighbours> &n : neighCluster)
+        catToDump.add(n->refEvId, catToReloc, true);
+      string prefix = strf("cluster-%u", clusterId);
+      catToDump.writeToFile(
           (boost::filesystem::path(catalogWorkingDir) / (prefix + "-event.csv"))
               .string(),
           (boost::filesystem::path(catalogWorkingDir) / (prefix + "-phase.csv"))
@@ -394,14 +390,14 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
         clustOpt.xcorrMaxEvStaDist, clustOpt.xcorrMaxInterEvDist);
 
     // the actual relocation
-    CatalogPtr relocatedCluster =
+    unique_ptr<Catalog> relocatedCluster =
         relocate(catToReloc, neighCluster, solverOpt, false, xcorr);
 
     relocatedCatalog->add(*relocatedCluster, true);
 
     if (_saveProcessing)
     {
-      string prefix = "relocated-cluster-" + to_string(clusterId + 1);
+      string prefix = strf("relocated-cluster-%u", clusterId);
       relocatedCluster->writeToFile(
           (boost::filesystem::path(catalogWorkingDir) / (prefix + "-event.csv"))
               .string(),
@@ -411,6 +407,7 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
            (prefix + "-station.csv"))
               .string());
     }
+    clusterId++;
   }
 
   if (_saveProcessing)
@@ -427,19 +424,19 @@ CatalogPtr HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   return relocatedCatalog;
 }
 
-CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
+unique_ptr<Catalog> HypoDD::relocateSingleEvent(const Catalog &singleEvent,
                                        const ClusteringOptions &clustOpt1,
                                        const ClusteringOptions &clustOpt2,
                                        const SolverOptions &solverOpt)
 {
   if (!_ttt) _ttt = TravelTimeTable::create(_cfg.ttt.type, _cfg.ttt.model);
 
-  const CatalogCPtr bgCat = _bgCat;
+  const Catalog& bgCat = _bgCat;
 
   // there must be only one event in the catalog, the origin to relocate
-  const Event &evToRelocate = singleEvent->getEvents().begin()->second;
+  const Event &evToRelocate = singleEvent.getEvents().begin()->second;
   const auto &evToRelocatePhases =
-      singleEvent->getPhases().equal_range(evToRelocate.id);
+      singleEvent.getPhases().equal_range(evToRelocate.id);
 
   SEISCOMP_INFO(
       "Starting HypoDD relocator in single event mode: event %s lat %.6f lon "
@@ -469,17 +466,15 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
   }
 
   // prepare file logger
-  std::shared_ptr<Logging::Output> processingInfoOutput;
   if (_saveProcessing)
   {
-    processingInfoOutput =
-        std::shared_ptr<Logging::Output>(new Logging::FileOutput(
+    Logging::FileOutput processingInfoOutput(
             (boost::filesystem::path(baseWorkingDir) / "info.log")
                 .string()
-                .c_str()));
-    processingInfoOutput->subscribe(Seiscomp::Logging::_SCInfoChannel);
-    processingInfoOutput->subscribe(Seiscomp::Logging::_SCWarningChannel);
-    processingInfoOutput->subscribe(Seiscomp::Logging::_SCErrorChannel);
+                .c_str());
+    processingInfoOutput.subscribe(Seiscomp::Logging::_SCInfoChannel);
+    processingInfoOutput.subscribe(Seiscomp::Logging::_SCWarningChannel);
+    processingInfoOutput.subscribe(Seiscomp::Logging::_SCErrorChannel);
   }
 
   SEISCOMP_INFO(
@@ -488,12 +483,12 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
   string eventWorkingDir =
       (boost::filesystem::path(baseWorkingDir) / "step1").string();
 
-  CatalogPtr evToRelocateCat =
-      Catalog::filterPhasesAndSetWeights(*singleEvent, Phase::Source::RT_EVENT,
+  unique_ptr<Catalog> evToRelocateCat =
+      Catalog::filterPhasesAndSetWeights(singleEvent, Phase::Source::RT_EVENT,
                                          _cfg.validPphases, _cfg.validSphases);
 
-  CatalogPtr relocatedEvCat =
-      relocateEventSingleStep(bgCat, evToRelocateCat, eventWorkingDir,
+  unique_ptr<Catalog> relocatedEvCat =
+      relocateEventSingleStep(bgCat, *evToRelocateCat, eventWorkingDir,
                               clustOpt1, solverOpt, false, false);
 
   if (relocatedEvCat)
@@ -503,9 +498,9 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
                   "lat %.6f lon %.6f depth %.4f time %s",
                   ev.latitude, ev.longitude, ev.depth, ev.time.iso().c_str());
     SEISCOMP_INFO("Relocation report: %s",
-                  relocationReport(relocatedEvCat).c_str());
+                  relocationReport(*relocatedEvCat).c_str());
 
-    evToRelocateCat = relocatedEvCat;
+    evToRelocateCat = std::move(relocatedEvCat);
   }
   else
   {
@@ -517,8 +512,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
   eventWorkingDir =
       (boost::filesystem::path(baseWorkingDir) / "step2").string();
 
-  CatalogPtr relocatedEvWithXcorr =
-      relocateEventSingleStep(bgCat, evToRelocateCat, eventWorkingDir,
+  unique_ptr<Catalog> relocatedEvWithXcorr =
+      relocateEventSingleStep(bgCat, *evToRelocateCat, eventWorkingDir,
                               clustOpt2, solverOpt, true, _useArtificialPhases);
 
   if (relocatedEvWithXcorr)
@@ -528,7 +523,7 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
                   "lat %.6f lon %.6f depth %.4f time %s",
                   ev.latitude, ev.longitude, ev.depth, ev.time.iso().c_str());
     SEISCOMP_INFO("Relocation report: %s",
-                  relocationReport(relocatedEvWithXcorr).c_str());
+                  relocationReport(*relocatedEvWithXcorr).c_str());
 
     // update the "origin change information" taking into consideration
     // the first relocation step, too
@@ -562,8 +557,8 @@ CatalogPtr HypoDD::relocateSingleEvent(const CatalogCPtr &singleEvent,
   return relocatedEvWithXcorr;
 }
 
-CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
-                                           const CatalogCPtr &evToRelocateCat,
+unique_ptr<Catalog> HypoDD::relocateEventSingleStep(const Catalog& bgCat,
+                                           const Catalog &evToRelocateCat,
                                            const string &workingDir,
                                            const ClusteringOptions &clustOpt,
                                            const SolverOptions &solverOpt,
@@ -579,7 +574,7 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
     }
     SEISCOMP_INFO("Working dir %s", workingDir.c_str());
 
-    evToRelocateCat->writeToFile(
+    evToRelocateCat.writeToFile(
         (boost::filesystem::path(workingDir) / "single-event.csv").string(),
         (boost::filesystem::path(workingDir) / "single-event-phase.csv")
             .string(),
@@ -587,19 +582,19 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
             .string());
   }
 
-  CatalogPtr relocatedEvCat;
+  unique_ptr<Catalog> relocatedEvCat;
 
   try
   {
     // extract event to relocate
-    const Event &evToRelocate = evToRelocateCat->getEvents().begin()->second;
+    const Event &evToRelocate = evToRelocateCat.getEvents().begin()->second;
 
     //
     // select neighbouring events
     //
     bool keepUnmatchedPhases = doXcorr; // useful for detecting missed picks
 
-    NeighboursPtr neighbours = selectNeighbouringEvents(
+    unique_ptr<Neighbours> neighbours = selectNeighbouringEvents(
         bgCat, evToRelocate, evToRelocateCat, clustOpt.minWeight,
         clustOpt.minESdist, clustOpt.maxESdist, clustOpt.minEStoIEratio,
         clustOpt.minDTperEvt, clustOpt.maxDTperEvt, clustOpt.minNumNeigh,
@@ -609,9 +604,9 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
     //
     // prepare catalog to relocate
     //
-    CatalogPtr catalog = neighbours->toCatalog(bgCat);
+    unique_ptr<Catalog> catalog = neighbours->toCatalog(bgCat);
     unsigned evToRelocateNewId =
-        catalog->add(evToRelocate.id, *evToRelocateCat, false);
+        catalog->add(evToRelocate.id, evToRelocateCat, false);
     neighbours->refEvId = evToRelocateNewId;
 
     if (_saveProcessing)
@@ -623,19 +618,22 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
               .string());
     }
 
+    vector<unique_ptr<Neighbours>> neighCluster;
+    neighCluster.push_back(std::move(neighbours));
+
     XCorrCache xcorr;
     if (doXcorr)
     {
       // Perform cross-correlation, which also detects picks around theoretical
       // arrival times. The catalog will be updated with the corresponding
       // phases.
-      xcorr = buildXCorrCache(catalog, {neighbours}, computeTheoreticalPhases,
+      xcorr = buildXCorrCache(*catalog, neighCluster, computeTheoreticalPhases,
                               clustOpt.xcorrMaxEvStaDist,
                               clustOpt.xcorrMaxInterEvDist);
     }
 
     // the actual relocation
-    relocatedEvCat = relocate(catalog, {neighbours}, solverOpt, true, xcorr);
+    relocatedEvCat = relocate(*catalog, neighCluster, solverOpt, true, xcorr);
 
     if (_saveProcessing)
     {
@@ -656,8 +654,8 @@ CatalogPtr HypoDD::relocateEventSingleStep(const CatalogCPtr bgCat,
   return relocatedEvCat;
 }
 
-CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
-                            const std::list<NeighboursPtr> &neighCluster,
+unique_ptr<Catalog> HypoDD::relocate(const Catalog &catalog,
+                            const vector<unique_ptr<Neighbours>> &neighCluster,
                             const SolverOptions &solverOpt,
                             bool keepNeighboursFixed,
                             const XCorrCache &xcorr) const
@@ -667,8 +665,8 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
   //
   // iterate the solver computation multiple times
   //
-  CatalogCPtr finalCatalog = catalog;
-  unordered_map<unsigned, NeighboursPtr> finalNeighCluster;
+  unique_ptr<const Catalog> finalCatalog( new Catalog(catalog));
+  unordered_map<unsigned, unique_ptr<Neighbours>> finalNeighCluster;
   ObservationParams obsparams;
   for (unsigned iteration = 0; iteration < solverOpt.algoIterations;
        iteration++)
@@ -705,10 +703,10 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
     // Add absolute travel time/cross-correlation differences to the solver
     // (the observations)
     //
-    for (const NeighboursPtr &neighbours : neighCluster)
+    for (const unique_ptr<Neighbours> &neighbours : neighCluster)
     {
-      addObservations(solver, absTTDiffObsWeight, xcorrObsWeight, finalCatalog,
-                      neighbours, keepNeighboursFixed,
+      addObservations(solver, absTTDiffObsWeight, xcorrObsWeight, *finalCatalog,
+                      *neighbours, keepNeighboursFixed,
                       solverOpt.usePickUncertainty, xcorr, obsparams);
     }
     obsparams.addToSolver(solver);
@@ -733,18 +731,18 @@ CatalogPtr HypoDD::relocate(const CatalogCPtr &catalog,
 
     // update event parameters
     finalCatalog = updateRelocatedEvents(
-        solver, finalCatalog, neighCluster, obsparams,
+        solver, *finalCatalog, neighCluster, obsparams,
         std::max(absTTDiffObsWeight, xcorrObsWeight), finalNeighCluster);
   }
 
   // compute last bit of statistics for the relocated events
-  return updateRelocatedEventsFinalStats(catalog, finalCatalog,
+  return updateRelocatedEventsFinalStats(catalog, *finalCatalog,
                                          finalNeighCluster);
 }
 
-string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
+string HypoDD::relocationReport(const Catalog &relocatedEv)
 {
-  const Event &event = relocatedEv->getEvents().begin()->second;
+  const Event &event = relocatedEv.getEvents().begin()->second;
   if (!event.relocInfo.isRelocated) return "Event not relocated";
 
   return strf("Origin changes: location=%.2f[km] depth=%.2f[km] time=%.3f[sec] "
@@ -780,41 +778,39 @@ string HypoDD::relocationReport(const CatalogCPtr &relocatedEv)
 void HypoDD::addObservations(Solver &solver,
                              double absTTDiffObsWeight,
                              double xcorrObsWeight,
-                             const CatalogCPtr &catalog,
-                             const NeighboursPtr &neighbours,
+                             const Catalog &catalog,
+                             const Neighbours &neighbours,
                              bool keepNeighboursFixed,
                              bool usePickUncertainty,
                              const XCorrCache &xcorr,
                              ObservationParams &obsparams) const
 {
   // copy event because we'll update it
-  const Event &refEv = catalog->getEvents().at(neighbours->refEvId);
+  const Event &refEv = catalog.getEvents().at(neighbours.refEvId);
 
   //
   // loop through reference event phases
   //
-  auto eqlrng = catalog->getPhases().equal_range(refEv.id);
+  auto eqlrng = catalog.getPhases().equal_range(refEv.id);
   for (auto it = eqlrng.first; it != eqlrng.second; ++it)
   {
     const Phase &refPhase  = it->second;
-    const Station &station = catalog->getStations().at(refPhase.stationId);
+    const Station &station = catalog.getStations().at(refPhase.stationId);
     char phaseTypeAsChar   = static_cast<char>(refPhase.procInfo.type);
 
     //
     // loop through neighbouring events and look for the matching phase
     //
-    for (unsigned neighEvId : neighbours->ids)
+    for (unsigned neighEvId : neighbours.ids)
     {
-      const Event &event = catalog->getEvents().at(neighEvId);
+      const Event &event = catalog.getEvents().at(neighEvId);
 
-      if (!neighbours->has(neighEvId, refPhase.stationId,
+      if (!neighbours.has(neighEvId, refPhase.stationId,
                            refPhase.procInfo.type))
         continue;
 
-      const Phase &phase = catalog
-                               ->searchPhase(event.id, refPhase.stationId,
-                                             refPhase.procInfo.type)
-                               ->second;
+      const Phase &phase = catalog.searchPhase(event.id, refPhase.stationId,
+                                             refPhase.procInfo.type)->second;
       //
       // compute travel times for both event and `refEv`
       //
@@ -834,8 +830,8 @@ void HypoDD::addObservations(Solver &solver,
         continue;
       }
 
-      if (!obsparams.add(_ttt, refEv, station, refPhase, true) ||
-          !obsparams.add(_ttt, event, station, phase, !keepNeighboursFixed))
+      if (!obsparams.add(*_ttt, refEv, station, refPhase, true) ||
+          !obsparams.add(*_ttt, event, station, phase, !keepNeighboursFixed))
       {
         SEISCOMP_DEBUG("Skipping observation (ev %u-%u sta %s phase %c)",
                        refEv.id, event.id, station.id.c_str(), phaseTypeAsChar);
@@ -877,7 +873,7 @@ void HypoDD::addObservations(Solver &solver,
   }
 }
 
-bool HypoDD::ObservationParams::add(HDD::TravelTimeTablePtr ttt,
+bool HypoDD::ObservationParams::add(HDD::TravelTimeTable& ttt,
                                     const Event &event,
                                     const Station &station,
                                     const Phase &phase,
@@ -891,7 +887,7 @@ bool HypoDD::ObservationParams::add(HDD::TravelTimeTablePtr ttt,
     try
     {
       double travelTime, takeOfAngleAzim, takeOfAngleDip, velocityAtSrc;
-      ttt->compute(event, station, string(1, phaseType), travelTime,
+      ttt.compute(event, station, string(1, phaseType), travelTime,
                    takeOfAngleAzim, takeOfAngleDip, velocityAtSrc);
       double ttResidual = travelTime - (phase.time - event.time).length();
       _entries[key]     = Entry{event,          station,       phaseType,
@@ -912,9 +908,9 @@ bool HypoDD::ObservationParams::add(HDD::TravelTimeTablePtr ttt,
 }
 
 const HypoDD::ObservationParams::Entry &HypoDD::ObservationParams::get(
-    unsigned eventId, const std::string stationId, char phaseType) const
+    unsigned eventId, const string stationId, char phaseType) const
 {
-  const std::string key =
+  const string key =
       std::to_string(eventId) + "@" + stationId + ":" + phaseType;
   return _entries.at(key);
 }
@@ -933,25 +929,25 @@ void HypoDD::ObservationParams::addToSolver(Solver &solver) const
   }
 }
 
-CatalogPtr HypoDD::updateRelocatedEvents(
+unique_ptr<Catalog> HypoDD::updateRelocatedEvents(
     const Solver &solver,
-    const CatalogCPtr &catalog,
-    const std::list<NeighboursPtr> &neighCluster,
+    const Catalog &catalog,
+    const vector<unique_ptr<Neighbours>> &neighCluster,
     ObservationParams &obsparams,
     double pickWeightScaler,
-    std::unordered_map<unsigned, NeighboursPtr> &finalNeighCluster // output
+    unordered_map<unsigned, unique_ptr<Neighbours>> &finalNeighCluster // output
 ) const
 {
-  unordered_map<string, Station> stations    = catalog->getStations();
-  map<unsigned, Event> events                = catalog->getEvents();
-  unordered_multimap<unsigned, Phase> phases = catalog->getPhases();
+  unordered_map<string, Station> stations    = catalog.getStations();
+  map<unsigned, Event> events                = catalog.getEvents();
+  unordered_multimap<unsigned, Phase> phases = catalog.getPhases();
   unsigned relocatedEvs                      = 0;
   vector<double> allRms;
 
   //
   // loop through each event with its corresponding neighbours cluster
   //
-  for (const NeighboursPtr &neighbours : neighCluster)
+  for (const unique_ptr<Neighbours> &neighbours : neighCluster)
   {
     Event &event = events.at(neighbours->refEvId);
 
@@ -977,7 +973,7 @@ CatalogPtr HypoDD::updateRelocatedEvents(
       deltaDepth = 0;
     }
 
-    NeighboursPtr finalNeighbours(new Neighbours());
+    unique_ptr<Neighbours> finalNeighbours(new Neighbours());
     finalNeighbours->refEvId = event.id;
     bool isFirstIteration    = !event.relocInfo.isRelocated;
 
@@ -1033,7 +1029,7 @@ CatalogPtr HypoDD::updateRelocatedEvents(
       phase.relocInfo.finalMeanDDResidual = meanDDResidual;
       obsResiduals.push_back(meanDDResidual);
 
-      if (obsparams.add(_ttt, event, station, phase, true))
+      if (obsparams.add(*_ttt, event, station, phase, true))
       {
         double travelTime =
             obsparams.get(event.id, station.id, phaseTypeAsChar).travelTime;
@@ -1083,8 +1079,8 @@ CatalogPtr HypoDD::updateRelocatedEvents(
     event.relocInfo.dd.finalResidualMedian = residualMedian;
     event.relocInfo.dd.finalResidualMAD    = residualMAD;
 
-    event.relocInfo.numNeighbours = finalNeighbours->numNeighbours();
-    finalNeighCluster[finalNeighbours->refEvId] = finalNeighbours;
+    event.relocInfo.numNeighbours = finalNeighbours->ids.size();
+    finalNeighCluster[finalNeighbours->refEvId] = std::move(finalNeighbours);
   }
 
   const double allRmsMedian = computeMedian(allRms);
@@ -1095,33 +1091,33 @@ CatalogPtr HypoDD::updateRelocatedEvents(
       "absolute deviation %.4f [sec]",
       relocatedEvs, allRmsMedian, allRmsMAD);
 
-  return new Catalog(stations, events, phases);
+  return unique_ptr<Catalog>(new Catalog(stations, events, phases));
 }
 
-CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
-    const CatalogCPtr &startCatalog,
-    const CatalogCPtr &finalCatalog,
-    const std::unordered_map<unsigned, NeighboursPtr> &neighCluster) const
+unique_ptr<Catalog> HypoDD::updateRelocatedEventsFinalStats(
+    const Catalog &startCatalog,
+    const Catalog &finalCatalog,
+    const unordered_map<unsigned, unique_ptr<Neighbours>> &neighCluster) const
 {
-  CatalogPtr catalogToReturn(new Catalog());
+  unique_ptr<Catalog> catalogToReturn(new Catalog());
   vector<double> allRms;
   vector<double> stationDist;
 
   for (const auto &kv : neighCluster)
   {
-    const NeighboursPtr &neighbours = kv.second;
-    auto it = finalCatalog->getEvents().find(neighbours->refEvId);
+    const unique_ptr<Neighbours> &neighbours = kv.second;
+    auto it = finalCatalog.getEvents().find(neighbours->refEvId);
 
     // If the event hasn't been relocated, remove it from the final catalog.
-    if (it == finalCatalog->getEvents().end() ||
+    if (it == finalCatalog.getEvents().end() ||
         !it->second.relocInfo.isRelocated)
     {
       continue;
     }
 
-    CatalogPtr tmpCat = finalCatalog->extractEvent(neighbours->refEvId, true);
+    unique_ptr<Catalog> tmpCat = finalCatalog.extractEvent(neighbours->refEvId, true);
 
-    const Event &startEvent = startCatalog->getEvents().at(neighbours->refEvId);
+    const Event &startEvent = startCatalog.getEvents().at(neighbours->refEvId);
     Event finalEvent        = tmpCat->getEvents().at(neighbours->refEvId);
 
     //
@@ -1219,26 +1215,26 @@ CatalogPtr HypoDD::updateRelocatedEventsFinalStats(
 }
 
 void HypoDD::addMissingEventPhases(const Event &refEv,
-                                   CatalogPtr &refEvCatalog,
-                                   const CatalogCPtr &searchCatalog,
-                                   const NeighboursPtr &neighbours)
+                                   Catalog &refEvCatalog,
+                                   const Catalog &searchCatalog,
+                                   const Neighbours &neighbours)
 {
-  std::vector<Phase> newPhases =
+  vector<Phase> newPhases =
       findMissingEventPhases(refEv, refEvCatalog, searchCatalog, neighbours);
 
   for (Phase &ph : newPhases)
   {
-    refEvCatalog->updatePhase(ph, true);
-    const Station &station = searchCatalog->getStations().at(ph.stationId);
-    refEvCatalog->addStation(station);
+    refEvCatalog.updatePhase(ph, true);
+    const Station &station = searchCatalog.getStations().at(ph.stationId);
+    refEvCatalog.addStation(station);
   }
 }
 
-std::vector<Phase>
+vector<Phase>
 HypoDD::findMissingEventPhases(const Event &refEv,
-                               CatalogPtr &refEvCatalog,
-                               const CatalogCPtr &searchCatalog,
-                               const NeighboursPtr &neighbours)
+                               Catalog &refEvCatalog,
+                               const Catalog &searchCatalog,
+                               const Neighbours &neighbours)
 {
   //
   // find stations for which the `refEv` doesn't have phases
@@ -1249,10 +1245,10 @@ HypoDD::findMissingEventPhases(const Event &refEv,
   //
   // for each missed phase try to detect it
   //
-  std::vector<Phase> newPhases;
+  vector<Phase> newPhases;
   for (const MissingStationPhase &pair : missingPhases)
   {
-    const Station &station      = searchCatalog->getStations().at(pair.first);
+    const Station &station      = searchCatalog.getStations().at(pair.first);
     const Phase::Type phaseType = pair.second;
 
     //
@@ -1290,17 +1286,17 @@ HypoDD::findMissingEventPhases(const Event &refEv,
 
 vector<HypoDD::MissingStationPhase>
 HypoDD::getMissingPhases(const Event &refEv,
-                         CatalogPtr &refEvCatalog,
-                         const CatalogCPtr &searchCatalog) const
+                         Catalog &refEvCatalog,
+                         const Catalog &searchCatalog) const
 {
-  const auto &refEvPhases = refEvCatalog->getPhases().equal_range(refEv.id);
+  const auto &refEvPhases = refEvCatalog.getPhases().equal_range(refEv.id);
 
   //
   // Loop through stations and find those for which the `refEv` doesn't have
   // phases.
   //
   vector<MissingStationPhase> missingPhases;
-  for (const auto &kv : searchCatalog->getStations())
+  for (const auto &kv : searchCatalog.getStations())
   {
     const Station &station = kv.second;
 
@@ -1334,8 +1330,8 @@ HypoDD::getMissingPhases(const Event &refEv,
 vector<HypoDD::PhasePeer>
 HypoDD::findPhasePeers(const Station &station,
                        const Phase::Type &phaseType,
-                       const CatalogCPtr &searchCatalog,
-                       const NeighboursPtr &neighbours) const
+                       const Catalog &searchCatalog,
+                       const Neighbours &neighbours) const
 {
   //
   // Loop through every other event and select those manual phases of the
@@ -1343,14 +1339,14 @@ HypoDD::findPhasePeers(const Station &station,
   //
   vector<PhasePeer> phasePeers;
 
-  for (unsigned neighEvId : neighbours->ids)
+  for (unsigned neighEvId : neighbours.ids)
   {
-    const Event &event = searchCatalog->getEvents().at(neighEvId);
+    const Event &event = searchCatalog.getEvents().at(neighEvId);
 
-    if (neighbours->has(neighEvId, station.id, phaseType))
+    if (neighbours.has(neighEvId, station.id, phaseType))
     {
       const Phase &phase =
-          searchCatalog->searchPhase(neighEvId, station.id, phaseType)->second;
+          searchCatalog.searchPhase(neighEvId, station.id, phaseType)->second;
 
       if (station.networkCode == phase.networkCode &&
           station.stationCode == phase.stationCode &&
@@ -1421,8 +1417,8 @@ Phase HypoDD::createThoreticalPhase(const Station &station,
   return refEvNewPhase;
 }
 
-XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
-                                   const std::list<NeighboursPtr> &neighCluster,
+XCorrCache HypoDD::buildXCorrCache(Catalog &catalog,
+                                   const vector<unique_ptr<Neighbours>> &neighCluster,
                                    bool computeTheoreticalPhases,
                                    double xcorrMaxEvStaDist,
                                    double xcorrMaxInterEvDist)
@@ -1432,18 +1428,18 @@ XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
 
   unsigned long performed = 0;
 
-  for (const NeighboursPtr &neighbours : neighCluster)
+  for (const unique_ptr<Neighbours> &neighbours : neighCluster)
   {
-    const Event &refEv = catalog->getEvents().at(neighbours->refEvId);
+    const Event &refEv = catalog.getEvents().at(neighbours->refEvId);
 
     // Compute theoretical phases for stations that have no picks. The
     // cross-correlation will be used to detect and fix the pick time.
     if (computeTheoreticalPhases)
     {
-      addMissingEventPhases(refEv, catalog, catalog, neighbours);
+      addMissingEventPhases(refEv, catalog, catalog, *neighbours);
     }
 
-    buildXcorrDiffTTimePairs(catalog, neighbours, refEv, xcorrMaxEvStaDist,
+    buildXcorrDiffTTimePairs(catalog, *neighbours, refEv, xcorrMaxEvStaDist,
                              xcorrMaxInterEvDist, xcorr);
 
     // Update theoretical and automatic phase pick time and uncertainties based
@@ -1464,8 +1460,8 @@ XCorrCache HypoDD::buildXCorrCache(CatalogPtr &catalog,
  * Compute and store to `XCorrCache` cross-correlated differential travel times
  * for pairs of the earthquake.
  */
-void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
-                                      const NeighboursPtr &neighbours,
+void HypoDD::buildXcorrDiffTTimePairs(Catalog &catalog,
+                                      const Neighbours &neighbours,
                                       const Event &refEv,
                                       double xcorrMaxEvStaDist,
                                       double xcorrMaxInterEvDist,
@@ -1506,11 +1502,11 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
   //
   // loop through reference event phases
   //
-  auto eqlrngRef = catalog->getPhases().equal_range(refEv.id);
+  auto eqlrngRef = catalog.getPhases().equal_range(refEv.id);
   for (auto itRef = eqlrngRef.first; itRef != eqlrngRef.second; ++itRef)
   {
     const Phase &refPhase  = itRef->second;
-    const Station &station = catalog->getStations().at(refPhase.stationId);
+    const Station &station = catalog.getStations().at(refPhase.stationId);
 
     //
     // skip stations too far away
@@ -1537,9 +1533,9 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
     //
     // loop through neighbouring events and cross-correlate with `refPhase`
     //
-    for (unsigned neighEvId : neighbours->ids)
+    for (unsigned neighEvId : neighbours.ids)
     {
-      const Event &event = catalog->getEvents().at(neighEvId);
+      const Event &event = catalog.getEvents().at(neighEvId);
 
       //
       // skip events too far away
@@ -1548,13 +1544,11 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
       if (interEventDistance > xcorrMaxInterEvDist && xcorrMaxInterEvDist >= 0)
         continue;
 
-      if (neighbours->has(neighEvId, refPhase.stationId,
+      if (neighbours.has(neighEvId, refPhase.stationId,
                           refPhase.procInfo.type))
       {
-        const Phase &phase = catalog
-                                 ->searchPhase(event.id, refPhase.stationId,
-                                               refPhase.procInfo.type)
-                                 ->second;
+        const Phase &phase = catalog.searchPhase(event.id, refPhase.stationId,
+                                               refPhase.procInfo.type)->second;
 
         // In single-event mode `refPhase` is real-time and `phase` is from the
         // catalog. In multi-event mode both are from the catalog.
@@ -1636,7 +1630,7 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
   for (const auto &kv : stationByDistance)
   {
     const double stationDistance = kv.first;
-    const Station &station       = catalog->getStations().at(kv.second);
+    const Station &station       = catalog.getStations().at(kv.second);
 
     bool goodPXcorr = xcorr.has(refEv.id, station.id, Phase::Type::P);
     bool goodSXcorr = xcorr.has(refEv.id, station.id, Phase::Type::S);
@@ -1675,8 +1669,8 @@ void HypoDD::buildXcorrDiffTTimePairs(CatalogPtr &catalog,
 }
 
 Waveform::LoaderPtr
-HypoDD::preloadNonCatalogWaveforms(CatalogPtr &catalog,
-                                   const NeighboursPtr &neighbours,
+HypoDD::preloadNonCatalogWaveforms(Catalog &catalog,
+                                   const Neighbours &neighbours,
                                    const Event &refEv,
                                    double xcorrMaxEvStaDist,
                                    double xcorrMaxInterEvDist) const
@@ -1716,11 +1710,11 @@ HypoDD::preloadNonCatalogWaveforms(CatalogPtr &catalog,
   //
   // loop through reference event phases
   //
-  auto eqlrngRef = catalog->getPhases().equal_range(refEv.id);
+  auto eqlrngRef = catalog.getPhases().equal_range(refEv.id);
   for (auto itRef = eqlrngRef.first; itRef != eqlrngRef.second; ++itRef)
   {
     const Phase &refPhase  = itRef->second;
-    const Station &station = catalog->getStations().at(refPhase.stationId);
+    const Station &station = catalog.getStations().at(refPhase.stationId);
 
     // We deal only with real-time event data
     if (refPhase.procInfo.source == Phase::Source::CATALOG) continue;
@@ -1734,9 +1728,9 @@ HypoDD::preloadNonCatalogWaveforms(CatalogPtr &catalog,
     //
     // loop through neighbouring events and cross-correlate with `refPhase`
     //
-    for (unsigned neighEvId : neighbours->ids)
+    for (unsigned neighEvId : neighbours.ids)
     {
-      const Event &event = catalog->getEvents().at(neighEvId);
+      const Event &event = catalog.getEvents().at(neighEvId);
 
       //
       // skip events too far away
@@ -1745,7 +1739,7 @@ HypoDD::preloadNonCatalogWaveforms(CatalogPtr &catalog,
       if (interEventDistance > xcorrMaxInterEvDist && xcorrMaxInterEvDist >= 0)
         continue;
 
-      if (neighbours->has(neighEvId, refPhase.stationId,
+      if (neighbours.has(neighEvId, refPhase.stationId,
                           refPhase.procInfo.type))
       {
         //
@@ -1782,17 +1776,17 @@ HypoDD::preloadNonCatalogWaveforms(CatalogPtr &catalog,
  * cross-correlation results. Drop theoretical phases not passing the
  * cross-correlation verification.
  */
-void HypoDD::fixPhases(CatalogPtr &catalog,
+void HypoDD::fixPhases(Catalog &catalog,
                        const Event &refEv,
                        XCorrCache &xcorr)
 {
   unsigned totP = 0, totS = 0;
   unsigned newP = 0, newS = 0;
 
-  std::vector<Phase> phasesToBeRemoved;
-  std::vector<Phase> newPhases;
+  vector<Phase> phasesToBeRemoved;
+  vector<Phase> newPhases;
 
-  auto eqlrng = catalog->getPhases().equal_range(refEv.id);
+  auto eqlrng = catalog.getPhases().equal_range(refEv.id);
   for (auto it = eqlrng.first; it != eqlrng.second; it++)
   {
     const Phase &phase = it->second;
@@ -1843,12 +1837,12 @@ void HypoDD::fixPhases(CatalogPtr &catalog,
   {
     if (ph.procInfo.type == Phase::Type::P) totP--;
     if (ph.procInfo.type == Phase::Type::S) totS--;
-    catalog->removePhase(ph.eventId, ph.stationId, ph.procInfo.type);
+    catalog.removePhase(ph.eventId, ph.stationId, ph.procInfo.type);
   }
 
   for (Phase &ph : newPhases)
   {
-    catalog->updatePhase(ph, true);
+    catalog.updatePhase(ph, true);
   }
 
   SEISCOMP_DEBUG("Event %s total phases %u (%u P and %u S): created %u (%u P "
@@ -2072,7 +2066,7 @@ bool HypoDD::xcorrPhases(const Event &event1,
     performed = _xcorrPhases(event1, tmpPh1, ph1Cache, event2, tmpPh2, ph2Cache,
                              coeffOut, lagOut);
 
-    coeffOut = std::abs(coeffOut);
+    coeffOut = abs(coeffOut);
 
     goodCoeff = (performed && coeffOut >= xcorrCfg.minCoef);
 
@@ -2370,12 +2364,12 @@ void HypoDD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
   resetCounters();
   int loop = 0;
 
-  for (const auto &kv : _bgCat->getEvents())
+  for (const auto &kv : _bgCat.getEvents())
   {
     const Event &event = kv.second;
 
     // find the neighbouring events
-    NeighboursPtr neighbours;
+    unique_ptr<Neighbours> neighbours;
     try
     {
       neighbours = selectNeighbouringEvents(
@@ -2389,14 +2383,14 @@ void HypoDD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
       continue;
     }
 
-    CatalogPtr catalog;
+    unique_ptr<Catalog> catalog;
 
     if (theoretical)
     {
       // create theoretical phases for this event instead of fetching its
       // phases from the catalog
       catalog = neighbours->toCatalog(_bgCat, false);
-      addMissingEventPhases(event, catalog, _bgCat, neighbours);
+      addMissingEventPhases(event,*catalog, _bgCat, *neighbours);
     }
     else
     {
@@ -2406,7 +2400,7 @@ void HypoDD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
     // Cross-correlate every neighbour phase with its corresponding event
     // theoretical phase.
     XCorrCache xcorr;
-    buildXcorrDiffTTimePairs(catalog, neighbours, event,
+    buildXcorrDiffTTimePairs(*catalog, *neighbours, event,
                              clustOpt.xcorrMaxEvStaDist,
                              clustOpt.xcorrMaxInterEvDist, xcorr);
 
@@ -2415,7 +2409,7 @@ void HypoDD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
     // cross-correlation result.
     if (theoretical)
     {
-      fixPhases(catalog, event, xcorr);
+      fixPhases(*catalog, event, xcorr);
     }
 
     //
@@ -2432,7 +2426,7 @@ void HypoDD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
         //
         const string stationId = kv.first;
         const Phase &catalogPhase =
-            _bgCat->searchPhase(event.id, stationId, phaseType)->second;
+            _bgCat.searchPhase(event.id, stationId, phaseType)->second;
 
         XCorrEvalStats phStaStats;
         double phaseTimeDiff = 0;
@@ -2465,7 +2459,7 @@ void HypoDD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
         statsByStation[catalogPhase.stationId] += phStaStats;
 
         const Station &station =
-            _bgCat->getStations().at(catalogPhase.stationId);
+            _bgCat.getStations().at(catalogPhase.stationId);
         double stationDistance = computeDistance(event, station);
         statsByStaDistance[int(stationDistance / STA_DIST_STEP)] += phStaStats;
 

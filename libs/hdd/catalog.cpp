@@ -18,24 +18,12 @@
 #include "csvreader.h"
 #include "utils.h"
 
-#include <boost/bind.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/range/iterator_range_core.hpp>
 #include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <seiscomp3/client/inventory.h>
-#include <seiscomp3/core/datetime.h>
-#include <seiscomp3/core/strings.h>
-#include <seiscomp3/datamodel/amplitude.h>
-#include <seiscomp3/datamodel/event.h>
-#include <seiscomp3/datamodel/magnitude.h>
-#include <seiscomp3/datamodel/origin.h>
-#include <seiscomp3/datamodel/pick.h>
-#include <seiscomp3/datamodel/station.h>
-#include <seiscomp3/utils/files.h>
-#include <stdexcept>
+
+#include <boost/filesystem.hpp>
 
 #define SEISCOMP_COMPONENT HDD
 #include <seiscomp3/logging/log.h>
@@ -93,19 +81,19 @@ Catalog::Catalog(const string &stationFile,
                  const string &phaFile,
                  bool loadRelocationInfo)
 {
-  if (!Util::fileExists(stationFile))
+  if (!boost::filesystem::exists(stationFile))
   {
     string msg = "File " + stationFile + " does not exist";
     throw Exception(msg);
   }
 
-  if (!Util::fileExists(eventFile))
+  if (!boost::filesystem::exists(eventFile))
   {
     string msg = "File " + eventFile + " does not exist";
     throw Exception(msg);
   }
 
-  if (!Util::fileExists(phaFile))
+  if (!boost::filesystem::exists(phaFile))
   {
     string msg = "File " + phaFile + " does not exist";
     throw Exception(msg);
@@ -226,9 +214,9 @@ void Catalog::add(const Catalog &other, bool keepEvId)
   }
 }
 
-CatalogPtr Catalog::extractEvent(unsigned eventId, bool keepEvId) const
+unique_ptr<Catalog> Catalog::extractEvent(unsigned eventId, bool keepEvId) const
 {
-  CatalogPtr eventToExtract = new Catalog();
+  unique_ptr<Catalog> eventToExtract(new Catalog());
 
   auto search = this->getEvents().find(eventId);
   if (search == this->getEvents().end())
@@ -562,7 +550,7 @@ void Catalog::writeToFile(string eventFile,
  * event/station pair there is only one P and one S phase. If multiple phases
  * are found, keep the one with the highest priority.
  */
-Catalog *
+unique_ptr<Catalog>
 Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
                                    const Phase::Source &source,
                                    const std::vector<std::string> &PphaseToKeep,
@@ -672,8 +660,8 @@ Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
     filteredPhases.emplace(phase.eventId, phase);
   }
 
-  return new Catalog(catalog.getStations(), catalog.getEvents(),
-                     filteredPhases);
+  return unique_ptr<Catalog>(new Catalog(catalog.getStations(), catalog.getEvents(),
+                     filteredPhases));
 }
 
 /*

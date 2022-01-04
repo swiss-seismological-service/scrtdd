@@ -104,7 +104,7 @@ private:
                       DataModel::OriginPtr &newOrg,
                       std::vector<DataModel::PickPtr> &newOrgPicks);
 
-  void convertOrigin(const HDD::CatalogCPtr &relocatedOrg,
+  void convertOrigin(const HDD::Catalog &relocatedOrg,
                      ProfilePtr profile,
                      DataModel::Origin *org,
                      bool includeMagnitude,
@@ -115,7 +115,7 @@ private:
 
   void removedFromCache(DataModel::PublicObject *);
 
-  HDD::Catalog *getCatalog(
+  std::unique_ptr<HDD::Catalog> getCatalog(
       const std::string &catalogPath,
       std::unordered_map<unsigned, DataModel::OriginPtr> *idmap = nullptr);
   ProfilePtr getProfile(const std::string &profile);
@@ -127,7 +127,7 @@ private:
 
   void loadProfile(ProfilePtr profile,
                    bool preloadData,
-                   const HDD::CatalogCPtr &alternativeCatalog = nullptr);
+                   const HDD::Catalog* alternativeCatalog = nullptr);
 
   std::vector<DataModel::OriginPtr> fetchOrigins(const std::string &idFile,
                                                  std::string options);
@@ -181,13 +181,13 @@ private:
               bool cacheAllWaveforms,
               bool debugWaveforms,
               bool preloadData,
-              const HDD::CatalogCPtr &alternativeCatalog = nullptr);
+              const HDD::Catalog* alternativeCatalog = nullptr);
     void unload();
     bool isLoaded() { return loaded; }
     void freeResources();
     Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
-    HDD::CatalogPtr relocateSingleEvent(DataModel::Origin *org);
-    HDD::CatalogPtr relocateCatalog();
+    std::unique_ptr<HDD::Catalog> relocateSingleEvent(DataModel::Origin *org);
+    std::unique_ptr<HDD::Catalog> relocateCatalog();
     void evalXCorr();
 
     std::string name;
@@ -208,7 +208,7 @@ private:
   private:
     bool loaded;
     Core::Time lastUsage;
-    HDD::HypoDDPtr hypodd;
+    std::unique_ptr<HDD::HypoDD> dd;
     DataModel::DatabaseQuery *query;
     DataModel::PublicObjectTimeSpanBuffer *cache;
     DataModel::EventParameters *eventParameters;

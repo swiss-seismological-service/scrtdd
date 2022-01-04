@@ -80,6 +80,12 @@ double computeMean(const std::vector<double> &values);
 double computeMeanAbsoluteDeviation(const std::vector<double> &values,
                                     const double mean);
 
+class Exception : public std::runtime_error
+{
+public:
+  Exception(const std::string &message) : std::runtime_error(message) {}
+};
+
 class UniformRandomer
 {
 
@@ -168,12 +174,6 @@ private:
   unsigned _currentIdx = 0;
   std::unordered_map<T, unsigned> _to;
   std::unordered_map<unsigned, T> _from;
-};
-
-class Exception : public std::runtime_error
-{
-public:
-  Exception(const std::string &message) : std::runtime_error(message) {}
 };
 
 } // namespace HDD

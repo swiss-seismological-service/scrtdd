@@ -24,8 +24,6 @@
 #include "waveform.h"
 #include "xcorrcache.h"
 
-#include <seiscomp3/core/baseobject.h>
-
 #include <map>
 #include <unordered_map>
 #include <unordered_set>
@@ -122,13 +120,11 @@ struct SolverOptions
   double xcorrObsWeight               = 1.0;
 };
 
-DEFINE_SMARTPOINTER(HypoDD);
-
-class HypoDD : public Core::BaseObject
+class HypoDD
 {
 
 public:
-  HypoDD(const CatalogCPtr &catalog,
+  HypoDD(const Catalog &catalog,
          const Config &cfg,
          const std::string &workingDir);
   ~HypoDD() = default;
@@ -140,14 +136,14 @@ public:
 
   void unloadWaveforms() { createWaveformCache(); }
 
-  void unloadTTT() { _ttt = nullptr; }
+  void unloadTTT() { _ttt.reset(); }
 
-  CatalogCPtr getCatalog() { return _srcCat; }
-  void setCatalog(const CatalogCPtr &catalog);
+  const Catalog& getCatalog() const { return _srcCat; }
+  void setCatalog(const Catalog &catalog);
 
-  CatalogPtr relocateMultiEvents(const ClusteringOptions &clustOpt,
+  std::unique_ptr<Catalog> relocateMultiEvents(const ClusteringOptions &clustOpt,
                                  const SolverOptions &solverOpt);
-  CatalogPtr relocateSingleEvent(const CatalogCPtr &singleEvent,
+  std::unique_ptr<Catalog> relocateSingleEvent(const Catalog &singleEvent,
                                  const ClusteringOptions &clustOpt1,
                                  const ClusteringOptions &clustOpt2,
                                  const SolverOptions &solverOpt);
@@ -171,7 +167,7 @@ public:
   void setUseArtificialPhases(bool use) { _useArtificialPhases = use; }
   bool useArtificialPhases() const { return _useArtificialPhases; }
 
-  static std::string relocationReport(const CatalogCPtr &relocatedEv);
+  static std::string relocationReport(const Catalog &relocatedEv);
 
 private:
   void createWaveformCache();
@@ -180,16 +176,16 @@ private:
   std::string generateWorkingSubDir(const std::string &prefix) const;
   std::string generateWorkingSubDir(const Catalog::Event &ev) const;
 
-  CatalogPtr relocateEventSingleStep(const CatalogCPtr bgCat,
-                                     const CatalogCPtr &evToRelocateCat,
+  std::unique_ptr<Catalog> relocateEventSingleStep(const Catalog& bgCat,
+                                     const Catalog &evToRelocateCat,
                                      const std::string &workingDir,
                                      const ClusteringOptions &clustOpt,
                                      const SolverOptions &solverOpt,
                                      bool doXcorr,
                                      bool computeTheoreticalPhases);
 
-  CatalogPtr relocate(const CatalogCPtr &catalog,
-                      const std::list<NeighboursPtr> &neighbourCats,
+  std::unique_ptr<Catalog> relocate(const Catalog &catalog,
+                            const std::vector<std::unique_ptr<Neighbours>> &neighCluster,
                       const SolverOptions &solverOpt,
                       bool keepNeighboursFixed,
                       const XCorrCache &xcorr) const;
@@ -208,7 +204,7 @@ private:
       double velocityAtSrc;
       bool computeEvChanges;
     };
-    bool add(HDD::TravelTimeTablePtr ttt,
+    bool add(HDD::TravelTimeTable& ttt,
              const Catalog::Event &event,
              const Catalog::Station &station,
              const Catalog::Phase &phase,
@@ -224,49 +220,49 @@ private:
   void addObservations(Solver &solver,
                        double absTTDiffObsWeight,
                        double xcorrObsWeight,
-                       const CatalogCPtr &catalog,
-                       const NeighboursPtr &neighbours,
+                       const Catalog &catalog,
+                       const Neighbours &neighbours,
                        bool keepNeighboursFixed,
                        bool usePickUncertainty,
                        const XCorrCache &xcorr,
                        ObservationParams &obsparams) const;
 
-  CatalogPtr updateRelocatedEvents(
+  std::unique_ptr<Catalog> updateRelocatedEvents(
       const Solver &solver,
-      const CatalogCPtr &catalog,
-      const std::list<NeighboursPtr> &neighbourCats,
+      const Catalog &catalog,
+      const std::vector<std::unique_ptr<Neighbours>> &neighCluster,
       ObservationParams &obsparams,
       double pickWeightScaler,
-      std::unordered_map<unsigned, NeighboursPtr> &neighCluster) const;
+      std::unordered_map<unsigned, std::unique_ptr<Neighbours>> &finalNeighCluster) const;
 
-  CatalogPtr updateRelocatedEventsFinalStats(
-      const CatalogCPtr &startingCatalog,
-      const CatalogCPtr &finalCatalog,
-      const std::unordered_map<unsigned, NeighboursPtr> &neighCluster) const;
+  std::unique_ptr<Catalog> updateRelocatedEventsFinalStats(
+      const Catalog &startingCatalog,
+      const Catalog &finalCatalog,
+      const std::unordered_map<unsigned, std::unique_ptr<Neighbours>> &neighCluster) const;
 
   void addMissingEventPhases(const Catalog::Event &refEv,
-                             CatalogPtr &refEvCatalog,
-                             const CatalogCPtr &searchCatalog,
-                             const NeighboursPtr &neighbours);
+                             Catalog &refEvCatalog,
+                             const Catalog &searchCatalog,
+                             const Neighbours &neighbours);
 
   std::vector<Catalog::Phase>
   findMissingEventPhases(const Catalog::Event &refEv,
-                         CatalogPtr &refEvCatalog,
-                         const CatalogCPtr &searchCatalog,
-                         const NeighboursPtr &neighbours);
+                         Catalog &refEvCatalog,
+                         const Catalog &searchCatalog,
+                         const Neighbours&neighbours);
 
   typedef std::pair<std::string, Catalog::Phase::Type> MissingStationPhase;
 
   std::vector<MissingStationPhase>
   getMissingPhases(const Catalog::Event &refEv,
-                   CatalogPtr &refEvCatalog,
-                   const CatalogCPtr &searchCatalog) const;
+                   Catalog &refEvCatalog,
+                   const Catalog &searchCatalog) const;
 
   typedef std::pair<Catalog::Event, Catalog::Phase> PhasePeer;
   std::vector<PhasePeer> findPhasePeers(const Catalog::Station &station,
                                         const Catalog::Phase::Type &phaseType,
-                                        const CatalogCPtr &searchCatalog,
-                                        const NeighboursPtr &neighbours) const;
+                                        const Catalog &searchCatalog,
+                                        const Neighbours &neighbours) const;
 
   Catalog::Phase
   createThoreticalPhase(const Catalog::Station &station,
@@ -275,20 +271,20 @@ private:
                         const std::vector<HypoDD::PhasePeer> &peers,
                         double phaseVelocity);
 
-  XCorrCache buildXCorrCache(CatalogPtr &catalog,
-                             const std::list<NeighboursPtr> &neighbourCats,
+  XCorrCache buildXCorrCache(Catalog &catalog,
+  const std::vector<std::unique_ptr<Neighbours>> &neighCluster,
                              bool computeTheoreticalPhases,
                              double xcorrMaxEvStaDist   = -1,
                              double xcorrMaxInterEvDist = -1);
 
-  void buildXcorrDiffTTimePairs(CatalogPtr &catalog,
-                                const NeighboursPtr &neighbours,
+  void buildXcorrDiffTTimePairs(Catalog &catalog,
+                                const Neighbours &neighbours,
                                 const Catalog::Event &refEv,
                                 double xcorrMaxEvStaDist,   // -1 to disable
                                 double xcorrMaxInterEvDist, // -1 to disable
                                 XCorrCache &xcorr);
 
-  void fixPhases(CatalogPtr &catalog,
+  void fixPhases(Catalog &catalog,
                  const Catalog::Event &refEv,
                  XCorrCache &xcorr);
 
@@ -321,8 +317,8 @@ private:
                                 bool skipUnloadableCheck = false);
 
   Waveform::LoaderPtr
-  preloadNonCatalogWaveforms(CatalogPtr &catalog,
-                             const NeighboursPtr &neighbours,
+  preloadNonCatalogWaveforms(Catalog &catalog,
+                             const Neighbours &neighbours,
                              const Catalog::Event &refEv,
                              double xcorrMaxEvStaDist,
                              double xcorrMaxInterEvDist) const;
@@ -341,8 +337,8 @@ private:
   std::string _tmpCacheDir;
   std::string _wfDebugDir;
 
-  CatalogCPtr _srcCat;
-  CatalogCPtr _bgCat;
+  Catalog _srcCat;
+  Catalog _bgCat;
 
   const Config _cfg;
 
@@ -352,7 +348,7 @@ private:
 
   bool _useArtificialPhases = true;
 
-  HDD::TravelTimeTablePtr _ttt;
+  std::unique_ptr<HDD::TravelTimeTable> _ttt;
 
   struct
   {

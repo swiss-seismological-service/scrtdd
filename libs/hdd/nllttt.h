@@ -19,9 +19,6 @@
 
 #include "ttt.h"
 
-#include <seiscomp3/core/baseobject.h>
-#include <seiscomp3/seismology/ttt.h>
-
 #include <fstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -82,7 +79,7 @@ struct Transform
   static constexpr double MAP_TRANS_SDC_DRLT = 0.99330647;
 };
 
-class Grid : public Core::BaseObject
+class Grid
 {
 public:
   enum class Type
@@ -326,11 +323,6 @@ protected:
   std::function<double(double)> convertUnits; // velocity -> km/sec
 };
 
-DEFINE_SMARTPOINTER(Grid);
-DEFINE_SMARTPOINTER(TimeGrid);
-DEFINE_SMARTPOINTER(AngleGrid);
-DEFINE_SMARTPOINTER(VelGrid);
-
 class NllTravelTimeTable : public TravelTimeTable
 {
 public:
@@ -360,9 +352,9 @@ private:
   std::string _timeGridPath;
   std::string _angleGridPath;
   bool _swapBytes;
-  std::unordered_map<std::string, VelGridPtr> _velGrids;
-  std::unordered_map<std::string, TimeGridPtr> _timeGrids;
-  std::unordered_map<std::string, AngleGridPtr> _angleGrids;
+  std::unordered_map<std::string, std::unique_ptr<VelGrid>> _velGrids;
+  std::unordered_map<std::string, std::unique_ptr<TimeGrid>> _timeGrids;
+  std::unordered_map<std::string, std::unique_ptr<AngleGrid>> _angleGrids;
   std::unordered_set<std::string> _unloadableGrids;
 };
 

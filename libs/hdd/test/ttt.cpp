@@ -144,7 +144,7 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
 
     for (size_t i = 0; i < tttList.size(); i++)
     {
-      HDD::TravelTimeTablePtr ttt =
+      unique_ptr<HDD::TravelTimeTable> ttt =
           HDD::TravelTimeTable::create(tttList[i].type, tttList[i].model);
       BOOST_REQUIRE(ttt);
       BOOST_CHECK_NO_THROW(ttt->compute(

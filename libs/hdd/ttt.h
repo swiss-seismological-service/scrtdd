@@ -19,19 +19,23 @@
 
 #include "catalog.h"
 
-#include <seiscomp3/core/baseobject.h>
 #include <seiscomp3/seismology/ttt.h>
-
 namespace Seiscomp {
 namespace HDD {
 
 DEFINE_SMARTPOINTER(TravelTimeTable);
 
-class TravelTimeTable : public Core::BaseObject
+class TravelTimeTable
 {
 public:
-  static TravelTimeTable *create(const std::string &type,
-                                 const std::string &model);
+  // factory method
+  static std::unique_ptr<TravelTimeTable>
+  create(const std::string &type, const std::string &model);
+
+  virtual ~TravelTimeTable() = default;
+
+  TravelTimeTable(const TravelTimeTable &other) = delete;
+  TravelTimeTable &operator=(const TravelTimeTable &other) = delete;
 
   /*
    * The implementation of this interface MUST compute:
@@ -100,13 +104,10 @@ protected:
                                   double *takeOffAngleAzim = nullptr,
                                   double *takeOffAngleDip  = nullptr);
 
+  // Object should be built via Factory method
   TravelTimeTable(const std::string &t, const std::string &m)
       : type(t), model(m)
   {}
-  virtual ~TravelTimeTable() = default;
-
-  TravelTimeTable(const TravelTimeTable &other) = delete;
-  TravelTimeTable &operator=(const TravelTimeTable &other) = delete;
 };
 
 } // namespace HDD

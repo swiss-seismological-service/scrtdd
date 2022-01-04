@@ -180,10 +180,7 @@ void NllTravelTimeTable::compute(double eventLat,
 
     try
     {
-      TimeGridPtr tg =
-          new TimeGrid(_timeGridPath, station, phaseType, _swapBytes);
-      timeIt =
-          _timeGrids.insert(std::pair<string, TimeGridPtr>(timeGId, tg)).first;
+      timeIt = _timeGrids.emplace(timeGId, new TimeGrid(_timeGridPath, station, phaseType, _swapBytes)).first;
     }
     catch (exception &e)
     {
@@ -192,8 +189,7 @@ void NllTravelTimeTable::compute(double eventLat,
     }
   }
 
-  TimeGridPtr timeGrid = timeIt->second;
-  travelTime           = timeGrid->getTime(eventLat, eventLon, eventDepth);
+  travelTime           = timeIt->second->getTime(eventLat, eventLon, eventDepth);
 }
 
 void NllTravelTimeTable::compute(double eventLat,
@@ -222,8 +218,8 @@ void NllTravelTimeTable::compute(double eventLat,
 
     try
     {
-      VelGridPtr vg = new VelGrid(_velGridPath, station, phaseType, _swapBytes);
-      velIt = _velGrids.insert(std::pair<string, VelGridPtr>(velGId, vg)).first;
+      velIt = _velGrids.emplace(velGId, 
+         new VelGrid(_velGridPath, station, phaseType, _swapBytes) ).first;
     }
     catch (exception &e)
     {
@@ -233,8 +229,7 @@ void NllTravelTimeTable::compute(double eventLat,
   }
 
   // set velocityAtSrc
-  VelGridPtr velGrid = velIt->second;
-  velocityAtSrc      = velGrid->getVel(eventLat, eventLon, eventDepth);
+  velocityAtSrc      = velIt->second->getVel(eventLat, eventLon, eventDepth);
 
   string angleGId =
       "angleGrid:" + Grid::filePath(_angleGridPath, station, phaseType);
@@ -246,11 +241,8 @@ void NllTravelTimeTable::compute(double eventLat,
     {
       try
       {
-        AngleGridPtr ag =
-            new AngleGrid(_angleGridPath, station, phaseType, _swapBytes);
         angleIt =
-            _angleGrids.insert(std::pair<string, AngleGridPtr>(angleGId, ag))
-                .first;
+            _angleGrids.emplace(angleGId, new AngleGrid(_angleGridPath, station, phaseType, _swapBytes)).first;
       }
       catch (exception &e)
       {
@@ -267,10 +259,9 @@ void NllTravelTimeTable::compute(double eventLat,
   takeOffAngleDip  = std::nan("");
   if (angleIt != _angleGrids.end())
   {
-    AngleGridPtr angleGrid = angleIt->second;
     try
     {
-      angleGrid->getAngles(eventLat, eventLon, eventDepth, takeOffAngleAzim,
+      angleIt->second->getAngles(eventLat, eventLon, eventDepth, takeOffAngleAzim,
                            takeOffAngleDip);
     }
     catch (exception &e)
@@ -376,7 +367,7 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
     }
     else if (tokens.at(0) == "TRANSFORM" || tokens.at(0) == "TRANS")
     {
-      info.transform = std::unique_ptr<Transform>(new Transform(tokens));
+      info.transform.reset(new Transform(tokens));
       ++parsedLines;
     }
   }

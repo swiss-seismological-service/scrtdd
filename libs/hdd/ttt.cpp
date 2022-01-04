@@ -30,21 +30,21 @@ using namespace std;
 namespace Seiscomp {
 namespace HDD {
 
-TravelTimeTable *TravelTimeTable::create(const std::string &type,
-                                         const std::string &model)
+std::unique_ptr<TravelTimeTable>
+TravelTimeTable::create(const std::string &type,  const std::string &model)
 {
-  TravelTimeTable *ttt = nullptr;
+  unique_ptr<TravelTimeTable> ttt;
 
   if (type == "LOCSAT" || type == "libtau")
   {
-    ttt = new ScTravelTimeTable(type, model);
+    ttt.reset(new ScTravelTimeTable(type, model));
   }
   else if (type == "NonLinLoc")
   {
-    ttt = new NLL::NllTravelTimeTable(type, model);
+    ttt.reset(new NLL::NllTravelTimeTable(type, model));
   }
 
-  if (ttt == nullptr)
+  if (!ttt)
   {
     string msg =
         strf("Cannot load travel time table: unknown type %s", type.c_str());

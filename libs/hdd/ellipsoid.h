@@ -52,8 +52,6 @@ struct Ellipsoid
   double lat = 0, lon = 0, depth = 0;        // origin
 };
 
-DEFINE_SMARTPOINTER(Ellipsoid);
-
 /*
  * Helper class to implement Waldhauser's paper method of neighboring events
  * selection based on 5 concentric ellipsoidal layers.
@@ -70,7 +68,7 @@ DEFINE_SMARTPOINTER(Ellipsoid);
  *    3/7  |   4/8
  *         |
  */
-class HddEllipsoid : public Core::BaseObject
+class HddEllipsoid
 {
 
 public:
@@ -162,8 +160,6 @@ private:
   Ellipsoid _outerEllipsoid;
   Ellipsoid _innerEllipsoid;
 };
-
-DEFINE_SMARTPOINTER(HddEllipsoid);
 
 } // namespace HDD
 } // namespace Seiscomp

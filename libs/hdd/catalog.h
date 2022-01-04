@@ -17,19 +17,17 @@
 #ifndef __HDD_CATALOG_H__
 #define __HDD_CATALOG_H__
 
-#include <seiscomp3/core/baseobject.h>
-#include <seiscomp3/datamodel/station.h>
-
+#include <memory>
+#include <map>
 #include <unordered_map>
 #include <vector>
+#include <seiscomp3/core/datetime.h>
 
 namespace Seiscomp {
 namespace HDD {
 
-DEFINE_SMARTPOINTER(Catalog);
-
 // DD background catalog
-class Catalog : public Core::BaseObject
+class Catalog
 {
 
 public:
@@ -208,7 +206,7 @@ public:
 
   void add(const Catalog &other, bool keepEvId);
   unsigned add(unsigned evId, const Catalog &eventCatalog, bool keepEvId);
-  CatalogPtr extractEvent(unsigned eventId, bool keepEvId) const;
+  std::unique_ptr<Catalog> extractEvent(unsigned eventId, bool keepEvId) const;
 
   void removeEvent(unsigned eventId);
   void removePhase(unsigned eventId,
@@ -252,7 +250,7 @@ public:
   //
   static double computePickWeight(double uncertainty);
   static double computePickWeight(const Catalog::Phase &phase);
-  static Catalog *
+  static std::unique_ptr<Catalog>
   filterPhasesAndSetWeights(const Catalog &catalog,
                             const Catalog::Phase::Source &source,
                             const std::vector<std::string> &PphaseToKeep,

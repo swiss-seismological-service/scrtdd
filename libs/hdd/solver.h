@@ -19,7 +19,6 @@
 
 #include "utils.h"
 
-#include <seiscomp3/core/baseobject.h>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -45,7 +44,7 @@ namespace HDD {
  *
  * We take advantage of the sparsness of G matrix, so G is not a full matrix.
  */
-struct DDSystem : public Core::BaseObject
+struct DDSystem
 {
 
   // number of observations
@@ -95,7 +94,7 @@ struct DDSystem : public Core::BaseObject
     phStaByObs = new unsigned[numRowsG];
   }
 
-  virtual ~DDSystem()
+  ~DDSystem()
   {
     delete[] phStaByObs;
     delete[] evByObs[0];
@@ -111,14 +110,12 @@ struct DDSystem : public Core::BaseObject
   DDSystem operator=(const DDSystem &other) = delete;
 };
 
-DEFINE_SMARTPOINTER(DDSystem);
-
 /*
  * Solver for double difference problems.
  *
  * For details, see Waldhauser & Ellsworth 2000 paper.
  */
-class Solver : public Core::BaseObject
+class Solver
 {
 
 public:
@@ -269,11 +266,9 @@ private:
   std::unordered_map<unsigned, EventDeltas> _eventDeltas; // key = evIdx
 
   std::vector<double> _residuals;
-  DDSystemPtr _dd;
+  std::unique_ptr<DDSystem> _dd;
   std::string _type;
 };
-
-DEFINE_SMARTPOINTER(Solver);
 
 } // namespace HDD
 } // namespace Seiscomp

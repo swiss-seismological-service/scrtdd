@@ -16,7 +16,7 @@
 
 using namespace std;
 using namespace Seiscomp;
-using Seiscomp::Core::stringify;
+using HDD::strf;
 using Event     = HDD::Catalog::Event;
 using Phase     = HDD::Catalog::Phase;
 using Station   = HDD::Catalog::Station;
@@ -24,18 +24,18 @@ namespace bdata = boost::unit_test::data;
 
 namespace {
 
-void addStationsToCatalog(HDD::CatalogPtr cat, int maxStations)
+void addStationsToCatalog(HDD::Catalog& cat, int maxStations)
 {
   int numStations = 0;
   for (const auto &sta : stationList)
   {
     if (numStations++ == maxStations) break;
-    cat->addStation(sta);
+    cat.addStation(sta);
   }
 }
 
-void addEventToCatalog(HDD::CatalogPtr &cat,
-                       HDD::TravelTimeTablePtr &ttt,
+void addEventToCatalog(HDD::Catalog &cat,
+                       HDD::TravelTimeTable &ttt,
                        Core::Time time,
                        double lat,
                        double lon,
@@ -47,9 +47,9 @@ void addEventToCatalog(HDD::CatalogPtr &cat,
   ev.longitude           = lon;
   ev.depth               = depth;
   ev.magnitude           = 1.0;
-  const unsigned eventId = cat->addEvent(ev);
+  const unsigned eventId = cat.addEvent(ev);
 
-  for (const auto &kv : cat->getStations())
+  for (const auto &kv : cat.getStations())
   {
     const Station &sta = kv.second;
 
@@ -65,20 +65,20 @@ void addEventToCatalog(HDD::CatalogPtr &cat,
     ph.isManual         = true;
 
     double travelTime;
-    ttt->compute(ev, sta, "P", travelTime);
+    ttt.compute(ev, sta, "P", travelTime);
     ph.time = ev.time + Core::TimeSpan(travelTime);
     ph.type = "P";
-    cat->addPhase(ph);
+    cat.addPhase(ph);
 
-    ttt->compute(ev, sta, "S", travelTime);
+    ttt.compute(ev, sta, "S", travelTime);
     ph.time = ev.time + Core::TimeSpan(travelTime);
     ph.type = "S";
-    cat->addPhase(ph);
+    cat.addPhase(ph);
   }
 }
 
-void addEvents1ToCatalog(HDD::CatalogPtr &cat,
-                         HDD::TravelTimeTablePtr &ttt,
+void addEvents1ToCatalog(HDD::Catalog &cat,
+                         HDD::TravelTimeTable &ttt,
                          Core::Time time,
                          double lat,
                          double lon,
@@ -98,8 +98,8 @@ void addEvents1ToCatalog(HDD::CatalogPtr &cat,
   }
 }
 
-void addEvents2ToCatalog(HDD::CatalogPtr &cat,
-                         HDD::TravelTimeTablePtr &ttt,
+void addEvents2ToCatalog(HDD::Catalog &cat,
+                         HDD::TravelTimeTable &ttt,
                          Core::Time time,
                          double lat,
                          double lon,
@@ -119,8 +119,8 @@ void addEvents2ToCatalog(HDD::CatalogPtr &cat,
   }
 }
 
-void addEvents3ToCatalog(HDD::CatalogPtr &cat,
-                         HDD::TravelTimeTablePtr &ttt,
+void addEvents3ToCatalog(HDD::Catalog &cat,
+                         HDD::TravelTimeTable &ttt,
                          Core::Time time,
                          double lat,
                          double lon,
@@ -136,7 +136,7 @@ void addEvents3ToCatalog(HDD::CatalogPtr &cat,
   }
 }
 
-HDD::CatalogPtr buildCatalog(HDD::TravelTimeTablePtr &ttt,
+std::unique_ptr<HDD::Catalog> buildCatalog(HDD::TravelTimeTable &ttt,
                              int maxStations,
                              Core::Time time,
                              double lat,
@@ -145,34 +145,34 @@ HDD::CatalogPtr buildCatalog(HDD::TravelTimeTablePtr &ttt,
                              int numEvents,
                              double extent)
 {
-  HDD::CatalogPtr cat(new HDD::Catalog());
-  addStationsToCatalog(cat, maxStations);
+  std::unique_ptr<HDD::Catalog>cat(new HDD::Catalog());
+  addStationsToCatalog(*cat, maxStations);
   double distance = Math::Geo::km2deg(extent * 2.5);
   double clusterLat, clusterLon;
   // cluster 1
   Math::Geo::delandaz2coord(distance, 135, lat, lon, &clusterLat, &clusterLon);
-  addEvents1ToCatalog(cat, ttt, time + Core::TimeSpan(1), clusterLat,
+  addEvents1ToCatalog(*cat, ttt, time + Core::TimeSpan(1), clusterLat,
                       clusterLon, depth, numEvents / 6, extent);
   // cluster 2
   Math::Geo::delandaz2coord(distance, 315, lat, lon, &clusterLat, &clusterLon);
-  addEvents2ToCatalog(cat, ttt, time + Core::TimeSpan(2), clusterLat,
+  addEvents2ToCatalog(*cat, ttt, time + Core::TimeSpan(2), clusterLat,
                       clusterLon, depth, numEvents / 6, extent);
   // cluster 3
   Math::Geo::delandaz2coord(distance, 45, lat, lon, &clusterLat, &clusterLon);
-  addEvents3ToCatalog(cat, ttt, time + Core::TimeSpan(3), clusterLat,
+  addEvents3ToCatalog(*cat, ttt, time + Core::TimeSpan(3), clusterLat,
                       clusterLon, depth, numEvents / 6, extent);
   // cluster 4
   Math::Geo::delandaz2coord(distance, 225, lat, lon, &clusterLat, &clusterLon);
-  addEvents1ToCatalog(cat, ttt, time + Core::TimeSpan(4), clusterLat,
+  addEvents1ToCatalog(*cat, ttt, time + Core::TimeSpan(4), clusterLat,
                       clusterLon, depth, numEvents / 6, extent);
-  addEvents2ToCatalog(cat, ttt, time + Core::TimeSpan(4), clusterLat,
+  addEvents2ToCatalog(*cat, ttt, time + Core::TimeSpan(4), clusterLat,
                       clusterLon, depth, numEvents / 6, extent);
-  addEvents3ToCatalog(cat, ttt, time + Core::TimeSpan(4), clusterLat,
+  addEvents3ToCatalog(*cat, ttt, time + Core::TimeSpan(4), clusterLat,
                       clusterLon, depth, numEvents / 6, extent);
   return cat;
 }
 
-HDD::CatalogPtr buildBackgroundCatalog(HDD::TravelTimeTablePtr &ttt,
+std::unique_ptr<HDD::Catalog> buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
                                        int maxStations,
                                        Core::Time time,
                                        double lat,
@@ -181,31 +181,31 @@ HDD::CatalogPtr buildBackgroundCatalog(HDD::TravelTimeTablePtr &ttt,
                                        int numEvents,
                                        double extent)
 {
-  HDD::CatalogPtr cat(new HDD::Catalog());
-  addStationsToCatalog(cat, maxStations);
-  addEvents1ToCatalog(cat, ttt, time + Core::TimeSpan(1), lat, lon, depth,
+  std::unique_ptr<HDD::Catalog>cat(new HDD::Catalog());
+  addStationsToCatalog(*cat, maxStations);
+  addEvents1ToCatalog(*cat, ttt, time + Core::TimeSpan(1), lat, lon, depth,
                       numEvents / 3, extent);
-  addEvents2ToCatalog(cat, ttt, time + Core::TimeSpan(2), lat, lon, depth,
+  addEvents2ToCatalog(*cat, ttt, time + Core::TimeSpan(2), lat, lon, depth,
                       numEvents / 3, extent);
-  addEvents3ToCatalog(cat, ttt, time + Core::TimeSpan(3), lat, lon, depth,
+  addEvents3ToCatalog(*cat, ttt, time + Core::TimeSpan(3), lat, lon, depth,
                       numEvents / 3, extent);
   return cat;
 }
 
-HDD::CatalogPtr relocateCatalog(const HDD::CatalogCPtr cat,
-                                HDD::TravelTimeTablePtr &ttt,
+std::unique_ptr<HDD::Catalog> relocateCatalog(const HDD::Catalog& cat,
+                                HDD::TravelTimeTable &ttt,
                                 const string &workingDir)
 {
   HDD::Config ddCfg;
-  ddCfg.ttt.type  = ttt->type;
-  ddCfg.ttt.model = ttt->model;
+  ddCfg.ttt.type  = ttt.type;
+  ddCfg.ttt.model = ttt.model;
 
-  HDD::HypoDDPtr hypodd = new HDD::HypoDD(cat, ddCfg, workingDir);
-  hypodd->setSaveProcessing(true);
-  hypodd->setUseCatalogWaveformDiskCache(false);
-  hypodd->setWaveformCacheAll(false);
-  hypodd->setWaveformDebug(false);
-  hypodd->setUseArtificialPhases(false);
+  HDD::HypoDD dd(cat, ddCfg, workingDir);
+  dd.setSaveProcessing(true);
+  dd.setUseCatalogWaveformDiskCache(false);
+  dd.setWaveformCacheAll(false);
+  dd.setWaveformDebug(false);
+  dd.setUseArtificialPhases(false);
 
   HDD::ClusteringOptions clusterCfg;
   clusterCfg.numEllipsoids    = 0;
@@ -223,7 +223,7 @@ HDD::CatalogPtr relocateCatalog(const HDD::CatalogCPtr cat,
   solverCfg.downWeightingByResidualStart = 0;
   solverCfg.downWeightingByResidualEnd   = 0;
 
-  HDD::CatalogPtr relocCat = hypodd->relocateMultiEvents(clusterCfg, solverCfg);
+  std::unique_ptr<HDD::Catalog> relocCat = dd.relocateMultiEvents(clusterCfg, solverCfg);
 
   // comment this for debugging
   boost::filesystem::remove_all(workingDir);
@@ -231,21 +231,21 @@ HDD::CatalogPtr relocateCatalog(const HDD::CatalogCPtr cat,
   return relocCat;
 }
 
-HDD::CatalogCPtr relocateSingleEvent(const HDD::CatalogCPtr bgCat,
-                                     HDD::TravelTimeTablePtr &ttt,
+unique_ptr<const HDD::Catalog> relocateSingleEvent(const HDD::Catalog& bgCat,
+                                     HDD::TravelTimeTable &ttt,
                                      const string &workingDir,
-                                     const HDD::CatalogCPtr &realTimeCat)
+                                     const HDD::Catalog &realTimeCat)
 {
   HDD::Config ddCfg;
-  ddCfg.ttt.type  = ttt->type;
-  ddCfg.ttt.model = ttt->model;
+  ddCfg.ttt.type  = ttt.type;
+  ddCfg.ttt.model = ttt.model;
 
-  HDD::HypoDDPtr hypodd = new HDD::HypoDD(bgCat, ddCfg, workingDir);
-  hypodd->setSaveProcessing(true);
-  hypodd->setUseCatalogWaveformDiskCache(false);
-  hypodd->setWaveformCacheAll(false);
-  hypodd->setWaveformDebug(false);
-  hypodd->setUseArtificialPhases(false);
+  HDD::HypoDD dd(bgCat, ddCfg, workingDir);
+  dd.setSaveProcessing(true);
+  dd.setUseCatalogWaveformDiskCache(false);
+  dd.setWaveformCacheAll(false);
+  dd.setWaveformDebug(false);
+  dd.setUseArtificialPhases(false);
 
   HDD::ClusteringOptions clusterCfg;
   clusterCfg.numEllipsoids    = 5;
@@ -264,13 +264,13 @@ HDD::CatalogCPtr relocateSingleEvent(const HDD::CatalogCPtr bgCat,
   solverCfg.downWeightingByResidualStart = 0;
   solverCfg.downWeightingByResidualEnd   = 0;
 
-  HDD::CatalogPtr relocCat(new HDD::Catalog());
-  for (const auto &kv : realTimeCat->getEvents())
+  unique_ptr<HDD::Catalog> relocCat(new HDD::Catalog());
+  for (const auto &kv : realTimeCat.getEvents())
   {
     const Event &ev                = kv.second;
-    HDD::CatalogPtr orgToRelocate  = realTimeCat->extractEvent(ev.id, false);
-    HDD::CatalogPtr relocatedEvent = hypodd->relocateSingleEvent(
-        orgToRelocate, clusterCfg, clusterCfg, solverCfg);
+    unique_ptr<HDD::Catalog> orgToRelocate  = realTimeCat.extractEvent(ev.id, false);
+    unique_ptr<HDD::Catalog> relocatedEvent = dd.relocateSingleEvent(
+        *orgToRelocate, clusterCfg, clusterCfg, solverCfg);
     relocCat->add(*relocatedEvent, false);
   }
 
@@ -280,17 +280,17 @@ HDD::CatalogCPtr relocateSingleEvent(const HDD::CatalogCPtr bgCat,
   return relocCat;
 }
 
-void testCatalogEqual(const HDD::CatalogCPtr cat1, const HDD::CatalogCPtr cat2)
+void testCatalogEqual(const HDD::Catalog& cat1, const HDD::Catalog& cat2)
 {
-  for (const auto &kv : cat1->getEvents())
+  for (const auto &kv : cat1.getEvents())
   {
     const Event &ev1 = kv.second;
-    BOOST_CHECK_EQUAL(cat2->getEvents().count(ev1.id), 1);
-    if (cat2->getEvents().count(ev1.id) != 1)
+    BOOST_CHECK_EQUAL(cat2.getEvents().count(ev1.id), 1);
+    if (cat2.getEvents().count(ev1.id) != 1)
     {
       continue;
     }
-    const Event &ev2 = cat2->getEvents().at(ev1.id);
+    const Event &ev2 = cat2.getEvents().at(ev1.id);
     BOOST_CHECK_SMALL((ev1.time - ev2.time).length(),
                       0.01); // tolerance in seconds
     BOOST_CHECK_CLOSE(ev1.latitude, ev2.latitude, 1);
@@ -305,7 +305,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event, bdata::xrange(tttList.size()), tttIdx)
 {
   // Logging::enableConsoleLogging(Logging::getAll());
 
-  HDD::TravelTimeTablePtr ttt =
+  unique_ptr<HDD::TravelTimeTable> ttt =
       HDD::TravelTimeTable::create(tttList[tttIdx].type, tttList[tttIdx].model);
 
   const Core::Time clusterTime = Core::Time::FromString("2001-01-02", "%F");
@@ -313,16 +313,16 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event, bdata::xrange(tttList.size()), tttIdx)
   const double clusterLon      = 8.5;
   const double clusterDepth    = 5;
 
-  const HDD::CatalogCPtr baseCat = buildCatalog(
-      ttt, 8, clusterTime, clusterLat, clusterLon, clusterDepth, 66, 1.0);
+  unique_ptr<const HDD::Catalog> baseCat = buildCatalog(
+      *ttt, 8, clusterTime, clusterLat, clusterLon, clusterDepth, 66, 1.0);
 
   // Test 1: no event changes
-  string workingDir = stringify("./data/test_dd_multi_event_%d_reloc1", tttIdx);
-  HDD::CatalogCPtr relocCat = relocateCatalog(baseCat, ttt, workingDir);
-  testCatalogEqual(baseCat, relocCat);
+  string workingDir = strf("./data/test_dd_multi_event_%d_reloc1", tttIdx);
+  unique_ptr<const HDD::Catalog> relocCat = relocateCatalog(*baseCat, *ttt, workingDir);
+  testCatalogEqual(*baseCat, *relocCat);
 
   // Test 2: all events at the center location, depth 1 km
-  HDD::CatalogPtr cat = new HDD::Catalog(*baseCat);
+  unique_ptr<HDD::Catalog> cat(new HDD::Catalog(*baseCat));
   HDD::NormalRandomer timeDist(0.1, 0.400, 0x1004); // sec
   for (const auto &kv : cat->getEvents())
   {
@@ -334,12 +334,12 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event, bdata::xrange(tttList.size()), tttIdx)
     cat->updateEvent(ev);
   }
 
-  workingDir = stringify("./data/test_dd_multi_event_%d_reloc2", tttIdx);
-  relocCat   = relocateCatalog(cat, ttt, workingDir);
-  testCatalogEqual(baseCat, relocCat);
+  workingDir = strf("./data/test_dd_multi_event_%d_reloc2", tttIdx);
+  relocCat   = relocateCatalog(*cat, *ttt, workingDir);
+  testCatalogEqual(*baseCat, *relocCat);
 
   // Test 3: all events at the center location, depth 10 km
-  cat = new HDD::Catalog(*baseCat);
+  cat.reset(new HDD::Catalog(*baseCat));
   for (const auto &kv : cat->getEvents())
   {
     Event ev = kv.second;
@@ -350,12 +350,12 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event, bdata::xrange(tttList.size()), tttIdx)
     cat->updateEvent(ev);
   }
 
-  workingDir = stringify("./data/test_dd_multi_event_%d_reloc3", tttIdx);
-  relocCat   = relocateCatalog(cat, ttt, workingDir);
-  testCatalogEqual(baseCat, relocCat);
+  workingDir = strf("./data/test_dd_multi_event_%d_reloc3", tttIdx);
+  relocCat   = relocateCatalog(*cat, *ttt, workingDir);
+  testCatalogEqual(*baseCat, *relocCat);
 
   // Test 4: random changes to all events (mean of all changes is != 0)
-  cat = new HDD::Catalog(*baseCat);
+  cat.reset(new HDD::Catalog(*baseCat));
   HDD::NormalRandomer latDist(0.0055, 0.02, 0x1001);
   HDD::NormalRandomer lonDist(-0.011, 0.04, 0x1002);
   HDD::NormalRandomer depthDist(-0.6, 2.0, 0x1003); // km
@@ -369,9 +369,9 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event, bdata::xrange(tttList.size()), tttIdx)
     cat->updateEvent(ev);
   }
 
-  workingDir = stringify("./data/test_dd_multi_event_%d_reloc4", tttIdx);
-  relocCat   = relocateCatalog(cat, ttt, workingDir);
-  testCatalogEqual(baseCat, relocCat);
+  workingDir = strf("./data/test_dd_multi_event_%d_reloc4", tttIdx);
+  relocCat   = relocateCatalog(*cat, *ttt, workingDir);
+  testCatalogEqual(*baseCat, *relocCat);
 }
 
 BOOST_DATA_TEST_CASE(test_dd_single_event,
@@ -380,7 +380,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event,
 {
   // Logging::enableConsoleLogging(Logging::getAll());
 
-  HDD::TravelTimeTablePtr ttt =
+  unique_ptr<HDD::TravelTimeTable> ttt =
       HDD::TravelTimeTable::create(tttList[tttIdx].type, tttList[tttIdx].model);
 
   const Core::Time clusterTime = Core::Time::FromString("2001-01-02", "%F");
@@ -388,22 +388,22 @@ BOOST_DATA_TEST_CASE(test_dd_single_event,
   const double clusterLon      = 8.5;
   const double clusterDepth    = 5;
 
-  const HDD::CatalogCPtr backgroundCat = buildBackgroundCatalog(
-      ttt, 8, clusterTime, clusterLat, clusterLon, clusterDepth, 21, 1.0);
+  unique_ptr<const HDD::Catalog> backgroundCat = buildBackgroundCatalog(
+      *ttt, 8, clusterTime, clusterLat, clusterLon, clusterDepth, 21, 1.0);
 
 
-  const HDD::CatalogCPtr realTimeCat = buildCatalog(
-      ttt, 8, clusterTime, clusterLat, clusterLon, clusterDepth, 66, 1.0);
+  unique_ptr<const HDD::Catalog> realTimeCat = buildCatalog(
+      *ttt, 8, clusterTime, clusterLat, clusterLon, clusterDepth, 66, 1.0);
 
   // Test 1: no event changes
   string workingDir =
-      stringify("./data/test_dd_single_event_%d_reloc1", tttIdx);
-  HDD::CatalogCPtr relocCat =
-      relocateSingleEvent(backgroundCat, ttt, workingDir, realTimeCat);
-  testCatalogEqual(realTimeCat, relocCat);
+      strf("./data/test_dd_single_event_%d_reloc1", tttIdx);
+  unique_ptr<const HDD::Catalog> relocCat =
+      relocateSingleEvent(*backgroundCat, *ttt, workingDir, *realTimeCat);
+  testCatalogEqual(*realTimeCat, *relocCat);
 
   // Test 2: all events at the center location, depth 1 km
-  HDD::CatalogPtr cat = new HDD::Catalog(*realTimeCat);
+  std::unique_ptr<HDD::Catalog> cat(new HDD::Catalog(*realTimeCat));
   HDD::NormalRandomer timeDist(0.2, 0.500, 0x1004); // sec
   for (const auto &kv : cat->getEvents())
   {
@@ -415,12 +415,12 @@ BOOST_DATA_TEST_CASE(test_dd_single_event,
     cat->updateEvent(ev);
   }
 
-  workingDir = stringify("./data/test_dd_single_event_%d_reloc2", tttIdx);
-  relocCat   = relocateSingleEvent(backgroundCat, ttt, workingDir, realTimeCat);
-  testCatalogEqual(realTimeCat, relocCat);
+  workingDir = strf("./data/test_dd_single_event_%d_reloc2", tttIdx);
+  relocCat   = relocateSingleEvent(*backgroundCat, *ttt, workingDir, *realTimeCat);
+  testCatalogEqual(*realTimeCat, *relocCat);
 
   // Test 3: all events at the center location, depth 10 km
-  cat = new HDD::Catalog(*realTimeCat);
+  cat.reset(new HDD::Catalog(*realTimeCat));
   for (const auto &kv : cat->getEvents())
   {
     Event ev = kv.second;
@@ -431,12 +431,12 @@ BOOST_DATA_TEST_CASE(test_dd_single_event,
     cat->updateEvent(ev);
   }
 
-  workingDir = stringify("./data/test_dd_single_event_%d_reloc3", tttIdx);
-  relocCat   = relocateSingleEvent(backgroundCat, ttt, workingDir, realTimeCat);
-  testCatalogEqual(realTimeCat, relocCat);
+  workingDir = strf("./data/test_dd_single_event_%d_reloc3", tttIdx);
+  relocCat   = relocateSingleEvent(*backgroundCat, *ttt, workingDir, *realTimeCat);
+  testCatalogEqual(*realTimeCat, *relocCat);
 
   // Test 4: random changes to all events (mean of all changes is != 0)
-  cat = new HDD::Catalog(*realTimeCat);
+  cat.reset(new HDD::Catalog(*realTimeCat));
   HDD::NormalRandomer latDist(0.006, 0.02, 0x1001);
   HDD::NormalRandomer lonDist(-0.012, 0.04, 0x1002);
   HDD::NormalRandomer depthDist(-0.6, 2.0, 0x1003); // km
@@ -450,7 +450,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event,
     cat->updateEvent(ev);
   }
 
-  workingDir = stringify("./data/test_dd_single_event_%d_reloc4", tttIdx);
-  relocCat   = relocateSingleEvent(backgroundCat, ttt, workingDir, realTimeCat);
-  testCatalogEqual(realTimeCat, relocCat);
+  workingDir = strf("./data/test_dd_single_event_%d_reloc4", tttIdx);
+  relocCat   = relocateSingleEvent(*backgroundCat, *ttt, workingDir, *realTimeCat);
+  testCatalogEqual(*realTimeCat, *relocCat);
 }
