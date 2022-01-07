@@ -4,7 +4,7 @@
 #include <boost/test/data/test_case.hpp>
 
 #include "catalog.h"
-#include "hypodd.h"
+#include "dd.h"
 #include "ttt.h"
 
 #include <seiscomp/logging/log.h>
@@ -200,7 +200,7 @@ std::unique_ptr<HDD::Catalog> relocateCatalog(const HDD::Catalog& cat,
   ddCfg.ttt.type  = ttt.type;
   ddCfg.ttt.model = ttt.model;
 
-  HDD::HypoDD dd(cat, ddCfg, workingDir);
+  HDD::DD dd(cat, ddCfg, workingDir);
   dd.setSaveProcessing(true);
   dd.setUseCatalogWaveformDiskCache(false);
   dd.setWaveformCacheAll(false);
@@ -240,7 +240,7 @@ unique_ptr<const HDD::Catalog> relocateSingleEvent(const HDD::Catalog& bgCat,
   ddCfg.ttt.type  = ttt.type;
   ddCfg.ttt.model = ttt.model;
 
-  HDD::HypoDD dd(bgCat, ddCfg, workingDir);
+  HDD::DD dd(bgCat, ddCfg, workingDir);
   dd.setSaveProcessing(true);
   dd.setUseCatalogWaveformDiskCache(false);
   dd.setWaveformCacheAll(false);

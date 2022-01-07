@@ -14,7 +14,7 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#include "hypodd.h"
+#include "dd.h"
 #include "utils.h"
 
 #include <boost/filesystem.hpp>
@@ -43,7 +43,7 @@ using HDD::Waveform::getBandAndInstrumentCodes;
 namespace Seiscomp {
 namespace HDD {
 
-HypoDD::HypoDD(const Catalog &catalog,
+DD::DD(const Catalog &catalog,
                const Config &cfg,
                const string &workingDir)
     : _workingDir(workingDir), _cfg(cfg)
@@ -86,20 +86,20 @@ HypoDD::HypoDD(const Catalog &catalog,
   setWaveformDebug(false);
 }
 
-void HypoDD::setCatalog(const Catalog &catalog)
+void DD::setCatalog(const Catalog &catalog)
 {
   _srcCat = catalog;
   _bgCat  = *Catalog::filterPhasesAndSetWeights(
       _srcCat, Phase::Source::CATALOG, _cfg.validPphases, _cfg.validSphases);
 }
 
-void HypoDD::setUseCatalogWaveformDiskCache(bool cache)
+void DD::setUseCatalogWaveformDiskCache(bool cache)
 {
   _useCatalogWaveformDiskCache = cache;
   createWaveformCache();
 }
 
-void HypoDD::createWaveformCache()
+void DD::createWaveformCache()
 {
   _wfAccess.unloadableWfs.clear();
   _wfAccess.loader    = new Waveform::Loader(_cfg.recordStreamURL);
@@ -129,7 +129,7 @@ void HypoDD::createWaveformCache()
   _wfAccess.memCache = new Waveform::MemCachedLoader(current);
 }
 
-void HypoDD::replaceWaveformCacheLoader(Waveform::LoaderPtr baseLdr)
+void DD::replaceWaveformCacheLoader(Waveform::LoaderPtr baseLdr)
 {
   if (_useCatalogWaveformDiskCache)
   {
@@ -145,7 +145,7 @@ void HypoDD::replaceWaveformCacheLoader(Waveform::LoaderPtr baseLdr)
   }
 }
 
-void HypoDD::setWaveformDebug(bool debug)
+void DD::setWaveformDebug(bool debug)
 {
   _waveformDebug = debug;
   if (_waveformDebug)
@@ -166,7 +166,7 @@ void HypoDD::setWaveformDebug(bool debug)
   _wfAccess.memCache->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
 }
 
-string HypoDD::generateWorkingSubDir(const string &prefix) const
+string DD::generateWorkingSubDir(const string &prefix) const
 {
   Core::Time now = Core::Time::GMT();
   UniformRandomer ran(0, 9999);
@@ -179,7 +179,7 @@ string HypoDD::generateWorkingSubDir(const string &prefix) const
   return id;
 }
 
-string HypoDD::generateWorkingSubDir(const Event &ev) const
+string DD::generateWorkingSubDir(const Event &ev) const
 {
   string prefix = strf("singleevent_%s_%05d_%06d",
                        ev.time.toString("%Y%m%d%H%M%S").c_str(), // origin time
@@ -189,7 +189,7 @@ string HypoDD::generateWorkingSubDir(const Event &ev) const
   return generateWorkingSubDir(prefix);
 }
 
-void HypoDD::preloadWaveforms()
+void DD::preloadWaveforms()
 {
   //
   // preload waveforms, store them on disk and cache them in memory
@@ -287,10 +287,10 @@ void HypoDD::preloadWaveforms()
       _counters.wf_no_avail, _counters.wf_disk_cached, _counters.wf_snr_low);
 }
 
-unique_ptr<Catalog> HypoDD::relocateMultiEvents(const ClusteringOptions &clustOpt,
+unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
                                        const SolverOptions &solverOpt)
 {
-  SEISCOMP_INFO("Starting HypoDD relocator in multiple events mode");
+  SEISCOMP_INFO("Starting DD relocator in multiple events mode");
 
   if (!_ttt) _ttt = TravelTimeTable::create(_cfg.ttt.type, _cfg.ttt.model);
 
@@ -424,7 +424,7 @@ unique_ptr<Catalog> HypoDD::relocateMultiEvents(const ClusteringOptions &clustOp
   return relocatedCatalog;
 }
 
-unique_ptr<Catalog> HypoDD::relocateSingleEvent(const Catalog &singleEvent,
+unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
                                        const ClusteringOptions &clustOpt1,
                                        const ClusteringOptions &clustOpt2,
                                        const SolverOptions &solverOpt)
@@ -439,7 +439,7 @@ unique_ptr<Catalog> HypoDD::relocateSingleEvent(const Catalog &singleEvent,
       singleEvent.getPhases().equal_range(evToRelocate.id);
 
   SEISCOMP_INFO(
-      "Starting HypoDD relocator in single event mode: event %s lat %.6f lon "
+      "Starting DD relocator in single event mode: event %s lat %.6f lon "
       "%.6f depth %.4f mag %.2f time %s #phases %ld",
       string(evToRelocate).c_str(), evToRelocate.latitude,
       evToRelocate.longitude, evToRelocate.depth, evToRelocate.magnitude,
@@ -557,7 +557,7 @@ unique_ptr<Catalog> HypoDD::relocateSingleEvent(const Catalog &singleEvent,
   return relocatedEvWithXcorr;
 }
 
-unique_ptr<Catalog> HypoDD::relocateEventSingleStep(const Catalog& bgCat,
+unique_ptr<Catalog> DD::relocateEventSingleStep(const Catalog& bgCat,
                                            const Catalog &evToRelocateCat,
                                            const string &workingDir,
                                            const ClusteringOptions &clustOpt,
@@ -654,7 +654,7 @@ unique_ptr<Catalog> HypoDD::relocateEventSingleStep(const Catalog& bgCat,
   return relocatedEvCat;
 }
 
-unique_ptr<Catalog> HypoDD::relocate(const Catalog &catalog,
+unique_ptr<Catalog> DD::relocate(const Catalog &catalog,
                             const vector<unique_ptr<Neighbours>> &neighCluster,
                             const SolverOptions &solverOpt,
                             bool keepNeighboursFixed,
@@ -740,7 +740,7 @@ unique_ptr<Catalog> HypoDD::relocate(const Catalog &catalog,
                                          finalNeighCluster);
 }
 
-string HypoDD::relocationReport(const Catalog &relocatedEv)
+string DD::relocationReport(const Catalog &relocatedEv)
 {
   const Event &event = relocatedEv.getEvents().begin()->second;
   if (!event.relocInfo.isRelocated) return "Event not relocated";
@@ -775,7 +775,7 @@ string HypoDD::relocationReport(const Catalog &relocatedEv)
  * travel times from the cross-correlation for pairs of earthquakes to the
  * solver.
  */
-void HypoDD::addObservations(Solver &solver,
+void DD::addObservations(Solver &solver,
                              double absTTDiffObsWeight,
                              double xcorrObsWeight,
                              const Catalog &catalog,
@@ -873,7 +873,7 @@ void HypoDD::addObservations(Solver &solver,
   }
 }
 
-bool HypoDD::ObservationParams::add(HDD::TravelTimeTable& ttt,
+bool DD::ObservationParams::add(HDD::TravelTimeTable& ttt,
                                     const Event &event,
                                     const Station &station,
                                     const Phase &phase,
@@ -907,7 +907,7 @@ bool HypoDD::ObservationParams::add(HDD::TravelTimeTable& ttt,
   return true;
 }
 
-const HypoDD::ObservationParams::Entry &HypoDD::ObservationParams::get(
+const DD::ObservationParams::Entry &DD::ObservationParams::get(
     unsigned eventId, const string stationId, char phaseType) const
 {
   const string key =
@@ -915,7 +915,7 @@ const HypoDD::ObservationParams::Entry &HypoDD::ObservationParams::get(
   return _entries.at(key);
 }
 
-void HypoDD::ObservationParams::addToSolver(Solver &solver) const
+void DD::ObservationParams::addToSolver(Solver &solver) const
 {
   for (const auto &kv : _entries)
   {
@@ -929,7 +929,7 @@ void HypoDD::ObservationParams::addToSolver(Solver &solver) const
   }
 }
 
-unique_ptr<Catalog> HypoDD::updateRelocatedEvents(
+unique_ptr<Catalog> DD::updateRelocatedEvents(
     const Solver &solver,
     const Catalog &catalog,
     const vector<unique_ptr<Neighbours>> &neighCluster,
@@ -1094,7 +1094,7 @@ unique_ptr<Catalog> HypoDD::updateRelocatedEvents(
   return unique_ptr<Catalog>(new Catalog(stations, events, phases));
 }
 
-unique_ptr<Catalog> HypoDD::updateRelocatedEventsFinalStats(
+unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
     const Catalog &startCatalog,
     const Catalog &finalCatalog,
     const unordered_map<unsigned, unique_ptr<Neighbours>> &neighCluster) const
@@ -1214,7 +1214,7 @@ unique_ptr<Catalog> HypoDD::updateRelocatedEventsFinalStats(
   return catalogToReturn;
 }
 
-void HypoDD::addMissingEventPhases(const Event &refEv,
+void DD::addMissingEventPhases(const Event &refEv,
                                    Catalog &refEvCatalog,
                                    const Catalog &searchCatalog,
                                    const Neighbours &neighbours)
@@ -1231,7 +1231,7 @@ void HypoDD::addMissingEventPhases(const Event &refEv,
 }
 
 vector<Phase>
-HypoDD::findMissingEventPhases(const Event &refEv,
+DD::findMissingEventPhases(const Event &refEv,
                                Catalog &refEvCatalog,
                                const Catalog &searchCatalog,
                                const Neighbours &neighbours)
@@ -1255,7 +1255,7 @@ HypoDD::findMissingEventPhases(const Event &refEv,
     // Loop through every other event and select the ones who have a manually
     // picked phase for the missing station.
     //
-    vector<HypoDD::PhasePeer> peers =
+    vector<DD::PhasePeer> peers =
         findPhasePeers(station, phaseType, searchCatalog, neighbours);
     if (peers.size() <= 0)
     {
@@ -1284,8 +1284,8 @@ HypoDD::findMissingEventPhases(const Event &refEv,
   return newPhases;
 }
 
-vector<HypoDD::MissingStationPhase>
-HypoDD::getMissingPhases(const Event &refEv,
+vector<DD::MissingStationPhase>
+DD::getMissingPhases(const Event &refEv,
                          Catalog &refEvCatalog,
                          const Catalog &searchCatalog) const
 {
@@ -1327,8 +1327,8 @@ HypoDD::getMissingPhases(const Event &refEv,
   return missingPhases;
 }
 
-vector<HypoDD::PhasePeer>
-HypoDD::findPhasePeers(const Station &station,
+vector<DD::PhasePeer>
+DD::findPhasePeers(const Station &station,
                        const Phase::Type &phaseType,
                        const Catalog &searchCatalog,
                        const Neighbours &neighbours) const
@@ -1365,10 +1365,10 @@ HypoDD::findPhasePeers(const Station &station,
   return phasePeers;
 }
 
-Phase HypoDD::createThoreticalPhase(const Station &station,
+Phase DD::createThoreticalPhase(const Station &station,
                                     const Phase::Type &phaseType,
                                     const Event &refEv,
-                                    const vector<HypoDD::PhasePeer> &peers,
+                                    const vector<DD::PhasePeer> &peers,
                                     double phaseVelocity)
 {
   const auto xcorrCfg = _cfg.xcorr.at(phaseType);
@@ -1417,7 +1417,7 @@ Phase HypoDD::createThoreticalPhase(const Station &station,
   return refEvNewPhase;
 }
 
-XCorrCache HypoDD::buildXCorrCache(Catalog &catalog,
+XCorrCache DD::buildXCorrCache(Catalog &catalog,
                                    const vector<unique_ptr<Neighbours>> &neighCluster,
                                    bool computeTheoreticalPhases,
                                    double xcorrMaxEvStaDist,
@@ -1460,7 +1460,7 @@ XCorrCache HypoDD::buildXCorrCache(Catalog &catalog,
  * Compute and store to `XCorrCache` cross-correlated differential travel times
  * for pairs of the earthquake.
  */
-void HypoDD::buildXcorrDiffTTimePairs(Catalog &catalog,
+void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
                                       const Neighbours &neighbours,
                                       const Event &refEv,
                                       double xcorrMaxEvStaDist,
@@ -1669,7 +1669,7 @@ void HypoDD::buildXcorrDiffTTimePairs(Catalog &catalog,
 }
 
 Waveform::LoaderPtr
-HypoDD::preloadNonCatalogWaveforms(Catalog &catalog,
+DD::preloadNonCatalogWaveforms(Catalog &catalog,
                                    const Neighbours &neighbours,
                                    const Event &refEv,
                                    double xcorrMaxEvStaDist,
@@ -1776,7 +1776,7 @@ HypoDD::preloadNonCatalogWaveforms(Catalog &catalog,
  * cross-correlation results. Drop theoretical phases not passing the
  * cross-correlation verification.
  */
-void HypoDD::fixPhases(Catalog &catalog,
+void DD::fixPhases(Catalog &catalog,
                        const Event &refEv,
                        XCorrCache &xcorr)
 {
@@ -1851,7 +1851,7 @@ void HypoDD::fixPhases(Catalog &catalog,
                  (newP + newS), newP, newS);
 }
 
-void HypoDD::resetCounters()
+void DD::resetCounters()
 {
   _counters = {0};
   if (_wfAccess.loader)
@@ -1869,12 +1869,12 @@ void HypoDD::resetCounters()
   }
 }
 
-void HypoDD::updateCounters() const
+void DD::updateCounters() const
 {
   updateCounters(_wfAccess.loader, _wfAccess.diskCache, _wfAccess.snrFilter);
 }
 
-void HypoDD::updateCounters(Waveform::LoaderPtr loader,
+void DD::updateCounters(Waveform::LoaderPtr loader,
                             Waveform::DiskCachedLoaderPtr diskCache,
                             Waveform::SnrFilteredLoaderPtr snrFilter) const
 {
@@ -1887,7 +1887,7 @@ void HypoDD::updateCounters(Waveform::LoaderPtr loader,
   if (snrFilter) _counters.wf_snr_low += snrFilter->_counters_wf_snr_low;
 }
 
-void HypoDD::printCounters() const
+void DD::printCounters() const
 {
   updateCounters();
 
@@ -1953,7 +1953,7 @@ void HypoDD::printCounters() const
   }
 }
 
-Core::TimeWindow HypoDD::xcorrTimeWindowLong(const Phase &phase) const
+Core::TimeWindow DD::xcorrTimeWindowLong(const Phase &phase) const
 {
   const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
   Core::TimeWindow tw = xcorrTimeWindowShort(phase);
@@ -1962,7 +1962,7 @@ Core::TimeWindow HypoDD::xcorrTimeWindowLong(const Phase &phase) const
   return tw;
 }
 
-Core::TimeWindow HypoDD::xcorrTimeWindowShort(const Phase &phase) const
+Core::TimeWindow DD::xcorrTimeWindowShort(const Phase &phase) const
 {
   const auto xcorrCfg  = _cfg.xcorr.at(phase.procInfo.type);
   double shortDuration = xcorrCfg.endOffset - xcorrCfg.startOffset;
@@ -1970,7 +1970,7 @@ Core::TimeWindow HypoDD::xcorrTimeWindowShort(const Phase &phase) const
   return Core::TimeWindow(phase.time + shortTimeCorrection, shortDuration);
 }
 
-bool HypoDD::xcorrPhases(const Event &event1,
+bool DD::xcorrPhases(const Event &event1,
                          const Phase &phase1,
                          Waveform::LoaderPtr ph1Cache,
                          const Event &event2,
@@ -2112,7 +2112,7 @@ bool HypoDD::xcorrPhases(const Event &event1,
   return goodCoeff;
 }
 
-bool HypoDD::_xcorrPhases(const Event &event1,
+bool DD::_xcorrPhases(const Event &event1,
                           const Phase &phase1,
                           Waveform::LoaderPtr ph1Cache,
                           const Event &event2,
@@ -2207,7 +2207,7 @@ bool HypoDD::_xcorrPhases(const Event &event1,
   return true;
 }
 
-GenericRecordCPtr HypoDD::getWaveform(const Core::TimeWindow &tw,
+GenericRecordCPtr DD::getWaveform(const Core::TimeWindow &tw,
                                       const Catalog::Event &ev,
                                       const Catalog::Phase &ph,
                                       Waveform::LoaderPtr wfLoader,
@@ -2311,7 +2311,7 @@ struct XCorrEvalStats
 };
 } // namespace
 
-void HypoDD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
+void DD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
 {
   XCorrEvalStats totalStats, pPhaseStats, sPhaseStats;
   map<string, XCorrEvalStats> statsByStation;      // key station id

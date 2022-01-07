@@ -14,8 +14,8 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#ifndef __HDD_HYPODD_H__
-#define __HDD_HYPODD_H__
+#ifndef __HDD_DD_H__
+#define __HDD_DD_H__
 
 #include "catalog.h"
 #include "clustering.h"
@@ -120,17 +120,17 @@ struct SolverOptions
   double xcorrObsWeight               = 1.0;
 };
 
-class HypoDD
+class DD
 {
 
 public:
-  HypoDD(const Catalog &catalog,
+  DD(const Catalog &catalog,
          const Config &cfg,
          const std::string &workingDir);
-  ~HypoDD() = default;
+  ~DD() = default;
 
-  HypoDD(const HypoDD &other) = delete;
-  HypoDD &operator=(const HypoDD &other) = delete;
+  DD(const DD &other) = delete;
+  DD &operator=(const DD &other) = delete;
 
   void preloadWaveforms();
 
@@ -268,7 +268,7 @@ private:
   createThoreticalPhase(const Catalog::Station &station,
                         const Catalog::Phase::Type &phaseType,
                         const Catalog::Event &refEv,
-                        const std::vector<HypoDD::PhasePeer> &peers,
+                        const std::vector<DD::PhasePeer> &peers,
                         double phaseVelocity);
 
   XCorrCache buildXCorrCache(Catalog &catalog,

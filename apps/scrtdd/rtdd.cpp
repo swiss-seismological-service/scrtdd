@@ -2231,7 +2231,7 @@ void RTDD::convertOrigin(
   {
     DataModel::Comment *comment = new DataModel::Comment();
     comment->setId("scrtddRelocationReport");
-    comment->setText(HDD::HypoDD::relocationReport(relocatedOrg));
+    comment->setText(HDD::DD::relocationReport(relocatedOrg));
     newOrg->add(comment);
   }
 
@@ -2757,7 +2757,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
       ddbgc = HDD::Catalog(stationFile, eventFile, phaFile);
     }
 
-    dd.reset(new HDD::HypoDD(ddbgc, ddCfg, pWorkingDir));
+    dd.reset(new HDD::DD(ddbgc, ddCfg, pWorkingDir));
     dd->setSaveProcessing(saveProcessingFiles);
     dd->setUseCatalogWaveformDiskCache(cacheWaveforms);
     dd->setWaveformCacheAll(cacheAllWaveforms);

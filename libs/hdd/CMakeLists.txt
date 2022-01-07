@@ -13,7 +13,7 @@ SET(HDD_SOURCES
 	ttt.cpp
 	scttt.cpp
 	nllttt.cpp
-	hypodd.cpp
+	dd.cpp
 )
 
 SET(HDD_HEADERS
@@ -28,7 +28,7 @@ SET(HDD_HEADERS
 	waveform.h
 	csvreader.h
 	catalog.h
-	hypodd.h
+	dd.h
 )
 
 SC_ADD_LIBRARY(HDD hdd)

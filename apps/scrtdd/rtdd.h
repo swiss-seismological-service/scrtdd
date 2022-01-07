@@ -27,8 +27,9 @@
 #include <seiscomp3/processing/amplitudeprocessor.h>
 #include <seiscomp3/utils/timer.h>
 
+#include <dd.h>
+
 #include "app.h"
-#include "hypodd.h"
 
 #define SEISCOMP_COMPONENT RTDD
 #include <seiscomp3/logging/log.h>
@@ -208,7 +209,7 @@ private:
   private:
     bool loaded;
     Core::Time lastUsage;
-    std::unique_ptr<HDD::HypoDD> dd;
+    std::unique_ptr<HDD::DD> dd;
     DataModel::DatabaseQuery *query;
     DataModel::PublicObjectTimeSpanBuffer *cache;
     DataModel::EventParameters *eventParameters;
