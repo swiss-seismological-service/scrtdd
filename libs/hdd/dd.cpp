@@ -102,34 +102,33 @@ void DD::setUseCatalogWaveformDiskCache(bool cache)
 void DD::createWaveformCache()
 {
   _wfAccess.unloadableWfs.clear();
-  _wfAccess.loader    = new Waveform::Loader(_cfg.recordStreamURL);
+  _wfAccess.loader.reset(new Waveform::Loader(_cfg.recordStreamURL));
   _wfAccess.diskCache = nullptr;
   _wfAccess.extraLen  = nullptr;
   _wfAccess.snrFilter = nullptr;
   _wfAccess.memCache  = nullptr;
 
-  Waveform::LoaderPtr current = _wfAccess.loader;
+  shared_ptr<Waveform::Loader> current = _wfAccess.loader;
 
   if (_useCatalogWaveformDiskCache)
   {
-    _wfAccess.diskCache = new Waveform::DiskCachedLoader(current, _cacheDir);
-    _wfAccess.extraLen =
-        new Waveform::ExtraLenLoader(_wfAccess.diskCache, DISK_TRACE_MIN_LEN);
+    _wfAccess.diskCache.reset(new Waveform::DiskCachedLoader(current, _cacheDir));
+    _wfAccess.extraLen.reset(new Waveform::ExtraLenLoader(_wfAccess.diskCache, DISK_TRACE_MIN_LEN));
     current = _wfAccess.extraLen;
   }
 
   if (_cfg.snr.minSnr > 0)
   {
-    _wfAccess.snrFilter = new Waveform::SnrFilteredLoader(
+    _wfAccess.snrFilter.reset(new Waveform::SnrFilteredLoader(
         current, _cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
-        _cfg.snr.signalStart, _cfg.snr.signalEnd);
+        _cfg.snr.signalStart, _cfg.snr.signalEnd));
     current = _wfAccess.snrFilter;
   }
 
-  _wfAccess.memCache = new Waveform::MemCachedLoader(current);
+  _wfAccess.memCache.reset(new Waveform::MemCachedLoader(current));
 }
 
-void DD::replaceWaveformCacheLoader(Waveform::LoaderPtr baseLdr)
+void DD::replaceWaveformCacheLoader(const shared_ptr<Waveform::Loader>& baseLdr)
 {
   if (_useCatalogWaveformDiskCache)
   {
@@ -233,8 +232,8 @@ void DD::preloadWaveforms()
   {
     const Event &event = kv.second;
 
-    Waveform::BatchLoaderPtr batchLoader =
-        new Waveform::BatchLoader(_cfg.recordStreamURL);
+    shared_ptr<Waveform::BatchLoader> batchLoader(
+        new Waveform::BatchLoader(_cfg.recordStreamURL));
     replaceWaveformCacheLoader(batchLoader);
 
     // the following doesn't load anything, instead it records in BatchLoader
@@ -242,7 +241,7 @@ void DD::preloadWaveforms()
     auto requestWaveform = [this](const Core::TimeWindow &tw,
                                   const Catalog::Event &ev,
                                   const Catalog::Phase &ph) {
-      getWaveform(tw, ev, ph, _wfAccess.memCache, true);
+      getWaveform(tw, ev, ph, *_wfAccess.memCache, true);
     };
 
     forEventWaveforms(event, numPhases, numSPhases, requestWaveform);
@@ -254,7 +253,7 @@ void DD::preloadWaveforms()
     auto cacheWaveform = [this](const Core::TimeWindow &tw,
                                 const Catalog::Event &ev,
                                 const Catalog::Phase &ph) {
-      getWaveform(tw, ev, ph, _wfAccess.memCache);
+      getWaveform(tw, ev, ph, *_wfAccess.memCache);
     };
 
     unsigned discard;
@@ -272,7 +271,7 @@ void DD::preloadWaveforms()
   }
 
   // restore proper loader
-  replaceWaveformCacheLoader(new Waveform::Loader(_cfg.recordStreamURL));
+  replaceWaveformCacheLoader(shared_ptr<Waveform::Loader>(new Waveform::Loader(_cfg.recordStreamURL)));
 
   updateCounters();
 
@@ -1476,23 +1475,23 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
   // temporary and discarded after the relocation we don't want to
   // make use of the background catalog caching
   //
-  Waveform::LoaderPtr preLdr = preloadNonCatalogWaveforms(
+  shared_ptr<Waveform::Loader> preLdr = preloadNonCatalogWaveforms(
       catalog, neighbours, refEv, xcorrMaxEvStaDist, xcorrMaxInterEvDist);
 
-  Waveform::LoaderPtr seWfLdr = preLdr;
-  Waveform::SnrFilteredLoaderPtr snrLdr; // usefulto keep track of stats
+  shared_ptr<Waveform::Loader> seWfLdr = preLdr;
+  shared_ptr<Waveform::SnrFilteredLoader> snrLdr; // usefulto keep track of stats
   if (_cfg.snr.minSnr > 0)
   {
-    snrLdr = new Waveform::SnrFilteredLoader(
+    snrLdr.reset(new Waveform::SnrFilteredLoader(
         seWfLdr, _cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
-        _cfg.snr.signalStart, _cfg.snr.signalEnd);
+        _cfg.snr.signalStart, _cfg.snr.signalEnd));
     if (_waveformDebug) snrLdr->setDebugDirectory(_wfDebugDir);
     seWfLdr = snrLdr;
   }
-  seWfLdr = new Waveform::MemCachedLoader(seWfLdr);
+  seWfLdr.reset(new Waveform::MemCachedLoader(seWfLdr));
   if (_waveformDebug) seWfLdr->setDebugDirectory(_wfDebugDir);
 
-  Waveform::LoaderPtr seWfLdrNoSnr = new Waveform::MemCachedLoader(preLdr);
+  shared_ptr<Waveform::Loader> seWfLdrNoSnr(new Waveform::MemCachedLoader(preLdr));
   if (_waveformDebug) seWfLdrNoSnr->setDebugDirectory(_wfDebugDir);
 
   // keep track of the `refEv` distance to stations
@@ -1517,7 +1516,7 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
     //
     // select appropriate waveform loader for refPhase
     //
-    Waveform::LoaderPtr refLdr;
+    shared_ptr<Waveform::Loader> refLdr;
     if (refPhase.procInfo.source == Phase::Source::CATALOG)
       refLdr = _wfAccess.memCache;
     else if (refPhase.isManual)
@@ -1556,8 +1555,8 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
           throw Exception("Internal logic error: phase is not from catalog");
 
         double coeff, lag;
-        if (xcorrPhases(refEv, refPhase, refLdr, event, phase,
-                        _wfAccess.memCache, coeff, lag))
+        if (xcorrPhases(refEv, refPhase, *refLdr, event, phase,
+                        *_wfAccess.memCache, coeff, lag))
         {
           bool goodSNR = true;
 
@@ -1668,7 +1667,7 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
   }
 }
 
-Waveform::LoaderPtr
+std::shared_ptr<Waveform::Loader>
 DD::preloadNonCatalogWaveforms(Catalog &catalog,
                                    const Neighbours &neighbours,
                                    const Event &refEv,
@@ -1680,16 +1679,15 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
   // in batch otherwise the seedlink server gets stuck and becomes unresponsive
   // due to the multiple connections requests, one for each event phase
   //
-  Waveform::BatchLoaderPtr batchLoader =
-      new Waveform::BatchLoader(_cfg.recordStreamURL);
+  shared_ptr<Waveform::BatchLoader> batchLoader(new Waveform::BatchLoader(_cfg.recordStreamURL));
 
-  Waveform::LoaderPtr retLdr = batchLoader;
+  shared_ptr<Waveform::Loader> retLdr = batchLoader;
 
-  Waveform::DiskCachedLoaderPtr diskLoader;
+  shared_ptr<Waveform::DiskCachedLoader> diskLoader;
   if (_useCatalogWaveformDiskCache && _waveformCacheAll)
   {
-    diskLoader = new Waveform::DiskCachedLoader(batchLoader, _tmpCacheDir);
-    retLdr     = new Waveform::ExtraLenLoader(diskLoader, DISK_TRACE_MIN_LEN);
+    diskLoader.reset(new Waveform::DiskCachedLoader(batchLoader, _tmpCacheDir));
+    retLdr.reset(new Waveform::ExtraLenLoader(diskLoader, DISK_TRACE_MIN_LEN));
   }
 
   // Load a large enough waveform to be able to check the SNR after
@@ -1704,7 +1702,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
     double extraAfter =
         std::max({_cfg.snr.noiseEnd, _cfg.snr.signalEnd}) + maxDelay;
     extraAfter = extraAfter < 0 ? 0 : extraAfter;
-    retLdr     = new Waveform::ExtraLenLoader(retLdr, extraBefore, extraAfter);
+    retLdr.reset(new Waveform::ExtraLenLoader(retLdr, extraBefore, extraAfter));
   }
 
   //
@@ -1874,9 +1872,9 @@ void DD::updateCounters() const
   updateCounters(_wfAccess.loader, _wfAccess.diskCache, _wfAccess.snrFilter);
 }
 
-void DD::updateCounters(Waveform::LoaderPtr loader,
-                            Waveform::DiskCachedLoaderPtr diskCache,
-                            Waveform::SnrFilteredLoaderPtr snrFilter) const
+void DD::updateCounters(const shared_ptr<Waveform::Loader>& loader,
+                        const shared_ptr<    Waveform::DiskCachedLoader>& diskCache,
+                        const shared_ptr<    Waveform::SnrFilteredLoader>& snrFilter) const
 {
   if (loader)
   {
@@ -1972,10 +1970,10 @@ Core::TimeWindow DD::xcorrTimeWindowShort(const Phase &phase) const
 
 bool DD::xcorrPhases(const Event &event1,
                          const Phase &phase1,
-                         Waveform::LoaderPtr ph1Cache,
+                         Waveform::Loader& ph1Cache,
                          const Event &event2,
                          const Phase &phase2,
-                         Waveform::LoaderPtr ph2Cache,
+                         Waveform::Loader& ph2Cache,
                          double &coeffOut,
                          double &lagOut)
 {
@@ -2114,10 +2112,10 @@ bool DD::xcorrPhases(const Event &event1,
 
 bool DD::_xcorrPhases(const Event &event1,
                           const Phase &phase1,
-                          Waveform::LoaderPtr ph1Cache,
+                          Waveform::Loader& ph1Cache,
                           const Event &event2,
                           const Phase &phase2,
-                          Waveform::LoaderPtr ph2Cache,
+                          Waveform::Loader& ph2Cache,
                           double &coeffOut,
                           double &lagOut)
 {
@@ -2210,7 +2208,7 @@ bool DD::_xcorrPhases(const Event &event1,
 GenericRecordCPtr DD::getWaveform(const Core::TimeWindow &tw,
                                       const Catalog::Event &ev,
                                       const Catalog::Phase &ph,
-                                      Waveform::LoaderPtr wfLoader,
+                                      Waveform::Loader& wfLoader,
                                       bool skipUnloadableCheck)
 {
   string wfDesc =
@@ -2228,7 +2226,7 @@ GenericRecordCPtr DD::getWaveform(const Core::TimeWindow &tw,
   }
 
   // try to load the waveform
-  GenericRecordCPtr trace = wfLoader->get(
+  GenericRecordCPtr trace = wfLoader.get(
       tw, ph, ev, true, _cfg.wfFilter.filterStr, _cfg.wfFilter.resampleFreq);
 
   if (!skipUnloadableCheck && !trace)

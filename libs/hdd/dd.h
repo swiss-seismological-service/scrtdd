@@ -171,7 +171,7 @@ public:
 
 private:
   void createWaveformCache();
-  void replaceWaveformCacheLoader(Waveform::LoaderPtr baseLdr);
+  void replaceWaveformCacheLoader(const std::shared_ptr<Waveform::Loader>& baseLdr);
 
   std::string generateWorkingSubDir(const std::string &prefix) const;
   std::string generateWorkingSubDir(const Catalog::Event &ev) const;
@@ -290,19 +290,19 @@ private:
 
   bool xcorrPhases(const Catalog::Event &event1,
                    const Catalog::Phase &phase1,
-                   Waveform::LoaderPtr ph1Cache,
+                   Waveform::Loader& ph1Cache,
                    const Catalog::Event &event2,
                    const Catalog::Phase &phase2,
-                   Waveform::LoaderPtr ph2Cache,
+                   Waveform::Loader& ph2Cache,
                    double &coeffOut,
                    double &lagOut);
 
   bool _xcorrPhases(const Catalog::Event &event1,
                     const Catalog::Phase &phase1,
-                    Waveform::LoaderPtr ph1Cache,
+                    Waveform::Loader& ph1Cache,
                     const Catalog::Event &event2,
                     const Catalog::Phase &phase2,
-                    Waveform::LoaderPtr ph2Cache,
+                    Waveform::Loader& ph2Cache,
                     double &coeffOut,
                     double &lagOut);
 
@@ -313,10 +313,10 @@ private:
   GenericRecordCPtr getWaveform(const Core::TimeWindow &tw,
                                 const Catalog::Event &ev,
                                 const Catalog::Phase &ph,
-                                Waveform::LoaderPtr wfLoader,
+                                Waveform::Loader& wfLoader,
                                 bool skipUnloadableCheck = false);
 
-  Waveform::LoaderPtr
+  std::shared_ptr<Waveform::Loader>
   preloadNonCatalogWaveforms(Catalog &catalog,
                              const Neighbours &neighbours,
                              const Catalog::Event &refEv,
@@ -326,9 +326,9 @@ private:
   void resetCounters();
   void printCounters() const;
   void updateCounters() const;
-  void updateCounters(Waveform::LoaderPtr loader,
-                      Waveform::DiskCachedLoaderPtr diskCache,
-                      Waveform::SnrFilteredLoaderPtr snrFilter) const;
+  void updateCounters(const std::shared_ptr<Waveform::Loader>& loader,
+                      const std::shared_ptr<Waveform::DiskCachedLoader>& diskCache,
+                      const std::shared_ptr<Waveform::SnrFilteredLoader>& snrFilter) const;
 
 private:
   bool _saveProcessing = true;
@@ -352,11 +352,11 @@ private:
 
   struct
   {
-    Waveform::LoaderPtr loader;
-    Waveform::DiskCachedLoaderPtr diskCache;
-    Waveform::ExtraLenLoaderPtr extraLen;
-    Waveform::SnrFilteredLoaderPtr snrFilter;
-    Waveform::MemCachedLoaderPtr memCache;
+    std::shared_ptr<Waveform::Loader> loader;
+    std::shared_ptr<Waveform::DiskCachedLoader> diskCache;
+    std::shared_ptr<Waveform::ExtraLenLoader> extraLen;
+    std::shared_ptr<Waveform::SnrFilteredLoader> snrFilter;
+    std::shared_ptr<Waveform::MemCachedLoader> memCache;
     std::unordered_set<std::string> unloadableWfs;
   } _wfAccess;
 

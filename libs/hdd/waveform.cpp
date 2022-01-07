@@ -893,7 +893,7 @@ GenericRecordCPtr Loader::get(const Core::TimeWindow &tw,
 GenericRecordPtr Loader::process(const GenericRecordCPtr &trace,
                                  bool demeaning,
                                  const std::string &filterStr,
-                                 double resampleFreq)
+                                 double resampleFreq) const
 {
   GenericRecordPtr nonConstTrace(new GenericRecord(*trace));
   try
@@ -972,7 +972,7 @@ GenericRecordCPtr DiskCachedLoader::get(const Core::TimeWindow &tw,
 
 bool DiskCachedLoader::isCached(const Core::TimeWindow &tw,
                                 const Catalog::Phase &ph,
-                                const Catalog::Event &ev)
+                                const Catalog::Event &ev) const
 {
   const std::string cacheFile =
       waveformPath(_cacheDir, tw, ph.networkCode, ph.stationCode,

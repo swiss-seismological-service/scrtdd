@@ -25,7 +25,6 @@
 #include <seiscomp3/datamodel/utils.h>
 #include <seiscomp3/io/recordstream.h>
 
-#include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -109,9 +108,7 @@ std::string waveformId(const Core::TimeWindow &tw,
 std::string waveformId(const HDD::Catalog::Phase &ph,
                        const Core::TimeWindow &tw);
 
-DEFINE_SMARTPOINTER(Loader);
-
-class Loader : public Core::BaseObject
+class Loader
 {
 
 public:
@@ -147,7 +144,7 @@ protected:
   GenericRecordPtr process(const GenericRecordCPtr &trace,
                            bool demeaning,
                            const std::string &filterStr,
-                           double resampleFreq);
+                           double resampleFreq) const;
 
   const std::string _recordStreamURL;
   std::string _wfDebugDir;
@@ -160,26 +157,23 @@ class CompositeLoader : public Loader
 {
 
 public:
-  CompositeLoader(LoaderPtr auxLdr) : Loader("") { setAuxLoader(auxLdr); }
+  CompositeLoader(const std::shared_ptr<Loader> & auxLdr) : Loader(""){ setAuxLoader(auxLdr); }
 
   virtual ~CompositeLoader() = default;
 
-  void setAuxLoader(LoaderPtr auxLdr)
+  void setAuxLoader(const std::shared_ptr<Loader> & auxLdr)
   {
-    if (!auxLdr) throw Exception("Auxiliary loader cannot be null");
     _auxLdr = auxLdr;
   }
 
 protected:
-  LoaderPtr _auxLdr;
+  std::shared_ptr<Loader> _auxLdr;
 };
-
-DEFINE_SMARTPOINTER(DiskCachedLoader);
 
 class DiskCachedLoader : public CompositeLoader
 {
 public:
-  DiskCachedLoader(LoaderPtr auxLdr, const std::string &cacheDir)
+  DiskCachedLoader(const std::shared_ptr<Loader> & auxLdr, const std::string &cacheDir)
       : CompositeLoader(auxLdr), _cacheDir(cacheDir)
   {}
 
@@ -191,7 +185,7 @@ public:
 
   bool isCached(const Core::TimeWindow &tw,
                 const Catalog::Phase &ph,
-                const Catalog::Event &ev);
+                const Catalog::Event &ev) const;
 
   unsigned _counters_wf_cached = 0;
 
@@ -219,12 +213,10 @@ private:
   std::string _cacheDir;
 };
 
-DEFINE_SMARTPOINTER(MemCachedLoader);
-
 class MemCachedLoader : public CompositeLoader
 {
 public:
-  MemCachedLoader(LoaderPtr auxLdr) : CompositeLoader(auxLdr) {}
+  MemCachedLoader(const std::shared_ptr<Loader> & auxLdr) : CompositeLoader(auxLdr) {}
 
   virtual ~MemCachedLoader() = default;
 
@@ -265,16 +257,14 @@ private:
   std::unordered_map<std::string, GenericRecordCPtr> _waveforms;
 };
 
-DEFINE_SMARTPOINTER(ExtraLenLoader);
-
 class ExtraLenLoader : public CompositeLoader
 {
 public:
-  ExtraLenLoader(LoaderPtr auxLdr, double traceMinLen)
+  ExtraLenLoader(const std::shared_ptr<Loader> & auxLdr, double traceMinLen)
       : ExtraLenLoader(auxLdr, traceMinLen / 2, traceMinLen / 2)
   {}
 
-  ExtraLenLoader(LoaderPtr auxLdr, double beforePickLen, double afterPickLen)
+  ExtraLenLoader(const std::shared_ptr<Loader> & auxLdr, double beforePickLen, double afterPickLen)
       : CompositeLoader(auxLdr), _beforePickLen(beforePickLen),
         _afterPickLen(afterPickLen)
   {}
@@ -293,13 +283,11 @@ protected:
   double _afterPickLen;  // secs
 };
 
-DEFINE_SMARTPOINTER(SnrFilteredLoader);
-
 class SnrFilteredLoader : public CompositeLoader
 {
 
 public:
-  SnrFilteredLoader(LoaderPtr auxLdr,
+  SnrFilteredLoader(const std::shared_ptr<Loader> & auxLdr,
                     double minSnr,
                     double noiseStart,
                     double noiseEnd,
@@ -345,8 +333,6 @@ protected:
   std::unordered_set<std::string> _snrGoodWfs;
   std::unordered_set<std::string> _snrExcludedWfs;
 };
-
-DEFINE_SMARTPOINTER(BatchLoader);
 
 class BatchLoader : public Loader
 {

@@ -23,8 +23,6 @@
 namespace Seiscomp {
 namespace HDD {
 
-DEFINE_SMARTPOINTER(TravelTimeTable);
-
 class TravelTimeTable
 {
 public:

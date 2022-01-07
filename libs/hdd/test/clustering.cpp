@@ -162,7 +162,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     0.5,   //  double maxEllipsoidSize
                                     false) //  bool keepUnmatched
       ,
-      runtime_error);
+      HDD::Exception);
 
   // stations out of range: minESdis
   BOOST_CHECK_THROW(
@@ -179,7 +179,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     2,  //  double maxEllipsoidSize
                                     false) //  bool keepUnmatched
       ,
-      runtime_error);
+      HDD::Exception);
 
   // stations out of range: maxESdis
   BOOST_CHECK_THROW(
@@ -196,7 +196,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     2,  //  double maxEllipsoidSize
                                     false) //  bool keepUnmatched
       ,
-      runtime_error);
+      HDD::Exception);
 
   // minEStoIEratio not enough
   BOOST_CHECK_THROW(
@@ -213,7 +213,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     2,  //  double maxEllipsoidSize
                                     false) //  bool keepUnmatched
       ,
-      runtime_error);
+      HDD::Exception);
 
   // too many DTs per event requested
   BOOST_CHECK_THROW(
@@ -230,7 +230,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     2,  //  double maxEllipsoidSize
                                     false) //  bool keepUnmatched
       ,
-      runtime_error);
+      HDD::Exception);
 
   // too many neighbours requested
   BOOST_CHECK_THROW(
@@ -247,7 +247,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     2,  //  double maxEllipsoidSize
                                     false) //  bool keepUnmatched
       ,
-      runtime_error);
+      HDD::Exception);
 
   // maxEllipsoidSize/numEllipsoids
   neighbours =
