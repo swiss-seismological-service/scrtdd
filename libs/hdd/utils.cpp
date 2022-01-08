@@ -20,6 +20,7 @@
 #include <seiscomp3/math/math.h>
 
 #define SEISCOMP_COMPONENT HDD
+#include <seiscomp3/logging/file.h>
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
@@ -136,6 +137,29 @@ double computeMeanAbsoluteDeviation(const std::vector<double> &values,
   return computeMean(absoluteDeviations);
 }
 
+void Logger::_log(Level l, const string &s)
+{
+  Logging::Channel *logChannel = Seiscomp::Logging::_SCDebugChannel;
+  if (l == Level::info) logChannel = Seiscomp::Logging::_SCInfoChannel;
+  if (l == Level::warning) logChannel = Seiscomp::Logging::_SCWarningChannel;
+  if (l == Level::error) logChannel = Seiscomp::Logging::_SCErrorChannel;
+  SEISCOMP_LOG(logChannel, "%s", s.c_str());
+}
+
+void Logger::logToFile(const std::string &logFile,
+                       const std::vector<Level> &levels)
+{
+  Logging::FileOutput processingInfoOutput(logFile.c_str());
+  for (auto l : levels)
+  {
+    Logging::Channel *logChannel = Seiscomp::Logging::_SCDebugChannel;
+    if (l == Level::info) logChannel = Seiscomp::Logging::_SCInfoChannel;
+    if (l == Level::warning) logChannel = Seiscomp::Logging::_SCWarningChannel;
+    if (l == Level::error) logChannel = Seiscomp::Logging::_SCErrorChannel;
+    processingInfoOutput.subscribe(logChannel);
+  }
+}
+
 DataModel::SensorLocation *findSensorLocation(const std::string &networkCode,
                                               const std::string &stationCode,
                                               const std::string &locationCode,
@@ -144,7 +168,7 @@ DataModel::SensorLocation *findSensorLocation(const std::string &networkCode,
   DataModel::Inventory *inv = Client::Inventory::Instance()->inventory();
   if (!inv)
   {
-    SEISCOMP_DEBUG("Inventory not available");
+    logDebug("Inventory not available");
     return nullptr;
   }
 
@@ -154,10 +178,9 @@ DataModel::SensorLocation *findSensorLocation(const std::string &networkCode,
 
   if (!loc)
   {
-    SEISCOMP_DEBUG(
-        "Unable to fetch SensorLocation information (%s.%s.%s at %s): %s",
-        networkCode.c_str(), stationCode.c_str(), locationCode.c_str(),
-        atTime.iso().c_str(), error.toString());
+    logDebug("Unable to fetch SensorLocation information (%s.%s.%s at %s): %s",
+             networkCode.c_str(), stationCode.c_str(), locationCode.c_str(),
+             atTime.iso().c_str(), error.toString());
   }
   return loc;
 }

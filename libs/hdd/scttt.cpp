@@ -21,9 +21,6 @@
 #include <seiscomp3/math/math.h>
 #include <sstream>
 
-#define SEISCOMP_COMPONENT HDD
-#include <seiscomp3/logging/log.h>
-
 using namespace std;
 
 namespace HDD {
@@ -40,13 +37,13 @@ ScTravelTimeTable::ScTravelTimeTable(const std::string &type,
   for (int i = 0; i < 500; i++)
   {
     double vel = velocityAtSource(i * _depthVelResolution, "P");
-    SEISCOMP_INFO("Velocity model phase P depth %.2f [km] vel %.2f [m/sec]",
+    logInfo("Velocity model phase P depth %.2f [km] vel %.2f [m/sec]",
                    (i * _depthVelResolution), vel);
   }
   for (int i = 0; i < 500; i++)
   {
     double vel = velocityAtSource(i * _depthVelResolution, "S");
-    SEISCOMP_INFO("Velocity model phase S depth %.2f [km] vel %.2f [m/sec]",
+    logInfo("Velocity model phase S depth %.2f [km] vel %.2f [m/sec]",
                    (i * _depthVelResolution), vel);
   }
   */

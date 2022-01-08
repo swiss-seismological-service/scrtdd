@@ -34,9 +34,6 @@
 #include <seiscomp3/processing/operator/transformation.h>
 #include <seiscomp3/utils/files.h>
 
-#define SEISCOMP_COMPONENT HDD
-#include <seiscomp3/logging/log.h>
-
 using namespace std;
 using namespace Seiscomp::Processing;
 using DataModel::ThreeComponents;
@@ -322,8 +319,8 @@ void writeTrace(GenericRecordCPtr trace, const std::string &file)
   }
   catch (exception &e)
   {
-    SEISCOMP_WARNING("Couldn't write waveform to disk %s: %s", file.c_str(),
-                     e.what());
+    logWarning("Couldn't write waveform to disk %s: %s", file.c_str(),
+               e.what());
   }
 }
 
@@ -342,7 +339,7 @@ GenericRecordPtr readTrace(const std::string &file)
   }
   catch (exception &e)
   {
-    SEISCOMP_WARNING("Couldn't load waveform %s: %s", file.c_str(), e.what());
+    logWarning("Couldn't load waveform %s: %s", file.c_str(), e.what());
     return nullptr;
   }
 }
@@ -365,7 +362,7 @@ bool xcorr(const GenericRecordCPtr &tr1,
 {
   if (tr1->samplingFrequency() != tr2->samplingFrequency())
   {
-    SEISCOMP_INFO(
+    logInfo(
         "Cannot cross correlate traces with different sampling freq (%f!=%f)",
         tr1->samplingFrequency(), tr2->samplingFrequency());
     return false;
@@ -523,11 +520,11 @@ void crossCorrelation(const double *dataS,
   int fe = fetestexcept(FE_ALL_EXCEPT);
   if ((fe & ~FE_INEXACT) != 0) // we don't care about FE_INEXACT
   {
-    SEISCOMP_WARNING("Floating point exception during cross-correlation:");
-    if (fe & FE_DIVBYZERO) SEISCOMP_WARNING("FE_DIVBYZERO");
-    if (fe & FE_INVALID) SEISCOMP_WARNING("FE_INVALID");
-    if (fe & FE_OVERFLOW) SEISCOMP_WARNING("FE_OVERFLOW");
-    if (fe & FE_UNDERFLOW) SEISCOMP_WARNING("FE_UNDERFLOW");
+    logWarning("Floating point exception during cross-correlation:");
+    if (fe & FE_DIVBYZERO) logWarning("FE_DIVBYZERO");
+    if (fe & FE_INVALID) logWarning("FE_INVALID");
+    if (fe & FE_OVERFLOW) logWarning("FE_OVERFLOW");
+    if (fe & FE_UNDERFLOW) logWarning("FE_UNDERFLOW");
   }
 
   /*
@@ -588,7 +585,7 @@ double computeSnr(const GenericRecordCPtr &tr,
   if ((std::min({noiseStart, noiseEnd, signalStart, signalEnd}) < 0) ||
       (std::max({noiseStart, noiseEnd, signalStart, signalEnd}) >= size))
   {
-    SEISCOMP_ERROR(
+    logError(
         "Cannot compute SNR: noise/signal windows exceed waveform boundaries");
     return -1;
   }
@@ -648,8 +645,7 @@ bool projectionRequired(const Core::TimeWindow &tw,
     return hasThreeComponents;
   }
 
-  SEISCOMP_DEBUG("Unable to fetch orientation information (%s)",
-                 string(ph).c_str());
+  logDebug("Unable to fetch orientation information (%s)", string(ph).c_str());
   return false;
 }
 
@@ -709,9 +705,9 @@ GenericRecordPtr projectWaveform(const Core::TimeWindow &tw,
     chCodeMap[channelCodeRoot + "E"] =
         tc.comps[ThreeComponents::SecondHorizontal]->code();
 
-    SEISCOMP_DEBUG("Performing ZNE projection (channelCode %s -> %s) for %s",
-                   chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(),
-                   string(ph).c_str());
+    logDebug("Performing ZNE projection (channelCode %s -> %s) for %s",
+             chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(),
+             string(ph).c_str());
   }
   else if (component == "R" || component == "T")
   {
@@ -723,9 +719,9 @@ GenericRecordPtr projectWaveform(const Core::TimeWindow &tw,
     chCodeMap[channelCodeRoot + "T"] =
         tc.comps[ThreeComponents::SecondHorizontal]->code();
 
-    SEISCOMP_DEBUG("Performing ZRT projection (channelCode %s -> %s) for %s",
-                   chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(),
-                   string(ph).c_str());
+    logDebug("Performing ZRT projection (channelCode %s -> %s) for %s",
+             chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(),
+             string(ph).c_str());
   }
   else
   {
@@ -839,7 +835,7 @@ GenericRecordCPtr Loader::get(const Core::TimeWindow &tw,
       }
       catch (exception &e)
       {
-        SEISCOMP_DEBUG("%s", e.what());
+        logDebug("%s", e.what());
       }
     }
     else
@@ -866,7 +862,7 @@ GenericRecordCPtr Loader::get(const Core::TimeWindow &tw,
       }
       catch (exception &e)
       {
-        SEISCOMP_DEBUG("%s", e.what());
+        logDebug("%s", e.what());
       }
     }
   }
@@ -901,7 +897,7 @@ GenericRecordPtr Loader::process(const GenericRecordCPtr &trace,
   }
   catch (exception &e)
   {
-    SEISCOMP_WARNING("Errow while filtering waveform: %s", e.what());
+    logWarning("Errow while filtering waveform: %s", e.what());
     return nullptr;
   }
 }
@@ -963,7 +959,7 @@ GenericRecordCPtr DiskCachedLoader::get(const Core::TimeWindow &tw,
   }
   catch (exception &e)
   {
-    SEISCOMP_DEBUG("%s", e.what());
+    logDebug("%s", e.what());
   }
   return trace;
 }
@@ -1125,8 +1121,7 @@ GenericRecordCPtr ExtraLenLoader::get(const Core::TimeWindow &tw,
     GenericRecordPtr nonConstTrace(new GenericRecord(*trace));
     if (!trim(*nonConstTrace, tw))
     {
-      SEISCOMP_DEBUG("Incomplete trace, not enough data (%s)",
-                     string(ph).c_str());
+      logDebug("Incomplete trace, not enough data (%s)", string(ph).c_str());
       return nullptr;
     }
     trace = nonConstTrace;
@@ -1179,7 +1174,7 @@ GenericRecordCPtr SnrFilteredLoader::get(const Core::TimeWindow &tw,
     if (!goodSnr(trace, ph.time))
     {
       _snrExcludedWfs.insert(wfId);
-      SEISCOMP_DEBUG("Trace has too low SNR(%s)", string(ph).c_str());
+      logDebug("Trace has too low SNR(%s)", string(ph).c_str());
       // Dump SNR low traces (debugging).
       if (!_wfDebugDir.empty())
       {
@@ -1197,8 +1192,8 @@ GenericRecordCPtr SnrFilteredLoader::get(const Core::TimeWindow &tw,
     GenericRecordPtr nonConstTrace(new GenericRecord(*trace));
     if (!trim(*nonConstTrace, tw))
     {
-      SEISCOMP_DEBUG("Error when checking SNR, cannot trim data (%s)",
-                     string(ph).c_str());
+      logDebug("Error when checking SNR, cannot trim data (%s)",
+               string(ph).c_str());
       return nullptr;
     }
     trace = nonConstTrace;
@@ -1254,7 +1249,7 @@ GenericRecordCPtr BatchLoader::get(const Core::TimeWindow &tw,
     }
     catch (exception &e)
     {
-      SEISCOMP_DEBUG("%s", e.what());
+      logDebug("%s", e.what());
     }
   }
   return trace;
@@ -1322,8 +1317,7 @@ void BatchLoader::load()
       _rs = IO::RecordStream::Open(_recordStreamURL.c_str());
       if (_rs == nullptr)
       {
-        SEISCOMP_ERROR("Cannot open RecordStream: %s",
-                       _recordStreamURL.c_str());
+        logError("Cannot open RecordStream: %s", _recordStreamURL.c_str());
         break;
       }
 
@@ -1411,10 +1405,10 @@ void BatchLoader::load()
           contiguousRecord(seq, tw, _tolerance, _minAvailability);
       if (!trace)
       {
-        SEISCOMP_DEBUG("Cannnot load trace, data availability %.2f%%"
-                       "(stream %s from %s length %.2f sec)",
-                       seq.availability(), streamID.c_str(),
-                       tw.startTime().iso().c_str(), tw.length());
+        logDebug("Cannnot load trace, data availability %.2f%%"
+                 "(stream %s from %s length %.2f sec)",
+                 seq.availability(), streamID.c_str(),
+                 tw.startTime().iso().c_str(), tw.length());
         _counters_wf_no_avail++;
         continue;
       }
@@ -1424,9 +1418,8 @@ void BatchLoader::load()
       _waveforms[wfId] = trace;
       _counters_wf_downloaded++;
     }
-    SEISCOMP_INFO("Fetched %u/%lu waveforms, not available %u",
-                  _counters_wf_downloaded, _streamMap.size(),
-                  _counters_wf_no_avail);
+    logInfo("Fetched %u/%lu waveforms, not available %u",
+            _counters_wf_downloaded, _streamMap.size(), _counters_wf_no_avail);
     _streamMap.clear();
   }
 

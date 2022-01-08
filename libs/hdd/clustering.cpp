@@ -18,9 +18,6 @@
 #include "ellipsoid.h"
 #include "utils.h"
 
-#define SEISCOMP_COMPONENT HDD
-#include <seiscomp3/logging/log.h>
-
 using namespace std;
 using namespace Seiscomp;
 using Event   = HDD::Catalog::Event;
@@ -62,15 +59,14 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
                                                 double maxEllipsoidSize,
                                                 bool keepUnmatched)
 {
-  SEISCOMP_DEBUG(
+  logDebug(
       "Selecting Neighbouring Events for event %s lat %.6f lon %.6f depth %.4f",
       string(refEv).c_str(), refEv.latitude, refEv.longitude, refEv.depth);
 
   // Optimization: make code faster but the result will be the same.
   if (maxNumNeigh <= 0)
   {
-    SEISCOMP_DEBUG(
-        "Disabling ellipsoid algorithm since maxNumNeigh is not set");
+    logDebug("Disabling ellipsoid algorithm since maxNumNeigh is not set");
     numEllipsoids = 0;
   }
 
@@ -295,11 +291,11 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
       neighbours->ids.insert(ev.id);
       neighbours->phases.emplace(ev.id, evSelEntry.phases);
 
-      SEISCOMP_DEBUG("Neighbour: #phases %2d distance %5.2f azimuth %3.f "
-                     "depth-diff %6.3f event %s",
-                     dtCountByEvent[ev.id], distanceByEvent[ev.id],
-                     azimuthByEvent[ev.id], refEv.depth - ev.depth,
-                     string(ev).c_str());
+      logDebug("Neighbour: #phases %2d distance %5.2f azimuth %3.f "
+               "depth-diff %6.3f event %s",
+               dtCountByEvent[ev.id], distanceByEvent[ev.id],
+               azimuthByEvent[ev.id], refEv.depth - ev.depth,
+               string(ev).c_str());
     }
   }
   else
@@ -340,12 +336,11 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
               neighbours->ids.insert(ev.id);
               neighbours->phases.emplace(ev.id, evSelEntry.phases);
 
-              SEISCOMP_DEBUG(
-                  "Neighbour: ellipsoid %2d quadrant %d #phases %2d "
-                  "distance %5.2f azimuth %3.f depth-diff %6.3f event %s",
-                  elpsNum, quadrant, dtCountByEvent[ev.id],
-                  distanceByEvent[ev.id], azimuthByEvent[ev.id],
-                  refEv.depth - ev.depth, string(ev).c_str());
+              logDebug("Neighbour: ellipsoid %2d quadrant %d #phases %2d "
+                       "distance %5.2f azimuth %3.f depth-diff %6.3f event %s",
+                       elpsNum, quadrant, dtCountByEvent[ev.id],
+                       distanceByEvent[ev.id], azimuthByEvent[ev.id],
+                       refEv.depth - ev.depth, string(ev).c_str());
 
               selectedEvents.erase(it);
               break;
@@ -362,7 +357,7 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
     string msg =
         strf("Skipping event %s, insufficient number of neighbors (%d)",
              string(refEv).c_str(), neighbours->ids.size());
-    SEISCOMP_DEBUG("%s", msg.c_str());
+    logDebug("%s", msg.c_str());
     throw Exception(msg);
   }
 
@@ -383,7 +378,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
                                 double maxEllipsoidSize,
                                 bool keepUnmatched)
 {
-  SEISCOMP_INFO("Selecting Catalog Neighbouring Events ");
+  logInfo("Selecting Catalog Neighbouring Events ");
 
   // neighbours for each event
   unordered_map<unsigned, unique_ptr<Neighbours>> neighboursList;

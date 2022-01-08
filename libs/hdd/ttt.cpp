@@ -22,9 +22,6 @@
 #include <seiscomp3/math/math.h>
 #include <sstream>
 
-#define SEISCOMP_COMPONENT HDD
-#include <seiscomp3/logging/log.h>
-
 using namespace std;
 
 namespace HDD {

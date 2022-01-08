@@ -22,9 +22,6 @@
 #include <seiscomp3/math/math.h>
 #include <sstream>
 
-#define SEISCOMP_COMPONENT HDD
-#include <seiscomp3/logging/log.h>
-
 using namespace std;
 using HDD::Exception;
 using HDD::square;
@@ -535,9 +532,9 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
   const double median = computeMedian(residuals);
   const double MAD    = computeMedianAbsoluteDeviation(residuals, median);
 
-  SEISCOMP_INFO("Solver: num DD %lu residual median %.1f [msec] "
-                "MedianAbsoluteDeviation %.1f [msec]",
-                _observations.size(), median * 1000, MAD * 1000);
+  logInfo("Solver: num DD %lu residual median %.1f [msec] "
+          "MedianAbsoluteDeviation %.1f [msec]",
+          _observations.size(), median * 1000, MAD * 1000);
 
   //
   // compute weights
@@ -768,10 +765,10 @@ void Solver::prepareDDSystem(double ttConstraint,
     const double median = computeMedian(decileRes);
     const double MAD    = computeMedianAbsoluteDeviation(decileRes, median);
 
-    SEISCOMP_INFO(
-        "Solver: Inter-event dist %.2f-%-.2f [km] num DD %lu residual "
-        "median %4.1f [msec] MedianAbsoluteDeviation %4.1f [msec]",
-        startingDist, finalDist, decileRes.size(), median * 1000, MAD * 1000);
+    logInfo("Solver: Inter-event dist %.2f-%-.2f [km] num DD %lu residual "
+            "median %4.1f [msec] MedianAbsoluteDeviation %4.1f [msec]",
+            startingDist, finalDist, decileRes.size(), median * 1000,
+            MAD * 1000);
   }
 
   // free some memory
@@ -836,12 +833,11 @@ void Solver::_solve(unsigned numIterations,
 
   solver.Solve(_dd->numRowsG, _dd->numColsG, _dd->d, _dd->m);
 
-  SEISCOMP_DEBUG("%s", solverLogs.str().c_str());
+  logDebug("%s", solverLogs.str().c_str());
 
-  SEISCOMP_INFO("Stopped because %u : %s (used %u iterations)",
-                solver.GetStoppingReason(),
-                solver.GetStoppingReasonMessage().c_str(),
-                solver.GetNumberOfIterationsPerformed());
+  logInfo("Stopped because %u : %s (used %u iterations)",
+          solver.GetStoppingReason(), solver.GetStoppingReasonMessage().c_str(),
+          solver.GetNumberOfIterationsPerformed());
 
   if (solver.GetStoppingReason() == 4)
   {

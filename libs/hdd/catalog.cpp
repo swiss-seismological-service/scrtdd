@@ -25,9 +25,6 @@
 
 #include <boost/filesystem.hpp>
 
-#define SEISCOMP_COMPONENT HDD
-#include <seiscomp3/logging/log.h>
-
 using namespace std;
 using namespace Seiscomp;
 
@@ -206,7 +203,7 @@ void Catalog::add(const Catalog &other, bool keepEvId)
     const Catalog::Event &event = kv.second;
     if (keepEvId && _events.find(event.id) != _events.end())
     {
-      SEISCOMP_DEBUG("Skipping duplicated event id %u", event.id);
+      logDebug("Skipping duplicated event id %u", event.id);
       continue;
     }
     this->add(event.id, other, keepEvId);
@@ -631,9 +628,8 @@ Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
         continue;
       }
 
-      SEISCOMP_DEBUG(
-          "Discard phase (%s), the type is not among the selected ones",
-          string(phase).c_str());
+      logDebug("Discard phase (%s), the type is not among the selected ones",
+               string(phase).c_str());
     }
   }
 

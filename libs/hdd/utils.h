@@ -87,6 +87,59 @@ public:
   Exception(const std::string &message) : std::runtime_error(message) {}
 };
 
+class Logger
+{
+public:
+  static Logger &getInstance()
+  {
+    static Logger instance; // Guaranteed to be destroyed.
+                            // Instantiated on first use.
+    return instance;
+  }
+  Logger(const Logger &) = delete;
+  void operator=(const Logger &) = delete;
+
+  enum class Level
+  {
+    debug,
+    info,
+    warning,
+    error,
+  };
+
+  template <typename... Args> void log(Level l, Args &&... args)
+  {
+    _log(l, strf(std::forward<Args>(args)...));
+  }
+
+  void logToFile(const std::string &logFile, const std::vector<Level> &levels);
+
+private:
+  Logger() = default;
+  void _log(Level, const std::string &);
+};
+
+template <typename... Args> void logDebug(Args &&... args)
+{
+  Logger::getInstance().log(Logger::Level::debug, std::forward<Args>(args)...);
+}
+
+template <typename... Args> void logInfo(Args &&... args)
+{
+  Logger::getInstance().log(Logger::Level::info, std::forward<Args>(args)...);
+}
+
+template <typename... Args> void logWarning(Args &&... args)
+{
+  Logger::getInstance().log(Logger::Level::warning,
+                            std::forward<Args>(args)...);
+}
+
+template <typename... Args> void logError(Args &&... args)
+{
+  Logger::getInstance().log(Logger::Level::error, std::forward<Args>(args)...);
+}
+
 class UniformRandomer
 {
 

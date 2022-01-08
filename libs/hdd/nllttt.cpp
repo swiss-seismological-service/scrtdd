@@ -22,9 +22,6 @@
 #include <seiscomp3/math/math.h>
 #include <seiscomp3/utils/files.h>
 
-#define SEISCOMP_COMPONENT HDD
-#include <seiscomp3/logging/log.h>
-
 using namespace std;
 using TakeOffAngles = HDD::NLL::AngleGrid::TakeOffAngles;
 
@@ -253,7 +250,7 @@ void NllTravelTimeTable::compute(double eventLat,
       catch (exception &e)
       {
         _unloadableGrids.insert(angleGId);
-        SEISCOMP_WARNING(
+        logWarning(
             "Cannot load angle grid file: using approximated angles (%s)",
             e.what());
       }
@@ -272,7 +269,7 @@ void NllTravelTimeTable::compute(double eventLat,
     }
     catch (exception &e)
     {
-      SEISCOMP_WARNING(
+      logWarning(
           "Error reading angle grid file: using approximated angles (%s)",
           e.what());
     }

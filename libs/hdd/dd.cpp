@@ -29,10 +29,6 @@
 #include <seiscomp3/io/recordinput.h>
 #include <seiscomp3/utils/files.h>
 
-#define SEISCOMP_COMPONENT HDD
-#include <seiscomp3/logging/file.h>
-#include <seiscomp3/logging/log.h>
-
 using namespace std;
 using namespace Seiscomp;
 using Event   = HDD::Catalog::Event;
@@ -195,8 +191,8 @@ void DD::preloadWaveforms()
   // For better performance we want to load waveforms in batch
   // (batchloader)
   //
-  SEISCOMP_INFO("Loading catalog waveform data (%lu events to load)",
-                _bgCat.getEvents().size());
+  logInfo("Loading catalog waveform data (%lu events to load)",
+          _bgCat.getEvents().size());
 
   resetCounters();
 
@@ -264,8 +260,8 @@ void DD::preloadWaveforms()
         _bgCat.getEvents().size() < 100 ? 1 : (_bgCat.getEvents().size() / 100);
     if (++numEvents % onePercent == 0)
     {
-      SEISCOMP_INFO("Loaded %.1f%% of catalog phase waveforms",
-                    (numEvents * 100.0 / _bgCat.getEvents().size()));
+      logInfo("Loaded %.1f%% of catalog phase waveforms",
+              (numEvents * 100.0 / _bgCat.getEvents().size()));
     }
   }
 
@@ -275,7 +271,7 @@ void DD::preloadWaveforms()
 
   updateCounters();
 
-  SEISCOMP_INFO(
+  logInfo(
       "Finished preloading catalog waveform data: total events %lu total "
       "phases %u (P %.f%%, S %.f%%). Waveforms downloaded %u, not available "
       "%u, "
@@ -289,7 +285,7 @@ void DD::preloadWaveforms()
 unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
                                             const SolverOptions &solverOpt)
 {
-  SEISCOMP_INFO("Starting DD relocator in multiple events mode");
+  logInfo("Starting DD relocator in multiple events mode");
 
   if (!_ttt) _ttt = TravelTimeTable::create(_cfg.ttt.type, _cfg.ttt.model);
 
@@ -314,19 +310,17 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
         throw Exception(msg);
       }
     }
-    SEISCOMP_INFO("Working dir %s", catalogWorkingDir.c_str());
+    logInfo("Working dir %s", catalogWorkingDir.c_str());
   }
 
   // prepare file logger
   if (_saveProcessing)
   {
-    Logging::FileOutput processingInfoOutput(
-        (boost::filesystem::path(catalogWorkingDir) / "info.log")
-            .string()
-            .c_str());
-    processingInfoOutput.subscribe(Seiscomp::Logging::_SCInfoChannel);
-    processingInfoOutput.subscribe(Seiscomp::Logging::_SCWarningChannel);
-    processingInfoOutput.subscribe(Seiscomp::Logging::_SCErrorChannel);
+    string logFile =
+        (boost::filesystem::path(catalogWorkingDir) / "info.log").string();
+    Logger::getInstance().logToFile(
+        logFile,
+        {Logger::Level::info, Logger::Level::warning, Logger::Level::error});
   }
 
   // find Neighbours for each event in the catalog
@@ -341,7 +335,7 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   list<unordered_map<unsigned, unique_ptr<Neighbours>>> clusters =
       clusterizeNeighbouringEvents(neighboursByEvent);
 
-  SEISCOMP_INFO("Found %lu event clusters", clusters.size());
+  logInfo("Found %lu event clusters", clusters.size());
 
   if (_saveProcessing)
   {
@@ -362,8 +356,8 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   unsigned clusterId = 1;
   for (const auto &neighCluster : clusters)
   {
-    SEISCOMP_INFO("Relocating cluster %u (%lu events)", clusterId,
-                  neighCluster.size());
+    logInfo("Relocating cluster %u (%lu events)", clusterId,
+            neighCluster.size());
 
     if (_saveProcessing)
     {
@@ -437,13 +431,12 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   const auto &evToRelocatePhases =
       singleEvent.getPhases().equal_range(evToRelocate.id);
 
-  SEISCOMP_INFO(
-      "Starting DD relocator in single event mode: event %s lat %.6f lon "
-      "%.6f depth %.4f mag %.2f time %s #phases %ld",
-      string(evToRelocate).c_str(), evToRelocate.latitude,
-      evToRelocate.longitude, evToRelocate.depth, evToRelocate.magnitude,
-      evToRelocate.time.iso().c_str(),
-      std::distance(evToRelocatePhases.first, evToRelocatePhases.second));
+  logInfo("Starting DD relocator in single event mode: event %s lat %.6f lon "
+          "%.6f depth %.4f mag %.2f time %s #phases %ld",
+          string(evToRelocate).c_str(), evToRelocate.latitude,
+          evToRelocate.longitude, evToRelocate.depth, evToRelocate.magnitude,
+          evToRelocate.time.iso().c_str(),
+          std::distance(evToRelocatePhases.first, evToRelocatePhases.second));
 
   // prepare a folder for debug files
   string baseWorkingDir;
@@ -461,22 +454,20 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
       string msg = "Unable to create working directory: " + baseWorkingDir;
       throw Exception(msg);
     }
-    SEISCOMP_INFO("Working dir %s", baseWorkingDir.c_str());
+    logInfo("Working dir %s", baseWorkingDir.c_str());
   }
 
   // prepare file logger
   if (_saveProcessing)
   {
-    Logging::FileOutput processingInfoOutput(
-        (boost::filesystem::path(baseWorkingDir) / "info.log")
-            .string()
-            .c_str());
-    processingInfoOutput.subscribe(Seiscomp::Logging::_SCInfoChannel);
-    processingInfoOutput.subscribe(Seiscomp::Logging::_SCWarningChannel);
-    processingInfoOutput.subscribe(Seiscomp::Logging::_SCErrorChannel);
+    string logFile =
+        (boost::filesystem::path(baseWorkingDir) / "info.log").string();
+    Logger::getInstance().logToFile(
+        logFile,
+        {Logger::Level::info, Logger::Level::warning, Logger::Level::error});
   }
 
-  SEISCOMP_INFO(
+  logInfo(
       "Performing step 1: initial location refinement (no cross-correlation)");
 
   string eventWorkingDir =
@@ -493,20 +484,19 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   if (relocatedEvCat)
   {
     const Event &ev = relocatedEvCat->getEvents().begin()->second;
-    SEISCOMP_INFO("Step 1 relocation successful, new location: "
-                  "lat %.6f lon %.6f depth %.4f time %s",
-                  ev.latitude, ev.longitude, ev.depth, ev.time.iso().c_str());
-    SEISCOMP_INFO("Relocation report: %s",
-                  relocationReport(*relocatedEvCat).c_str());
+    logInfo("Step 1 relocation successful, new location: "
+            "lat %.6f lon %.6f depth %.4f time %s",
+            ev.latitude, ev.longitude, ev.depth, ev.time.iso().c_str());
+    logInfo("Relocation report: %s", relocationReport(*relocatedEvCat).c_str());
 
     evToRelocateCat = std::move(relocatedEvCat);
   }
   else
   {
-    SEISCOMP_ERROR("Failed to perform step 1 origin relocation");
+    logError("Failed to perform step 1 origin relocation");
   }
 
-  SEISCOMP_INFO("Performing step 2: relocation with cross-correlation");
+  logInfo("Performing step 2: relocation with cross-correlation");
 
   eventWorkingDir =
       (boost::filesystem::path(baseWorkingDir) / "step2").string();
@@ -518,11 +508,11 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   if (relocatedEvWithXcorr)
   {
     Event ev = relocatedEvWithXcorr->getEvents().begin()->second;
-    SEISCOMP_INFO("Step 2 relocation successful, new location: "
-                  "lat %.6f lon %.6f depth %.4f time %s",
-                  ev.latitude, ev.longitude, ev.depth, ev.time.iso().c_str());
-    SEISCOMP_INFO("Relocation report: %s",
-                  relocationReport(*relocatedEvWithXcorr).c_str());
+    logInfo("Step 2 relocation successful, new location: "
+            "lat %.6f lon %.6f depth %.4f time %s",
+            ev.latitude, ev.longitude, ev.depth, ev.time.iso().c_str());
+    logInfo("Relocation report: %s",
+            relocationReport(*relocatedEvWithXcorr).c_str());
 
     // update the "origin change information" taking into consideration
     // the first relocation step, too
@@ -539,16 +529,16 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
       }
     }
 
-    SEISCOMP_INFO("Total Changes: location=%.2f[km] depth=%.2f[km] "
-                  "time=%.3f[sec] Rms=%.3f[sec] (before/after %.3f/%.3f)",
-                  ev.relocInfo.locChange, ev.relocInfo.depthChange,
-                  ev.relocInfo.timeChange,
-                  (ev.relocInfo.finalRms - ev.relocInfo.startRms),
-                  ev.relocInfo.startRms, ev.relocInfo.finalRms);
+    logInfo("Total Changes: location=%.2f[km] depth=%.2f[km] "
+            "time=%.3f[sec] Rms=%.3f[sec] (before/after %.3f/%.3f)",
+            ev.relocInfo.locChange, ev.relocInfo.depthChange,
+            ev.relocInfo.timeChange,
+            (ev.relocInfo.finalRms - ev.relocInfo.startRms),
+            ev.relocInfo.startRms, ev.relocInfo.finalRms);
   }
   else
   {
-    SEISCOMP_ERROR("Failed to perform step 2 origin relocation");
+    logError("Failed to perform step 2 origin relocation");
   }
 
   if (!relocatedEvWithXcorr) throw Exception("Failed origin relocation");
@@ -572,7 +562,7 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
       string msg = "Unable to create working directory: " + workingDir;
       throw Exception(msg);
     }
-    SEISCOMP_INFO("Working dir %s", workingDir.c_str());
+    logInfo("Working dir %s", workingDir.c_str());
 
     evToRelocateCat.writeToFile(
         (boost::filesystem::path(workingDir) / "single-event.csv").string(),
@@ -648,7 +638,7 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
   }
   catch (exception &e)
   {
-    SEISCOMP_ERROR("%s", e.what());
+    logError("%s", e.what());
   }
 
   return relocatedEvCat;
@@ -661,7 +651,7 @@ unique_ptr<Catalog> DD::relocate(
     bool keepNeighboursFixed,
     const XCorrCache &xcorr) const
 {
-  SEISCOMP_INFO("Building and solving double-difference system...");
+  logInfo("Building and solving double-difference system...");
 
   //
   // iterate the solver computation multiple times
@@ -690,12 +680,11 @@ unique_ptr<Catalog> DD::relocate(
     double absTTDiffObsWeight = interpolate(1.0, solverOpt.absTTDiffObsWeight);
     double xcorrObsWeight     = interpolate(1.0, solverOpt.xcorrObsWeight);
 
-    SEISCOMP_INFO("Solving iteration %u num events %lu. Parameters: "
-                  "observWeight TT/CC=%.2f/%.2f dampingFactor=%.2f "
-                  "downWeightingByResidual=%.2f absLocConstraint=%.2f",
-                  iteration, neighCluster.size(), absTTDiffObsWeight,
-                  xcorrObsWeight, dampingFactor, downWeightingByResidual,
-                  absLocConstraint);
+    logInfo("Solving iteration %u num events %lu. Parameters: "
+            "observWeight TT/CC=%.2f/%.2f dampingFactor=%.2f "
+            "downWeightingByResidual=%.2f absLocConstraint=%.2f",
+            iteration, neighCluster.size(), absTTDiffObsWeight, xcorrObsWeight,
+            dampingFactor, downWeightingByResidual, absLocConstraint);
 
     // create a solver and then add observations
     Solver solver(solverOpt.type);
@@ -722,8 +711,8 @@ unique_ptr<Catalog> DD::relocate(
     }
     catch (exception &e)
     {
-      SEISCOMP_INFO("Cannot solve the double-difference system, stop here (%s)",
-                    e.what());
+      logInfo("Cannot solve the double-difference system, stop here (%s)",
+              e.what());
       break;
     }
 
@@ -820,24 +809,24 @@ void DD::addObservations(Solver &solver,
       double ref_travel_time = (refPhase.time - refEv.time).length();
       if (ref_travel_time < 0)
       {
-        SEISCOMP_DEBUG("Ignoring phase %s with negative travel time",
-                       string(refPhase).c_str());
+        logDebug("Ignoring phase %s with negative travel time",
+                 string(refPhase).c_str());
         continue;
       }
 
       double travel_time = (phase.time - event.time).length();
       if (travel_time < 0)
       {
-        SEISCOMP_DEBUG("Ignoring phase %s with negative travel time",
-                       string(phase).c_str());
+        logDebug("Ignoring phase %s with negative travel time",
+                 string(phase).c_str());
         continue;
       }
 
       if (!obsparams.add(*_ttt, refEv, station, refPhase, true) ||
           !obsparams.add(*_ttt, event, station, phase, !keepNeighboursFixed))
       {
-        SEISCOMP_DEBUG("Skipping observation (ev %u-%u sta %s phase %c)",
-                       refEv.id, event.id, station.id.c_str(), phaseTypeAsChar);
+        logDebug("Skipping observation (ev %u-%u sta %s phase %c)", refEv.id,
+                 event.id, station.id.c_str(), phaseTypeAsChar);
         continue;
       }
 
@@ -899,7 +888,7 @@ bool DD::ObservationParams::add(HDD::TravelTimeTable &ttt,
     }
     catch (exception &e)
     {
-      SEISCOMP_WARNING(
+      logWarning(
           "Travel Time Table error: %s (Event lat %.6f lon %.6f depth %.6f "
           "Station lat %.6f lon %.6f elevation %.f )",
           e.what(), event.latitude, event.longitude, event.depth,
@@ -969,7 +958,7 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
       // allow 100 meters change
       if (deltaDepth > 0.100)
       {
-        SEISCOMP_DEBUG("Ignoring airquake event %s", string(event).c_str());
+        logDebug("Ignoring airquake event %s", string(event).c_str());
         continue;
       }
       // do not move the depth in this case
@@ -1089,10 +1078,9 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
   const double allRmsMedian = computeMedian(allRms);
   const double allRmsMAD = computeMedianAbsoluteDeviation(allRms, allRmsMedian);
 
-  SEISCOMP_INFO(
-      "Successfully relocated %u events, RMS median %.4f [sec] median "
-      "absolute deviation %.4f [sec]",
-      relocatedEvs, allRmsMedian, allRmsMAD);
+  logInfo("Successfully relocated %u events, RMS median %.4f [sec] median "
+          "absolute deviation %.4f [sec]",
+          relocatedEvs, allRmsMedian, allRmsMAD);
 
   return unique_ptr<Catalog>(new Catalog(stations, events, phases));
 }
@@ -1160,7 +1148,7 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
       }
       catch (exception &e)
       {
-        SEISCOMP_WARNING(
+        logWarning(
             "Travel Time Table error: %s (Event lat %.6f lon %.6f depth %.6f "
             "Station lat %.6f lon %.6f elevation %.f )",
             e.what(), startEvent.latitude, startEvent.longitude,
@@ -1211,9 +1199,9 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
   const double allRmsMedian = computeMedian(allRms);
   const double allRmsMAD = computeMedianAbsoluteDeviation(allRms, allRmsMedian);
 
-  SEISCOMP_INFO("Events RMS before relocation: median %.4f median absolute "
-                "deviation %.4f",
-                allRmsMedian, allRmsMAD);
+  logInfo("Events RMS before relocation: median %.4f median absolute "
+          "deviation %.4f",
+          allRmsMedian, allRmsMAD);
 
   return catalogToReturn;
 }
@@ -1451,8 +1439,8 @@ XCorrCache DD::buildXCorrCache(
     // good cross-correlation result.
     fixPhases(catalog, refEv, xcorr);
 
-    SEISCOMP_INFO("Cross-correlation completion %.1f%%",
-                  (++performed / (double)neighCluster.size()) * 100);
+    logInfo("Cross-correlation completion %.1f%%",
+            (++performed / (double)neighCluster.size()) * 100);
   }
 
   printCounters();
@@ -1471,9 +1459,8 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
                                   double xcorrMaxInterEvDist,
                                   XCorrCache &xcorr)
 {
-  SEISCOMP_DEBUG(
-      "Computing cross-correlation differential travel times for event %s",
-      string(refEv).c_str());
+  logDebug("Computing cross-correlation differential travel times for event %s",
+           string(refEv).c_str());
 
   //
   // Prepare the waveform loaders for single-event. Since they are
@@ -1644,7 +1631,7 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
 
     if (!goodPXcorr && !goodSXcorr)
     {
-      SEISCOMP_DEBUG(
+      logDebug(
           "xcorr: event %5s sta %4s %5s dist %7.2f [km] - low corr coeff pairs",
           string(refEv).c_str(), station.networkCode.c_str(),
           station.stationCode.c_str(), stationDistance);
@@ -1654,22 +1641,20 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
       if (goodPXcorr)
       {
         const auto &pdata = xcorr.get(refEv.id, station.id, Phase::Type::P);
-        SEISCOMP_DEBUG("xcorr: event %5s sta %4s %5s dist %7.2f [km] - "
-                       "%d P phases, mean coeff %.2f lag %.2f (events: %s)",
-                       string(refEv).c_str(), station.networkCode.c_str(),
-                       station.stationCode.c_str(), stationDistance,
-                       pdata.ccCount, pdata.mean_coeff, pdata.mean_lag,
-                       pdata.peersStr.c_str());
+        logDebug("xcorr: event %5s sta %4s %5s dist %7.2f [km] - "
+                 "%d P phases, mean coeff %.2f lag %.2f (events: %s)",
+                 string(refEv).c_str(), station.networkCode.c_str(),
+                 station.stationCode.c_str(), stationDistance, pdata.ccCount,
+                 pdata.mean_coeff, pdata.mean_lag, pdata.peersStr.c_str());
       }
       if (goodSXcorr)
       {
         const auto &sdata = xcorr.get(refEv.id, station.id, Phase::Type::S);
-        SEISCOMP_DEBUG("xcorr: event %5s sta %4s %5s dist %7.2f [km] - "
-                       "%d S phases, mean coeff %.2f lag %.2f (events: %s)",
-                       string(refEv).c_str(), station.networkCode.c_str(),
-                       station.stationCode.c_str(), stationDistance,
-                       sdata.ccCount, sdata.mean_coeff, sdata.mean_lag,
-                       sdata.peersStr.c_str());
+        logDebug("xcorr: event %5s sta %4s %5s dist %7.2f [km] - "
+                 "%d S phases, mean coeff %.2f lag %.2f (events: %s)",
+                 string(refEv).c_str(), station.networkCode.c_str(),
+                 station.stationCode.c_str(), stationDistance, sdata.ccCount,
+                 sdata.mean_coeff, sdata.mean_lag, sdata.peersStr.c_str());
       }
     }
   }
@@ -1849,10 +1834,10 @@ void DD::fixPhases(Catalog &catalog, const Event &refEv, XCorrCache &xcorr)
     catalog.updatePhase(ph, true);
   }
 
-  SEISCOMP_DEBUG("Event %s total phases %u (%u P and %u S): created %u (%u P "
-                 "and %u S) from theoretical picks",
-                 string(refEv).c_str(), (totP + totS), totP, totS,
-                 (newP + newS), newP, newS);
+  logDebug("Event %s total phases %u (%u P and %u S): created %u (%u P "
+           "and %u S) from theoretical picks",
+           string(refEv).c_str(), (totP + totS), totP, totS, (newP + newS),
+           newP, newS);
 }
 
 void DD::resetCounters()
@@ -1914,20 +1899,19 @@ void DD::printCounters() const
   unsigned wf_disk_cached = _counters.wf_disk_cached;
   unsigned wf_downloaded  = _counters.wf_downloaded;
 
-  SEISCOMP_INFO("Cross-correlation performed %u, "
-                "phases with SNR ratio too low %u, "
-                "phases not available %u (waveforms downloaded %u, "
-                "waveforms loaded from disk cache %u)",
-                performed, wf_snr_low, wf_no_avail, wf_downloaded,
-                wf_disk_cached);
+  logInfo("Cross-correlation performed %u, "
+          "phases with SNR ratio too low %u, "
+          "phases not available %u (waveforms downloaded %u, "
+          "waveforms loaded from disk cache %u)",
+          performed, wf_snr_low, wf_no_avail, wf_downloaded, wf_disk_cached);
 
-  SEISCOMP_INFO("Total xcorr %u (P %.f%%, S %.f%%) success %.f%% (%u/%u). "
-                "Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
-                performed, (performed_p * 100. / performed),
-                (performed_s * 100. / performed), (good_cc * 100. / performed),
-                good_cc, performed, (good_cc_p * 100. / performed_p), good_cc_p,
-                performed_p, (good_cc_s * 100. / performed_s), good_cc_s,
-                performed_s);
+  logInfo("Total xcorr %u (P %.f%%, S %.f%%) success %.f%% (%u/%u). "
+          "Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
+          performed, (performed_p * 100. / performed),
+          (performed_s * 100. / performed), (good_cc * 100. / performed),
+          good_cc, performed, (good_cc_p * 100. / performed_p), good_cc_p,
+          performed_p, (good_cc_s * 100. / performed_s), good_cc_s,
+          performed_s);
 
   if (perf_theo > 0)
   {
@@ -1938,7 +1922,7 @@ void DD::printCounters() const
              good_cc_s_real = good_cc_s - good_cc_s_theo,
              good_cc_p_real = good_cc_real - good_cc_s_real;
 
-    SEISCOMP_INFO(
+    logInfo(
         "xcorr on actual picks %u/%u (P %.f%%, S %.f%%) success %.f%% (%u/%u). "
         "Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
         perf_real, performed, (perf_real_p * 100. / perf_real),
@@ -1947,14 +1931,13 @@ void DD::printCounters() const
         good_cc_p_real, perf_real_p, (good_cc_s_real * 100. / perf_real_s),
         good_cc_s_real, perf_real_s);
 
-    SEISCOMP_INFO(
-        "xcorr on theoretical picks %u/%u (P %.f%%, S %.f%%) success %.f%% "
-        "(%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
-        perf_theo, performed, (perf_theo_p * 100. / perf_theo),
-        (perf_theo_s * 100. / perf_theo), (good_cc_theo * 100. / perf_theo),
-        good_cc_theo, perf_theo, (good_cc_p_theo * 100. / perf_theo_p),
-        good_cc_p_theo, perf_theo_p, (good_cc_s_theo * 100. / perf_theo_s),
-        good_cc_s_theo, perf_theo_s);
+    logInfo("xcorr on theoretical picks %u/%u (P %.f%%, S %.f%%) success %.f%% "
+            "(%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
+            perf_theo, performed, (perf_theo_p * 100. / perf_theo),
+            (perf_theo_s * 100. / perf_theo), (good_cc_theo * 100. / perf_theo),
+            good_cc_theo, perf_theo, (good_cc_p_theo * 100. / perf_theo_p),
+            good_cc_p_theo, perf_theo_p, (good_cc_s_theo * 100. / perf_theo_s),
+            good_cc_s_theo, perf_theo_s);
   }
 }
 
@@ -1986,10 +1969,9 @@ bool DD::xcorrPhases(const Event &event1,
 {
   if (phase1.procInfo.type != phase2.procInfo.type)
   {
-    SEISCOMP_ERROR(
-        "Internal logic error: trying to cross-correlate mismatching "
-        "phases (%s and %s)",
-        string(phase1).c_str(), string(phase2).c_str());
+    logError("Internal logic error: trying to cross-correlate mismatching "
+             "phases (%s and %s)",
+             string(phase1).c_str(), string(phase2).c_str());
     return false;
   }
 
@@ -2041,7 +2023,7 @@ bool DD::xcorrPhases(const Event &event1,
 
   if (commonChRoot.empty())
   {
-    SEISCOMP_DEBUG(
+    logDebug(
         "Cannot find common channels to cross-correlate %s and %s (%s and %s)",
         channelCodeRoot1.c_str(), channelCodeRoot2.c_str(),
         string(phase1).c_str(), string(phase2).c_str());
@@ -2161,9 +2143,9 @@ bool DD::_xcorrPhases(const Event &event1,
     Core::TimeWindow tw2Short = xcorrTimeWindowShort(phase2);
     if (!Waveform::trim(*tr2Short, tw2Short))
     {
-      SEISCOMP_DEBUG("Cannot trim phase2 waveform, skipping cross-correlation "
-                     "for phase pair phase1='%s', phase2='%s'",
-                     string(phase1).c_str(), string(phase2).c_str());
+      logDebug("Cannot trim phase2 waveform, skipping cross-correlation "
+               "for phase pair phase1='%s', phase2='%s'",
+               string(phase1).c_str(), string(phase2).c_str());
       return false;
     }
 
@@ -2186,9 +2168,9 @@ bool DD::_xcorrPhases(const Event &event1,
     Core::TimeWindow tw1Short = xcorrTimeWindowShort(phase1);
     if (!Waveform::trim(*tr1Short, tw1Short))
     {
-      SEISCOMP_DEBUG("Cannot trim phase1 waveform, skipping cross-correlation "
-                     "for phase pair phase1='%s', phase2='%s'",
-                     string(phase1).c_str(), string(phase2).c_str());
+      logDebug("Cannot trim phase1 waveform, skipping cross-correlation "
+               "for phase pair phase1='%s', phase2='%s'",
+               string(phase1).c_str(), string(phase2).c_str());
       return false;
     }
 
@@ -2363,7 +2345,7 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
     {
       log += strf("%-12s %s\n", kv.first.c_str(), kv.second.describe().c_str());
     }
-    SEISCOMP_INFO("%s", log.c_str());
+    logInfo("%s", log.c_str());
   };
 
   resetCounters();
@@ -2518,8 +2500,8 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
         }
       }
 
-    SEISCOMP_INFO("Event %-5s mag %3.1f %s", string(event).c_str(),
-                  event.magnitude, evStats.describeShort().c_str());
+    logInfo("Event %-5s mag %3.1f %s", string(event).c_str(), event.magnitude,
+            evStats.describeShort().c_str());
 
     if (++loop % 100 == 0)
     {
