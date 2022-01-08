@@ -42,9 +42,7 @@ using HDD::Waveform::getBandAndInstrumentCodes;
 
 namespace HDD {
 
-DD::DD(const Catalog &catalog,
-               const Config &cfg,
-               const string &workingDir)
+DD::DD(const Catalog &catalog, const Config &cfg, const string &workingDir)
     : _workingDir(workingDir), _cfg(cfg)
 {
   setCatalog(catalog);
@@ -111,8 +109,10 @@ void DD::createWaveformCache()
 
   if (_useCatalogWaveformDiskCache)
   {
-    _wfAccess.diskCache.reset(new Waveform::DiskCachedLoader(current, _cacheDir));
-    _wfAccess.extraLen.reset(new Waveform::ExtraLenLoader(_wfAccess.diskCache, DISK_TRACE_MIN_LEN));
+    _wfAccess.diskCache.reset(
+        new Waveform::DiskCachedLoader(current, _cacheDir));
+    _wfAccess.extraLen.reset(
+        new Waveform::ExtraLenLoader(_wfAccess.diskCache, DISK_TRACE_MIN_LEN));
     current = _wfAccess.extraLen;
   }
 
@@ -127,7 +127,7 @@ void DD::createWaveformCache()
   _wfAccess.memCache.reset(new Waveform::MemCachedLoader(current));
 }
 
-void DD::replaceWaveformCacheLoader(const shared_ptr<Waveform::Loader>& baseLdr)
+void DD::replaceWaveformCacheLoader(const shared_ptr<Waveform::Loader> &baseLdr)
 {
   if (_useCatalogWaveformDiskCache)
   {
@@ -270,7 +270,8 @@ void DD::preloadWaveforms()
   }
 
   // restore proper loader
-  replaceWaveformCacheLoader(shared_ptr<Waveform::Loader>(new Waveform::Loader(_cfg.recordStreamURL)));
+  replaceWaveformCacheLoader(
+      shared_ptr<Waveform::Loader>(new Waveform::Loader(_cfg.recordStreamURL)));
 
   updateCounters();
 
@@ -286,7 +287,7 @@ void DD::preloadWaveforms()
 }
 
 unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
-                                       const SolverOptions &solverOpt)
+                                            const SolverOptions &solverOpt)
 {
   SEISCOMP_INFO("Starting DD relocator in multiple events mode");
 
@@ -320,25 +321,27 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   if (_saveProcessing)
   {
     Logging::FileOutput processingInfoOutput(
-            (boost::filesystem::path(catalogWorkingDir) / "info.log")
-                .string()
-                .c_str());
+        (boost::filesystem::path(catalogWorkingDir) / "info.log")
+            .string()
+            .c_str());
     processingInfoOutput.subscribe(Seiscomp::Logging::_SCInfoChannel);
     processingInfoOutput.subscribe(Seiscomp::Logging::_SCWarningChannel);
     processingInfoOutput.subscribe(Seiscomp::Logging::_SCErrorChannel);
   }
 
   // find Neighbours for each event in the catalog
-  vector<unique_ptr<Neighbours>> allNeighbours = selectNeighbouringEventsCatalog(
-      catToReloc, clustOpt.minWeight, clustOpt.minESdist, clustOpt.maxESdist,
-      clustOpt.minEStoIEratio, clustOpt.minDTperEvt, clustOpt.maxDTperEvt,
-      clustOpt.minNumNeigh, clustOpt.maxNumNeigh, clustOpt.numEllipsoids,
-      clustOpt.maxEllipsoidSize, true);
+  vector<unique_ptr<Neighbours>> allNeighbours =
+      selectNeighbouringEventsCatalog(
+          catToReloc, clustOpt.minWeight, clustOpt.minESdist,
+          clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
+          clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
+          clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, true);
 
   // Organize the neighbours by not connected clusters. In addition,
   // don't report the same pair multiple times (e.g. ev1-ev2 and ev2-ev1)
   // since we only need one observation per pair in the DD solver.
-  list<vector<unique_ptr<Neighbours>>> clusters = clusterizeNeighbouringEvents(allNeighbours);
+  list<vector<unique_ptr<Neighbours>>> clusters =
+      clusterizeNeighbouringEvents(allNeighbours);
 
   SEISCOMP_INFO("Found %lu event clusters", clusters.size());
 
@@ -423,13 +426,13 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
 }
 
 unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
-                                       const ClusteringOptions &clustOpt1,
-                                       const ClusteringOptions &clustOpt2,
-                                       const SolverOptions &solverOpt)
+                                            const ClusteringOptions &clustOpt1,
+                                            const ClusteringOptions &clustOpt2,
+                                            const SolverOptions &solverOpt)
 {
   if (!_ttt) _ttt = TravelTimeTable::create(_cfg.ttt.type, _cfg.ttt.model);
 
-  const Catalog& bgCat = _bgCat;
+  const Catalog &bgCat = _bgCat;
 
   // there must be only one event in the catalog, the origin to relocate
   const Event &evToRelocate = singleEvent.getEvents().begin()->second;
@@ -467,9 +470,9 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   if (_saveProcessing)
   {
     Logging::FileOutput processingInfoOutput(
-            (boost::filesystem::path(baseWorkingDir) / "info.log")
-                .string()
-                .c_str());
+        (boost::filesystem::path(baseWorkingDir) / "info.log")
+            .string()
+            .c_str());
     processingInfoOutput.subscribe(Seiscomp::Logging::_SCInfoChannel);
     processingInfoOutput.subscribe(Seiscomp::Logging::_SCWarningChannel);
     processingInfoOutput.subscribe(Seiscomp::Logging::_SCErrorChannel);
@@ -555,13 +558,14 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   return relocatedEvWithXcorr;
 }
 
-unique_ptr<Catalog> DD::relocateEventSingleStep(const Catalog& bgCat,
-                                           const Catalog &evToRelocateCat,
-                                           const string &workingDir,
-                                           const ClusteringOptions &clustOpt,
-                                           const SolverOptions &solverOpt,
-                                           bool doXcorr,
-                                           bool computeTheoreticalPhases)
+unique_ptr<Catalog>
+DD::relocateEventSingleStep(const Catalog &bgCat,
+                            const Catalog &evToRelocateCat,
+                            const string &workingDir,
+                            const ClusteringOptions &clustOpt,
+                            const SolverOptions &solverOpt,
+                            bool doXcorr,
+                            bool computeTheoreticalPhases)
 {
   if (_saveProcessing)
   {
@@ -652,18 +656,19 @@ unique_ptr<Catalog> DD::relocateEventSingleStep(const Catalog& bgCat,
   return relocatedEvCat;
 }
 
-unique_ptr<Catalog> DD::relocate(const Catalog &catalog,
-                            const vector<unique_ptr<Neighbours>> &neighCluster,
-                            const SolverOptions &solverOpt,
-                            bool keepNeighboursFixed,
-                            const XCorrCache &xcorr) const
+unique_ptr<Catalog>
+DD::relocate(const Catalog &catalog,
+             const vector<unique_ptr<Neighbours>> &neighCluster,
+             const SolverOptions &solverOpt,
+             bool keepNeighboursFixed,
+             const XCorrCache &xcorr) const
 {
   SEISCOMP_INFO("Building and solving double-difference system...");
 
   //
   // iterate the solver computation multiple times
   //
-  unique_ptr<const Catalog> finalCatalog( new Catalog(catalog));
+  unique_ptr<const Catalog> finalCatalog(new Catalog(catalog));
   unordered_map<unsigned, unique_ptr<Neighbours>> finalNeighCluster;
   ObservationParams obsparams;
   for (unsigned iteration = 0; iteration < solverOpt.algoIterations;
@@ -774,14 +779,14 @@ string DD::relocationReport(const Catalog &relocatedEv)
  * solver.
  */
 void DD::addObservations(Solver &solver,
-                             double absTTDiffObsWeight,
-                             double xcorrObsWeight,
-                             const Catalog &catalog,
-                             const Neighbours &neighbours,
-                             bool keepNeighboursFixed,
-                             bool usePickUncertainty,
-                             const XCorrCache &xcorr,
-                             ObservationParams &obsparams) const
+                         double absTTDiffObsWeight,
+                         double xcorrObsWeight,
+                         const Catalog &catalog,
+                         const Neighbours &neighbours,
+                         bool keepNeighboursFixed,
+                         bool usePickUncertainty,
+                         const XCorrCache &xcorr,
+                         ObservationParams &obsparams) const
 {
   // copy event because we'll update it
   const Event &refEv = catalog.getEvents().at(neighbours.refEvId);
@@ -804,11 +809,13 @@ void DD::addObservations(Solver &solver,
       const Event &event = catalog.getEvents().at(neighEvId);
 
       if (!neighbours.has(neighEvId, refPhase.stationId,
-                           refPhase.procInfo.type))
+                          refPhase.procInfo.type))
         continue;
 
-      const Phase &phase = catalog.searchPhase(event.id, refPhase.stationId,
-                                             refPhase.procInfo.type)->second;
+      const Phase &phase =
+          catalog
+              .searchPhase(event.id, refPhase.stationId, refPhase.procInfo.type)
+              ->second;
       //
       // compute travel times for both event and `refEv`
       //
@@ -871,11 +878,11 @@ void DD::addObservations(Solver &solver,
   }
 }
 
-bool DD::ObservationParams::add(HDD::TravelTimeTable& ttt,
-                                    const Event &event,
-                                    const Station &station,
-                                    const Phase &phase,
-                                    bool computeEvChanges)
+bool DD::ObservationParams::add(HDD::TravelTimeTable &ttt,
+                                const Event &event,
+                                const Station &station,
+                                const Phase &phase,
+                                bool computeEvChanges)
 {
   char phaseType = static_cast<char>(phase.procInfo.type);
   const std::string key =
@@ -886,7 +893,7 @@ bool DD::ObservationParams::add(HDD::TravelTimeTable& ttt,
     {
       double travelTime, takeOfAngleAzim, takeOfAngleDip, velocityAtSrc;
       ttt.compute(event, station, string(1, phaseType), travelTime,
-                   takeOfAngleAzim, takeOfAngleDip, velocityAtSrc);
+                  takeOfAngleAzim, takeOfAngleDip, velocityAtSrc);
       double ttResidual = travelTime - (phase.time - event.time).length();
       _entries[key]     = Entry{event,          station,       phaseType,
                             travelTime,     ttResidual,    takeOfAngleAzim,
@@ -1077,7 +1084,7 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     event.relocInfo.dd.finalResidualMedian = residualMedian;
     event.relocInfo.dd.finalResidualMAD    = residualMAD;
 
-    event.relocInfo.numNeighbours = finalNeighbours->ids.size();
+    event.relocInfo.numNeighbours               = finalNeighbours->ids.size();
     finalNeighCluster[finalNeighbours->refEvId] = std::move(finalNeighbours);
   }
 
@@ -1113,7 +1120,8 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
       continue;
     }
 
-    unique_ptr<Catalog> tmpCat = finalCatalog.extractEvent(neighbours->refEvId, true);
+    unique_ptr<Catalog> tmpCat =
+        finalCatalog.extractEvent(neighbours->refEvId, true);
 
     const Event &startEvent = startCatalog.getEvents().at(neighbours->refEvId);
     Event finalEvent        = tmpCat->getEvents().at(neighbours->refEvId);
@@ -1213,9 +1221,9 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
 }
 
 void DD::addMissingEventPhases(const Event &refEv,
-                                   Catalog &refEvCatalog,
-                                   const Catalog &searchCatalog,
-                                   const Neighbours &neighbours)
+                               Catalog &refEvCatalog,
+                               const Catalog &searchCatalog,
+                               const Neighbours &neighbours)
 {
   vector<Phase> newPhases =
       findMissingEventPhases(refEv, refEvCatalog, searchCatalog, neighbours);
@@ -1228,11 +1236,10 @@ void DD::addMissingEventPhases(const Event &refEv,
   }
 }
 
-vector<Phase>
-DD::findMissingEventPhases(const Event &refEv,
-                               Catalog &refEvCatalog,
-                               const Catalog &searchCatalog,
-                               const Neighbours &neighbours)
+vector<Phase> DD::findMissingEventPhases(const Event &refEv,
+                                         Catalog &refEvCatalog,
+                                         const Catalog &searchCatalog,
+                                         const Neighbours &neighbours)
 {
   //
   // find stations for which the `refEv` doesn't have phases
@@ -1284,8 +1291,8 @@ DD::findMissingEventPhases(const Event &refEv,
 
 vector<DD::MissingStationPhase>
 DD::getMissingPhases(const Event &refEv,
-                         Catalog &refEvCatalog,
-                         const Catalog &searchCatalog) const
+                     Catalog &refEvCatalog,
+                     const Catalog &searchCatalog) const
 {
   const auto &refEvPhases = refEvCatalog.getPhases().equal_range(refEv.id);
 
@@ -1325,11 +1332,10 @@ DD::getMissingPhases(const Event &refEv,
   return missingPhases;
 }
 
-vector<DD::PhasePeer>
-DD::findPhasePeers(const Station &station,
-                       const Phase::Type &phaseType,
-                       const Catalog &searchCatalog,
-                       const Neighbours &neighbours) const
+vector<DD::PhasePeer> DD::findPhasePeers(const Station &station,
+                                         const Phase::Type &phaseType,
+                                         const Catalog &searchCatalog,
+                                         const Neighbours &neighbours) const
 {
   //
   // Loop through every other event and select those manual phases of the
@@ -1364,10 +1370,10 @@ DD::findPhasePeers(const Station &station,
 }
 
 Phase DD::createThoreticalPhase(const Station &station,
-                                    const Phase::Type &phaseType,
-                                    const Event &refEv,
-                                    const vector<DD::PhasePeer> &peers,
-                                    double phaseVelocity)
+                                const Phase::Type &phaseType,
+                                const Event &refEv,
+                                const vector<DD::PhasePeer> &peers,
+                                double phaseVelocity)
 {
   const auto xcorrCfg = _cfg.xcorr.at(phaseType);
 
@@ -1415,11 +1421,12 @@ Phase DD::createThoreticalPhase(const Station &station,
   return refEvNewPhase;
 }
 
-XCorrCache DD::buildXCorrCache(Catalog &catalog,
-                                   const vector<unique_ptr<Neighbours>> &neighCluster,
-                                   bool computeTheoreticalPhases,
-                                   double xcorrMaxEvStaDist,
-                                   double xcorrMaxInterEvDist)
+XCorrCache
+DD::buildXCorrCache(Catalog &catalog,
+                    const vector<unique_ptr<Neighbours>> &neighCluster,
+                    bool computeTheoreticalPhases,
+                    double xcorrMaxEvStaDist,
+                    double xcorrMaxInterEvDist)
 {
   XCorrCache xcorr;
   resetCounters();
@@ -1459,11 +1466,11 @@ XCorrCache DD::buildXCorrCache(Catalog &catalog,
  * for pairs of the earthquake.
  */
 void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
-                                      const Neighbours &neighbours,
-                                      const Event &refEv,
-                                      double xcorrMaxEvStaDist,
-                                      double xcorrMaxInterEvDist,
-                                      XCorrCache &xcorr)
+                                  const Neighbours &neighbours,
+                                  const Event &refEv,
+                                  double xcorrMaxEvStaDist,
+                                  double xcorrMaxInterEvDist,
+                                  XCorrCache &xcorr)
 {
   SEISCOMP_DEBUG(
       "Computing cross-correlation differential travel times for event %s",
@@ -1478,7 +1485,8 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
       catalog, neighbours, refEv, xcorrMaxEvStaDist, xcorrMaxInterEvDist);
 
   shared_ptr<Waveform::Loader> seWfLdr = preLdr;
-  shared_ptr<Waveform::SnrFilteredLoader> snrLdr; // usefulto keep track of stats
+  shared_ptr<Waveform::SnrFilteredLoader>
+      snrLdr; // usefulto keep track of stats
   if (_cfg.snr.minSnr > 0)
   {
     snrLdr.reset(new Waveform::SnrFilteredLoader(
@@ -1490,7 +1498,8 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
   seWfLdr.reset(new Waveform::MemCachedLoader(seWfLdr));
   if (_waveformDebug) seWfLdr->setDebugDirectory(_wfDebugDir);
 
-  shared_ptr<Waveform::Loader> seWfLdrNoSnr(new Waveform::MemCachedLoader(preLdr));
+  shared_ptr<Waveform::Loader> seWfLdrNoSnr(
+      new Waveform::MemCachedLoader(preLdr));
   if (_waveformDebug) seWfLdrNoSnr->setDebugDirectory(_wfDebugDir);
 
   // keep track of the `refEv` distance to stations
@@ -1542,11 +1551,12 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
       if (interEventDistance > xcorrMaxInterEvDist && xcorrMaxInterEvDist >= 0)
         continue;
 
-      if (neighbours.has(neighEvId, refPhase.stationId,
-                          refPhase.procInfo.type))
+      if (neighbours.has(neighEvId, refPhase.stationId, refPhase.procInfo.type))
       {
-        const Phase &phase = catalog.searchPhase(event.id, refPhase.stationId,
-                                               refPhase.procInfo.type)->second;
+        const Phase &phase = catalog
+                                 .searchPhase(event.id, refPhase.stationId,
+                                              refPhase.procInfo.type)
+                                 ->second;
 
         // In single-event mode `refPhase` is real-time and `phase` is from the
         // catalog. In multi-event mode both are from the catalog.
@@ -1668,17 +1678,18 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
 
 std::shared_ptr<Waveform::Loader>
 DD::preloadNonCatalogWaveforms(Catalog &catalog,
-                                   const Neighbours &neighbours,
-                                   const Event &refEv,
-                                   double xcorrMaxEvStaDist,
-                                   double xcorrMaxInterEvDist) const
+                               const Neighbours &neighbours,
+                               const Event &refEv,
+                               double xcorrMaxEvStaDist,
+                               double xcorrMaxInterEvDist) const
 {
   //
   // For single-event relocation in real-time we want to load the waveforms
   // in batch otherwise the seedlink server gets stuck and becomes unresponsive
   // due to the multiple connections requests, one for each event phase
   //
-  shared_ptr<Waveform::BatchLoader> batchLoader(new Waveform::BatchLoader(_cfg.recordStreamURL));
+  shared_ptr<Waveform::BatchLoader> batchLoader(
+      new Waveform::BatchLoader(_cfg.recordStreamURL));
 
   shared_ptr<Waveform::Loader> retLdr = batchLoader;
 
@@ -1736,8 +1747,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
       if (interEventDistance > xcorrMaxInterEvDist && xcorrMaxInterEvDist >= 0)
         continue;
 
-      if (neighbours.has(neighEvId, refPhase.stationId,
-                          refPhase.procInfo.type))
+      if (neighbours.has(neighEvId, refPhase.stationId, refPhase.procInfo.type))
       {
         //
         // For each match load the reference event phase waveforms
@@ -1773,9 +1783,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
  * cross-correlation results. Drop theoretical phases not passing the
  * cross-correlation verification.
  */
-void DD::fixPhases(Catalog &catalog,
-                       const Event &refEv,
-                       XCorrCache &xcorr)
+void DD::fixPhases(Catalog &catalog, const Event &refEv, XCorrCache &xcorr)
 {
   unsigned totP = 0, totS = 0;
   unsigned newP = 0, newS = 0;
@@ -1871,9 +1879,10 @@ void DD::updateCounters() const
   updateCounters(_wfAccess.loader, _wfAccess.diskCache, _wfAccess.snrFilter);
 }
 
-void DD::updateCounters(const shared_ptr<Waveform::Loader>& loader,
-                        const shared_ptr<    Waveform::DiskCachedLoader>& diskCache,
-                        const shared_ptr<    Waveform::SnrFilteredLoader>& snrFilter) const
+void DD::updateCounters(
+    const shared_ptr<Waveform::Loader> &loader,
+    const shared_ptr<Waveform::DiskCachedLoader> &diskCache,
+    const shared_ptr<Waveform::SnrFilteredLoader> &snrFilter) const
 {
   if (loader)
   {
@@ -1968,13 +1977,13 @@ Core::TimeWindow DD::xcorrTimeWindowShort(const Phase &phase) const
 }
 
 bool DD::xcorrPhases(const Event &event1,
-                         const Phase &phase1,
-                         Waveform::Loader& ph1Cache,
-                         const Event &event2,
-                         const Phase &phase2,
-                         Waveform::Loader& ph2Cache,
-                         double &coeffOut,
-                         double &lagOut)
+                     const Phase &phase1,
+                     Waveform::Loader &ph1Cache,
+                     const Event &event2,
+                     const Phase &phase2,
+                     Waveform::Loader &ph2Cache,
+                     double &coeffOut,
+                     double &lagOut)
 {
   if (phase1.procInfo.type != phase2.procInfo.type)
   {
@@ -2110,13 +2119,13 @@ bool DD::xcorrPhases(const Event &event1,
 }
 
 bool DD::_xcorrPhases(const Event &event1,
-                          const Phase &phase1,
-                          Waveform::Loader& ph1Cache,
-                          const Event &event2,
-                          const Phase &phase2,
-                          Waveform::Loader& ph2Cache,
-                          double &coeffOut,
-                          double &lagOut)
+                      const Phase &phase1,
+                      Waveform::Loader &ph1Cache,
+                      const Event &event2,
+                      const Phase &phase2,
+                      Waveform::Loader &ph2Cache,
+                      double &coeffOut,
+                      double &lagOut)
 {
   coeffOut = lagOut = 0;
 
@@ -2205,10 +2214,10 @@ bool DD::_xcorrPhases(const Event &event1,
 }
 
 GenericRecordCPtr DD::getWaveform(const Core::TimeWindow &tw,
-                                      const Catalog::Event &ev,
-                                      const Catalog::Phase &ph,
-                                      Waveform::Loader& wfLoader,
-                                      bool skipUnloadableCheck)
+                                  const Catalog::Event &ev,
+                                  const Catalog::Phase &ph,
+                                  Waveform::Loader &wfLoader,
+                                  bool skipUnloadableCheck)
 {
   string wfDesc =
       strf("Waveform for Phase '%s' and Time slice from %s length %.2f sec",
@@ -2387,7 +2396,7 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
       // create theoretical phases for this event instead of fetching its
       // phases from the catalog
       catalog = neighbours->toCatalog(_bgCat, false);
-      addMissingEventPhases(event,*catalog, _bgCat, *neighbours);
+      addMissingEventPhases(event, *catalog, _bgCat, *neighbours);
     }
     else
     {

@@ -118,7 +118,6 @@ public:
   Loader(const Loader &other) = delete;
   Loader &operator=(const Loader &other) = delete;
 
-
   virtual GenericRecordCPtr get(const Core::TimeWindow &tw,
                                 const Catalog::Phase &ph,
                                 const Catalog::Event &ev);
@@ -156,14 +155,14 @@ class CompositeLoader : public Loader
 {
 
 public:
-  CompositeLoader(const std::shared_ptr<Loader> & auxLdr) : Loader(""){ setAuxLoader(auxLdr); }
+  CompositeLoader(const std::shared_ptr<Loader> &auxLdr) : Loader("")
+  {
+    setAuxLoader(auxLdr);
+  }
 
   virtual ~CompositeLoader() = default;
 
-  void setAuxLoader(const std::shared_ptr<Loader> & auxLdr)
-  {
-    _auxLdr = auxLdr;
-  }
+  void setAuxLoader(const std::shared_ptr<Loader> &auxLdr) { _auxLdr = auxLdr; }
 
 protected:
   std::shared_ptr<Loader> _auxLdr;
@@ -172,15 +171,16 @@ protected:
 class DiskCachedLoader : public CompositeLoader
 {
 public:
-  DiskCachedLoader(const std::shared_ptr<Loader> & auxLdr, const std::string &cacheDir)
+  DiskCachedLoader(const std::shared_ptr<Loader> &auxLdr,
+                   const std::string &cacheDir)
       : CompositeLoader(auxLdr), _cacheDir(cacheDir)
   {}
 
   virtual ~DiskCachedLoader() = default;
 
   GenericRecordCPtr get(const Core::TimeWindow &tw,
-                                const Catalog::Phase &ph,
-                                const Catalog::Event &ev) override;
+                        const Catalog::Phase &ph,
+                        const Catalog::Event &ev) override;
 
   bool isCached(const Core::TimeWindow &tw,
                 const Catalog::Phase &ph,
@@ -190,17 +190,17 @@ public:
 
 private:
   GenericRecordCPtr getFromCache(const Core::TimeWindow &tw,
-                                         const std::string &networkCode,
-                                         const std::string &stationCode,
-                                         const std::string &locationCode,
-                                         const std::string &channelCode);
+                                 const std::string &networkCode,
+                                 const std::string &stationCode,
+                                 const std::string &locationCode,
+                                 const std::string &channelCode);
 
   void storeInCache(const Core::TimeWindow &tw,
-                            const std::string &networkCode,
-                            const std::string &stationCode,
-                            const std::string &locationCode,
-                            const std::string &channelCode,
-                            const GenericRecordCPtr &trace);
+                    const std::string &networkCode,
+                    const std::string &stationCode,
+                    const std::string &locationCode,
+                    const std::string &channelCode,
+                    const GenericRecordCPtr &trace);
 
   std::string waveformPath(const std::string &cacheDir,
                            const Core::TimeWindow &tw,
@@ -215,23 +215,25 @@ private:
 class MemCachedLoader : public CompositeLoader
 {
 public:
-  MemCachedLoader(const std::shared_ptr<Loader> & auxLdr) : CompositeLoader(auxLdr) {}
+  MemCachedLoader(const std::shared_ptr<Loader> &auxLdr)
+      : CompositeLoader(auxLdr)
+  {}
 
   virtual ~MemCachedLoader() = default;
 
   GenericRecordCPtr get(const Core::TimeWindow &tw,
-                                const Catalog::Phase &ph,
-                                const Catalog::Event &ev) override
+                        const Catalog::Phase &ph,
+                        const Catalog::Event &ev) override
   {
     throw Exception("Cannot return unprocessed data");
   }
 
   GenericRecordCPtr get(const Core::TimeWindow &tw,
-                                const Catalog::Phase &ph,
-                                const Catalog::Event &ev,
-                                bool demeaning,
-                                const std::string &filterStr,
-                                double resampleFreq) override;
+                        const Catalog::Phase &ph,
+                        const Catalog::Event &ev,
+                        bool demeaning,
+                        const std::string &filterStr,
+                        double resampleFreq) override;
 
   bool isCached(const Core::TimeWindow &tw,
                 const Catalog::Phase &ph,
@@ -241,17 +243,17 @@ public:
 
 private:
   GenericRecordCPtr getFromCache(const Core::TimeWindow &tw,
-                                         const std::string &networkCode,
-                                         const std::string &stationCode,
-                                         const std::string &locationCode,
-                                         const std::string &channelCode);
+                                 const std::string &networkCode,
+                                 const std::string &stationCode,
+                                 const std::string &locationCode,
+                                 const std::string &channelCode);
 
   void storeInCache(const Core::TimeWindow &tw,
-                            const std::string &networkCode,
-                            const std::string &stationCode,
-                            const std::string &locationCode,
-                            const std::string &channelCode,
-                            const GenericRecordCPtr &trace);
+                    const std::string &networkCode,
+                    const std::string &stationCode,
+                    const std::string &locationCode,
+                    const std::string &channelCode,
+                    const GenericRecordCPtr &trace);
 
   std::unordered_map<std::string, GenericRecordCPtr> _waveforms;
 };
@@ -259,11 +261,13 @@ private:
 class ExtraLenLoader : public CompositeLoader
 {
 public:
-  ExtraLenLoader(const std::shared_ptr<Loader> & auxLdr, double traceMinLen)
+  ExtraLenLoader(const std::shared_ptr<Loader> &auxLdr, double traceMinLen)
       : ExtraLenLoader(auxLdr, traceMinLen / 2, traceMinLen / 2)
   {}
 
-  ExtraLenLoader(const std::shared_ptr<Loader> & auxLdr, double beforePickLen, double afterPickLen)
+  ExtraLenLoader(const std::shared_ptr<Loader> &auxLdr,
+                 double beforePickLen,
+                 double afterPickLen)
       : CompositeLoader(auxLdr), _beforePickLen(beforePickLen),
         _afterPickLen(afterPickLen)
   {}
@@ -271,8 +275,8 @@ public:
   virtual ~ExtraLenLoader() = default;
 
   GenericRecordCPtr get(const Core::TimeWindow &tw,
-                                const Catalog::Phase &ph,
-                                const Catalog::Event &ev) override;
+                        const Catalog::Phase &ph,
+                        const Catalog::Event &ev) override;
 
   Core::TimeWindow traceTimeWindowToLoad(const Core::TimeWindow &neededTW,
                                          const Core::Time &pickTime) const;
@@ -286,7 +290,7 @@ class SnrFilteredLoader : public CompositeLoader
 {
 
 public:
-  SnrFilteredLoader(const std::shared_ptr<Loader> & auxLdr,
+  SnrFilteredLoader(const std::shared_ptr<Loader> &auxLdr,
                     double minSnr,
                     double noiseStart,
                     double noiseEnd,
@@ -296,21 +300,21 @@ public:
                                       signalEnd}
   {}
 
-  virtual ~SnrFilteredLoader()= default;
+  virtual ~SnrFilteredLoader() = default;
 
   GenericRecordCPtr get(const Core::TimeWindow &tw,
-                                const Catalog::Phase &ph,
-                                const Catalog::Event &ev) override
+                        const Catalog::Phase &ph,
+                        const Catalog::Event &ev) override
   {
     throw Exception("Cannot compute SNR on unprocessed data");
   }
 
   GenericRecordCPtr get(const Core::TimeWindow &tw,
-                                const Catalog::Phase &ph,
-                                const Catalog::Event &ev,
-                                bool demeaning,
-                                const std::string &filterStr,
-                                double resampleFreq) override;
+                        const Catalog::Phase &ph,
+                        const Catalog::Event &ev,
+                        bool demeaning,
+                        const std::string &filterStr,
+                        double resampleFreq) override;
 
   Core::TimeWindow snrTimeWindow(const Core::Time &pickTime) const;
 
@@ -341,8 +345,8 @@ public:
   virtual ~BatchLoader() = default;
 
   GenericRecordCPtr get(const Core::TimeWindow &tw,
-                                const Catalog::Phase &ph,
-                                const Catalog::Event &ev) override;
+                        const Catalog::Phase &ph,
+                        const Catalog::Event &ev) override;
 
   void request(const Core::TimeWindow &tw,
                const Catalog::Phase &ph,

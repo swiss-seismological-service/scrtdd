@@ -102,4 +102,3 @@ std::vector<HDD::Catalog::Station> stationList = {
 };
 
 } // namespace
-

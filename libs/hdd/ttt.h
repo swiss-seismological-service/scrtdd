@@ -25,8 +25,8 @@ class TravelTimeTable
 {
 public:
   // factory method
-  static std::unique_ptr<TravelTimeTable>
-  create(const std::string &type, const std::string &model);
+  static std::unique_ptr<TravelTimeTable> create(const std::string &type,
+                                                 const std::string &model);
 
   virtual ~TravelTimeTable() = default;
 

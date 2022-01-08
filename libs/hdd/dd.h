@@ -123,9 +123,7 @@ class DD
 {
 
 public:
-  DD(const Catalog &catalog,
-         const Config &cfg,
-         const std::string &workingDir);
+  DD(const Catalog &catalog, const Config &cfg, const std::string &workingDir);
   ~DD() = default;
 
   DD(const DD &other) = delete;
@@ -137,15 +135,17 @@ public:
 
   void unloadTTT() { _ttt.reset(); }
 
-  const Catalog& getCatalog() const { return _srcCat; }
+  const Catalog &getCatalog() const { return _srcCat; }
   void setCatalog(const Catalog &catalog);
 
-  std::unique_ptr<Catalog> relocateMultiEvents(const ClusteringOptions &clustOpt,
-                                 const SolverOptions &solverOpt);
-  std::unique_ptr<Catalog> relocateSingleEvent(const Catalog &singleEvent,
-                                 const ClusteringOptions &clustOpt1,
-                                 const ClusteringOptions &clustOpt2,
-                                 const SolverOptions &solverOpt);
+  std::unique_ptr<Catalog>
+  relocateMultiEvents(const ClusteringOptions &clustOpt,
+                      const SolverOptions &solverOpt);
+  std::unique_ptr<Catalog>
+  relocateSingleEvent(const Catalog &singleEvent,
+                      const ClusteringOptions &clustOpt1,
+                      const ClusteringOptions &clustOpt2,
+                      const SolverOptions &solverOpt);
   void evalXCorr(const ClusteringOptions &clustOpt, bool theoretical);
 
   void setSaveProcessing(bool dump) { _saveProcessing = dump; }
@@ -170,24 +170,27 @@ public:
 
 private:
   void createWaveformCache();
-  void replaceWaveformCacheLoader(const std::shared_ptr<Waveform::Loader>& baseLdr);
+  void
+  replaceWaveformCacheLoader(const std::shared_ptr<Waveform::Loader> &baseLdr);
 
   std::string generateWorkingSubDir(const std::string &prefix) const;
   std::string generateWorkingSubDir(const Catalog::Event &ev) const;
 
-  std::unique_ptr<Catalog> relocateEventSingleStep(const Catalog& bgCat,
-                                     const Catalog &evToRelocateCat,
-                                     const std::string &workingDir,
-                                     const ClusteringOptions &clustOpt,
-                                     const SolverOptions &solverOpt,
-                                     bool doXcorr,
-                                     bool computeTheoreticalPhases);
+  std::unique_ptr<Catalog>
+  relocateEventSingleStep(const Catalog &bgCat,
+                          const Catalog &evToRelocateCat,
+                          const std::string &workingDir,
+                          const ClusteringOptions &clustOpt,
+                          const SolverOptions &solverOpt,
+                          bool doXcorr,
+                          bool computeTheoreticalPhases);
 
-  std::unique_ptr<Catalog> relocate(const Catalog &catalog,
-                            const std::vector<std::unique_ptr<Neighbours>> &neighCluster,
-                      const SolverOptions &solverOpt,
-                      bool keepNeighboursFixed,
-                      const XCorrCache &xcorr) const;
+  std::unique_ptr<Catalog>
+  relocate(const Catalog &catalog,
+           const std::vector<std::unique_ptr<Neighbours>> &neighCluster,
+           const SolverOptions &solverOpt,
+           bool keepNeighboursFixed,
+           const XCorrCache &xcorr) const;
 
   struct ObservationParams
   {
@@ -203,7 +206,7 @@ private:
       double velocityAtSrc;
       bool computeEvChanges;
     };
-    bool add(HDD::TravelTimeTable& ttt,
+    bool add(HDD::TravelTimeTable &ttt,
              const Catalog::Event &event,
              const Catalog::Station &station,
              const Catalog::Phase &phase,
@@ -232,12 +235,14 @@ private:
       const std::vector<std::unique_ptr<Neighbours>> &neighCluster,
       ObservationParams &obsparams,
       double pickWeightScaler,
-      std::unordered_map<unsigned, std::unique_ptr<Neighbours>> &finalNeighCluster) const;
+      std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
+          &finalNeighCluster) const;
 
   std::unique_ptr<Catalog> updateRelocatedEventsFinalStats(
       const Catalog &startingCatalog,
       const Catalog &finalCatalog,
-      const std::unordered_map<unsigned, std::unique_ptr<Neighbours>> &neighCluster) const;
+      const std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
+          &neighCluster) const;
 
   void addMissingEventPhases(const Catalog::Event &refEv,
                              Catalog &refEvCatalog,
@@ -248,7 +253,7 @@ private:
   findMissingEventPhases(const Catalog::Event &refEv,
                          Catalog &refEvCatalog,
                          const Catalog &searchCatalog,
-                         const Neighbours&neighbours);
+                         const Neighbours &neighbours);
 
   typedef std::pair<std::string, Catalog::Phase::Type> MissingStationPhase;
 
@@ -263,18 +268,18 @@ private:
                                         const Catalog &searchCatalog,
                                         const Neighbours &neighbours) const;
 
-  Catalog::Phase
-  createThoreticalPhase(const Catalog::Station &station,
-                        const Catalog::Phase::Type &phaseType,
-                        const Catalog::Event &refEv,
-                        const std::vector<DD::PhasePeer> &peers,
-                        double phaseVelocity);
+  Catalog::Phase createThoreticalPhase(const Catalog::Station &station,
+                                       const Catalog::Phase::Type &phaseType,
+                                       const Catalog::Event &refEv,
+                                       const std::vector<DD::PhasePeer> &peers,
+                                       double phaseVelocity);
 
-  XCorrCache buildXCorrCache(Catalog &catalog,
-  const std::vector<std::unique_ptr<Neighbours>> &neighCluster,
-                             bool computeTheoreticalPhases,
-                             double xcorrMaxEvStaDist   = -1,
-                             double xcorrMaxInterEvDist = -1);
+  XCorrCache
+  buildXCorrCache(Catalog &catalog,
+                  const std::vector<std::unique_ptr<Neighbours>> &neighCluster,
+                  bool computeTheoreticalPhases,
+                  double xcorrMaxEvStaDist   = -1,
+                  double xcorrMaxInterEvDist = -1);
 
   void buildXcorrDiffTTimePairs(Catalog &catalog,
                                 const Neighbours &neighbours,
@@ -283,25 +288,24 @@ private:
                                 double xcorrMaxInterEvDist, // -1 to disable
                                 XCorrCache &xcorr);
 
-  void fixPhases(Catalog &catalog,
-                 const Catalog::Event &refEv,
-                 XCorrCache &xcorr);
+  void
+  fixPhases(Catalog &catalog, const Catalog::Event &refEv, XCorrCache &xcorr);
 
   bool xcorrPhases(const Catalog::Event &event1,
                    const Catalog::Phase &phase1,
-                   Waveform::Loader& ph1Cache,
+                   Waveform::Loader &ph1Cache,
                    const Catalog::Event &event2,
                    const Catalog::Phase &phase2,
-                   Waveform::Loader& ph2Cache,
+                   Waveform::Loader &ph2Cache,
                    double &coeffOut,
                    double &lagOut);
 
   bool _xcorrPhases(const Catalog::Event &event1,
                     const Catalog::Phase &phase1,
-                    Waveform::Loader& ph1Cache,
+                    Waveform::Loader &ph1Cache,
                     const Catalog::Event &event2,
                     const Catalog::Phase &phase2,
-                    Waveform::Loader& ph2Cache,
+                    Waveform::Loader &ph2Cache,
                     double &coeffOut,
                     double &lagOut);
 
@@ -312,7 +316,7 @@ private:
   GenericRecordCPtr getWaveform(const Core::TimeWindow &tw,
                                 const Catalog::Event &ev,
                                 const Catalog::Phase &ph,
-                                Waveform::Loader& wfLoader,
+                                Waveform::Loader &wfLoader,
                                 bool skipUnloadableCheck = false);
 
   std::shared_ptr<Waveform::Loader>
@@ -325,9 +329,10 @@ private:
   void resetCounters();
   void printCounters() const;
   void updateCounters() const;
-  void updateCounters(const std::shared_ptr<Waveform::Loader>& loader,
-                      const std::shared_ptr<Waveform::DiskCachedLoader>& diskCache,
-                      const std::shared_ptr<Waveform::SnrFilteredLoader>& snrFilter) const;
+  void updateCounters(
+      const std::shared_ptr<Waveform::Loader> &loader,
+      const std::shared_ptr<Waveform::DiskCachedLoader> &diskCache,
+      const std::shared_ptr<Waveform::SnrFilteredLoader> &snrFilter) const;
 
 private:
   bool _saveProcessing = true;

@@ -38,7 +38,7 @@ namespace {
 template <typename T> class Adapter : public T
 {
 private:
-  HDD::DDSystem& _dd; // doesn't own the DDSystem
+  HDD::DDSystem &_dd; // doesn't own the DDSystem
 
 public:
   Adapter(HDD::DDSystem &dd) : _dd(dd) {}
@@ -115,9 +115,9 @@ public:
   {
     if (m != _dd.numRowsG || n != _dd.numColsG)
     {
-      string msg = HDD::strf(
-          "Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m, n,
-          _dd.numRowsG, _dd.numColsG);
+      string msg =
+          HDD::strf("Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m,
+                    n, _dd.numRowsG, _dd.numColsG);
       throw Exception(msg);
     }
 
@@ -167,9 +167,9 @@ public:
   {
     if (m != _dd.numRowsG || n != _dd.numColsG)
     {
-      string msg = HDD::strf(
-          "Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m, n,
-          _dd.numRowsG, _dd.numColsG);
+      string msg =
+          HDD::strf("Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m,
+                    n, _dd.numRowsG, _dd.numColsG);
       throw Exception(msg);
     }
 
@@ -574,7 +574,7 @@ void Solver::prepareDDSystem(double ttConstraint,
 
   // allocate DD system memory
   _dd.reset(new DDSystem(_observations.size(), _eventIdConverter.size(),
-                                 _phStaIdConverter.size(), ttconstraintNum));
+                         _phStaIdConverter.size(), ttconstraintNum));
 
   // initialize `m` and `L2NScaler`
   std::fill_n(_dd->m, _dd->numColsG, 0);

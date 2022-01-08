@@ -20,7 +20,7 @@ namespace bdata = boost::unit_test::data;
 
 namespace {
 
-void addStationsToCatalog(HDD::Catalog& cat,
+void addStationsToCatalog(HDD::Catalog &cat,
                           double lat,
                           double lon,
                           double distance)
@@ -44,10 +44,7 @@ void addStationsToCatalog(HDD::Catalog& cat,
   cat.addStation(sta);
 }
 
-void addEventToCatalog(HDD::Catalog& cat,
-                       double lat,
-                       double lon,
-                       double depth)
+void addEventToCatalog(HDD::Catalog &cat, double lat, double lon, double depth)
 {
   Event ev{0};
   ev.latitude            = lat;
@@ -74,7 +71,7 @@ void addEventToCatalog(HDD::Catalog& cat,
   }
 }
 
-void addNeighboursToCatalog(HDD::Catalog& cat,
+void addNeighboursToCatalog(HDD::Catalog &cat,
                             const Event &event,
                             const vector<double> neighDist)
 {
@@ -100,10 +97,10 @@ void addNeighboursToCatalog(HDD::Catalog& cat,
 }
 
 std::unique_ptr<HDD::Catalog> buildCatalog(double lat,
-                             double lon,
-                             double depth,
-                             double stationsDistance,
-                             const vector<double> neighDist)
+                                           double lon,
+                                           double depth,
+                                           double stationsDistance,
+                                           const vector<double> neighDist)
 {
   HDD::Catalog cat;
   addStationsToCatalog(cat, lat, lon, stationsDistance);
@@ -121,18 +118,17 @@ struct Origin
   double depth;
 };
 
-vector<Origin> orgList = {
-  {0, 0, 1},  {45, 90, 3},     {45, -90, 3},     {-45, 90, 3},
-  {-45, -90, 3}, {20, 180, 8},    {-20, 180, 8},    {20, -180, 8},
-  {-20, -180, 8},{30, 179.99, 5}, {-30, 179.99, 5}, {-30, -179.99, 5},
-  {30, -179.99, 5}
-};
+vector<Origin> orgList = {{0, 0, 1},       {45, 90, 3},      {45, -90, 3},
+                          {-45, 90, 3},    {-45, -90, 3},    {20, 180, 8},
+                          {-20, 180, 8},   {20, -180, 8},    {-20, -180, 8},
+                          {30, 179.99, 5}, {-30, 179.99, 5}, {-30, -179.99, 5},
+                          {30, -179.99, 5}};
 
 } // namespace
 
 BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
 {
-  //Logging::enableConsoleLogging(Logging::getAll());
+  // Logging::enableConsoleLogging(Logging::getAll());
 
   const Origin &org = orgList[orgIdx];
   unique_ptr<const HDD::Catalog> cat =
@@ -440,10 +436,9 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   BOOST_CHECK(neighbours->has(5, "NET.ST02.", Phase::Type::P));
 }
 
-
 BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
 {
-  //Logging::enableConsoleLogging(Logging::getAll());
+  // Logging::enableConsoleLogging(Logging::getAll());
 
   const Origin &org = orgList[orgIdx];
   unique_ptr<const HDD::Catalog> cat =
@@ -565,4 +560,3 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
     BOOST_CHECK(neighbours->has(id, "NET.ST04.", Phase::Type::P));
   }
 }
-

@@ -128,7 +128,7 @@ private:
 
   void loadProfile(ProfilePtr profile,
                    bool preloadData,
-                   const HDD::Catalog* alternativeCatalog = nullptr);
+                   const HDD::Catalog *alternativeCatalog = nullptr);
 
   std::vector<DataModel::OriginPtr> fetchOrigins(const std::string &idFile,
                                                  std::string options);
@@ -182,7 +182,7 @@ private:
               bool cacheAllWaveforms,
               bool debugWaveforms,
               bool preloadData,
-              const HDD::Catalog* alternativeCatalog = nullptr);
+              const HDD::Catalog *alternativeCatalog = nullptr);
     void unload();
     bool isLoaded() { return loaded; }
     void freeResources();

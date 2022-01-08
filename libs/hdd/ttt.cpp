@@ -30,7 +30,7 @@ using namespace std;
 namespace HDD {
 
 std::unique_ptr<TravelTimeTable>
-TravelTimeTable::create(const std::string &type,  const std::string &model)
+TravelTimeTable::create(const std::string &type, const std::string &model)
 {
   unique_ptr<TravelTimeTable> ttt;
 

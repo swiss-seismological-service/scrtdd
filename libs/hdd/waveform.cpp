@@ -60,10 +60,10 @@ string waveformDebugPath(const string &wfDebugDir,
                          const Catalog::Phase &ph,
                          const std::string &ext)
 {
-  string debugFile = HDD::strf(
-      "ev%u.%s.%s.%s.%s.%s.%s.mseed", ev.id, ph.networkCode.c_str(),
-      ph.stationCode.c_str(), ph.locationCode.c_str(), ph.channelCode.c_str(),
-      ph.type.c_str(), ext.c_str());
+  string debugFile =
+      HDD::strf("ev%u.%s.%s.%s.%s.%s.%s.mseed", ev.id, ph.networkCode.c_str(),
+                ph.stationCode.c_str(), ph.locationCode.c_str(),
+                ph.channelCode.c_str(), ph.type.c_str(), ext.c_str());
   return (boost::filesystem::path(wfDebugDir) / debugFile).string();
 }
 

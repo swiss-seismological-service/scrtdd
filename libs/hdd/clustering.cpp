@@ -40,7 +40,7 @@ Neighbours::allPhases() const
 }
 
 unique_ptr<Catalog> Neighbours::toCatalog(const Catalog &catalog,
-                                 bool includeRefEv) const
+                                          bool includeRefEv) const
 {
   unique_ptr<Catalog> returnCat(new Catalog());
   for (unsigned neighbourId : ids) returnCat->add(neighbourId, catalog, true);
@@ -208,7 +208,7 @@ selectNeighbouringEvents(const Catalog &catalog,
       // now find corresponding phase in reference event phases
       bool peer_found = false;
       auto itRef      = refEvCatalog.searchPhase(refEv.id, phase.stationId,
-                                             phase.procInfo.type);
+                                            phase.procInfo.type);
       if (itRef != refEvCatalog.getPhases().end())
       {
         const Phase &refPhase = itRef->second;
@@ -281,7 +281,7 @@ selectNeighbouringEvents(const Catalog &catalog,
   // Finally, build the catalog of neighboring events using either the
   // ellipsoids algorithm or the nearest neighbour method.
   std::unique_ptr<Neighbours> neighbours(new Neighbours());
-  neighbours->refEvId                    = refEv.id;
+  neighbours->refEvId = refEv.id;
 
   if (numEllipsoids <= 0)
   {
@@ -393,8 +393,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
   // for each event find the neighbours
   Catalog validCatalog(catalog);
   unordered_set<unsigned> todoEvents;
-  for (const auto &kv : validCatalog.getEvents())
-    todoEvents.insert(kv.first);
+  for (const auto &kv : validCatalog.getEvents()) todoEvents.insert(kv.first);
 
   while (!todoEvents.empty())
   {
@@ -478,13 +477,15 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
  * per pair
  */
 std::list<std::vector<std::unique_ptr<Neighbours>>>
-clusterizeNeighbouringEvents(std::vector<std::unique_ptr<Neighbours>> &neighboursList)
+clusterizeNeighbouringEvents(
+    std::vector<std::unique_ptr<Neighbours>> &neighboursList)
 {
   map<unsigned, vector<unique_ptr<Neighbours>>> clusters;
 
   unordered_map<unsigned, unsigned> clusterIdByEvent; // event id, cluster id
 
-  unordered_map<unsigned, unique_ptr<Neighbours>> neighboursByEvent; // key event id
+  unordered_map<unsigned, unique_ptr<Neighbours>>
+      neighboursByEvent; // key event id
   for (unique_ptr<Neighbours> &neighbours : neighboursList)
     neighboursByEvent.emplace(neighbours->refEvId, std::move(neighbours));
   neighboursList.clear();
@@ -514,7 +515,8 @@ clusterizeNeighbouringEvents(std::vector<std::unique_ptr<Neighbours>> &neighbour
       // skip already processed events
       if (neighboursByEventIt == neighboursByEvent.end()) continue;
 
-      unique_ptr<Neighbours> neighbours = std::move(neighboursByEventIt->second);
+      unique_ptr<Neighbours> neighbours =
+          std::move(neighboursByEventIt->second);
       neighboursByEvent.erase(neighbours->refEvId);
 
       // update the set for the traversal of this cluster
@@ -544,7 +546,7 @@ clusterizeNeighbouringEvents(std::vector<std::unique_ptr<Neighbours>> &neighbour
       // merge all connected clusters to the current one
       for (unsigned clusterId : connectedClusters)
       {
-        vector<unique_ptr<Neighbours>>& clstr = clusters.at(clusterId);
+        vector<unique_ptr<Neighbours>> &clstr = clusters.at(clusterId);
         std::move(clstr.begin(), clstr.end(), currentCluster.end());
         clusters.erase(clusterId);
       }
@@ -556,7 +558,7 @@ clusterizeNeighbouringEvents(std::vector<std::unique_ptr<Neighbours>> &neighbour
 
     clusters.emplace(newClusterId, std::move(currentCluster));
 
-    for (const unique_ptr<Neighbours> &n : clusters.at(newClusterId) )
+    for (const unique_ptr<Neighbours> &n : clusters.at(newClusterId))
       clusterIdByEvent.emplace(n->refEvId, newClusterId);
   }
 

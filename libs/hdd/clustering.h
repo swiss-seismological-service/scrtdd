@@ -75,7 +75,7 @@ struct Neighbours
   allPhases() const;
 
   std::unique_ptr<Catalog> toCatalog(const Catalog &catalog,
-                      bool includeRefEv = false) const;
+                                     bool includeRefEv = false) const;
 };
 
 std::unique_ptr<Neighbours>
@@ -108,8 +108,9 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
                                 double maxEllipsoidSize,
                                 bool keepUnmatched);
 
-std::list <std::vector<std::unique_ptr<Neighbours>>>
-clusterizeNeighbouringEvents(std::vector<std::unique_ptr<Neighbours>> &neighboursList);
+std::list<std::vector<std::unique_ptr<Neighbours>>>
+clusterizeNeighbouringEvents(
+    std::vector<std::unique_ptr<Neighbours>> &neighboursList);
 
 } // namespace HDD
 

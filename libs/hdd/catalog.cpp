@@ -659,8 +659,8 @@ Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
     filteredPhases.emplace(phase.eventId, phase);
   }
 
-  return unique_ptr<Catalog>(new Catalog(catalog.getStations(), catalog.getEvents(),
-                     filteredPhases));
+  return unique_ptr<Catalog>(
+      new Catalog(catalog.getStations(), catalog.getEvents(), filteredPhases));
 }
 
 /*

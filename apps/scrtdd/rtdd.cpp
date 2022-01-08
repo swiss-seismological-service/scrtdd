@@ -218,9 +218,9 @@ std::pair<double, double> getPickUncertainty(DataModel::Pick *pick)
 }
 
 std::unordered_map<unsigned, DataModel::OriginPtr>
-addToCatalog(HDD::Catalog& cat,
-                  const std::vector<DataModel::OriginPtr> &origins,
-                  DataSource &dataSrc)
+addToCatalog(HDD::Catalog &cat,
+             const std::vector<DataModel::OriginPtr> &origins,
+             DataSource &dataSrc)
 {
   std::unordered_map<unsigned, DataModel::OriginPtr> idmap;
   for (DataModel::OriginPtr org : origins)
@@ -304,8 +304,8 @@ addToCatalog(HDD::Catalog& cat,
       {}
 
       // add station if not already there
-      if (cat.searchStation(sta.networkCode, sta.stationCode, sta.locationCode) ==
-          cat.getStations().end())
+      if (cat.searchStation(sta.networkCode, sta.stationCode,
+                            sta.locationCode) == cat.getStations().end())
       {
         DataModel::SensorLocation *loc = HDD::findSensorLocation(
             sta.networkCode, sta.stationCode, sta.locationCode, pick->time());
@@ -328,8 +328,9 @@ addToCatalog(HDD::Catalog& cat,
         cat.addStation(sta);
       }
       // the station must be available at this point
-      sta = cat.searchStation(sta.networkCode, sta.stationCode, sta.locationCode)
-                ->second;
+      sta =
+          cat.searchStation(sta.networkCode, sta.stationCode, sta.locationCode)
+              ->second;
 
       // get uncertainty
       pair<double, double> uncertainty = getPickUncertainty(pick.get());
@@ -353,10 +354,8 @@ addToCatalog(HDD::Catalog& cat,
   return idmap;
 }
 
-std::unordered_map<unsigned, DataModel::OriginPtr>
-addToCatalog(HDD::Catalog& cat,
-                  const std::vector<std::string> &ids,
-                  DataSource &dataSrc)
+std::unordered_map<unsigned, DataModel::OriginPtr>addToCatalog(
+    HDD::Catalog &cat, const std::vector<std::string> &ids, DataSource &dataSrc)
 {
   vector<DataModel::OriginPtr> origins;
 
@@ -375,9 +374,7 @@ addToCatalog(HDD::Catalog& cat,
 }
 
 std::unordered_map<unsigned, DataModel::OriginPtr>
-addToCatalog(HDD::Catalog& cat,
-                  const std::string &idFile,
-                  DataSource &dataSrc)
+addToCatalog(HDD::Catalog &cat, const std::string &idFile, DataSource &dataSrc)
 {
   if (!Util::fileExists(idFile))
   {
@@ -1445,7 +1442,7 @@ bool RTDD::run()
   if (!_config.evalXCorr.empty())
   {
     unique_ptr<HDD::Catalog> catalog = getCatalog(_config.evalXCorr);
-    ProfilePtr profile      = getProfile(_config.forceProfile);
+    ProfilePtr profile               = getProfile(_config.forceProfile);
     if (!catalog || !profile) return false;
     loadProfile(profile, false, catalog.get());
     profile->evalXCorr();
@@ -1475,7 +1472,7 @@ bool RTDD::run()
     }
     else
     {
-      addToCatalog(cat,_config.dumpCatalog, dataSrc);
+      addToCatalog(cat, _config.dumpCatalog, dataSrc);
     }
     cat.writeToFile("event.csv", "phase.csv", "station.csv");
     SEISCOMP_INFO("Wrote files event.csv, phase.csv, station.csv");
@@ -1503,7 +1500,7 @@ bool RTDD::run()
       outCat.add(cat, keepEvId);
     }
     outCat.writeToFile("merged-event.csv", "merged-phase.csv",
-                        "merged-station.csv");
+                       "merged-station.csv");
     SEISCOMP_INFO(
         "Wrote files merged-event.csv, merged-phase.csv, merged-station.csv");
     return true;
@@ -1513,8 +1510,9 @@ bool RTDD::run()
   if (!_config.relocateCatalog.empty())
   {
     std::unordered_map<unsigned, DataModel::OriginPtr> idmap;
-    unique_ptr<HDD::Catalog> catalog = getCatalog(_config.relocateCatalog, &idmap);
-    ProfilePtr profile      = getProfile(_config.forceProfile);
+    unique_ptr<HDD::Catalog> catalog =
+        getCatalog(_config.relocateCatalog, &idmap);
+    ProfilePtr profile = getProfile(_config.forceProfile);
     if (!catalog || !profile) return false;
 
     // if the input catalog is a list of origin ids, then dump its data
@@ -1553,7 +1551,8 @@ bool RTDD::run()
       evParam->SetRegistrationEnabled(false); // allow existing publicIDs
       for (const auto &kv : relocatedCat->getEvents())
       {
-        unique_ptr<HDD::Catalog> ev = relocatedCat->extractEvent(kv.second.id, true);
+        unique_ptr<HDD::Catalog> ev =
+            relocatedCat->extractEvent(kv.second.id, true);
         DataModel::OriginPtr srcOrg;
         try
         {
@@ -2183,7 +2182,7 @@ void RTDD::relocateOrigin(DataModel::Origin *org,
   if (!profile->isLoaded())
     loadProfile(profile, (_config.profileTimeAlive < 0));
   unique_ptr<HDD::Catalog> relocatedOrg = profile->relocateSingleEvent(org);
-  bool includeMagnitude        = org->evaluationMode() == DataModel::MANUAL;
+  bool includeMagnitude = org->evaluationMode() == DataModel::MANUAL;
   convertOrigin(*relocatedOrg, profile, org, includeMagnitude, true, false,
                 newOrg, newOrgPicks);
 }
@@ -2478,13 +2477,14 @@ RTDD::getCatalog(const std::string &catalogPath,
     {
       DataSource dataSrc(query(), &_cache, _eventParameters.get());
       unique_ptr<HDD::Catalog> cat(new HDD::Catalog());
-      auto _map         = addToCatalog(*cat, tokens[0], dataSrc);
+      auto _map = addToCatalog(*cat, tokens[0], dataSrc);
       if (idmap) *idmap = _map;
       return cat;
     }
     else if (tokens.size() == 3) // triplet: station.csv,event.csv,phase.csv
     {
-      return unique_ptr<HDD::Catalog>(new HDD::Catalog(tokens[0], tokens[1], tokens[2], true));
+      return unique_ptr<HDD::Catalog>(
+          new HDD::Catalog(tokens[0], tokens[1], tokens[2], true));
     }
   }
   catch (...)
@@ -2554,7 +2554,7 @@ RTDD::ProfilePtr RTDD::getProfile(double latitude,
 
 void RTDD::loadProfile(ProfilePtr profile,
                        bool preloadData,
-                       const HDD::Catalog * alternativeCatalog)
+                       const HDD::Catalog *alternativeCatalog)
 {
   profile->load(query(), &_cache, _eventParameters.get(),
                 _config.workingDirectory, _config.saveProcessingFiles,
@@ -2727,7 +2727,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
                          bool cacheAllWaveforms,
                          bool debugWaveforms,
                          bool preloadData,
-                         const HDD::Catalog * alternativeCatalog)
+                         const HDD::Catalog *alternativeCatalog)
 {
   if (loaded) return;
 
@@ -2812,7 +2812,8 @@ RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
 
   // we pass the stations information from the background catalog, to avoid
   // wasting time accessing the inventory again for information we already have
-  HDD::Catalog orgToRelocate(dd->getCatalog().getStations(), map<unsigned, HDD::Catalog::Event>(),
+  HDD::Catalog orgToRelocate(
+      dd->getCatalog().getStations(), map<unsigned, HDD::Catalog::Event>(),
       unordered_multimap<unsigned, HDD::Catalog::Phase>());
   addToCatalog(orgToRelocate, {org}, dataSrc);
 
@@ -2829,8 +2830,7 @@ RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   return rel;
 }
 
-std::unique_ptr<HDD::Catalog>
-RTDD::Profile::relocateCatalog()
+std::unique_ptr<HDD::Catalog> RTDD::Profile::relocateCatalog()
 {
   if (!loaded)
   {

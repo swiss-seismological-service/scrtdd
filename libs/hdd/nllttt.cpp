@@ -179,7 +179,10 @@ void NllTravelTimeTable::compute(double eventLat,
 
     try
     {
-      timeIt = _timeGrids.emplace(timeGId, new TimeGrid(_timeGridPath, station, phaseType, _swapBytes)).first;
+      timeIt = _timeGrids
+                   .emplace(timeGId, new TimeGrid(_timeGridPath, station,
+                                                  phaseType, _swapBytes))
+                   .first;
     }
     catch (exception &e)
     {
@@ -188,7 +191,7 @@ void NllTravelTimeTable::compute(double eventLat,
     }
   }
 
-  travelTime           = timeIt->second->getTime(eventLat, eventLon, eventDepth);
+  travelTime = timeIt->second->getTime(eventLat, eventLon, eventDepth);
 }
 
 void NllTravelTimeTable::compute(double eventLat,
@@ -217,8 +220,10 @@ void NllTravelTimeTable::compute(double eventLat,
 
     try
     {
-      velIt = _velGrids.emplace(velGId, 
-         new VelGrid(_velGridPath, station, phaseType, _swapBytes) ).first;
+      velIt = _velGrids
+                  .emplace(velGId, new VelGrid(_velGridPath, station, phaseType,
+                                               _swapBytes))
+                  .first;
     }
     catch (exception &e)
     {
@@ -228,7 +233,7 @@ void NllTravelTimeTable::compute(double eventLat,
   }
 
   // set velocityAtSrc
-  velocityAtSrc      = velIt->second->getVel(eventLat, eventLon, eventDepth);
+  velocityAtSrc = velIt->second->getVel(eventLat, eventLon, eventDepth);
 
   string angleGId =
       "angleGrid:" + Grid::filePath(_angleGridPath, station, phaseType);
@@ -240,8 +245,10 @@ void NllTravelTimeTable::compute(double eventLat,
     {
       try
       {
-        angleIt =
-            _angleGrids.emplace(angleGId, new AngleGrid(_angleGridPath, station, phaseType, _swapBytes)).first;
+        angleIt = _angleGrids
+                      .emplace(angleGId, new AngleGrid(_angleGridPath, station,
+                                                       phaseType, _swapBytes))
+                      .first;
       }
       catch (exception &e)
       {
@@ -260,8 +267,8 @@ void NllTravelTimeTable::compute(double eventLat,
   {
     try
     {
-      angleIt->second->getAngles(eventLat, eventLon, eventDepth, takeOffAngleAzim,
-                           takeOffAngleDip);
+      angleIt->second->getAngles(eventLat, eventLon, eventDepth,
+                                 takeOffAngleAzim, takeOffAngleDip);
     }
     catch (exception &e)
     {

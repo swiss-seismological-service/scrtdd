@@ -17,11 +17,11 @@
 #ifndef __HDD_CATALOG_H__
 #define __HDD_CATALOG_H__
 
-#include <memory>
 #include <map>
+#include <memory>
+#include <seiscomp3/core/datetime.h>
 #include <unordered_map>
 #include <vector>
-#include <seiscomp3/core/datetime.h>
 
 using namespace Seiscomp;
 
