@@ -73,7 +73,6 @@ bool strToBool(const std::string &s)
 
 } // namespace
 
-namespace Seiscomp {
 namespace HDD {
 
 Catalog::Catalog(const string &stationFile,
@@ -701,4 +700,3 @@ double Catalog::computePickWeight(const Phase &phase)
 }
 
 } // namespace HDD
-} // namespace Seiscomp

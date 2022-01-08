@@ -20,7 +20,6 @@
 
 #include <iosfwd>
 
-namespace Seiscomp {
 namespace HDD {
 
 /** \class lsqrBase
@@ -335,6 +334,5 @@ private:
 };
 
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

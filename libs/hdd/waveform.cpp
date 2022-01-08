@@ -38,7 +38,6 @@
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
-using namespace Seiscomp;
 using namespace Seiscomp::Processing;
 using DataModel::ThreeComponents;
 using Catalog = HDD::Catalog;
@@ -61,7 +60,7 @@ string waveformDebugPath(const string &wfDebugDir,
                          const Catalog::Phase &ph,
                          const std::string &ext)
 {
-  string debugFile = Seiscomp::HDD::strf(
+  string debugFile = HDD::strf(
       "ev%u.%s.%s.%s.%s.%s.%s.mseed", ev.id, ph.networkCode.c_str(),
       ph.stationCode.c_str(), ph.locationCode.c_str(), ph.channelCode.c_str(),
       ph.type.c_str(), ext.c_str());
@@ -70,7 +69,6 @@ string waveformDebugPath(const string &wfDebugDir,
 
 } // namespace
 
-namespace Seiscomp {
 namespace HDD {
 namespace Waveform {
 
@@ -1438,4 +1436,3 @@ void BatchLoader::load()
 
 } // namespace Waveform
 } // namespace HDD
-} // namespace Seiscomp

@@ -14,15 +14,14 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#ifndef __RTDD_APPLICATIONS_ELLIPSOID_H__
-#define __RTDD_APPLICATIONS_ELLIPSOID_H__
+#ifndef __HDD_ELLIPSOID_H__
+#define __HDD_ELLIPSOID_H__
 
 #include "utils.h"
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/math/math.h>
 #include <set>
 
-namespace Seiscomp {
 namespace HDD {
 
 /*
@@ -162,6 +161,5 @@ private:
 };
 
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

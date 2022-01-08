@@ -26,7 +26,8 @@
 
 #include <seiscomp3/datamodel/databasequery.h>
 
-namespace Seiscomp {
+using namespace Seiscomp;
+
 namespace HDD {
 
 template <typename T> inline T square(T x) { return x * x; }
@@ -177,6 +178,5 @@ private:
 };
 
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

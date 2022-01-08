@@ -23,7 +23,6 @@
 
 #include <unordered_map>
 
-namespace Seiscomp {
 namespace HDD {
 
 class ScTravelTimeTable : public TravelTimeTable
@@ -61,6 +60,5 @@ private:
 };
 
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

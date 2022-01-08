@@ -26,7 +26,7 @@
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
-using TakeOffAngles = Seiscomp::HDD::NLL::AngleGrid::TakeOffAngles;
+using TakeOffAngles = HDD::NLL::AngleGrid::TakeOffAngles;
 
 namespace {
 
@@ -132,7 +132,6 @@ TakeOffAngles interpolateCubeAngles(double xdiff,
 
 } // namespace
 
-namespace Seiscomp {
 namespace HDD {
 namespace NLL {
 
@@ -1169,4 +1168,3 @@ double Transform::distance(double xLoc1,
 
 } // namespace NLL
 } // namespace HDD
-} // namespace Seiscomp

@@ -26,8 +26,8 @@
 #include <seiscomp3/logging/log.h>
 
 using namespace std;
-using Seiscomp::HDD::Exception;
-using Seiscomp::HDD::square;
+using HDD::Exception;
+using HDD::square;
 
 namespace {
 
@@ -38,10 +38,10 @@ namespace {
 template <typename T> class Adapter : public T
 {
 private:
-  Seiscomp::HDD::DDSystem& _dd; // doesn't own the DDSystem
+  HDD::DDSystem& _dd; // doesn't own the DDSystem
 
 public:
-  Adapter(Seiscomp::HDD::DDSystem &dd) : _dd(dd) {}
+  Adapter(HDD::DDSystem &dd) : _dd(dd) {}
   virtual ~Adapter() = default;
 
   /*
@@ -115,7 +115,7 @@ public:
   {
     if (m != _dd.numRowsG || n != _dd.numColsG)
     {
-      string msg = Seiscomp::HDD::strf(
+      string msg = HDD::strf(
           "Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m, n,
           _dd.numRowsG, _dd.numColsG);
       throw Exception(msg);
@@ -167,7 +167,7 @@ public:
   {
     if (m != _dd.numRowsG || n != _dd.numColsG)
     {
-      string msg = Seiscomp::HDD::strf(
+      string msg = HDD::strf(
           "Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m, n,
           _dd.numRowsG, _dd.numColsG);
       throw Exception(msg);
@@ -208,7 +208,6 @@ public:
 
 } // namespace
 
-namespace Seiscomp {
 namespace HDD {
 
 void Solver::addObservation(unsigned evId1,
@@ -866,4 +865,3 @@ void Solver::_solve(unsigned numIterations,
 }
 
 } // namespace HDD
-} // namespace Seiscomp

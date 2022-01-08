@@ -90,7 +90,7 @@ const std::vector<TTTParams> tttList = getTTTList();
 // Those station parameters must be consistent with nonlinloc
 // grids control files
 // For tests with locsat it doesn't matter
-std::vector<Seiscomp::HDD::Catalog::Station> stationList = {
+std::vector<HDD::Catalog::Station> stationList = {
     {"NET.ST01A", 47.1, 8.6, 250, "NET", "ST01A", ""},
     {"NET.ST02A", 47.1, 8.4, 295, "NET", "ST02A", ""},
     {"NET.ST03A", 46.9, 8.4, 301, "NET", "ST03A", ""},

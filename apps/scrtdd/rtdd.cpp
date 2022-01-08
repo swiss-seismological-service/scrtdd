@@ -54,8 +54,8 @@ using namespace std;
 using namespace Seiscomp::Processing;
 using namespace Seiscomp::DataModel;
 using Seiscomp::Core::stringify;
-using PhaseType = Seiscomp::HDD::Catalog::Phase::Type;
-using PhaseSrc  = Seiscomp::HDD::Catalog::Phase::Source;
+using PhaseType = HDD::Catalog::Phase::Type;
+using PhaseSrc  = HDD::Catalog::Phase::Source;
 
 #define NEW_OPT(var, ...) addOption(&var, __VA_ARGS__)
 #define NEW_OPT_CLI(var, ...) addOption(&var, nullptr, __VA_ARGS__)

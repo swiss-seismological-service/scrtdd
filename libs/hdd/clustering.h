@@ -23,7 +23,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace Seiscomp {
 namespace HDD {
 
 // DD background catalog
@@ -113,6 +112,5 @@ std::list <std::vector<std::unique_ptr<Neighbours>>>
 clusterizeNeighbouringEvents(std::vector<std::unique_ptr<Neighbours>> &neighboursList);
 
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

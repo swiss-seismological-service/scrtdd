@@ -24,7 +24,6 @@
 
 using namespace std;
 
-namespace Seiscomp {
 namespace HDD {
 
 std::vector<std::string> splitString(const std::string &str,
@@ -164,4 +163,3 @@ DataModel::SensorLocation *findSensorLocation(const std::string &networkCode,
 }
 
 } // namespace HDD
-} // namespace Seiscomp

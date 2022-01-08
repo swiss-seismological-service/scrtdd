@@ -40,7 +40,6 @@ using Phase   = HDD::Catalog::Phase;
 using Station = HDD::Catalog::Station;
 using HDD::Waveform::getBandAndInstrumentCodes;
 
-namespace Seiscomp {
 namespace HDD {
 
 DD::DD(const Catalog &catalog,
@@ -2525,4 +2524,3 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
 }
 
 } // namespace HDD
-} // namespace Seiscomp

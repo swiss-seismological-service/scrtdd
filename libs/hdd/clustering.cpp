@@ -27,7 +27,6 @@ using Event   = HDD::Catalog::Event;
 using Phase   = HDD::Catalog::Phase;
 using Station = HDD::Catalog::Station;
 
-namespace Seiscomp {
 namespace HDD {
 
 std::unordered_map<std::string, std::set<Catalog::Phase::Type>>
@@ -567,4 +566,3 @@ clusterizeNeighbouringEvents(std::vector<std::unique_ptr<Neighbours>> &neighbour
 }
 
 } // namespace HDD
-} // namespace Seiscomp

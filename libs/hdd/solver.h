@@ -23,7 +23,6 @@
 #include <unordered_map>
 #include <vector>
 
-namespace Seiscomp {
 namespace HDD {
 
 /*
@@ -271,6 +270,5 @@ private:
 };
 
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

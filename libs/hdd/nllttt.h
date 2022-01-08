@@ -19,11 +19,11 @@
 
 #include "ttt.h"
 
+#include <functional>
 #include <fstream>
 #include <unordered_map>
 #include <unordered_set>
 
-namespace Seiscomp {
 namespace HDD {
 namespace NLL {
 
@@ -360,6 +360,5 @@ private:
 
 } // namespace NLL
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

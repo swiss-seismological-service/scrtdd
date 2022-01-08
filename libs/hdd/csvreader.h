@@ -19,7 +19,6 @@
 
 #include <unordered_map>
 
-namespace Seiscomp {
 namespace HDD {
 namespace CSV {
 
@@ -88,6 +87,5 @@ readWithHeader(const std::string &filename,
 
 } // namespace CSV
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

@@ -26,7 +26,6 @@
 
 using namespace std;
 
-namespace Seiscomp {
 namespace HDD {
 
 ScTravelTimeTable::ScTravelTimeTable(const std::string &type,
@@ -139,4 +138,3 @@ double ScTravelTimeTable::velocityAtSource(double eventDepth,
 }
 
 } // namespace HDD
-} // namespace Seiscomp

@@ -24,7 +24,6 @@
 #include <numeric>
 #include <vector>
 
-namespace Seiscomp {
 namespace HDD {
 
 inline void daxpy(unsigned int n, double alpha, const double *x, double *y)
@@ -579,4 +578,3 @@ void lsmrBase::TerminationPrintOut()
 }
 
 } // namespace HDD
-} // namespace Seiscomp

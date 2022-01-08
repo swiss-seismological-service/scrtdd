@@ -19,8 +19,6 @@
 
 #include "catalog.h"
 
-#include <seiscomp3/seismology/ttt.h>
-namespace Seiscomp {
 namespace HDD {
 
 class TravelTimeTable
@@ -109,6 +107,5 @@ protected:
 };
 
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

@@ -14,14 +14,13 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#ifndef __RTDD_APPLICATIONS_XCORRCACHE_H__
-#define __RTDD_APPLICATIONS_XCORRCACHE_H__
+#ifndef __HDD_XCORRCACHE_H__
+#define __HDD_XCORRCACHE_H__
 
 #include "catalog.h"
 
 #include <unordered_map>
 
-namespace Seiscomp {
 namespace HDD {
 
 class XCorrCache
@@ -146,6 +145,5 @@ private:
 };
 
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

@@ -23,7 +23,8 @@
 #include <vector>
 #include <seiscomp3/core/datetime.h>
 
-namespace Seiscomp {
+using namespace Seiscomp;
+
 namespace HDD {
 
 // DD background catalog
@@ -266,6 +267,5 @@ protected:
 };
 
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

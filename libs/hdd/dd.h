@@ -29,7 +29,6 @@
 #include <unordered_set>
 #include <vector>
 
-namespace Seiscomp {
 namespace HDD {
 
 struct Config
@@ -388,6 +387,5 @@ private:
 };
 
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

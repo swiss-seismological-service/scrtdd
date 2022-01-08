@@ -27,7 +27,6 @@
 
 using namespace std;
 
-namespace Seiscomp {
 namespace HDD {
 
 std::unique_ptr<TravelTimeTable>
@@ -85,4 +84,3 @@ void TravelTimeTable::computeApproximatedTakeOfAngles(
 }
 
 } // namespace HDD
-} // namespace Seiscomp

@@ -28,7 +28,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace Seiscomp {
 namespace HDD {
 namespace Waveform {
 
@@ -362,6 +361,5 @@ protected:
 
 } // namespace Waveform
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif
