@@ -94,6 +94,7 @@ selectNeighbouringEvents(const Catalog &catalog,
                          double maxEllipsoidSize = 10,
                          bool keepUnmatched      = false);
 
+// find Neighbours for each event in the catalog
 std::vector<std::unique_ptr<Neighbours>>
 selectNeighbouringEventsCatalog(const Catalog &catalog,
                                 double minPhaseWeight,
@@ -108,9 +109,13 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
                                 double maxEllipsoidSize,
                                 bool keepUnmatched);
 
+// Organize the neighbours by not connected clusters. In addition,
+// don't report the same pair multiple times (e.g. ev1-ev2 and ev2-ev1)
+// since we only need one observation per pair in the DD solver.
+// The input will be moved to the return value
 std::list<std::vector<std::unique_ptr<Neighbours>>>
 clusterizeNeighbouringEvents(
-    std::vector<std::unique_ptr<Neighbours>> &neighboursList);
+    std::vector<std::unique_ptr<Neighbours>> &allNeighbours);
 
 } // namespace HDD
 

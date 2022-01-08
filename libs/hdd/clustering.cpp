@@ -111,7 +111,7 @@ selectNeighbouringEvents(const Catalog &catalog,
     if (event == refEv) continue;
 
     // drop event if outside the outmost ellipsod boundaries
-    const HddEllipsoid &outmostEllip = ellipsoids[0];
+    const HddEllipsoid &outmostEllip = ellipsoids.at(0);
     if (!outmostEllip.getOuterEllipsoid().isInside(
             event.latitude, event.longitude, event.depth))
       continue;
@@ -416,7 +416,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
       catch (...)
       {}
 
-      if (neighbours->ids.empty())
+      if (!neighbours)
       {
         // event discarded because it doesn't satisfy requirements
         removedEvents.push_back(event.id);
@@ -478,7 +478,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
  */
 std::list<std::vector<std::unique_ptr<Neighbours>>>
 clusterizeNeighbouringEvents(
-    std::vector<std::unique_ptr<Neighbours>> &neighboursList)
+    std::vector<std::unique_ptr<Neighbours>> &allNeighbours)
 {
   map<unsigned, vector<unique_ptr<Neighbours>>> clusters;
 
@@ -486,9 +486,9 @@ clusterizeNeighbouringEvents(
 
   unordered_map<unsigned, unique_ptr<Neighbours>>
       neighboursByEvent; // key event id
-  for (unique_ptr<Neighbours> &neighbours : neighboursList)
+  for (unique_ptr<Neighbours> &neighbours : allNeighbours)
     neighboursByEvent.emplace(neighbours->refEvId, std::move(neighbours));
-  neighboursList.clear();
+  allNeighbours.clear();
 
   while (!neighboursByEvent.empty())
   {
