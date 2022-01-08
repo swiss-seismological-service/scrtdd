@@ -14,65 +14,52 @@ struct TTTParams
   std::string model;
 };
 
-const std::vector<TTTParams> _tttList = {
-    {"LOCSAT", "iasp91"},
-    {"libtau", "iasp91"},
-    {"NonLinLoc",
-     "./data/nll/iasp91_2D_simple/model/iasp91.PHASE.mod;"
-     "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.time;"
-     "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.angle"},
-    {"NonLinLoc",
-     "./data/nll/iasp91_2D_sdc/model/iasp91.PHASE.mod;"
-     "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.time;"
-     "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.angle"},
-    {"NonLinLoc",
-     "./data/nll/iasp91_2D_global/model/iasp91.PHASE.mod;"
-     "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.time;"
-     "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.angle"},
-    {"NonLinLoc",
-     "./data/nll/iasp91_3D_simple/model/iasp91.PHASE.mod;"
-     "./data/nll/iasp91_3D_simple/time/iasp91.PHASE.STATION.time;"
-     "./data/nll/iasp91_3D_simple/time/iasp91.PHASE.STATION.angle"},
-    {"NonLinLoc",
-     "./data/nll/iasp91_3D_sdc/model/iasp91.PHASE.mod;"
-     "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.time;"
-     "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.angle"}
-};
-
 // Some nll grids are too big to be added to git repository and need to
 // be generated (see: hdd/test/data/nll/generate.sh) before running the
 // tests. We check here what is available
-std::vector<TTTParams> getTTTList()
+std::vector<TTTParams> __getTTTList__()
 {
-  auto directoryEmpty = [](const boost::filesystem::path &path)->bool
-  {
-    try
-    {
-      return ! boost::filesystem::exists(path) ||
-             (boost::filesystem::is_directory(path) &&
-              boost::filesystem::is_empty(path));
-    }
-    catch (...)
-    {
-      return false;
-    }
+  static const std::vector<TTTParams> tttList = {
+      {"LOCSAT", "iasp91"},
+      {"libtau", "iasp91"},
+      {"NonLinLoc",
+       "./data/nll/iasp91_2D_simple/model/iasp91.PHASE.mod;"
+       "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.time;"
+       "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.angle"},
+      {"NonLinLoc",
+       "./data/nll/iasp91_2D_sdc/model/iasp91.PHASE.mod;"
+       "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.time;"
+       "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.angle"},
+      {"NonLinLoc",
+       "./data/nll/iasp91_2D_global/model/iasp91.PHASE.mod;"
+       "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.time;"
+       "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.angle"},
+      {"NonLinLoc",
+       "./data/nll/iasp91_3D_simple/model/iasp91.PHASE.mod;"
+       "./data/nll/iasp91_3D_simple/time/iasp91.PHASE.STATION.time;"
+       "./data/nll/iasp91_3D_simple/time/iasp91.PHASE.STATION.angle"},
+      {"NonLinLoc",
+       "./data/nll/iasp91_3D_sdc/model/iasp91.PHASE.mod;"
+       "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.time;"
+       "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.angle"}
   };
 
   std::vector<TTTParams> ttts;
-  for (const auto &prms : _tttList)
+  for (const auto &prms : tttList)
   {
     if (prms.type == "NonLinLoc")
     {
       static const std::regex regex(";", std::regex::optimize);
-      std::vector<std::string> tokens(Seiscomp::HDD::splitString(prms.model, regex));
+      std::vector<std::string> tokens(HDD::splitString(prms.model, regex));
 
       const boost::filesystem::path velGridPath   = tokens.at(0);
       const boost::filesystem::path timeGridPath  = tokens.at(1);
       const boost::filesystem::path angleGridPath = tokens.at(2);
 
-      if (!directoryEmpty(velGridPath.parent_path())  ||
-          !directoryEmpty(timeGridPath.parent_path()) ||
-          !directoryEmpty(angleGridPath.parent_path()))
+      boost::system::error_code ec;
+      if (!boost::filesystem::is_empty(velGridPath.parent_path(), ec)  ||
+          !boost::filesystem::is_empty(timeGridPath.parent_path(), ec) ||
+          !boost::filesystem::is_empty(angleGridPath.parent_path(), ec))
       {
         ttts.push_back(prms);
       }
@@ -85,12 +72,12 @@ std::vector<TTTParams> getTTTList()
   return ttts;
 }
 
-const std::vector<TTTParams> tttList = getTTTList();
+const std::vector<TTTParams> tttList(__getTTTList__());
 
 // Those station parameters must be consistent with nonlinloc
 // grids control files
 // For tests with locsat it doesn't matter
-std::vector<HDD::Catalog::Station> stationList = {
+const std::vector<HDD::Catalog::Station> stationList = {
     {"NET.ST01A", 47.1, 8.6, 250, "NET", "ST01A", ""},
     {"NET.ST02A", 47.1, 8.4, 295, "NET", "ST02A", ""},
     {"NET.ST03A", 46.9, 8.4, 301, "NET", "ST03A", ""},
