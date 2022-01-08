@@ -95,7 +95,7 @@ selectNeighbouringEvents(const Catalog &catalog,
                          bool keepUnmatched      = false);
 
 // find Neighbours for each event in the catalog
-std::vector<std::unique_ptr<Neighbours>>
+std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
 selectNeighbouringEventsCatalog(const Catalog &catalog,
                                 double minPhaseWeight,
                                 double minESdis,
@@ -113,9 +113,10 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
 // don't report the same pair multiple times (e.g. ev1-ev2 and ev2-ev1)
 // since we only need one observation per pair in the DD solver.
 // The input will be moved to the return value
-std::list<std::vector<std::unique_ptr<Neighbours>>>
+std::list<std::unordered_map<unsigned, std::unique_ptr<Neighbours>>>
 clusterizeNeighbouringEvents(
-    std::vector<std::unique_ptr<Neighbours>> &allNeighbours);
+    std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
+        &neighboursByEvent);
 
 } // namespace HDD
 

@@ -354,7 +354,7 @@ addToCatalog(HDD::Catalog &cat,
   return idmap;
 }
 
-std::unordered_map<unsigned, DataModel::OriginPtr>addToCatalog(
+std::unordered_map<unsigned, DataModel::OriginPtr> addToCatalog(
     HDD::Catalog &cat, const std::vector<std::string> &ids, DataSource &dataSrc)
 {
   vector<DataModel::OriginPtr> origins;

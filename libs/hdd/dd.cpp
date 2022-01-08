@@ -330,18 +330,16 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   }
 
   // find Neighbours for each event in the catalog
-  vector<unique_ptr<Neighbours>> allNeighbours =
+  unordered_map<unsigned, unique_ptr<Neighbours>> neighboursByEvent =
       selectNeighbouringEventsCatalog(
           catToReloc, clustOpt.minWeight, clustOpt.minESdist,
           clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
           clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
           clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, true);
 
-  // Organize the neighbours by not connected clusters. In addition,
-  // don't report the same pair multiple times (e.g. ev1-ev2 and ev2-ev1)
-  // since we only need one observation per pair in the DD solver.
-  list<vector<unique_ptr<Neighbours>>> clusters =
-      clusterizeNeighbouringEvents(allNeighbours);
+  // Organize the neighbours by not connected clusters
+  list<unordered_map<unsigned, unique_ptr<Neighbours>>> clusters =
+      clusterizeNeighbouringEvents(neighboursByEvent);
 
   SEISCOMP_INFO("Found %lu event clusters", clusters.size());
 
@@ -362,7 +360,7 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   unique_ptr<Catalog> relocatedCatalog(new Catalog());
 
   unsigned clusterId = 1;
-  for (const vector<unique_ptr<Neighbours>> &neighCluster : clusters)
+  for (const auto &neighCluster : clusters)
   {
     SEISCOMP_INFO("Relocating cluster %u (%lu events)", clusterId,
                   neighCluster.size());
@@ -370,8 +368,8 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
     if (_saveProcessing)
     {
       Catalog catToDump;
-      for (const unique_ptr<Neighbours> &n : neighCluster)
-        catToDump.add(n->refEvId, catToReloc, true);
+      for (const auto &kv : neighCluster)
+        catToDump.add(kv.first, catToReloc, true);
       string prefix = strf("cluster-%u", clusterId);
       catToDump.writeToFile(
           (boost::filesystem::path(catalogWorkingDir) / (prefix + "-event.csv"))
@@ -620,8 +618,8 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
               .string());
     }
 
-    vector<unique_ptr<Neighbours>> neighCluster;
-    neighCluster.push_back(std::move(neighbours));
+    unordered_map<unsigned, unique_ptr<Neighbours>> neighCluster;
+    neighCluster.emplace(neighbours->refEvId, std::move(neighbours));
 
     XCorrCache xcorr;
     if (doXcorr)
@@ -656,12 +654,12 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
   return relocatedEvCat;
 }
 
-unique_ptr<Catalog>
-DD::relocate(const Catalog &catalog,
-             const vector<unique_ptr<Neighbours>> &neighCluster,
-             const SolverOptions &solverOpt,
-             bool keepNeighboursFixed,
-             const XCorrCache &xcorr) const
+unique_ptr<Catalog> DD::relocate(
+    const Catalog &catalog,
+    const unordered_map<unsigned, unique_ptr<Neighbours>> &neighCluster,
+    const SolverOptions &solverOpt,
+    bool keepNeighboursFixed,
+    const XCorrCache &xcorr) const
 {
   SEISCOMP_INFO("Building and solving double-difference system...");
 
@@ -706,10 +704,10 @@ DD::relocate(const Catalog &catalog,
     // Add absolute travel time/cross-correlation differences to the solver
     // (the observations)
     //
-    for (const unique_ptr<Neighbours> &neighbours : neighCluster)
+    for (const auto &kv : neighCluster)
     {
       addObservations(solver, absTTDiffObsWeight, xcorrObsWeight, *finalCatalog,
-                      *neighbours, keepNeighboursFixed,
+                      *kv.second, keepNeighboursFixed,
                       solverOpt.usePickUncertainty, xcorr, obsparams);
     }
     obsparams.addToSolver(solver);
@@ -937,7 +935,7 @@ void DD::ObservationParams::addToSolver(Solver &solver) const
 unique_ptr<Catalog> DD::updateRelocatedEvents(
     const Solver &solver,
     const Catalog &catalog,
-    const vector<unique_ptr<Neighbours>> &neighCluster,
+    const unordered_map<unsigned, unique_ptr<Neighbours>> &neighCluster,
     ObservationParams &obsparams,
     double pickWeightScaler,
     unordered_map<unsigned, unique_ptr<Neighbours>> &finalNeighCluster // output
@@ -952,9 +950,9 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
   //
   // loop through each event with its corresponding neighbours cluster
   //
-  for (const unique_ptr<Neighbours> &neighbours : neighCluster)
+  for (const auto &kv : neighCluster)
   {
-    Event &event = events.at(neighbours->refEvId);
+    Event &event = events.at(kv.second->refEvId);
 
     // get relocation changes computed by the solver for the current event
     double deltaLat, deltaLon, deltaDepth, deltaTT;
@@ -1421,20 +1419,21 @@ Phase DD::createThoreticalPhase(const Station &station,
   return refEvNewPhase;
 }
 
-XCorrCache
-DD::buildXCorrCache(Catalog &catalog,
-                    const vector<unique_ptr<Neighbours>> &neighCluster,
-                    bool computeTheoreticalPhases,
-                    double xcorrMaxEvStaDist,
-                    double xcorrMaxInterEvDist)
+XCorrCache DD::buildXCorrCache(
+    Catalog &catalog,
+    const unordered_map<unsigned, unique_ptr<Neighbours>> &neighCluster,
+    bool computeTheoreticalPhases,
+    double xcorrMaxEvStaDist,
+    double xcorrMaxInterEvDist)
 {
   XCorrCache xcorr;
   resetCounters();
 
   unsigned long performed = 0;
 
-  for (const unique_ptr<Neighbours> &neighbours : neighCluster)
+  for (const auto &kv : neighCluster)
   {
+    const unique_ptr<Neighbours> &neighbours = kv.second;
     const Event &refEv = catalog.getEvents().at(neighbours->refEvId);
 
     // Compute theoretical phases for stations that have no picks. The
