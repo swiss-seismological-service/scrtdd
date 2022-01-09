@@ -16,6 +16,7 @@
 
 #include "scttt.h"
 #include "utils.h"
+#include "log.h"
 
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/math/math.h>

@@ -6,6 +6,7 @@
 #include "catalog.h"
 #include "dd.h"
 #include "ttt.h"
+#include "random.h"
 
 #include <seiscomp/logging/log.h>
 #include <seiscomp3/math/geo.h>

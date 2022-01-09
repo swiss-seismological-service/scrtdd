@@ -17,10 +17,12 @@
 #ifndef __HDD_SOLVER_H__
 #define __HDD_SOLVER_H__
 
-#include "utils.h"
+#include "index.h"
 
+#include <memory>
 #include <set>
 #include <unordered_map>
+#include <map>
 #include <vector>
 
 namespace HDD {

@@ -16,6 +16,7 @@
 
 #include "nllttt.h"
 #include "utils.h"
+#include "log.h"
 
 #include <array>
 #include <cstring>

@@ -18,6 +18,7 @@
 #include "nllttt.h"
 #include "scttt.h"
 #include "utils.h"
+#include "log.h"
 
 #include <seiscomp3/math/math.h>
 #include <sstream>

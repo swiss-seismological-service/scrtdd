@@ -17,6 +17,7 @@
 #include "clustering.h"
 #include "ellipsoid.h"
 #include "utils.h"
+#include "log.h"
 
 using namespace std;
 using namespace Seiscomp;

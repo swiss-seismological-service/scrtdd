@@ -15,13 +15,10 @@
  ***************************************************************************/
 
 #include "utils.h"
+#include "log.h"
 #include <seiscomp3/client/inventory.h>
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/math/math.h>
-
-#define SEISCOMP_COMPONENT HDD
-#include <seiscomp3/logging/file.h>
-#include <seiscomp3/logging/log.h>
 
 using namespace std;
 
@@ -135,29 +132,6 @@ double computeMeanAbsoluteDeviation(const std::vector<double> &values,
     absoluteDeviations[i] = std::abs(values[i] - mean);
   }
   return computeMean(absoluteDeviations);
-}
-
-void Logger::_log(Level l, const string &s)
-{
-  Logging::Channel *logChannel = Seiscomp::Logging::_SCDebugChannel;
-  if (l == Level::info) logChannel = Seiscomp::Logging::_SCInfoChannel;
-  if (l == Level::warning) logChannel = Seiscomp::Logging::_SCWarningChannel;
-  if (l == Level::error) logChannel = Seiscomp::Logging::_SCErrorChannel;
-  SEISCOMP_LOG(logChannel, "%s", s.c_str());
-}
-
-void Logger::logToFile(const std::string &logFile,
-                       const std::vector<Level> &levels)
-{
-  Logging::FileOutput processingInfoOutput(logFile.c_str());
-  for (auto l : levels)
-  {
-    Logging::Channel *logChannel = Seiscomp::Logging::_SCDebugChannel;
-    if (l == Level::info) logChannel = Seiscomp::Logging::_SCInfoChannel;
-    if (l == Level::warning) logChannel = Seiscomp::Logging::_SCWarningChannel;
-    if (l == Level::error) logChannel = Seiscomp::Logging::_SCErrorChannel;
-    processingInfoOutput.subscribe(logChannel);
-  }
 }
 
 DataModel::SensorLocation *findSensorLocation(const std::string &networkCode,

@@ -4,6 +4,7 @@ INCLUDE_DIRECTORIES(${LSMR_LSQR_DIR})
 SET(HDD_SOURCES
 	${LSMR_LSQR_DIR}/lsmr.cpp
 	${LSMR_LSQR_DIR}/lsqr.cpp
+	log.cpp
 	utils.cpp
 	solver.cpp
 	csvreader.cpp
@@ -19,8 +20,11 @@ SET(HDD_SOURCES
 SET(HDD_HEADERS
 	ellipsoid.h
 	xcorrcache.h
+	random.h
+	log.h
 	utils.h
 	clustering.h
+	index.h
 	solver.h
 	ttt.h
 	scttt.h

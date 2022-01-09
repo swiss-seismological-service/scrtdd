@@ -16,6 +16,8 @@
 
 #include "dd.h"
 #include "utils.h"
+#include "random.h"
+#include "log.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/range/iterator_range_core.hpp>

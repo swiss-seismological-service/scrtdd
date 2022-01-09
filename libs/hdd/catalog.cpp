@@ -17,6 +17,7 @@
 #include "catalog.h"
 #include "csvreader.h"
 #include "utils.h"
+#include "log.h"
 
 #include <cmath>
 #include <fstream>

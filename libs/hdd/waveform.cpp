@@ -16,6 +16,7 @@
 
 #include "waveform.h"
 #include "utils.h"
+#include "log.h"
 
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
