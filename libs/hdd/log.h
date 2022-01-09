@@ -17,9 +17,11 @@
 #ifndef __HDD_LOG_H__
 #define __HDD_LOG_H__
 
+#include "utils.h"
+
+#include <initializer_list>
 #include <string>
 #include <vector>
-#include <initializer_list>
 
 namespace HDD {
 

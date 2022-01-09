@@ -3,16 +3,14 @@
 #include <boost/test/data/monomorphic.hpp>
 #include <boost/test/data/test_case.hpp>
 
+//#include <seiscomp/logging/log.h>
+
 #include "catalog.h"
 #include "clustering.h"
 #include "utils.h"
-#include <seiscomp/logging/log.h>
-#include <seiscomp3/math/geo.h>
-#include <seiscomp3/math/math.h>
 
 using namespace std;
-using namespace Seiscomp;
-using HDD::strf;
+using namespace HDD;
 using Event     = HDD::Catalog::Event;
 using Phase     = HDD::Catalog::Phase;
 using Station   = HDD::Catalog::Station;
@@ -25,21 +23,19 @@ void addStationsToCatalog(HDD::Catalog &cat,
                           double lon,
                           double distance)
 {
-  distance = Math::Geo::km2deg(distance);
-
   Station sta;
   double staLat, staLon;
 
-  Math::Geo::delandaz2coord(distance, 0, lat, lon, &staLat, &staLon);
+  computeCoordinates(distance, 0, lat, lon, staLat, staLon);
   sta = {"NET.ST01", staLat, staLon, 250, "NET", "ST01", ""};
   cat.addStation(sta);
-  Math::Geo::delandaz2coord(distance, 90, lat, lon, &staLat, &staLon);
+  computeCoordinates(distance, 90, lat, lon, staLat, staLon);
   sta = {"NET.ST02", staLat, staLon, 295, "NET", "ST02", ""};
   cat.addStation(sta);
-  Math::Geo::delandaz2coord(distance, 180, lat, lon, &staLat, &staLon);
+  computeCoordinates(distance, 180, lat, lon, staLat, staLon);
   sta = {"NET.ST03", staLat, staLon, 301, "NET", "ST03", ""};
   cat.addStation(sta);
-  Math::Geo::delandaz2coord(distance, 270, lat, lon, &staLat, &staLon);
+  computeCoordinates(distance, 270, lat, lon, staLat, staLon);
   sta = {"NET.ST04", staLat, staLon, 395, "NET", "ST04", ""};
   cat.addStation(sta);
 }
@@ -80,21 +76,20 @@ void addNeighboursToCatalog(HDD::Catalog &cat,
 {
   for (double distance : neighDist)
   {
-    distance     = Math::Geo::km2deg(distance);
     double depth = event.depth;
 
     double neighbourLat, neighbourLon;
-    Math::Geo::delandaz2coord(distance, 45, event.latitude, event.longitude,
-                              &neighbourLat, &neighbourLon);
+    computeCoordinates(distance, 45, event.latitude, event.longitude,
+                              neighbourLat, neighbourLon);
     addEventToCatalog(cat, neighbourLat, neighbourLon, depth);
-    Math::Geo::delandaz2coord(distance, 135, event.latitude, event.longitude,
-                              &neighbourLat, &neighbourLon);
+    computeCoordinates(distance, 135, event.latitude, event.longitude,
+                              neighbourLat, neighbourLon);
     addEventToCatalog(cat, neighbourLat, neighbourLon, depth);
-    Math::Geo::delandaz2coord(distance, 225, event.latitude, event.longitude,
-                              &neighbourLat, &neighbourLon);
+    computeCoordinates(distance, 225, event.latitude, event.longitude,
+                              neighbourLat, neighbourLon);
     addEventToCatalog(cat, neighbourLat, neighbourLon, depth);
-    Math::Geo::delandaz2coord(distance, 315, event.latitude, event.longitude,
-                              &neighbourLat, &neighbourLon);
+    computeCoordinates(distance, 315, event.latitude, event.longitude,
+                              neighbourLat, neighbourLon);
     addEventToCatalog(cat, neighbourLat, neighbourLon, depth);
   }
 }

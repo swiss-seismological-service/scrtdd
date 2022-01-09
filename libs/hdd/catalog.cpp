@@ -16,18 +16,15 @@
 
 #include "catalog.h"
 #include "csvreader.h"
-#include "utils.h"
 #include "log.h"
+#include "utils.h"
 
 #include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 
-#include <boost/filesystem.hpp>
-
 using namespace std;
-using namespace Seiscomp;
 
 namespace {
 
@@ -78,19 +75,19 @@ Catalog::Catalog(const string &stationFile,
                  const string &phaFile,
                  bool loadRelocationInfo)
 {
-  if (!boost::filesystem::exists(stationFile))
+  if (!pathExists(stationFile))
   {
     string msg = "File " + stationFile + " does not exist";
     throw Exception(msg);
   }
 
-  if (!boost::filesystem::exists(eventFile))
+  if (!pathExists(eventFile))
   {
     string msg = "File " + eventFile + " does not exist";
     throw Exception(msg);
   }
 
-  if (!boost::filesystem::exists(phaFile))
+  if (!pathExists(phaFile))
   {
     string msg = "File " + phaFile + " does not exist";
     throw Exception(msg);
@@ -118,8 +115,8 @@ Catalog::Catalog(const string &stationFile,
   {
     Event ev;
     ev.id                    = std::stoul(row.at("id"));
-    ev.time                  = Core::Time::FromString(row.at("isotime").c_str(),
-                                     "%FT%T.%fZ"); // iso format
+    ev.time                  = Time::FromString(row.at("isotime").c_str(),
+                               "%FT%T.%fZ"); // iso format
     ev.latitude              = std::stod(row.at("latitude"));
     ev.longitude             = std::stod(row.at("longitude"));
     ev.depth                 = std::stod(row.at("depth"));
@@ -165,8 +162,8 @@ Catalog::Catalog(const string &stationFile,
   {
     Phase ph;
     ph.eventId          = std::stoul(row.at("eventId"));
-    ph.time             = Core::Time::FromString(row.at("isotime").c_str(),
-                                     "%FT%T.%fZ"); // iso format
+    ph.time             = Time::FromString(row.at("isotime").c_str(),
+                               "%FT%T.%fZ"); // iso format
     ph.lowerUncertainty = std::stod(row.at("lowerUncertainty"));
     ph.upperUncertainty = std::stod(row.at("upperUncertainty"));
     ph.type             = row.at("type");

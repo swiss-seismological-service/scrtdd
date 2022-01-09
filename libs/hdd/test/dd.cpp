@@ -3,21 +3,17 @@
 #include <boost/test/data/monomorphic.hpp>
 #include <boost/test/data/test_case.hpp>
 
+//#include <seiscomp/logging/log.h>
+
 #include "catalog.h"
 #include "dd.h"
 #include "ttt.h"
 #include "random.h"
-
-#include <seiscomp/logging/log.h>
-#include <seiscomp3/math/geo.h>
-#include <seiscomp3/math/math.h>
-#include <vector>
-
 #include "common.ipp"
 
+
 using namespace std;
-using namespace Seiscomp;
-using HDD::strf;
+using namespace HDD;
 using Event     = HDD::Catalog::Event;
 using Phase     = HDD::Catalog::Phase;
 using Station   = HDD::Catalog::Station;
@@ -87,10 +83,10 @@ void addEvents1ToCatalog(HDD::Catalog &cat,
                          int numEvents,
                          double extent)
 {
-  double distance = Math::Geo::km2deg(extent / 2);
+  double distance = extent / 2;
   double startLon, endLon, dummy;
-  Math::Geo::delandaz2coord(distance, -90, lat, lon, &dummy, &startLon);
-  Math::Geo::delandaz2coord(distance, 90, lat, lon, &dummy, &endLon);
+  computeCoordinates(distance, -90, lat, lon, dummy, startLon);
+  computeCoordinates(distance, 90, lat, lon, dummy, endLon);
   const double lonStep = (endLon - startLon) / (numEvents - 1);
   for (int evn = -(numEvents / 2); evn < std::ceil(numEvents / 2.0); evn++)
   {
@@ -108,10 +104,10 @@ void addEvents2ToCatalog(HDD::Catalog &cat,
                          int numEvents,
                          double extent)
 {
-  double distance = Math::Geo::km2deg(extent / 2);
+  double distance = extent / 2;
   double startLat, endLat, dummy;
-  Math::Geo::delandaz2coord(distance, 180, lat, lon, &startLat, &dummy);
-  Math::Geo::delandaz2coord(distance, 0, lat, lon, &endLat, &dummy);
+  computeCoordinates(distance, 180, lat, lon, startLat, dummy);
+  computeCoordinates(distance, 0, lat, lon, endLat, dummy);
   double latStep = (endLat - startLat) / (numEvents - 1);
   for (int evn = -(numEvents / 2); evn < std::ceil(numEvents / 2.0); evn++)
   {
@@ -148,22 +144,22 @@ std::unique_ptr<HDD::Catalog> buildCatalog(HDD::TravelTimeTable &ttt,
 {
   std::unique_ptr<HDD::Catalog> cat(new HDD::Catalog());
   addStationsToCatalog(*cat, maxStations);
-  double distance = Math::Geo::km2deg(extent * 2.5);
+  double distance = extent * 2.5;
   double clusterLat, clusterLon;
   // cluster 1
-  Math::Geo::delandaz2coord(distance, 135, lat, lon, &clusterLat, &clusterLon);
+  computeCoordinates(distance, 135, lat, lon, clusterLat, clusterLon);
   addEvents1ToCatalog(*cat, ttt, time + Core::TimeSpan(1), clusterLat,
                       clusterLon, depth, numEvents / 6, extent);
   // cluster 2
-  Math::Geo::delandaz2coord(distance, 315, lat, lon, &clusterLat, &clusterLon);
+  computeCoordinates(distance, 315, lat, lon, clusterLat, clusterLon);
   addEvents2ToCatalog(*cat, ttt, time + Core::TimeSpan(2), clusterLat,
                       clusterLon, depth, numEvents / 6, extent);
   // cluster 3
-  Math::Geo::delandaz2coord(distance, 45, lat, lon, &clusterLat, &clusterLon);
+  computeCoordinates(distance, 45, lat, lon, clusterLat, clusterLon);
   addEvents3ToCatalog(*cat, ttt, time + Core::TimeSpan(3), clusterLat,
                       clusterLon, depth, numEvents / 6, extent);
   // cluster 4
-  Math::Geo::delandaz2coord(distance, 225, lat, lon, &clusterLat, &clusterLon);
+  computeCoordinates(distance, 225, lat, lon, clusterLat, clusterLon);
   addEvents1ToCatalog(*cat, ttt, time + Core::TimeSpan(4), clusterLat,
                       clusterLon, depth, numEvents / 6, extent);
   addEvents2ToCatalog(*cat, ttt, time + Core::TimeSpan(4), clusterLat,
@@ -228,7 +224,7 @@ std::unique_ptr<HDD::Catalog> relocateCatalog(const HDD::Catalog &cat,
       dd.relocateMultiEvents(clusterCfg, solverCfg);
 
   // comment this for debugging
-  boost::filesystem::remove_all(workingDir);
+  removePath(workingDir);
 
   return relocCat;
 }
@@ -279,7 +275,7 @@ relocateSingleEvent(const HDD::Catalog &bgCat,
   }
 
   // comment this for debugging
-  boost::filesystem::remove_all(workingDir);
+  removePath(workingDir);
 
   return relocCat;
 }

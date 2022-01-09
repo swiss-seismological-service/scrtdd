@@ -19,10 +19,10 @@
 
 #include "index.h"
 
+#include <map>
 #include <memory>
 #include <set>
 #include <unordered_map>
-#include <map>
 #include <vector>
 
 namespace HDD {

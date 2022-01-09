@@ -5,12 +5,10 @@
 
 #include "catalog.h"
 #include "ellipsoid.h"
-#include <seiscomp3/math/geo.h>
-#include <seiscomp3/math/math.h>
+#include "utils.h"
 
 using namespace std;
-using namespace Seiscomp;
-using Seiscomp::Core::stringify;
+using namespace HDD;
 using Event     = HDD::Catalog::Event;
 using Phase     = HDD::Catalog::Phase;
 using Station   = HDD::Catalog::Station;
@@ -42,7 +40,7 @@ BOOST_DATA_TEST_CASE(test_ellipsoid, bdata::xrange(orgList.size()), orgIdx)
   for (double distance : {0.5, 1.5, 13.5, 25.})
   {
     BOOST_TEST_MESSAGE(
-        stringify("Ellipsoid lat %.3f lon %.3f depth %.3f - Distance %f",
+        strf("Ellipsoid lat %.3f lon %.3f depth %.3f - Distance %f",
                   org.latitude, org.longitude, org.depth, distance));
 
     HDD::HddEllipsoid ellip(distance * 2, org.latitude, org.longitude,
@@ -51,72 +49,72 @@ BOOST_DATA_TEST_CASE(test_ellipsoid, bdata::xrange(orgList.size()), orgIdx)
     double pointLat, pointLon, pointDepth;
 
     // Inside ellipsoid
-    distance = Math::Geo::km2deg(distance - 0.01);
+    distance -= 0.01;
 
     // upper quadrants
     pointDepth = org.depth + 0.001;
 
-    Math::Geo::delandaz2coord(distance, 45, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 45, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 1));
-    Math::Geo::delandaz2coord(distance, 315, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 315, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 2));
-    Math::Geo::delandaz2coord(distance, 225, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 225, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 3));
-    Math::Geo::delandaz2coord(distance, 135, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 135, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 4));
 
     // bottom quadrants
     pointDepth = org.depth - 0.001;
 
-    Math::Geo::delandaz2coord(distance, 45, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 45, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 5));
-    Math::Geo::delandaz2coord(distance, 315, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 315, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 6));
-    Math::Geo::delandaz2coord(distance, 225, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 225, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 7));
-    Math::Geo::delandaz2coord(distance, 135, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 135, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 8));
 
     pointDepth = org.depth;
 
     // inside the inner ellipsoid
-    distance = Math::Geo::km2deg(distance / 2 - 0.01);
+    distance = distance / 2 - 0.01;
 
-    Math::Geo::delandaz2coord(distance, 45, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 45, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    Math::Geo::delandaz2coord(distance, 315, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 315, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    Math::Geo::delandaz2coord(distance, 225, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 225, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    Math::Geo::delandaz2coord(distance, 135, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 135, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
 
     // outside the outer ellipsoid
-    distance = Math::Geo::km2deg(distance + 0.01);
+    distance = distance + 0.01;
 
-    Math::Geo::delandaz2coord(distance, 45, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 45, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    Math::Geo::delandaz2coord(distance, 315, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 315, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    Math::Geo::delandaz2coord(distance, 225, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 225, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    Math::Geo::delandaz2coord(distance, 135, org.latitude, org.longitude,
-                              &pointLat, &pointLon);
+    computeCoordinates(distance, 135, org.latitude, org.longitude,
+                              pointLat, pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
   }
 }

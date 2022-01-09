@@ -4,16 +4,14 @@
 #include <boost/test/data/test_case.hpp>
 
 #include "waveform.h"
-#include <boost/filesystem.hpp>
 #include <cstring>
 #include <seiscomp3/core/genericrecord.h>
-#include <seiscomp3/core/strings.h>
 #include <seiscomp3/core/typedarray.h>
 
 using namespace std;
+using namespace HDD;
 using namespace Seiscomp;
 using namespace Seiscomp::Core;
-using Seiscomp::Core::stringify;
 namespace bdata = boost::unit_test::data;
 
 namespace {
@@ -33,7 +31,7 @@ GenericRecordPtr buildSyntheticTrace1(double samplingFrequency)
     samples->set(samples->size() / 2 + i, value);
   }
   tr->setData(samples);
-  // writeTrace(tr, stringify("syntheticTrace1_%.fHz.mseed", tr->samplingFrequency()));
+  // writeTrace(tr, strf("syntheticTrace1_%.fHz.mseed", tr->samplingFrequency()));
   return tr;
 }
 
@@ -51,7 +49,7 @@ GenericRecordPtr buildSyntheticTrace2(double samplingFrequency)
     samples->set(samples->size() / 2 + i, value);
   }
   tr->setData(samples);
-  // writeTrace(tr, stringify("syntheticTrace2_%.fHz.mseed", tr->samplingFrequency()));
+  // writeTrace(tr, strf("syntheticTrace2_%.fHz.mseed", tr->samplingFrequency()));
   return tr;
 }
 
@@ -69,7 +67,7 @@ GenericRecordPtr buildSyntheticTrace3(double samplingFrequency)
     samples->set(samples->size() / 2 + i, value);
   }
   tr->setData(samples);
-  // writeTrace(tr, stringify("syntheticTrace3_%.fHz.mseed", tr->samplingFrequency()));
+  // writeTrace(tr, strf("syntheticTrace3_%.fHz.mseed", tr->samplingFrequency()));
   return tr;
 }
 
@@ -128,12 +126,12 @@ void testTracesEqual(const GenericRecordCPtr &tr1, const GenericRecordCPtr &tr2)
 void testReadWriteTrace(const GenericRecordCPtr &tr)
 {
   const string filename = "test_read_write.mseed";
-  if (boost::filesystem::exists(filename)) boost::filesystem::remove(filename);
-  BOOST_REQUIRE(!boost::filesystem::exists(filename));
+  if (pathExists(filename)) removePath(filename);
+  BOOST_REQUIRE(!pathExists(filename));
   HDD::Waveform::writeTrace(tr, filename);
   GenericRecordPtr cmpTr = HDD::Waveform::readTrace(filename);
   testTracesEqual(tr, cmpTr);
-  boost::filesystem::remove(filename);
+  removePath(filename);
 }
 
 void testXCorrTraces(const GenericRecordCPtr &tr1,
@@ -185,11 +183,11 @@ void testReampling(const vector<GenericRecordCPtr> &traces)
       HDD::Waveform::resample(*tr2, 1000);
       testXCorrTraces(tr1, tr2, 0);
 
-      // HDD::Waveform::writeTrace(tr1, stringify("testReamplingTr1_%s_%.f-%.fHz.mseed",
+      // HDD::Waveform::writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
       //                           tr1->networkCode().c_str(),
       //                           traces[i]->samplingFrequency(),
       //                           tr1->samplingFrequency()));
-      // HDD::Waveform::writeTrace(tr2, stringify("testReamplingTr2_%s_%.f-%.fHz.mseed",
+      // HDD::Waveform::writeTrace(tr2, strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
       //                           tr2->networkCode().c_str(),
       //                           traces[j]->samplingFrequency(),
       //                           tr2->samplingFrequency()));
@@ -200,11 +198,11 @@ void testReampling(const vector<GenericRecordCPtr> &traces)
       HDD::Waveform::resample(*tr2, 60);
       testXCorrTraces(tr1, tr2, 0);
 
-      // HDD::Waveform::writeTrace(tr1, stringify("testReamplingTr1_%s_%.f-%.fHz.mseed",
+      // HDD::Waveform::writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
       //                           tr1->networkCode().c_str(),
       //                           traces[i]->samplingFrequency(),
       //                           tr1->samplingFrequency()));
-      // HDD::Waveform::writeTrace(tr2, stringify("testReamplingTr2_%s_%.f-%.fHz.mseed",
+      // HDD::Waveform::writeTrace(tr2, strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
       //                           tr2->networkCode().c_str(),
       //                           traces[j]->samplingFrequency(),
       //                           tr2->samplingFrequency()));
@@ -214,7 +212,7 @@ void testReampling(const vector<GenericRecordCPtr> &traces)
       HDD::Waveform::resample(*tr1, tr2->samplingFrequency());
       testXCorrTraces(tr1, tr2, 0);
 
-      // HDD::Waveform::writeTrace(tr1, stringify("testReamplingTr1_%s_%.f-%.fHz.mseed",
+      // HDD::Waveform::writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
       //                           tr1->networkCode().c_str(),
       //                           traces[i]->samplingFrequency(),
       //                           tr1->samplingFrequency()));
@@ -224,7 +222,7 @@ void testReampling(const vector<GenericRecordCPtr> &traces)
       HDD::Waveform::resample(*tr2, tr1->samplingFrequency());
       testXCorrTraces(tr1, tr2, 0);
 
-      // HDD::Waveform::writeTrace(tr2, stringify("testReamplingTr2_%s_%.f-%.fHz.mseed",
+      // HDD::Waveform::writeTrace(tr2, strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
       //                           tr2->networkCode().c_str(),
       //                           traces[j]->samplingFrequency(),
       //                           tr2->samplingFrequency()));
@@ -247,11 +245,11 @@ void testFiltering(const vector<GenericRecordCPtr> &traces)
       HDD::Waveform::filter(*tr2, true, filterStr, 500);
       testXCorrTraces(tr1, tr2, 0);
 
-      // HDD::Waveform::writeTrace(tr1, stringify("testFilteringTr1_%s_%.f-%.fHz.mseed",
+      // HDD::Waveform::writeTrace(tr1, strf("testFilteringTr1_%s_%.f-%.fHz.mseed",
       //                           tr1->networkCode().c_str(),
       //                           traces[i]->samplingFrequency(),
       //                           tr1->samplingFrequency()));
-      // HDD::Waveform::writeTrace(tr2, stringify("testFilteringTr2_%s_%.f-%.fHz.mseed",
+      // HDD::Waveform::writeTrace(tr2, strf("testFilteringTr2_%s_%.f-%.fHz.mseed",
       //                           tr2->networkCode().c_str(),
       //                           traces[j]->samplingFrequency(),
       //                           tr2->samplingFrequency()));
@@ -262,11 +260,11 @@ void testFiltering(const vector<GenericRecordCPtr> &traces)
       HDD::Waveform::filter(*tr2, true, filterStr, 50);
       testXCorrTraces(tr1, tr2, 0);
 
-      // HDD::Waveform::writeTrace(tr1, stringify("testFilteringTr1_%s_%.f-%.fHz.mseed",
+      // HDD::Waveform::writeTrace(tr1, strf("testFilteringTr1_%s_%.f-%.fHz.mseed",
       //                           tr1->networkCode().c_str(),
       //                           traces[i]->samplingFrequency(),
       //                           tr1->samplingFrequency()));
-      // HDD::Waveform::writeTrace(tr2, stringify("testFilteringTr2_%s_%.f-%.fHz.mseed",
+      // HDD::Waveform::writeTrace(tr2, strf("testFilteringTr2_%s_%.f-%.fHz.mseed",
       //                           tr2->networkCode().c_str(),
       //                           traces[j]->samplingFrequency(),
       //                           tr2->samplingFrequency()));

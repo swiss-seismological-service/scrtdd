@@ -19,11 +19,11 @@
 
 #include <map>
 #include <memory>
-#include <seiscomp3/core/datetime.h>
 #include <unordered_map>
 #include <vector>
 
-using namespace Seiscomp;
+#include <seiscomp3/core/datetime.h>
+using Seiscomp::Core::Time;
 
 namespace HDD {
 
@@ -59,7 +59,7 @@ public:
   struct Event
   {
     unsigned id; // makes it unique in the catalog
-    Core::Time time;
+    Time time;
     double latitude;
     double longitude;
     double depth; // km
@@ -114,7 +114,7 @@ public:
   {
     unsigned eventId;
     std::string stationId;
-    Core::Time time;
+    Time time;
     double lowerUncertainty;
     double upperUncertainty;
     std::string type;

@@ -15,17 +15,17 @@
  ***************************************************************************/
 
 #include "solver.h"
+#include "log.h"
 #include "lsmr.h"
 #include "lsqr.h"
 #include "utils.h"
-#include "log.h"
 
-#include <seiscomp3/math/geo.h>
-#include <seiscomp3/math/math.h>
 #include <sstream>
 
 using namespace std;
+using HDD::degToRad;
 using HDD::Exception;
+using HDD::radToDeg;
 using HDD::square;
 
 namespace {
@@ -347,18 +347,16 @@ void Solver::loadSolutions()
     double newY = evprm.y + deltaY;
 
     // compute distance and azimuth of `evId` to centroid (0,0,0)
-    double hdist = std::sqrt(square(newX) + square(newY));
-    hdist        = Math::Geo::km2deg(hdist); // distance to degree
+    double hdist = std::sqrt(square(newX) + square(newY)); // km
 
-    double azimuth = std::atan2(newX, newY);
-    azimuth        = rad2deg(azimuth);
+    double azimuth = radToDeg(std::atan2(newX, newY));
 
     // Computes the coordinates (lat, lon) of the point which is at a degree
     // azimuth of 'azi' and a distance of 'dist' as seen from the centroid
     // (lat0, lon0).
     double newLat, newLon;
-    Math::Geo::delandaz2coord(hdist, azimuth, _centroid.lat, _centroid.lon,
-                              &newLat, &newLon);
+    computeCoordinates(hdist, azimuth, _centroid.lat, _centroid.lon, newLat,
+                       newLon);
 
     evDelta.deltaLat = newLat - evprm.lat;
     evDelta.deltaLon = newLon - evprm.lon;
@@ -433,7 +431,7 @@ void Solver::computePartialDerivatives()
     double distance, az;
     distance = computeDistance(this->_centroid.lat, this->_centroid.lon, 0, lat,
                                lon, 0, &az);
-    az       = deg2rad(az);
+    az       = degToRad(az);
     x        = distance * std::sin(az);
     y        = distance * std::cos(az);
     z        = depth - _centroid.depth;
@@ -462,9 +460,9 @@ void Solver::computePartialDerivatives()
       ObservationParams &obprm = kv2.second;
 
       // dip angle:  0(down):180(up) -> -90(down):+90(up)
-      const double dip = obprm.takeOffAngleDip - deg2rad(90);
+      const double dip = obprm.takeOffAngleDip - degToRad(90);
       // azimuth angle to backazimuth
-      const double azi      = obprm.takeOffAngleAzim - deg2rad(180);
+      const double azi      = obprm.takeOffAngleAzim - degToRad(180);
       const double slowness = 1. / obprm.velocityAtSrc;
 
       obprm.dx = slowness * std::cos(dip) * std::sin(azi);

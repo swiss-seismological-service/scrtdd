@@ -18,8 +18,6 @@
 #define __HDD_ELLIPSOID_H__
 
 #include "utils.h"
-#include <seiscomp3/math/geo.h>
-#include <seiscomp3/math/math.h>
 #include <set>
 
 namespace HDD {
@@ -36,7 +34,7 @@ struct Ellipsoid
   {
     double distance, az;
     distance = computeDistance(lat, lon, 0, this->lat, this->lon, 0, &az);
-    az       = deg2rad(az);
+    az       = degToRad(az);
 
     double dist_x = distance * std::sin(az);
     double dist_y = distance * std::cos(az);

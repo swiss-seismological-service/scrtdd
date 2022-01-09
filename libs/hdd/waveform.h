@@ -28,6 +28,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
+using namespace Seiscomp;
+
 namespace HDD {
 namespace Waveform {
 

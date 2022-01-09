@@ -18,12 +18,14 @@
 #define __HDD_UTILS_H__
 
 #include "catalog.h"
+#include <cmath>
 #include <initializer_list>
 #include <random>
 #include <regex>
 #include <stdexcept>
 #include <vector>
 
+#include <seiscomp3/core/strings.h>
 #include <seiscomp3/datamodel/databasequery.h>
 
 namespace HDD {
@@ -34,8 +36,6 @@ public:
   Exception(const std::string &message) : std::runtime_error(message) {}
 };
 
-template <typename T> inline T square(T x) { return x * x; }
-
 template <typename... Args> std::string strf(Args &&... args)
 {
   return Seiscomp::Core::stringify(std::forward<Args>(args)...);
@@ -44,10 +44,18 @@ template <typename... Args> std::string strf(Args &&... args)
 std::vector<std::string> splitString(const std::string &str,
                                      const std::regex &regex);
 
-Seiscomp::DataModel::SensorLocation *findSensorLocation(const std::string &networkCode,
-                                              const std::string &stationCode,
-                                              const std::string &locationCode,
-                                              const Core::Time &atTime);
+inline double radToDeg(double r) { return 180.0 * r / M_PI; }
+
+inline double degToRad(double d) { return M_PI * d / 180.0; }
+
+template <typename T> T square(T x) { return x * x; }
+
+void computeCoordinates(double distance,
+                        double azimuth,
+                        double clat,
+                        double clon,
+                        double &lat,
+                        double &lon);
 
 double computeDistance(double lat1,
                        double lon1,
@@ -84,6 +92,22 @@ double computeMean(const std::vector<double> &values);
 
 double computeMeanAbsoluteDeviation(const std::vector<double> &values,
                                     const double mean);
+
+std::string joinPath(const std::string &path1, const std::string &path2);
+
+bool pathExists(const std::string &path);
+
+bool directoryEmpty(const std::string &path);
+
+bool createDirectories(const std::string &path);
+
+bool removePath(const std::string &path);
+
+Seiscomp::DataModel::SensorLocation *
+findSensorLocation(const std::string &networkCode,
+                   const std::string &stationCode,
+                   const std::string &locationCode,
+                   const Seiscomp::Core::Time &atTime);
 
 } // namespace HDD
 

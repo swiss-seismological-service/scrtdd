@@ -15,11 +15,9 @@
  ***************************************************************************/
 
 #include "scttt.h"
-#include "utils.h"
 #include "log.h"
+#include "utils.h"
 
-#include <seiscomp3/math/geo.h>
-#include <seiscomp3/math/math.h>
 #include <sstream>
 
 using namespace std;
@@ -31,7 +29,7 @@ ScTravelTimeTable::ScTravelTimeTable(const std::string &type,
                                      double depthVelResolution)
     : TravelTimeTable(type, model), _depthVelResolution(depthVelResolution)
 {
-  _ttt = TravelTimeTableInterface::Create(type.c_str());
+  _ttt = Seiscomp::TravelTimeTableInterface::Create(type.c_str());
   _ttt->setModel(model.c_str());
 
   /*
@@ -58,7 +56,7 @@ void ScTravelTimeTable::compute(double eventLat,
                                 double &travelTime)
 {
   double depth = eventDepth > 0 ? eventDepth : 0;
-  TravelTime tt =
+  Seiscomp::TravelTime tt =
       _ttt->compute(phaseType.c_str(), eventLat, eventLon, depth,
                     station.latitude, station.longitude, station.elevation);
   travelTime = tt.time;
@@ -75,7 +73,7 @@ void ScTravelTimeTable::compute(double eventLat,
                                 double &velocityAtSrc)
 {
   double depth = eventDepth > 0 ? eventDepth : 0;
-  TravelTime tt =
+  Seiscomp::TravelTime tt =
       _ttt->compute(phaseType.c_str(), eventLat, eventLon, depth,
                     station.latitude, station.longitude, station.elevation);
   travelTime = tt.time;
@@ -85,7 +83,7 @@ void ScTravelTimeTable::compute(double eventLat,
   // tt.takeoff is not computed for LOCSAT
   if (type == "libtau")
   {
-    takeOffAngleDip = deg2rad(tt.takeoff);
+    takeOffAngleDip = degToRad(tt.takeoff);
   }
   velocityAtSrc = velocityAtSource(depth, phaseType);
 }

@@ -53,7 +53,7 @@ public:
 private:
   double velocityAtSource(double eventDepth, const std::string &phaseType);
 
-  TravelTimeTableInterfacePtr _ttt;
+  Seiscomp::TravelTimeTableInterfacePtr _ttt;
   const double _depthVelResolution; // km
   // key 1 = phase type. key 2 = depth bin
   std::unordered_map<std::string, std::unordered_map<int, double>> _depthVel;

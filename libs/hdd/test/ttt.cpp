@@ -5,15 +5,11 @@
 
 #include "catalog.h"
 #include "ttt.h"
-
-#include <seiscomp3/math/math.h>
-#include <vector>
-
+#include "utils.h"
 #include "common.ipp"
 
 using namespace std;
-using namespace Seiscomp;
-using Seiscomp::Core::stringify;
+using namespace HDD;
 namespace bdata = boost::unit_test::data;
 
 namespace {
@@ -118,7 +114,7 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
 {
   const Delta &delta = deltaList[deltaIdx];
 
-  BOOST_TEST_MESSAGE(stringify("Testing DELTA lat %.1f lon %.1f depth %.1f",
+  BOOST_TEST_MESSAGE(strf("Testing DELTA lat %.1f lon %.1f depth %.1f",
                                delta.lat, delta.lon, delta.depth));
 
   for (auto station : stationList)
@@ -128,7 +124,7 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
     const double lon          = station.longitude + delta.lon;
     const double depth        = stationDepth + delta.depth;
 
-    BOOST_TEST_MESSAGE(stringify(
+    BOOST_TEST_MESSAGE(strf(
         "Testing station %s lat %.1f lon %.1f depth %.1f", station.id.c_str(),
         station.latitude, station.longitude, stationDepth));
 
@@ -157,14 +153,13 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
 
     for (size_t i = 0; i < tttList.size(); i++)
     {
-      BOOST_TEST_MESSAGE(stringify(
+      BOOST_TEST_MESSAGE(strf(
           "TTT type %-9s [Travel time, Velocity, Take-Off Angle Azimuth and "
-          "Dip] "
-          "P [%5.2f %5.2f %4.f %4.f] S [%5.2f %5.2f %4.f %4.f]",
+          "Dip] P [%5.2f %5.2f %4.f %4.f] S [%5.2f %5.2f %4.f %4.f]",
           tttList[i].type.c_str(), travelTimeP[i], velocityAtSrcP[i],
-          rad2deg(takeOffAngleAzimP[i]), rad2deg(takeOffAngleDipP[i]),
-          travelTimeS[i], velocityAtSrcS[i], rad2deg(takeOffAngleAzimS[i]),
-          rad2deg(takeOffAngleDipS[i])));
+          radToDeg(takeOffAngleAzimP[i]), radToDeg(takeOffAngleDipP[i]),
+          travelTimeS[i], velocityAtSrcS[i], radToDeg(takeOffAngleAzimS[i]),
+          radToDeg(takeOffAngleDipS[i])));
     }
 
     for (size_t i = 0; i < tttList.size() - 1; i++)
@@ -178,8 +173,8 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
 
         auto checkCloseAngles = [](double x, double y, double degreeTol) {
           double diffAngle = atan2(sin(x - y), cos(x - y));
-          diffAngle        = rad2deg(diffAngle);
-          BOOST_TEST_MESSAGE(" x " << rad2deg(x) << " y " << rad2deg(y)
+          diffAngle        = radToDeg(diffAngle);
+          BOOST_TEST_MESSAGE(" x " << radToDeg(x) << " y " << radToDeg(y)
                                    << " delta " << diffAngle);
           BOOST_CHECK_SMALL(diffAngle, degreeTol);
         };

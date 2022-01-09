@@ -16,11 +16,10 @@
 
 #include "clustering.h"
 #include "ellipsoid.h"
-#include "utils.h"
 #include "log.h"
+#include "utils.h"
 
 using namespace std;
-using namespace Seiscomp;
 using Event   = HDD::Catalog::Event;
 using Phase   = HDD::Catalog::Phase;
 using Station = HDD::Catalog::Station;

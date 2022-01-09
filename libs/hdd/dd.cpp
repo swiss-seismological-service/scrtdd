@@ -15,24 +15,11 @@
  ***************************************************************************/
 
 #include "dd.h"
-#include "utils.h"
-#include "random.h"
 #include "log.h"
-
-#include <boost/filesystem.hpp>
-#include <boost/range/iterator_range_core.hpp>
-#include <cmath>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <seiscomp3/client/inventory.h>
-#include <seiscomp3/core/datetime.h>
-#include <seiscomp3/core/typedarray.h>
-#include <seiscomp3/io/recordinput.h>
-#include <seiscomp3/utils/files.h>
+#include "random.h"
+#include "utils.h"
 
 using namespace std;
-using namespace Seiscomp;
 using Event   = HDD::Catalog::Event;
 using Phase   = HDD::Catalog::Phase;
 using Station = HDD::Catalog::Station;
@@ -45,36 +32,36 @@ DD::DD(const Catalog &catalog, const Config &cfg, const string &workingDir)
 {
   setCatalog(catalog);
 
-  if (!Util::pathExists(_workingDir))
+  if (!pathExists(_workingDir))
   {
-    if (!Util::createPath(_workingDir))
+    if (!createDirectories(_workingDir))
     {
       string msg = "Unable to create working directory: " + _workingDir;
       throw Exception(msg);
     }
   }
 
-  _cacheDir = (boost::filesystem::path(_workingDir) / "wfcache").string();
-  if (!Util::pathExists(_cacheDir))
+  _cacheDir = joinPath(_workingDir, "wfcache");
+  if (!pathExists(_cacheDir))
   {
-    if (!Util::createPath(_cacheDir))
+    if (!createDirectories(_cacheDir))
     {
       string msg = "Unable to create cache directory: " + _cacheDir;
       throw Exception(msg);
     }
   }
 
-  _tmpCacheDir = (boost::filesystem::path(_workingDir) / "tmpcache").string();
-  if (!Util::pathExists(_tmpCacheDir))
+  _tmpCacheDir = joinPath(_workingDir, "tmpcache");
+  if (!pathExists(_tmpCacheDir))
   {
-    if (!Util::createPath(_tmpCacheDir))
+    if (!createDirectories(_tmpCacheDir))
     {
       string msg = "Unable to create cache directory: " + _tmpCacheDir;
       throw Exception(msg);
     }
   }
 
-  _wfDebugDir = (boost::filesystem::path(_workingDir) / "wfdebug").string();
+  _wfDebugDir = joinPath(_workingDir, "wfdebug");
 
   setUseCatalogWaveformDiskCache(true);
   setWaveformCacheAll(false);
@@ -146,9 +133,9 @@ void DD::setWaveformDebug(bool debug)
   _waveformDebug = debug;
   if (_waveformDebug)
   {
-    if (!Util::pathExists(_wfDebugDir))
+    if (!pathExists(_wfDebugDir))
     {
-      if (!Util::createPath(_wfDebugDir))
+      if (!createDirectories(_wfDebugDir))
       {
         string msg =
             "Unable to create waveform debug directory: " + _wfDebugDir;
@@ -298,15 +285,14 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   do
   {
     catalogWorkingDir = generateWorkingSubDir("multievent");
-    catalogWorkingDir =
-        (boost::filesystem::path(_workingDir) / catalogWorkingDir).string();
-  } while (Util::pathExists(catalogWorkingDir));
+    catalogWorkingDir = joinPath(_workingDir, catalogWorkingDir);
+  } while (pathExists(catalogWorkingDir));
 
   if (_saveProcessing)
   {
-    if (!Util::pathExists(catalogWorkingDir))
+    if (!pathExists(catalogWorkingDir))
     {
-      if (!Util::createPath(catalogWorkingDir))
+      if (!createDirectories(catalogWorkingDir))
       {
         string msg = "Unable to create working directory: " + catalogWorkingDir;
         throw Exception(msg);
@@ -318,8 +304,7 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   // prepare file logger
   if (_saveProcessing)
   {
-    string logFile =
-        (boost::filesystem::path(catalogWorkingDir) / "info.log").string();
+    string logFile = joinPath(catalogWorkingDir, "info.log");
     Logger::getInstance().logToFile(
         logFile,
         {Logger::Level::info, Logger::Level::warning, Logger::Level::error});
@@ -341,13 +326,9 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
 
   if (_saveProcessing)
   {
-    catToReloc.writeToFile(
-        (boost::filesystem::path(catalogWorkingDir) / "starting-event.csv")
-            .string(),
-        (boost::filesystem::path(catalogWorkingDir) / "starting-phase.csv")
-            .string(),
-        (boost::filesystem::path(catalogWorkingDir) / "starting-station.csv")
-            .string());
+    catToReloc.writeToFile(joinPath(catalogWorkingDir, "starting-event.csv"),
+                           joinPath(catalogWorkingDir, "starting-phase.csv"),
+                           joinPath(catalogWorkingDir, "starting-station.csv"));
   }
 
   //
@@ -368,13 +349,9 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
         catToDump.add(kv.first, catToReloc, true);
       string prefix = strf("cluster-%u", clusterId);
       catToDump.writeToFile(
-          (boost::filesystem::path(catalogWorkingDir) / (prefix + "-event.csv"))
-              .string(),
-          (boost::filesystem::path(catalogWorkingDir) / (prefix + "-phase.csv"))
-              .string(),
-          (boost::filesystem::path(catalogWorkingDir) /
-           (prefix + "-station.csv"))
-              .string());
+          joinPath(catalogWorkingDir, (prefix + "-event.csv")),
+          joinPath(catalogWorkingDir, (prefix + "-phase.csv")),
+          joinPath(catalogWorkingDir, (prefix + "-station.csv")));
     }
 
     // Perform cross-correlation which also detects picks around theoretical
@@ -394,13 +371,9 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
     {
       string prefix = strf("relocated-cluster-%u", clusterId);
       relocatedCluster->writeToFile(
-          (boost::filesystem::path(catalogWorkingDir) / (prefix + "-event.csv"))
-              .string(),
-          (boost::filesystem::path(catalogWorkingDir) / (prefix + "-phase.csv"))
-              .string(),
-          (boost::filesystem::path(catalogWorkingDir) /
-           (prefix + "-station.csv"))
-              .string());
+          joinPath(catalogWorkingDir, (prefix + "-event.csv")),
+          joinPath(catalogWorkingDir, (prefix + "-phase.csv")),
+          joinPath(catalogWorkingDir, (prefix + "-station.csv")));
     }
     clusterId++;
   }
@@ -408,12 +381,9 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   if (_saveProcessing)
   {
     relocatedCatalog->writeToFile(
-        (boost::filesystem::path(catalogWorkingDir) / "relocated-event.csv")
-            .string(),
-        (boost::filesystem::path(catalogWorkingDir) / "relocated-phase.csv")
-            .string(),
-        (boost::filesystem::path(catalogWorkingDir) / "relocated-station.csv")
-            .string());
+        joinPath(catalogWorkingDir, "relocated-event.csv"),
+        joinPath(catalogWorkingDir, "relocated-phase.csv"),
+        joinPath(catalogWorkingDir, "relocated-station.csv"));
   }
 
   return relocatedCatalog;
@@ -447,11 +417,10 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
     do
     {
       baseWorkingDir = generateWorkingSubDir(evToRelocate);
-      baseWorkingDir =
-          (boost::filesystem::path(_workingDir) / baseWorkingDir).string();
-    } while (Util::pathExists(baseWorkingDir));
+      baseWorkingDir = joinPath(_workingDir, baseWorkingDir);
+    } while (pathExists(baseWorkingDir));
 
-    if (!Util::createPath(baseWorkingDir))
+    if (!createDirectories(baseWorkingDir))
     {
       string msg = "Unable to create working directory: " + baseWorkingDir;
       throw Exception(msg);
@@ -462,8 +431,7 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   // prepare file logger
   if (_saveProcessing)
   {
-    string logFile =
-        (boost::filesystem::path(baseWorkingDir) / "info.log").string();
+    string logFile = joinPath(baseWorkingDir, "info.log");
     Logger::getInstance().logToFile(
         logFile,
         {Logger::Level::info, Logger::Level::warning, Logger::Level::error});
@@ -472,8 +440,7 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   logInfo(
       "Performing step 1: initial location refinement (no cross-correlation)");
 
-  string eventWorkingDir =
-      (boost::filesystem::path(baseWorkingDir) / "step1").string();
+  string eventWorkingDir = joinPath(baseWorkingDir, "step1");
 
   unique_ptr<Catalog> evToRelocateCat =
       Catalog::filterPhasesAndSetWeights(singleEvent, Phase::Source::RT_EVENT,
@@ -500,8 +467,7 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
 
   logInfo("Performing step 2: relocation with cross-correlation");
 
-  eventWorkingDir =
-      (boost::filesystem::path(baseWorkingDir) / "step2").string();
+  eventWorkingDir = joinPath(baseWorkingDir, "step2");
 
   unique_ptr<Catalog> relocatedEvWithXcorr =
       relocateEventSingleStep(bgCat, *evToRelocateCat, eventWorkingDir,
@@ -559,7 +525,7 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
 {
   if (_saveProcessing)
   {
-    if (!Util::createPath(workingDir))
+    if (!createDirectories(workingDir))
     {
       string msg = "Unable to create working directory: " + workingDir;
       throw Exception(msg);
@@ -567,11 +533,9 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
     logInfo("Working dir %s", workingDir.c_str());
 
     evToRelocateCat.writeToFile(
-        (boost::filesystem::path(workingDir) / "single-event.csv").string(),
-        (boost::filesystem::path(workingDir) / "single-event-phase.csv")
-            .string(),
-        (boost::filesystem::path(workingDir) / "single-event-station.csv")
-            .string());
+        joinPath(workingDir, "single-event.csv"),
+        joinPath(workingDir, "single-event-phase.csv"),
+        joinPath(workingDir, "single-event-station.csv"));
   }
 
   unique_ptr<Catalog> relocatedEvCat;
@@ -603,11 +567,9 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
 
     if (_saveProcessing)
     {
-      catalog->writeToFile(
-          (boost::filesystem::path(workingDir) / "starting-event.csv").string(),
-          (boost::filesystem::path(workingDir) / "starting-phase.csv").string(),
-          (boost::filesystem::path(workingDir) / "starting-station.csv")
-              .string());
+      catalog->writeToFile(joinPath(workingDir, "starting-event.csv"),
+                           joinPath(workingDir, "starting-phase.csv"),
+                           joinPath(workingDir, "starting-station.csv"));
     }
 
     unordered_map<unsigned, unique_ptr<Neighbours>> neighCluster;
@@ -630,12 +592,9 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
     if (_saveProcessing)
     {
       relocatedEvCat->writeToFile(
-          (boost::filesystem::path(workingDir) / "relocated-event.csv")
-              .string(),
-          (boost::filesystem::path(workingDir) / "relocated-phase.csv")
-              .string(),
-          (boost::filesystem::path(workingDir) / "relocated-station.csv")
-              .string());
+          joinPath(workingDir, "relocated-event.csv"),
+          joinPath(workingDir, "relocated-phase.csv"),
+          joinPath(workingDir, "relocated-station.csv"));
     }
   }
   catch (exception &e)

@@ -15,12 +15,9 @@
  ***************************************************************************/
 
 #include "waveform.h"
-#include "utils.h"
 #include "log.h"
+#include "utils.h"
 
-#include <boost/bind.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/math/constants/constants.hpp>
 #include <cfenv>
 #include <fstream>
 #include <iostream>
@@ -33,7 +30,6 @@
 #include <seiscomp3/math/geo.h>
 #include <seiscomp3/processing/operator/ncomps.h>
 #include <seiscomp3/processing/operator/transformation.h>
-#include <seiscomp3/utils/files.h>
 
 using namespace std;
 using namespace Seiscomp::Processing;
@@ -62,7 +58,7 @@ string waveformDebugPath(const string &wfDebugDir,
       HDD::strf("ev%u.%s.%s.%s.%s.%s.%s.mseed", ev.id, ph.networkCode.c_str(),
                 ph.stationCode.c_str(), ph.locationCode.c_str(),
                 ph.channelCode.c_str(), ph.type.c_str(), ext.c_str());
-  return (boost::filesystem::path(wfDebugDir) / debugFile).string();
+  return HDD::joinPath(wfDebugDir, debugFile);
 }
 
 } // namespace
@@ -327,7 +323,7 @@ void writeTrace(GenericRecordCPtr trace, const std::string &file)
 
 GenericRecordPtr readTrace(const std::string &file)
 {
-  if (!Util::fileExists(file)) return nullptr;
+  if (!pathExists(file)) return nullptr;
 
   try
   {
@@ -672,16 +668,17 @@ GenericRecordPtr projectWaveform(const Core::TimeWindow &tw,
   // orientation ZNE
   Math::Matrix3d orientationZNE;
   Math::Vector3d n;
-  n.fromAngles(+deg2rad(tc.comps[ThreeComponents::Vertical]->azimuth()),
-               -deg2rad(tc.comps[ThreeComponents::Vertical]->dip()))
+  n.fromAngles(+degToRad(tc.comps[ThreeComponents::Vertical]->azimuth()),
+               -degToRad(tc.comps[ThreeComponents::Vertical]->dip()))
       .normalize();
   orientationZNE.setColumn(2, n);
-  n.fromAngles(+deg2rad(tc.comps[ThreeComponents::FirstHorizontal]->azimuth()),
-               -deg2rad(tc.comps[ThreeComponents::FirstHorizontal]->dip()))
+  n.fromAngles(+degToRad(tc.comps[ThreeComponents::FirstHorizontal]->azimuth()),
+               -degToRad(tc.comps[ThreeComponents::FirstHorizontal]->dip()))
       .normalize();
   orientationZNE.setColumn(1, n);
-  n.fromAngles(+deg2rad(tc.comps[ThreeComponents::SecondHorizontal]->azimuth()),
-               -deg2rad(tc.comps[ThreeComponents::SecondHorizontal]->dip()))
+  n.fromAngles(
+       +degToRad(tc.comps[ThreeComponents::SecondHorizontal]->azimuth()),
+       -degToRad(tc.comps[ThreeComponents::SecondHorizontal]->dip()))
       .normalize();
   orientationZNE.setColumn(0, n);
 
@@ -690,7 +687,7 @@ GenericRecordPtr projectWaveform(const Core::TimeWindow &tw,
   double delta, az, baz;
   Math::Geo::delazi(ev.latitude, ev.longitude, loc->latitude(),
                     loc->longitude(), &delta, &az, &baz);
-  orientationZRT.loadRotateZ(deg2rad(baz + 180.0));
+  orientationZRT.loadRotateZ(degToRad(baz + 180.0));
 
   // transformation matrix
   Math::Matrix3d transformation;
@@ -972,7 +969,7 @@ bool DiskCachedLoader::isCached(const Core::TimeWindow &tw,
   const std::string cacheFile =
       waveformPath(_cacheDir, tw, ph.networkCode, ph.stationCode,
                    ph.locationCode, ph.channelCode);
-  return Util::fileExists(cacheFile);
+  return pathExists(cacheFile);
 }
 
 GenericRecordCPtr
@@ -1009,7 +1006,7 @@ std::string DiskCachedLoader::waveformPath(const std::string &cacheDir,
   std::string cacheFile =
       waveformId(tw, networkCode, stationCode, locationCode, channelCode) +
       ".mseed";
-  return (boost::filesystem::path(cacheDir) / cacheFile).string();
+  return HDD::joinPath(cacheDir, cacheFile);
 }
 
 GenericRecordCPtr MemCachedLoader::get(const Core::TimeWindow &tw,

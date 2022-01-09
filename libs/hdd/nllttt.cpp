@@ -15,13 +15,11 @@
  ***************************************************************************/
 
 #include "nllttt.h"
-#include "utils.h"
 #include "log.h"
+#include "utils.h"
 
 #include <array>
 #include <cstring>
-#include <seiscomp3/math/math.h>
-#include <seiscomp3/utils/files.h>
 
 using namespace std;
 using TakeOffAngles = HDD::NLL::AngleGrid::TakeOffAngles;
@@ -305,7 +303,7 @@ Grid::Grid(Type gridType,
     : info(parse(filePath(basePath, station, phaseType), gridType, swapBytes))
 {
 
-  if (!Util::fileExists(info.bufFilePath))
+  if (!pathExists(info.bufFilePath))
   {
     string msg =
         strf("Cannot find grid data file %s", info.bufFilePath.c_str());
@@ -804,14 +802,14 @@ void AngleGrid::getAngles(
   {
     azim = angles.azimuth / 10.0; // tenths of degree -> degree
     azim = info.transform->toLatLonAngle(azim);
-    azim = deg2rad(azim);
+    azim = degToRad(azim);
   }
   else
   {
     azim = std::nan("");
   }
   dip = (angles.dip / 10.0);
-  dip = deg2rad(dip);
+  dip = degToRad(dip);
 }
 
 template <typename GRID_FLOAT_TYPE>
@@ -966,7 +964,7 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
     info.orig_lat  = std::stod(tokens.at(3));
     info.orig_long = std::stod(tokens.at(5));
     info.rot       = std::stod(tokens.at(7));
-    info.angle     = -deg2rad(info.rot);
+    info.angle     = -degToRad(info.rot);
     info.cosang    = std::cos(info.angle);
     info.sinang    = std::sin(info.angle);
 
@@ -987,15 +985,15 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
     {
       //  conversion factor for latitude
       double dlt1 =
-          std::atan(MAP_TRANS_SDC_DRLT * std::tan(deg2rad(info.orig_lat)));
+          std::atan(MAP_TRANS_SDC_DRLT * std::tan(degToRad(info.orig_lat)));
       double dlt2    = std::atan(MAP_TRANS_SDC_DRLT *
-                              std::tan(deg2rad(info.orig_lat + 1.0)));
+                              std::tan(degToRad(info.orig_lat + 1.0)));
       double del     = dlt2 - dlt1;
       double r       = ERAD * (1.0 - square(std::sin(dlt1)) * FLATTENING);
       info.sdc_xltkm = r * del;
       //  conversion factor for longitude
       del            = std::acos(1.0 -
-                      (1.0 - std::cos(deg2rad(1))) * square(std::cos(dlt1)));
+                      (1.0 - std::cos(degToRad(1))) * square(std::cos(dlt1)));
       double bc      = r * del;
       info.sdc_xlnkm = bc / std::cos(dlt1);
     }
@@ -1024,7 +1022,7 @@ void Transform::fromLatLon(double lat,
     double xtemp = lon - info.orig_long;
     if (xtemp > 180.0) xtemp -= 360.0;
     if (xtemp < -180.0) xtemp += 360.0;
-    xtemp        = xtemp * c111 * std::cos(deg2rad(lat));
+    xtemp        = xtemp * c111 * std::cos(degToRad(lat));
     double ytemp = (lat - info.orig_lat) * c111;
     xLoc         = xtemp * info.cosang - ytemp * info.sinang;
     yLoc         = ytemp * info.cosang + xtemp * info.sinang;
@@ -1037,7 +1035,7 @@ void Transform::fromLatLon(double lat,
     double ytemp = lat - info.orig_lat;
 
     double xlt1 = std::atan(MAP_TRANS_SDC_DRLT *
-                            std::tan(deg2rad(lat + info.orig_lat) / 2.0));
+                            std::tan(degToRad(lat + info.orig_lat) / 2.0));
     xtemp       = xtemp * info.sdc_xlnkm * std::cos(xlt1);
     ytemp       = ytemp * info.sdc_xltkm;
 
@@ -1066,7 +1064,7 @@ void Transform::toLatLon(double xLoc,
     double xtemp = xLoc * info.cosang + yLoc * info.sinang;
     double ytemp = yLoc * info.cosang - xLoc * info.sinang;
     lat          = info.orig_lat + ytemp / c111;
-    lon          = info.orig_long + xtemp / (c111 * std::cos(deg2rad(lat)));
+    lon          = info.orig_long + xtemp / (c111 * std::cos(degToRad(lat)));
     if (lon < -180.0)
       lon += 360.0;
     else if (lon > 180.0)
@@ -1079,7 +1077,7 @@ void Transform::toLatLon(double xLoc,
     ytemp        = ytemp / info.sdc_xltkm;
     lat          = info.orig_lat + ytemp;
     double xlt1  = std::atan(MAP_TRANS_SDC_DRLT *
-                            std::tan(deg2rad(lat + info.orig_lat) / 2.0));
+                            std::tan(degToRad(lat + info.orig_lat) / 2.0));
     xtemp        = xtemp / (info.sdc_xlnkm * std::cos(xlt1));
     lon          = info.orig_long + xtemp;
     if (lon < -180.0)

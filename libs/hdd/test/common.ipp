@@ -6,6 +6,8 @@
 
 #include <boost/filesystem.hpp>
 
+namespace fs = boost::filesystem;
+
 namespace {
 
 struct TTTParams
@@ -52,14 +54,13 @@ std::vector<TTTParams> __getTTTList__()
       static const std::regex regex(";", std::regex::optimize);
       std::vector<std::string> tokens(HDD::splitString(prms.model, regex));
 
-      const boost::filesystem::path velGridPath   = tokens.at(0);
-      const boost::filesystem::path timeGridPath  = tokens.at(1);
-      const boost::filesystem::path angleGridPath = tokens.at(2);
+      const fs::path velGridPath   = tokens.at(0);
+      const fs::path timeGridPath  = tokens.at(1);
+      const fs::path angleGridPath = tokens.at(2);
 
-      boost::system::error_code ec;
-      if (!boost::filesystem::is_empty(velGridPath.parent_path(), ec)  ||
-          !boost::filesystem::is_empty(timeGridPath.parent_path(), ec) ||
-          !boost::filesystem::is_empty(angleGridPath.parent_path(), ec))
+      if (!HDD::directoryEmpty(velGridPath.parent_path().string())  ||
+          !HDD::directoryEmpty(timeGridPath.parent_path().string()) ||
+          !HDD::directoryEmpty(angleGridPath.parent_path().string()))
       {
         ttts.push_back(prms);
       }
