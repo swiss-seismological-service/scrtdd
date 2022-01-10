@@ -460,7 +460,7 @@ Catalog:
                                         events share the same id, subsequent 
                                         events will be discarded.
 ```
-#### Examples
+### Examples
 
 Here are a few catalogs before and after rtDD relocation:
 

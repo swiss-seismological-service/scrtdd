@@ -3,8 +3,6 @@
 #include <boost/test/data/monomorphic.hpp>
 #include <boost/test/data/test_case.hpp>
 
-//#include <seiscomp/logging/log.h>
-
 #include "catalog.h"
 #include "clustering.h"
 #include "utils.h"
@@ -40,7 +38,10 @@ void addStationsToCatalog(HDD::Catalog &cat,
   cat.addStation(sta);
 }
 
-void addEventToCatalog(HDD::Catalog &cat, double lat, double lon, double depth)
+void addEventToCatalog(HDD::Catalog &cat,
+                       double lat,
+                       double lon,
+                       double depth)
 {
   Event ev{0};
   ev.latitude            = lat;
@@ -72,7 +73,7 @@ void addEventToCatalog(HDD::Catalog &cat, double lat, double lon, double depth)
 
 void addNeighboursToCatalog(HDD::Catalog &cat,
                             const Event &event,
-                            const vector<double> neighDist)
+                            const vector<double> &neighDist)
 {
   for (double distance : neighDist)
   {
@@ -97,7 +98,7 @@ void addNeighboursToCatalog(HDD::Catalog &cat,
 std::unique_ptr<HDD::Catalog>
 buildCatalog(double lat, double lon, double depth,
              double stationsDistance,
-             const vector<double> neighDist,
+             const vector<double> &neighDist,
              const std::vector<std::string> &PphaseToKeep,
              const std::vector<std::string> &SphaseToKeep)
 {
@@ -110,10 +111,10 @@ buildCatalog(double lat, double lon, double depth,
                                                  PphaseToKeep, SphaseToKeep);
 }
 
-void checkNeighbours(const HDD::Neighbours& neighbours, 
-                     const unordered_set<unsigned>& mustBePresentIds,
-                     const unordered_set<string>& mustBePresentStations,
-                     const unordered_set<Phase::Type>& mustBePresentPhases)
+void checkNeighbours(const HDD::Neighbours &neighbours, 
+                     const unordered_set<unsigned> &mustBePresentIds,
+                     const unordered_set<string> &mustBePresentStations,
+                     const unordered_set<Phase::Type> &mustBePresentPhases)
 {
   for (const unsigned id : mustBePresentIds)
     for (const string& sta : mustBePresentStations)
@@ -128,7 +129,7 @@ struct Origin
   double depth;
 };
 
-const vector<Origin> orgList = {
+const vector<Origin> orgList{
   {0, 0, 1},       {45, 90, 3},      {45, -90, 3},
   {-45, 90, 3},    {-45, -90, 3},    {20, 180, 8},
   {-20, 180, 8},   {20, -180, 8},    {-20, -180, 8},
@@ -140,8 +141,6 @@ const vector<Origin> orgList = {
 
 BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
 {
-  // Logging::enableConsoleLogging(Logging::getAll());
-
   const Origin &org = orgList.at(orgIdx);
   unique_ptr<const HDD::Catalog> cat =
       buildCatalog(org.lat, org.lon, org.depth, 50, {1}, {"P"}, {} );
@@ -435,8 +434,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
 
 BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
 {
-  // Logging::enableConsoleLogging(Logging::getAll());
-
   const Origin &org = orgList.at(orgIdx);
   unique_ptr<const HDD::Catalog> cat =
       buildCatalog(org.lat, org.lon, org.depth, 70,
@@ -542,8 +539,6 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
 
 BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
 {
-  // Logging::enableConsoleLogging(Logging::getAll());
-
   const Origin &org = orgList.at(orgIdx);
   unique_ptr<const HDD::Catalog> cat =
       buildCatalog(org.lat, org.lon, org.depth, 100, {7.5, 15}, {"P"}, {"S"} );
@@ -567,7 +562,7 @@ BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
                                     8,  //  double maxEllipsoidSize
                                     false); //  bool keepUnmatched
 
-  BOOST_CHECK(neighboursByEvent.size() == 9);
+  BOOST_REQUIRE(neighboursByEvent.size() == 9);
 
   const unordered_map<unsigned, unordered_set<unsigned>> expectedNeighbours =
   {
@@ -585,10 +580,10 @@ BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
   for ( const auto & kv  : neighboursByEvent)
   {
     const unique_ptr<HDD::Neighbours>& neighbours = kv.second;
-    BOOST_CHECK(neighbours->refEvId == kv.first);
-    BOOST_CHECK_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
+    BOOST_REQUIRE(neighbours->refEvId == kv.first);
+    BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
     const unordered_set<unsigned>& neighbourIds = expectedNeighbours.at(neighbours->refEvId);
-    BOOST_CHECK(neighbours->ids == neighbourIds);
+    BOOST_REQUIRE(neighbours->ids == neighbourIds);
     checkNeighbours(*neighbours, neighbourIds,
          {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."},
          {Phase::Type::P, Phase::Type::S});
@@ -597,14 +592,14 @@ BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
   list<unordered_map<unsigned, unique_ptr<HDD::Neighbours>>> clusters =
       HDD::clusterizeNeighbouringEvents(neighboursByEvent);
 
-  BOOST_CHECK(clusters.size() == 1);
+  BOOST_REQUIRE(clusters.size() == 1);
 
   for ( const auto & cluster : clusters )
     for ( const auto & kv : cluster )
   {
     const unique_ptr<HDD::Neighbours>& neighbours = kv.second;
-    BOOST_CHECK(neighbours->refEvId == kv.first);
-    BOOST_CHECK_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
+    BOOST_REQUIRE(neighbours->refEvId == kv.first);
+    BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
     const unordered_set<unsigned>& neighbourIds = expectedNeighbours.at(neighbours->refEvId);
     for (const unsigned neighId : neighbourIds)
     { 
@@ -627,8 +622,6 @@ BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
 
 BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
 {
-  // Logging::enableConsoleLogging(Logging::getAll());
-
   const Origin &org = orgList.at(orgIdx);
   unique_ptr<const HDD::Catalog> cat =
       buildCatalog(org.lat, org.lon, org.depth, 10, {3, 4}, {}, {"S"} );
@@ -652,7 +645,7 @@ BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
                                     1.5,  //  double maxEllipsoidSize
                                     false); //  bool keepUnmatched
 
-  BOOST_CHECK(neighboursByEvent.size() == 8);
+  BOOST_REQUIRE(neighboursByEvent.size() == 8);
 
   const unordered_map<unsigned, unordered_set<unsigned>> expectedNeighbours =
   {
@@ -669,10 +662,10 @@ BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
   for ( const auto & kv  : neighboursByEvent)
   {
     const unique_ptr<HDD::Neighbours>& neighbours = kv.second;
-    BOOST_CHECK(neighbours->refEvId == kv.first);
-    BOOST_CHECK_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
+    BOOST_REQUIRE(neighbours->refEvId == kv.first);
+    BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
     const unordered_set<unsigned>& neighbourIds = expectedNeighbours.at(neighbours->refEvId);
-    BOOST_CHECK(neighbours->ids == neighbourIds);
+    BOOST_REQUIRE(neighbours->ids == neighbourIds);
     checkNeighbours(*neighbours, neighbourIds,
          {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."},
          {Phase::Type::S});
@@ -681,14 +674,14 @@ BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
   list<unordered_map<unsigned, unique_ptr<HDD::Neighbours>>> clusters =
       HDD::clusterizeNeighbouringEvents(neighboursByEvent);
 
-  BOOST_CHECK(clusters.size() == 4);
+  BOOST_REQUIRE(clusters.size() == 4);
 
   for ( const auto & cluster : clusters )
     for ( const auto & kv : cluster )
   {
     const unique_ptr<HDD::Neighbours>& neighbours = kv.second;
-    BOOST_CHECK(neighbours->refEvId == kv.first);
-    BOOST_CHECK_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
+    BOOST_REQUIRE(neighbours->refEvId == kv.first);
+    BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
     const unordered_set<unsigned>& neighbourIds = expectedNeighbours.at(neighbours->refEvId);
     for (const unsigned neighId : neighbourIds)
     { 
