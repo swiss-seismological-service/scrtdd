@@ -390,7 +390,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
 
   while (!todoEvents.empty())
   {
-    vector<unsigned> removedEvents;
+    unordered_set<unsigned> removedEvents;
 
     // for each event find its neighbours
     for (auto it = todoEvents.begin(); it != todoEvents.end();)
@@ -412,7 +412,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
       if (!neighbours)
       {
         // event discarded because it doesn't satisfy requirements
-        removedEvents.push_back(event.id);
+        removedEvents.insert(event.id);
         // next loop we don't want other events to pick this as neighbour
         validCatalog.removeEvent(event.id);
         // stop here because we dont' want to keep building potentially wrong
@@ -435,19 +435,19 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
       for (auto &kv : neighboursList)
       {
         unique_ptr<Neighbours> &neighbours = kv.second;
-        bool currCatInvalid                = false;
-        for (unsigned removedEventId : removedEvents)
+        bool invalid                = false;
+        for (unsigned nbId : neighbours->ids)
         {
-          if (neighbours->ids.count(removedEventId) != 0)
+          if (removedEvents.count(nbId) != 0)
           {
-            currCatInvalid = true;
+            invalid = true;
             break;
           }
         }
 
-        if (currCatInvalid)
+        if (invalid)
         {
-          removedEvents.push_back(neighbours->refEvId);
+          removedEvents.insert(neighbours->refEvId);
           todoEvents.insert(neighbours->refEvId);
           redo = true;
           continue;
@@ -464,7 +464,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
 }
 
 /*
- * Arrange neighbours in non-connected clusters.
+ * Arrange neighbours in not connected clusters.
  *
  * Also, we don't want to report the same pair multiple times
  * (e.g. ev1-ev2 and ev2-ev1) since we only want one observation
@@ -534,7 +534,9 @@ clusterizeNeighbouringEvents(
       for (unsigned clusterId : connectedClusters)
       {
         vector<unique_ptr<Neighbours>> &clstr = clusters.at(clusterId);
-        std::move(clstr.begin(), clstr.end(), currentCluster.end());
+        currentCluster.insert(currentCluster.end(),
+                              std::make_move_iterator(clstr.begin()),
+                              std::make_move_iterator(clstr.end()));
         clusters.erase(clusterId);
       }
     }
