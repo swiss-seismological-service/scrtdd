@@ -131,12 +131,6 @@ public:
                                 const std::string &filterStr,
                                 double resampleFreq);
 
-  // empty string disables debugging
-  void setDebugDirectory(const std::string &directory = "")
-  {
-    _wfDebugDir = directory;
-  }
-
   unsigned _counters_wf_no_avail   = 0;
   unsigned _counters_wf_downloaded = 0;
 
@@ -147,7 +141,6 @@ protected:
                            double resampleFreq) const;
 
   const std::string _recordStreamURL;
-  std::string _wfDebugDir;
 
   static constexpr double _tolerance       = 0.1;
   static constexpr double _minAvailability = 0.95;

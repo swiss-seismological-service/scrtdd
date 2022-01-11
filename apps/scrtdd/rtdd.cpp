@@ -583,7 +583,6 @@ RTDD::Config::Config()
   loadProfileWf   = false;
   forceProcessing = false;
   testMode        = false;
-  dumpWaveforms   = false;
   fExpiry         = 1.0;
 
   wakeupInterval = 1; // sec
@@ -644,7 +643,7 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
       true);
   NEW_OPT_CLI(
       _config.evalXCorr, "Mode", "eval-xcorr",
-      "Compute cross-correlation statistics fon the catalog passed as "
+      "Compute cross-correlation statistics for the catalog passed as "
       "argument. The input can be a single file (containing seiscomp origin "
       "ids) or a file triplet (station.csv,event.csv,phase.csv). Use in "
       "combination with --profile",
@@ -654,6 +653,13 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
               "save them into the profile working directory. Use in "
               "combination with --profile",
               false, true);
+  NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "dump-wf",
+              "Dump processed waveforms of the catalog passed as argument. "
+              "The catalog can be a single file (containing seiscomp origin "
+              "ids) or a file triplet (station.csv,event.csv,phase.csv). Use "
+              "in combination with --profile. The waveforms will be saved into"
+              " the working directory",
+              true);
   NEW_OPT_CLI(_config.reloadProfileMsg, "Mode", "send-reload-profile-msg",
               "Send a message to any running scrtdd module requesting to "
               "reload a specific profile passed as argument",
@@ -679,10 +685,6 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
               "ones. Normally only catalog phase waveforms are cached to disk. "
               "This is useful to speed up debugging/testing when the same "
               "origins are repeatedly processed.",
-              false, true);
-  NEW_OPT_CLI(_config.dumpWaveforms, "ModeOptions", "debug-wf",
-              "Enable saving of processed waveforms into the profile working "
-              "directory for inspection.",
               false, true);
   NEW_OPT_CLI(_config.testMode, "ModeOptions", "test",
               "Test mode, no messages are sent when relocating a single event",
@@ -732,6 +734,7 @@ bool RTDD::validateParameters()
   if (!_config.eventXML.empty() || !_config.dumpCatalog.empty() ||
       !_config.mergeCatalogs.empty() || !_config.evalXCorr.empty() ||
       !_config.relocateCatalog.empty() || _config.loadProfileWf ||
+      !_config.dumpWaveforms.empty() ||
       (!_config.originIDs.empty() && _config.testMode))
   {
     SEISCOMP_INFO("Disable messaging");
@@ -746,6 +749,14 @@ bool RTDD::validateParameters()
   {
     profileRequireDB = true;
   }
+
+  if (!_config.dumpWaveforms.empty() &&
+      ::splitString(_config.dumpWaveforms, ",").size() ==
+          1) // single file containing origin ids
+  {
+    profileRequireDB = true;
+  }
+
   if (!_config.relocateCatalog.empty() &&
       ::splitString(_config.relocateCatalog, ",").size() ==
           1) // single file containing origin ids
@@ -1336,7 +1347,7 @@ bool RTDD::validateParameters()
   if (!isInventoryDatabaseEnabled() && !profileRequireDB &&
       (!_config.eventXML.empty() || !_config.mergeCatalogs.empty() ||
        !_config.evalXCorr.empty() || !_config.relocateCatalog.empty() ||
-       _config.loadProfileWf))
+       !_config.dumpWaveforms.empty() || _config.loadProfileWf))
   {
     SEISCOMP_INFO("Disable database connection");
     setDatabaseEnabled(false, false);
@@ -1438,7 +1449,7 @@ bool RTDD::run()
     }
   }
 
-  // evaluate cross-correlation settings and exit
+  // evaluate cross-correlation and exit
   if (!_config.evalXCorr.empty())
   {
     unique_ptr<HDD::Catalog> catalog = getCatalog(_config.evalXCorr);
@@ -1455,6 +1466,17 @@ bool RTDD::run()
     ProfilePtr profile = getProfile(_config.forceProfile);
     if (!profile) return false;
     loadProfile(profile, true);
+    return true;
+  }
+
+  // dump waveforms and exit
+  if (!_config.dumpWaveforms.empty())
+  {
+    unique_ptr<HDD::Catalog> catalog = getCatalog(_config.dumpWaveforms);
+    ProfilePtr profile               = getProfile(_config.forceProfile);
+    if (!catalog || !profile) return false;
+    loadProfile(profile, false, catalog.get());
+    profile->dumpWaveforms();
     return true;
   }
 
@@ -2558,8 +2580,8 @@ void RTDD::loadProfile(ProfilePtr profile,
 {
   profile->load(query(), &_cache, _eventParameters.get(),
                 _config.workingDirectory, _config.saveProcessingFiles,
-                _config.cacheWaveforms, _config.cacheAllWaveforms,
-                _config.dumpWaveforms, preloadData, alternativeCatalog);
+                _config.cacheWaveforms, _config.cacheAllWaveforms, preloadData,
+                alternativeCatalog);
 }
 
 std::vector<DataModel::OriginPtr> RTDD::fetchOrigins(const std::string &idFile,
@@ -2725,7 +2747,6 @@ void RTDD::Profile::load(DatabaseQuery *query,
                          bool saveProcessingFiles,
                          bool cacheWaveforms,
                          bool cacheAllWaveforms,
-                         bool debugWaveforms,
                          bool preloadData,
                          const HDD::Catalog *alternativeCatalog)
 {
@@ -2761,7 +2782,6 @@ void RTDD::Profile::load(DatabaseQuery *query,
     dd->setSaveProcessing(saveProcessingFiles);
     dd->setUseCatalogWaveformDiskCache(cacheWaveforms);
     dd->setWaveformCacheAll(cacheAllWaveforms);
-    dd->setWaveformDebug(debugWaveforms);
 
     if (preloadData)
     {
@@ -2854,6 +2874,19 @@ void RTDD::Profile::evalXCorr()
   }
   lastUsage = Core::Time::GMT();
   dd->evalXCorr(multiEventClustering, false);
+}
+
+void RTDD::Profile::dumpWaveforms()
+{
+  if (!loaded)
+  {
+    string msg = Core::stringify(
+        "Cannot dump catalog waveforms, profile %s not initialized",
+        name.c_str());
+    throw runtime_error(msg.c_str());
+  }
+  lastUsage = Core::Time::GMT();
+  dd->dumpWaveforms();
 }
 
 // End Profile class

@@ -380,12 +380,12 @@ It is clear how the residuals decrease at each iteration and how they are relate
 An independent method to evalute the correctness of the relative locations is to use the cross-correlation results. Since the waveforms similarity is  indicative of the proximity of the events, that information can used to compare the cross-correlation results by inter-event distance before and after the inversion (for detail see the cross-correlation paragraph).
 
 ```
-scrtdd --eval-xcorr station.csv,event.csv,phase.csv --profile myProfile --verbosity=2 --console=1
+scrtdd --eval-xcorr station.csv,event.csv,phase.csv --profile myProfile --verbosity=3 --console=1
 ```
 ![QC xcorr pre](/stuff/img/qc2a.png?raw=true "QC xcorr pre")
 
 ```
-scrtdd --eval-xcorr station.csv,reloc-event.csv,phase.csv --profile myProfile --verbosity=2 --console=1
+scrtdd --eval-xcorr station.csv,reloc-event.csv,phase.csv --profile myProfile --verbosity=3 --console=1
 ```
 ![QC xcorr post](/stuff/img/qc2b.png?raw=true "QC xcorr post")
 
@@ -698,7 +698,7 @@ Thanks to the integration in SeisComP it is quite easy to use rtDD to periodical
  
 ## 4. Cross-correlation
 
-Good cross-correlation results are needed to achieve high quality double-difference observations, which in turn results in high resolution relocations. The purpose of the cross-correlation is to find the exact time difference between two picks of an event pair at a common station. The cross-correlation is automatically performed by rtDD before the double-difference inversion.
+Good cross-correlation results are needed to achieve high quality double-difference observations, which in turn results in high resolution relocations. The purpose of the cross-correlation is to find the exact time difference between two picks of an event pair at a common station. The cross-correlation is automatically performed by rtDD before the double-difference inversion when `RecordStream` is configured, otherwise it is simply skipped, The cross-correlation step can also be disabled setting the configuration parametters `crossCorrelation.maxStationDistance` and/or `crossCorrelation.maxInterEventDistance` to 0.
 
 ### 4.1 Eval-xcorr command
 
@@ -797,66 +797,40 @@ The statistics are broken down in actual picks and theoretical picks. This is be
 
 ### 4.3 Waveforms inspection
 
-Adding `--debug-wf` option will make rtDD dump to disk the miniseed files of the waveforms used durign the relocation, that can be viewed with an external tool (e.g. `scrttv waveform.mseed`).
+The `--dump-wf` option will make rtDD dump to disk the waveforms of the catalog passed as argument. Those files are in miniseed format and can be viewed with an external tool (e.g. `scrttv waveform.mseed`) or obspy). The waveforms are saved after the filterting and resampling have been applied. The waveforms that are below the configured SNR threshold are not saved and the logs will print those waveforms (at debug level).
 
 ```
 scrtdd --help
-  --debug-wf                            Enable saving of processed waveforms 
-                                        into the profile working directory for 
-                                        inspection.
+  --dump-wf a rg                        Dump processed waveforms of the catalog
+                                        passed as argument. The catalog can be
+                                        a single file (containing seiscomp
+                                        origin ids) or a file triplet
+                                        (station.csv,event.csv,phase.csv). Use
+                                        in combination with --profile. The
+                                        waveforms will be saved into the
+                                        working directory
 ```
-
-This option can be added to any rtDD commands (e.g. `--reloc-catalog`, `--ev`, `--origin-id` ) and the generated waveforms will be stored in `workingDirectory/profileName/wfdebug/` (e.g. `~/seiscomp/var/lib/rtdd/myProfile/wfdebug/`) after filtering and resampling, that is the same waveforms used for the cross-correlation. 
-
-The file names follow the patterns:
-
-* *evNumber.NET.STATION.phaseTime.manual.mseed*       (e.g. ev56.CH.SAYF2.S.manual.mseed)       - event 56 manual S phase on CH.SAYF2 station
-* *evNumber.NET.STATION.phaseTime.automatic.mseed*    (e.g  ev4.CH.SAYF2.P.automatic.mseed)     - event 4 automatic P phase on CH.SAYF2 station
-* *evNumber.NET.STATION.phaseTime.theoretical.mseed*  (e.g. ev267.CH.SFRU.Pt.theoretical.mseed) - event 267 theoretical P phase on CH.SFRU station
-* *evNumber.NET.STATION.phaseTime.snr-rejected.mseed* (e.g. ev9.XY.VET02.S.snr-rejected.mseed)  - event 9 S phase not used in cross-correlation due to the configured signal to noise ratio threshold
-
-Also, rtDD logs tell us the details of the cross-correlation, so that we can see what waveform was cross-correlated with which others and then inspect the corresponding waveform miniseed files e.g.:
+e.g.
 
 ```
-[info] Computing cross-correlation differential travel times for event 12211
-[info] xcorr: event 12211 sta    S ESION dist    5.69 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   XY VET01 dist    5.77 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   XY VET02 dist    6.00 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   CH  SIOV dist    6.12 [km] - 2 P phases, mean coeff 0.73 lag 0.16 (events: 4862 3156 )
-[info] xcorr: event 12211 sta   CH  SIOM dist    6.27 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   CH  SARC dist    7.25 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   CH  SIOO dist    7.32 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   8D  RAW2 dist    7.98 [km] - 7 P phases, mean coeff 0.78 lag 0.00 (events: 3337 3264 3310 4862 3156 4861 4036 )
-[info] xcorr: event 12211 sta   XY LEO01 dist    9.87 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   CH SAYF2 dist    9.95 [km] - 2 S phases, mean coeff 0.77 lag 0.07 (events: 4051 4036 )
-[info] xcorr: event 12211 sta   CH  SHER dist   11.43 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   8D  RAW4 dist   12.07 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   CH SENIN dist   12.70 [km] - 4 P phases, mean coeff 0.74 lag 0.00 (events: 3264 3310 4862 4861 )
-[info] xcorr: event 12211 sta   XY SAI01 dist   13.67 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   CH STSW2 dist   14.58 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   XY SIE01 dist   15.12 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   CH GRYON dist   15.49 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   8D  RAW3 dist   16.17 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   CH FULLY dist   17.54 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   CH  SIEB dist   18.43 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   8D  RAW1 dist   21.19 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   CH   DIX dist   21.75 [km] - 4 P phases, mean coeff 0.84 lag -0.00 (events: 3264 4862 3447 4861 )
-[info] xcorr: event 12211 sta   CH   DIX dist   21.75 [km] - 1 S phases, mean coeff 0.78 lag -0.04 (events: 3168 )
-[info] xcorr: event 12211 sta   XP ILL07 dist   22.72 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   CH LAVEY dist   22.85 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   CH VANNI dist   23.40 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   XP ILL15 dist   24.20 [km] - 1 P phases, mean coeff 0.85 lag -0.05 (events: 3264 )
-[info] xcorr: event 12211 sta   XP ILL05 dist   24.20 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   XP ILL18 dist   24.27 [km] - 1 P phases, mean coeff 0.76 lag 0.04 (events: 3264 )
-[info] xcorr: event 12211 sta   XP ILL08 dist   24.27 [km] - low corr coeff pairs
-[info] xcorr: event 12211 sta   CH  SMAO dist   25.22 [km] - low corr coeff pairs
+scrtdd --dump-wf station.csv,event.csv,phase.csv --profile myProfile --verbosity=3 --console=1
+
+17:59:28 [info] Writing ev1.8D.RAW2..HHT.Sg.manual.mseed
+17:59:28 [info] Writing ev1.CH.SAYF2..HGT.Sg.manual.mseed
+17:59:28 [info] Writing ev1.CH.SENIN..HHT.Sg.manual.mseed
+17:59:28 [info] Writing ev1.XY.LEO01..HHT.Sg.manual.mseed
+17:59:28 [info] Writing ev1.XY.LEO01..HHZ.Sg.manual.mseed
+17:59:28 [info] Writing ev1.FR.OGSI.00.HHZ.Pg.manual.mseed
+17:59:28 [info] Writing ev1.GU.REMY..HHZ.Pg.manual.mseed
+17:59:28 [info] Writing ev1.CH.FIESA..HHZ.Pg.manual.mseed
+17:59:28 [info] Writing ev1.CH.TORNY..HHZ.Pg.manual.mseed
+17:59:28 [info] Writing ev1.8D.AMIDI..EHZ.Pg.manual.mseed
+17:59:28 [info] Writing ev2.CH.DIX..HHT.Sg.manual.mseed
+17:59:28 [info] Writing ev2.8D.RAW2..HHZ.Pg.manual.mseed
+17:59:28 [info] Writing ev2.CH.SAYF2..HGZ.Pg.manual.mseed
+17:59:28 [info] Writing ev2.CH.STSW2..HGZ.Pg.manual.mseed
 [...]
-[info] Event 12211 total phases 27: created 6 (3 P and 3 S) from theoretical picks
 ```
-
-For comparison we can always find the raw waveforms (not processed) fetched from the configured recordStream and used as a cache in `workingDirectory/profileName/wfcache/` (e.g. `~/seiscomp/var/lib/rtdd/myProfile/wfcache/`):
-* `NET.ST.LOC.CH.startime-endtime.mseed`
-
 
 ## 5. Waveform data and RecordStream configuration
 

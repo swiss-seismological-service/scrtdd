@@ -49,18 +49,6 @@ template <class T> T nextPowerOf2(T a, T min = 1, T max = 1 << 31)
   return b;
 }
 
-string waveformDebugPath(const string &wfDebugDir,
-                         const Catalog::Event &ev,
-                         const Catalog::Phase &ph,
-                         const std::string &ext)
-{
-  string debugFile =
-      HDD::strf("ev%u.%s.%s.%s.%s.%s.%s.mseed", ev.id, ph.networkCode.c_str(),
-                ph.stationCode.c_str(), ph.locationCode.c_str(),
-                ph.channelCode.c_str(), ph.type.c_str(), ext.c_str());
-  return HDD::joinPath(wfDebugDir, debugFile);
-}
-
 } // namespace
 
 namespace HDD {
@@ -1034,17 +1022,7 @@ GenericRecordCPtr MemCachedLoader::get(const Core::TimeWindow &tw,
   {
     storeInCache(tw, ph.networkCode, ph.stationCode, ph.locationCode,
                  ph.channelCode, trace);
-
-    // Dump waveforms when loaded the first time for debugging
-    if (!_wfDebugDir.empty())
-    {
-      string ext = (ph.procInfo.source == Catalog::Phase::Source::THEORETICAL)
-                       ? "theoretical"
-                       : (ph.isManual ? "manual" : "automatic");
-      writeTrace(trace, waveformDebugPath(_wfDebugDir, ev, ph, ext));
-    }
   }
-
   return trace;
 }
 
@@ -1173,12 +1151,6 @@ GenericRecordCPtr SnrFilteredLoader::get(const Core::TimeWindow &tw,
     {
       _snrExcludedWfs.insert(wfId);
       logDebug("Trace has too low SNR(%s)", string(ph).c_str());
-      // Dump SNR low traces (debugging).
-      if (!_wfDebugDir.empty())
-      {
-        writeTrace(trace,
-                   waveformDebugPath(_wfDebugDir, ev, ph, "snr-rejected"));
-      }
       _counters_wf_snr_low++;
       return nullptr;
     }

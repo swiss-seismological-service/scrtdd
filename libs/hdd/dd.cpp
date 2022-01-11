@@ -61,11 +61,8 @@ DD::DD(const Catalog &catalog, const Config &cfg, const string &workingDir)
     }
   }
 
-  _wfDebugDir = joinPath(_workingDir, "wfdebug");
-
   setUseCatalogWaveformDiskCache(true);
   setWaveformCacheAll(false);
-  setWaveformDebug(false);
 }
 
 void DD::setCatalog(const Catalog &catalog)
@@ -126,27 +123,6 @@ void DD::replaceWaveformCacheLoader(const shared_ptr<Waveform::Loader> &baseLdr)
   {
     _wfAccess.memCache->setAuxLoader(baseLdr);
   }
-}
-
-void DD::setWaveformDebug(bool debug)
-{
-  _waveformDebug = debug;
-  if (_waveformDebug)
-  {
-    if (!pathExists(_wfDebugDir))
-    {
-      if (!createDirectories(_wfDebugDir))
-      {
-        string msg =
-            "Unable to create waveform debug directory: " + _wfDebugDir;
-        throw Exception(msg);
-      }
-    }
-  }
-
-  if (_wfAccess.snrFilter)
-    _wfAccess.snrFilter->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
-  _wfAccess.memCache->setDebugDirectory(_waveformDebug ? _wfDebugDir : "");
 }
 
 string DD::generateWorkingSubDir(const string &prefix) const
@@ -263,12 +239,61 @@ void DD::preloadWaveforms()
   logInfo(
       "Finished preloading catalog waveform data: total events %lu total "
       "phases %u (P %.f%%, S %.f%%). Waveforms downloaded %u, not available "
-      "%u, "
-      "loaded from disk cache %u, Signal to Noise ratio too low %u",
+      "%u, loaded from disk cache %u, Signal to Noise ratio too low %u",
       _bgCat.getEvents().size(), numPhases,
       ((numPhases - numSPhases) * 100. / numPhases),
       (numSPhases * 100. / numPhases), _counters.wf_downloaded,
       _counters.wf_no_avail, _counters.wf_disk_cached, _counters.wf_snr_low);
+}
+
+void DD::dumpWaveforms(const std::string &basePath)
+{
+  if (!basePath.empty() && !pathExists(basePath))
+  {
+    if (!createDirectories(basePath))
+    {
+      throw Exception("Unable to create waveform dump directory: " + basePath);
+    }
+  }
+
+  auto waveformPath = [](const string &wfDebugDir, const Catalog::Event &ev,
+                         const Catalog::Phase &ph,
+                         const std::string &ext) -> string {
+    string debugFile =
+        HDD::strf("ev%u.%s.%s.%s.%s.%s.%s.mseed", ev.id, ph.networkCode.c_str(),
+                  ph.stationCode.c_str(), ph.locationCode.c_str(),
+                  ph.channelCode.c_str(), ph.type.c_str(), ext.c_str());
+    return HDD::joinPath(wfDebugDir, debugFile);
+  };
+
+  for (const auto &kv : _bgCat.getEvents())
+  {
+    const Event &event = kv.second;
+    auto eqlrng        = _bgCat.getPhases().equal_range(event.id);
+    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+    {
+      const Phase &phase  = it->second;
+      Core::TimeWindow tw = xcorrTimeWindowLong(phase);
+      const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
+
+      for (string component : xcorrCfg.components)
+      {
+        Phase tmpPh = phase;
+        tmpPh.channelCode =
+            getBandAndInstrumentCodes(tmpPh.channelCode) + component;
+        GenericRecordCPtr tr =
+            getWaveform(tw, event, tmpPh, *_wfAccess.memCache);
+        if (!tr) continue;
+        string ext =
+            (tmpPh.procInfo.source == Catalog::Phase::Source::THEORETICAL)
+                ? "xcorrDetected"
+                : (tmpPh.isManual ? "manual" : "automatic");
+        const string wfPath = waveformPath(basePath, event, tmpPh, ext);
+        logInfo("Writing %s", wfPath.c_str());
+        Waveform::writeTrace(tr, wfPath);
+      }
+    }
+  }
 }
 
 unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
@@ -1439,15 +1464,12 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
     snrLdr.reset(new Waveform::SnrFilteredLoader(
         seWfLdr, _cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
         _cfg.snr.signalStart, _cfg.snr.signalEnd));
-    if (_waveformDebug) snrLdr->setDebugDirectory(_wfDebugDir);
     seWfLdr = snrLdr;
   }
   seWfLdr.reset(new Waveform::MemCachedLoader(seWfLdr));
-  if (_waveformDebug) seWfLdr->setDebugDirectory(_wfDebugDir);
 
   shared_ptr<Waveform::Loader> seWfLdrNoSnr(
       new Waveform::MemCachedLoader(preLdr));
-  if (_waveformDebug) seWfLdrNoSnr->setDebugDirectory(_wfDebugDir);
 
   // keep track of the `refEv` distance to stations
   multimap<double, string> stationByDistance; // <distance, stationid>

@@ -135,6 +135,8 @@ public:
 
   void unloadTTT() { _ttt.reset(); }
 
+  void dumpWaveforms(const std::string &basePath = "");
+
   const Catalog &getCatalog() const { return _srcCat; }
   void setCatalog(const Catalog &catalog);
 
@@ -159,9 +161,6 @@ public:
 
   void setWaveformCacheAll(bool all) { _waveformCacheAll = all; }
   bool waveformCacheAll() const { return _waveformCacheAll; }
-
-  void setWaveformDebug(bool debug);
-  bool waveformDebug() const { return _waveformDebug; }
 
   void setUseArtificialPhases(bool use) { _useArtificialPhases = use; }
   bool useArtificialPhases() const { return _useArtificialPhases; }
@@ -342,7 +341,6 @@ private:
   std::string _workingDir;
   std::string _cacheDir;
   std::string _tmpCacheDir;
-  std::string _wfDebugDir;
 
   Catalog _srcCat;
   Catalog _bgCat;
@@ -351,7 +349,6 @@ private:
 
   bool _useCatalogWaveformDiskCache = true;
   bool _waveformCacheAll            = false;
-  bool _waveformDebug               = false;
 
   bool _useArtificialPhases = true;
 

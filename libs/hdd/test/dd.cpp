@@ -258,7 +258,6 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
   dd.setSaveProcessing(false); // set to true for debugging
   dd.setUseCatalogWaveformDiskCache(false);
   dd.setWaveformCacheAll(false);
-  dd.setWaveformDebug(false);
   dd.setUseArtificialPhases(false);
 
   HDD::ClusteringOptions clusterCfg;
@@ -298,7 +297,6 @@ relocateSingleEvent(const HDD::Catalog &bgCat,
   dd.setSaveProcessing(false); // set to true for debugging
   dd.setUseCatalogWaveformDiskCache(false);
   dd.setWaveformCacheAll(false);
-  dd.setWaveformDebug(false);
   dd.setUseArtificialPhases(false);
 
   HDD::ClusteringOptions clusterCfg;

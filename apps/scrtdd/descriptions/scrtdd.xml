@@ -323,6 +323,9 @@
         <option long-flag="eval-xcorr" argument="profile">
           <description>Evaluate cross-correlation settings for the given profile.</description>
         </option>
+        <option long-flag="dump-wf" argument="profile">
+          <description>Dump processed waveforms of the catalog passed as argument in the current working directory. The catalog can be a single file (containing seiscomp origin ids) or a file triplet (station.csv,event.csv,phase.csv). Use in combination with --profile.</description>
+        </option>
         <option long-flag="load-profile-wf" argument="profile">
           <description>Load catalog waveforms from the configured recordstream and save them into the profile working directory.</description>
         </option>
@@ -356,9 +359,6 @@
         </option>      
         <option long-flag="test">
           <description>Test mode, no messages are sent</description>
-        </option>
-        <option long-flag="debug-wf">
-          <description>Enable saving of processed waveforms (filtered/resampled, SNR rejected, ZRT projected, etc.) into the profile working directory.</description>
         </option>
         <option long-flag="cache-wf-all">
           <description>All waveforms will be saved to disk cache, even temporarily ones. Normally only catalog phase waveforms are cached to disk. This is useful to speed up debugging/testing when the same origins are repeatedly processed.</description>

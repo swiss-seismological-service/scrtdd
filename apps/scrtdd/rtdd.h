@@ -150,13 +150,13 @@ private:
     // Mode
     bool forceProcessing;
     bool testMode;
-    bool dumpWaveforms;
     double fExpiry;
     std::string originIDs;
     std::string eventXML;
     std::string forceProfile;
     std::string relocateCatalog;
     std::string dumpCatalog;
+    std::string dumpWaveforms;
     std::string mergeCatalogs;
     std::string evalXCorr;
     std::string reloadProfileMsg;
@@ -180,7 +180,6 @@ private:
               bool saveProcessingFiles,
               bool cacheWaveforms,
               bool cacheAllWaveforms,
-              bool debugWaveforms,
               bool preloadData,
               const HDD::Catalog *alternativeCatalog = nullptr);
     void unload();
@@ -190,6 +189,7 @@ private:
     std::unique_ptr<HDD::Catalog> relocateSingleEvent(DataModel::Origin *org);
     std::unique_ptr<HDD::Catalog> relocateCatalog();
     void evalXCorr();
+    void dumpWaveforms();
 
     std::string name;
     std::string earthModelID;
