@@ -45,7 +45,7 @@ public:
     error,
   };
 
-  template <typename... Args> void log(Level l, Args &&... args)
+  template <typename... Args> void log(const Level l, Args &&... args)
   {
     _log(l, strf(std::forward<Args>(args)...));
   }
@@ -54,7 +54,7 @@ public:
 
 private:
   Logger() = default;
-  void _log(Level, const std::string &);
+  void _log(const Level, const std::string &);
 };
 
 template <typename... Args> void logDebug(Args &&... args)

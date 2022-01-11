@@ -24,13 +24,16 @@ using namespace std;
 
 namespace HDD {
 
-void Logger::_log(Level l, const string &s)
+void Logger::_log(const Level l, const string &s)
 {
-  Seiscomp::Logging::Channel *logChannel = Seiscomp::Logging::_SCDebugChannel;
-  if (l == Level::info) logChannel = Seiscomp::Logging::_SCInfoChannel;
-  if (l == Level::warning) logChannel = Seiscomp::Logging::_SCWarningChannel;
-  if (l == Level::error) logChannel = Seiscomp::Logging::_SCErrorChannel;
-  SEISCOMP_LOG(logChannel, "%s", s.c_str());
+  if (l == Level::info)
+    SEISCOMP_LOG(Seiscomp::Logging::_SCInfoChannel, "%s", s.c_str());
+  else if (l == Level::warning)
+    SEISCOMP_LOG(Seiscomp::Logging::_SCWarningChannel, "%s", s.c_str());
+  else if (l == Level::error)
+    SEISCOMP_LOG(Seiscomp::Logging::_SCErrorChannel, "%s", s.c_str());
+  else if (l == Level::debug)
+    SEISCOMP_LOG(Seiscomp::Logging::_SCDebugChannel, "%s", s.c_str());
 }
 
 void Logger::logToFile(const std::string &logFile,
@@ -39,11 +42,14 @@ void Logger::logToFile(const std::string &logFile,
   Seiscomp::Logging::FileOutput processingInfoOutput(logFile.c_str());
   for (auto l : levels)
   {
-    Seiscomp::Logging::Channel *logChannel = Seiscomp::Logging::_SCDebugChannel;
-    if (l == Level::info) logChannel = Seiscomp::Logging::_SCInfoChannel;
-    if (l == Level::warning) logChannel = Seiscomp::Logging::_SCWarningChannel;
-    if (l == Level::error) logChannel = Seiscomp::Logging::_SCErrorChannel;
-    processingInfoOutput.subscribe(logChannel);
+    if (l == Level::info)
+      processingInfoOutput.subscribe(Seiscomp::Logging::_SCInfoChannel);
+    else if (l == Level::warning)
+      processingInfoOutput.subscribe(Seiscomp::Logging::_SCWarningChannel);
+    else if (l == Level::error)
+      processingInfoOutput.subscribe(Seiscomp::Logging::_SCErrorChannel);
+    else if (l == Level::debug)
+      processingInfoOutput.subscribe(Seiscomp::Logging::_SCDebugChannel);
   }
 }
 
