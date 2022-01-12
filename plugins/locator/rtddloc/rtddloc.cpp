@@ -20,8 +20,8 @@
 
 #include "rtddloc.h"
 #include "rtddmsg.h"
-#include <seiscomp3/core/system.h>
-#include <seiscomp3/logging/log.h>
+#include <seiscomp/core/system.h>
+#include <seiscomp/logging/log.h>
 
 ADD_SC_PLUGIN(
     "Locator implementation using scrtdd (real time double difference)",

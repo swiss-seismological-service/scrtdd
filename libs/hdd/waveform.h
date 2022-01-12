@@ -18,242 +18,122 @@
 #define __HDD_WAVEFORM_H__
 
 #include "catalog.h"
+#include "trace.h"
 #include "utils.h"
-
-#include <seiscomp3/core/genericrecord.h>
-#include <seiscomp3/core/recordsequence.h>
-#include <seiscomp3/datamodel/utils.h>
-#include <seiscomp3/io/recordstream.h>
 
 #include <unordered_map>
 #include <unordered_set>
 
-using namespace Seiscomp;
-
 namespace HDD {
 namespace Waveform {
 
-GenericRecordPtr
-readWaveformFromRecordStream(const std::string &recordStreamURL,
-                             const Core::TimeWindow &tw,
-                             const std::string &networkCode,
-                             const std::string &stationCode,
-                             const std::string &locationCode,
-                             const std::string &channelCode,
-                             double tolerance,
-                             double minAvailability);
+inline std::string getBandAndInstrumentCodes(const std::string &channelCode)
+{
+  if (channelCode.size() >= 2) return channelCode.substr(0, 2);
+  return "";
+}
 
-bool projectionRequired(const Core::TimeWindow &tw,
-                        const Catalog::Phase &ph,
-                        const Catalog::Event &ev,
-                        DataModel::ThreeComponents &tc,
-                        DataModel::SensorLocation *&loc);
+inline std::string getOrientationCode(const std::string &channelCode)
+{
+  if (channelCode.size() == 3) return channelCode.substr(2, 3);
+  return "";
+}
 
-GenericRecordPtr projectWaveform(const Core::TimeWindow &tw,
-                                 const Catalog::Phase &ph,
-                                 const Catalog::Event &ev,
-                                 double tolerance,
-                                 double minAvailability,
-                                 const GenericRecordCPtr &tr1,
-                                 const GenericRecordCPtr &tr2,
-                                 const GenericRecordCPtr &tr3,
-                                 const DataModel::ThreeComponents &tc,
-                                 const DataModel::SensorLocation *loc);
+std::string waveformId(const TimeWindow &tw,
+                       const std::string &networkCode,
+                       const std::string &stationCode,
+                       const std::string &locationCode,
+                       const std::string &channelCode);
 
-GenericRecordPtr contiguousRecord(const RecordSequence &seq,
-                                  const Core::TimeWindow &tw,
-                                  double tolerance,
-                                  double minAvailability);
+inline std::string waveformId(const Catalog::Phase &ph, const TimeWindow &tw)
+{
+  return waveformId(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+                    ph.channelCode);
+}
 
-bool trim(GenericRecord &trace, const Core::TimeWindow &tw);
+void resample(Trace &trace, double new_sf);
 
-void filter(GenericRecord &trace,
-            bool demeaning               = true,
-            const std::string &filterStr = "",
-            double resampleFreq          = 0);
-void resample(GenericRecord &trace, double new_sf);
+void filter(Trace &trace,
+            bool demeaning,
+            const std::string &filterStr,
+            double resampleFreq);
 
-void writeTrace(GenericRecordCPtr trace, const std::string &file);
-GenericRecordPtr readTrace(const std::string &file);
-
-double computeSnr(const GenericRecordCPtr &tr,
-                  const Core::Time &pickTime,
+double computeSnr(const Trace &tr,
+                  const UTCTime &pickTime,
                   double noiseOffsetStart,
                   double noiseOffsetEnd,
                   double signalOffsetStart,
                   double signalOffsetEnd);
 
-bool xcorr(const GenericRecordCPtr &tr1,
-           const GenericRecordCPtr &tr2,
-           double maxDelay,
-           bool qualityCheck,
-           double &delayOut,
-           double &coeffOut);
-
-void crossCorrelation(const double *dataS,
-                      const int sizeS,
-                      const double *dataL,
-                      const int sizeL,
-                      bool qualityCheck,
-                      double &delayOut,
-                      double &coeffOut);
-
-std::string getBandAndInstrumentCodes(const std::string &channelCode);
-std::string getOrientationCode(const std::string &channelCode);
-
-std::string waveformId(const Core::TimeWindow &tw,
-                       const std::string &networkCode,
-                       const std::string &stationCode,
-                       const std::string &locationCode,
-                       const std::string &channelCode);
-std::string waveformId(const HDD::Catalog::Phase &ph,
-                       const Core::TimeWindow &tw);
+void writeTrace(const Trace &trace, const std::string &file);
+std::unique_ptr<Trace> readTrace(const std::string &file);
 
 class Loader
 {
-
 public:
-  Loader(const std::string &recordStream) : _recordStreamURL(recordStream) {}
-
+  Loader()          = default;
   virtual ~Loader() = default;
 
   Loader(const Loader &other) = delete;
   Loader &operator=(const Loader &other) = delete;
 
-  virtual GenericRecordCPtr get(const Core::TimeWindow &tw,
-                                const Catalog::Phase &ph,
-                                const Catalog::Event &ev);
+  // shared_ptr allows internal caching (unique_ptr would not) and
+  // that's also why Trace is const
+  virtual std::shared_ptr<const Trace> get(const TimeWindow &tw,
+                                           const Catalog::Phase &ph) = 0;
 
-  virtual GenericRecordCPtr get(const Core::TimeWindow &tw,
-                                const Catalog::Phase &ph,
-                                const Catalog::Event &ev,
-                                bool demeaning,
-                                const std::string &filterStr,
-                                double resampleFreq);
+protected:
+  static double _tolerance;
+  static double _minAvailability;
+};
 
+class BasicLoader : public Loader
+{
+
+public:
+  BasicLoader(const std::string &recordStream) : _recordStreamURL(recordStream)
+  {}
+  virtual ~BasicLoader() = default;
+
+  std::shared_ptr<const Trace> get(const TimeWindow &tw,
+                                   const Catalog::Phase &ph) override;
+
+  // ugly, but we need to give the user some feedbacks
   unsigned _counters_wf_no_avail   = 0;
   unsigned _counters_wf_downloaded = 0;
 
-protected:
-  GenericRecordPtr process(const GenericRecordCPtr &trace,
-                           bool demeaning,
-                           const std::string &filterStr,
-                           double resampleFreq) const;
-
+private:
   const std::string _recordStreamURL;
-
-  static constexpr double _tolerance       = 0.1;
-  static constexpr double _minAvailability = 0.95;
 };
 
-class CompositeLoader : public Loader
-{
-
-public:
-  CompositeLoader(const std::shared_ptr<Loader> &auxLdr) : Loader("")
-  {
-    setAuxLoader(auxLdr);
-  }
-
-  virtual ~CompositeLoader() = default;
-
-  void setAuxLoader(const std::shared_ptr<Loader> &auxLdr) { _auxLdr = auxLdr; }
-
-protected:
-  std::shared_ptr<Loader> _auxLdr;
-};
-
-class DiskCachedLoader : public CompositeLoader
+class BatchLoader : public Loader
 {
 public:
-  DiskCachedLoader(const std::shared_ptr<Loader> &auxLdr,
-                   const std::string &cacheDir)
-      : CompositeLoader(auxLdr), _cacheDir(cacheDir)
+  BatchLoader(const std::string &recordStream)
+      : _recordStreamURL(recordStream), _dataLoaded(false)
   {}
 
-  virtual ~DiskCachedLoader() = default;
+  virtual ~BatchLoader() = default;
 
-  GenericRecordCPtr get(const Core::TimeWindow &tw,
-                        const Catalog::Phase &ph,
-                        const Catalog::Event &ev) override;
+  std::shared_ptr<const Trace> get(const TimeWindow &tw,
+                                   const Catalog::Phase &ph) override;
 
-  bool isCached(const Core::TimeWindow &tw,
-                const Catalog::Phase &ph,
-                const Catalog::Event &ev) const;
+  void request(const TimeWindow &tw, const Catalog::Phase &ph);
 
-  unsigned _counters_wf_cached = 0;
+  void load();
 
-private:
-  GenericRecordCPtr getFromCache(const Core::TimeWindow &tw,
-                                 const std::string &networkCode,
-                                 const std::string &stationCode,
-                                 const std::string &locationCode,
-                                 const std::string &channelCode);
-
-  void storeInCache(const Core::TimeWindow &tw,
-                    const std::string &networkCode,
-                    const std::string &stationCode,
-                    const std::string &locationCode,
-                    const std::string &channelCode,
-                    const GenericRecordCPtr &trace);
-
-  std::string waveformPath(const std::string &cacheDir,
-                           const Core::TimeWindow &tw,
-                           const std::string &networkCode,
-                           const std::string &stationCode,
-                           const std::string &locationCode,
-                           const std::string &channelCode) const;
-
-  std::string _cacheDir;
-};
-
-class MemCachedLoader : public CompositeLoader
-{
-public:
-  MemCachedLoader(const std::shared_ptr<Loader> &auxLdr)
-      : CompositeLoader(auxLdr)
-  {}
-
-  virtual ~MemCachedLoader() = default;
-
-  GenericRecordCPtr get(const Core::TimeWindow &tw,
-                        const Catalog::Phase &ph,
-                        const Catalog::Event &ev) override
-  {
-    throw Exception("Cannot return unprocessed data");
-  }
-
-  GenericRecordCPtr get(const Core::TimeWindow &tw,
-                        const Catalog::Phase &ph,
-                        const Catalog::Event &ev,
-                        bool demeaning,
-                        const std::string &filterStr,
-                        double resampleFreq) override;
-
-  bool isCached(const Core::TimeWindow &tw,
-                const Catalog::Phase &ph,
-                const Catalog::Event &ev);
-
-  unsigned _counters_wf_cached = 0;
+  // ugly, but we need to give the user some feedbacks
+  unsigned _counters_wf_no_avail   = 0;
+  unsigned _counters_wf_downloaded = 0;
 
 private:
-  GenericRecordCPtr getFromCache(const Core::TimeWindow &tw,
-                                 const std::string &networkCode,
-                                 const std::string &stationCode,
-                                 const std::string &locationCode,
-                                 const std::string &channelCode);
-
-  void storeInCache(const Core::TimeWindow &tw,
-                    const std::string &networkCode,
-                    const std::string &stationCode,
-                    const std::string &locationCode,
-                    const std::string &channelCode,
-                    const GenericRecordCPtr &trace);
-
-  std::unordered_map<std::string, GenericRecordCPtr> _waveforms;
+  const std::string _recordStreamURL;
+  bool _dataLoaded;
+  std::unordered_multimap<std::string, const TimeWindow> _request;
+  std::unordered_map<std::string, std::shared_ptr<const Trace>> _waveforms;
 };
 
-class ExtraLenLoader : public CompositeLoader
+class ExtraLenLoader : public Loader
 {
 public:
   ExtraLenLoader(const std::shared_ptr<Loader> &auxLdr, double traceMinLen)
@@ -263,62 +143,202 @@ public:
   ExtraLenLoader(const std::shared_ptr<Loader> &auxLdr,
                  double beforePickLen,
                  double afterPickLen)
-      : CompositeLoader(auxLdr), _beforePickLen(beforePickLen),
+      : _auxLdr(auxLdr), _beforePickLen(beforePickLen),
         _afterPickLen(afterPickLen)
   {}
 
   virtual ~ExtraLenLoader() = default;
 
-  GenericRecordCPtr get(const Core::TimeWindow &tw,
-                        const Catalog::Phase &ph,
-                        const Catalog::Event &ev) override;
+  void setAuxLoader(const std::shared_ptr<Loader> &auxLdr) { _auxLdr = auxLdr; }
+  std::shared_ptr<Loader> getAuxLoader() const { return _auxLdr; }
 
-  Core::TimeWindow traceTimeWindowToLoad(const Core::TimeWindow &neededTW,
-                                         const Core::Time &pickTime) const;
+  std::shared_ptr<const Trace> get(const TimeWindow &tw,
+                                   const Catalog::Phase &ph) override;
 
-protected:
+  TimeWindow traceTimeWindowToLoad(const TimeWindow &neededTW,
+                                   const UTCTime &pickTime) const;
+
+private:
+  std::shared_ptr<Loader> _auxLdr;
   double _beforePickLen; // secs
   double _afterPickLen;  // secs
 };
 
-class SnrFilteredLoader : public CompositeLoader
+class DiskCachedLoader : public Loader
+{
+public:
+  DiskCachedLoader(const std::shared_ptr<Loader> &auxLdr,
+                   const std::string &cacheDir)
+      : _auxLdr(auxLdr), _cacheDir(cacheDir)
+  {}
+
+  virtual ~DiskCachedLoader() = default;
+
+  void setAuxLoader(const std::shared_ptr<Loader> &auxLdr) { _auxLdr = auxLdr; }
+  std::shared_ptr<Loader> getAuxLoader() const { return _auxLdr; }
+
+  std::shared_ptr<const Trace> get(const TimeWindow &tw,
+                                   const Catalog::Phase &ph) override;
+
+  bool isCached(const TimeWindow &tw,
+                const Catalog::Phase &ph,
+                const Catalog::Event &ev) const;
+
+  // ugly, but we need to give the user some feedbacks
+  unsigned _counters_wf_cached = 0;
+
+private:
+  std::unique_ptr<Trace> getFromCache(const TimeWindow &tw,
+                                      const std::string &networkCode,
+                                      const std::string &stationCode,
+                                      const std::string &locationCode,
+                                      const std::string &channelCode);
+
+  void storeInCache(const TimeWindow &tw,
+                    const std::string &networkCode,
+                    const std::string &stationCode,
+                    const std::string &locationCode,
+                    const std::string &channelCode,
+                    const Trace &trace);
+
+  std::string waveformPath(const std::string &cacheDir,
+                           const TimeWindow &tw,
+                           const std::string &networkCode,
+                           const std::string &stationCode,
+                           const std::string &locationCode,
+                           const std::string &channelCode) const;
+
+  std::shared_ptr<Loader> _auxLdr;
+  std::string _cacheDir;
+};
+
+class Processor
+{
+public:
+  enum class Transform
+  {
+    NONE,
+    L2,
+    TRANSVERSAL,
+    RADIAL
+  };
+
+  Processor()          = default;
+  virtual ~Processor() = default;
+
+  Processor(const Processor &other) = delete;
+  Processor &operator=(const Processor &other) = delete;
+
+  // shared_ptr allows internal caching (unique_ptr would not) and
+  // that's also why Trace is const
+  virtual std::shared_ptr<const Trace> get(const TimeWindow &tw,
+                                           const Catalog::Phase &ph,
+                                           const Catalog::Event &ev,
+                                           const Catalog::Station &sta,
+                                           const std::string &filterStr,
+                                           double resampleFreq,
+                                           Transform trans) = 0;
+};
+
+class BasicProcessor : public Processor
+{
+public:
+  BasicProcessor(const std::shared_ptr<Loader> &auxLdr) : _auxLdr(auxLdr) {}
+
+  virtual ~BasicProcessor() = default;
+
+  void setAuxLoader(const std::shared_ptr<Loader> &auxLdr) { _auxLdr = auxLdr; }
+  std::shared_ptr<Loader> getAuxLoader() const { return _auxLdr; }
+
+  std::shared_ptr<const Trace> get(const TimeWindow &tw,
+                                   const Catalog::Phase &ph,
+                                   const Catalog::Event &ev,
+                                   const Catalog::Station &sta,
+                                   const std::string &filterStr,
+                                   double resampleFreq,
+                                   Transform trans) override;
+
+private:
+  std::shared_ptr<Trace> process(const Trace &trace,
+                                 const std::string &filterStr,
+                                 double resampleFreq) const;
+  std::shared_ptr<Loader> _auxLdr;
+};
+
+class MemCachedProc : public Processor
+{
+public:
+  MemCachedProc(const std::shared_ptr<Processor> &auxPrc) : _auxPrc(auxPrc) {}
+
+  virtual ~MemCachedProc() = default;
+
+  void setAuxProcessor(const std::shared_ptr<Processor> &auxPrc)
+  {
+    _auxPrc = auxPrc;
+  }
+  std::shared_ptr<Processor> getAuxProcessor() const { return _auxPrc; }
+
+  std::shared_ptr<const Trace> get(const TimeWindow &tw,
+                                   const Catalog::Phase &ph,
+                                   const Catalog::Event &ev,
+                                   const Catalog::Station &sta,
+                                   const std::string &filterStr,
+                                   double resampleFreq,
+                                   Transform trans) override;
+
+  bool isCached(const TimeWindow &tw,
+                const Catalog::Phase &ph,
+                const Catalog::Event &ev) const;
+
+private:
+  std::shared_ptr<const Trace> getFromCache(const std::string &wfId);
+
+  void storeInCache(const std::string &wfId,
+                    const std::shared_ptr<const Trace> &trace);
+
+  std::shared_ptr<Processor> _auxPrc;
+  std::unordered_map<std::string, std::shared_ptr<const Trace>> _waveforms;
+  std::unordered_set<std::string> _unloadables;
+};
+
+class SnrFilterPrc : public Processor
 {
 
 public:
-  SnrFilteredLoader(const std::shared_ptr<Loader> &auxLdr,
-                    double minSnr,
-                    double noiseStart,
-                    double noiseEnd,
-                    double signalStart,
-                    double signalEnd)
-      : CompositeLoader(auxLdr), _snr{minSnr, noiseStart, noiseEnd, signalStart,
-                                      signalEnd}
+  SnrFilterPrc(const std::shared_ptr<Processor> &auxPrc,
+               double minSnr,
+               double noiseStart,
+               double noiseEnd,
+               double signalStart,
+               double signalEnd)
+      : _auxPrc(auxPrc), _snr{minSnr, noiseStart, noiseEnd, signalStart,
+                              signalEnd}
   {}
 
-  virtual ~SnrFilteredLoader() = default;
+  virtual ~SnrFilterPrc() = default;
 
-  GenericRecordCPtr get(const Core::TimeWindow &tw,
-                        const Catalog::Phase &ph,
-                        const Catalog::Event &ev) override
+  void setAuxProcessor(const std::shared_ptr<Processor> &auxPrc)
   {
-    throw Exception("Cannot compute SNR on unprocessed data");
+    _auxPrc = auxPrc;
   }
+  std::shared_ptr<Processor> getAuxProcessor() const { return _auxPrc; }
 
-  GenericRecordCPtr get(const Core::TimeWindow &tw,
-                        const Catalog::Phase &ph,
-                        const Catalog::Event &ev,
-                        bool demeaning,
-                        const std::string &filterStr,
-                        double resampleFreq) override;
+  std::shared_ptr<const Trace> get(const TimeWindow &tw,
+                                   const Catalog::Phase &ph,
+                                   const Catalog::Event &ev,
+                                   const Catalog::Station &sta,
+                                   const std::string &filterStr,
+                                   double resampleFreq,
+                                   Transform trans) override;
 
-  Core::TimeWindow snrTimeWindow(const Core::Time &pickTime) const;
+  TimeWindow snrTimeWindow(const UTCTime &pickTime) const;
 
-  bool goodSnr(const GenericRecordCPtr &trace,
-               const Core::Time &pickTime) const;
+  bool goodSnr(const Trace &trace, const UTCTime &pickTime) const;
 
   unsigned _counters_wf_snr_low = 0;
 
-protected:
+private:
+  std::shared_ptr<Processor> _auxPrc;
   struct
   {
     double minSnr;
@@ -327,35 +347,6 @@ protected:
     double signalStart; // secs relative to pick time
     double signalEnd;   // secs relative to pick time
   } _snr;
-
-  std::unordered_set<std::string> _snrGoodWfs;
-  std::unordered_set<std::string> _snrExcludedWfs;
-};
-
-class BatchLoader : public Loader
-{
-public:
-  BatchLoader(const std::string &recordStream);
-
-  virtual ~BatchLoader() = default;
-
-  GenericRecordCPtr get(const Core::TimeWindow &tw,
-                        const Catalog::Phase &ph,
-                        const Catalog::Event &ev) override;
-
-  void request(const Core::TimeWindow &tw,
-               const Catalog::Phase &ph,
-               const Catalog::Event &ev);
-
-  void load();
-
-protected:
-  bool _dataLoaded;
-  IO::RecordStreamPtr _rs;
-  std::unordered_multimap<std::string,
-                          std::pair<const Core::TimeWindow, TimeWindowBuffer>>
-      _streamMap;
-  std::unordered_map<std::string, GenericRecordCPtr> _waveforms;
 };
 
 } // namespace Waveform

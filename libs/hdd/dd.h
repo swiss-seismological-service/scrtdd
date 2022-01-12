@@ -20,6 +20,7 @@
 #include "catalog.h"
 #include "clustering.h"
 #include "solver.h"
+#include "timewindow.h"
 #include "ttt.h"
 #include "waveform.h"
 #include "xcorrcache.h"
@@ -68,12 +69,6 @@ struct Config
     double signalStart = -0.350;
     double signalEnd   = 0.350;
   } snr;
-
-  struct
-  {
-    std::string type  = "LOCSAT";
-    std::string model = "iasp91";
-  } ttt;
 };
 
 struct ClusteringOptions
@@ -127,7 +122,10 @@ class DD
 {
 
 public:
-  DD(const Catalog &catalog, const Config &cfg, const std::string &workingDir);
+  DD(const Catalog &catalog,
+     const Config &cfg,
+     const std::string &workingDir,
+     std::unique_ptr<HDD::TravelTimeTable> ttt);
   ~DD() = default;
 
   DD(const DD &other) = delete;
@@ -137,12 +135,9 @@ public:
 
   void unloadWaveforms() { createWaveformCache(); }
 
-  void unloadTTT() { _ttt.reset(); }
-
   void dumpWaveforms(const std::string &basePath = "");
 
   const Catalog &getCatalog() const { return _srcCat; }
-  void setCatalog(const Catalog &catalog);
 
   std::unique_ptr<Catalog>
   relocateMultiEvents(const ClusteringOptions &clustOpt,
@@ -170,6 +165,13 @@ public:
   bool useArtificialPhases() const { return _useArtificialPhases; }
 
   static std::string relocationReport(const Catalog &relocatedEv);
+
+  static bool xcorr(const Trace &tr1,
+                    const Trace &tr2,
+                    double maxDelay,
+                    bool qualityCheck,
+                    double &delayOut,
+                    double &coeffOut);
 
 private:
   void createWaveformCache();
@@ -299,46 +301,41 @@ private:
 
   bool xcorrPhases(const Catalog::Event &event1,
                    const Catalog::Phase &phase1,
-                   Waveform::Loader &ph1Cache,
+                   Waveform::Processor &ph1Cache,
                    const Catalog::Event &event2,
                    const Catalog::Phase &phase2,
-                   Waveform::Loader &ph2Cache,
+                   Waveform::Processor &ph2Cache,
                    double &coeffOut,
                    double &lagOut);
 
-  bool _xcorrPhases(const Catalog::Event &event1,
-                    const Catalog::Phase &phase1,
-                    Waveform::Loader &ph1Cache,
-                    const Catalog::Event &event2,
-                    const Catalog::Phase &phase2,
-                    Waveform::Loader &ph2Cache,
-                    double &coeffOut,
-                    double &lagOut);
+  bool xcorrPhasesOneComponent(const Catalog::Event &event1,
+                               const Catalog::Phase &phase1,
+                               Waveform::Processor &ph1Cache,
+                               const Catalog::Event &event2,
+                               const Catalog::Phase &phase2,
+                               Waveform::Processor &ph2Cache,
+                               const std::string &component,
+                               double &coeffOut,
+                               double &lagOut);
 
-  Core::TimeWindow xcorrTimeWindowLong(const Catalog::Phase &phase) const;
+  TimeWindow xcorrTimeWindowLong(const Catalog::Phase &phase) const;
 
-  Core::TimeWindow xcorrTimeWindowShort(const Catalog::Phase &phase) const;
+  TimeWindow xcorrTimeWindowShort(const Catalog::Phase &phase) const;
 
-  GenericRecordCPtr getWaveform(const Core::TimeWindow &tw,
-                                const Catalog::Event &ev,
-                                const Catalog::Phase &ph,
-                                Waveform::Loader &wfLoader,
-                                bool skipUnloadableCheck = false);
+  std::shared_ptr<const Trace> getWaveform(Waveform::Processor &wfLoader,
+                                           const TimeWindow &tw,
+                                           const Catalog::Event &ev,
+                                           const Catalog::Phase &ph,
+                                           const std::string &component);
 
-  std::shared_ptr<Waveform::Loader>
+  std::shared_ptr<Waveform::Processor>
   preloadNonCatalogWaveforms(Catalog &catalog,
                              const Neighbours &neighbours,
                              const Catalog::Event &refEv,
                              double xcorrMaxEvStaDist,
-                             double xcorrMaxInterEvDist) const;
+                             double xcorrMaxInterEvDist);
 
-  void resetCounters();
   void printCounters() const;
-  void updateCounters() const;
-  void updateCounters(
-      const std::shared_ptr<Waveform::Loader> &loader,
-      const std::shared_ptr<Waveform::DiskCachedLoader> &diskCache,
-      const std::shared_ptr<Waveform::SnrFilteredLoader> &snrFilter) const;
 
 private:
   bool _saveProcessing = true;
@@ -346,15 +343,14 @@ private:
   std::string _cacheDir;
   std::string _tmpCacheDir;
 
-  Catalog _srcCat;
+  const Catalog _srcCat;
   Catalog _bgCat;
 
   const Config _cfg;
 
   bool _useCatalogWaveformDiskCache = true;
   bool _waveformCacheAll            = false;
-
-  bool _useArtificialPhases = true;
+  bool _useArtificialPhases         = true;
 
   std::unique_ptr<HDD::TravelTimeTable> _ttt;
 
@@ -363,9 +359,8 @@ private:
     std::shared_ptr<Waveform::Loader> loader;
     std::shared_ptr<Waveform::DiskCachedLoader> diskCache;
     std::shared_ptr<Waveform::ExtraLenLoader> extraLen;
-    std::shared_ptr<Waveform::SnrFilteredLoader> snrFilter;
-    std::shared_ptr<Waveform::MemCachedLoader> memCache;
-    std::unordered_set<std::string> unloadableWfs;
+    std::shared_ptr<Waveform::SnrFilterPrc> snrFilter;
+    std::shared_ptr<Waveform::MemCachedProc> memCache;
   } _wfAccess;
 
   struct
@@ -379,10 +374,7 @@ private:
     unsigned xcorr_good_cc_theo;
     unsigned xcorr_good_cc_s;
     unsigned xcorr_good_cc_s_theo;
-    unsigned wf_downloaded;
-    unsigned wf_no_avail;
-    unsigned wf_disk_cached;
-    unsigned wf_snr_low;
+    void reset() { *this = {0}; }
   } mutable _counters;
 
   // For waveforms that are cached to disk, store at least `DISK_TRACE_MIN_LEN`

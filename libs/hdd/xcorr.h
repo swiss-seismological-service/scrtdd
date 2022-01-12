@@ -14,18 +14,19 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#include "log.h"
-
-using namespace std;
+#ifndef __HDD_XCORR_H__
+#define __HDD_XCORR_H__
 
 namespace HDD {
 
-std::function<void(const std::string &)> Logger::_error;
-std::function<void(const std::string &)> Logger::_warning;
-std::function<void(const std::string &)> Logger::_info;
-std::function<void(const std::string &)> Logger::_debug;
-std::function<void *(const std::string &, const std::vector<Logger::Level> &)>
-    Logger::_createFileLogger;
-std::function<void(void *)> Logger::_destroyFileLogger;
+void crossCorrelation(const double *dataS,
+                      const int sizeS,
+                      const double *dataL,
+                      const int sizeL,
+                      bool qualityCheck,
+                      double &delayOut,
+                      double &coeffOut);
 
 } // namespace HDD
+
+#endif

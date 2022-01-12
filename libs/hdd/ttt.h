@@ -24,14 +24,13 @@ namespace HDD {
 class TravelTimeTable
 {
 public:
-  // factory method
-  static std::unique_ptr<TravelTimeTable> create(const std::string &type,
-                                                 const std::string &model);
-
+  TravelTimeTable()          = default;
   virtual ~TravelTimeTable() = default;
 
   TravelTimeTable(const TravelTimeTable &other) = delete;
   TravelTimeTable &operator=(const TravelTimeTable &other) = delete;
+
+  virtual void freeResources() = 0;
 
   /*
    * The implementation of this interface MUST compute:
@@ -82,9 +81,6 @@ public:
                    phaseType, travelTime);
   }
 
-  const std::string type;
-  const std::string model;
-
 protected:
   /*
    * Utility function to compute straight ray path approximation
@@ -99,11 +95,6 @@ protected:
                                   const std::string &phaseType,
                                   double *takeOffAngleAzim = nullptr,
                                   double *takeOffAngleDip  = nullptr);
-
-  // Object should be built via Factory method
-  TravelTimeTable(const std::string &t, const std::string &m)
-      : type(t), model(m)
-  {}
 };
 
 } // namespace HDD

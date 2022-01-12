@@ -41,7 +41,7 @@ BOOST_DATA_TEST_CASE(test_ellipsoid, bdata::xrange(orgList.size()), orgIdx)
   {
     BOOST_TEST_MESSAGE(
         strf("Ellipsoid lat %.3f lon %.3f depth %.3f - Distance %f",
-                  org.latitude, org.longitude, org.depth, distance));
+             org.latitude, org.longitude, org.depth, distance));
 
     HDD::HddEllipsoid ellip(distance * 2, org.latitude, org.longitude,
                             org.depth);
@@ -54,33 +54,33 @@ BOOST_DATA_TEST_CASE(test_ellipsoid, bdata::xrange(orgList.size()), orgIdx)
     // upper quadrants
     pointDepth = org.depth + 0.001;
 
-    computeCoordinates(distance, 45, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 45, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 1));
-    computeCoordinates(distance, 315, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 315, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 2));
-    computeCoordinates(distance, 225, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 225, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 3));
-    computeCoordinates(distance, 135, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 135, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 4));
 
     // bottom quadrants
     pointDepth = org.depth - 0.001;
 
-    computeCoordinates(distance, 45, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 45, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 5));
-    computeCoordinates(distance, 315, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 315, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 6));
-    computeCoordinates(distance, 225, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 225, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 7));
-    computeCoordinates(distance, 135, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 135, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 8));
 
     pointDepth = org.depth;
@@ -88,33 +88,33 @@ BOOST_DATA_TEST_CASE(test_ellipsoid, bdata::xrange(orgList.size()), orgIdx)
     // inside the inner ellipsoid
     distance = distance / 2 - 0.01;
 
-    computeCoordinates(distance, 45, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 45, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    computeCoordinates(distance, 315, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 315, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    computeCoordinates(distance, 225, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 225, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    computeCoordinates(distance, 135, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 135, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
 
     // outside the outer ellipsoid
     distance = distance + 0.01;
 
-    computeCoordinates(distance, 45, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 45, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    computeCoordinates(distance, 315, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 315, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    computeCoordinates(distance, 225, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 225, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    computeCoordinates(distance, 135, org.latitude, org.longitude,
-                              pointLat, pointLon);
+    computeCoordinates(distance, 135, org.latitude, org.longitude, pointLat,
+                       pointLon);
     BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
   }
 }

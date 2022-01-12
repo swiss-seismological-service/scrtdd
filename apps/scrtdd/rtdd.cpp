@@ -17,33 +17,31 @@
 
 #include "rtdd.h"
 #include "csvreader.h"
+#include "hddutils.h"
+#include "nllttt.h"
 #include "rtddmsg.h"
+#include "scttt.h"
 
-#include <seiscomp3/logging/channel.h>
-#include <seiscomp3/logging/filerotator.h>
+#define SEISCOMP_COMPONENT RTDD
+#include <seiscomp/logging/log.h>
 
-#include <seiscomp3/core/genericrecord.h>
-#include <seiscomp3/core/strings.h>
-#include <seiscomp3/core/system.h>
-
-#include <seiscomp3/client/inventory.h>
-#include <seiscomp3/io/archive/xmlarchive.h>
-#include <seiscomp3/io/records/mseedrecord.h>
-
-#include <seiscomp3/datamodel/event.h>
-#include <seiscomp3/datamodel/journalentry.h>
-#include <seiscomp3/datamodel/magnitude.h>
-#include <seiscomp3/datamodel/origin.h>
-#include <seiscomp3/datamodel/parameter.h>
-#include <seiscomp3/datamodel/parameterset.h>
-#include <seiscomp3/datamodel/pick.h>
-#include <seiscomp3/datamodel/stationmagnitude.h>
-#include <seiscomp3/datamodel/stationmagnitudecontribution.h>
-#include <seiscomp3/datamodel/utils.h>
-
-#include <seiscomp3/math/geo.h>
-
-#include <seiscomp3/utils/files.h>
+#include <seiscomp/client/inventory.h>
+#include <seiscomp/core/genericrecord.h>
+#include <seiscomp/core/strings.h>
+#include <seiscomp/core/system.h>
+#include <seiscomp/datamodel/event.h>
+#include <seiscomp/datamodel/magnitude.h>
+#include <seiscomp/datamodel/origin.h>
+#include <seiscomp/datamodel/parameter.h>
+#include <seiscomp/datamodel/parameterset.h>
+#include <seiscomp/datamodel/pick.h>
+#include <seiscomp/datamodel/utils.h>
+#include <seiscomp/io/archive/xmlarchive.h>
+#include <seiscomp/io/records/mseedrecord.h>
+#include <seiscomp/logging/channel.h>
+#include <seiscomp/logging/filerotator.h>
+#include <seiscomp/math/geo.h>
+#include <seiscomp/utils/files.h>
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -51,351 +49,18 @@
 #include <boost/filesystem.hpp>
 
 using namespace std;
-using namespace Seiscomp::Processing;
 using namespace Seiscomp::DataModel;
+using namespace HDDUtils;
+using Seiscomp::Core::fromString;
 using Seiscomp::Core::stringify;
 using PhaseType = HDD::Catalog::Phase::Type;
-using PhaseSrc  = HDD::Catalog::Phase::Source;
-
-#define NEW_OPT(var, ...) addOption(&var, __VA_ARGS__)
-#define NEW_OPT_CLI(var, ...) addOption(&var, nullptr, __VA_ARGS__)
 
 namespace {
 
 using namespace Seiscomp;
-using Seiscomp::Core::fromString;
-
-class DataSource
-{
-public:
-  DataSource(DataModel::DatabaseQuery *query,
-             DataModel::PublicObjectTimeSpanBuffer *cache)
-      : _query(query), _cache(cache)
-  {}
-
-  DataSource(DataModel::EventParameters *eventParameters)
-      : _eventParameters(eventParameters)
-  {}
-
-  DataSource(DataModel::DatabaseQuery *query,
-             DataModel::PublicObjectTimeSpanBuffer *cache,
-             DataModel::EventParameters *eventParameters)
-      : _query(query), _cache(cache), _eventParameters(eventParameters)
-  {}
-
-  template <typename T>
-  typename Core::SmartPointer<T>::Impl get(const std::string &publicID)
-  {
-    return T::Cast(getObject(T::TypeInfo(), publicID));
-  }
-
-  DataModel::PublicObject *getObject(const Core::RTTI &classType,
-                                     const std::string &publicID)
-  {
-    DataModel::PublicObject *ret = nullptr;
-
-    if (_eventParameters && !ret)
-    {
-      if (classType == DataModel::Pick::TypeInfo())
-        ret = _eventParameters->findPick(publicID);
-      else if (classType == DataModel::Amplitude::TypeInfo())
-        ret = _eventParameters->findAmplitude(publicID);
-      else if (classType == DataModel::Origin::TypeInfo())
-        ret = _eventParameters->findOrigin(publicID);
-      else if (classType == DataModel::Event::TypeInfo())
-        ret = _eventParameters->findEvent(publicID);
-    }
-
-    if (_cache && !ret)
-    {
-      ret = _cache->find(classType, publicID);
-    }
-
-    return ret;
-  }
-
-  void loadArrivals(DataModel::Origin *org)
-  {
-    if (_query)
-    {
-      if (org->arrivalCount() == 0) _query->loadArrivals(org);
-    }
-  }
-
-  void loadMagnitudes(DataModel::Origin *org,
-                      bool loadStationMagnitudeContributions,
-                      bool loadStationMagnitudes)
-  {
-    if (_query)
-    {
-      if (org->magnitudeCount() == 0) _query->loadMagnitudes(org);
-
-      if (loadStationMagnitudeContributions)
-      {
-        for (size_t i = 0; i < org->magnitudeCount(); i++)
-        {
-          DataModel::Magnitude *mag = org->magnitude(i);
-          if (mag->stationMagnitudeContributionCount() == 0)
-            _query->loadStationMagnitudeContributions(mag);
-        }
-      }
-
-      if (loadStationMagnitudes && org->stationMagnitudeCount() == 0)
-      {
-        _query->loadStationMagnitudes(org);
-      }
-    }
-  }
-
-  DataModel::Event *getParentEvent(const std::string &originID)
-  {
-    DataModel::Event *ret = nullptr;
-
-    if (_eventParameters && !ret)
-    {
-      for (size_t i = 0; i < _eventParameters->eventCount() && !ret; i++)
-      {
-        DataModel::Event *ev = _eventParameters->event(i);
-        for (size_t j = 0; j < ev->originReferenceCount() && !ret; j++)
-        {
-          DataModel::OriginReference *orgRef = ev->originReference(j);
-          if (orgRef->originID() == originID) ret = ev;
-        }
-      }
-    }
-
-    if (_query && !ret)
-    {
-      ret = _query->getEvent(originID);
-    }
-
-    return ret;
-  }
-
-private:
-  DataModel::DatabaseQuery *_query;
-  DataModel::PublicObjectTimeSpanBuffer *_cache;
-  DataModel::EventParameters *_eventParameters;
-};
-
-std::pair<double, double> getPickUncertainty(DataModel::Pick *pick)
-{
-  pair<double, double> uncertainty(-1, -1); // secs
-  try
-  {
-    // symmetric uncertainty
-    uncertainty.first = uncertainty.second = pick->time().uncertainty();
-  }
-  catch (Core::ValueException &)
-  {
-    // unsymmetric uncertainty
-    try
-    {
-      uncertainty.first  = pick->time().lowerUncertainty();
-      uncertainty.second = pick->time().upperUncertainty();
-    }
-    catch (Core::ValueException &)
-    {}
-  }
-
-  if (uncertainty.first < 0 && uncertainty.second < 0)
-  {
-    try
-    {
-      uncertainty.first = uncertainty.second =
-          (pick->evaluationMode() == Seiscomp::DataModel::MANUAL)
-              ? HDD::Catalog::DEFAULT_MANUAL_PICK_UNCERTAINTY
-              : HDD::Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
-    }
-    catch (Core::ValueException &)
-    {
-      uncertainty.first = uncertainty.second =
-          HDD::Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
-    }
-  }
-
-  return uncertainty;
-}
-
-std::unordered_map<unsigned, DataModel::OriginPtr>
-addToCatalog(HDD::Catalog &cat,
-             const std::vector<DataModel::OriginPtr> &origins,
-             DataSource &dataSrc)
-{
-  std::unordered_map<unsigned, DataModel::OriginPtr> idmap;
-  for (DataModel::OriginPtr org : origins)
-  {
-    dataSrc.loadArrivals(org.get());
-
-    if (org->arrivalCount() == 0)
-    {
-      SEISCOMP_WARNING("Origin %s doesn't have any arrival. Skip it.",
-                       org->publicID().c_str());
-      continue;
-    }
-
-    // add event
-    HDD::Catalog::Event ev;
-    ev.id        = 0;
-    ev.time      = org->time().value();
-    ev.latitude  = org->latitude();
-    ev.longitude = org->longitude();
-    ev.depth     = org->depth(); // km
-
-    DataModel::MagnitudePtr mag;
-    // try to fetch preferred magnitude of the event
-    DataModel::EventPtr parentEvent = dataSrc.getParentEvent(org->publicID());
-    if (parentEvent)
-    {
-      mag = dataSrc.get<DataModel::Magnitude>(
-          parentEvent->preferredMagnitudeID());
-    }
-    if (mag)
-    {
-      ev.magnitude = mag->magnitude();
-    }
-    else
-    {
-      SEISCOMP_DEBUG("Origin %s: cannot load preferred magnitude from parent "
-                     "event, set it to 0",
-                     org->publicID().c_str());
-      ev.magnitude = 0.;
-    }
-
-    SEISCOMP_DEBUG("Adding origin '%s' to the Catalog",
-                   org->publicID().c_str());
-
-    unsigned newEventId = cat.addEvent(ev);
-
-    // add phases
-    for (size_t i = 0; i < org->arrivalCount(); ++i)
-    {
-      DataModel::Arrival *orgArr    = org->arrival(i);
-      const DataModel::Phase &orgPh = orgArr->phase();
-
-      DataModel::PickPtr pick = dataSrc.get<DataModel::Pick>(orgArr->pickID());
-      if (!pick)
-      {
-        SEISCOMP_ERROR("Cannot load pick '%s' (origin %s)",
-                       orgArr->pickID().c_str(), org->publicID().c_str());
-        continue;
-      }
-
-      // find the station
-      HDD::Catalog::Station sta;
-      sta.networkCode  = pick->waveformID().networkCode();
-      sta.stationCode  = pick->waveformID().stationCode();
-      sta.locationCode = pick->waveformID().locationCode();
-
-      // skip not selected picks/phases or those which have 0 weight, unless
-      // manual
-      try
-      {
-        if (pick->evaluationMode() != Seiscomp::DataModel::MANUAL &&
-            (orgArr->weight() == 0 || !orgArr->timeUsed()))
-        {
-          SEISCOMP_DEBUG("Discarding not used %s phase %s.%s",
-                         orgPh.code().c_str(), sta.networkCode.c_str(),
-                         sta.stationCode.c_str());
-          continue;
-        }
-      }
-      catch (Core::ValueException &)
-      {}
-
-      // add station if not already there
-      if (cat.searchStation(sta.networkCode, sta.stationCode,
-                            sta.locationCode) == cat.getStations().end())
-      {
-        DataModel::SensorLocation *loc = HDD::findSensorLocation(
-            sta.networkCode, sta.stationCode, sta.locationCode, pick->time());
-
-        if (!loc)
-        {
-          SEISCOMP_ERROR(
-              "Cannot load sensor location %s.%s.%s information for arrival "
-              "'%s' (origin '%s'). All picks associated with this station will "
-              "not be used.",
-              sta.networkCode.c_str(), sta.stationCode.c_str(),
-              sta.locationCode.c_str(), orgArr->pickID().c_str(),
-              org->publicID().c_str());
-          continue;
-        }
-
-        sta.latitude  = loc->latitude();
-        sta.longitude = loc->longitude();
-        sta.elevation = loc->elevation(); // meter
-        cat.addStation(sta);
-      }
-      // the station must be available at this point
-      sta =
-          cat.searchStation(sta.networkCode, sta.stationCode, sta.locationCode)
-              ->second;
-
-      // get uncertainty
-      pair<double, double> uncertainty = getPickUncertainty(pick.get());
-
-      HDD::Catalog::Phase ph;
-      ph.eventId          = newEventId;
-      ph.stationId        = sta.id;
-      ph.time             = pick->time().value();
-      ph.lowerUncertainty = uncertainty.first;
-      ph.upperUncertainty = uncertainty.second;
-      ph.type             = orgPh.code();
-      ph.networkCode      = pick->waveformID().networkCode();
-      ph.stationCode      = pick->waveformID().stationCode();
-      ph.locationCode     = pick->waveformID().locationCode();
-      ph.channelCode      = pick->waveformID().channelCode();
-      ph.isManual = (pick->evaluationMode() == Seiscomp::DataModel::MANUAL);
-      cat.addPhase(ph);
-    }
-    idmap[newEventId] = org;
-  }
-  return idmap;
-}
-
-std::unordered_map<unsigned, DataModel::OriginPtr> addToCatalog(
-    HDD::Catalog &cat, const std::vector<std::string> &ids, DataSource &dataSrc)
-{
-  vector<DataModel::OriginPtr> origins;
-
-  for (const string &id : ids)
-  {
-    DataModel::OriginPtr org = dataSrc.get<DataModel::Origin>(id);
-    if (!org)
-    {
-      SEISCOMP_ERROR("Cannot find origin with id %s", id.c_str());
-      continue;
-    }
-    origins.push_back(org);
-  }
-
-  return addToCatalog(cat, origins, dataSrc);
-}
-
-std::unordered_map<unsigned, DataModel::OriginPtr>
-addToCatalog(HDD::Catalog &cat, const std::string &idFile, DataSource &dataSrc)
-{
-  if (!Util::fileExists(idFile))
-  {
-    string msg = "File " + idFile + " does not exist";
-    throw std::runtime_error(msg);
-  }
-
-  vector<string> ids;
-  vector<unordered_map<string, string>> rows = HDD::CSV::readWithHeader(idFile);
-
-  for (const auto &row : rows)
-  {
-    const string &id = row.at("seiscompId");
-    ids.push_back(id);
-  }
-
-  return addToCatalog(cat, ids, dataSrc);
-}
 
 template <class T>
-bool configGetTypedList(const Application *app,
+bool configGetTypedList(const Client::Application *app,
                         const string &parameter,
                         vector<T> &values,
                         unsigned requiredItems,
@@ -437,7 +102,7 @@ struct RectangularRegion : public Seiscomp::RTDD::Region
 {
   RectangularRegion() {}
 
-  bool init(const Application *app, const string &prefix)
+  bool init(const Client::Application *app, const string &prefix)
   {
 
     vector<double> region;
@@ -484,7 +149,7 @@ struct CircularRegion : public Seiscomp::RTDD::Region
 {
   CircularRegion() {}
 
-  bool init(const Application *app, const string &prefix)
+  bool init(const Client::Application *app, const string &prefix)
   {
 
     vector<double> region;
@@ -546,50 +211,13 @@ std::vector<std::string> splitString(const std::string &str,
   return tokens;
 }
 
-double normalizeAz(double az)
-{
-  if (az < 0)
-    az += 360.0;
-  else if (az >= 360.0)
-    az -= 360.0;
-  return az;
-}
-
-double normalizeLon(double lon)
-{
-  while (lon < -180.0) lon += 360.0;
-  while (lon > 180.0) lon -= 360.0;
-  return lon;
-}
-
 Core::Time now; // this is tricky, I don't like globals
 
 } // unnamed namespace
 
 namespace Seiscomp {
 
-RTDD::Config::Config()
-{
-  workingDirectory     = "/tmp/rtdd";
-  saveProcessingFiles  = false;
-  onlyPreferredOrigin  = true;
-  allowAutomaticOrigin = true;
-  allowManualOrigin    = true;
-  profileTimeAlive     = -1;
-  cacheWaveforms       = false;
-  cacheAllWaveforms    = false;
-  debugWaveforms       = false;
-
-  loadProfileWf   = false;
-  forceProcessing = false;
-  testMode        = false;
-  fExpiry         = 1.0;
-
-  wakeupInterval = 1; // sec
-  logCrontab     = true;
-}
-
-RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
+RTDD::RTDD(int argc, char **argv) : StreamApplication(argc, argv)
 {
   setAutoApplyNotifierEnabled(true);
   setInterpretNotifierEnabled(true);
@@ -607,106 +235,68 @@ RTDD::RTDD(int argc, char **argv) : Application(argc, argv)
   setAutoCloseOnAcquisitionFinished(false);
 
   _cache.setPopCallback(boost::bind(&RTDD::removedFromCache, this, _1));
-
-  NEW_OPT(_config.saveProcessingFiles, "saveProcessingFiles");
-  NEW_OPT(_config.onlyPreferredOrigin, "onlyPreferredOrigins");
-  NEW_OPT(_config.allowAutomaticOrigin, "automaticOrigins");
-  NEW_OPT(_config.allowManualOrigin, "manualOrigins");
-  NEW_OPT(_config.activeProfiles, "activeProfiles");
-
-  NEW_OPT(_config.logCrontab, "cron.logging");
-  NEW_OPT(_config.delayTimes, "cron.delayTimes");
-
-  NEW_OPT(_config.profileTimeAlive, "performance.profileTimeAlive");
-  NEW_OPT(_config.cacheWaveforms, "performance.cacheWaveforms");
-
-  NEW_OPT_CLI(
-      _config.relocateCatalog, "Mode", "reloc-catalog",
-      "Relocate the catalog passed as argument in multi-event mode. The "
-      "input can be a single file (containing seiscomp origin ids) or a file "
-      "triplet (station.csv,event.csv,phase.csv). For events stored "
-      "in a XML files add the --ep option. Use in combination with --profile",
-      true);
-  NEW_OPT_CLI(
-      _config.originIDs, "Mode", "origin-id,O",
-      "Relocate  the origin (or multiple comma-separated origins) in "
-      "signle-event mode and send a message. Each origin will be processed "
-      "accordingly to the matching profile region unless the --profile option "
-      " is used.",
-      true);
-  NEW_OPT_CLI(
-      _config.eventXML, "Mode", "ep",
-      "Event parameters XML file for offline processing of contained origins "
-      "(implies --test option). Each contained origin will be processed in "
-      "signle-event mode unless --reloc-catalog is provided, which enable "
-      "multi-event mode.",
-      true);
-  NEW_OPT_CLI(
-      _config.evalXCorr, "Mode", "eval-xcorr",
-      "Compute cross-correlation statistics for the catalog passed as "
-      "argument. The input can be a single file (containing seiscomp origin "
-      "ids) or a file triplet (station.csv,event.csv,phase.csv). Use in "
-      "combination with --profile",
-      true);
-  NEW_OPT_CLI(_config.loadProfileWf, "Mode", "load-profile-wf",
-              "Load catalog waveforms from the configured recordstream and "
-              "save them into the profile working directory. Use in "
-              "combination with --profile",
-              false, true);
-  NEW_OPT_CLI(_config.dumpWaveforms, "Mode", "dump-wf",
-              "Dump processed waveforms of the catalog passed as argument. "
-              "The catalog can be a single file (containing seiscomp origin "
-              "ids) or a file triplet (station.csv,event.csv,phase.csv). Use "
-              "in combination with --profile. The waveforms will be saved into"
-              " the working directory",
-              true);
-  NEW_OPT_CLI(_config.reloadProfileMsg, "Mode", "send-reload-profile-msg",
-              "Send a message to any running scrtdd module requesting to "
-              "reload a specific profile passed as argument",
-              true);
-  NEW_OPT_CLI(_config.dumpCatalog, "Catalog", "dump-catalog",
-              "Dump the seiscomp event/origin id file passed as argument into "
-              "a catalog file triplet (station.csv,event.csv,phase.csv).",
-              true);
-  NEW_OPT_CLI(_config.mergeCatalogs, "Catalog", "merge-catalogs",
-              "Merge in a single catalog all the catalog file triplets "
-              "(station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,"
-              "phase2.csv,...) passed as arguments.",
-              true);
-  NEW_OPT_CLI(_config.forceProfile, "ModeOptions", "profile",
-              "To be used in combination with other options: select the "
-              "profile configuration to use",
-              true);
-  NEW_OPT_CLI(_config.fExpiry, "ModeOptions", "expiry,x",
-              "Defines the time span in hours after which objects expire.",
-              true);
-  NEW_OPT_CLI(_config.cacheAllWaveforms, "ModeOptions", "cache-wf-all",
-              "All waveforms will be saved to disk cache, even temporarily "
-              "ones. Normally only catalog phase waveforms are cached to disk. "
-              "This is useful to speed up debugging/testing when the same "
-              "origins are repeatedly processed.",
-              false, true);
-  NEW_OPT_CLI(_config.testMode, "ModeOptions", "test",
-              "Test mode, no messages are sent when relocating a single event",
-              false, true);
 }
 
 RTDD::~RTDD() {}
 
 void RTDD::createCommandLineDescription()
 {
-  Application::createCommandLineDescription();
-  commandline().addOption("Mode", "dump-config",
-                          "Dump the configuration and exit");
-  commandline().addOption("ModeOptions", "xmlout",
-                          "Enable XML output when combined with "
-                          "--reloc-catalog or --oring-id options");
-  commandline().addOption<string>(
-      "Catalog", "merge-catalogs-keepid",
-      "Similar to the --merge-catalogs option but events keep their ids. If "
-      "multiple events share the same id, subsequent events will be discarded.",
-      nullptr, false);
-  commandline().addOption<string>(
+  StreamApplication::createCommandLineDescription();
+
+  commandline().addOption(
+      "Mode", "reloc-catalog",
+      "Relocate the catalog passed as argument in multi-event mode. The "
+      "input can be a single file (containing seiscomp origin ids) or a file "
+      "triplet (station.csv,event.csv,phase.csv). For events stored "
+      "in a XML files add the --ep option. Use in combination with --profile",
+      &_config.relocateCatalog, true);
+  commandline().addOption(
+      "Mode", "origin-id,O",
+      "Relocate  the origin (or multiple comma-separated origins) in "
+      "signle-event mode and send a message. Each origin will be processed "
+      "accordingly to the matching profile region unless the --profile option "
+      " is used.",
+      &_config.originIDs, true);
+  commandline().addOption(
+      "Mode", "ep",
+      "Event parameters XML file for offline processing of contained origins "
+      "(implies --test option). Each contained origin will be processed in "
+      "signle-event mode unless --reloc-catalog is provided, which enable "
+      "multi-event mode.",
+      &_config.eventXML, true);
+  commandline().addOption(
+      "Mode", "eval-xcorr",
+      "Compute cross-correlation statistics for the catalog passed as "
+      "argument. The input can be a single file (containing seiscomp origin "
+      "ids) or a file triplet (station.csv,event.csv,phase.csv). Use in "
+      "combination with --profile",
+      &_config.evalXCorr, true);
+  commandline().addOption(
+      "Mode", "load-profile-wf",
+      "Load catalog waveforms from the configured recordstream and "
+      "save them into the profile working directory. Use in "
+      "combination with --profile",
+      &_config.loadProfileWf, true);
+  commandline().addOption(
+      "Mode", "dump-wf",
+      "Dump processed waveforms of the catalog passed as argument. "
+      "The catalog can be a single file (containing seiscomp origin "
+      "ids) or a file triplet (station.csv,event.csv,phase.csv). Use "
+      "in combination with --profile. The waveforms will be saved into"
+      " the working directory",
+      &_config.dumpWaveforms, true);
+  commandline().addOption(
+      "Mode", "send-reload-profile-msg",
+      "Send a message to any running scrtdd module requesting to "
+      "reload a specific profile passed as argument",
+      &_config.reloadProfileMsg, true);
+  commandline().addGroup("Catalog");
+  commandline().addOption(
+      "Catalog", "dump-catalog",
+      "Dump the seiscomp event/origin id file passed as argument into "
+      "a catalog file triplet (station.csv,event.csv,phase.csv).",
+      &_config.dumpCatalog, true);
+  commandline().addOption(
       "Catalog", "dump-catalog-options",
       "Allows the --dump-catalog option to accept event ids besides origin "
       "ids. For each event id an origin will be selected following the "
@@ -716,15 +306,49 @@ void RTDD::createCommandLineDescription()
       "includeCreator=any|author|methodID  excludeCreator=none|author|methodID "
       "region=any|profileName e.g. to select preferred origins of the input"
       "event ids that lie within the region defined for 'myProfile' use "
-      "'preferred,any,any,none,myProfile'",
-      nullptr, false);
+      "'preferred,any,any,none,myProfile'");
+  commandline().addOption(
+      "Catalog", "merge-catalogs",
+      "Merge in a single catalog all the catalog file triplets "
+      "(station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,"
+      "phase2.csv,...) passed as arguments.",
+      &_config.mergeCatalogs, true);
+  commandline().addOption(
+      "Catalog", "merge-catalogs-keepid",
+      "Similar to the --merge-catalogs option but events keep their ids. If "
+      "multiple events share the same id, subsequent events will be "
+      "discarded.");
+  commandline().addGroup("ModeOptions");
+  commandline().addOption(
+      "ModeOptions", "profile",
+      "To be used in combination with other options: select the "
+      "profile configuration to use",
+      &_config.forceProfile, true);
+  commandline().addOption(
+      "ModeOptions", "expiry,x",
+      "Defines the time span in hours after which objects expire.",
+      &_config.fExpiry, true);
+  commandline().addOption(
+      "ModeOptions", "cache-wf-all",
+      "All waveforms will be saved to disk cache, even temporarily "
+      "ones. Normally only catalog phase waveforms are cached to disk. "
+      "This is useful to speed up debugging/testing when the same "
+      "origins are repeatedly processed.",
+      &_config.cacheAllWaveforms, true);
+  commandline().addOption(
+      "ModeOptions", "test",
+      "Test mode, no messages are sent when relocating a single event",
+      &_config.testMode, true);
+  commandline().addOption("ModeOptions", "xmlout",
+                          "Enable XML output when combined with "
+                          "--reloc-catalog or --oring-id options");
 }
 
 bool RTDD::validateParameters()
 {
-  Environment *env = Environment::Instance();
+  if (!StreamApplication::validateParameters()) return false;
 
-  if (!Application::validateParameters()) return false;
+  Environment *env = Environment::Instance();
 
   if (commandline().hasOption("merge-catalogs-keepid"))
     _config.mergeCatalogs =
@@ -775,6 +399,16 @@ bool RTDD::validateParameters()
   {
     profilesToLoad.push_back(_config.forceProfile);
   }
+
+  _config.saveProcessingFiles  = configGetBool("saveProcessingFiles");
+  _config.onlyPreferredOrigin  = configGetBool("onlyPreferredOrigins");
+  _config.allowAutomaticOrigin = configGetBool("automaticOrigins");
+  _config.allowManualOrigin    = configGetBool("manualOrigins");
+  _config.activeProfiles       = configGetStrings("activeProfiles");
+  _config.logCrontab           = configGetBool("cron.logging");
+  _config.delayTimes           = configGetInts("delayTimes");
+  _config.profileTimeAlive     = configGetInt("performance.profileTimeAlive");
+  _config.cacheWaveforms       = configGetBool("performance.cacheWaveforms");
 
   bool profilesOK = true;
   for (const string &profileName : profilesToLoad)
@@ -1216,21 +850,19 @@ bool RTDD::validateParameters()
     prefix = string("profile.") + prof->name + ".solver.";
     try
     {
-      prof->ddCfg.ttt.type =
-          configGetString(prefix + "travelTimeTable.tableType");
+      prof->tttType = configGetString(prefix + "travelTimeTable.tableType");
     }
     catch (...)
     {
-      prof->ddCfg.ttt.type = "libtau";
+      prof->tttType = "libtau";
     }
     try
     {
-      prof->ddCfg.ttt.model =
-          configGetString(prefix + "travelTimeTable.tableModel");
+      prof->tttModel = configGetString(prefix + "travelTimeTable.tableModel");
     }
     catch (...)
     {
-      prof->ddCfg.ttt.model = "iasp91";
+      prof->tttModel = "iasp91";
     }
     try
     {
@@ -1355,26 +987,6 @@ bool RTDD::validateParameters()
 
   if (!profilesOK) return false;
 
-  if (commandline().hasOption("dump-config"))
-  {
-    for (Options::const_iterator it = options().begin(); it != options().end();
-         ++it)
-    {
-      if ((*it)->cfgName)
-        cout << (*it)->cfgName;
-      else if ((*it)->cliParam)
-        cout << "--" << (*it)->cliParam;
-      else
-        continue;
-
-      cout << ": ";
-      (*it)->printStorage(cout);
-      cout << endl;
-    }
-
-    return false;
-  }
-
   return true;
 }
 
@@ -1407,6 +1019,8 @@ bool RTDD::init()
 
   // Check each N seconds if a new job needs to be started
   _cronCounter = _config.wakeupInterval;
+
+  HDDUtils::initLogger();
 
   return true;
 }
@@ -1569,6 +1183,7 @@ bool RTDD::run()
     if (commandline().hasOption("xmlout"))
     {
       SEISCOMP_INFO("Converting relocated catalog to XML...");
+      DataSource dataSrc(query(), &_cache, _eventParameters.get());
       DataModel::EventParametersPtr evParam = new DataModel::EventParameters();
       evParam->SetRegistrationEnabled(false); // allow existing publicIDs
       for (const auto &kv : relocatedCat->getEvents())
@@ -1585,8 +1200,9 @@ bool RTDD::run()
 
         DataModel::OriginPtr newOrg;
         std::vector<DataModel::PickPtr> newOrgPicks;
-        convertOrigin(*ev, profile, srcOrg.get(), true, false, true, newOrg,
-                      newOrgPicks);
+        convertOrigin(dataSrc, *ev, srcOrg.get(), author(), agencyID(),
+                      profile->methodID, profile->earthModelID, true, false,
+                      true, newOrg, newOrgPicks);
 
         evParam->add(newOrg.get());
         for (DataModel::PickPtr p : newOrgPicks) evParam->add(p.get());
@@ -2205,287 +1821,10 @@ void RTDD::relocateOrigin(DataModel::Origin *org,
     loadProfile(profile, (_config.profileTimeAlive < 0));
   unique_ptr<HDD::Catalog> relocatedOrg = profile->relocateSingleEvent(org);
   bool includeMagnitude = org->evaluationMode() == DataModel::MANUAL;
-  convertOrigin(*relocatedOrg, profile, org, includeMagnitude, true, false,
-                newOrg, newOrgPicks);
-}
-
-void RTDD::convertOrigin(
-    const HDD::Catalog &relocatedOrg,
-    ProfilePtr profile,     // can be nullptr
-    DataModel::Origin *org, // can be nullptr
-    bool includeMagnitude,
-    bool fullMagnitude,
-    bool includeExistingPicks,
-    DataModel::OriginPtr &newOrg,                 // return value
-    std::vector<DataModel::PickPtr> &newOrgPicks) // return value
-{
   DataSource dataSrc(query(), &_cache, _eventParameters.get());
-
-  // there must be only one event in the catalog, the relocated origin
-  const HDD::Catalog::Event &event = relocatedOrg.getEvents().begin()->second;
-
-  newOrg = Origin::Create();
-
-  DataModel::CreationInfo ci;
-  ci.setAgencyID(agencyID());
-  ci.setAuthor(author());
-  ci.setCreationTime(Core::Time::GMT());
-
-  newOrg->setCreationInfo(ci);
-  newOrg->setEarthModelID(profile ? profile->earthModelID : "");
-  newOrg->setMethodID(profile ? profile->methodID : "RTDD");
-  newOrg->setEvaluationMode(EvaluationMode(AUTOMATIC));
-
-  newOrg->setTime(DataModel::TimeQuantity(event.time));
-
-  RealQuantity latitude = DataModel::RealQuantity(event.latitude);
-  newOrg->setLatitude(event.latitude);
-
-  RealQuantity longitude =
-      DataModel::RealQuantity(normalizeLon(event.longitude));
-  newOrg->setLongitude(longitude);
-
-  RealQuantity depth = DataModel::RealQuantity(event.depth);
-  newOrg->setDepth(depth);
-
-  if (event.relocInfo.isRelocated)
-  {
-    DataModel::Comment *comment = new DataModel::Comment();
-    comment->setId("scrtddRelocationReport");
-    comment->setText(HDD::DD::relocationReport(relocatedOrg));
-    newOrg->add(comment);
-  }
-
-  auto evPhases = relocatedOrg.getPhases().equal_range(
-      event.id); // phases of relocated event
-  int usedPhaseCount = 0;
-  double meanDist    = 0;
-  double minDist     = std::numeric_limits<double>::max();
-  double maxDist     = 0;
-  vector<double> azi;
-  set<string> associatedStations;
-  set<string> usedStations;
-
-  // If we know the origin before relocation fetch some information from it
-  if (org)
-  {
-    //
-    // store source origin id as comment
-    //
-    DataModel::Comment *comment = new DataModel::Comment();
-    comment->setId("scrtddSourceOrigin");
-    comment->setText(org->publicID());
-    newOrg->add(comment);
-
-    //
-    // Copy magnitude from org if that is Manual
-    //
-    if (includeMagnitude)
-    {
-      dataSrc.loadMagnitudes(org, fullMagnitude, fullMagnitude);
-
-      unordered_map<string, string> staMagIdMap;
-      if (fullMagnitude)
-      {
-        for (size_t i = 0; i < org->stationMagnitudeCount(); i++)
-        {
-          DataModel::StationMagnitude *staMag = org->stationMagnitude(i);
-          DataModel::StationMagnitude *newStaMag =
-              DataModel::StationMagnitude::Create();
-          *newStaMag = *staMag;
-          newOrg->add(newStaMag);
-          staMagIdMap[staMag->publicID()] = newStaMag->publicID();
-        }
-      }
-
-      for (size_t i = 0; i < org->magnitudeCount(); i++)
-      {
-        DataModel::Magnitude *mag    = org->magnitude(i);
-        DataModel::Magnitude *newMag = DataModel::Magnitude::Create();
-        *newMag                      = *mag;
-
-        if (fullMagnitude)
-        {
-          for (size_t j = 0; j < mag->stationMagnitudeContributionCount(); j++)
-          {
-            DataModel::StationMagnitudeContribution *contrib =
-                mag->stationMagnitudeContribution(j);
-            DataModel::StationMagnitudeContribution *newContrib =
-                new DataModel::StationMagnitudeContribution();
-            *newContrib = *contrib;
-            try
-            {
-              newContrib->setStationMagnitudeID(
-                  staMagIdMap.at(contrib->stationMagnitudeID()));
-            }
-            catch (...)
-            {}
-            newMag->add(newContrib);
-          }
-        }
-        newOrg->add(newMag);
-      }
-    }
-
-    //
-    // add all arrivals that were in the original Origin (before relocation)
-    //
-    for (size_t i = 0; i < org->arrivalCount(); i++)
-    {
-      DataModel::Arrival *orgArr = org->arrival(i);
-
-      DataModel::Arrival *newArr = new Arrival();
-      newArr->setPickID(orgArr->pickID());
-      newArr->setPhase(orgArr->phase());
-      newArr->setWeight(0.);
-      newArr->setTimeUsed(false);
-
-      newOrg->add(newArr);
-
-      DataModel::PickPtr pick = dataSrc.get<DataModel::Pick>(orgArr->pickID());
-      if (pick)
-      {
-        associatedStations.insert(pick->waveformID().networkCode() + "." +
-                                  pick->waveformID().stationCode());
-
-        if (includeExistingPicks)
-          newOrgPicks.push_back(DataModel::Pick::Cast(pick->clone()));
-      }
-    }
-  }
-
-  // add missing arrivals and fill in all the properties
-  for (auto it = evPhases.first; it != evPhases.second; ++it)
-  {
-    const HDD::Catalog::Phase &phase = it->second;
-    bool phaseUsed =
-        phase.relocInfo.isRelocated && phase.relocInfo.finalWeight != 0;
-
-    // drop phases discovered via cross-correlation if those phases were not
-    // used for the relocations
-    if ((phase.procInfo.source == PhaseSrc::THEORETICAL ||
-         phase.procInfo.source == PhaseSrc::XCORR) &&
-        !phaseUsed)
-    {
-      continue;
-    }
-
-    associatedStations.insert(phase.networkCode + "." + phase.stationCode);
-
-    // check if this phase has been already added
-    bool alreadyAdded = false;
-    DataModel::Arrival *newArr;
-
-    for (size_t i = 0; i < newOrg->arrivalCount(); i++)
-    {
-      newArr                  = newOrg->arrival(i);
-      DataModel::PickPtr pick = dataSrc.get<DataModel::Pick>(newArr->pickID());
-
-      if (pick && phase.time == pick->time().value() &&
-          phase.networkCode == pick->waveformID().networkCode() &&
-          phase.stationCode == pick->waveformID().stationCode() &&
-          phase.locationCode == pick->waveformID().locationCode() &&
-          phase.channelCode == pick->waveformID().channelCode())
-      {
-        alreadyAdded = true;
-        break;
-      }
-    }
-
-    if (!alreadyAdded)
-    {
-      // prepare the new pick
-      DataModel::PickPtr newPick = Pick::Create();
-      newPick->setCreationInfo(ci);
-      newPick->setMethodID(profile ? profile->methodID : "RTDD");
-      newPick->setEvaluationMode(phase.isManual ? EvaluationMode(MANUAL)
-                                                : EvaluationMode(AUTOMATIC));
-      DataModel::TimeQuantity pickTime(phase.time);
-      pickTime.setLowerUncertainty(phase.lowerUncertainty);
-      pickTime.setUpperUncertainty(phase.upperUncertainty);
-      newPick->setTime(pickTime);
-      newPick->setPhaseHint(DataModel::Phase(phase.type));
-      newPick->setWaveformID(
-          WaveformStreamID(phase.networkCode, phase.stationCode,
-                           phase.locationCode, phase.channelCode, ""));
-      newOrgPicks.push_back(newPick);
-
-      // prepare the new arrival
-      newArr = new Arrival();
-      newArr->setPickID(newPick->publicID());
-      newArr->setPhase(phase.type);
-
-      newOrg->add(newArr);
-    }
-
-    newArr->setWeight(phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight
-                                                  : 0.);
-    newArr->setTimeUsed(phaseUsed);
-    newArr->setTimeResidual(
-        phase.relocInfo.isRelocated ? phase.relocInfo.finalTTResidual : 0.);
-
-    auto search = relocatedOrg.getStations().find(phase.stationId);
-    if (search == relocatedOrg.getStations().end())
-    {
-      SEISCOMP_WARNING("Cannot find station id '%s' referenced by phase '%s'."
-                       "Cannot add Arrival to relocated origin",
-                       phase.stationId.c_str(), string(phase).c_str());
-      continue;
-    }
-    const HDD::Catalog::Station &station = search->second;
-
-    double distance, az, baz;
-    Math::Geo::delazi(event.latitude, event.longitude, station.latitude,
-                      station.longitude, &distance, &az, &baz);
-    newArr->setAzimuth(normalizeAz(az));
-    newArr->setDistance(distance);
-
-    // update stats
-    if (newArr->timeUsed())
-    {
-      usedPhaseCount++;
-      meanDist += distance;
-      minDist = distance < minDist ? distance : minDist;
-      maxDist = distance > maxDist ? distance : maxDist;
-      azi.push_back(az);
-      usedStations.insert(phase.stationId);
-    }
-  }
-
-  // finish computing stats
-  meanDist /= usedPhaseCount;
-
-  double primaryAz = 360., secondaryAz = 360.;
-  if (azi.size() >= 2)
-  {
-    primaryAz = secondaryAz = 0.;
-    sort(azi.begin(), azi.end());
-    vector<double>::size_type aziCount = azi.size();
-    azi.push_back(azi[0] + 360.);
-    azi.push_back(azi[1] + 360.);
-    for (vector<double>::size_type i = 0; i < aziCount; i++)
-    {
-      double gap = azi[i + 1] - azi[i];
-      if (gap > primaryAz) primaryAz = gap;
-      gap = azi[i + 2] - azi[i];
-      if (gap > secondaryAz) secondaryAz = gap;
-    }
-  }
-
-  // add quality
-  DataModel::OriginQuality oq;
-  oq.setAssociatedPhaseCount(newOrg->arrivalCount());
-  oq.setUsedPhaseCount(usedPhaseCount);
-  oq.setAssociatedStationCount(associatedStations.size());
-  oq.setUsedStationCount(usedStations.size());
-  oq.setStandardError(event.relocInfo.isRelocated ? event.relocInfo.finalRms
-                                                  : 0);
-  oq.setMedianDistance(meanDist);
-  oq.setMinimumDistance(minDist);
-  oq.setMaximumDistance(maxDist);
-  oq.setAzimuthalGap(primaryAz);
-  oq.setSecondaryAzimuthalGap(secondaryAz);
-  newOrg->setQuality(oq);
+  convertOrigin(dataSrc, *relocatedOrg, org, author(), agencyID(),
+                profile->methodID, profile->earthModelID, includeMagnitude,
+                true, false, newOrg, newOrgPicks);
 }
 
 std::unique_ptr<HDD::Catalog>
@@ -2778,7 +2117,42 @@ void RTDD::Profile::load(DatabaseQuery *query,
       ddbgc = HDD::Catalog(stationFile, eventFile, phaFile);
     }
 
-    dd.reset(new HDD::DD(ddbgc, ddCfg, pWorkingDir));
+    // Load the travel time table
+    unique_ptr<HDD::TravelTimeTable> ttt;
+
+    if (tttType == "LOCSAT" || tttType == "libtau")
+    {
+      ttt.reset(new HDD::SeiscompAdapter::TravelTimeTable(tttType, tttModel));
+    }
+    else if (tttType == "NonLinLoc")
+    {
+      std::vector<std::string> tokens(::splitString(tttModel, ";"));
+      if (tokens.size() != 3 && tokens.size() != 4)
+      {
+        string msg = stringify(
+            "Error while initialzing NLL grids: invalid table model (%s)",
+            tttModel.c_str());
+        throw runtime_error(msg.c_str());
+      }
+      string velGridPath   = tokens.at(0);
+      string timeGridPath  = tokens.at(1);
+      string angleGridPath = tokens.at(2);
+      bool swapBytes       = false;
+      if (tokens.size() > 3 && tokens.at(3) == "swapBytes")
+      {
+        swapBytes = true;
+      }
+      ttt.reset(new HDD::NLL::TravelTimeTable(velGridPath, timeGridPath,
+                                              angleGridPath, swapBytes));
+    }
+    else
+    {
+      string msg = stringify("Cannot load travel time table: unknown type %s",
+                             tttType.c_str());
+      throw runtime_error(msg.c_str());
+    }
+
+    dd.reset(new HDD::DD(ddbgc, ddCfg, pWorkingDir, std::move(ttt)));
     dd->setSaveProcessing(saveProcessingFiles);
     dd->setUseCatalogWaveformDiskCache(cacheWaveforms);
     dd->setWaveformCacheAll(cacheAllWaveforms);
@@ -2804,7 +2178,6 @@ void RTDD::Profile::load(DatabaseQuery *query,
 void RTDD::Profile::freeResources()
 {
   if (!loaded) return;
-  dd->unloadTTT();
   dd->unloadWaveforms();
   lastUsage = Core::Time::GMT();
 }
@@ -2844,8 +2217,6 @@ RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
 
   unique_ptr<HDD::Catalog> rel = dd->relocateSingleEvent(
       orgToRelocate, singleEventClustering, singleEventClustering, solverCfg);
-
-  dd->unloadTTT(); // free memory and file descriptors (mostly for NLL grids)
 
   return rel;
 }

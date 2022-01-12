@@ -25,13 +25,17 @@
 
 namespace HDD {
 
-class ScTravelTimeTable : public TravelTimeTable
+namespace SeiscompAdapter {
+
+class TravelTimeTable : public HDD::TravelTimeTable
 {
 public:
-  ScTravelTimeTable(const std::string &type,
-                    const std::string &model,
-                    double depthVelResolution = 0.1);
-  virtual ~ScTravelTimeTable() = default;
+  TravelTimeTable(const std::string &type,
+                  const std::string &model,
+                  double depthVelResolution = 0.1);
+  virtual ~TravelTimeTable() = default;
+
+  void freeResources() override;
 
   void compute(double eventLat,
                double eventLon,
@@ -51,13 +55,18 @@ public:
                double &travelTime) override;
 
 private:
+  void load();
   double velocityAtSource(double eventDepth, const std::string &phaseType);
 
-  Seiscomp::TravelTimeTableInterfacePtr _ttt;
+  const std::string _type;
+  const std::string _model;
   const double _depthVelResolution; // km
   // key 1 = phase type. key 2 = depth bin
   std::unordered_map<std::string, std::unordered_map<int, double>> _depthVel;
+  Seiscomp::TravelTimeTableInterfacePtr _ttt;
 };
+
+} // namespace SeiscompAdapter
 
 } // namespace HDD
 

@@ -4,9 +4,9 @@
 #include <boost/test/data/test_case.hpp>
 
 #include "catalog.h"
+#include "common.ipp"
 #include "ttt.h"
 #include "utils.h"
-#include "common.ipp"
 
 using namespace std;
 using namespace HDD;
@@ -115,7 +115,7 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
   const Delta &delta = deltaList[deltaIdx];
 
   BOOST_TEST_MESSAGE(strf("Testing DELTA lat %.1f lon %.1f depth %.1f",
-                               delta.lat, delta.lon, delta.depth));
+                          delta.lat, delta.lon, delta.depth));
 
   for (auto station : stationList)
   {
@@ -124,9 +124,9 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
     const double lon          = station.longitude + delta.lon;
     const double depth        = stationDepth + delta.depth;
 
-    BOOST_TEST_MESSAGE(strf(
-        "Testing station %s lat %.1f lon %.1f depth %.1f", station.id.c_str(),
-        station.latitude, station.longitude, stationDepth));
+    BOOST_TEST_MESSAGE(strf("Testing station %s lat %.1f lon %.1f depth %.1f",
+                            station.id.c_str(), station.latitude,
+                            station.longitude, stationDepth));
 
     vector<double> travelTimeP(tttList.size(), 0);
     vector<double> takeOffAngleAzimP(tttList.size(), 0);
@@ -140,8 +140,7 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
 
     for (size_t i = 0; i < tttList.size(); i++)
     {
-      unique_ptr<HDD::TravelTimeTable> ttt =
-          HDD::TravelTimeTable::create(tttList[i].type, tttList[i].model);
+      unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList[i]);
       BOOST_REQUIRE(ttt);
       BOOST_CHECK_NO_THROW(ttt->compute(
           lat, lon, depth, station, "P", travelTimeP[i], takeOffAngleAzimP[i],

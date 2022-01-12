@@ -1,5 +1,7 @@
 
 #include "catalog.h"
+#include "nllttt.h"
+#include "scttt.h"
 #include "utils.h"
 
 #include <vector>
@@ -28,10 +30,9 @@ std::vector<TTTParams> __getTTTList__()
        "./data/nll/iasp91_2D_simple/model/iasp91.PHASE.mod;"
        "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.time;"
        "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.angle"},
-      {"NonLinLoc",
-       "./data/nll/iasp91_2D_sdc/model/iasp91.PHASE.mod;"
-       "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.time;"
-       "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.angle"},
+      {"NonLinLoc", "./data/nll/iasp91_2D_sdc/model/iasp91.PHASE.mod;"
+                    "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.time;"
+                    "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.angle"},
       {"NonLinLoc",
        "./data/nll/iasp91_2D_global/model/iasp91.PHASE.mod;"
        "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.time;"
@@ -43,8 +44,7 @@ std::vector<TTTParams> __getTTTList__()
       {"NonLinLoc",
        "./data/nll/iasp91_3D_sdc/model/iasp91.PHASE.mod;"
        "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.time;"
-       "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.angle"}
-  };
+       "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.angle"}};
 
   std::vector<TTTParams> ttts;
   for (const auto &prms : tttList)
@@ -58,7 +58,7 @@ std::vector<TTTParams> __getTTTList__()
       const fs::path timeGridPath  = tokens.at(1);
       const fs::path angleGridPath = tokens.at(2);
 
-      if (!HDD::directoryEmpty(velGridPath.parent_path().string())  ||
+      if (!HDD::directoryEmpty(velGridPath.parent_path().string()) ||
           !HDD::directoryEmpty(timeGridPath.parent_path().string()) ||
           !HDD::directoryEmpty(angleGridPath.parent_path().string()))
       {
@@ -74,6 +74,35 @@ std::vector<TTTParams> __getTTTList__()
 }
 
 const std::vector<TTTParams> tttList(__getTTTList__());
+
+std::unique_ptr<HDD::TravelTimeTable> createTTT(const TTTParams &prms)
+{
+  if (prms.type == "NonLinLoc")
+  {
+    static const std::regex regex(";", std::regex::optimize);
+    std::vector<std::string> tokens(HDD::splitString(prms.model, regex));
+
+    const fs::path velGridPath   = tokens.at(0);
+    const fs::path timeGridPath  = tokens.at(1);
+    const fs::path angleGridPath = tokens.at(2);
+
+    if (!HDD::directoryEmpty(velGridPath.parent_path().string()) ||
+        !HDD::directoryEmpty(timeGridPath.parent_path().string()) ||
+        !HDD::directoryEmpty(angleGridPath.parent_path().string()))
+    {
+      return std::unique_ptr<HDD::TravelTimeTable>(
+          new HDD::NLL::TravelTimeTable(velGridPath.string(),
+                                        timeGridPath.string(),
+                                        angleGridPath.string(), false));
+    }
+  }
+  else
+  {
+    return std::unique_ptr<HDD::TravelTimeTable>(
+        new HDD::SeiscompAdapter::TravelTimeTable(prms.type, prms.model));
+  }
+  return nullptr;
+}
 
 // Those station parameters must be consistent with nonlinloc
 // grids control files

@@ -18,20 +18,18 @@
 #include "log.h"
 #include "utils.h"
 
-#include <sstream>
-
 using namespace std;
 
 namespace HDD {
 
-ScTravelTimeTable::ScTravelTimeTable(const std::string &type,
-                                     const std::string &model,
-                                     double depthVelResolution)
-    : TravelTimeTable(type, model), _depthVelResolution(depthVelResolution)
-{
-  _ttt = Seiscomp::TravelTimeTableInterface::Create(type.c_str());
-  _ttt->setModel(model.c_str());
+namespace SeiscompAdapter {
 
+TravelTimeTable::TravelTimeTable(const std::string &type,
+                                 const std::string &model,
+                                 double depthVelResolution)
+    : _type(type), _model(model), _depthVelResolution(depthVelResolution)
+{
+  load();
   /*
   for (int i = 0; i < 500; i++)
   {
@@ -48,13 +46,22 @@ ScTravelTimeTable::ScTravelTimeTable(const std::string &type,
   */
 }
 
-void ScTravelTimeTable::compute(double eventLat,
-                                double eventLon,
-                                double eventDepth,
-                                const Catalog::Station &station,
-                                const std::string &phaseType,
-                                double &travelTime)
+void TravelTimeTable::load()
 {
+  _ttt = Seiscomp::TravelTimeTableInterface::Create(_type.c_str());
+  _ttt->setModel(_model.c_str());
+}
+
+void TravelTimeTable::freeResources() { _ttt = nullptr; }
+
+void TravelTimeTable::compute(double eventLat,
+                              double eventLon,
+                              double eventDepth,
+                              const Catalog::Station &station,
+                              const std::string &phaseType,
+                              double &travelTime)
+{
+  if (!_ttt) load();
   double depth = eventDepth > 0 ? eventDepth : 0;
   Seiscomp::TravelTime tt =
       _ttt->compute(phaseType.c_str(), eventLat, eventLon, depth,
@@ -62,16 +69,17 @@ void ScTravelTimeTable::compute(double eventLat,
   travelTime = tt.time;
 }
 
-void ScTravelTimeTable::compute(double eventLat,
-                                double eventLon,
-                                double eventDepth,
-                                const Catalog::Station &station,
-                                const std::string &phaseType,
-                                double &travelTime,
-                                double &takeOffAngleAzim,
-                                double &takeOffAngleDip,
-                                double &velocityAtSrc)
+void TravelTimeTable::compute(double eventLat,
+                              double eventLon,
+                              double eventDepth,
+                              const Catalog::Station &station,
+                              const std::string &phaseType,
+                              double &travelTime,
+                              double &takeOffAngleAzim,
+                              double &takeOffAngleDip,
+                              double &velocityAtSrc)
 {
+  if (!_ttt) load();
   double depth = eventDepth > 0 ? eventDepth : 0;
   Seiscomp::TravelTime tt =
       _ttt->compute(phaseType.c_str(), eventLat, eventLon, depth,
@@ -81,7 +89,7 @@ void ScTravelTimeTable::compute(double eventLat,
                                   phaseType, &takeOffAngleAzim,
                                   &takeOffAngleDip);
   // tt.takeoff is not computed for LOCSAT
-  if (type == "libtau")
+  if (_type == "libtau")
   {
     takeOffAngleDip = degToRad(tt.takeoff);
   }
@@ -90,8 +98,8 @@ void ScTravelTimeTable::compute(double eventLat,
 
 // Since the seiscomp travel time API doesn't offer the velocity at source we
 // need to reverse-engineer that information.
-double ScTravelTimeTable::velocityAtSource(double eventDepth,
-                                           const std::string &phaseType)
+double TravelTimeTable::velocityAtSource(double eventDepth,
+                                         const std::string &phaseType)
 {
   if (eventDepth < 0) eventDepth = 0;
 
@@ -132,5 +140,7 @@ double ScTravelTimeTable::velocityAtSource(double eventDepth,
 
   return binVelocity;
 }
+
+} // namespace SeiscompAdapter
 
 } // namespace HDD

@@ -16,27 +16,34 @@
 
 #include "waveform.h"
 #include "log.h"
+#include "timewindow.h"
 #include "utils.h"
 
-#include <cfenv>
 #include <fstream>
 #include <iostream>
 #include <mutex>
-#include <seiscomp3/core/datetime.h>
-#include <seiscomp3/datamodel/station.h>
-#include <seiscomp3/io/recordinput.h>
-#include <seiscomp3/io/records/mseedrecord.h>
-#include <seiscomp3/math/filter.h>
-#include <seiscomp3/math/geo.h>
-#include <seiscomp3/processing/operator/ncomps.h>
-#include <seiscomp3/processing/operator/transformation.h>
+
+#include <seiscomp/client/inventory.h>
+#include <seiscomp/core/datetime.h>
+#include <seiscomp/core/genericrecord.h>
+#include <seiscomp/core/recordsequence.h>
+#include <seiscomp/core/timewindow.h>
+#include <seiscomp/datamodel/station.h>
+#include <seiscomp/io/recordinput.h>
+#include <seiscomp/io/records/mseedrecord.h>
+#include <seiscomp/io/recordstream.h>
+#include <seiscomp/math/filter.h>
+#include <seiscomp/math/geo.h>
 
 using namespace std;
-using namespace Seiscomp::Processing;
-using DataModel::ThreeComponents;
+using std::chrono::duration;
 using Catalog = HDD::Catalog;
 
+using namespace Seiscomp;
+
 namespace {
+
+using Transform = HDD::Waveform::Processor::Transform;
 
 template <class T> T nextPowerOf2(T a, T min = 1, T max = 1 << 31)
 {
@@ -49,62 +56,120 @@ template <class T> T nextPowerOf2(T a, T min = 1, T max = 1 << 31)
   return b;
 }
 
-} // namespace
-
-namespace HDD {
-namespace Waveform {
-
-std::string getBandAndInstrumentCodes(const std::string &channelCode)
+Seiscomp::Core::Time toSC(const HDD::UTCTime &t)
 {
-  if (channelCode.size() >= 2) return channelCode.substr(0, 2);
-  return "";
+  return Seiscomp::Core::Time(HDD::durToSec(t.time_since_epoch()));
 }
 
-std::string getOrientationCode(const std::string &channelCode)
+HDD::UTCTime fromSC(const Seiscomp::Core::Time &t)
 {
-  if (channelCode.size() == 3) return channelCode.substr(2, 3);
-  return "";
+  return HDD::UTCTime() + HDD::secToDur(t.length());
 }
 
-std::string waveformId(const Core::TimeWindow &tw,
-                       const std::string &networkCode,
-                       const std::string &stationCode,
-                       const std::string &locationCode,
-                       const std::string &channelCode)
+Seiscomp::Core::TimeWindow toSC(const HDD::TimeWindow &tw)
 {
-  return strf("%s.%s.%s.%s.%s.%s", networkCode.c_str(), stationCode.c_str(),
-              locationCode.c_str(), channelCode.c_str(),
-              tw.startTime().iso().c_str(), tw.endTime().iso().c_str());
+  return Seiscomp::Core::TimeWindow(toSC(tw.startTime()), toSC(tw.endTime()));
 }
 
-std::string waveformId(const HDD::Catalog::Phase &ph,
-                       const Core::TimeWindow &tw)
+HDD::TimeWindow fromSC(const Seiscomp::Core::TimeWindow &tw)
 {
-  return waveformId(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                    ph.channelCode);
+  return HDD::TimeWindow(fromSC(tw.startTime()), fromSC(tw.endTime()));
 }
 
-GenericRecordPtr readWaveformFromRecordStream(const string &recordStreamURL,
-                                              const Core::TimeWindow &tw,
-                                              const string &networkCode,
-                                              const string &stationCode,
-                                              const string &locationCode,
-                                              const string &channelCode,
-                                              double tolerance,
-                                              double minAvailability)
+HDD::Trace fromSC(const Seiscomp::Record *rec)
 {
+  const DoubleArray *data = DoubleArray::ConstCast(rec->data());
+  if (!data)
+  {
+    throw HDD::Exception("Internal logic error: cannot create HDD::Trace from "
+                         "Seiscomp::Core::GenericRecord");
+  }
+  return HDD::Trace(rec->networkCode(), rec->stationCode(), rec->locationCode(),
+                    rec->channelCode(), fromSC(rec->startTime()),
+                    rec->samplingFrequency(), data->typedData(), data->size());
+}
+
+unique_ptr<HDD::Trace> contiguousRecord(const RecordSequence &seq,
+                                        const HDD::TimeWindow &tw,
+                                        double minAvailability)
+{
+  const Core::TimeWindow sctw = toSC(tw);
+  if (seq.availability(sctw) < minAvailability)
+  {
+    return nullptr;
+  }
+
+  Seiscomp::GenericRecordPtr sctr = seq.contiguousRecord<double>(&sctw, false);
+  unique_ptr<HDD::Trace> trace(new HDD::Trace(fromSC(sctr.get())));
+
+  if (!trace->slice(tw))
+  {
+    return nullptr;
+  }
+  return trace;
+}
+
+unique_ptr<HDD::Trace>
+readWaveformFromRecordStream(const string &recordStreamURL,
+                             const HDD::TimeWindow &tw,
+                             const string &networkCode,
+                             const string &stationCode,
+                             const string &locationCode,
+                             const string &channelCode,
+                             double tolerance,
+                             double minAvailability,
+                             bool inventoryCheck = false)
+{
+  const Core::TimeWindow sctw = toSC(tw);
+
+  //
+  // Checking the inventory is not stricly required since the RecordStream has
+  // to perform a check on the data existence anyway. However the check can
+  // save time by skipping the RecorStream request, so we do it.
+  //
+  Seiscomp::DataModel::Stream *stream = nullptr;
+  if (inventoryCheck)
+  {
+    Seiscomp::DataModel::Inventory *inv =
+        Seiscomp::Client::Inventory::Instance()->inventory();
+
+    if (inv)
+    {
+      Seiscomp::DataModel::InventoryError error;
+      stream = Seiscomp::DataModel::getStream(inv, networkCode, stationCode,
+                                              locationCode, channelCode,
+                                              sctw.startTime(), &error);
+      // We return without even trying to load the data only if the stream was
+      // found in the inventory, but it was not available at the requested point
+      // in time. If the stream was not found the inventory might be incomplete
+      // and we don't want to stop for that, so we proceed with the request
+      if (!stream && (error == DataModel::STREAM_EPOCH_NOT_FOUND ||
+                      error == DataModel::SENSOR_EPOCH_NOT_FOUND ||
+                      error == DataModel::STATION_EPOCH_NOT_FOUND ||
+                      error == DataModel::NETWORK_EPOCH_NOT_FOUND))
+      {
+        string msg = HDD::strf(
+            "Cannot find '%s.%s.%s.%s' at time '%s' in the inventory: %s",
+            networkCode.c_str(), stationCode.c_str(), locationCode.c_str(),
+            channelCode.c_str(),
+            HDD::UTCClock::toString(tw.startTime()).c_str(), error.toString());
+        throw HDD::Exception(msg);
+      }
+    }
+  }
+
   IO::RecordStreamPtr rs = IO::RecordStream::Open(recordStreamURL.c_str());
   if (rs == nullptr)
   {
     string msg = "Cannot open RecordStream: " + recordStreamURL;
-    throw Exception(msg);
+    throw HDD::Exception(msg);
   }
 
-  rs->setTimeWindow(tw);
+  rs->setTimeWindow(sctw);
   rs->addStream(networkCode, stationCode, locationCode, channelCode);
 
   IO::RecordInput inp(rs.get(), Array::DOUBLE, Record::DATA_ONLY);
-  TimeWindowBuffer seq(tw, tolerance);
+  TimeWindowBuffer seq(sctw, tolerance);
   RecordPtr rec;
   while (rec = inp.next())
   {
@@ -112,120 +177,328 @@ GenericRecordPtr readWaveformFromRecordStream(const string &recordStreamURL,
   }
   rs->close();
 
-  GenericRecordPtr trace =
-      contiguousRecord(seq, tw, tolerance, minAvailability);
+  unique_ptr<HDD::Trace> trace = contiguousRecord(seq, tw, minAvailability);
 
   if (!trace)
   {
     string msg =
-        strf("Cannnot load trace, data availability %.2f%%"
-             "(stream %s.%s.%s.%s from %s length %.2f sec)",
-             seq.availability(), networkCode.c_str(), stationCode.c_str(),
-             locationCode.c_str(), channelCode.c_str(),
-             tw.startTime().iso().c_str(), tw.length());
-    throw Exception(msg);
+        HDD::strf("Data availability too low %.2f%%", seq.availability());
+    throw HDD::Exception(msg);
+  }
+
+  // Apply gain (useful for ZRT and L2 transform)
+  if (stream != nullptr && stream->gain() != 0)
+  {
+    double scaler = 1.0 / stream->gain();
+    double *data  = trace->data();
+    for (size_t i = 0; i < trace->sampleCount(); ++i) *data *= scaler;
   }
 
   return trace;
 }
 
-GenericRecordPtr contiguousRecord(const RecordSequence &seq,
-                                  const Core::TimeWindow &tw,
-                                  double tolerance,
-                                  double minAvailability)
+struct ThreeComponents
 {
-  if (seq.availability(tw) < minAvailability)
+  enum Component
   {
-    return nullptr;
+    Vertical         = 0, /* usually Z */
+    FirstHorizontal  = 1, /* usually N */
+    SecondHorizontal = 2  /* usually E */
+  };
+  string names[3];
+  double dip[3];
+  double azimuth[3];
+};
+
+bool getComponentsInfo(const Catalog::Phase &ph,
+                       ThreeComponents &components,
+                       Transform trans)
+{
+  string baseErrMsg =
+      HDD::strf("Unable to fetch components information for phase '%s'",
+                string(ph).c_str());
+
+  const Core::Time sctime = toSC(ph.time);
+  const string channelCodeRoot =
+      HDD::Waveform::getBandAndInstrumentCodes(ph.channelCode);
+
+  Seiscomp::DataModel::Inventory *inv =
+      Seiscomp::Client::Inventory::Instance()->inventory();
+  if (!inv)
+  {
+    HDD::logDebug("%s: inventory not available", baseErrMsg.c_str());
+    return false;
   }
 
-  GenericRecordPtr trace(seq.contiguousRecord<double>(&tw, false));
+  Seiscomp::DataModel::InventoryError error;
+  Seiscomp::DataModel::SensorLocation *loc =
+      Seiscomp::DataModel::getSensorLocation(
+          inv, ph.networkCode, ph.stationCode, ph.locationCode, sctime, &error);
 
-  if (!trim(*trace, tw))
+  if (!loc)
   {
-    return nullptr;
+    HDD::logDebug(
+        "%s: unable to fetch SensorLocation information from inventory (%s)",
+        baseErrMsg.c_str(), error.toString());
+    return false;
   }
 
-  return trace;
-}
+  DataModel::ThreeComponents tc;
+  getThreeComponents(tc, loc, channelCodeRoot.c_str(), sctime);
 
-bool trim(GenericRecord &trace, const Core::TimeWindow &tw)
-{
-  if (trace.timeWindow() == tw) return true;
-
-  int startOfs = std::floor(double(tw.startTime() - trace.startTime()) *
-                            trace.samplingFrequency());
-  int endOfs   = std::ceil(double(tw.endTime() - trace.startTime()) *
-                         trace.samplingFrequency());
-
-  // one sample tolerance
-  if (startOfs == -1) startOfs++;
-  if (endOfs == trace.data()->size() + 1) endOfs--;
-
-  // not enough data at start of time window
-  if (startOfs < 0) return false;
-
-  // not enough data at end of time window
-  if (endOfs > trace.data()->size()) return false;
-
-  ArrayPtr sliced = trace.data()->slice(startOfs, endOfs);
-  trace.setStartTime(trace.startTime() +
-                     Core::TimeSpan(startOfs / trace.samplingFrequency()));
-  trace.setData(sliced.get());
-  return true;
-}
-
-void filter(GenericRecord &trace,
-            bool demeaning,
-            const std::string &filterStr,
-            double resampleFreq)
-{
-  DoubleArray *data = DoubleArray::Cast(trace.data());
-
-  if (demeaning)
+  if (trans == Transform::TRANSVERSAL || trans == Transform::RADIAL)
   {
-    *data -= data->mean();
-    trace.dataUpdated();
-  }
-
-  if (!filterStr.empty())
-  {
-    string filterError;
-    auto filter =
-        Math::Filtering::InPlaceFilter<double>::Create(filterStr, &filterError);
-    if (!filter)
+    if (tc.comps[ThreeComponents::Vertical] &&
+        tc.comps[ThreeComponents::FirstHorizontal] &&
+        tc.comps[ThreeComponents::SecondHorizontal])
     {
-      string msg = strf("Filter creation failed %s: %s", filterStr.c_str(),
-                        filterError.c_str());
-      throw Exception(msg);
+      components.names[ThreeComponents::Vertical] =
+          tc.comps[ThreeComponents::Vertical]->code();
+      components.names[ThreeComponents::FirstHorizontal] =
+          tc.comps[ThreeComponents::FirstHorizontal]->code();
+      components.names[ThreeComponents::SecondHorizontal] =
+          tc.comps[ThreeComponents::SecondHorizontal]->code();
+
+      components.dip[ThreeComponents::Vertical] =
+          tc.comps[ThreeComponents::Vertical]->dip();
+      components.dip[ThreeComponents::FirstHorizontal] =
+          tc.comps[ThreeComponents::FirstHorizontal]->dip();
+      components.dip[ThreeComponents::SecondHorizontal] =
+          tc.comps[ThreeComponents::SecondHorizontal]->dip();
+
+      components.azimuth[ThreeComponents::Vertical] =
+          tc.comps[ThreeComponents::Vertical]->azimuth();
+      components.azimuth[ThreeComponents::FirstHorizontal] =
+          tc.comps[ThreeComponents::FirstHorizontal]->azimuth();
+      components.azimuth[ThreeComponents::SecondHorizontal] =
+          tc.comps[ThreeComponents::SecondHorizontal]->azimuth();
+      return true;
     }
-    filter->setSamplingFrequency(trace.samplingFrequency());
-    filter->apply(data->size(), data->typedData());
-    delete filter;
-    trace.dataUpdated();
+    HDD::logDebug("%s: three components information not found in inventory",
+                  baseErrMsg.c_str());
+    return false;
+  }
+  else if (trans == Transform::L2)
+  {
+    if (tc.comps[ThreeComponents::FirstHorizontal] &&
+        tc.comps[ThreeComponents::SecondHorizontal])
+    {
+      components.names[ThreeComponents::FirstHorizontal] =
+          tc.comps[ThreeComponents::FirstHorizontal]->code();
+      components.names[ThreeComponents::SecondHorizontal] =
+          tc.comps[ThreeComponents::SecondHorizontal]->code();
+      return true;
+    }
+    HDD::logDebug(
+        "%s: horizontal components information not found in inventory",
+        baseErrMsg.c_str());
+    return false;
   }
 
-  if (resampleFreq > 0)
-  {
-    resample(trace, resampleFreq);
-  }
+  HDD::logDebug("%s: unknown transformation", baseErrMsg.c_str());
+  return false;
 }
 
-void resample(GenericRecord &trace, double new_sf)
+unique_ptr<HDD::Trace> transformL2(const HDD::TimeWindow &tw,
+                                   const Catalog::Phase &ph,
+                                   const ThreeComponents &tc,
+                                   const HDD::Trace trH1,
+                                   const HDD::Trace trH2)
 {
-  if (new_sf <= 0 || trace.samplingFrequency() == new_sf ||
-      !DoubleArray::Cast(trace.data()))
-    return;
+  string channelCodeRoot =
+      HDD::Waveform::getBandAndInstrumentCodes(ph.channelCode);
+
+  auto tracesCompatible = [](const HDD::Trace &tr1,
+                             const HDD::Trace &tr2) -> bool {
+    return tr1.startTime() == tr2.startTime() &&
+           tr1.samplingFrequency() == tr2.samplingFrequency() &&
+           tr1.sampleCount() == tr2.sampleCount();
+  };
+
+  if (!tracesCompatible(trH1, trH2))
+  {
+    HDD::logDebug(
+        "Cannot perform L2 transformation with incompatible horizontal traces");
+    return nullptr;
+  }
+
+  vector<double> l2vec(trH1.sampleCount());
+  double *l2data       = l2vec.data();
+  const double *h1data = trH1.data();
+  const double *h2data = trH2.data();
+  for (size_t i = 0; i < l2vec.size(); ++i)
+  {
+    l2data[i] = std::sqrt(h1data[i] * h1data[i] + h2data[i] * h2data[i]);
+  }
+  unique_ptr<HDD::Trace> l2trace(new HDD::Trace(
+      ph.networkCode, ph.stationCode, ph.locationCode, channelCodeRoot + "L",
+      trH1.startTime(), trH1.samplingFrequency(), std::move(l2vec)));
+  return l2trace;
+}
+
+unique_ptr<HDD::Trace> transformRT(const HDD::TimeWindow &tw,
+                                   const Catalog::Phase &ph,
+                                   const Catalog::Event &ev,
+                                   const Catalog::Station &sta,
+                                   const ThreeComponents &tc,
+                                   const HDD::Trace trV,
+                                   const HDD::Trace trH1,
+                                   const HDD::Trace trH2,
+                                   Transform trans)
+{
+  string channelCodeRoot =
+      HDD::Waveform::getBandAndInstrumentCodes(ph.channelCode);
+
+  auto tracesCompatible = [](const HDD::Trace &tr1,
+                             const HDD::Trace &tr2) -> bool {
+    return tr1.startTime() == tr2.startTime() &&
+           tr1.samplingFrequency() == tr2.samplingFrequency() &&
+           tr1.sampleCount() == tr2.sampleCount();
+  };
+
+  if (!tracesCompatible(trH1, trH2) || !tracesCompatible(trH2, trV))
+  {
+    HDD::logDebug("Cannot perform L2 transformation with incompatible traces");
+    return nullptr;
+  }
+
+  using Matrix3d = double[3][3];
+
+  struct Vector3d
+  {
+    double x, y, z;
+    Vector3d &fromAngles(double radAzimuth, double radDip)
+    {
+      x = cos(radDip) * sin(radAzimuth);
+      y = cos(radDip) * cos(radAzimuth);
+      z = sin(radDip);
+      return *this;
+    }
+    Vector3d &normalize()
+    {
+      double length = sqrt(x * x + y * y + z * z);
+      double scale  = 1.0 / length;
+      x *= scale;
+      y *= scale;
+      z *= scale;
+      return *this;
+    }
+  };
+
+  //
+  // Rotation matrix ZNE
+  //
+  Vector3d h2Col;
+  h2Col
+      .fromAngles(+HDD::degToRad(tc.azimuth[ThreeComponents::SecondHorizontal]),
+                  -HDD::degToRad(tc.dip[ThreeComponents::SecondHorizontal]))
+      .normalize();
+  Vector3d h1Col;
+  h1Col
+      .fromAngles(+HDD::degToRad(tc.azimuth[ThreeComponents::FirstHorizontal]),
+                  -HDD::degToRad(tc.dip[ThreeComponents::FirstHorizontal]))
+      .normalize();
+  Vector3d vCol;
+  vCol.fromAngles(+HDD::degToRad(tc.azimuth[ThreeComponents::Vertical]),
+                  -HDD::degToRad(tc.dip[ThreeComponents::Vertical]))
+      .normalize();
+
+  Matrix3d orientationZNE = {
+      h2Col.x, h1Col.x, vCol.x,  h2Col.y, h1Col.y,
+      vCol.y,  h2Col.z, h1Col.z, vCol.z,
+  };
+
+  //
+  // Rotation matrix ZRT
+  //
+  double backAzimuth;
+  HDD::computeDistance(ev.latitude, ev.longitude, sta.latitude, sta.longitude,
+                       nullptr, &backAzimuth);
+  backAzimuth += 180.0;
+  Matrix3d orientationZRT = {
+      cos(backAzimuth),
+      -sin(backAzimuth),
+      0,
+      sin(backAzimuth),
+      cos(backAzimuth),
+      0,
+      0,
+      0,
+      1,
+  };
+
+  //
+  // Full transformation matrix
+  //
+  auto matrixMult = [](const Matrix3d &m1, const Matrix3d &m2, Matrix3d &out) {
+    for (int r = 0; r < 3; ++r)
+      for (int col = 0; col < 3; ++col)
+        out[r][col] = m1[r][0] * m2[0][col] + m1[r][1] * m2[1][col] +
+                      m1[r][2] * m2[2][col];
+  };
+  Matrix3d transformation;
+  matrixMult(orientationZRT, orientationZNE, transformation);
+
+  //
+  // Apply transformation now
+  //
+  vector<double> tvec(trH1.sampleCount());
+  double *tdata        = tvec.data();
+  const double *vdata  = trV.data();
+  const double *h1data = trH1.data();
+  const double *h2data = trH2.data();
+  for (size_t i = 0; i < tvec.size(); ++i)
+  {
+    if (trans == Transform::TRANSVERSAL) // T trasversal
+      tdata[i] = transformation[0][0] * h2data[i] +
+                 transformation[0][1] * h1data[i] +
+                 transformation[0][2] * vdata[i];
+    else if (trans == Transform::RADIAL) // R radial
+      tdata[i] = transformation[1][0] * h2data[i] +
+                 transformation[1][1] * h1data[i] +
+                 transformation[1][2] * vdata[i];
+    else // V vertical
+      tdata[i] = transformation[2][0] * h2data[i] +
+                 transformation[2][1] * h1data[i] +
+                 transformation[2][2] * vdata[i];
+  }
+
+  // build and return the trace
+  unique_ptr<HDD::Trace> ttrace(new HDD::Trace(
+      ph.networkCode, ph.stationCode, ph.locationCode, channelCodeRoot + "L",
+      trH1.startTime(), trH1.samplingFrequency(), std::move(tvec)));
+  return ttrace;
+}
+
+} // namespace
+
+namespace HDD {
+namespace Waveform {
+
+string waveformId(const TimeWindow &tw,
+                  const string &networkCode,
+                  const string &stationCode,
+                  const string &locationCode,
+                  const string &channelCode)
+{
+  return strf("%s.%s.%s.%s.%s.%s", networkCode.c_str(), stationCode.c_str(),
+              locationCode.c_str(), channelCode.c_str(),
+              UTCClock::toString(tw.startTime()).c_str(),
+              UTCClock::toString(tw.endTime()).c_str());
+}
+
+void resample(Trace &trace, double new_sf)
+{
+  if (new_sf <= 0 || trace.samplingFrequency() == new_sf) return;
 
   const double data_sf       = trace.samplingFrequency();
   const double resamp_factor = new_sf / data_sf;
   const double nyquist       = std::min(new_sf, data_sf) / 2.;
 
-  const double *data  = DoubleArray::Cast(trace.data())->typedData();
-  const int data_size = trace.data()->size();
+  const double *data     = trace.data();
+  const size_t data_size = trace.sampleCount();
 
-  const int resampled_data_size = data_size * resamp_factor;
-  double resampled_data[resampled_data_size];
+  vector<double> resampled(data_size * resamp_factor);
 
   /*
    * Compute one sample of the resampled data:
@@ -259,7 +532,7 @@ void resample(GenericRecord &trace, double new_sf)
     {
       const int j        = int(x + win_i); // input sample index
       const double win_x = j - x;
-      if (j >= 0 && j < data_size)
+      if (j >= 0 && size_t(j) < data_size)
       {
         // calculate von Hann Window | hann(x) = sin^2(pi*x/N)
         const double hannWin = square(std::sin(M_PI * (0.5 + win_x / win_len)));
@@ -274,28 +547,115 @@ void resample(GenericRecord &trace, double new_sf)
     return newSmp;
   };
 
-  for (int i = 0; i < resampled_data_size; i++)
+  double *resampled_data = resampled.data();
+  for (size_t i = 0; i < resampled.size(); i++)
   {
     double x          = i / resamp_factor;
     resampled_data[i] = new_sample(x, nyquist, 21);
   }
 
-  DoubleArray::Cast(trace.data())->setData(resampled_data_size, resampled_data);
+  trace.setData(std::move(resampled));
   trace.setSamplingFrequency(new_sf);
-  trace.dataUpdated();
 }
 
-void writeTrace(GenericRecordCPtr trace, const std::string &file)
+void filter(Trace &trace,
+            bool demeaning,
+            const string &filterStr,
+            double resampleFreq)
 {
-  if (!trace) return;
+  double *data           = trace.data();
+  const size_t data_size = trace.sampleCount();
 
+  if (demeaning)
+  {
+    double mean = std::accumulate(data, data + data_size, 0.0) / data_size;
+    for (size_t i = 0; i < data_size; i++) data[i] -= mean;
+  }
+
+  if (!filterStr.empty())
+  {
+    string filterError;
+    auto filter =
+        Math::Filtering::InPlaceFilter<double>::Create(filterStr, &filterError);
+    if (!filter)
+    {
+      string msg = strf("Filter creation failed %s: %s", filterStr.c_str(),
+                        filterError.c_str());
+      throw Exception(msg);
+    }
+    filter->setSamplingFrequency(trace.samplingFrequency());
+    filter->apply(data_size, data);
+    delete filter;
+  }
+
+  if (resampleFreq > 0)
+  {
+    resample(trace, resampleFreq);
+  }
+}
+
+double computeSnr(const Trace &tr,
+                  const UTCTime &pickTime,
+                  double noiseOffsetStart,
+                  double noiseOffsetEnd,
+                  double signalOffsetStart,
+                  double signalOffsetEnd)
+{
+  const double *data          = tr.data();
+  const size_t data_size      = tr.sampleCount();
+  const double freq           = tr.samplingFrequency();
+  const UTCTime dataStartTime = tr.startTime();
+
+  // convert time w.r.t. guiding pick time to sample number
+  auto secToSample = [&freq, &data_size](double sec) {
+    double max = std::max(std::round(sec * freq), 0.);
+    return std::min(max, data_size - 1.);
+  };
+  const double pickOffset  = durToSec(pickTime - dataStartTime);
+  const size_t noiseStart  = secToSample(noiseOffsetStart + pickOffset);
+  const size_t noiseEnd    = secToSample(noiseOffsetEnd + pickOffset);
+  const size_t signalStart = secToSample(signalOffsetStart + pickOffset);
+  const size_t signalEnd   = secToSample(signalOffsetEnd + pickOffset);
+
+  if ((std::max({noiseStart, noiseEnd, signalStart, signalEnd}) >= data_size))
+  {
+    logError(
+        "Cannot compute SNR: noise/signal windows exceed waveform boundaries");
+    return -1;
+  }
+
+  // get maximum (absolute) amplitude in noise window
+  double noiseMax = -1.0;
+  for (size_t i = noiseStart; i < noiseEnd; i++)
+  {
+    noiseMax = std::max(std::abs(data[i]), noiseMax);
+  }
+
+  // get maximum (absolute) amplitude in signal window
+  double signalMax = -1.0;
+  for (size_t i = signalStart; i < signalEnd; i++)
+  {
+    signalMax = std::max(std::abs(data[i]), signalMax);
+  }
+
+  return signalMax / noiseMax;
+}
+
+void writeTrace(const Trace &trace, const string &file)
+{
   try
   {
-    std::ofstream ofs(file);
-    IO::MSeedRecord msRec(*trace);
+    ofstream ofs(file);
+
+    GenericRecord gr(trace.networkCode(), trace.stationCode(),
+                     trace.locationCode(), trace.channelCode(),
+                     toSC(trace.startTime()), trace.samplingFrequency());
+    gr.setData(trace.sampleCount(), trace.data(), Array::DOUBLE);
+
+    IO::MSeedRecord msRec(gr);
     int reclen = msRec.data()->size() * msRec.data()->elementSize() + 64;
-    reclen     = nextPowerOf2<int>(reclen, 128,
-                               1048576); // MINRECLEN 128, MAXRECLEN 1048576
+    reclen =
+        nextPowerOf2<int>(reclen, 128 /*MINRECLEN*/, 1048576 /*MAXRECLEN*/);
     if (reclen > 0)
     {
       msRec.setOutputRecordLength(reclen);
@@ -309,18 +669,16 @@ void writeTrace(GenericRecordCPtr trace, const std::string &file)
   }
 }
 
-GenericRecordPtr readTrace(const std::string &file)
+unique_ptr<Trace> readTrace(const string &file)
 {
   if (!pathExists(file)) return nullptr;
 
   try
   {
-    std::ifstream ifs(file);
+    ifstream ifs(file);
     IO::MSeedRecord msRec(Array::DOUBLE, Record::Hint::DATA_ONLY);
     msRec.read(ifs);
-    GenericRecordPtr trace = new GenericRecord(msRec);
-    trace->setData(msRec.data()->clone()); // copy data, too
-    return trace;
+    return unique_ptr<Trace>(new Trace(fromSC(&msRec)));
   }
   catch (exception &e)
   {
@@ -329,747 +687,215 @@ GenericRecordPtr readTrace(const std::string &file)
   }
 }
 
-/*
- * Compute cross-correlation between two traces centered around their respective
- * picks. The cross-correlation will be performed from the longest trace middle
- * minus 'maxDelay' to the same trace middle plus 'maxDelay' (if enough data is
- * available).
- * `delayOut` will store the shift in seconds (positive or negative) from the
- * longest trace middle point at which there is the highest (absolute value)
- * correlation coefficient, stored in 'coeffOut'
- */
-bool xcorr(const GenericRecordCPtr &tr1,
-           const GenericRecordCPtr &tr2,
-           double maxDelay,
-           bool qualityCheck,
-           double &delayOut,
-           double &coeffOut)
+double Loader::_tolerance{0.1};
+double Loader::_minAvailability{0.95};
+
+shared_ptr<const Trace> BasicLoader::get(const TimeWindow &tw,
+                                         const Catalog::Phase &ph)
 {
-  if (tr1->samplingFrequency() != tr2->samplingFrequency())
-  {
-    logInfo(
-        "Cannot cross correlate traces with different sampling freq (%f!=%f)",
-        tr1->samplingFrequency(), tr2->samplingFrequency());
-    return false;
-  }
-  const double freq = tr1->samplingFrequency();
-
-  // check longest/shortest trace
-  const bool swap             = tr1->data()->size() > tr2->data()->size();
-  GenericRecordCPtr trShorter = swap ? tr2 : tr1;
-  GenericRecordCPtr trLonger  = swap ? tr1 : tr2;
-
-  const double *dataS = DoubleArray::ConstCast(trShorter->data())->typedData();
-  const double *dataL = DoubleArray::ConstCast(trLonger->data())->typedData();
-  const int sizeS     = trShorter->data()->size();
-  const int sizeL     = trLonger->data()->size();
-
-  // force to cross-correlate withing data boundaries
-  int availableData = (sizeL - sizeS) / 2;
-  int maxDelaySmps  = maxDelay * freq;
-  if (maxDelaySmps > availableData) maxDelaySmps = availableData;
-
-  crossCorrelation(dataS, sizeS, (dataL + availableData - maxDelaySmps),
-                   (sizeS + maxDelaySmps * 2), qualityCheck, delayOut,
-                   coeffOut);
-
-  if (!std::isfinite(coeffOut))
-  {
-    coeffOut = 0;
-    delayOut = 0.;
-  }
-  else
-  {
-    delayOut -= maxDelaySmps; // the reference is the middle of the long trace
-    delayOut /= freq;         // samples to secs
-    if (swap) delayOut = -delayOut;
-  }
-  return true;
-}
-
-void crossCorrelation(const double *dataS,
-                      const int sizeS,
-                      const double *dataL,
-                      const int sizeL,
-                      bool qualityCheck,
-                      double &delayOut,
-                      double &coeffOut)
-{
-  /*
-   * for later quality check: save local maxima/minima
-   */
-  struct LocalMaxima
-  {
-    bool notDecreasing = false;
-    double prevCoeff   = -1;
-    vector<double> values;
-    void update(double coeff)
-    {
-      if (!std::isfinite(coeff)) return;
-      if (coeff < prevCoeff && notDecreasing) values.push_back(prevCoeff);
-      notDecreasing = coeff >= prevCoeff;
-      prevCoeff     = coeff;
-    }
-  };
-  LocalMaxima localMaxs, localMins;
-
-  /*
-   * Pearson correlation coefficient for time series X and Y of length n
-   *
-   *              sum((Xi-meanX) * (Yi-meanY))
-   * cc = --------------------------------------------------
-   *      sqrt(sum((Xi-meanX)^2)) * sqrt(sum((Yi-meanY)^2))
-   *
-   * Where sum(X)  is the sum of Xi for i=1 until i=n
-   *
-   * This can be rearranged in a form suitable for a single-pass algorithm
-   * (where the mean of X and Y are not needed)
-   *
-   *                 n * sum(Xi*Yi) - sum(Xi) * sum(Yi)
-   * cc = -----------------------------------------------------------
-   *      sqrt(n*sum(Xi^2)-sum(Xi)^2) * sqrt(n*sum(Yi^2)-sum(Yi)^2))
-   *
-   * For cross-correlation, where we have a short trace S which is correlated
-   * against a longer trace L at subsequent offset, we can pre-compute the
-   * parts that involves S and re-use them at each step of the
-   * cross-correlation:
-   *
-   *   sumS   = sum(Xi)
-   *   denomS = sqrt(n*sum(Xi^2)-sum(Xi)^2)
-   *
-   * For the parts that involves the longer trace L alone we can compute them
-   * in a rolling fashion (removing first sample of previous iteration and
-   * adding the last sample of the new iteration):
-   *
-   *   sumL   = sum(Yi)
-   *   sumL2  = sum(Yi^2)
-   *   denomL = sqrt(n*sumL2-sumL^2))
-   *
-   * Finally, this is the equation at each step (offset) of cross-correlation:
-   *
-   *       n * sum(Xi*Yi) - sumS * sumL
-   * cc = ------------------------------
-   *             denomS * denomL
-   *
-   * Unfortunately, we cannot optimize sum(Xi*Yi) and this will be a inner
-   * loop inside the main cross-correlation loop.
-   */
-
-  std::feclearexcept(FE_ALL_EXCEPT);
-
-  // prepare the data before the main xcorr loop
-  const int n = sizeS;
-  double sumS = 0, sumS2 = 0;
-  double sumL = 0, sumL2 = 0;
-  for (int i = 0; i < n; i++)
-  {
-    sumS += dataS[i];
-    sumS2 += dataS[i] * dataS[i];
-    if (i >= (n - 1)) continue;
-    sumL += dataL[i];
-    sumL2 += dataL[i] * dataL[i];
-  }
-  double denomS = std::sqrt(n * sumS2 - sumS * sumS);
-
-  // cross-correlation loop
-  coeffOut           = std::nan("");
-  double lastSampleL = 0;
-  for (int delay = 0; delay <= (sizeL - sizeS); delay++)
-  {
-    // sumL/sumL2 update: remove the sample that has just exited the
-    // current cross-correlation win and add the sample that has just
-    // entered
-    const double newSampleL = dataL[delay + n - 1];
-    sumL += newSampleL - lastSampleL;
-    sumL2 += newSampleL * newSampleL - lastSampleL * lastSampleL;
-    lastSampleL = dataL[delay]; // prepare for next loop
-
-    const double denomL = std::sqrt(n * sumL2 - sumL * sumL);
-
-    double sumSL = 0;
-    for (int i = 0; i < n; i++) sumSL += dataS[i] * dataL[i + delay];
-
-    const double coeff = (n * sumSL - sumS * sumL) / (denomS * denomL);
-
-    if (!std::isfinite(coeffOut) || std::abs(coeff) > std::abs(coeffOut))
-    {
-      coeffOut = coeff;
-      delayOut = delay;
-    }
-
-    // for later quality check
-    localMaxs.update(coeff);
-    localMins.update(-coeff);
-  }
-
-  int fe = fetestexcept(FE_ALL_EXCEPT);
-  if ((fe & ~FE_INEXACT) != 0) // we don't care about FE_INEXACT
-  {
-    logWarning("Floating point exception during cross-correlation:");
-    if (fe & FE_DIVBYZERO) logWarning("FE_DIVBYZERO");
-    if (fe & FE_INVALID) logWarning("FE_INVALID");
-    if (fe & FE_OVERFLOW) logWarning("FE_OVERFLOW");
-    if (fe & FE_UNDERFLOW) logWarning("FE_UNDERFLOW");
-  }
-
-  /*
-   * To avoid errors introduced by cycle skipping, the differential time
-   * measurement is only accepted if all side lobe maxima CCslm of the
-   * cross-correlation function fulfill the following condition:
-   *
-   *                CCslm < CCmax - ( (1.0-CCmax) / 2.0 )
-   *
-   * where CCmax corresponds to the global maximum of the cross-correlation
-   * function. By discarding measurements with local maxima CCslm close to the
-   * global maximum CC, the number of potential blunders due to cycle skipping
-   * is significantly reduced.
-   *
-   * See Diehl et al. (2017): The induced earthquake sequence related to the St.
-   * Gallen deep geothermal project: Fault reactivation and fluid interactions
-   * imaged by microseismicity
-   * */
-  if (qualityCheck && std::isfinite(coeffOut))
-  {
-    double threshold = std::abs(coeffOut) - ((1.0 - std::abs(coeffOut)) / 2.0);
-    int numMax       = 0;
-    vector<double> localMs = coeffOut > 0 ? localMaxs.values : localMins.values;
-    for (double CCslm : localMs)
-    {
-      if (std::isfinite(CCslm) && CCslm >= threshold) numMax++;
-      if (numMax > 1)
-      {
-        coeffOut = std::nan("");
-        break;
-      }
-    }
-  }
-}
-
-double computeSnr(const GenericRecordCPtr &tr,
-                  const Core::Time &pickTime,
-                  double noiseOffsetStart,
-                  double noiseOffsetEnd,
-                  double signalOffsetStart,
-                  double signalOffsetEnd)
-{
-  const double *data = DoubleArray::ConstCast(tr->data())->typedData();
-  const int size     = tr->data()->size();
-  const double freq  = tr->samplingFrequency();
-  const Core::Time dataStartTime = tr->startTime();
-
-  // convert time w.r.t. guiding pick time to sample number
-  auto secToSample = [&freq, &size](double sec) {
-    return std::min(std::max(std::round(sec * freq), 0.), size - 1.);
-  };
-  const double pickOffset = (pickTime - dataStartTime).length();
-  const int noiseStart    = secToSample(noiseOffsetStart + pickOffset);
-  const int noiseEnd      = secToSample(noiseOffsetEnd + pickOffset);
-  const int signalStart   = secToSample(signalOffsetStart + pickOffset);
-  const int signalEnd     = secToSample(signalOffsetEnd + pickOffset);
-
-  if ((std::min({noiseStart, noiseEnd, signalStart, signalEnd}) < 0) ||
-      (std::max({noiseStart, noiseEnd, signalStart, signalEnd}) >= size))
-  {
-    logError(
-        "Cannot compute SNR: noise/signal windows exceed waveform boundaries");
-    return -1;
-  }
-
-  // get maximum (absolute) amplitude in noise window
-  double noiseMax = -1.0;
-  for (int i = noiseStart; i < noiseEnd; i++)
-  {
-    noiseMax = std::max(std::abs(data[i]), noiseMax);
-  }
-
-  // get maximum (absolute) amplitude in signal window
-  double signalMax = -1.0;
-  for (int i = signalStart; i < signalEnd; i++)
-  {
-    signalMax = std::max(std::abs(data[i]), signalMax);
-  }
-
-  return signalMax / noiseMax;
-}
-
-bool projectionRequired(const Core::TimeWindow &tw,
-                        const Catalog::Phase &ph,
-                        const Catalog::Event &ev,
-                        DataModel::ThreeComponents &tc,
-                        DataModel::SensorLocation *&loc)
-{
-  string channelCodeRoot = getBandAndInstrumentCodes(ph.channelCode);
-  string component       = getOrientationCode(ph.channelCode);
-
-  if (std::set<string>{"Z", "N", "E", "R", "T"}.count(component) == 0)
-  {
-    // unknown projection
-    return false;
-  }
-
-  loc = findSensorLocation(ph.networkCode, ph.stationCode, ph.locationCode,
-                           tw.startTime());
-
-  if (loc)
-  {
-    bool hasThreeComponents =
-        getThreeComponents(tc, loc, channelCodeRoot.c_str(), tw.startTime());
-
-    if ((tc.comps[ThreeComponents::Vertical] &&
-         (tc.comps[ThreeComponents::Vertical]->code() == ph.channelCode)) ||
-        (tc.comps[ThreeComponents::FirstHorizontal] &&
-         (tc.comps[ThreeComponents::FirstHorizontal]->code() ==
-          ph.channelCode)) ||
-        (tc.comps[ThreeComponents::SecondHorizontal] &&
-         (tc.comps[ThreeComponents::SecondHorizontal]->code() ==
-          ph.channelCode)))
-    {
-      return false;
-    }
-
-    return hasThreeComponents;
-  }
-
-  logDebug("Unable to fetch orientation information (%s)", string(ph).c_str());
-  return false;
-}
-
-GenericRecordPtr projectWaveform(const Core::TimeWindow &tw,
-                                 const Catalog::Phase &ph,
-                                 const Catalog::Event &ev,
-                                 double tolerance,
-                                 double minAvailability,
-                                 const GenericRecordCPtr &tr1,
-                                 const GenericRecordCPtr &tr2,
-                                 const GenericRecordCPtr &tr3,
-                                 const DataModel::ThreeComponents &tc,
-                                 const DataModel::SensorLocation *loc)
-{
-  if (!tr1 || !tr2 || !tr3)
-  {
-    throw Exception("Cannot perform projection without all 3 components data");
-  }
-
-  string channelCodeRoot = getBandAndInstrumentCodes(ph.channelCode);
-  string component       = getOrientationCode(ph.channelCode);
-
-  // orientation ZNE
-  Math::Matrix3d orientationZNE;
-  Math::Vector3d n;
-  n.fromAngles(+degToRad(tc.comps[ThreeComponents::Vertical]->azimuth()),
-               -degToRad(tc.comps[ThreeComponents::Vertical]->dip()))
-      .normalize();
-  orientationZNE.setColumn(2, n);
-  n.fromAngles(+degToRad(tc.comps[ThreeComponents::FirstHorizontal]->azimuth()),
-               -degToRad(tc.comps[ThreeComponents::FirstHorizontal]->dip()))
-      .normalize();
-  orientationZNE.setColumn(1, n);
-  n.fromAngles(
-       +degToRad(tc.comps[ThreeComponents::SecondHorizontal]->azimuth()),
-       -degToRad(tc.comps[ThreeComponents::SecondHorizontal]->dip()))
-      .normalize();
-  orientationZNE.setColumn(0, n);
-
-  // orientation ZRT
-  Math::Matrix3d orientationZRT;
-  double delta, az, baz;
-  Math::Geo::delazi(ev.latitude, ev.longitude, loc->latitude(),
-                    loc->longitude(), &delta, &az, &baz);
-  orientationZRT.loadRotateZ(degToRad(baz + 180.0));
-
-  // transformation matrix
-  Math::Matrix3d transformation;
-  map<string, string> chCodeMap;
-
-  if (component == "Z" || component == "N" || component == "E")
-  {
-    transformation = orientationZNE;
-    chCodeMap[channelCodeRoot + "Z"] =
-        tc.comps[ThreeComponents::Vertical]->code();
-    chCodeMap[channelCodeRoot + "N"] =
-        tc.comps[ThreeComponents::FirstHorizontal]->code();
-    chCodeMap[channelCodeRoot + "E"] =
-        tc.comps[ThreeComponents::SecondHorizontal]->code();
-
-    logDebug("Performing ZNE projection (channelCode %s -> %s) for %s",
-             chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(),
-             string(ph).c_str());
-  }
-  else if (component == "R" || component == "T")
-  {
-    transformation.mult(orientationZRT, orientationZNE);
-    // chCodeMap[channelCodeRoot + "Z"] =
-    // tc.comps[ThreeComponents::Vertical]->code();
-    chCodeMap[channelCodeRoot + "R"] =
-        tc.comps[ThreeComponents::FirstHorizontal]->code();
-    chCodeMap[channelCodeRoot + "T"] =
-        tc.comps[ThreeComponents::SecondHorizontal]->code();
-
-    logDebug("Performing ZRT projection (channelCode %s -> %s) for %s",
-             chCodeMap[ph.channelCode].c_str(), ph.channelCode.c_str(),
-             string(ph).c_str());
-  }
-  else
-  {
-    throw Exception("Internal logic error: This shouldn't happend.");
-  }
-
-  // The wrapper will direct 3 codes into the right slots using the
-  // Stream configuration class and will finally use the transformation
-  // operator. The advantage is that it will apply the configured gain.
-  typedef Operator::StreamConfigWrapper<double, 3, Operator::Transformation>
-      OpWrapper;
-
-  // Define the final operator class:
-  //  1. Send channel codes to right slots
-  //  2. Align 3 channels sample wise
-  //  3. Transform the resulting 3 component trace with a rotation matrix
-  typedef NCompsOperator<double, 3, OpWrapper> Rotator;
-
-  Processing::Stream streams[3];
-  streams[2].init(tc.comps[ThreeComponents::Vertical]);
-  streams[1].init(tc.comps[ThreeComponents::FirstHorizontal]);
-  streams[0].init(tc.comps[ThreeComponents::SecondHorizontal]);
-
-  // Set gain to 0 since we do not need the gain for cross-correlation
-  // and for consistency with rest of the API (e.g.
-  // readWaveformFromRecordStream).
-  streams[2].gain = 0;
-  streams[1].gain = 0;
-  streams[0].gain = 0;
-
-  Rotator op(
-      OpWrapper(streams, Operator::Transformation<double, 3>(transformation)));
-
-  class DataStorer
-  {
-  public:
-    DataStorer(const string &channelCode,
-               const Core::TimeWindow &tw_,
-               map<string, string> chCodeMap,
-               double tolerance_,
-               double minAvailability_)
-        : chMap(chCodeMap[channelCode], channelCode), tw(tw_),
-          tolerance(tolerance_), minAvailability(minAvailability_),
-          seq(tw, tolerance)
-    {}
-
-    bool store(const Record *rec)
-    {
-      lock_guard<mutex> lock(_mtx);
-      if (rec->channelCode() == chMap.first) seq.feed(rec);
-      return true;
-    }
-
-    GenericRecordPtr get()
-    {
-      lock_guard<mutex> lock(_mtx);
-      GenericRecordPtr trace =
-          contiguousRecord(seq, tw, tolerance, minAvailability);
-      if (trace) trace->setChannelCode(chMap.second);
-      return trace;
-    }
-
-  private:
-    const std::pair<string, string> chMap;
-    const Core::TimeWindow tw;
-    const double tolerance;
-    const double minAvailability;
-    TimeWindowBuffer seq;
-    std::mutex _mtx;
-  };
-
-  DataStorer projectedData(ph.channelCode, tw, chCodeMap, tolerance,
-                           minAvailability);
-
-  // configure callback (called after a transformed record was created)
-  op.setStoreFunc([&projectedData](const Record *rec) -> bool {
-    return projectedData.store(rec);
-  });
-  op.feed(tr1.get());
-  op.feed(tr2.get());
-  op.feed(tr3.get());
-
-  GenericRecordPtr trace = projectedData.get();
-  if (!trace)
-  {
-    string msg = strf("No enough data for projection (%s)", string(ph).c_str());
-    throw Exception(msg);
-  }
-  return trace;
-}
-
-GenericRecordCPtr Loader::get(const Core::TimeWindow &tw,
-                              const Catalog::Phase &ph,
-                              const Catalog::Event &ev)
-{
-  GenericRecordCPtr trace;
+  unique_ptr<Trace> trace;
 
   if (!_recordStreamURL.empty())
   {
-    DataModel::ThreeComponents tc;
-    DataModel::SensorLocation *loc;
-    bool projection = projectionRequired(tw, ph, ev, tc, loc);
-    if (!projection)
+    try
     {
-      try
-      {
-        trace = readWaveformFromRecordStream(
-            _recordStreamURL, tw, ph.networkCode, ph.stationCode,
-            ph.locationCode, ph.channelCode, _tolerance, _minAvailability);
-        _counters_wf_downloaded++;
-      }
-      catch (exception &e)
-      {
-        logDebug("%s", e.what());
-      }
+      trace = readWaveformFromRecordStream(
+          _recordStreamURL, tw, ph.networkCode, ph.stationCode, ph.locationCode,
+          ph.channelCode, _tolerance, _minAvailability);
     }
-    else
+    catch (exception &e)
     {
-      // If the waveform is not available, possibly a projection 123->ZNE
-      // or ZNE->ZRT is required.
-      auto loadWaveform = [this, &tw, &ph](const string &channelCode) {
-        GenericRecordCPtr trace = readWaveformFromRecordStream(
-            _recordStreamURL, tw, ph.networkCode, ph.stationCode,
-            ph.locationCode, channelCode, _tolerance, _minAvailability);
-        _counters_wf_downloaded++;
-        return trace;
-      };
-      try
-      {
-        GenericRecordCPtr tr1 =
-            loadWaveform(tc.comps[ThreeComponents::Vertical]->code());
-        GenericRecordCPtr tr2 =
-            loadWaveform(tc.comps[ThreeComponents::FirstHorizontal]->code());
-        GenericRecordCPtr tr3 =
-            loadWaveform(tc.comps[ThreeComponents::SecondHorizontal]->code());
-        trace = projectWaveform(tw, ph, ev, _tolerance, _minAvailability, tr1,
-                                tr2, tr3, tc, loc);
-      }
-      catch (exception &e)
-      {
-        logDebug("%s", e.what());
-      }
+      logDebug(
+          "Cannnot load trace (stream %s.%s.%s.%s from %s length %.2f sec): %s",
+          ph.networkCode.c_str(), ph.stationCode.c_str(),
+          ph.locationCode.c_str(), ph.channelCode.c_str(),
+          HDD::UTCClock::toString(tw.startTime()).c_str(),
+          durToSec(tw.length()), e.what());
     }
   }
 
-  if (!trace) _counters_wf_no_avail++;
+  if (!trace)
+    _counters_wf_no_avail++;
+  else
+    _counters_wf_downloaded++;
 
   return trace;
 }
 
-GenericRecordCPtr Loader::get(const Core::TimeWindow &tw,
-                              const Catalog::Phase &ph,
-                              const Catalog::Event &ev,
-                              bool demeaning,
-                              const std::string &filterStr,
-                              double resampleFreq)
+shared_ptr<const Trace> BatchLoader::get(const TimeWindow &tw,
+                                         const Catalog::Phase &ph)
 {
-  GenericRecordCPtr trace = get(tw, ph, ev);
-  if (trace) trace = process(trace, demeaning, filterStr, resampleFreq);
-  return trace;
-}
-
-GenericRecordPtr Loader::process(const GenericRecordCPtr &trace,
-                                 bool demeaning,
-                                 const std::string &filterStr,
-                                 double resampleFreq) const
-{
-  GenericRecordPtr nonConstTrace(new GenericRecord(*trace));
-  try
+  if (!_dataLoaded)
   {
-    filter(*nonConstTrace, demeaning, filterStr, resampleFreq);
-    return nonConstTrace;
-  }
-  catch (exception &e)
-  {
-    logWarning("Errow while filtering waveform: %s", e.what());
+    request(tw, ph);
     return nullptr;
-  }
-}
-
-GenericRecordCPtr DiskCachedLoader::get(const Core::TimeWindow &tw,
-                                        const Catalog::Phase &ph,
-                                        const Catalog::Event &ev)
-{
-  GenericRecordCPtr trace = getFromCache(tw, ph.networkCode, ph.stationCode,
-                                         ph.locationCode, ph.channelCode);
-  if (trace)
-  {
-    _counters_wf_cached++;
-    return trace;
-  }
-
-  DataModel::ThreeComponents tc;
-  DataModel::SensorLocation *loc;
-  bool projection = projectionRequired(tw, ph, ev, tc, loc);
-  if (!projection)
-  {
-    trace = _auxLdr->get(tw, ph, ev);
-    if (trace)
-    {
-      storeInCache(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                   ph.channelCode, trace);
-    }
-    return trace;
-  }
-
-  auto loadWaveform = [this, &tw, &ph, &ev](const string &channelCode) {
-    GenericRecordCPtr trace = getFromCache(tw, ph.networkCode, ph.stationCode,
-                                           ph.locationCode, channelCode);
-    if (trace)
-    {
-      _counters_wf_cached++;
-      return trace;
-    }
-    Catalog::Phase tmpPh = ph;
-    tmpPh.channelCode    = channelCode;
-    trace                = _auxLdr->get(tw, tmpPh, ev);
-    if (trace)
-    {
-      storeInCache(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                   channelCode, trace);
-    }
-    return trace;
-  };
-  GenericRecordCPtr tr1 =
-      loadWaveform(tc.comps[ThreeComponents::Vertical]->code());
-  GenericRecordCPtr tr2 =
-      loadWaveform(tc.comps[ThreeComponents::FirstHorizontal]->code());
-  GenericRecordCPtr tr3 =
-      loadWaveform(tc.comps[ThreeComponents::SecondHorizontal]->code());
-  try
-  {
-    trace = projectWaveform(tw, ph, ev, _tolerance, _minAvailability, tr1, tr2,
-                            tr3, tc, loc);
-  }
-  catch (exception &e)
-  {
-    logDebug("%s", e.what());
-  }
-  return trace;
-}
-
-bool DiskCachedLoader::isCached(const Core::TimeWindow &tw,
-                                const Catalog::Phase &ph,
-                                const Catalog::Event &ev) const
-{
-  const std::string cacheFile =
-      waveformPath(_cacheDir, tw, ph.networkCode, ph.stationCode,
-                   ph.locationCode, ph.channelCode);
-  return pathExists(cacheFile);
-}
-
-GenericRecordCPtr
-DiskCachedLoader::getFromCache(const Core::TimeWindow &tw,
-                               const std::string &networkCode,
-                               const std::string &stationCode,
-                               const std::string &locationCode,
-                               const std::string &channelCode)
-{
-  const std::string cacheFile = waveformPath(
-      _cacheDir, tw, networkCode, stationCode, locationCode, channelCode);
-  return readTrace(cacheFile);
-}
-
-void DiskCachedLoader::storeInCache(const Core::TimeWindow &tw,
-                                    const std::string &networkCode,
-                                    const std::string &stationCode,
-                                    const std::string &locationCode,
-                                    const std::string &channelCode,
-                                    const GenericRecordCPtr &trace)
-{
-  const std::string cacheFile = waveformPath(
-      _cacheDir, tw, networkCode, stationCode, locationCode, channelCode);
-  writeTrace(trace, cacheFile);
-}
-
-std::string DiskCachedLoader::waveformPath(const std::string &cacheDir,
-                                           const Core::TimeWindow &tw,
-                                           const std::string &networkCode,
-                                           const std::string &stationCode,
-                                           const std::string &locationCode,
-                                           const std::string &channelCode) const
-{
-  std::string cacheFile =
-      waveformId(tw, networkCode, stationCode, locationCode, channelCode) +
-      ".mseed";
-  return HDD::joinPath(cacheDir, cacheFile);
-}
-
-GenericRecordCPtr MemCachedLoader::get(const Core::TimeWindow &tw,
-                                       const Catalog::Phase &ph,
-                                       const Catalog::Event &ev,
-                                       bool demeaning,
-                                       const std::string &filterStr,
-                                       double resampleFreq)
-{
-  bool isCached;
-  GenericRecordCPtr trace = getFromCache(tw, ph.networkCode, ph.stationCode,
-                                         ph.locationCode, ph.channelCode);
-  if (trace)
-  {
-    isCached = true;
-    _counters_wf_cached++;
   }
   else
   {
-    isCached = false;
-    trace    = _auxLdr->get(tw, ph, ev, demeaning, filterStr, resampleFreq);
+    const string wfId = waveformId(tw, ph.networkCode, ph.stationCode,
+                                   ph.locationCode, ph.channelCode);
+    const auto it     = _waveforms.find(wfId);
+    return it != _waveforms.end() ? it->second : nullptr;
   }
+}
 
-  if (trace && !isCached)
+void BatchLoader::request(const TimeWindow &tw, const Catalog::Phase &ph)
+{
+  if (_dataLoaded)
   {
-    storeInCache(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                 ph.channelCode, trace);
+    throw Exception("Cannot request more traces after they have been loaded");
   }
-  return trace;
+
+  const string streamID = ph.networkCode + "." + ph.stationCode + "." +
+                          ph.locationCode + "." + ph.channelCode;
+  auto eqlrng = _request.equal_range(streamID);
+  for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+  {
+    if (it->second == tw) return; // skip duplicated requests
+  }
+  _request.emplace(streamID, tw);
 }
 
-bool MemCachedLoader::isCached(const Core::TimeWindow &tw,
-                               const Catalog::Phase &ph,
-                               const Catalog::Event &ev)
+void BatchLoader::load()
 {
-  const string wfId = waveformId(ph, tw);
-  const auto it     = _waveforms.find(wfId);
-  return it != _waveforms.end();
+  if (_dataLoaded) return;
+
+  unordered_multimap<string, const Core::TimeWindow> reqCopy;
+  unordered_multimap<string, TimeWindowBuffer> streamBuf;
+  for (const auto &kv : _request)
+  {
+    Core::TimeWindow tw_ = toSC(kv.second);
+    reqCopy.emplace(kv.first, tw_);
+    streamBuf.emplace(kv.first, TimeWindowBuffer(tw_, _tolerance));
+  }
+
+  IO::RecordStreamPtr rs;
+
+  //
+  // The reason of this loop is that RecordStream can only handle one single
+  // time window per stream
+  //
+  while (!reqCopy.empty())
+  {
+    rs = IO::RecordStream::Open(_recordStreamURL.c_str());
+    if (rs == nullptr)
+    {
+      logError("Cannot open RecordStream: %s", _recordStreamURL.c_str());
+      break;
+    }
+
+    //
+    // Convert multiple time windows requests close to each others to a
+    // single RecordStream request on the stream
+    //
+    for (auto it = reqCopy.begin(), end = reqCopy.end();
+         it != end;) // loop by stream
+    {
+      const string streamID = it->first;
+      Core::TimeWindow contiguousRequest;
+      auto eqlrng = reqCopy.equal_range(streamID);
+      for (auto it2 = eqlrng.first;
+           it2 != eqlrng.second;) // loop by stream windows
+      {
+        const Core::TimeWindow &tw = it2->second;
+        bool requested             = false;
+
+        if (it2 == eqlrng.first)
+        {
+          contiguousRequest = tw;
+          requested         = true;
+        }
+        else if (contiguousRequest.overlaps(tw))
+        {
+          contiguousRequest = contiguousRequest.merge(tw);
+          requested         = true;
+        }
+        else if (contiguousRequest.endTime() <= tw.startTime() &&
+                 contiguousRequest.contiguous(tw, 60))
+        {
+          contiguousRequest = contiguousRequest.merge(tw);
+          requested         = true;
+        }
+        else if (contiguousRequest.startTime() >= tw.endTime() &&
+                 tw.contiguous(contiguousRequest, 60))
+        {
+          contiguousRequest = contiguousRequest.merge(tw);
+          requested         = true;
+        }
+
+        if (requested)
+          it2 = reqCopy.erase(it2);
+        else
+          it2++;
+      }
+      static const std::regex dot("\\.", std::regex::optimize);
+      const vector<string> tokens(splitString(streamID, dot));
+      rs->addStream(tokens.at(0), tokens.at(1), tokens.at(2), tokens.at(3),
+                    contiguousRequest.startTime(), contiguousRequest.endTime());
+      it = eqlrng.second;
+    }
+
+    //
+    // Collect data records and feed them to the corresponding
+    // TimeWindowBuffer
+    //
+    IO::RecordInput inp(rs.get(), Array::DOUBLE, Record::DATA_ONLY);
+    RecordPtr rec;
+    while (rec = inp.next())
+    {
+      auto eqlrng = streamBuf.equal_range(rec->streamID());
+      for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+      {
+        TimeWindowBuffer &seq = it->second;
+        seq.feed(rec.get());
+      }
+    }
+    rs->close();
+  }
+
+  //
+  // Convert data records to contiguous waveforms
+  //
+  for (auto &kv : streamBuf)
+  {
+    const string &streamID = kv.first;
+    TimeWindowBuffer &seq  = kv.second;
+    const TimeWindow &tw   = fromSC(seq.timeWindowToStore());
+
+    shared_ptr<const Trace> trace = contiguousRecord(seq, tw, _minAvailability);
+    if (!trace)
+    {
+      logDebug("Cannnot load trace, data availability %.2f%%"
+               "(stream %s from %s length %.2f sec)",
+               seq.availability(), streamID.c_str(),
+               UTCClock::toString(tw.startTime()).c_str(), tw.length());
+      _counters_wf_no_avail++;
+      continue;
+    }
+    const string wfId =
+        waveformId(tw, trace->networkCode(), trace->stationCode(),
+                   trace->locationCode(), trace->channelCode());
+    _waveforms[wfId] = trace;
+    _counters_wf_downloaded++;
+  }
+
+  logInfo("Fetched %u/%lu waveforms, not available %u", _counters_wf_downloaded,
+          _request.size(), _counters_wf_no_avail);
+
+  _request.clear();
+  _dataLoaded = true;
 }
 
-GenericRecordCPtr MemCachedLoader::getFromCache(const Core::TimeWindow &tw,
-                                                const std::string &networkCode,
-                                                const std::string &stationCode,
-                                                const std::string &locationCode,
-                                                const std::string &channelCode)
+TimeWindow ExtraLenLoader::traceTimeWindowToLoad(const TimeWindow &neededTW,
+                                                 const UTCTime &pickTime) const
 {
-  const string wfId =
-      waveformId(tw, networkCode, stationCode, locationCode, channelCode);
-  const auto it = _waveforms.find(wfId);
-  return it != _waveforms.end() ? it->second : nullptr;
-}
-
-void MemCachedLoader::storeInCache(const Core::TimeWindow &tw,
-                                   const std::string &networkCode,
-                                   const std::string &stationCode,
-                                   const std::string &locationCode,
-                                   const std::string &channelCode,
-                                   const GenericRecordCPtr &trace)
-{
-  const string wfId =
-      waveformId(tw, networkCode, stationCode, locationCode, channelCode);
-  _waveforms[wfId] = trace;
-}
-
-Core::TimeWindow
-ExtraLenLoader::traceTimeWindowToLoad(const Core::TimeWindow &neededTW,
-                                      const Core::Time &pickTime) const
-{
-  Core::TimeWindow twToLoad = neededTW;
+  TimeWindow twToLoad = neededTW;
 
   // Make sure to load at least `_traceMinLenh` seconds of the waveform.
   if (_beforePickLen > 0 || _afterPickLen > 0)
   {
-    const Core::TimeSpan additionalTimeBefore(_beforePickLen);
-    const Core::TimeSpan additionalTimeAfter(_afterPickLen);
+    const UTCTime::duration additionalTimeBefore = secToDur(_beforePickLen);
+    const UTCTime::duration additionalTimeAfter  = secToDur(_afterPickLen);
 
     if (twToLoad.startTime() > pickTime - additionalTimeBefore)
       twToLoad.setStartTime(pickTime - additionalTimeBefore);
@@ -1078,24 +904,38 @@ ExtraLenLoader::traceTimeWindowToLoad(const Core::TimeWindow &neededTW,
       twToLoad.setEndTime(pickTime + additionalTimeAfter);
   }
 
+  //
   // round the start/end time to the nearest second
-  twToLoad.setStartTime(Core::Time(twToLoad.startTime().seconds(), 0));
-  twToLoad.setEndTime(twToLoad.endTime().microseconds() > 0
-                          ? Core::Time(twToLoad.endTime().seconds() + 1, 0)
-                          : Core::Time(twToLoad.endTime().seconds(), 0));
+  //
+  int year, month, day, hour, min, sec, usec;
+
+  UTCClock::toDate(twToLoad.startTime(), year, month, day, hour, min, sec,
+                   usec);
+  if (usec > 0)
+  {
+    twToLoad.setStartTime(
+        UTCClock::fromDate(year, month, day, hour, min, sec, 0));
+  }
+
+  UTCClock::toDate(twToLoad.endTime(), year, month, day, hour, min, sec, usec);
+  if (usec > 0)
+  {
+    twToLoad.setEndTime(
+        UTCClock::fromDate(year, month, day, hour, min, sec + 1, 0));
+  }
+
   return twToLoad;
 }
 
-GenericRecordCPtr ExtraLenLoader::get(const Core::TimeWindow &tw,
-                                      const Catalog::Phase &ph,
-                                      const Catalog::Event &ev)
+shared_ptr<const Trace> ExtraLenLoader::get(const TimeWindow &tw,
+                                            const Catalog::Phase &ph)
 {
-  const Core::TimeWindow twToLoad = traceTimeWindowToLoad(tw, ph.time);
-  GenericRecordCPtr trace         = _auxLdr->get(twToLoad, ph, ev);
+  const TimeWindow twToLoad     = traceTimeWindowToLoad(tw, ph.time);
+  shared_ptr<const Trace> trace = _auxLdr->get(twToLoad, ph);
   if (trace && twToLoad != tw)
   {
-    GenericRecordPtr nonConstTrace(new GenericRecord(*trace));
-    if (!trim(*nonConstTrace, tw))
+    shared_ptr<Trace> nonConstTrace(new Trace(*trace));
+    if (!nonConstTrace->slice(tw))
     {
       logDebug("Incomplete trace, not enough data (%s)", string(ph).c_str());
       return nullptr;
@@ -1105,62 +945,258 @@ GenericRecordCPtr ExtraLenLoader::get(const Core::TimeWindow &tw,
   return trace;
 }
 
-Core::TimeWindow
-SnrFilteredLoader::snrTimeWindow(const Core::Time &pickTime) const
+shared_ptr<const Trace> DiskCachedLoader::get(const TimeWindow &tw,
+                                              const Catalog::Phase &ph)
 {
-  Core::Time winStart = std::min({pickTime + Core::TimeSpan(_snr.noiseStart),
-                                  pickTime + Core::TimeSpan(_snr.signalStart)});
-  Core::Time winEnd   = std::max({pickTime + Core::TimeSpan(_snr.noiseEnd),
-                                pickTime + Core::TimeSpan(_snr.signalEnd)});
-  return Core::TimeWindow(winStart, winEnd);
+  bool isCached;
+  shared_ptr<const Trace> trace = getFromCache(
+      tw, ph.networkCode, ph.stationCode, ph.locationCode, ph.channelCode);
+  if (trace)
+  {
+    isCached = true;
+    _counters_wf_cached++;
+  }
+  else
+  {
+    isCached = false;
+    trace    = _auxLdr->get(tw, ph);
+  }
+
+  if (trace && !isCached)
+  {
+    storeInCache(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+                 ph.channelCode, *trace);
+  }
+  return trace;
 }
 
-bool SnrFilteredLoader::goodSnr(const GenericRecordCPtr &trace,
-                                const Core::Time &pickTime) const
+bool DiskCachedLoader::isCached(const TimeWindow &tw,
+                                const Catalog::Phase &ph,
+                                const Catalog::Event &ev) const
+{
+  const string cacheFile =
+      waveformPath(_cacheDir, tw, ph.networkCode, ph.stationCode,
+                   ph.locationCode, ph.channelCode);
+  return pathExists(cacheFile);
+}
+
+unique_ptr<Trace> DiskCachedLoader::getFromCache(const TimeWindow &tw,
+                                                 const string &networkCode,
+                                                 const string &stationCode,
+                                                 const string &locationCode,
+                                                 const string &channelCode)
+{
+  const string cacheFile = waveformPath(_cacheDir, tw, networkCode, stationCode,
+                                        locationCode, channelCode);
+  return readTrace(cacheFile);
+}
+
+void DiskCachedLoader::storeInCache(const TimeWindow &tw,
+                                    const string &networkCode,
+                                    const string &stationCode,
+                                    const string &locationCode,
+                                    const string &channelCode,
+                                    const Trace &trace)
+{
+  const string cacheFile = waveformPath(_cacheDir, tw, networkCode, stationCode,
+                                        locationCode, channelCode);
+  writeTrace(trace, cacheFile);
+}
+
+string DiskCachedLoader::waveformPath(const string &cacheDir,
+                                      const TimeWindow &tw,
+                                      const string &networkCode,
+                                      const string &stationCode,
+                                      const string &locationCode,
+                                      const string &channelCode) const
+{
+  string cacheFile =
+      waveformId(tw, networkCode, stationCode, locationCode, channelCode) +
+      ".mseed";
+  return joinPath(cacheDir, cacheFile);
+}
+
+shared_ptr<const Trace> BasicProcessor::get(const TimeWindow &tw,
+                                            const Catalog::Phase &ph,
+                                            const Catalog::Event &ev,
+                                            const Catalog::Station &sta,
+                                            const std::string &filterStr,
+                                            double resampleFreq,
+                                            Transform trans)
+{
+  auto loadWaveform = [this, &tw, &ph, &filterStr,
+                       resampleFreq](const string &channelCode) {
+    Catalog::Phase copy(ph);
+    copy.channelCode              = channelCode;
+    shared_ptr<const Trace> trace = _auxLdr->get(tw, copy);
+    if (trace) trace = process(*trace, filterStr, resampleFreq);
+    return trace;
+  };
+
+  shared_ptr<const Trace> trace;
+
+  if (trans == Transform::NONE)
+  {
+    trace = loadWaveform(ph.channelCode);
+  }
+  else
+  {
+    ThreeComponents comps;
+    if (getComponentsInfo(ph, comps, trans))
+    {
+      if (trans == Transform::TRANSVERSAL || trans == Transform::RADIAL)
+      {
+        shared_ptr<const Trace> trV(
+            loadWaveform(comps.names[ThreeComponents::Vertical]));
+        shared_ptr<const Trace> trH1(
+            loadWaveform(comps.names[ThreeComponents::FirstHorizontal]));
+        shared_ptr<const Trace> trH2(
+            loadWaveform(comps.names[ThreeComponents::SecondHorizontal]));
+        if (trH1 && trH2 && trV)
+          trace =
+              transformRT(tw, ph, ev, sta, comps, *trV, *trH1, *trH2, trans);
+      }
+      else if (trans == Transform::L2)
+      {
+        shared_ptr<const Trace> trH1(
+            loadWaveform(comps.names[ThreeComponents::FirstHorizontal]));
+        shared_ptr<const Trace> trH2(
+            loadWaveform(comps.names[ThreeComponents::SecondHorizontal]));
+        if (trH1 && trH2) trace = transformL2(tw, ph, comps, *trH1, *trH2);
+      }
+    }
+    if (!trace)
+    {
+      logDebug("Cannnot compute RT/L2 transformation of stream %s.%s.%s.%s "
+               "from %s length %.2f sec",
+               ph.networkCode.c_str(), ph.stationCode.c_str(),
+               ph.locationCode.c_str(),
+               getBandAndInstrumentCodes(ph.channelCode).c_str(),
+               HDD::UTCClock::toString(tw.startTime()).c_str(),
+               durToSec(tw.length()));
+    }
+  }
+
+  return trace;
+}
+
+std::shared_ptr<Trace> BasicProcessor::process(const Trace &trace,
+                                               const std::string &filterStr,
+                                               double resampleFreq) const
+{
+  shared_ptr<Trace> copy(new Trace(trace));
+  try
+  {
+    filter(*copy, true, filterStr, resampleFreq);
+  }
+  catch (exception &e)
+  {
+    logWarning("Errow while filtering waveform: %s", e.what());
+    copy.reset();
+  }
+  return copy;
+}
+
+shared_ptr<const Trace> MemCachedProc::get(const TimeWindow &tw,
+                                           const Catalog::Phase &ph,
+                                           const Catalog::Event &ev,
+                                           const Catalog::Station &sta,
+                                           const std::string &filterStr,
+                                           double resampleFreq,
+                                           Transform trans)
+{
+  const string wfId             = waveformId(tw, ph.networkCode, ph.stationCode,
+                                 ph.locationCode, ph.channelCode);
+  shared_ptr<const Trace> trace = getFromCache(wfId);
+  bool isCached;
+  if (trace)
+  {
+    isCached = true;
+  }
+  else
+  {
+    isCached = false;
+
+    // Check if we have already excluded the trace because we couldn't load it
+    // (-> save time).
+    if (_unloadables.find(wfId) == _unloadables.end())
+    {
+      trace = _auxPrc->get(tw, ph, ev, sta, filterStr, resampleFreq, trans);
+      if (!trace) _unloadables.insert(wfId);
+    }
+  }
+
+  if (trace && !isCached)
+  {
+    storeInCache(wfId, trace);
+  }
+  return trace;
+}
+
+bool MemCachedProc::isCached(const TimeWindow &tw,
+                             const Catalog::Phase &ph,
+                             const Catalog::Event &ev) const
+{
+  const string wfId = waveformId(ph, tw);
+  const auto it     = _waveforms.find(wfId);
+  return it != _waveforms.end();
+}
+
+shared_ptr<const Trace> MemCachedProc::getFromCache(const string &wfId)
+{
+  const auto it = _waveforms.find(wfId);
+  return it != _waveforms.end() ? it->second : nullptr;
+}
+
+void MemCachedProc::storeInCache(const string &wfId,
+                                 const shared_ptr<const Trace> &trace)
+{
+  _waveforms[wfId] = trace;
+}
+
+TimeWindow SnrFilterPrc::snrTimeWindow(const UTCTime &pickTime) const
+{
+  UTCTime winStart = std::min({pickTime + secToDur(_snr.noiseStart),
+                               pickTime + secToDur(_snr.signalStart)});
+  UTCTime winEnd   = std::max({pickTime + secToDur(_snr.noiseEnd),
+                             pickTime + secToDur(_snr.signalEnd)});
+  return TimeWindow(winStart, winEnd);
+}
+
+bool SnrFilterPrc::goodSnr(const Trace &trace, const UTCTime &pickTime) const
 {
   double snr = computeSnr(trace, pickTime, _snr.noiseStart, _snr.noiseEnd,
                           _snr.signalStart, _snr.signalEnd);
   return snr >= _snr.minSnr;
 }
 
-GenericRecordCPtr SnrFilteredLoader::get(const Core::TimeWindow &tw,
-                                         const Catalog::Phase &ph,
-                                         const Catalog::Event &ev,
-                                         bool demeaning,
-                                         const std::string &filterStr,
-                                         double resampleFreq)
+shared_ptr<const Trace> SnrFilterPrc::get(const TimeWindow &tw,
+                                          const Catalog::Phase &ph,
+                                          const Catalog::Event &ev,
+                                          const Catalog::Station &sta,
+                                          const std::string &filterStr,
+                                          double resampleFreq,
+                                          Transform trans)
 {
   const string wfId = waveformId(ph, tw);
 
-  // Check if we have already excluded the trace's SNR.
-  if (_snrExcludedWfs.count(wfId) != 0)
-  {
-    return nullptr;
-  }
-
-  const Core::TimeWindow twToLoad = tw | snrTimeWindow(ph.time);
-  GenericRecordCPtr trace =
-      _auxLdr->get(twToLoad, ph, ev, demeaning, filterStr, resampleFreq);
+  const TimeWindow twToLoad = snrTimeWindow(ph.time).merge(tw);
+  shared_ptr<const Trace> trace =
+      _auxPrc->get(twToLoad, ph, ev, sta, filterStr, resampleFreq, trans);
 
   if (!trace) return nullptr;
 
-  // Check if we have already validated the trace's SNR, if not do it now.
-  if (_snrGoodWfs.count(wfId) == 0)
+  if (!goodSnr(*trace, ph.time))
   {
-    if (!goodSnr(trace, ph.time))
-    {
-      _snrExcludedWfs.insert(wfId);
-      logDebug("Trace has too low SNR(%s)", string(ph).c_str());
-      _counters_wf_snr_low++;
-      return nullptr;
-    }
-    _snrGoodWfs.insert(wfId);
+    logDebug("Trace has too low SNR(%s)", string(ph).c_str());
+    _counters_wf_snr_low++;
+    return nullptr;
   }
 
   if (twToLoad != tw)
   {
-    GenericRecordPtr nonConstTrace(new GenericRecord(*trace));
-    if (!trim(*nonConstTrace, tw))
+    shared_ptr<Trace> nonConstTrace(new Trace(*trace));
+    if (!nonConstTrace->slice(tw))
     {
       logDebug("Error when checking SNR, cannot trim data (%s)",
                string(ph).c_str());
@@ -1170,231 +1206,6 @@ GenericRecordCPtr SnrFilteredLoader::get(const Core::TimeWindow &tw,
   }
 
   return trace;
-}
-
-BatchLoader::BatchLoader(const std::string &recordStream) : Loader(recordStream)
-{
-  _dataLoaded = false;
-}
-
-GenericRecordCPtr BatchLoader::get(const Core::TimeWindow &tw,
-                                   const Catalog::Phase &ph,
-                                   const Catalog::Event &ev)
-{
-  if (!_dataLoaded)
-  {
-    request(tw, ph, ev);
-    return nullptr;
-  }
-
-  DataModel::ThreeComponents tc;
-  DataModel::SensorLocation *loc;
-  bool projection = projectionRequired(tw, ph, ev, tc, loc);
-
-  GenericRecordCPtr trace;
-
-  auto getTrace = [this, &tw, &ph](const string &channelCode) {
-    const string wfId = waveformId(tw, ph.networkCode, ph.stationCode,
-                                   ph.locationCode, channelCode);
-    const auto it     = _waveforms.find(wfId);
-    return it != _waveforms.end() ? it->second : nullptr;
-  };
-
-  if (!projection)
-  {
-    trace = getTrace(ph.channelCode);
-  }
-  else
-  {
-    GenericRecordCPtr tr1 =
-        getTrace(tc.comps[ThreeComponents::Vertical]->code());
-    GenericRecordCPtr tr2 =
-        getTrace(tc.comps[ThreeComponents::FirstHorizontal]->code());
-    GenericRecordCPtr tr3 =
-        getTrace(tc.comps[ThreeComponents::SecondHorizontal]->code());
-    try
-    {
-      trace = projectWaveform(tw, ph, ev, _tolerance, _minAvailability, tr1,
-                              tr2, tr3, tc, loc);
-    }
-    catch (exception &e)
-    {
-      logDebug("%s", e.what());
-    }
-  }
-  return trace;
-}
-
-void BatchLoader::request(const Core::TimeWindow &tw,
-                          const Catalog::Phase &ph,
-                          const Catalog::Event &ev)
-{
-  if (_dataLoaded)
-  {
-    throw Exception("Cannot request more traces after they have been loaded");
-  }
-
-  DataModel::ThreeComponents tc;
-  DataModel::SensorLocation *loc;
-  bool projection = projectionRequired(tw, ph, ev, tc, loc);
-
-  auto requestTrace = [this, &tw, &ph](const string &channelCode) {
-    string streamID = ph.networkCode + "." + ph.stationCode + "." +
-                      ph.locationCode + "." + channelCode;
-    auto eqlrng = _streamMap.equal_range(streamID);
-    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-    {
-      pair<const Core::TimeWindow, TimeWindowBuffer> &pair = it->second;
-      if (pair.first == tw) return; // skip duplicated requests
-    }
-    pair<const Core::TimeWindow, TimeWindowBuffer> pair(
-        tw, TimeWindowBuffer(tw, _tolerance));
-    _streamMap.emplace(streamID, pair);
-  };
-
-  if (!projection)
-  {
-    requestTrace(ph.channelCode);
-  }
-  else
-  {
-    requestTrace(tc.comps[ThreeComponents::Vertical]->code());
-    requestTrace(tc.comps[ThreeComponents::FirstHorizontal]->code());
-    requestTrace(tc.comps[ThreeComponents::SecondHorizontal]->code());
-  }
-}
-
-void BatchLoader::load()
-{
-  if (_dataLoaded) return;
-
-  if (!_streamMap.empty())
-  {
-    std::unordered_multimap<std::string, const Core::TimeWindow> tmpMap;
-    for (const auto &kv : _streamMap)
-    {
-      const string &streamID                                     = kv.first;
-      const pair<const Core::TimeWindow, TimeWindowBuffer> &pair = kv.second;
-      tmpMap.emplace(streamID, pair.first);
-    }
-
-    //
-    // The reason of this loop is that RecordStream can only handle one single
-    // time window per stream
-    //
-    while (!tmpMap.empty())
-    {
-      _rs = IO::RecordStream::Open(_recordStreamURL.c_str());
-      if (_rs == nullptr)
-      {
-        logError("Cannot open RecordStream: %s", _recordStreamURL.c_str());
-        break;
-      }
-
-      //
-      // Convert multiple time windows requests close to each others to a
-      // single RecordStream request on the stream
-      //
-      for (auto it = tmpMap.begin(), end = tmpMap.end();
-           it != end;) // loop by stream
-      {
-        const string streamID = it->first;
-        Core::TimeWindow contiguousRequest;
-        auto eqlrng = tmpMap.equal_range(streamID);
-        for (auto it2 = eqlrng.first;
-             it2 != eqlrng.second;) // loop by stream windows
-        {
-          const Core::TimeWindow &tw = it2->second;
-          bool requested             = false;
-
-          if (it2 == eqlrng.first)
-          {
-            contiguousRequest = tw;
-            requested         = true;
-          }
-          else if (contiguousRequest.overlaps(tw))
-          {
-            contiguousRequest = contiguousRequest.merge(tw);
-            requested         = true;
-          }
-          else if (contiguousRequest.endTime() <= tw.startTime() &&
-                   contiguousRequest.contiguous(tw, 60))
-          {
-            contiguousRequest = contiguousRequest.merge(tw);
-            requested         = true;
-          }
-          else if (contiguousRequest.startTime() >= tw.endTime() &&
-                   tw.contiguous(contiguousRequest, 60))
-          {
-            contiguousRequest = contiguousRequest.merge(tw);
-            requested         = true;
-          }
-
-          if (requested)
-            it2 = tmpMap.erase(it2);
-          else
-            it2++;
-        }
-        static const std::regex dot("\\.", std::regex::optimize);
-        const std::vector<std::string> tokens(splitString(streamID, dot));
-        _rs->addStream(tokens.at(0), tokens.at(1), tokens.at(2), tokens.at(3),
-                       contiguousRequest.startTime(),
-                       contiguousRequest.endTime());
-        it = eqlrng.second;
-      }
-
-      //
-      // Collect data records and feed them to the corresponding
-      // TimeWindowBuffer
-      //
-      IO::RecordInput inp(_rs.get(), Array::DOUBLE, Record::DATA_ONLY);
-      RecordPtr rec;
-      while (rec = inp.next())
-      {
-        auto eqlrng = _streamMap.equal_range(rec->streamID());
-        for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-        {
-          pair<const Core::TimeWindow, TimeWindowBuffer> &pair = it->second;
-          TimeWindowBuffer &seq                                = pair.second;
-          seq.feed(rec.get());
-        }
-      }
-      _rs->close();
-    }
-
-    //
-    // Convert data records to contiguous waveforms
-    //
-    for (auto &kv : _streamMap)
-    {
-      const string &streamID                               = kv.first;
-      pair<const Core::TimeWindow, TimeWindowBuffer> &pair = kv.second;
-      const Core::TimeWindow &tw                           = pair.first;
-      TimeWindowBuffer &seq                                = pair.second;
-      GenericRecordPtr trace =
-          contiguousRecord(seq, tw, _tolerance, _minAvailability);
-      if (!trace)
-      {
-        logDebug("Cannnot load trace, data availability %.2f%%"
-                 "(stream %s from %s length %.2f sec)",
-                 seq.availability(), streamID.c_str(),
-                 tw.startTime().iso().c_str(), tw.length());
-        _counters_wf_no_avail++;
-        continue;
-      }
-      const string wfId =
-          waveformId(tw, trace->networkCode(), trace->stationCode(),
-                     trace->locationCode(), trace->channelCode());
-      _waveforms[wfId] = trace;
-      _counters_wf_downloaded++;
-    }
-    logInfo("Fetched %u/%lu waveforms, not available %u",
-            _counters_wf_downloaded, _streamMap.size(), _counters_wf_no_avail);
-    _streamMap.clear();
-  }
-
-  _dataLoaded = true;
-  _rs         = nullptr;
 }
 
 } // namespace Waveform

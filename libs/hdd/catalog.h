@@ -22,8 +22,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include <seiscomp3/core/datetime.h>
-using Seiscomp::Core::Time;
+#include "utctime.h"
 
 namespace HDD {
 
@@ -59,7 +58,7 @@ public:
   struct Event
   {
     unsigned id; // makes it unique in the catalog
-    Time time;
+    UTCTime time;
     double latitude;
     double longitude;
     double depth; // km
@@ -114,7 +113,7 @@ public:
   {
     unsigned eventId;
     std::string stationId;
-    Time time;
+    UTCTime time;
     double lowerUncertainty;
     double upperUncertainty;
     std::string type;
@@ -174,7 +173,7 @@ public:
     {
       return "\"Phase " + type + (isManual ? " (manual) " : " (auto) ") +
              networkCode + "." + stationCode + "." + locationCode + "." +
-             channelCode + " " + time.iso() + " evId " +
+             channelCode + " " + UTCClock::toString(time) + " evId " +
              std::to_string(eventId) + " staId " + stationId + "\"";
     }
   };

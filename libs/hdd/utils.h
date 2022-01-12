@@ -18,6 +18,7 @@
 #define __HDD_UTILS_H__
 
 #include "catalog.h"
+#include "timewindow.h"
 #include <cmath>
 #include <initializer_list>
 #include <random>
@@ -96,12 +97,6 @@ bool directoryEmpty(const std::string &path);
 bool createDirectories(const std::string &path);
 
 bool removePath(const std::string &path);
-
-Seiscomp::DataModel::SensorLocation *
-findSensorLocation(const std::string &networkCode,
-                   const std::string &stationCode,
-                   const std::string &locationCode,
-                   const Seiscomp::Core::Time &atTime);
 
 } // namespace HDD
 

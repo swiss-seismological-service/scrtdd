@@ -1,7 +1,7 @@
 SET(RTDD_TARGET scrtdd)
 
 SET(RTDD_SOURCES
-		app.cpp
+		hddutils.cpp
 		rtdd.cpp
 		main.cpp
 )

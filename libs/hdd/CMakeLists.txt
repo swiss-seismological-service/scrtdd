@@ -6,14 +6,16 @@ SET(HDD_SOURCES
 	${LSMR_LSQR_DIR}/lsqr.cpp
 	log.cpp
 	utils.cpp
-	solver.cpp
 	csvreader.cpp
+	utctime.cpp
 	catalog.cpp
-	waveform.cpp
 	clustering.cpp
 	ttt.cpp
 	scttt.cpp
 	nllttt.cpp
+	solver.cpp
+	xcorr.cpp
+	waveform.cpp
 	dd.cpp
 )
 
@@ -21,17 +23,21 @@ SET(HDD_HEADERS
 	ellipsoid.h
 	xcorrcache.h
 	random.h
+	index.h
+	trace.h
+	timewindow.h
 	log.h
 	utils.h
+	csvreader.h
+	utctime.h
+	catalog.h
 	clustering.h
-	index.h
-	solver.h
 	ttt.h
 	scttt.h
 	nllttt.h
+	solver.h
+	xcorr.h
 	waveform.h
-	csvreader.h
-	catalog.h
 	dd.h
 )
 

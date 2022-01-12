@@ -17,7 +17,6 @@
 #include "utils.h"
 #include "log.h"
 #include <boost/filesystem.hpp>
-#include <seiscomp3/client/inventory.h>
 #include <seiscomp3/math/geo.h>
 #include <stdarg.h>
 
@@ -49,7 +48,7 @@ std::string strf(const char *fmt, ...)
   if (r < 0)
   {
     va_end(params);
-    Logger::logError("strf error " + std::to_string(r) + ": aborting");
+    logError("strf error " + std::to_string(r) + ": aborting");
     return std::string();
   }
 
@@ -81,7 +80,7 @@ std::string strf(const char *fmt, ...)
 
   if (maxIterations < 0)
   {
-    Logger::logError(
+    logError(
         "strf failed after 10 iterations: buffer still not large enough: " +
         std::to_string(size) + " < " + std::to_string(requiredSize) +
         ": aborting");
@@ -273,34 +272,6 @@ double computeMeanAbsoluteDeviation(const std::vector<double> &values,
     absoluteDeviations[i] = std::abs(values[i] - mean);
   }
   return computeMean(absoluteDeviations);
-}
-
-Seiscomp::DataModel::SensorLocation *
-findSensorLocation(const std::string &networkCode,
-                   const std::string &stationCode,
-                   const std::string &locationCode,
-                   const Time &atTime)
-{
-  Seiscomp::DataModel::Inventory *inv =
-      Seiscomp::Client::Inventory::Instance()->inventory();
-  if (!inv)
-  {
-    logDebug("Inventory not available");
-    return nullptr;
-  }
-
-  Seiscomp::DataModel::InventoryError error;
-  Seiscomp::DataModel::SensorLocation *loc =
-      Seiscomp::DataModel::getSensorLocation(inv, networkCode, stationCode,
-                                             locationCode, atTime, &error);
-
-  if (!loc)
-  {
-    logDebug("Unable to fetch SensorLocation information (%s.%s.%s at %s): %s",
-             networkCode.c_str(), stationCode.c_str(), locationCode.c_str(),
-             atTime.iso().c_str(), error.toString());
-  }
-  return loc;
 }
 
 } // namespace HDD

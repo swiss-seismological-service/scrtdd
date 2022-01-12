@@ -158,7 +158,7 @@
                 <description>Maximum data windows lag accepted (secs)..</description>
               </parameter>
               <parameter name="components" type="list:string" default="Z">
-                <description>Priority list of components to be used in cross-correlation. If the component exists for a pair of phases and the cross-correlation has a coefficient above the configured threshold then the result is used,otherwise the next component in the list is tried.</description>
+                <description>Priority list of components to be used in cross-correlation. If the component exists for a pair of phases it is used for the cross-correlation, otherwise the next component in the list is tried. Special values are 'L', which computes the L2 norm of the 2 horizontal components and 'T', which computes the transversal component with respect with the event location to which the phase belongs to.</description>
               </parameter>
             </group>
             <group name="s-phase">
@@ -175,7 +175,7 @@
                 <description>Maximum data windows lag accepted (secs).</description>
               </parameter>
               <parameter name="components" type="list:string" default="T,Z">
-                <description>Priority list of components to be used in cross-correlation. If the component exists for a pair of phases and the cross-correlation has a coefficient above the configured threshold then the result is used,otherwise the next component in the list is tried.</description>
+                <description>Priority list of components to be used in cross-correlation. If the component exists for a pair of phases it is used for the cross-correlation, otherwise the next component in the list is tried. Special values are 'L', which computes the L2 norm of the 2 horizontal components and 'T', which computes the transversal component with respect with the event location to which the phase belongs to.</description>
               </parameter>
             </group>
             <group name="waveformFiltering">
@@ -328,9 +328,6 @@
         </option>
         <option long-flag="load-profile-wf" argument="profile">
           <description>Load catalog waveforms from the configured recordstream and save them into the profile working directory.</description>
-        </option>
-        <option long-flag="dump-config">
-          <description>Dump the configuration and exit</description>
         </option>
         <option long-flag="send-reload-profile-msg">
           <description>Send a message to any running scrtdd module requesting to reload a specific profile passed as argument.</description>

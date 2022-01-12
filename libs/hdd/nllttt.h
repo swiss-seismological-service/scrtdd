@@ -323,12 +323,17 @@ protected:
   std::function<double(double)> convertUnits; // velocity -> km/sec
 };
 
-class NllTravelTimeTable : public TravelTimeTable
+class TravelTimeTable : public HDD::TravelTimeTable
 {
 public:
-  NllTravelTimeTable(const std::string &type, const std::string &model);
+  TravelTimeTable(const std::string &velGridPath,
+                  const std::string &timeGridPath,
+                  const std::string &angleGridPath,
+                  bool swapBytes);
 
-  virtual ~NllTravelTimeTable() = default;
+  virtual ~TravelTimeTable() = default;
+
+  void freeResources() override;
 
   void compute(double eventLat,
                double eventLon,

@@ -4,11 +4,10 @@
 #include <boost/test/data/test_case.hpp>
 
 #include "catalog.h"
-#include "dd.h"
-#include "ttt.h"
-#include "random.h"
 #include "common.ipp"
-
+#include "dd.h"
+#include "random.h"
+#include "ttt.h"
 
 using namespace std;
 using namespace HDD;
@@ -22,7 +21,7 @@ namespace {
 void addStationsToCatalog(HDD::Catalog &cat,
                           double lat,
                           double lon,
-                          double distance)
+                          double distance = 20)
 {
   Station sta;
   double staLat, staLon;
@@ -50,7 +49,7 @@ void addStationsToCatalog(HDD::Catalog &cat,
   cat.addStation(sta);
   computeCoordinates(distance, 315, lat, lon, staLat, staLon);
   sta = {"NET.ST08", staLat, staLon, 80, "NET", "ST08", ""};
-  cat.addStation(sta); 
+  cat.addStation(sta);
 }
 
 void addNLLStationsToCatalog(HDD::Catalog &cat)
@@ -65,7 +64,7 @@ void addNLLStationsToCatalog(HDD::Catalog &cat)
 
 void addEventToCatalog(HDD::Catalog &cat,
                        HDD::TravelTimeTable &ttt,
-                       const Core::Time& time,
+                       const UTCTime &time,
                        double lat,
                        double lon,
                        double depth)
@@ -95,12 +94,12 @@ void addEventToCatalog(HDD::Catalog &cat,
 
     double travelTime;
     ttt.compute(ev, sta, "P", travelTime);
-    ph.time = ev.time + Core::TimeSpan(travelTime);
+    ph.time = ev.time + secToDur(travelTime);
     ph.type = "P";
     cat.addPhase(ph);
 
     ttt.compute(ev, sta, "S", travelTime);
-    ph.time = ev.time + Core::TimeSpan(travelTime);
+    ph.time = ev.time + secToDur(travelTime);
     ph.type = "S";
     cat.addPhase(ph);
   }
@@ -108,7 +107,7 @@ void addEventToCatalog(HDD::Catalog &cat,
 
 void addEvents1ToCatalog(HDD::Catalog &cat,
                          HDD::TravelTimeTable &ttt,
-                         const Core::Time& time,
+                         const UTCTime &time,
                          double lat,
                          double lon,
                          double depth,
@@ -122,14 +121,14 @@ void addEvents1ToCatalog(HDD::Catalog &cat,
   const double lonStep = (endLon - startLon) / (numEvents - 1);
   for (int evn = -(numEvents / 2); evn < std::ceil(numEvents / 2.0); evn++)
   {
-    addEventToCatalog(cat, ttt, time + Core::TimeSpan(evn * 61), lat,
+    addEventToCatalog(cat, ttt, time + secToDur(evn * 61), lat,
                       lon + evn * lonStep, depth);
   }
 }
 
 void addEvents2ToCatalog(HDD::Catalog &cat,
                          HDD::TravelTimeTable &ttt,
-                         const Core::Time &time,
+                         const UTCTime &time,
                          double lat,
                          double lon,
                          double depth,
@@ -143,14 +142,14 @@ void addEvents2ToCatalog(HDD::Catalog &cat,
   double latStep = (endLat - startLat) / (numEvents - 1);
   for (int evn = -(numEvents / 2); evn < std::ceil(numEvents / 2.0); evn++)
   {
-    addEventToCatalog(cat, ttt, time + Core::TimeSpan(evn * 122),
-                      lat + evn * latStep, lon, depth);
+    addEventToCatalog(cat, ttt, time + secToDur(evn * 122), lat + evn * latStep,
+                      lon, depth);
   }
 }
 
 void addEvents3ToCatalog(HDD::Catalog &cat,
                          HDD::TravelTimeTable &ttt,
-                         const Core::Time &time,
+                         const UTCTime &time,
                          double lat,
                          double lon,
                          double depth,
@@ -160,13 +159,13 @@ void addEvents3ToCatalog(HDD::Catalog &cat,
   double depthStep = extent / (numEvents - 1);
   for (int evn = -(numEvents / 2); evn < std::ceil(numEvents / 2.0); evn++)
   {
-    addEventToCatalog(cat, ttt, time + Core::TimeSpan(evn * 183), lat, lon,
+    addEventToCatalog(cat, ttt, time + secToDur(evn * 183), lat, lon,
                       depth + evn * depthStep);
   }
 }
 
 HDD::Catalog buildCatalog(HDD::TravelTimeTable &ttt,
-                          const Core::Time &time,
+                          const UTCTime &time,
                           double lat,
                           double lon,
                           double depth,
@@ -174,37 +173,33 @@ HDD::Catalog buildCatalog(HDD::TravelTimeTable &ttt,
                           double extent)
 {
   HDD::Catalog cat;
-
-  if (ttt.type == "NonLinLoc") addNLLStationsToCatalog(cat);
-  else addStationsToCatalog(cat, lat, lon, 20);
-
   double distance = extent * 2.5;
   double clusterLat, clusterLon;
   // cluster 1
   computeCoordinates(distance, 135, lat, lon, clusterLat, clusterLon);
-  addEvents1ToCatalog(cat, ttt, time + Core::TimeSpan(1), clusterLat,
-                      clusterLon, depth, numEvents / 6, extent);
+  addEvents1ToCatalog(cat, ttt, time + secToDur(1), clusterLat, clusterLon,
+                      depth, numEvents / 6, extent);
   // cluster 2
   computeCoordinates(distance, 315, lat, lon, clusterLat, clusterLon);
-  addEvents2ToCatalog(cat, ttt, time + Core::TimeSpan(2), clusterLat,
-                      clusterLon, depth, numEvents / 6, extent);
+  addEvents2ToCatalog(cat, ttt, time + secToDur(2), clusterLat, clusterLon,
+                      depth, numEvents / 6, extent);
   // cluster 3
   computeCoordinates(distance, 45, lat, lon, clusterLat, clusterLon);
-  addEvents3ToCatalog(cat, ttt, time + Core::TimeSpan(3), clusterLat,
-                      clusterLon, depth, numEvents / 6, extent);
+  addEvents3ToCatalog(cat, ttt, time + secToDur(3), clusterLat, clusterLon,
+                      depth, numEvents / 6, extent);
   // cluster 4
   computeCoordinates(distance, 225, lat, lon, clusterLat, clusterLon);
-  addEvents1ToCatalog(cat, ttt, time + Core::TimeSpan(4), clusterLat,
-                      clusterLon, depth, numEvents / 6, extent);
-  addEvents2ToCatalog(cat, ttt, time + Core::TimeSpan(4), clusterLat,
-                      clusterLon, depth, numEvents / 6, extent);
-  addEvents3ToCatalog(cat, ttt, time + Core::TimeSpan(4), clusterLat,
-                      clusterLon, depth, numEvents / 6, extent);
+  addEvents1ToCatalog(cat, ttt, time + secToDur(4), clusterLat, clusterLon,
+                      depth, numEvents / 6, extent);
+  addEvents2ToCatalog(cat, ttt, time + secToDur(4), clusterLat, clusterLon,
+                      depth, numEvents / 6, extent);
+  addEvents3ToCatalog(cat, ttt, time + secToDur(4), clusterLat, clusterLon,
+                      depth, numEvents / 6, extent);
   return cat;
 }
 
 HDD::Catalog buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
-                                    const Core::Time &time,
+                                    const UTCTime &time,
                                     double lat,
                                     double lon,
                                     double depth,
@@ -212,15 +207,11 @@ HDD::Catalog buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
                                     double extent)
 {
   HDD::Catalog cat;
-
-  if (ttt.type == "NonLinLoc") addNLLStationsToCatalog(cat);
-  else addStationsToCatalog(cat, lat, lon, 20);
-
-  addEvents1ToCatalog(cat, ttt, time + Core::TimeSpan(1), lat, lon, depth,
+  addEvents1ToCatalog(cat, ttt, time + secToDur(1), lat, lon, depth,
                       numEvents / 3, extent);
-  addEvents2ToCatalog(cat, ttt, time + Core::TimeSpan(2), lat, lon, depth,
+  addEvents2ToCatalog(cat, ttt, time + secToDur(2), lat, lon, depth,
                       numEvents / 3, extent);
-  addEvents3ToCatalog(cat, ttt, time + Core::TimeSpan(3), lat, lon, depth,
+  addEvents3ToCatalog(cat, ttt, time + secToDur(3), lat, lon, depth,
                       numEvents / 3, extent);
   return cat;
 }
@@ -229,17 +220,17 @@ void randomPerturbation(HDD::Catalog &cat)
 {
   // random changes to all events (mean of all changes is != 0)
   HDD::NormalRandomer timeDist(0.1, 0.4, 0x1004); // sec
-  HDD::NormalRandomer latDist(2.5, 2, 0x1001);// km
-  HDD::NormalRandomer lonDist(-1.5, 3., 0x1002);// km
+  HDD::NormalRandomer latDist(2.5, 2, 0x1001);    // km
+  HDD::NormalRandomer lonDist(-1.5, 3., 0x1002);  // km
   HDD::NormalRandomer depthDist(-0.9, 3, 0x1003); // km
   for (const auto &kv : cat.getEvents())
   {
     Event ev = kv.second;
-    ev.time += Core::TimeSpan(timeDist.next());
+    ev.time += secToDur(timeDist.next());
     computeCoordinates(latDist.next(), 180, ev.latitude, ev.longitude,
-        ev.latitude, ev.longitude);
+                       ev.latitude, ev.longitude);
     computeCoordinates(lonDist.next(), 90, ev.latitude, ev.longitude,
-        ev.latitude, ev.longitude);
+                       ev.latitude, ev.longitude);
     ev.depth += depthDist.next();
     if (ev.depth < 0) ev.depth = 0;
     cat.updateEvent(ev);
@@ -247,14 +238,12 @@ void randomPerturbation(HDD::Catalog &cat)
 }
 
 HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
-                                              HDD::TravelTimeTable &ttt,
-                                              const string &workingDir)
+                             unique_ptr<HDD::TravelTimeTable> ttt,
+                             const string &workingDir)
 {
   HDD::Config ddCfg;
-  ddCfg.ttt.type  = ttt.type;
-  ddCfg.ttt.model = ttt.model;
 
-  HDD::DD dd(cat, ddCfg, workingDir);
+  HDD::DD dd(cat, ddCfg, workingDir, std::move(ttt));
   dd.setSaveProcessing(false); // set to true for debugging
   dd.setUseCatalogWaveformDiskCache(false);
   dd.setWaveformCacheAll(false);
@@ -278,22 +267,19 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
   std::unique_ptr<HDD::Catalog> relocCat =
       dd.relocateMultiEvents(clusterCfg, solverCfg);
 
-  removePath(workingDir); // comment this for debugging 
+  removePath(workingDir); // comment this for debugging
 
   return *relocCat;
 }
 
-HDD::Catalog
-relocateSingleEvent(const HDD::Catalog &bgCat,
-                    HDD::TravelTimeTable &ttt,
-                    const string &workingDir,
-                    const HDD::Catalog &realTimeCat)
+HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
+                                 unique_ptr<HDD::TravelTimeTable> ttt,
+                                 const string &workingDir,
+                                 const HDD::Catalog &realTimeCat)
 {
   HDD::Config ddCfg;
-  ddCfg.ttt.type  = ttt.type;
-  ddCfg.ttt.model = ttt.model;
 
-  HDD::DD dd(bgCat, ddCfg, workingDir);
+  HDD::DD dd(bgCat, ddCfg, workingDir, std::move(ttt));
   dd.setSaveProcessing(false); // set to true for debugging
   dd.setUseCatalogWaveformDiskCache(false);
   dd.setWaveformCacheAll(false);
@@ -308,10 +294,10 @@ relocateSingleEvent(const HDD::Catalog &bgCat,
   clusterCfg.xcorrMaxInterEvDist = 0;
 
   HDD::SolverOptions solverCfg;
-  solverCfg.absLocConstraintStart        = 0.3;
-  solverCfg.absLocConstraintEnd          = 0.3;
-  solverCfg.dampingFactorStart           = 0.01;
-  solverCfg.dampingFactorEnd             = 0.01;
+  solverCfg.absLocConstraintStart = 0.3;
+  solverCfg.absLocConstraintEnd   = 0.3;
+  solverCfg.dampingFactorStart    = 0.01;
+  solverCfg.dampingFactorEnd      = 0.01;
 
   HDD::Catalog relocCat;
   for (const auto &kv : realTimeCat.getEvents())
@@ -324,7 +310,7 @@ relocateSingleEvent(const HDD::Catalog &bgCat,
     relocCat.add(*relocatedEvent, false);
   }
 
-  removePath(workingDir); // comment this for debugging 
+  removePath(workingDir); // comment this for debugging
 
   return relocCat;
 }
@@ -336,12 +322,12 @@ void testCatalogEqual(const HDD::Catalog &cat1, const HDD::Catalog &cat2)
     const Event &ev1 = kv.second;
     BOOST_REQUIRE_EQUAL(cat2.getEvents().count(ev1.id), 1);
     const Event &ev2 = cat2.getEvents().at(ev1.id);
-    BOOST_CHECK_SMALL((ev1.time - ev2.time).length(),
+    BOOST_CHECK_SMALL(durToSec((ev1.time - ev2.time)),
                       0.005); // tolerance 5 millisec
-    BOOST_CHECK_SMALL(computeDistance(ev1.latitude, ev1.longitude,
-                                      ev2.latitude, ev2.longitude),
-                      0.05); // tolerance 50 meter
-    BOOST_CHECK_SMALL(ev1.depth-ev2.depth, 0.5); // tolerance 0.5 km
+    BOOST_CHECK_SMALL(computeDistance(ev1.latitude, ev1.longitude, ev2.latitude,
+                                      ev2.longitude),
+                      0.05);                       // tolerance 50 meter
+    BOOST_CHECK_SMALL(ev1.depth - ev2.depth, 0.5); // tolerance 0.5 km
   }
 }
 
@@ -357,61 +343,75 @@ struct Centroid
 // varying depths
 const Centroid nllCentroid{47.0, 8.5, 5};
 
-const vector<Centroid> centroidList{
-  nllCentroid,  {0, 0, 5},
-  { 85, -90, 2},  {-85, 90, 3},
-  { 30, 179.99, 4},  { -60, -179.99, 6}
-};
+const vector<Centroid> centroidList{nllCentroid,     {0, 0, 5},
+                                    {85, -90, 2},    {-85, 90, 3},
+                                    {30, 179.99, 4}, {-60, -179.99, 6}};
 
 } // namespace
 
-BOOST_DATA_TEST_CASE(
-    test_dd_multi_event1,
-    bdata::xrange(centroidList.size()) * bdata::xrange(tttList.size()),
-    cIdx, tttIdx)
+BOOST_DATA_TEST_CASE(test_dd_multi_event1,
+                     bdata::xrange(centroidList.size()) *
+                         bdata::xrange(tttList.size()),
+                     cIdx,
+                     tttIdx)
 {
-  const Centroid &centroid = centroidList.at(cIdx);
-  unique_ptr<HDD::TravelTimeTable> ttt =
-      HDD::TravelTimeTable::create(tttList.at(tttIdx).type, tttList.at(tttIdx).model);
+  const Centroid &centroid             = centroidList.at(cIdx);
+  unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
-  if (ttt->type == "NonLinLoc" && 
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+  HDD::Catalog baseCat =
+      buildCatalog(*ttt, UTCClock::fromDate(2001, 1, 2, 0, 0, 0, 0),
+                   centroid.lat, centroid.lon, centroid.depth, 42, 3.0);
+
+  if (tttList.at(tttIdx).type == "NonLinLoc")
   {
-    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
-    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
-    return;
+    if (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon)
+    {
+      BOOST_TEST_MESSAGE(
+          "Skipping NonLinLoc test in a location without grid files");
+      BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check
+                         // any assertions"
+      return;
+    }
+    addNLLStationsToCatalog(baseCat);
   }
-
-  const HDD::Catalog baseCat = buildCatalog(
-      *ttt, Core::Time(2001, 1, 2, 0, 0, 0, 0),
-      centroid.lat, centroid.lon, centroid.depth, 42, 3.0);
+  else
+    addStationsToCatalog(baseCat, centroid.lat, centroid.lon);
 
   // Test no event changes, the relocation should not move the events
-  string workingDir = strf("./data/test_dd_multi_event1_%d_%d_reloc1", cIdx, tttIdx);
-  const HDD::Catalog relocCat = relocateCatalog(baseCat, *ttt, workingDir);
+  string workingDir =
+      strf("./data/test_dd_multi_event1_%d_%d_reloc1", cIdx, tttIdx);
+  const HDD::Catalog relocCat =
+      relocateCatalog(baseCat, std::move(ttt), workingDir);
   testCatalogEqual(baseCat, relocCat);
 }
 
-BOOST_DATA_TEST_CASE(
-    test_dd_multi_event2,
-    bdata::xrange(centroidList.size()) * bdata::xrange(tttList.size()),
-    cIdx, tttIdx)
+BOOST_DATA_TEST_CASE(test_dd_multi_event2,
+                     bdata::xrange(centroidList.size()) *
+                         bdata::xrange(tttList.size()),
+                     cIdx,
+                     tttIdx)
 {
-  const Centroid &centroid = centroidList.at(cIdx);
-  unique_ptr<HDD::TravelTimeTable> ttt =
-      HDD::TravelTimeTable::create(tttList.at(tttIdx).type, tttList.at(tttIdx).model);
+  const Centroid &centroid             = centroidList.at(cIdx);
+  unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
-  if (ttt->type == "NonLinLoc" && 
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+  HDD::Catalog baseCat =
+      buildCatalog(*ttt, UTCClock::fromDate(1914, 11, 23, 11, 34, 23, 1234),
+                   centroid.lat, centroid.lon, centroid.depth, 42, 1.5);
+
+  if (tttList.at(tttIdx).type == "NonLinLoc")
   {
-    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
-    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
-    return;
+    if (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon)
+    {
+      BOOST_TEST_MESSAGE(
+          "Skipping NonLinLoc test in a location without grid files");
+      BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check
+                         // any assertions"
+      return;
+    }
+    addNLLStationsToCatalog(baseCat);
   }
- 
-  const HDD::Catalog baseCat = buildCatalog(
-      *ttt, Core::Time(1914, 11, 23, 11, 34, 23, 1234),
-      centroid.lat, centroid.lon, centroid.depth, 42, 1.5);
+  else
+    addStationsToCatalog(baseCat, centroid.lat, centroid.lon);
 
   // Test 2: all events at centroid location, with random perturbation of time
   HDD::Catalog cat(baseCat);
@@ -419,99 +419,136 @@ BOOST_DATA_TEST_CASE(
   for (const auto &kv : cat.getEvents())
   {
     Event ev = kv.second;
-    ev.time += Core::TimeSpan(timeDist.next());
+    ev.time += secToDur(timeDist.next());
     ev.latitude  = centroid.lat;
     ev.longitude = centroid.lon;
     ev.depth     = centroid.depth;
     cat.updateEvent(ev);
   }
 
-  string workingDir = strf("./data/test_dd_multi_event2_%d_%d_reloc2", cIdx, tttIdx);
-  const HDD::Catalog relocCat = relocateCatalog(cat, *ttt, workingDir);
+  string workingDir =
+      strf("./data/test_dd_multi_event2_%d_%d_reloc2", cIdx, tttIdx);
+  const HDD::Catalog relocCat =
+      relocateCatalog(cat, std::move(ttt), workingDir);
   testCatalogEqual(baseCat, relocCat);
 }
 
-BOOST_DATA_TEST_CASE(
-    test_dd_multi_event3,
-    bdata::xrange(centroidList.size()) * bdata::xrange(tttList.size()),
-    cIdx, tttIdx)
+BOOST_DATA_TEST_CASE(test_dd_multi_event3,
+                     bdata::xrange(centroidList.size()) *
+                         bdata::xrange(tttList.size()),
+                     cIdx,
+                     tttIdx)
 {
-  const Centroid &centroid = centroidList.at(cIdx);
-  unique_ptr<HDD::TravelTimeTable> ttt =
-      HDD::TravelTimeTable::create(tttList.at(tttIdx).type, tttList.at(tttIdx).model);
+  const Centroid &centroid             = centroidList.at(cIdx);
+  unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
-  if (ttt->type == "NonLinLoc" && 
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+  HDD::Catalog baseCat =
+      buildCatalog(*ttt, UTCClock::fromDate(2041, 6, 14, 23, 46, 3, 65),
+                   centroid.lat, centroid.lon, centroid.depth, 42, 1.0);
+
+  if (tttList.at(tttIdx).type == "NonLinLoc")
   {
-    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
-    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
-    return;
+    if (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon)
+    {
+      BOOST_TEST_MESSAGE(
+          "Skipping NonLinLoc test in a location without grid files");
+      BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check
+                         // any assertions"
+      return;
+    }
+    addNLLStationsToCatalog(baseCat);
   }
- 
-  const HDD::Catalog baseCat = buildCatalog(
-      *ttt, Core::Time(2041, 6, 14, 23, 46, 3, 65),
-      centroid.lat, centroid.lon, centroid.depth, 42, 1.0);
+  else
+    addStationsToCatalog(baseCat, centroid.lat, centroid.lon);
 
   // Test 3: random changes to all events (mean of all changes is != 0)
   HDD::Catalog cat(baseCat);
   randomPerturbation(cat);
 
-  string workingDir    = strf("./data/test_dd_multi_event3_%d_%d_reloc3", cIdx, tttIdx);
-  const HDD::Catalog relocCat = relocateCatalog(cat, *ttt, workingDir);
+  string workingDir =
+      strf("./data/test_dd_multi_event3_%d_%d_reloc3", cIdx, tttIdx);
+  const HDD::Catalog relocCat =
+      relocateCatalog(cat, std::move(ttt), workingDir);
   testCatalogEqual(baseCat, relocCat);
 }
 
-BOOST_DATA_TEST_CASE(
-    test_dd_single_event1,
-    bdata::xrange(centroidList.size()) * bdata::xrange(tttList.size()),
-    cIdx, tttIdx)
+BOOST_DATA_TEST_CASE(test_dd_single_event1,
+                     bdata::xrange(centroidList.size()) *
+                         bdata::xrange(tttList.size()),
+                     cIdx,
+                     tttIdx)
 {
-  const Centroid &centroid = centroidList.at(cIdx);
-  unique_ptr<HDD::TravelTimeTable> ttt =
-      HDD::TravelTimeTable::create(tttList.at(tttIdx).type, tttList.at(tttIdx).model);
+  const Centroid &centroid             = centroidList.at(cIdx);
+  unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
-  if (ttt->type == "NonLinLoc" && 
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
-  {
-    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
-    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
-    return;
-  }
- 
-  const Core::Time clusterTime(1973, 12, 4, 14, 53, 32, 69854);
-  const HDD::Catalog backgroundCat = buildBackgroundCatalog(
+  const UTCTime clusterTime =
+      UTCClock::fromDate(1973, 12, 4, 14, 53, 32, 69854);
+  HDD::Catalog backgroundCat = buildBackgroundCatalog(
       *ttt, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 2.0);
-  const HDD::Catalog realTimeCat = buildCatalog(
+  HDD::Catalog realTimeCat = buildCatalog(
       *ttt, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 2.0);
 
+  if (tttList.at(tttIdx).type == "NonLinLoc")
+  {
+    if (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon)
+    {
+      BOOST_TEST_MESSAGE(
+          "Skipping NonLinLoc test in a location without grid files");
+      BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check
+                         // any assertions"
+      return;
+    }
+    addNLLStationsToCatalog(backgroundCat);
+    addNLLStationsToCatalog(realTimeCat);
+  }
+  else
+  {
+    addStationsToCatalog(backgroundCat, centroid.lat, centroid.lon);
+    addStationsToCatalog(realTimeCat, centroid.lat, centroid.lon);
+  }
+
   // Test 1: no event changes
-  string workingDir = strf("./data/test_dd_single_event1_%d_%d, reloc1", cIdx, tttIdx);
-  HDD::Catalog relocCat = relocateSingleEvent(backgroundCat, *ttt, workingDir, realTimeCat);
+  string workingDir =
+      strf("./data/test_dd_single_event1_%d_%d, reloc1", cIdx, tttIdx);
+  HDD::Catalog relocCat = relocateSingleEvent(backgroundCat, std::move(ttt),
+                                              workingDir, realTimeCat);
   testCatalogEqual(realTimeCat, relocCat);
 }
 
-BOOST_DATA_TEST_CASE(
-    test_dd_single_event2,
-    bdata::xrange(centroidList.size()) * bdata::xrange(tttList.size()),
-    cIdx, tttIdx)
+BOOST_DATA_TEST_CASE(test_dd_single_event2,
+                     bdata::xrange(centroidList.size()) *
+                         bdata::xrange(tttList.size()),
+                     cIdx,
+                     tttIdx)
 {
-  const Centroid &centroid = centroidList.at(cIdx);
-  unique_ptr<HDD::TravelTimeTable> ttt =
-      HDD::TravelTimeTable::create(tttList.at(tttIdx).type, tttList.at(tttIdx).model);
+  const Centroid &centroid             = centroidList.at(cIdx);
+  unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
-  if (ttt->type == "NonLinLoc" && 
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
-  {
-    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
-    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
-    return;
-  }
- 
-  const Core::Time clusterTime(1989, 7, 18, 23, 59, 59, 999999);
-  const HDD::Catalog backgroundCat = buildBackgroundCatalog(
+  const UTCTime clusterTime =
+      UTCClock::fromDate(1989, 7, 18, 23, 59, 59, 999999);
+  HDD::Catalog backgroundCat = buildBackgroundCatalog(
       *ttt, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 1.5);
-  const HDD::Catalog realTimeCat = buildCatalog(
+  HDD::Catalog realTimeCat = buildCatalog(
       *ttt, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.5);
+
+  if (tttList.at(tttIdx).type == "NonLinLoc")
+  {
+    if (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon)
+    {
+      BOOST_TEST_MESSAGE(
+          "Skipping NonLinLoc test in a location without grid files");
+      BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check
+                         // any assertions"
+      return;
+    }
+    addNLLStationsToCatalog(backgroundCat);
+    addNLLStationsToCatalog(realTimeCat);
+  }
+  else
+  {
+    addStationsToCatalog(backgroundCat, centroid.lat, centroid.lon);
+    addStationsToCatalog(realTimeCat, centroid.lat, centroid.lon);
+  }
 
   // Test 2: all events at centroid location, with random perturbation of time
   HDD::Catalog cat(realTimeCat);
@@ -519,46 +556,61 @@ BOOST_DATA_TEST_CASE(
   for (const auto &kv : cat.getEvents())
   {
     Event ev = kv.second;
-    ev.time += Core::TimeSpan(timeDist.next());
+    ev.time += secToDur(timeDist.next());
     ev.latitude  = centroid.lat;
     ev.longitude = centroid.lon;
     ev.depth     = centroid.depth;
     cat.updateEvent(ev);
   }
 
-  string workingDir = strf("./data/test_dd_single_event2_%d_%d_reloc2", cIdx, tttIdx);
-  const HDD::Catalog relocCat = relocateSingleEvent(backgroundCat, *ttt, workingDir, realTimeCat);
+  string workingDir =
+      strf("./data/test_dd_single_event2_%d_%d_reloc2", cIdx, tttIdx);
+  const HDD::Catalog relocCat = relocateSingleEvent(
+      backgroundCat, std::move(ttt), workingDir, realTimeCat);
   testCatalogEqual(realTimeCat, relocCat);
 }
 
-BOOST_DATA_TEST_CASE(
-    test_dd_single_event3,
-    bdata::xrange(centroidList.size()) * bdata::xrange(tttList.size()),
-    cIdx, tttIdx)
+BOOST_DATA_TEST_CASE(test_dd_single_event3,
+                     bdata::xrange(centroidList.size()) *
+                         bdata::xrange(tttList.size()),
+                     cIdx,
+                     tttIdx)
 {
-  const Centroid &centroid = centroidList.at(cIdx);
-  unique_ptr<HDD::TravelTimeTable> ttt =
-      HDD::TravelTimeTable::create(tttList.at(tttIdx).type, tttList.at(tttIdx).model);
+  const Centroid &centroid             = centroidList.at(cIdx);
+  unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
-  if (ttt->type == "NonLinLoc" && 
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
-  {
-    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
-    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
-    return;
-  }
-
-  const Core::Time clusterTime(2034, 4, 8, 3, 24, 54, 2354);
-  const HDD::Catalog backgroundCat = buildBackgroundCatalog(
+  const UTCTime clusterTime  = UTCClock::fromDate(2034, 4, 8, 3, 24, 54, 2354);
+  HDD::Catalog backgroundCat = buildBackgroundCatalog(
       *ttt, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 1.0);
-  const HDD::Catalog realTimeCat = buildCatalog(
+  HDD::Catalog realTimeCat = buildCatalog(
       *ttt, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.0);
+
+  if (tttList.at(tttIdx).type == "NonLinLoc")
+  {
+    if (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon)
+    {
+      BOOST_TEST_MESSAGE(
+          "Skipping NonLinLoc test in a location without grid files");
+      BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check
+                         // any assertions"
+      return;
+    }
+    addNLLStationsToCatalog(backgroundCat);
+    addNLLStationsToCatalog(realTimeCat);
+  }
+  else
+  {
+    addStationsToCatalog(backgroundCat, centroid.lat, centroid.lon);
+    addStationsToCatalog(realTimeCat, centroid.lat, centroid.lon);
+  }
 
   // Test 3: random changes to all events (mean of all changes is != 0)
   HDD::Catalog cat(realTimeCat);
   randomPerturbation(cat);
 
-  string workingDir = strf("./data/test_dd_single_event3_%d_%d_reloc3", cIdx, tttIdx);
-  const HDD::Catalog relocCat = relocateSingleEvent(backgroundCat, *ttt, workingDir, realTimeCat);
+  string workingDir =
+      strf("./data/test_dd_single_event3_%d_%d_reloc3", cIdx, tttIdx);
+  const HDD::Catalog relocCat = relocateSingleEvent(
+      backgroundCat, std::move(ttt), workingDir, realTimeCat);
   testCatalogEqual(realTimeCat, relocCat);
 }

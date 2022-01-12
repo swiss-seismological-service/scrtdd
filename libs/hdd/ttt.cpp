@@ -26,29 +26,6 @@ using namespace std;
 
 namespace HDD {
 
-std::unique_ptr<TravelTimeTable>
-TravelTimeTable::create(const std::string &type, const std::string &model)
-{
-  unique_ptr<TravelTimeTable> ttt;
-
-  if (type == "LOCSAT" || type == "libtau")
-  {
-    ttt.reset(new ScTravelTimeTable(type, model));
-  }
-  else if (type == "NonLinLoc")
-  {
-    ttt.reset(new NLL::NllTravelTimeTable(type, model));
-  }
-
-  if (!ttt)
-  {
-    string msg =
-        strf("Cannot load travel time table: unknown type %s", type.c_str());
-    throw Exception(msg.c_str());
-  }
-  return ttt;
-}
-
 void TravelTimeTable::computeApproximatedTakeOfAngles(
     double eventLat,
     double eventLon,

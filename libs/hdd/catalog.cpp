@@ -115,8 +115,7 @@ Catalog::Catalog(const string &stationFile,
   {
     Event ev;
     ev.id                    = std::stoul(row.at("id"));
-    ev.time                  = Time::FromString(row.at("isotime").c_str(),
-                               "%FT%T.%fZ"); // iso format
+    ev.time                  = UTCClock::fromString(row.at("isotime"));
     ev.latitude              = std::stod(row.at("latitude"));
     ev.longitude             = std::stod(row.at("longitude"));
     ev.depth                 = std::stod(row.at("depth"));
@@ -162,8 +161,7 @@ Catalog::Catalog(const string &stationFile,
   {
     Phase ph;
     ph.eventId          = std::stoul(row.at("eventId"));
-    ph.time             = Time::FromString(row.at("isotime").c_str(),
-                               "%FT%T.%fZ"); // iso format
+    ph.time             = UTCClock::fromString(row.at("isotime"));
     ph.lowerUncertainty = std::stod(row.at("lowerUncertainty"));
     ph.upperUncertainty = std::stod(row.at("upperUncertainty"));
     ph.type             = row.at("type");
@@ -441,8 +439,9 @@ void Catalog::writeToFile(string eventFile,
     const Catalog::Event &ev = kv.second;
 
     stringstream evStream;
-    evStream << strf("%u,%s,%.6f,%.6f,%.4f,%.2f", ev.id, ev.time.iso().c_str(),
-                     ev.latitude, ev.longitude, ev.depth, ev.magnitude);
+    evStream << strf("%u,%s,%.6f,%.6f,%.4f,%.2f", ev.id,
+                     UTCClock::toString(ev.time).c_str(), ev.latitude,
+                     ev.longitude, ev.depth, ev.magnitude);
 
     evStreamNoReloc << evStream.str() << endl;
     evStreamReloc << evStream.str();
@@ -494,11 +493,12 @@ void Catalog::writeToFile(string eventFile,
   for (const auto &kv : orderedPhases)
   {
     const Catalog::Phase &ph = kv.second;
-    phStream << strf(
-        "%u,%s,%.3f,%.3f,%s,%s,%s,%s,%s,%s", ph.eventId, ph.time.iso().c_str(),
-        ph.lowerUncertainty, ph.upperUncertainty, ph.type.c_str(),
-        ph.networkCode.c_str(), ph.stationCode.c_str(), ph.locationCode.c_str(),
-        ph.channelCode.c_str(), (ph.isManual ? "manual" : "automatic"));
+    phStream << strf("%u,%s,%.3f,%.3f,%s,%s,%s,%s,%s,%s", ph.eventId,
+                     UTCClock::toString(ph.time).c_str(), ph.lowerUncertainty,
+                     ph.upperUncertainty, ph.type.c_str(),
+                     ph.networkCode.c_str(), ph.stationCode.c_str(),
+                     ph.locationCode.c_str(), ph.channelCode.c_str(),
+                     (ph.isManual ? "manual" : "automatic"));
 
     if (relocInfo)
     {

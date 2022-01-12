@@ -38,10 +38,7 @@ void addStationsToCatalog(HDD::Catalog &cat,
   cat.addStation(sta);
 }
 
-void addEventToCatalog(HDD::Catalog &cat,
-                       double lat,
-                       double lon,
-                       double depth)
+void addEventToCatalog(HDD::Catalog &cat, double lat, double lon, double depth)
 {
   Event ev{0};
   ev.latitude            = lat;
@@ -66,7 +63,7 @@ void addEventToCatalog(HDD::Catalog &cat,
     ph.isManual         = true;
     cat.addPhase(ph);
 
-    ph.type             = "S";
+    ph.type = "S";
     cat.addPhase(ph);
   }
 }
@@ -81,22 +78,24 @@ void addNeighboursToCatalog(HDD::Catalog &cat,
 
     double neighbourLat, neighbourLon;
     computeCoordinates(distance, 45, event.latitude, event.longitude,
-                              neighbourLat, neighbourLon);
+                       neighbourLat, neighbourLon);
     addEventToCatalog(cat, neighbourLat, neighbourLon, depth);
     computeCoordinates(distance, 135, event.latitude, event.longitude,
-                              neighbourLat, neighbourLon);
+                       neighbourLat, neighbourLon);
     addEventToCatalog(cat, neighbourLat, neighbourLon, depth);
     computeCoordinates(distance, 225, event.latitude, event.longitude,
-                              neighbourLat, neighbourLon);
+                       neighbourLat, neighbourLon);
     addEventToCatalog(cat, neighbourLat, neighbourLon, depth);
     computeCoordinates(distance, 315, event.latitude, event.longitude,
-                              neighbourLat, neighbourLon);
+                       neighbourLat, neighbourLon);
     addEventToCatalog(cat, neighbourLat, neighbourLon, depth);
   }
 }
 
 std::unique_ptr<HDD::Catalog>
-buildCatalog(double lat, double lon, double depth,
+buildCatalog(double lat,
+             double lon,
+             double depth,
              double stationsDistance,
              const vector<double> &neighDist,
              const std::vector<std::string> &PphaseToKeep,
@@ -111,14 +110,14 @@ buildCatalog(double lat, double lon, double depth,
                                                  PphaseToKeep, SphaseToKeep);
 }
 
-void checkNeighbours(const HDD::Neighbours &neighbours, 
+void checkNeighbours(const HDD::Neighbours &neighbours,
                      const unordered_set<unsigned> &mustBePresentIds,
                      const unordered_set<string> &mustBePresentStations,
                      const unordered_set<Phase::Type> &mustBePresentPhases)
 {
   for (const unsigned id : mustBePresentIds)
-    for (const string& sta : mustBePresentStations)
-      for (const Phase::Type pht: mustBePresentPhases)
+    for (const string &sta : mustBePresentStations)
+      for (const Phase::Type pht : mustBePresentPhases)
         BOOST_CHECK(neighbours.has(id, sta, pht));
 }
 
@@ -130,12 +129,10 @@ struct Origin
 };
 
 const vector<Origin> orgList{
-  {0, 0, 1},       {45, 90, 3},      {45, -90, 3},
-  {-45, 90, 3},    {-45, -90, 3},    {20, 180, 8},
-  {-20, 180, 8},   {20, -180, 8},    {-20, -180, 8},
-  {30, 179.99, 5}, {-30, 179.99, 5}, {-30, -179.99, 5},
-  {30, -179.99, 5}
-};
+    {0, 0, 1},       {45, 90, 3},     {45, -90, 3},     {-45, 90, 3},
+    {-45, -90, 3},   {20, 180, 8},    {-20, 180, 8},    {20, -180, 8},
+    {-20, -180, 8},  {30, 179.99, 5}, {-30, 179.99, 5}, {-30, -179.99, 5},
+    {30, -179.99, 5}};
 
 } // namespace
 
@@ -143,7 +140,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
 {
   const Origin &org = orgList.at(orgIdx);
   unique_ptr<const HDD::Catalog> cat =
-      buildCatalog(org.lat, org.lon, org.depth, 50, {1}, {"P"}, {} );
+      buildCatalog(org.lat, org.lon, org.depth, 50, {1}, {"P"}, {});
 
   // cat->writeToFile(strf("test_clustering1-cat%d-event.csv",orgIdx),
   //                 strf("test_clustering1-cat%d-phase.csv",orgIdx),
@@ -273,8 +270,9 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
 
   BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
   BOOST_CHECK(neighbours->ids == neighbourIds);
-  checkNeighbours(*neighbours, neighbourIds, 
-       {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."}, {Phase::Type::P});
+  checkNeighbours(*neighbours, neighbourIds,
+                  {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
+                  {Phase::Type::P});
 
   // maxEllipsoidSize/numEllipsoids
   neighbours =
@@ -294,7 +292,8 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
   BOOST_CHECK(neighbours->ids == neighbourIds);
   checkNeighbours(*neighbours, neighbourIds,
-       {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."}, {Phase::Type::P});
+                  {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
+                  {Phase::Type::P});
 
   // maxEllipsoidSize/numEllipsoids
   neighbours =
@@ -313,8 +312,9 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
 
   BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
   BOOST_CHECK(neighbours->ids == neighbourIds);
-  checkNeighbours(*neighbours, neighbourIds, 
-       {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."}, {Phase::Type::P});
+  checkNeighbours(*neighbours, neighbourIds,
+                  {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
+                  {Phase::Type::P});
 
   // minEStoIEratio
   neighbours =
@@ -333,8 +333,9 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
 
   BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
   BOOST_CHECK(neighbours->ids == neighbourIds);
-  checkNeighbours(*neighbours, neighbourIds, 
-       {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."}, {Phase::Type::P});
+  checkNeighbours(*neighbours, neighbourIds,
+                  {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
+                  {Phase::Type::P});
 
   // maxNumNeigh
   neighbours =
@@ -389,8 +390,9 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
 
   BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
   BOOST_CHECK(neighbours->ids == neighbourIds);
-  checkNeighbours(*neighbours, neighbourIds, 
-       {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."}, {Phase::Type::P});
+  checkNeighbours(*neighbours, neighbourIds,
+                  {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
+                  {Phase::Type::P});
 
   // maxDTperEvt
   neighbours =
@@ -428,8 +430,8 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
 
   BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
   BOOST_CHECK(neighbours->ids == neighbourIds);
-  checkNeighbours(*neighbours, neighbourIds,
-      {"NET.ST01.", "NET.ST02."}, {Phase::Type::P});
+  checkNeighbours(*neighbours, neighbourIds, {"NET.ST01.", "NET.ST02."},
+                  {Phase::Type::P});
 }
 
 BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
@@ -467,8 +469,9 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
 
   BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
   BOOST_CHECK(neighbours->ids == neighbourIds);
-  checkNeighbours(*neighbours, neighbourIds, 
-       {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."}, {Phase::Type::S});
+  checkNeighbours(*neighbours, neighbourIds,
+                  {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
+                  {Phase::Type::S});
 
   // test multiple ellipsoids
   neighbours =
@@ -489,8 +492,9 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
 
   BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
   BOOST_CHECK(neighbours->ids == neighbourIds);
-  checkNeighbours(*neighbours, neighbourIds, 
-       {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."}, {Phase::Type::S});
+  checkNeighbours(*neighbours, neighbourIds,
+                  {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
+                  {Phase::Type::S});
 
   // test multiple ellipsoids
   neighbours =
@@ -511,8 +515,8 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
 
   BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
   BOOST_CHECK(neighbours->ids == neighbourIds);
-  checkNeighbours(*neighbours, neighbourIds,
-      {"NET.ST01.", "NET.ST02."}, {Phase::Type::S});
+  checkNeighbours(*neighbours, neighbourIds, {"NET.ST01.", "NET.ST02."},
+                  {Phase::Type::S});
 
   // test multiple ellipsoids
   neighbours =
@@ -533,60 +537,54 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
 
   BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
   BOOST_CHECK(neighbours->ids == neighbourIds);
-  checkNeighbours(*neighbours, neighbourIds, 
-       {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."}, {Phase::Type::S});
+  checkNeighbours(*neighbours, neighbourIds,
+                  {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
+                  {Phase::Type::S});
 }
 
 BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
 {
   const Origin &org = orgList.at(orgIdx);
   unique_ptr<const HDD::Catalog> cat =
-      buildCatalog(org.lat, org.lon, org.depth, 100, {7.5, 15}, {"P"}, {"S"} );
+      buildCatalog(org.lat, org.lon, org.depth, 100, {7.5, 15}, {"P"}, {"S"});
 
-  //cat->writeToFile(strf("test_clustering3-cat%d-event.csv",orgIdx),
+  // cat->writeToFile(strf("test_clustering3-cat%d-event.csv",orgIdx),
   //                 strf("test_clustering3-cat%d-phase.csv",orgIdx),
   //                 strf("test_clustering3-cat%d-station.csv",orgIdx));
 
   // find Neighbours for each event in the catalog
   unordered_map<unsigned, unique_ptr<HDD::Neighbours>> neighboursByEvent =
-      HDD::selectNeighbouringEventsCatalog(*cat,
-                                    0,  //  double minPhaseWeight
-                                    0,  //  double minESdis
-                                    -1, //  double maxESdis      -1 = no limits
-                                    0, //  double minEStoIEratio
-                                    1,  //  unsigned minDTperEvt
-                                    0,  //  unsigned maxDTperEvt  0 = no limits
-                                    1,  //  unsigned minNumNeigh
-                                    0,  //  unsigned maxNumNeigh   0 = no limits
-                                    0,  //  unsigned numEllipsoids
-                                    8,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+      HDD::selectNeighbouringEventsCatalog(
+          *cat,
+          0,      //  double minPhaseWeight
+          0,      //  double minESdis
+          -1,     //  double maxESdis      -1 = no limits
+          0,      //  double minEStoIEratio
+          1,      //  unsigned minDTperEvt
+          0,      //  unsigned maxDTperEvt  0 = no limits
+          1,      //  unsigned minNumNeigh
+          0,      //  unsigned maxNumNeigh   0 = no limits
+          0,      //  unsigned numEllipsoids
+          8,      //  double maxEllipsoidSize
+          false); //  bool keepUnmatched
 
   BOOST_REQUIRE(neighboursByEvent.size() == 9);
 
-  const unordered_map<unsigned, unordered_set<unsigned>> expectedNeighbours =
-  {
-    { 1, {2, 3, 4, 5} },
-    { 2, {1, 6} },
-    { 3, {1, 7} },
-    { 4, {1, 8} },
-    { 5, {1, 9} },
-    { 6, {2} },
-    { 7, {3} },
-    { 8, {4} },
-    { 9, {5} }
-  };
+  const unordered_map<unsigned, unordered_set<unsigned>> expectedNeighbours = {
+      {1, {2, 3, 4, 5}}, {2, {1, 6}}, {3, {1, 7}}, {4, {1, 8}}, {5, {1, 9}},
+      {6, {2}},          {7, {3}},    {8, {4}},    {9, {5}}};
 
-  for ( const auto & kv  : neighboursByEvent)
+  for (const auto &kv : neighboursByEvent)
   {
-    const unique_ptr<HDD::Neighbours>& neighbours = kv.second;
+    const unique_ptr<HDD::Neighbours> &neighbours = kv.second;
     BOOST_REQUIRE(neighbours->refEvId == kv.first);
     BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
-    const unordered_set<unsigned>& neighbourIds = expectedNeighbours.at(neighbours->refEvId);
+    const unordered_set<unsigned> &neighbourIds =
+        expectedNeighbours.at(neighbours->refEvId);
     BOOST_REQUIRE(neighbours->ids == neighbourIds);
     checkNeighbours(*neighbours, neighbourIds,
-         {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."},
-         {Phase::Type::P, Phase::Type::S});
+                    {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
+                    {Phase::Type::P, Phase::Type::S});
   }
 
   list<unordered_map<unsigned, unique_ptr<HDD::Neighbours>>> clusters =
@@ -594,81 +592,77 @@ BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
 
   BOOST_REQUIRE(clusters.size() == 1);
 
-  for ( const auto & cluster : clusters )
-    for ( const auto & kv : cluster )
-  {
-    const unique_ptr<HDD::Neighbours>& neighbours = kv.second;
-    BOOST_REQUIRE(neighbours->refEvId == kv.first);
-    BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
-    const unordered_set<unsigned>& neighbourIds = expectedNeighbours.at(neighbours->refEvId);
-    for (const unsigned neighId : neighbourIds)
-    { 
-      if (neighbours->ids.count(neighId) == 1) // is in our Neighbours
+  for (const auto &cluster : clusters)
+    for (const auto &kv : cluster)
+    {
+      const unique_ptr<HDD::Neighbours> &neighbours = kv.second;
+      BOOST_REQUIRE(neighbours->refEvId == kv.first);
+      BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
+      const unordered_set<unsigned> &neighbourIds =
+          expectedNeighbours.at(neighbours->refEvId);
+      for (const unsigned neighId : neighbourIds)
       {
-        checkNeighbours(*neighbours, {neighId},
-             {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."},
-             {Phase::Type::P, Phase::Type::S});
-      }
-      else // must be in the other event's Neighbours
-      {
-        const unique_ptr<HDD::Neighbours>& otherNeighbours = cluster.at(neighId);
-        checkNeighbours(*otherNeighbours, {neighbours->refEvId},
-             {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."},
-             {Phase::Type::P, Phase::Type::S}); 
+        if (neighbours->ids.count(neighId) == 1) // is in our Neighbours
+        {
+          checkNeighbours(*neighbours, {neighId},
+                          {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
+                          {Phase::Type::P, Phase::Type::S});
+        }
+        else // must be in the other event's Neighbours
+        {
+          const unique_ptr<HDD::Neighbours> &otherNeighbours =
+              cluster.at(neighId);
+          checkNeighbours(*otherNeighbours, {neighbours->refEvId},
+                          {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
+                          {Phase::Type::P, Phase::Type::S});
+        }
       }
     }
-  }
 }
 
 BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
 {
   const Origin &org = orgList.at(orgIdx);
   unique_ptr<const HDD::Catalog> cat =
-      buildCatalog(org.lat, org.lon, org.depth, 10, {3, 4}, {}, {"S"} );
+      buildCatalog(org.lat, org.lon, org.depth, 10, {3, 4}, {}, {"S"});
 
-  //cat->writeToFile(strf("test_clustering4-cat%d-event.csv",orgIdx),
+  // cat->writeToFile(strf("test_clustering4-cat%d-event.csv",orgIdx),
   //                 strf("test_clustering4-cat%d-phase.csv",orgIdx),
   //                 strf("test_clustering4-cat%d-station.csv",orgIdx));
 
   // find Neighbours for each event in the catalog
   unordered_map<unsigned, unique_ptr<HDD::Neighbours>> neighboursByEvent =
-      HDD::selectNeighbouringEventsCatalog(*cat,
-                                    0,  //  double minPhaseWeight
-                                    0,  //  double minESdis
-                                    -1, //  double maxESdis      -1 = no limits
-                                    0, //  double minEStoIEratio
-                                    1,  //  unsigned minDTperEvt
-                                    0,  //  unsigned maxDTperEvt  0 = no limits
-                                    1,  //  unsigned minNumNeigh
-                                    0,  //  unsigned maxNumNeigh   0 = no limits
-                                    0,  //  unsigned numEllipsoids
-                                    1.5,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+      HDD::selectNeighbouringEventsCatalog(
+          *cat,
+          0,      //  double minPhaseWeight
+          0,      //  double minESdis
+          -1,     //  double maxESdis      -1 = no limits
+          0,      //  double minEStoIEratio
+          1,      //  unsigned minDTperEvt
+          0,      //  unsigned maxDTperEvt  0 = no limits
+          1,      //  unsigned minNumNeigh
+          0,      //  unsigned maxNumNeigh   0 = no limits
+          0,      //  unsigned numEllipsoids
+          1.5,    //  double maxEllipsoidSize
+          false); //  bool keepUnmatched
 
   BOOST_REQUIRE(neighboursByEvent.size() == 8);
 
-  const unordered_map<unsigned, unordered_set<unsigned>> expectedNeighbours =
-  {
-    { 2, {6} },
-    { 3, {7} },
-    { 4, {8} },
-    { 5, {9} },
-    { 6, {2} },
-    { 7, {3} },
-    { 8, {4} },
-    { 9, {5} }
-  };
+  const unordered_map<unsigned, unordered_set<unsigned>> expectedNeighbours = {
+      {2, {6}}, {3, {7}}, {4, {8}}, {5, {9}},
+      {6, {2}}, {7, {3}}, {8, {4}}, {9, {5}}};
 
-  for ( const auto & kv  : neighboursByEvent)
+  for (const auto &kv : neighboursByEvent)
   {
-    const unique_ptr<HDD::Neighbours>& neighbours = kv.second;
+    const unique_ptr<HDD::Neighbours> &neighbours = kv.second;
     BOOST_REQUIRE(neighbours->refEvId == kv.first);
     BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
-    const unordered_set<unsigned>& neighbourIds = expectedNeighbours.at(neighbours->refEvId);
+    const unordered_set<unsigned> &neighbourIds =
+        expectedNeighbours.at(neighbours->refEvId);
     BOOST_REQUIRE(neighbours->ids == neighbourIds);
     checkNeighbours(*neighbours, neighbourIds,
-         {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."},
-         {Phase::Type::S});
+                    {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
+                    {Phase::Type::S});
   }
 
   list<unordered_map<unsigned, unique_ptr<HDD::Neighbours>>> clusters =
@@ -676,28 +670,30 @@ BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
 
   BOOST_REQUIRE(clusters.size() == 4);
 
-  for ( const auto & cluster : clusters )
-    for ( const auto & kv : cluster )
-  {
-    const unique_ptr<HDD::Neighbours>& neighbours = kv.second;
-    BOOST_REQUIRE(neighbours->refEvId == kv.first);
-    BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
-    const unordered_set<unsigned>& neighbourIds = expectedNeighbours.at(neighbours->refEvId);
-    for (const unsigned neighId : neighbourIds)
-    { 
-      if (neighbours->ids.count(neighId) == 1) // is in our Neighbours
+  for (const auto &cluster : clusters)
+    for (const auto &kv : cluster)
+    {
+      const unique_ptr<HDD::Neighbours> &neighbours = kv.second;
+      BOOST_REQUIRE(neighbours->refEvId == kv.first);
+      BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
+      const unordered_set<unsigned> &neighbourIds =
+          expectedNeighbours.at(neighbours->refEvId);
+      for (const unsigned neighId : neighbourIds)
       {
-        checkNeighbours(*neighbours, {neighId},
-             {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."},
-             {Phase::Type::S});
-      }
-      else // must be in the other event's Neighbours
-      {
-        const unique_ptr<HDD::Neighbours>& otherNeighbours = cluster.at(neighId);
-        checkNeighbours(*otherNeighbours, {neighbours->refEvId},
-             {"NET.ST01.", "NET.ST02.","NET.ST03.","NET.ST04."},
-             {Phase::Type::S}); 
+        if (neighbours->ids.count(neighId) == 1) // is in our Neighbours
+        {
+          checkNeighbours(*neighbours, {neighId},
+                          {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
+                          {Phase::Type::S});
+        }
+        else // must be in the other event's Neighbours
+        {
+          const unique_ptr<HDD::Neighbours> &otherNeighbours =
+              cluster.at(neighId);
+          checkNeighbours(*otherNeighbours, {neighbours->refEvId},
+                          {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
+                          {Phase::Type::S});
+        }
       }
     }
-  } 
 }

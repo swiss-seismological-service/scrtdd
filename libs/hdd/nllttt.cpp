@@ -131,35 +131,27 @@ TakeOffAngles interpolateCubeAngles(double xdiff,
 namespace HDD {
 namespace NLL {
 
-NllTravelTimeTable::NllTravelTimeTable(const std::string &type,
-                                       const std::string &model)
-    : TravelTimeTable(type, model)
+TravelTimeTable::TravelTimeTable(const std::string &velGridPath,
+                                 const std::string &timeGridPath,
+                                 const std::string &angleGridPath,
+                                 bool swapBytes)
+    : _velGridPath(velGridPath), _timeGridPath(timeGridPath),
+      _angleGridPath(angleGridPath), _swapBytes(swapBytes)
+{}
+
+void TravelTimeTable::freeResources()
 {
-  static const std::regex regex(";", std::regex::optimize);
-  std::vector<std::string> tokens(splitString(model, regex));
-  if (tokens.size() != 3 && tokens.size() != 4)
-  {
-    string msg =
-        strf("Error while initialzing NLL grids: invalid table model (%s)",
-             model.c_str());
-    throw Exception(msg.c_str());
-  }
-  _velGridPath   = tokens.at(0);
-  _timeGridPath  = tokens.at(1);
-  _angleGridPath = tokens.at(2);
-  _swapBytes     = false;
-  if (tokens.size() > 3 && tokens.at(3) == "swapBytes")
-  {
-    _swapBytes = true;
-  }
+  _velGrids.clear();
+  _timeGrids.clear();
+  _angleGrids.clear();
 }
 
-void NllTravelTimeTable::compute(double eventLat,
-                                 double eventLon,
-                                 double eventDepth,
-                                 const Catalog::Station &station,
-                                 const std::string &phaseType,
-                                 double &travelTime)
+void TravelTimeTable::compute(double eventLat,
+                              double eventLon,
+                              double eventDepth,
+                              const Catalog::Station &station,
+                              const std::string &phaseType,
+                              double &travelTime)
 {
   string timeGId =
       "timeGrid:" + Grid::filePath(_timeGridPath, station, phaseType);
@@ -190,15 +182,15 @@ void NllTravelTimeTable::compute(double eventLat,
   travelTime = timeIt->second->getTime(eventLat, eventLon, eventDepth);
 }
 
-void NllTravelTimeTable::compute(double eventLat,
-                                 double eventLon,
-                                 double eventDepth,
-                                 const Catalog::Station &station,
-                                 const std::string &phaseType,
-                                 double &travelTime,
-                                 double &takeOffAngleAzim,
-                                 double &takeOffAngleDip,
-                                 double &velocityAtSrc)
+void TravelTimeTable::compute(double eventLat,
+                              double eventLon,
+                              double eventDepth,
+                              const Catalog::Station &station,
+                              const std::string &phaseType,
+                              double &travelTime,
+                              double &takeOffAngleAzim,
+                              double &takeOffAngleDip,
+                              double &velocityAtSrc)
 {
   // get travelTime
   compute(eventLat, eventLon, eventDepth, station, phaseType, travelTime);
