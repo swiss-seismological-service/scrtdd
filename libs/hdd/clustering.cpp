@@ -385,8 +385,8 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
 
   // for each event find the neighbours
   Catalog validCatalog(catalog);
-  unordered_set<unsigned> todoEvents;
-  for (const auto &kv : validCatalog.getEvents()) todoEvents.insert(kv.first);
+  list<unsigned> todoEvents;
+  for (const auto &kv : validCatalog.getEvents()) todoEvents.push_back(kv.first);
 
   while (!todoEvents.empty())
   {
@@ -448,7 +448,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
         if (invalid)
         {
           removedEvents.insert(neighbours->refEvId);
-          todoEvents.insert(neighbours->refEvId);
+          todoEvents.push_back(neighbours->refEvId);
           redo = true;
           continue;
         }
@@ -477,6 +477,8 @@ clusterizeNeighbouringEvents(
   map<unsigned, vector<unique_ptr<Neighbours>>> clusters; // cluster id, cluster
   unordered_map<unsigned, unsigned> clusterIdByEvent; // event id, cluster id
 
+  logInfo("Searching for not connected clusters...");
+
   while (!neighboursByEvent.empty())
   {
     // keep track of event pairs found (useful to drop identical pairs)
@@ -494,8 +496,9 @@ clusterizeNeighbouringEvents(
       clusterEvs.erase(currentEv);
 
       // keep track of clusters connected to the current one
-      if (clusterIdByEvent.find(currentEv) != clusterIdByEvent.end())
-        connectedClusters.insert(clusterIdByEvent.at(currentEv));
+      const auto & clusterIdByEventIt =  clusterIdByEvent.find(currentEv);
+      if (clusterIdByEventIt != clusterIdByEvent.end())
+        connectedClusters.insert(clusterIdByEventIt->second);
 
       const auto &neighboursByEventIt = neighboursByEvent.find(currentEv);
 
@@ -528,17 +531,14 @@ clusterizeNeighbouringEvents(
       currentCluster.push_back(std::move(neighbours));
     }
 
-    if (!connectedClusters.empty())
+    // merge all connected clusters to the current one
+    for (unsigned clusterId : connectedClusters)
     {
-      // merge all connected clusters to the current one
-      for (unsigned clusterId : connectedClusters)
-      {
-        vector<unique_ptr<Neighbours>> &clstr = clusters.at(clusterId);
-        currentCluster.insert(currentCluster.end(),
-                              std::make_move_iterator(clstr.begin()),
-                              std::make_move_iterator(clstr.end()));
-        clusters.erase(clusterId);
-      }
+      vector<unique_ptr<Neighbours>> &clstr = clusters.at(clusterId);
+      currentCluster.insert(currentCluster.end(),
+                            std::make_move_iterator(clstr.begin()),
+                            std::make_move_iterator(clstr.end()));
+      clusters.erase(clusterId);
     }
 
     // save current cluster
@@ -548,7 +548,7 @@ clusterizeNeighbouringEvents(
     clusters.emplace(newClusterId, std::move(currentCluster));
 
     for (const unique_ptr<Neighbours> &n : clusters.at(newClusterId))
-      clusterIdByEvent.emplace(n->refEvId, newClusterId);
+      clusterIdByEvent[n->refEvId] = newClusterId;
   }
 
   list<unordered_map<unsigned, unique_ptr<Neighbours>>> returnClusters;
