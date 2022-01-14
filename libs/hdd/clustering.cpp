@@ -386,7 +386,8 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
   // for each event find the neighbours
   Catalog validCatalog(catalog);
   list<unsigned> todoEvents;
-  for (const auto &kv : validCatalog.getEvents()) todoEvents.push_back(kv.first);
+  for (const auto &kv : validCatalog.getEvents())
+    todoEvents.push_back(kv.first);
 
   while (!todoEvents.empty())
   {
@@ -413,13 +414,10 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
       {
         // event discarded because it doesn't satisfy requirements
         removedEvents.insert(event.id);
-        // next loop we don't want other events to pick this as neighbour
+        // we don't want other events to pick this as neighbour
         validCatalog.removeEvent(event.id);
-        // stop here because we dont' want to keep building potentially wrong
-        // neighbours
-        break;
+        continue;
       }
-
       // add newly computed neighbors catalogs to previous ones
       neighboursList.emplace(neighbours->refEvId, std::move(neighbours));
     }
@@ -430,12 +428,12 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
     do
     {
       redo = false;
-      unordered_map<unsigned, unique_ptr<Neighbours>> validNeighbourCats;
+      unordered_map<unsigned, unique_ptr<Neighbours>> validNeighbours;
 
       for (auto &kv : neighboursList)
       {
         unique_ptr<Neighbours> &neighbours = kv.second;
-        bool invalid                = false;
+        bool invalid                       = false;
         for (unsigned nbId : neighbours->ids)
         {
           if (removedEvents.count(nbId) != 0)
@@ -452,10 +450,10 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
           redo = true;
           continue;
         }
-        validNeighbourCats.emplace(neighbours->refEvId, std::move(neighbours));
+        validNeighbours.emplace(neighbours->refEvId, std::move(neighbours));
       }
 
-      neighboursList = std::move(validNeighbourCats);
+      neighboursList = std::move(validNeighbours);
 
     } while (redo);
   }
@@ -496,7 +494,7 @@ clusterizeNeighbouringEvents(
       clusterEvs.erase(currentEv);
 
       // keep track of clusters connected to the current one
-      const auto & clusterIdByEventIt =  clusterIdByEvent.find(currentEv);
+      const auto &clusterIdByEventIt = clusterIdByEvent.find(currentEv);
       if (clusterIdByEventIt != clusterIdByEvent.end())
         connectedClusters.insert(clusterIdByEventIt->second);
 
