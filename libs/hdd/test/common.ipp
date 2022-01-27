@@ -44,6 +44,20 @@ const std::vector<TTTParams> _tttList = {
 // tests. We check here what is available
 std::vector<TTTParams> getTTTList()
 {
+  auto directoryEmpty = [](const boost::filesystem::path &path)->bool
+  {
+    try
+    {
+      return ! boost::filesystem::exists(path) ||
+             (boost::filesystem::is_directory(path) &&
+              boost::filesystem::is_empty(path));
+    }
+    catch (...)
+    {
+      return false;
+    }
+  };
+
   std::vector<TTTParams> ttts;
   for (const auto &prms : _tttList)
   {
@@ -51,12 +65,14 @@ std::vector<TTTParams> getTTTList()
     {
       static const std::regex regex(";", std::regex::optimize);
       std::vector<std::string> tokens(Seiscomp::HDD::splitString(prms.model, regex));
+
       const boost::filesystem::path velGridPath   = tokens.at(0);
       const boost::filesystem::path timeGridPath  = tokens.at(1);
       const boost::filesystem::path angleGridPath = tokens.at(2);
-      if (!boost::filesystem::is_empty(velGridPath.parent_path())  ||
-          !boost::filesystem::is_empty(timeGridPath.parent_path()) ||
-          !boost::filesystem::is_empty(angleGridPath.parent_path()))
+
+      if (!directoryEmpty(velGridPath.parent_path())  ||
+          !directoryEmpty(timeGridPath.parent_path()) ||
+          !directoryEmpty(angleGridPath.parent_path()))
       {
         ttts.push_back(prms);
       }
