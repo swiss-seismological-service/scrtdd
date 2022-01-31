@@ -32,7 +32,11 @@ rtDD also supports [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) 
 
 rtDD acknowledges support from [Geothermica](http://www.geothermica.eu/)
 
-## Compile
+## Installation
+
+You can find compiled version of this module at https://data.gempa.de/packages/Public/. The installation file is a compressed tar archive containing the binary distribution of this module, which can be extracted in your SeisComP installation folder.
+
+## Compiling the code
 
 In order to use this module the sources have to be merged into the *SeisComP* sources, then *SeisComP* can be compiled as usual.
 
