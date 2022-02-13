@@ -19,7 +19,7 @@
         <description>Defines the directory used for storing processing files (waveforms cache and debugging files).</description>
       </parameter>
       <parameter name="saveProcessingFiles" type="boolean" default="false">
-        <description>Store advanced processing information files in the working directory (useful for debugging/troubleshooting).</description>
+        <description>Store logs and processing files in the working directory (useful for debugging/troubleshooting or further analysis).</description>
       </parameter>
       <parameter name="activeProfiles" type="list:string" default="">
         <description>Defines a list of active profiles for real-time/single-event processing.</description>
@@ -74,7 +74,7 @@
             </parameter>
           </group>
           <group name="doubleDifferenceSystem">
-            <description>These options control which events and phases will be used in the double-difference equation system. For each event pair, when a phase exists for both paired events at a common station an equation is added to the system.</description> 
+            <description>These options control which events and phases are used in the double-difference equation system. For each event pair, when a phase exists for both paired events at a common station an equation is added to the system.</description> 
             <group name="eventFiltering">
               <description>Control the selection of events to be used the DD system. These options allow the exclusion of poorly connected events (not enough phases and/or neighbours)</description>
               <parameter name="minNumPhases" type="int" default="4">
@@ -131,7 +131,7 @@
           </group>
 
           <group name="crossCorrelation">
-           <description>cross-correlation is used to improve the differential travel times used in the double-difference system. Each equation in the system has an observed differential time derived from the phases absolute travel times of the event pair in the equation. The cross-correlation is performed between the phases waveforms of the event pair and the resulting lag used as differential time, whether the correlation coefficient exceeds the configured threshold.</description> 
+           <description>cross-correlation is used to improve the differential travel times used in the double-difference system. The differential travel times are computed as difference between the phase absolute travel times of two events and consequently rely on the accuracy and consistency across pick times. The cross-correlation is used to improve those differential times by cross-correlating the phases waveforms and using the detected lag as differential timefor every phase pair whose correlation coefficient exceeds the configured threshold. This differential time then replaces the one derived from absolute travel time difference, no additional equation is added to the double-differece system. The phase pair with low correlation coefficient maintain the existing differential time (derived from absolute travel time difference). This step is computationally expensive and not mandatory. It can be disabled using either 'maxStationDistance' or 'maxInterEventDistance'</description> 
             <parameter name="maxStationDistance" type="double" default="85" unit="km">
               <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between event and station for a cross-correlation to happen. Phases belonging to further stations will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 skips all cross-correlations.</description> 
             </parameter>
@@ -188,9 +188,9 @@
               </parameter>
             </group>
             <group name="snr">
-              <description>Exclude phases from cross-correlation when the Signal to Noise Ratio (SNR) is below a configured threshold.</description>
+              <description>Exclude phases from cross-correlation when the Signal to Noise Ratio (SNR) is below a configured threshold. Useful to avoid that low quality phases (e.g. automatic) generate low quality cross-correlation differential travel times. Set 'minSnr' to 0 to disable this feature.</description>
               <parameter name="minSnr" type="double" default="2">
-                <description>Minimum SNR value required to use a pick in cross-correlation. If 'minSnr' is used, then the noise and signal windows must be defined too.</description>
+                <description>Minimum SNR value required for a pick to be used in cross-correlation.</description>
               </parameter>
               <parameter name="noiseStart" type="double" default="-3" unit="sec">
                 <description>Start of noise window with respect to pick time (+/- secs).</description>
