@@ -26,9 +26,10 @@ using Station = HDD::Catalog::Station;
 
 namespace HDD {
 
-unordered_map<string, set<Catalog::Phase::Type>> Neighbours::allPhases() const
+unordered_map<string, unordered_set<Catalog::Phase::Type>>
+Neighbours::allPhases() const
 {
-  unordered_map<string, set<Catalog::Phase::Type>> allPhases;
+  unordered_map<string, unordered_set<Catalog::Phase::Type>> allPhases;
   for (const auto &kw1 : phases)
     for (const auto &kw2 : kw1.second)
       allPhases[kw2.first].insert(kw2.second.begin(), kw2.second.end());
@@ -147,7 +148,7 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
   struct SelectedEventEntry
   {
     Event event;
-    unordered_map<string, set<Phase::Type>> phases;
+    unordered_map<string, unordered_set<Phase::Type>> phases;
   };
   multimap<double, SelectedEventEntry> selectedEvents; // distance, struct
   unordered_map<unsigned, int> dtCountByEvent;         // eventid, dtCount

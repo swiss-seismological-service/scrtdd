@@ -239,7 +239,7 @@ void DD::preloadWaveforms()
   logInfo(
       "Finished preloading catalog waveform data: total events %lu total "
       "phases %u (P %.f%%, S %.f%%). Waveforms downloaded %u, not available "
-      "%u, loaded from disk cache %u, Signal to Noise ratio too low %u",
+      "%u, loaded from disk cache %u. Waveforms with SNR too low %u",
       _bgCat.getEvents().size(), numPhases,
       ((numPhases - numSPhases) * 100. / numPhases),
       (numSPhases * 100. / numPhases), _counters.wf_downloaded,
@@ -1864,6 +1864,7 @@ void DD::printCounters() const
 {
   updateCounters();
 
+  unsigned skipped        = _counters.xcorr_skipped;
   unsigned performed      = _counters.xcorr_performed;
   unsigned performed_s    = _counters.xcorr_performed_s;
   unsigned performed_p    = performed - performed_s;
@@ -1877,24 +1878,22 @@ void DD::printCounters() const
   unsigned good_cc_s_theo = _counters.xcorr_good_cc_s_theo;
   unsigned good_cc_p_theo = good_cc_theo - good_cc_s_theo;
 
-  unsigned wf_snr_low     = _counters.wf_snr_low;
-  unsigned wf_no_avail    = _counters.wf_no_avail;
-  unsigned wf_disk_cached = _counters.wf_disk_cached;
-  unsigned wf_downloaded  = _counters.wf_downloaded;
+  logInfo("Waveforms downloaded %u, not available %u, loaded from disk cache "
+          "%u. Waveforms with SNR too low %u",
+          _counters.wf_downloaded, _counters.wf_no_avail,
+          _counters.wf_disk_cached, _counters.wf_snr_low);
 
-  logInfo("Cross-correlation performed %u, "
-          "phases with SNR ratio too low %u, "
-          "phases not available %u (waveforms downloaded %u, "
-          "waveforms loaded from disk cache %u)",
-          performed, wf_snr_low, wf_no_avail, wf_downloaded, wf_disk_cached);
-
-  logInfo("Total xcorr %u (P %.f%%, S %.f%%) success %.f%% (%u/%u). "
-          "Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
+  logInfo("Cross-correlation performed %u (P phase %.f%%, S phase %.f%%), "
+          "skipped %u (%.f%%)",
           performed, (performed_p * 100. / performed),
-          (performed_s * 100. / performed), (good_cc * 100. / performed),
-          good_cc, performed, (good_cc_p * 100. / performed_p), good_cc_p,
-          performed_p, (good_cc_s * 100. / performed_s), good_cc_s,
-          performed_s);
+          (performed_s * 100. / performed), skipped,
+          (skipped * 100. / (performed + skipped)));
+
+  logInfo("Cross-correlation success (coefficient above threshold) %.f%% "
+          "(%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
+          (good_cc * 100. / performed), good_cc, performed,
+          (good_cc_p * 100. / performed_p), good_cc_p, performed_p,
+          (good_cc_s * 100. / performed_s), good_cc_s, performed_s);
 
   if (perf_theo > 0)
   {
@@ -1955,6 +1954,7 @@ bool DD::xcorrPhases(const Event &event1,
     logError("Internal logic error: trying to cross-correlate mismatching "
              "phases (%s and %s)",
              string(phase1).c_str(), string(phase2).c_str());
+    _counters.xcorr_skipped++;
     return false;
   }
 
@@ -1969,47 +1969,42 @@ bool DD::xcorrPhases(const Event &event1,
   const string channelCodeRoot1 = getBandAndInstrumentCodes(phase1.channelCode);
   const string channelCodeRoot2 = getBandAndInstrumentCodes(phase2.channelCode);
 
-  string commonChRoot;
-
-  if (channelCodeRoot1 == channelCodeRoot2)
+  if (channelCodeRoot1 != channelCodeRoot2)
   {
-    commonChRoot = channelCodeRoot1;
-  }
-  else if (phase1.procInfo.source == Phase::Source::CATALOG &&
-           phase2.procInfo.source != Phase::Source::CATALOG)
-  {
-    DataModel::ThreeComponents dummy;
-    DataModel::SensorLocation *loc2 =
-        findSensorLocation(phase2.networkCode, phase2.stationCode,
-                           phase2.locationCode, phase2.time);
-    if (loc2 &&
-        getThreeComponents(dummy, loc2, channelCodeRoot1.c_str(), phase2.time))
+    bool channelsAreCompatible = false;
+    const auto &it = _cfg.channelCompatibility.find(channelCodeRoot1);
+    if (it != _cfg.channelCompatibility.end())
     {
-      // phase 2 has the same channels as phase 1
-      commonChRoot = channelCodeRoot1;
+      const unordered_set<string> &compatibleChannels = it->second;
+      if (compatibleChannels.find(channelCodeRoot2) != compatibleChannels.end())
+      {
+        channelsAreCompatible = true;
+      }
     }
-  }
-  else if (phase1.procInfo.source != Phase::Source::CATALOG &&
-           phase2.procInfo.source == Phase::Source::CATALOG)
-  {
-    DataModel::ThreeComponents dummy;
-    DataModel::SensorLocation *loc1 =
-        findSensorLocation(phase1.networkCode, phase1.stationCode,
-                           phase1.locationCode, phase1.time);
-    if (loc1 &&
-        getThreeComponents(dummy, loc1, channelCodeRoot2.c_str(), phase1.time))
-    {
-      // phase 1 has the same channels as phase 2
-      commonChRoot = channelCodeRoot2;
-    }
-  }
 
-  if (commonChRoot.empty())
-  {
-    logDebug(
-        "Cannot find common channels to cross-correlate %s and %s (%s and %s)",
-        channelCodeRoot1.c_str(), channelCodeRoot2.c_str(),
-        string(phase1).c_str(), string(phase2).c_str());
+    if (!channelsAreCompatible)
+    {
+      const auto &it = _cfg.channelCompatibility.find(channelCodeRoot2);
+      if (it != _cfg.channelCompatibility.end())
+      {
+        const unordered_set<string> &compatibleChannels = it->second;
+        if (compatibleChannels.find(channelCodeRoot1) !=
+            compatibleChannels.end())
+        {
+          channelsAreCompatible = true;
+        }
+      }
+    }
+
+    if (!channelsAreCompatible)
+    {
+      logDebug("Skipping cross-correlation: incompatible channels %s and %s "
+               "(%s and %s)",
+               channelCodeRoot1.c_str(), channelCodeRoot2.c_str(),
+               string(phase1).c_str(), string(phase2).c_str());
+      _counters.xcorr_skipped++;
+      return false;
+    }
   }
 
   //
@@ -2021,17 +2016,8 @@ bool DD::xcorrPhases(const Event &event1,
     Phase tmpPh1 = phase1;
     Phase tmpPh2 = phase2;
 
-    // overwrite phases' component for the cross-correlation
-    if (commonChRoot.empty())
-    {
-      tmpPh1.channelCode = channelCodeRoot1 + component;
-      tmpPh2.channelCode = channelCodeRoot2 + component;
-    }
-    else
-    {
-      tmpPh1.channelCode = commonChRoot + component;
-      tmpPh2.channelCode = commonChRoot + component;
-    }
+    tmpPh1.channelCode = channelCodeRoot1 + component;
+    tmpPh2.channelCode = channelCodeRoot2 + component;
 
     performed = _xcorrPhases(event1, tmpPh1, ph1Cache, event2, tmpPh2, ph2Cache,
                              coeffOut, lagOut);
@@ -2078,6 +2064,8 @@ bool DD::xcorrPhases(const Event &event1,
       }
     }
   }
+  else
+    _counters.xcorr_skipped++;
 
   return goodCoeff;
 }

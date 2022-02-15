@@ -36,6 +36,10 @@ struct Config
   std::vector<std::string> validPphases = {"Pg", "P", "Px"};
   std::vector<std::string> validSphases = {"Sg", "S", "Sx"};
 
+  std::unordered_map<std::string, // key = channel code
+                     std::unordered_set<std::string>>
+      channelCompatibility;
+
   std::string recordStreamURL; // where to fetch waveforms from
 
   struct XCorr
@@ -366,6 +370,7 @@ private:
 
   struct
   {
+    unsigned xcorr_skipped;
     unsigned xcorr_performed;
     unsigned xcorr_performed_theo;
     unsigned xcorr_performed_s;

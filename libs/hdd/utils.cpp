@@ -130,7 +130,7 @@ bool directoryEmpty(const std::string &path)
 {
   try
   {
-    return ! boost::filesystem::exists(path) ||
+    return !boost::filesystem::exists(path) ||
            (fs::is_directory(path) && fs::is_empty(path));
   }
   catch (exception &e)

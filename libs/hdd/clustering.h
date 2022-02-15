@@ -29,10 +29,11 @@ namespace HDD {
 struct Neighbours
 {
   unsigned refEvId;
-  std::unordered_set<unsigned> ids;                  // neighbouring event id
-  std::unordered_map<unsigned,                       // indexed by event id
-                     std::unordered_map<std::string, // indexed by station id
-                                        std::set<Catalog::Phase::Type>>>
+  std::unordered_set<unsigned> ids; // neighbouring event id
+  std::unordered_map<
+      unsigned,                       // indexed by event id
+      std::unordered_map<std::string, // indexed by station id
+                         std::unordered_set<Catalog::Phase::Type>>>
       phases;
 
   void add(unsigned neighbourId,
@@ -71,7 +72,7 @@ struct Neighbours
     return false;
   }
 
-  std::unordered_map<std::string, std::set<Catalog::Phase::Type>>
+  std::unordered_map<std::string, std::unordered_set<Catalog::Phase::Type>>
   allPhases() const;
 
   std::unique_ptr<Catalog> toCatalog(const Catalog &catalog,
