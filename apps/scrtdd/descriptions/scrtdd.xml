@@ -158,7 +158,7 @@
                 <description>Maximum data windows lag accepted (secs)..</description>
               </parameter>
               <parameter name="components" type="list:string" default="Z">
-                <description>Priority list of components to be used in cross-correlation. If cross-correlation is below threshold on a component, the subsequent component is used.</description>
+                <description>Priority list of components to be used in cross-correlation. If the component exists for a pair of phases and the cross-correlation has a coefficient above the configured threshold then the result is used,otherwise the next component in the list is tried.</description>
               </parameter>
             </group>
             <group name="s-phase">
@@ -175,7 +175,7 @@
                 <description>Maximum data windows lag accepted (secs).</description>
               </parameter>
               <parameter name="components" type="list:string" default="T,Z">
-                <description>Priority list of components to be used in cross-correlation. If cross-correlation is below threshold on a component, the subsequent component is used.</description>
+                <description>Priority list of components to be used in cross-correlation. If the component exists for a pair of phases and the cross-correlation has a coefficient above the configured threshold then the result is used,otherwise the next component in the list is tried.</description>
               </parameter>
             </group>
             <group name="waveformFiltering">
