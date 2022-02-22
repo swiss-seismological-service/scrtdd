@@ -32,63 +32,56 @@ rtDD also supports [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) 
 
 rtDD acknowledges support from [Geothermica](http://www.geothermica.eu/)
 
-## Installation
+## Installation from binaries
 
 You can find compiled version of this module at https://data.gempa.de/packages/Public/. The installation file is a compressed tar archive containing the binary distribution of this module, which can be extracted in your SeisComP installation folder.
 
-## Compiling the code
+## Installation from source code
 
-In order to use this module the sources have to be merged into the *SeisComP* sources, then *SeisComP* can be compiled as usual.
-
-#### AGPL SeisComP (version 4+)
-
-For checking out and compiling SeisComP, please refer to https://github.com/SeisComP/seiscomp
+In order to use this module the sources have to be merged into the *SeisComP* sources, then *SeisComP* can be compiled and installed as usual.
 
 <pre>
-# get SeisComP
+#
+# get SeisComP (follow the up-to-date procedure at https://github.com/SeisComP/seiscomp)
+#
 git clone https://github.com/SeisComP/seiscomp.git seiscomp
 cd seiscomp/src/base
-git clone https://github.com/SeisComP/common
-git clone https://github.com/SeisComP/main
+git clone https://github.com/SeisComP/seedlink.git
+git clone https://github.com/SeisComP/common.git
+git clone https://github.com/SeisComP/main.git
+git clone https://github.com/SeisComP/extras.git
 [...etc...]
 
-# merge rtdd to SeisComP
+#
+# Add rtdd into SeisComP
+#
 cd seiscomp/src/extras
 git clone https://github.com/swiss-seismological-service/scrtdd.git
 cd scrtdd
 
-# now checkout the tag pointing to the latest version: vX.Y.Z (e.g. v1.3.0)
+#
+# Checkout the tag pointing to the latest version (see releases)
+#
 git checkout vX.Y.Z
 </pre>
 
-To update an existing version to a new one:
+To update rtDD to a new version:
 
 <pre>
-# go to scrtdd folder
+#
+# go to rtDD folder
+#
 cd seiscomp/src/extras/scrtdd
 
-# dowload changes on the upstream scrtdd
+#
+# fetch the changes that happened on rtDD repository
+#
 git fetch origin -p --tags
 
+#
 # checkout the new version
+#
 git checkout vX.Y.Z
-</pre>
-
-#### Old versions of Seiscomp3
-
-For  compiling Seiscomp3, please refer to https://github.com/SeisComP3/seiscomp3#compiling
-
-<pre>
-# get Seiscomp3
-git clone https://github.com/SeisComP3/seiscomp3.git sc3-src
-
-# merge rtdd to Seiscomp3
-cd sc3-src
-git submodule add -f https://github.com/swiss-seismological-service/scrtdd.git src/rtdd-addons
-cd src/rtdd-addons
-
-# now checkout the tag pointing to the latest version: vX.Y.Z_sc3 (_sc3 for Seiscomp3 compatible versions)
-git checkout vX.Y.Z_sc3
 </pre>
 
 # Getting Started
@@ -210,7 +203,7 @@ scrtdd --dump-catalog myCatalog.csv --verbosity=3 --console=1 [db options]
 
 The above command will generate three files (*event.csv*, *phase.csv* and *stations.csv*) which contain all the information needed by rtDD. 
 
-E.g. *file event.csv* (`magnitude` column is currently not used and the value is not relevant)
+E.g. *file event.csv* 
 
 ```
 id,isotime,latitude,longitude,depth,magnitude
@@ -219,6 +212,7 @@ id,isotime,latitude,longitude,depth,magnitude
 3,2019-11-05T01:06:27.140654Z,46.325626,7.356148,3.9756,0.84
 4,2019-11-05T01:12:25.753816Z,46.325012,7.353627,3.7090,0.39
 ```
+Notes: `magnitude` column is currently not used
 
 E.g. *file station.csv*
 
@@ -231,7 +225,7 @@ latitude,longitude,elevation,networkCode,stationCode,locationCode
 46.371345,6.873937,379.0,8D,NVL3,
 ```
 
-E.g. *file phase.csv* (`lowerUncertainty` and `upperUncertainty` are used only when `profile.myProfile.solver.aPrioriWeights.usePickUncertainties` is set to `true`)
+E.g. *file phase.csv* 
 
 ```
 eventId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode,evalMode
@@ -242,9 +236,14 @@ eventId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,l
 2,2019-11-05T01:03:08.867835Z,0.050,0.050,S,8D,RAW2,,HHT,manual
 2,2019-11-05T01:03:07.977432Z,0.025,0.025,P,CH,SAYF2,,HGZ,manual
 2,2019-11-05T01:03:08.9947Z,0.050,0.050,Sg,CH,SAYF2,,HGT,automatic
-2,2019-11-05T01:03:09.12808Z,0.050,0.050,P,CH,STSW2,,HGR,manual
+2,2019-11-05T01:03:09.12808Z,0.050,0.050,P,CH,STSW2,,HG1,manual
 2,2019-11-05T01:03:09.409276Z,0.025,0.025,Sg,CH,SENIN,,HHT,automatic
 ```
+Notes:
+- `type`: mutiple picks are allowed for the same event-station (P,Pn,P1,Pg,S,Sn,S1,Sg), but they must have a different `type`. However only one P and one S will be used per each event-station (see `profile.myProfile.catalog.P|S-Phases`).
+- `channelCode` is used in crossCorrelation to know which waveform to load. However the Orientation Code (the component) of the `channelCode` is currently not used (e.g. `Z` in `HHZ`). Instead the component to use for a specific phase during crossCorrelation is configured via `profile.myProfile.crossCorrelation.p|s-phase.components`
+- `lowerUncertainty` and `upperUncertainty` are used only when `profile.myProfile.solver.aPrioriWeights.usePickUncertainties` is set to `true`
+
 With this format it is possible to relocate events that are not stored in any SeisComP database, since all the origins information are contained in those files.
 
 Finally, the events to be relocated can also be stored in SeisComP XML format. Please refer to the official SeisComP  documentation of `scxmldump`, a very convenient tool for dumping events to XML file.
@@ -889,6 +888,8 @@ scart  -I file://./sorted.mseed ./my-sdsarchive
 # use the sds archive
 scrtdd -I  sdsarchive://./my-sdsarchive [...options...]
 ```
+
+Performance wise it might be unfeasible to concatenate all files (`cat`) and sort the records (`scmssort`) when the amout of data is very large. However, since the SDS archive splits the data by station in daily files it is possible to take advantage of that and perform the operations in subsets of files. That it we can concatenate files and sort the result on a day by day basis (assuming each file contain data within a day and does not overlap multiple days). If each file contains data for a single station only, we can work on even smaller subset of files by working on a single station files only. For each subset of files we can finally run `scart` command safely on the sorted file generated.
 
 ### 5.3 Waveforms data caching
 
