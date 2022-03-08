@@ -19,12 +19,75 @@
 #include <boost/filesystem.hpp>
 #include <seiscomp3/client/inventory.h>
 #include <seiscomp3/math/geo.h>
+#include <stdarg.h>
 
 using namespace std;
 
 namespace fs = boost::filesystem;
 
 namespace HDD {
+
+// Eventually this can be replaced with C++20 std::format
+// https://stackoverflow.com/questions/2342162/stdstring-formatting-like-sprint
+std::string strf(const char *fmt, ...)
+{
+  // A static buffer that hopefully covers 99% of all use cases
+  char staticBuffer[128];
+
+  // The dynamic buffer that will be used if the static buffer is
+  // not large enough
+  unique_ptr<char[]> dynamicBuffer = nullptr;
+
+  // The buffer actually written to
+  char *buffer = staticBuffer;
+  size_t size  = sizeof(staticBuffer);
+  va_list params;
+  int maxIterations = 10;
+
+  va_start(params, fmt);
+  int r = vsnprintf(buffer, size, fmt, params);
+  if (r < 0)
+  {
+    va_end(params);
+    Logger::logError("strf error " + std::to_string(r) + ": aborting");
+    return std::string();
+  }
+
+  size_t requiredSize = size_t(r) + 1; // +1 for \0
+
+  while (requiredSize > size && // create dynamic buffer with more space
+         (--maxIterations >= 0))
+  {
+    dynamicBuffer = unique_ptr<char[]>(new char[requiredSize]);
+    size          = requiredSize;
+    buffer        = dynamicBuffer.get();
+    *buffer       = '\0';
+
+    va_end(params);
+    va_start(params, fmt);
+
+    r = vsnprintf(buffer, size, fmt, params);
+    if (r < 0)
+    {
+      Logger::logError("strf error " + std::to_string(r) + ": aborting");
+      break;
+    }
+
+    requiredSize = size_t(r) + 1; // +1 for \0
+  }
+
+  std::string ret(buffer);
+  va_end(params);
+
+  if (maxIterations < 0)
+  {
+    Logger::logError(
+        "strf failed after 10 iterations: buffer still not large enough: " +
+        std::to_string(size) + " < " + std::to_string(requiredSize) +
+        ": aborting");
+  }
+  return ret;
+}
 
 std::vector<std::string> splitString(const std::string &str,
                                      const std::regex &regex)

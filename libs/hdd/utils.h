@@ -25,9 +25,6 @@
 #include <stdexcept>
 #include <vector>
 
-#include <seiscomp3/core/strings.h>
-#include <seiscomp3/datamodel/databasequery.h>
-
 namespace HDD {
 
 class Exception : public std::runtime_error
@@ -36,10 +33,7 @@ public:
   Exception(const std::string &message) : std::runtime_error(message) {}
 };
 
-template <typename... Args> std::string strf(Args &&... args)
-{
-  return Seiscomp::Core::stringify(std::forward<Args>(args)...);
-}
+std::string strf(const char *fmt, ...);
 
 std::vector<std::string> splitString(const std::string &str,
                                      const std::regex &regex);
