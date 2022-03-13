@@ -1,8 +1,8 @@
 
 #include "hdd/catalog.h"
 #include "hdd/nllttt.h"
-#include "hdd/scttt.h"
 #include "hdd/utils.h"
+#include "hdd/adapters/scttt.h"
 
 #include <vector>
 

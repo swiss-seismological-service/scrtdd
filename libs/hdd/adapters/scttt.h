@@ -17,7 +17,7 @@
 #ifndef __HDD_SCTTT_H__
 #define __HDD_SCTTT_H__
 
-#include "ttt.h"
+#include "hdd/ttt.h"
 
 #include <seiscomp3/seismology/ttt.h>
 

@@ -15,8 +15,8 @@
  ***************************************************************************/
 
 #include "scttt.h"
-#include "log.h"
-#include "utils.h"
+#include "hdd/log.h"
+#include "hdd/utils.h"
 
 using namespace std;
 

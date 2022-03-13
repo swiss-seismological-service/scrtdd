@@ -11,12 +11,14 @@ SET(HDD_SOURCES
 	catalog.cpp
 	clustering.cpp
 	ttt.cpp
-	scttt.cpp
 	nllttt.cpp
 	solver.cpp
 	xcorr.cpp
 	waveform.cpp
 	dd.cpp
+	adapters/scttt.cpp
+	adapters/sclog.cpp
+	adapters/scwaveform.cpp
 )
 
 SET(HDD_HEADERS
@@ -33,12 +35,14 @@ SET(HDD_HEADERS
 	catalog.h
 	clustering.h
 	ttt.h
-	scttt.h
 	nllttt.h
 	solver.h
 	xcorr.h
 	waveform.h
 	dd.h
+	adapters/scttt.h
+	adapters/sclog.h
+	adapters/scconversion.h
 )
 
 SC_ADD_LIBRARY(HDD hdd)

@@ -16,8 +16,6 @@
 
 #include "ttt.h"
 #include "log.h"
-#include "nllttt.h"
-#include "scttt.h"
 #include "utils.h"
 
 #include <sstream>

@@ -27,35 +27,6 @@
 namespace HDD {
 namespace Waveform {
 
-inline std::string getBandAndInstrumentCodes(const std::string &channelCode)
-{
-  if (channelCode.size() >= 2) return channelCode.substr(0, 2);
-  return "";
-}
-
-inline std::string getOrientationCode(const std::string &channelCode)
-{
-  if (channelCode.size() == 3) return channelCode.substr(2, 3);
-  return "";
-}
-
-void resample(Trace &trace, double new_sf);
-
-void filter(Trace &trace,
-            bool demeaning,
-            const std::string &filterStr,
-            double resampleFreq);
-
-double computeSnr(const Trace &tr,
-                  const UTCTime &pickTime,
-                  double noiseOffsetStart,
-                  double noiseOffsetEnd,
-                  double signalOffsetStart,
-                  double signalOffsetEnd);
-
-void writeTrace(const Trace &trace, const std::string &file);
-std::unique_ptr<Trace> readTrace(const std::string &file);
-
 class Loader
 {
 public:
@@ -69,10 +40,6 @@ public:
   // that's also why Trace is const
   virtual std::shared_ptr<const Trace> get(const TimeWindow &tw,
                                            const Catalog::Phase &ph) = 0;
-
-protected:
-  static double _tolerance;
-  static double _minAvailability;
 };
 
 class BasicLoader : public Loader
@@ -117,8 +84,8 @@ public:
 private:
   const std::string _recordStreamURL;
   bool _dataLoaded;
-  std::unordered_multimap<std::string, const TimeWindow> _request;
-  std::unordered_map<std::string, std::shared_ptr<const Trace>> _waveforms;
+  std::unordered_multimap<std::string, const TimeWindow> _requests;
+  std::unordered_map<std::string, std::shared_ptr<const Trace>> _traces;
 };
 
 class ExtraLenLoader : public Loader
@@ -285,7 +252,7 @@ private:
                     const std::shared_ptr<const Trace> &trace);
 
   std::shared_ptr<Processor> _auxPrc;
-  std::unordered_map<std::string, std::shared_ptr<const Trace>> _waveforms;
+  std::unordered_map<std::string, std::shared_ptr<const Trace>> _traces;
   std::unordered_set<std::string> _unloadables;
 };
 
@@ -336,6 +303,65 @@ private:
     double signalEnd;   // secs relative to pick time
   } _snr;
 };
+
+struct ThreeComponents
+{
+  enum Component
+  {
+    Vertical         = 0, /* usually Z */
+    FirstHorizontal  = 1, /* usually N */
+    SecondHorizontal = 2  /* usually E */
+  };
+  std::string names[3];
+  double gain[3];
+  double dip[3];
+  double azimuth[3];
+};
+
+inline std::string getBandAndInstrumentCodes(const std::string &channelCode)
+{
+  if (channelCode.size() >= 2) return channelCode.substr(0, 2);
+  return "";
+}
+
+inline std::string getOrientationCode(const std::string &channelCode)
+{
+  if (channelCode.size() == 3) return channelCode.substr(2, 3);
+  return "";
+}
+
+void writeTrace(const Trace &trace, const std::string &file);
+std::unique_ptr<Trace> readTrace(const std::string &file);
+
+void resample(Trace &trace, double new_sf);
+
+void filter(Trace &trace,
+            bool demeaning,
+            const std::string &filterStr,
+            double resampleFreq);
+
+double computeSnr(const Trace &tr,
+                  const UTCTime &pickTime,
+                  double noiseOffsetStart,
+                  double noiseOffsetEnd,
+                  double signalOffsetStart,
+                  double signalOffsetEnd);
+
+std::unique_ptr<Trace> transformL2(const TimeWindow &tw,
+                                   const Catalog::Phase &ph,
+                                   const ThreeComponents &tc,
+                                   const Trace trH1,
+                                   const Trace trH2);
+
+std::unique_ptr<Trace> transformRT(const TimeWindow &tw,
+                                   const Catalog::Phase &ph,
+                                   const Catalog::Event &ev,
+                                   const Catalog::Station &sta,
+                                   const ThreeComponents &tc,
+                                   const Trace trV,
+                                   const Trace trH1,
+                                   const Trace trH2,
+                                   Processor::Transform trans);
 
 } // namespace Waveform
 } // namespace HDD

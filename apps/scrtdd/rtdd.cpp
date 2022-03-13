@@ -16,10 +16,11 @@
  ***************************************************************************/
 
 #include "rtdd.h"
-#include "hddutils.h"
+#include "hdd/adapters/sclog.h"
+#include "hdd/adapters/scttt.h"
 #include "hdd/csvreader.h"
 #include "hdd/nllttt.h"
-#include "hdd/scttt.h"
+#include "hddutils.h"
 #include "rtddmsg/rtddmsg.h"
 
 #define SEISCOMP_COMPONENT RTDD
@@ -1057,7 +1058,7 @@ bool RTDD::init()
   // Check each N seconds if a new job needs to be started
   _cronCounter = _config.wakeupInterval;
 
-  HDDUtils::initLogger();
+  HDD::SeiscompAdapter::initLogger();
 
   return true;
 }

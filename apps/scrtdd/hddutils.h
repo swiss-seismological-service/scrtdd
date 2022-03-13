@@ -63,8 +63,6 @@ private:
   Seiscomp::DataModel::EventParameters *_eventParameters;
 };
 
-void initLogger();
-
 std::unordered_map<unsigned, Seiscomp::DataModel::OriginPtr>
 addToCatalog(HDD::Catalog &cat,
              const std::vector<Seiscomp::DataModel::OriginPtr> &origins,
