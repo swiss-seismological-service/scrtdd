@@ -39,18 +39,6 @@ inline std::string getOrientationCode(const std::string &channelCode)
   return "";
 }
 
-std::string waveformId(const TimeWindow &tw,
-                       const std::string &networkCode,
-                       const std::string &stationCode,
-                       const std::string &locationCode,
-                       const std::string &channelCode);
-
-inline std::string waveformId(const Catalog::Phase &ph, const TimeWindow &tw)
-{
-  return waveformId(tw, ph.networkCode, ph.stationCode, ph.locationCode,
-                    ph.channelCode);
-}
-
 void resample(Trace &trace, double new_sf);
 
 void filter(Trace &trace,

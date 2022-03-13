@@ -487,6 +487,12 @@ string waveformId(const TimeWindow &tw,
               UTCClock::toString(tw.endTime()).c_str());
 }
 
+std::string waveformId(const Catalog::Phase &ph, const TimeWindow &tw)
+{
+  return waveformId(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+                    ph.channelCode);
+}
+ 
 void resample(Trace &trace, double new_sf)
 {
   if (new_sf <= 0 || trace.samplingFrequency() == new_sf) return;
