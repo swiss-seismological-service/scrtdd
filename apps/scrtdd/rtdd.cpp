@@ -243,6 +243,7 @@ void RTDD::createCommandLineDescription()
 {
   StreamApplication::createCommandLineDescription();
 
+  commandline().addGroup("Mode");
   commandline().addOption(
       "Mode", "reloc-catalog",
       "Relocate the catalog passed as argument in multi-event mode. The "
@@ -687,6 +688,25 @@ bool RTDD::validateParameters()
       prof->singleEventClustering.xcorrMaxInterEvDist = -1;
       prof->multiEventClustering.xcorrMaxInterEvDist  = -1;
     }
+
+    try
+    {
+      string compatibleChannels =
+          configGetString(prefix + "compatibleChannels");
+      vector<std::string> compatibleSets =
+          ::splitString(compatibleChannels, ";");
+      for (const auto &cs : compatibleSets)
+      {
+        vector<std::string> codes = ::splitString(cs, ",");
+        for (size_t i = 0; i < codes.size() - 1; i++)
+          for (size_t j = i + 1; j < codes.size(); j++)
+          {
+            prof->ddCfg.compatibleChannels.push_back({codes[i], codes[j]});
+          }
+      }
+    }
+    catch (...)
+    {}
 
     try
     {

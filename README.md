@@ -699,7 +699,22 @@ Thanks to the integration in SeisComP it is quite easy to use rtDD to periodical
 
 Good cross-correlation results are needed to achieve high quality double-difference observations, which in turn results in high resolution relocations. The purpose of the cross-correlation is to find the exact time difference between two picks of an event pair at a common station. The cross-correlation is automatically performed by rtDD before the double-difference inversion when `RecordStream` is configured, otherwise it is simply skipped, The cross-correlation step can also be disabled setting the configuration parametters `crossCorrelation.maxStationDistance` and/or `crossCorrelation.maxInterEventDistance` to 0.
 
-### 4.1 Eval-xcorr command
+### 4.1 Logs
+
+Some cross-correlation statistics are printed in both multi-event and single-event mode. Those can be seen in the log file or in the console output (with options `--console=1 --verbosity=3`).
+
+```
+[info] Cross-correlation statistics: performed 40361, waveforms with Signal to Noise ratio too low 2435, waveforms not available 98
+[info] Total xcorr 40361 (P 59%, S 41%) success 28% (11499/40361). Successful P 22% (5300/23844). Successful S 38% (6199/16517)
+[info] xcorr on actual picks 24784/40361 (P 60%, S 40%) success 37% (9186/24784). Successful P 31% (4629/14761). Successful S 45% (4557/10023)
+[info] xcorr on theoretical picks 15577/40361 (P 58%, S 42%) success 15% (2313/15577). Successful P 7% (671/9083). Successful S 25% (1642/6494)
+```
+
+There could be several reasons why the cross-correlation between 2 phase waveforms is skipped: the waveform data for one or both the phases is not available, the configured components (`crossCorrelation.x-phase.components`) were not found for the phase,the SNR of one or both the waveforms is below the configured threshold (see `crossCorrelation.snr.minSnr`, the phases were detected on different channel codes (see `crossCorrelation.compatibleChannels` configuration option), the waveforms of the two phases use different frequencies and the option `crossCorrelation.waveformFilteringiresampling` is not used. It is possible to know the reason on why a cross-correlation was skipped for a particular phase pair looking at the logs at debug level (--verbosity=4).
+
+The statistics are broken down in actual picks and theoretical picks. This is because rtDD computes theoretical picks that are cross-correlated together with detected picks. This is useful to increase the number of double-difference observations. See the [Phase update](#23-phase-update) paragraph for further details.
+
+### 4.2 Eval-xcorr command
 
 The `--eval-xcorr` command can be used to evaluate the cross-correlation parameter. 
 
@@ -781,33 +796,20 @@ The SNR is particularly important to reject bad picks (automatic picks or picks 
 * pick time is early but acceptable -> we want high SNR
 * pick time is late but acceptable -> we want high SNR
 
-### 4.2 Logs
-
-Some cross-correlation statistics are printed in both multi-event and single-event mode. Those can be seen in the log file or in the console output (with options `--console=1 --verbosity=3`).
-
-```
-[info] Cross-correlation statistics: performed 40361, waveforms with Signal to Noise ratio too low 2435, waveforms not available 98
-[info] Total xcorr 40361 (P 59%, S 41%) success 28% (11499/40361). Successful P 22% (5300/23844). Successful S 38% (6199/16517)
-[info] xcorr on actual picks 24784/40361 (P 60%, S 40%) success 37% (9186/24784). Successful P 31% (4629/14761). Successful S 45% (4557/10023)
-[info] xcorr on theoretical picks 15577/40361 (P 58%, S 42%) success 15% (2313/15577). Successful P 7% (671/9083). Successful S 25% (1642/6494)
-```
-
-The statistics are broken down in actual picks and theoretical picks. This is because rtDD computes theoretical picks that are cross-correlated together with detected picks. This is useful to increase the number of double-difference observations. See the [Phase update](#23-phase-update) paragraph for further details. 
-
 ### 4.3 Waveforms inspection
 
-The `--dump-wf` option will make rtDD dump to disk the waveforms of the catalog passed as argument. Those files are in miniseed format and can be viewed with an external tool (e.g. `scrttv waveform.mseed`) or obspy). The waveforms are saved after the filterting and resampling have been applied. The waveforms that are below the configured SNR threshold are not saved and the logs will print those waveforms (at debug level).
+The `--dump-wf` option will make rtDD dump to disk the waveforms of the catalog passed as argument. Those files are in miniseed format and can be viewed with an external tool (e.g. `scrttv waveform.mseed`) or obspy). The waveforms are written to disk after the filterting and resampling have been applied. The waveforms that are below the configured SNR threshold are not saved, but the logs will print those waveforms (at debug level).
 
 ```
 scrtdd --help
-  --dump-wf a rg                        Dump processed waveforms of the catalog
-                                        passed as argument. The catalog can be
-                                        a single file (containing seiscomp
-                                        origin ids) or a file triplet
-                                        (station.csv,event.csv,phase.csv). Use
-                                        in combination with --profile. The
-                                        waveforms will be saved into the
-                                        working directory
+  --dump-wf arg                         Dump processed waveforms of the catalog
+                                        passed as argument in the current 
+                                        working directory.The catalog can be a 
+                                        single file (containing seiscomp origin
+                                        ids) or a file triplet 
+                                        (station.csv,event.csv,phase.csv). Use 
+                                        in combination with --profile.
+
 ```
 e.g.
 

@@ -139,10 +139,13 @@
               <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between events for a cross-correlation to happen. Phases of event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 skips all cross-correlations.</description>
             </parameter>
             <parameter name="theoreticalPhaseAutoOrigin" type="boolean" default="true">
-              <description>The cross-correlation is used to detect phases at stations with no associated picks. This option is applied to automatic origins.</description>
+              <description>Whether cross-correlation is used to detect phases at stations with no associated picks. This option applies to automatic origins.</description>
             </parameter>
             <parameter name="theoreticalPhaseManualOrigin" type="boolean" default="false">
-              <description>The cross-correlation is used to detect phases at stations with no associated picks. This option is applied to manual origins.</description>
+              <description>Whether cross-correlation is used to detect phases at stations with no associated picks. This option is applies to manual origins.</description>
+            </parameter>
+            <parameter name="compatibleChannels" type="string" default="">
+              <description>Cross-correlation is computed on phases with the same channel code (e.g. HH. EH, HG, etc), however here it is possible to force the cross-correlation between different channel codes. The value is a list separated by ';' and each element is a list (again) of compatible channels separated by ',', For example: "HH,EH;HG,HN"</description>
             </parameter>
             <group name="p-phase">
               <parameter name="minCCCoef" type="double" default="0.50">

@@ -37,9 +37,7 @@ struct Config
   std::vector<std::string> validPphases = {"Pg", "P", "Px"};
   std::vector<std::string> validSphases = {"Sg", "S", "Sx"};
 
-  std::unordered_map<std::string, // key = channel code
-                     std::unordered_set<std::string>>
-      channelCompatibility;
+  std::vector<std::pair<std::string, std::string>> compatibleChannels;
 
   std::string recordStreamURL; // where to fetch waveforms from
 

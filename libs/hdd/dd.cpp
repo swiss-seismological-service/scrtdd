@@ -2062,27 +2062,13 @@ bool DD::xcorrPhases(const Event &event1,
   if (channelCodeRoot1 != channelCodeRoot2)
   {
     bool channelsAreCompatible = false;
-    const auto &it = _cfg.channelCompatibility.find(channelCodeRoot1);
-    if (it != _cfg.channelCompatibility.end())
+    for (const pair<string, string> &p : _cfg.compatibleChannels)
     {
-      const unordered_set<string> &compatibleChannels = it->second;
-      if (compatibleChannels.find(channelCodeRoot2) != compatibleChannels.end())
+      if ((p.first == channelCodeRoot1 && p.second == channelCodeRoot2) ||
+          (p.second == channelCodeRoot1 && p.first == channelCodeRoot2))
       {
         channelsAreCompatible = true;
-      }
-    }
-
-    if (!channelsAreCompatible)
-    {
-      const auto &it = _cfg.channelCompatibility.find(channelCodeRoot2);
-      if (it != _cfg.channelCompatibility.end())
-      {
-        const unordered_set<string> &compatibleChannels = it->second;
-        if (compatibleChannels.find(channelCodeRoot1) !=
-            compatibleChannels.end())
-        {
-          channelsAreCompatible = true;
-        }
+        break;
       }
     }
 
