@@ -22,7 +22,7 @@
 #include <set>
 #include <vector>
 
-#include "dd.h"
+#include "hdd/dd.h"
 
 #include <seiscomp/client/streamapplication.h>
 #include <seiscomp/datamodel/eventparameters.h>

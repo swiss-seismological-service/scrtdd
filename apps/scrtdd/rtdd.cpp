@@ -16,11 +16,11 @@
  ***************************************************************************/
 
 #include "rtdd.h"
-#include "csvreader.h"
 #include "hddutils.h"
-#include "nllttt.h"
-#include "rtddmsg.h"
-#include "scttt.h"
+#include "hdd/csvreader.h"
+#include "hdd/nllttt.h"
+#include "hdd/scttt.h"
+#include "rtddmsg/rtddmsg.h"
 
 #define SEISCOMP_COMPONENT RTDD
 #include <seiscomp/logging/log.h>

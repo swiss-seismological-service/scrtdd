@@ -3,9 +3,9 @@
 #include <boost/test/data/monomorphic.hpp>
 #include <boost/test/data/test_case.hpp>
 
-#include "catalog.h"
-#include "ellipsoid.h"
-#include "utils.h"
+#include "hdd/catalog.h"
+#include "hdd/ellipsoid.h"
+#include "hdd/utils.h"
 
 using namespace std;
 using namespace HDD;

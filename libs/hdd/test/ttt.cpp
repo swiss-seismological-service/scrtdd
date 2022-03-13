@@ -3,10 +3,10 @@
 #include <boost/test/data/monomorphic.hpp>
 #include <boost/test/data/test_case.hpp>
 
-#include "catalog.h"
+#include "hdd/catalog.h"
+#include "hdd/ttt.h"
+#include "hdd/utils.h"
 #include "common.ipp"
-#include "ttt.h"
-#include "utils.h"
 
 using namespace std;
 using namespace HDD;

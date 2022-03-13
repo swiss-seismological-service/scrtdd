@@ -17,9 +17,9 @@
 
 #include "hddutils.h"
 
-#include "csvreader.h"
-#include "dd.h"
-#include "log.h"
+#include "hdd/csvreader.h"
+#include "hdd/dd.h"
+#include "hdd/log.h"
 
 #include <seiscomp/datamodel/amplitude.h>
 #include <seiscomp/datamodel/arrival.h>

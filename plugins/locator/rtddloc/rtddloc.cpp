@@ -19,7 +19,7 @@
 #define EXTERN_MODE
 
 #include "rtddloc.h"
-#include "rtddmsg.h"
+#include "rtddmsg/rtddmsg.h"
 #include <seiscomp/core/system.h>
 #include <seiscomp/logging/log.h>
 

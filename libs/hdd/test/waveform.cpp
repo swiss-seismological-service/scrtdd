@@ -3,8 +3,8 @@
 #include <boost/test/data/monomorphic.hpp>
 #include <boost/test/data/test_case.hpp>
 
-#include "dd.h"
-#include "waveform.h"
+#include "hdd/dd.h"
+#include "hdd/waveform.h"
 #include <cstring>
 #include <ostream>
 

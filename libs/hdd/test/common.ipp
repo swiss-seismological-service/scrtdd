@@ -1,8 +1,8 @@
 
-#include "catalog.h"
-#include "nllttt.h"
-#include "scttt.h"
-#include "utils.h"
+#include "hdd/catalog.h"
+#include "hdd/nllttt.h"
+#include "hdd/scttt.h"
+#include "hdd/utils.h"
 
 #include <vector>
 

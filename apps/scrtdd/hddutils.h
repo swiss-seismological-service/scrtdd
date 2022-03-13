@@ -18,7 +18,7 @@
 #ifndef __RTDD_APPLICATIONS_HDDUTILS_H__
 #define __RTDD_APPLICATIONS_HDDUTILS_H__
 
-#include "catalog.h"
+#include "hdd/catalog.h"
 
 #include <seiscomp/client/inventory.h>
 #include <seiscomp/datamodel/databasequery.h>
