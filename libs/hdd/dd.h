@@ -137,6 +137,9 @@ public:
 
   void dumpWaveforms(const std::string &basePath = "");
 
+  void dumpClusters(const ClusteringOptions &clustOpt,
+                    const std::string &basePath = "");
+
   const Catalog &getCatalog() const { return _srcCat; }
 
   std::unique_ptr<Catalog>

@@ -134,6 +134,7 @@ private:
     std::string eventXML;
     std::string forceProfile;
     std::string relocateCatalog;
+    std::string dumpClusters;
     std::string dumpCatalog;
     std::string dumpWaveforms;
     std::string mergeCatalogs;
@@ -169,6 +170,7 @@ private:
     std::unique_ptr<HDD::Catalog> relocateCatalog();
     void evalXCorr();
     void dumpWaveforms();
+    void dumpClusters();
 
     std::string name;
     std::string earthModelID;

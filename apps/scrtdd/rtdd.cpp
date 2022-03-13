@@ -272,19 +272,28 @@ void RTDD::createCommandLineDescription()
       "combination with --profile",
       &_config.evalXCorr, true);
   commandline().addOption(
+      "Mode", "dump-clusters",
+      "Find clusters in the catalog passed as argument and save them in "
+      "the working directory."
+      "The catalog can be a single file (containing seiscomp origin "
+      "ids) or a file triplet (station.csv,event.csv,phase.csv). Use "
+      "in combination with --profile. The clusters will be saved into "
+      "the working directory",
+      &_config.dumpClusters, true);
+  commandline().addOption(
+      "Mode", "dump-wf",
+      "Dump processed waveforms of the catalog passed as argument "
+      "in the current working directory."
+      "The catalog can be a single file (containing seiscomp origin "
+      "ids) or a file triplet (station.csv,event.csv,phase.csv). Use "
+      "in combination with --profile.",
+      &_config.dumpWaveforms, true);
+  commandline().addOption(
       "Mode", "load-profile-wf",
       "Load catalog waveforms from the configured recordstream and "
       "save them into the profile working directory. Use in "
       "combination with --profile",
       &_config.loadProfileWf, true);
-  commandline().addOption(
-      "Mode", "dump-wf",
-      "Dump processed waveforms of the catalog passed as argument. "
-      "The catalog can be a single file (containing seiscomp origin "
-      "ids) or a file triplet (station.csv,event.csv,phase.csv). Use "
-      "in combination with --profile. The waveforms will be saved into"
-      " the working directory",
-      &_config.dumpWaveforms, true);
   commandline().addOption(
       "Mode", "send-reload-profile-msg",
       "Send a message to any running scrtdd module requesting to "
@@ -358,7 +367,7 @@ bool RTDD::validateParameters()
   if (!_config.eventXML.empty() || !_config.dumpCatalog.empty() ||
       !_config.mergeCatalogs.empty() || !_config.evalXCorr.empty() ||
       !_config.relocateCatalog.empty() || _config.loadProfileWf ||
-      !_config.dumpWaveforms.empty() ||
+      !_config.dumpWaveforms.empty() || !_config.dumpClusters.empty() ||
       (!_config.originIDs.empty() && _config.testMode))
   {
     SEISCOMP_INFO("Disable messaging");
@@ -376,6 +385,13 @@ bool RTDD::validateParameters()
 
   if (!_config.dumpWaveforms.empty() &&
       ::splitString(_config.dumpWaveforms, ",").size() ==
+          1) // single file containing origin ids
+  {
+    profileRequireDB = true;
+  }
+
+  if (!_config.dumpClusters.empty() &&
+      ::splitString(_config.dumpClusters, ",").size() ==
           1) // single file containing origin ids
   {
     profileRequireDB = true;
@@ -979,7 +995,8 @@ bool RTDD::validateParameters()
   if (!isInventoryDatabaseEnabled() && !profileRequireDB &&
       (!_config.eventXML.empty() || !_config.mergeCatalogs.empty() ||
        !_config.evalXCorr.empty() || !_config.relocateCatalog.empty() ||
-       !_config.dumpWaveforms.empty() || _config.loadProfileWf))
+       !_config.dumpWaveforms.empty() || _config.loadProfileWf ||
+       !_config.dumpClusters.empty()))
   {
     SEISCOMP_INFO("Disable database connection");
     setDatabaseEnabled(false, false);
@@ -1071,6 +1088,17 @@ bool RTDD::run()
     if (!catalog || !profile) return false;
     loadProfile(profile, false, catalog.get());
     profile->evalXCorr();
+    return true;
+  }
+
+  // dump clusters and exit
+  if (!_config.dumpClusters.empty())
+  {
+    unique_ptr<HDD::Catalog> catalog = getCatalog(_config.dumpClusters);
+    ProfilePtr profile               = getProfile(_config.forceProfile);
+    if (!catalog || !profile) return false;
+    loadProfile(profile, false, catalog.get());
+    profile->dumpClusters();
     return true;
   }
 
@@ -2258,6 +2286,18 @@ void RTDD::Profile::dumpWaveforms()
   }
   lastUsage = Core::Time::GMT();
   dd->dumpWaveforms();
+}
+
+void RTDD::Profile::dumpClusters()
+{
+  if (!loaded)
+  {
+    string msg = Core::stringify(
+        "Cannot dump clusters, profile %s not initialized", name.c_str());
+    throw runtime_error(msg.c_str());
+  }
+  lastUsage = Core::Time::GMT();
+  dd->dumpClusters(multiEventClustering);
 }
 
 // End Profile class
