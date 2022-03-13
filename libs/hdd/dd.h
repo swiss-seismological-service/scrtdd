@@ -51,7 +51,7 @@ struct Config
   };
   std::map<Catalog::Phase::Type, struct XCorr> xcorr = {
       {Catalog::Phase::Type::P, {0.50, -0.50, 0.50, 0.350, {"Z"}}},
-      {Catalog::Phase::Type::S, {0.50, -0.50, 0.75, 0.350, {"T", "Z"}}}};
+      {Catalog::Phase::Type::S, {0.50, -0.50, 0.75, 0.350, {"L"}}}};
 
   struct
   {

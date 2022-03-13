@@ -177,7 +177,7 @@
               <parameter name="maxDelay" type="double" default="0.350" unit="sec">
                 <description>Maximum data windows lag accepted (secs).</description>
               </parameter>
-              <parameter name="components" type="list:string" default="T,Z">
+              <parameter name="components" type="list:string" default="L">
                 <description>Priority list of components to be used in cross-correlation. If the component exists for a pair of phases it is used for the cross-correlation, otherwise the next component in the list is tried. Special values are 'L', which computes the L2 norm of the 2 horizontal components and 'T', which computes the transversal component with respect with the event location to which the phase belongs to.</description>
               </parameter>
             </group>

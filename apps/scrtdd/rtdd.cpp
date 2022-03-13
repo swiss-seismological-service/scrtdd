@@ -818,7 +818,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::S].components = {"T", "Z"};
+      prof->ddCfg.xcorr[PhaseType::S].components = {"L"};
     }
 
     prefix = string("profile.") + prof->name +
