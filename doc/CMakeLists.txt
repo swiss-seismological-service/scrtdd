@@ -4,7 +4,7 @@ IF (SC_DOC_GENERATE)
     SET(CONF_FILE "${CMAKE_CURRENT_SOURCE_DIR}/templates/conf.py")
 
     ADD_CUSTOM_TARGET(scrtdddoc ALL
-                    COMMAND ${PYTHON_EXECUTABLE} ./build-doc.py --version ${VERSION_STR} . ${DOC_BUILD_DIR}
+                    COMMAND ${PYTHON_EXECUTABLE} ./build-doc.py --skip-category --version ${VERSION_STR} . ${DOC_BUILD_DIR}
                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
     INSTALL(DIRECTORY ${DOC_BUILD_DIR}/html DESTINATION ${SC3_PACKAGE_SHARE_DIR}/doc/scrtdd)

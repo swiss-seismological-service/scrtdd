@@ -350,13 +350,14 @@ Options:
   -h,--help      print this help text
   -v,--version   version string to use in replace in conf.py template
   --sc3          build for SeisComP3
+  --skip-category do not generate module category menu
 ''' % sys.argv[0])
 
 
 # ------------------------------------------------------------------------------
 try:
     opts, args = getopt.getopt(sys.argv[1:], "hv:", [
-                               "help", "version=", "sc3"])
+                               "help", "version=", "sc3", "skip-category"])
 except getopt.GetoptError as err:
     # print help information and exit:
     print(str(err))  # will print something like "option -a not recognized"
@@ -365,6 +366,7 @@ except getopt.GetoptError as err:
 
 # key value pairs to resolve in templates
 target_sc3 = False
+skip_category = False
 resolveDict = {}
 for o, a in opts:
     if o in ('-h', '--help'):
@@ -374,6 +376,8 @@ for o, a in opts:
         resolveDict['param.version'] = a
     elif o in ('--sc3'):
         target_sc3 = True
+    elif o in ('--skip-category'):
+        skip_category = True
     else:
         sys.stderr.write('Unknown option: {}\n'.format(o))
         usage()
@@ -519,7 +523,7 @@ for doc_dir in doc_dirs:
                     app_binding_nodes[modname] = [node]
 
 
-# categories hold pair [category, node]
+# categories hold pair [category, [node1, node2, ...]]
 # app_refs holds [reference_link, [section name, nodes]]
 app_refs = {}
 
@@ -547,7 +551,6 @@ for key, value in sorted(categories.items()):
 
 
 placeholder_app_refs = ""
-refs = {}
 
 print("Generating document structure")
 
@@ -558,6 +561,9 @@ for ref, nodes in sorted(app_refs.items()):
 
     if not section_path:
         placeholder_app_refs += "   /" + ref + "\n"
+
+    if skip_category:
+        continue
 
     try:
         f = open(os.path.join(out_dir, ref) + ".rst", "w")

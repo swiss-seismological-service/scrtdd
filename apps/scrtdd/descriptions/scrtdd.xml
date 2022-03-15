@@ -2,7 +2,7 @@
 <seiscomp>
   <module name="scrtdd" category="Processing" inherit-global-bindings="false">
     <description>
-      Double-Difference location module for real-time and catalogs relocation.
+      Double-Difference location module for real-time and event catalogs.
     </description>
     <configuration>
       <parameter name="onlyPreferredOrigins" type="boolean" default="true">
