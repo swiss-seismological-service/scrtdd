@@ -6,4 +6,4 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/libs)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../base/common/libs)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/../../base/common/libs) 
 
-SUBDIRS(libs apps plugins)
+SUBDIRS(libs apps plugins doc)
