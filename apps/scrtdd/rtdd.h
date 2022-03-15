@@ -51,7 +51,7 @@ public:
   };
   DEFINE_SMARTPOINTER(Region);
 
-  const char *version() override { return "1.6.1+"; }
+  const char *version() override { return RTDD_VERSION; }
 
 protected:
   void createCommandLineDescription() override;
