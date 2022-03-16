@@ -62,7 +62,7 @@ source_suffix = ['.rst']
 master_doc = 'index'
 
 # General information about the project.
-project = u'rtDD: Real-time double difference locations'
+project = u'rtDD: Real-time Double-Difference locations'
 copyright = u'2020, SED'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -114,7 +114,7 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'sphinxdoc'
+html_theme = 'agogo'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -202,7 +202,7 @@ htmlhelp_basename = 'scrtdd_doc'
 # Grouping the document tree into LaTeX files. List of tuples (source start
 # file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-    ('index', 'scrtdd.tex', u'scrtdd Documentation',
+    ('index', 'scrtdd.tex', u'rtDD Documentation',
      u'SED', 'manual'),
 ]
 
@@ -251,7 +251,7 @@ def setup(app):
 # PDF settings
 pdf_stylesheets = ['sphinx', 'kerning', 'a4']
 pdf_documents = [
-    ('index', u'scrtdd', u'Real-time double difference locator', u'SED'),
+    ('index', u'scrtdd', u'Real-time Double-Difference locator', u'SED'),
 ]
 
 pdf_appendices = []
