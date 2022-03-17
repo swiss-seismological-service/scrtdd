@@ -26,7 +26,7 @@
 
 namespace HDD {
 
-template <typename T_DATA, typename T_TIME> class GenericTrace
+template <typename T_DATA, typename T_TIME, typename T_WIN> class GenericTrace
 {
 private:
   std::string _net;
@@ -98,10 +98,15 @@ public:
   const T_TIME &startTime() const { return _stime; }
   void setStartTime(const T_TIME &time) { _stime = time; }
 
-  T_TIME endTime() const { return _stime + secToDur(sampleCount() / _smpfreq); }
+  T_TIME endTime() const
+  {
+    return sampleCount() == 0
+               ? _stime
+               : (_stime + secToDur((sampleCount() - 1) / _smpfreq));
+  }
   void setEndTime(const T_TIME &time) { _stime += time - endTime(); }
 
-  TimeWindow timeWindow() const { return TimeWindow(_stime, endTime()); }
+  T_WIN timeWindow() const { return T_WIN(_stime, endTime()); }
 
   size_t sampleCount() const { return _data.size(); }
 
@@ -129,28 +134,33 @@ public:
     setData(std::vector<T_DATA>{data, data + dataSize});
   }
 
-  bool slice(const TimeWindow &tw)
+  double index(const T_TIME time) const
   {
-    if (timeWindow() == tw) return true;
+    return durToSec(time - _stime) * _smpfreq;
+  }
 
-    if (tw.startTime() < _stime) return false;
-    if (tw.endTime() > endTime()) return false;
+  bool slice(const T_WIN &tw)
+  {
+    const T_WIN _tw = timeWindow();
+    if (_tw == tw) return true;
 
-    size_t startOfs = std::floor(durToSec(tw.startTime() - _stime) * _smpfreq);
-    size_t endOfs   = std::ceil(durToSec(tw.endTime() - _stime) * _smpfreq) - 1;
+    if (!_tw.contains(tw)) return false;
 
-    if (startOfs >= sampleCount()) return false; // overflow
+    double startOfs = std::floor(index(tw.startTime()));
+    double endOfs   = std::ceil(index(tw.endTime()));
+
+    if (startOfs < 0) return false;
     if (endOfs >= sampleCount()) return false;
 
     std::vector<T_DATA> sliced(_data.begin() + startOfs,
-                               _data.begin() + endOfs);
+                               _data.begin() + endOfs + 1);
     setStartTime(startTime() + secToDur(startOfs / _smpfreq));
     setData(std::move(sliced));
     return true;
   }
 };
 
-using Trace = GenericTrace<double, UTCTime>;
+using Trace = GenericTrace<double, UTCTime, TimeWindow>;
 
 } // namespace HDD
 

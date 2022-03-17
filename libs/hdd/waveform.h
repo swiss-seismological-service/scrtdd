@@ -75,6 +75,8 @@ public:
 
   void request(const TimeWindow &tw, const Catalog::Phase &ph);
 
+  size_t numRequests() { return _requests.size(); }
+
   void load();
 
   // ugly, but we need to give the user some feedbacks
@@ -286,6 +288,9 @@ public:
                                    double resampleFreq,
                                    Transform trans) override;
 
+  bool enabled() { return _enabled; }
+  void setEnabled(bool enabled) { _enabled = enabled; }
+
   TimeWindow snrTimeWindow(const UTCTime &pickTime) const;
 
   bool goodSnr(const Trace &trace, const UTCTime &pickTime) const;
@@ -302,6 +307,7 @@ private:
     double signalStart; // secs relative to pick time
     double signalEnd;   // secs relative to pick time
   } _snr;
+  bool _enabled = true;
 };
 
 struct ThreeComponents

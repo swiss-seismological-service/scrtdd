@@ -76,16 +76,6 @@ public:
     if (_endTime < _startTime) _endTime = _startTime;
   }
 
-  void trim(Duration amountAtStart, Duration amountAtEnd)
-  {
-    set(_startTime + amountAtStart, _endTime - amountAtEnd);
-  }
-
-  void extent(Duration amountAtStart, Duration amountAtEnd)
-  {
-    set(_startTime - amountAtStart, _endTime + amountAtEnd);
-  }
-
   bool empty() const { return _startTime == _endTime; }
 
   bool contains(const T &t) const { return t >= _startTime && t <= _endTime; }
@@ -103,6 +93,18 @@ public:
   bool contiguous(const GenericTimeWindow &other) const
   {
     return other._startTime == _endTime || other._endTime == _startTime;
+  }
+
+  GenericTimeWindow trim(Duration amountAtStart, Duration amountAtEnd) const
+  {
+    return GenericTimeWindow(_startTime + amountAtStart,
+                             _endTime - amountAtEnd);
+  }
+
+  GenericTimeWindow extend(Duration amountAtStart, Duration amountAtEnd) const
+  {
+    return GenericTimeWindow(_startTime - amountAtStart,
+                             _endTime + amountAtEnd);
   }
 
   GenericTimeWindow merge(const GenericTimeWindow &other) const

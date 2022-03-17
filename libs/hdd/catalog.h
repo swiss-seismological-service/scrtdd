@@ -171,10 +171,9 @@ public:
     bool operator!=(const Phase &other) const { return !operator==(other); }
     operator std::string() const
     {
-      return "\"Phase " + type + (isManual ? " (manual) " : " (auto) ") +
-             networkCode + "." + stationCode + "." + locationCode + "." +
-             channelCode + " " + UTCClock::toString(time) + " evId " +
-             std::to_string(eventId) + " staId " + stationId + "\"";
+      return type + "@" + networkCode + "." + stationCode + "." + locationCode +
+             "." + channelCode + ":" + UTCClock::toString(time) + ":evId-" +
+             std::to_string(eventId);
     }
   };
 

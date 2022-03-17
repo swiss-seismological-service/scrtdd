@@ -108,7 +108,6 @@ private:
                         const std::string &forceProfile = "");
 
   void loadProfile(ProfilePtr profile,
-                   bool preloadData,
                    const HDD::Catalog *alternativeCatalog = nullptr);
 
   std::vector<DataModel::OriginPtr> fetchOrigins(const std::string &idFile,
@@ -136,6 +135,7 @@ private:
     std::string relocateCatalog;
     std::string dumpClusters;
     std::string dumpCatalog;
+    std::string dumpCatalogOptions;
     std::string dumpWaveforms;
     std::string mergeCatalogs;
     std::string evalXCorr;
@@ -160,10 +160,10 @@ private:
               bool saveProcessingFiles,
               bool cacheWaveforms,
               bool cacheAllWaveforms,
-              bool preloadData,
               const HDD::Catalog *alternativeCatalog = nullptr);
     void unload();
     bool isLoaded() { return loaded; }
+    void preloadWaveforms();
     void freeResources();
     Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
     std::unique_ptr<HDD::Catalog> relocateSingleEvent(DataModel::Origin *org);

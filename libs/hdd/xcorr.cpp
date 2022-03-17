@@ -175,7 +175,7 @@ void crossCorrelation(const double *dataS,
       if (std::isfinite(CCslm) && CCslm >= threshold) numMax++;
       if (numMax > 1)
       {
-        logDebug("Discard cross-correlation: cycle skipping detected (cc %.2f)",
+        logDebug("Discard cross-correlation (cc %.2f): cycle skipping detected",
                  coeffOut);
         coeffOut = std::nan("");
         break;

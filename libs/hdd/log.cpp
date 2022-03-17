@@ -20,12 +20,23 @@ using namespace std;
 
 namespace HDD {
 
-std::function<void(const std::string &)> Logger::_error;
-std::function<void(const std::string &)> Logger::_warning;
-std::function<void(const std::string &)> Logger::_info;
-std::function<void(const std::string &)> Logger::_debug;
+//
+// Register no-op handlers: it is up to the user to register something with
+// Logger::registerLoggers(...)
+//
+std::function<void(const std::string &)> Logger::_error =
+    [](const std::string &) {};
+std::function<void(const std::string &)> Logger::_warning =
+    [](const std::string &) {};
+std::function<void(const std::string &)> Logger::_info =
+    [](const std::string &) {};
+std::function<void(const std::string &)> Logger::_debug =
+    [](const std::string &) {};
 std::function<void *(const std::string &, const std::vector<Logger::Level> &)>
-    Logger::_createFileLogger;
-std::function<void(void *)> Logger::_destroyFileLogger;
+    Logger::_createFileLogger =
+        [](const std::string &, const std::vector<Logger::Level> &) {
+          return nullptr;
+        };
+std::function<void(void *)> Logger::_destroyFileLogger = [](void *) {};
 
 } // namespace HDD

@@ -90,11 +90,11 @@ void UTCClock::toDate(const UTCClock::time_point &tp,
 UTCClock::time_point UTCClock::fromString(const std::string &s)
 {
   static const std::regex re(
-      R"((\d\d\d\d)-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(\.\d+)Z)",
+      R"((\d\d\d\d)-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)\.(\d+)Z)",
       std::regex::optimize);
 
   std::smatch m;
-  if (!std::regex_match(s, m, re)) throw Exception("Invalid UTC string");
+  if (!std::regex_match(s, m, re)) throw Exception("Invalid UTC string: " + s);
 
   int year  = std::stoi(m.str(1));
   int month = std::stoi(m.str(2));
@@ -102,13 +102,26 @@ UTCClock::time_point UTCClock::fromString(const std::string &s)
   int hour  = std::stoi(m.str(4));
   int min   = std::stoi(m.str(5));
   int sec   = std::stoi(m.str(6));
-  int usec  = double(1000000) * std::stod(m.str(7));
+  int usec  = std::stod(m.str(7));
+  // This mess below is because we cannot read the usec as a floating point
+  // number but we must read it as an integer otherwise we lose precision
+  size_t numberOfDigits = m.str(7).size();
+  while (numberOfDigits < 6)
+  {
+    usec *= 10;
+    numberOfDigits++;
+  }
+  while (numberOfDigits > 6)
+  {
+    usec /= 10;
+    numberOfDigits--;
+  }
 
-  if (month < 1 || month > 12) throw Exception("Invalid UTC string");
-  if (day < 1 || day > 31) throw Exception("Invalid UTC string");
-  if (hour < 0 || day > 23) throw Exception("Invalid UTC string");
-  if (min < 0 || min > 59) throw Exception("Invalid UTC string");
-  if (sec < 0 || sec > 59) throw Exception("Invalid UTC string");
+  if (month < 1 || month > 12) throw Exception("Invalid UTC string: " + s);
+  if (day < 1 || day > 31) throw Exception("Invalid UTC string: " + s);
+  if (hour < 0 || hour > 23) throw Exception("Invalid UTC string: " + s);
+  if (min < 0 || min > 59) throw Exception("Invalid UTC string: " + s);
+  if (sec < 0 || sec > 59) throw Exception("Invalid UTC string: " + s);
 
   return fromDate(year, month, day, hour, min, sec, usec);
 }
@@ -119,17 +132,17 @@ std::string UTCClock::toString(const UTCClock::time_point &tp)
   toDate(tp, year, month, day, hour, min, sec, usec);
   std::string usecStr;
   if (usec == 0)
-    usecStr = strf("%04d", usec);
+    usecStr = "0000";
   else
   {
     usecStr               = strf("%06d", usec);
     size_t numberOfDigits = usecStr.size();
-    while (usecStr[numberOfDigits - 1] == '0' && numberOfDigits >= 0)
+    while (numberOfDigits > 0 && usecStr[numberOfDigits - 1] == '0')
       --numberOfDigits;
     usecStr = usecStr.substr(0, numberOfDigits);
   }
   return strf("%04d-%02d-%02dT%02d:%02d:%02d.%sZ", year, month, day, hour, min,
-              sec, usecStr);
+              sec, usecStr.c_str());
 }
 
 } // namespace HDD

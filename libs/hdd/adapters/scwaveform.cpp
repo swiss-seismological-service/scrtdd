@@ -57,6 +57,12 @@ unique_ptr<HDD::Trace> contiguousRecord(const RecordSequence &seq,
 
   Seiscomp::GenericRecordPtr rec = seq.contiguousRecord<double>(&sctw, false);
 
+  if (!rec)
+  {
+    throw HDD::Exception("Internal logic error: cannot create HDD::Trace from "
+                         "Seiscomp::Core::GenericRecord");
+  }
+
   const Seiscomp::DoubleArray *data =
       Seiscomp::DoubleArray::ConstCast(rec->data());
   if (!data)
@@ -72,8 +78,13 @@ unique_ptr<HDD::Trace> contiguousRecord(const RecordSequence &seq,
   if (!trace->slice(tw))
   {
     string msg =
-        HDD::strf("Cannot slice trace from %s length %.2f sec",
-                  HDD::UTCClock::toString(tw.startTime()).c_str(), tw.length());
+        HDD::strf("Cannot slice trace from %s length %.2f sec. Trace "
+                  "data from %s length %.2f sec, samples %u sampfreq %f",
+                  HDD::UTCClock::toString(tw.startTime()).c_str(),
+                  HDD::durToSec(tw.length()),
+                  HDD::UTCClock::toString(trace->startTime()).c_str(),
+                  HDD::durToSec(trace->timeWindow().length()),
+                  trace->sampleCount(), trace->samplingFrequency());
     throw HDD::Exception(msg);
   }
 

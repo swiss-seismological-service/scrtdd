@@ -339,21 +339,21 @@ private:
   void printCounters() const;
 
 private:
-  bool _saveProcessing = true;
-  std::string _workingDir;
-  std::string _cacheDir;
-  std::string _tmpCacheDir;
-
-  const Catalog _srcCat;
-  Catalog _bgCat;
-
   const Config _cfg;
 
+  const Catalog _srcCat;
+  const Catalog _bgCat;
+
+  std::unique_ptr<HDD::TravelTimeTable> _ttt;
+
+  bool _saveProcessing = true;
+
+  const std::string _workingDir;
+  const std::string _cacheDir;
+  const std::string _tmpCacheDir;
   bool _useCatalogWaveformDiskCache = true;
   bool _waveformCacheAll            = false;
   bool _useArtificialPhases         = true;
-
-  std::unique_ptr<HDD::TravelTimeTable> _ttt;
 
   struct
   {
@@ -386,7 +386,7 @@ private:
   // options.
   // Note that this approach requires slightly more disk space, but saves lot of
   // precious user time.
-  static constexpr const double DISK_TRACE_MIN_LEN = 10;
+  static constexpr double DISK_TRACE_MIN_LEN = 10;
 };
 
 } // namespace HDD

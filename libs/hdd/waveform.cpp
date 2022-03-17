@@ -121,9 +121,9 @@ void BatchLoader::load()
 {
   if (_dataLoaded) return;
 
-  static const auto onTraceLoaded = [this](const std::string &streamID,
-                                           const TimeWindow &tw,
-                                           unique_ptr<Trace> trace) {
+  const auto onTraceLoaded = [this](const std::string &streamID,
+                                    const TimeWindow &tw,
+                                    unique_ptr<Trace> trace) {
     const string wfId =
         waveformId(tw, trace->networkCode(), trace->stationCode(),
                    trace->locationCode(), trace->channelCode());
@@ -131,22 +131,25 @@ void BatchLoader::load()
     _counters_wf_downloaded++;
   };
 
-  static const auto onTraceFailed = [this](const std::string &streamID,
-                                           const TimeWindow &tw,
-                                           const std::string &error) {
+  const auto onTraceFailed = [this](const std::string &streamID,
+                                    const TimeWindow &tw,
+                                    const std::string &error) {
     _counters_wf_no_avail++;
     logDebug("Cannnot load trace (stream %s from %s length %.2f sec): %s",
              streamID.c_str(), UTCClock::toString(tw.startTime()).c_str(),
              durToSec(tw.length()), error.c_str());
   };
 
-  SeiscompAdapter::loadTracesFromRecordStream(_recordStreamURL, _requests,
-                                              onTraceLoaded, onTraceFailed);
+  if (_requests.size() > 0)
+  {
+    SeiscompAdapter::loadTracesFromRecordStream(_recordStreamURL, _requests,
+                                                onTraceLoaded, onTraceFailed);
 
-  logInfo("Fetched %u/%lu waveforms, not available %u", _counters_wf_downloaded,
-          _requests.size(), _counters_wf_no_avail);
+    logInfo("Fetched %u/%lu waveforms, not available %u",
+            _counters_wf_downloaded, _requests.size(), _counters_wf_no_avail);
 
-  _requests.clear();
+    _requests.clear();
+  }
   _dataLoaded = true;
 }
 
@@ -201,7 +204,15 @@ shared_ptr<const Trace> ExtraLenLoader::get(const TimeWindow &tw,
     shared_ptr<Trace> nonConstTrace(new Trace(*trace));
     if (!nonConstTrace->slice(tw))
     {
-      logDebug("Incomplete trace, not enough data (%s)", string(ph).c_str());
+      logDebug("Error while loading phase '%s': cannot slice trace "
+               "from %s length %.2f sec. Trace "
+               "data from %s length %.2f sec, samples %u sampfreq %f",
+               string(ph).c_str(),
+               HDD::UTCClock::toString(tw.startTime()).c_str(),
+               HDD::durToSec(tw.length()),
+               HDD::UTCClock::toString(trace->startTime()).c_str(),
+               HDD::durToSec(trace->timeWindow().length()),
+               trace->sampleCount(), trace->samplingFrequency());
       return nullptr;
     }
     trace = nonConstTrace;
@@ -462,7 +473,7 @@ shared_ptr<const Trace> SnrFilterPrc::get(const TimeWindow &tw,
 
   if (!trace) return nullptr;
 
-  if (!goodSnr(*trace, ph.time))
+  if (_enabled && !goodSnr(*trace, ph.time))
   {
     logDebug("Trace has too low SNR(%s)", string(ph).c_str());
     _counters_wf_snr_low++;
@@ -474,8 +485,15 @@ shared_ptr<const Trace> SnrFilterPrc::get(const TimeWindow &tw,
     shared_ptr<Trace> nonConstTrace(new Trace(*trace));
     if (!nonConstTrace->slice(tw))
     {
-      logDebug("Error when checking SNR, cannot trim data (%s)",
-               string(ph).c_str());
+      logDebug("Error while checking SNR for phase '%s': cannot slice trace "
+               "from %s length %.2f sec. Trace "
+               "data from %s length %.2f sec, samples %u sampfreq %f",
+               string(ph).c_str(),
+               HDD::UTCClock::toString(tw.startTime()).c_str(),
+               HDD::durToSec(tw.length()),
+               HDD::UTCClock::toString(trace->startTime()).c_str(),
+               HDD::durToSec(trace->timeWindow().length()),
+               trace->sampleCount(), trace->samplingFrequency());
       return nullptr;
     }
     trace = nonConstTrace;
@@ -492,13 +510,7 @@ unique_ptr<Trace> transformL2(const TimeWindow &tw,
 {
   string channelCodeRoot = Waveform::getBandAndInstrumentCodes(ph.channelCode);
 
-  auto tracesCompatible = [](const Trace &tr1, const Trace &tr2) -> bool {
-    return tr1.startTime() == tr2.startTime() &&
-           tr1.samplingFrequency() == tr2.samplingFrequency() &&
-           tr1.sampleCount() == tr2.sampleCount();
-  };
-
-  if (!tracesCompatible(trH1, trH2))
+  if (trH1.samplingFrequency() != trH2.samplingFrequency())
   {
     logDebug(
         "Cannot perform L2 transformation with incompatible horizontal traces");
@@ -520,13 +532,42 @@ unique_ptr<Trace> transformL2(const TimeWindow &tw,
   }
 
   //
+  // Find common start/end times
+  //
+  UTCTime startTime = std::max(trH1.startTime(), trH2.startTime());
+  UTCTime endTime   = std::min(trH1.endTime(), trH2.endTime());
+  size_t sampleCount =
+      std::floor(durToSec(endTime - startTime) * trH1.samplingFrequency()) + 1;
+
+  if (sampleCount <= 0)
+  {
+    logDebug("Cannot perform L2 transformation: traces do not overlap");
+    return nullptr;
+  }
+
+  double h1Start = std::round(trH1.index(startTime));
+  if (h1Start < 0 || (h1Start + sampleCount) > trH1.sampleCount())
+  {
+    logDebug("Cannot perform L2 transformation: internal logic error");
+    return nullptr;
+  }
+
+  double h2Start = std::round(trH2.index(startTime));
+  if (h2Start < 0 || (h2Start + sampleCount) > trH2.sampleCount())
+  {
+    logDebug("Cannot perform L2 transformation: internal logic error");
+    return nullptr;
+  }
+
+  const double *h1data = trH1.data() + size_t(h1Start);
+  const double *h2data = trH2.data() + size_t(h2Start);
+
+  //
   // Compute L2
   //
-  vector<double> l2vec(trH1.sampleCount());
-  double *l2data       = l2vec.data();
-  const double *h1data = trH1.data();
-  const double *h2data = trH2.data();
-  for (size_t i = 0; i < l2vec.size(); ++i)
+  vector<double> l2vec(sampleCount);
+  double *l2data = l2vec.data();
+  for (size_t i = 0; i < sampleCount; ++i)
   {
     l2data[i] =
         std::sqrt(square(h1data[i] * h1scaler) + square(h2data[i] * h2scaler));
@@ -534,7 +575,7 @@ unique_ptr<Trace> transformL2(const TimeWindow &tw,
 
   return unique_ptr<Trace>(new Trace(
       ph.networkCode, ph.stationCode, ph.locationCode, channelCodeRoot + "L",
-      trH1.startTime(), trH1.samplingFrequency(), std::move(l2vec)));
+      startTime, trH1.samplingFrequency(), std::move(l2vec)));
 }
 
 unique_ptr<Trace> transformRT(const TimeWindow &tw,
@@ -549,15 +590,10 @@ unique_ptr<Trace> transformRT(const TimeWindow &tw,
 {
   string channelCodeRoot = Waveform::getBandAndInstrumentCodes(ph.channelCode);
 
-  auto tracesCompatible = [](const Trace &tr1, const Trace &tr2) -> bool {
-    return tr1.startTime() == tr2.startTime() &&
-           tr1.samplingFrequency() == tr2.samplingFrequency() &&
-           tr1.sampleCount() == tr2.sampleCount();
-  };
-
-  if (!tracesCompatible(trH1, trH2) || !tracesCompatible(trH2, trV))
+  if (trH1.samplingFrequency() != trH2.samplingFrequency() ||
+      trH1.samplingFrequency() != trV.samplingFrequency())
   {
-    logDebug("Cannot perform L2 transformation with incompatible traces");
+    logDebug("Cannot perform RT transformation with incompatible traces");
     return nullptr;
   }
 
@@ -658,27 +694,64 @@ unique_ptr<Trace> transformRT(const TimeWindow &tw,
   }
 
   //
+  // Find common start/end times
+  //
+  UTCTime startTime =
+      std::max({trH1.startTime(), trH2.startTime(), trV.startTime()});
+  UTCTime endTime = std::min({trH1.endTime(), trH2.endTime(), trV.endTime()});
+  size_t sampleCount =
+      std::floor(durToSec(endTime - startTime) * trH1.samplingFrequency()) + 1;
+
+  if (sampleCount <= 0)
+  {
+    logDebug("Cannot perform L2 transformation: traces do not overlap");
+    return nullptr;
+  }
+
+  double h1Start = std::round(trH1.index(startTime));
+  if (h1Start < 0 || (h1Start + sampleCount) > trH1.sampleCount())
+  {
+    logDebug("Cannot perform L2 transformation: internal logic error");
+    return nullptr;
+  }
+
+  double h2Start = std::round(trH2.index(startTime));
+  if (h2Start < 0 || (h2Start + sampleCount) > trH2.sampleCount())
+  {
+    logDebug("Cannot perform L2 transformation: internal logic error");
+    return nullptr;
+  }
+
+  double vStart = std::round(trV.index(startTime));
+  if (vStart < 0 || (vStart + sampleCount) > trV.sampleCount())
+  {
+    logDebug("Cannot perform L2 transformation: internal logic error");
+    return nullptr;
+  }
+
+  const double *h1data = trH1.data() + size_t(h1Start);
+  const double *h2data = trH2.data() + size_t(h2Start);
+  const double *vdata  = trV.data() + size_t(vStart);
+
+  //
   // Apply RT transformation now
   //
-  vector<double> tvec(trH1.sampleCount());
-  double *tdata        = tvec.data();
-  const double *h1data = trH1.data();
-  const double *h2data = trH2.data();
-  const double *vdata  = trV.data();
-  for (size_t i = 0; i < tvec.size(); ++i)
+  vector<double> rtvec(sampleCount);
+  double *rtdata = rtvec.data();
+  for (size_t i = 0; i < sampleCount; ++i)
   {
     if (trans == Transform::TRANSVERSAL) // T trasversal
-      tdata[i] = transformation[0][0] * h2data[i] * h2scaler +
-                 transformation[0][1] * h1data[i] * h1scaler +
-                 transformation[0][2] * vdata[i] * vscaler;
+      rtdata[i] = transformation[0][0] * h2data[i] * h2scaler +
+                  transformation[0][1] * h1data[i] * h1scaler +
+                  transformation[0][2] * vdata[i] * vscaler;
     else if (trans == Transform::RADIAL) // R radial
-      tdata[i] = transformation[1][0] * h2data[i] * h2scaler +
-                 transformation[1][1] * h1data[i] * h1scaler +
-                 transformation[1][2] * vdata[i] * vscaler;
+      rtdata[i] = transformation[1][0] * h2data[i] * h2scaler +
+                  transformation[1][1] * h1data[i] * h1scaler +
+                  transformation[1][2] * vdata[i] * vscaler;
     else // V vertical
-      tdata[i] = transformation[2][0] * h2data[i] * h2scaler +
-                 transformation[2][1] * h1data[i] * h1scaler +
-                 transformation[2][2] * vdata[i] * vscaler;
+      rtdata[i] = transformation[2][0] * h2data[i] * h2scaler +
+                  transformation[2][1] * h1data[i] * h1scaler +
+                  transformation[2][2] * vdata[i] * vscaler;
   }
 
   string channelCode = channelCodeRoot;
@@ -690,7 +763,7 @@ unique_ptr<Trace> transformRT(const TimeWindow &tw,
     channelCode += "V";
   return unique_ptr<Trace>(
       new Trace(ph.networkCode, ph.stationCode, ph.locationCode, channelCode,
-                trH1.startTime(), trH1.samplingFrequency(), std::move(tvec)));
+                trH1.startTime(), trH1.samplingFrequency(), std::move(rtvec)));
 }
 
 void resample(Trace &trace, double new_sf)
