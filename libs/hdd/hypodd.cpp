@@ -267,7 +267,9 @@ void HypoDD::preloadWaveforms()
 
     updateCounters(batchLoader, nullptr, nullptr);
 
-    if (++numEvents % (_bgCat->getEvents().size() / 100) == 0)
+    const unsigned onePercent =
+        _bgCat->getEvents().size() < 100 ? 1 : (_bgCat->getEvents().size() / 100);
+    if (++numEvents % onePercent == 0)
     {
       SEISCOMP_INFO("Loaded %.1f%% of catalog phase waveforms",
                     (numEvents * 100.0 / _bgCat->getEvents().size()));
