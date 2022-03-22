@@ -34,7 +34,8 @@ public:
   Exception(const std::string &message) : std::runtime_error(message) {}
 };
 
-std::string strf(const char *fmt, ...);
+std::string strf(const char *fmt, ...)
+            __attribute__ ((format (printf, 1, 2)));
 
 std::vector<std::string> splitString(const std::string &str,
                                      const std::regex &regex);
