@@ -79,7 +79,7 @@ unique_ptr<HDD::Trace> contiguousRecord(const RecordSequence &seq,
   {
     string msg =
         HDD::strf("Cannot slice trace from %s length %.2f sec. Trace "
-                  "data from %s length %.2f sec, samples %u sampfreq %f",
+                  "data from %s length %.2f sec, samples %zu sampfreq %f",
                   HDD::UTCClock::toString(tw.startTime()).c_str(),
                   HDD::durToSec(tw.length()),
                   HDD::UTCClock::toString(trace->startTime()).c_str(),

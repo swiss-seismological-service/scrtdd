@@ -691,13 +691,12 @@ bool RTDD::validateParameters()
 
     try
     {
-      string compatibleChannels =
-          configGetString(prefix + "compatibleChannels");
-      vector<std::string> compatibleSets =
-          ::splitString(compatibleChannels, ";");
+      string compatibleChannels = 
+        configGetString(prefix + "compatibleChannels");
+      vector<string> compatibleSets = ::splitString(compatibleChannels, ";");
       for (const auto &cs : compatibleSets)
       {
-        vector<std::string> codes = ::splitString(cs, ",");
+        vector<string> codes = ::splitString(cs, ",");
         for (size_t i = 0; i < codes.size() - 1; i++)
           for (size_t j = i + 1; j < codes.size(); j++)
           {

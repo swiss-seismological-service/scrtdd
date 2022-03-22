@@ -379,7 +379,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event1,
 
   // Test no event changes, the relocation should not move the events
   string workingDir =
-      strf("./data/test_dd_multi_event1_%d_%d_reloc1", cIdx, tttIdx);
+      strf("./data/test_dd_multi_event1_%lu_%lu_reloc1", cIdx, tttIdx);
   const HDD::Catalog relocCat =
       relocateCatalog(baseCat, std::move(ttt), workingDir);
   testCatalogEqual(baseCat, relocCat);
@@ -427,7 +427,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event2,
   }
 
   string workingDir =
-      strf("./data/test_dd_multi_event2_%d_%d_reloc2", cIdx, tttIdx);
+      strf("./data/test_dd_multi_event2_%lu_%lu_reloc2", cIdx, tttIdx);
   const HDD::Catalog relocCat =
       relocateCatalog(cat, std::move(ttt), workingDir);
   testCatalogEqual(baseCat, relocCat);
@@ -466,7 +466,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event3,
   randomPerturbation(cat);
 
   string workingDir =
-      strf("./data/test_dd_multi_event3_%d_%d_reloc3", cIdx, tttIdx);
+      strf("./data/test_dd_multi_event3_%lu_%lu_reloc3", cIdx, tttIdx);
   const HDD::Catalog relocCat =
       relocateCatalog(cat, std::move(ttt), workingDir);
   testCatalogEqual(baseCat, relocCat);
@@ -509,7 +509,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event1,
 
   // Test 1: no event changes
   string workingDir =
-      strf("./data/test_dd_single_event1_%d_%d, reloc1", cIdx, tttIdx);
+      strf("./data/test_dd_single_event1_%lu_%lu, reloc1", cIdx, tttIdx);
   HDD::Catalog relocCat = relocateSingleEvent(backgroundCat, std::move(ttt),
                                               workingDir, realTimeCat);
   testCatalogEqual(realTimeCat, relocCat);
@@ -564,7 +564,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event2,
   }
 
   string workingDir =
-      strf("./data/test_dd_single_event2_%d_%d_reloc2", cIdx, tttIdx);
+      strf("./data/test_dd_single_event2_%lu_%lu_reloc2", cIdx, tttIdx);
   const HDD::Catalog relocCat = relocateSingleEvent(
       backgroundCat, std::move(ttt), workingDir, realTimeCat);
   testCatalogEqual(realTimeCat, relocCat);
@@ -609,7 +609,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event3,
   randomPerturbation(cat);
 
   string workingDir =
-      strf("./data/test_dd_single_event3_%d_%d_reloc3", cIdx, tttIdx);
+      strf("./data/test_dd_single_event3_%lu_%lu_reloc3", cIdx, tttIdx);
   const HDD::Catalog relocCat = relocateSingleEvent(
       backgroundCat, std::move(ttt), workingDir, realTimeCat);
   testCatalogEqual(realTimeCat, relocCat);

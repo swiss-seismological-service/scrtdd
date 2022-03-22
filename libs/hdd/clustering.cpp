@@ -356,7 +356,7 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
   if (neighbours->ids.size() < minNumNeigh)
   {
     string msg =
-        strf("Skipping event %s, insufficient number of neighbors (%d)",
+        strf("Skipping event %s, insufficient number of neighbors (%zu)",
              string(refEv).c_str(), neighbours->ids.size());
     logDebug("%s", msg.c_str());
     throw Exception(msg);

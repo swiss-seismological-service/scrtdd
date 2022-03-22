@@ -296,7 +296,7 @@
         <optionReference>messaging#timeout</optionReference>
         <optionReference>messaging#primary-group</optionReference>
         <optionReference>messaging#subscribe-group</optionReference>
-        <optionReference>messaging#encoding</optionReference>
+        <optionReference>messaging#content-type</optionReference>
         <optionReference>messaging#start-stop-msg</optionReference>
       </group>
       <group name="Database">

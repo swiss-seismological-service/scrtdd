@@ -490,7 +490,7 @@ void Grid::getValuesAt3DLocation(double xloc,
                       "(xloc %.2f yloc %.2f zloc %.2f - grid %s "
                       "origx %.3f origy %.3f origz %.3f "
                       "dx %.2f dy %.2f dz %.2f "
-                      "numx %u numy %u numz %u)",
+                      "numx %llu numy %llu numz %llu)",
                       xloc, yloc, zloc, info.hdrFilePath.c_str(), info.origx,
                       info.origy, info.origz, info.dx, info.dy, info.dz,
                       info.numx, info.numy, info.numz);
@@ -550,7 +550,7 @@ void Grid::getValuesAt2DLocation(double yloc,
                       "(xloc %.2f yloc %.2f zloc %.2f - grid %s "
                       "origx %.3f origy %.3f origz %.3f "
                       "dx %.2f dy %.2f dz %.2f "
-                      "numx %u numy %u numz %u)",
+                      "numx %llu numy %llu numz %llu)",
                       xloc, yloc, zloc, info.hdrFilePath.c_str(), info.origx,
                       info.origy, info.origz, info.dx, info.dy, info.dz,
                       info.numx, info.numy, info.numz);
