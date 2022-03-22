@@ -13,6 +13,7 @@ The following geographic transformations (TRANS statement) are currently support
 Since scrtdd never loads the grid files into memory, but reads the data from the files themselves, there could be issues with the maximum number of open files limits in your system. If that's the case (check scrtdd logs), make sure to increase that number to allow for many grid files to be open at the same time during the inversion.
 
 .. image:: media/nll-ttt.png
+   :width: 800
 
 
 LOCSAT
@@ -81,6 +82,7 @@ Last step is to copy the travel time tables to the SeisComP installation folder 
     cp mymodel* seiscomp_installation/share/locsat/tables/
 
 .. image:: media/locsat-ttt.png
+   :width: 800
 
 
 

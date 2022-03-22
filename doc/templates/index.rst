@@ -25,9 +25,13 @@ About
 .. toctree::
    :maxdepth: 3
 
-   /apps/scrtdd
+   /base/intro
+   /base/multievent
+   /base/singleevent
+   /base/xcorr
    /base/continuous
    /base/ttt
    /base/waveforms
    /base/database
+   /apps/scrtdd
    /base/plugin
