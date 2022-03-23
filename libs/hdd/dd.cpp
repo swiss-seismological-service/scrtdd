@@ -2344,7 +2344,7 @@ shared_ptr<const Trace> DD::getWaveform(Waveform::Processor &wfProc,
   {
     trans = Transform::RADIAL;
   }
-  else if (component == "L")
+  else if (component == "H")
   {
     trans = Transform::L2;
   }
