@@ -30,9 +30,23 @@ unordered_map<string, unordered_set<Catalog::Phase::Type>>
 Neighbours::allPhases() const
 {
   unordered_map<string, unordered_set<Catalog::Phase::Type>> allPhases;
-  for (const auto &kw1 : phases)
-    for (const auto &kw2 : kw1.second)
-      allPhases[kw2.first].insert(kw2.second.begin(), kw2.second.end());
+  for (const auto &kv1 : phases)
+    for (const auto &kv2 : kv1.second)
+      allPhases[kv2.first].insert(kv2.second.begin(), kv2.second.end());
+  return allPhases;
+}
+
+unordered_map<string, unordered_set<Catalog::Phase::Type>>
+Neighbours::allPhases(unsigned neighbourId) const
+{
+  unordered_map<string, unordered_set<Catalog::Phase::Type>> allPhases;
+  try
+  {
+    for (const auto &kv : phases.at(neighbourId))
+      allPhases[kv.first].insert(kv.second.begin(), kv.second.end());
+  }
+  catch (...)
+  {}
   return allPhases;
 }
 

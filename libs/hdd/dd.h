@@ -142,12 +142,18 @@ public:
   std::unique_ptr<Catalog>
   relocateMultiEvents(const ClusteringOptions &clustOpt,
                       const SolverOptions &solverOpt);
+
   std::unique_ptr<Catalog>
   relocateSingleEvent(const Catalog &singleEvent,
                       const ClusteringOptions &clustOpt1,
                       const ClusteringOptions &clustOpt2,
                       const SolverOptions &solverOpt);
-  void evalXCorr(const ClusteringOptions &clustOpt, bool theoretical);
+
+  void evalXCorr(const ClusteringOptions &clustOpt,
+                 const double interEvDistStep = 0.1, // km
+                 const double staDistStep      = 3,   // km
+                 bool theoretical                = false,
+                 unsigned updateInterval         = 100);
 
   void setSaveProcessing(bool dump) { _saveProcessing = dump; }
   bool saveProcessing() const { return _saveProcessing; }
@@ -166,7 +172,7 @@ public:
 
   static std::string relocationReport(const Catalog &relocatedEv);
 
-  static bool xcorr(const Trace &tr1,
+  static void xcorr(const Trace &tr1,
                     const Trace &tr2,
                     double maxDelay,
                     bool qualityCheck,
@@ -296,8 +302,9 @@ private:
                                 double xcorrMaxInterEvDist, // -1 to disable
                                 XCorrCache &xcorr);
 
-  void
-  fixPhases(Catalog &catalog, const Catalog::Event &refEv, XCorrCache &xcorr);
+  void fixPhases(Catalog &catalog,
+                 const Catalog::Event &refEv,
+                 XCorrCache &xcorr) const;
 
   bool xcorrPhases(const Catalog::Event &event1,
                    const Catalog::Phase &phase1,
@@ -306,7 +313,8 @@ private:
                    const Catalog::Phase &phase2,
                    Waveform::Processor &ph2Cache,
                    double &coeffOut,
-                   double &lagOut);
+                   double &lagOut,
+                   std::string &componentOut);
 
   bool xcorrPhasesOneComponent(const Catalog::Event &event1,
                                const Catalog::Phase &phase1,
@@ -335,7 +343,7 @@ private:
                              double xcorrMaxEvStaDist,
                              double xcorrMaxInterEvDist);
 
-  void printCounters() const;
+  void logXCorrSummary(const XCorrCache &xcorr);
 
 private:
   const Config _cfg;
@@ -362,20 +370,6 @@ private:
     std::shared_ptr<Waveform::SnrFilterPrc> snrFilter;
     std::shared_ptr<Waveform::MemCachedProc> memCache;
   } _wfAccess;
-
-  struct
-  {
-    unsigned xcorr_skipped;
-    unsigned xcorr_performed;
-    unsigned xcorr_performed_theo;
-    unsigned xcorr_performed_s;
-    unsigned xcorr_performed_s_theo;
-    unsigned xcorr_good_cc;
-    unsigned xcorr_good_cc_theo;
-    unsigned xcorr_good_cc_s;
-    unsigned xcorr_good_cc_s_theo;
-    void reset() { *this = {0}; }
-  } mutable _counters;
 
   // For waveforms that are cached to disk, store at least `DISK_TRACE_MIN_LEN`
   // secs of data (centered at pick time).

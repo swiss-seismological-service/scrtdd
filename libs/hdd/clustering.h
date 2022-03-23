@@ -75,6 +75,9 @@ struct Neighbours
   std::unordered_map<std::string, std::unordered_set<Catalog::Phase::Type>>
   allPhases() const;
 
+  std::unordered_map<std::string, std::unordered_set<Catalog::Phase::Type>>
+  allPhases(unsigned neighbourId) const;
+
   std::unique_ptr<Catalog> toCatalog(const Catalog &catalog,
                                      bool includeRefEv = false) const;
 };

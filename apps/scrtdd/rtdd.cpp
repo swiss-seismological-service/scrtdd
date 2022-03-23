@@ -2300,7 +2300,7 @@ void RTDD::Profile::evalXCorr()
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::GMT();
-  dd->evalXCorr(multiEventClustering, false);
+  dd->evalXCorr(multiEventClustering);
 }
 
 void RTDD::Profile::dumpWaveforms()
@@ -2334,7 +2334,7 @@ void RTDD::Profile::dumpClusters()
                   cat.getEvents().size());
     string prefix = stringify("cluster-%u", clusterId++);
     cat.writeToFile(prefix + "-event.csv", prefix + "-phase.csv",
-                          prefix + "-station.csv");
+                    prefix + "-station.csv");
   }
 }
 

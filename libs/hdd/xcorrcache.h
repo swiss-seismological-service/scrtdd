@@ -25,93 +25,68 @@ namespace HDD {
 
 class XCorrCache
 {
-
 public:
   struct Entry
   {
-
-    double mean_coeff;
-    double mean_lag;
-    double min_lag;
-    double max_lag;
-    unsigned ccCount;
-
-    struct PeerInfo
-    {
-      double coeff, lag, lowerUncertainty, upperUncertainty;
-    };
-    std::unordered_map<unsigned, const PeerInfo> peers;
-
-    std::string peersStr; // debug
-
-    void update(const Catalog::Event &event,
-                const Catalog::Phase &phase,
-                double coeff,
-                double lag)
-    {
-      PeerInfo pi = {coeff, lag, phase.lowerUncertainty,
-                     phase.upperUncertainty};
-      peers.insert(std::pair<unsigned, const PeerInfo>(event.id, pi));
-      peersStr += std::string(event) + " ";
-    }
-
-    void computeStats()
-    {
-      ccCount    = peers.size();
-      mean_coeff = 0;
-      mean_lag   = 0;
-      min_lag    = 0;
-      max_lag    = 0;
-      for (auto &pair : peers)
-      {
-        const PeerInfo &data = pair.second;
-        mean_coeff += std::abs(data.coeff);
-        mean_lag += data.lag;
-        min_lag += data.lag - data.lowerUncertainty;
-        max_lag += data.lag + data.upperUncertainty;
-      }
-      mean_coeff /= ccCount;
-      mean_lag /= ccCount;
-      min_lag /= ccCount;
-      max_lag /= ccCount;
-    }
+    bool valid;
+    double coeff, lag;
+    std::string component;
   };
 
-  Entry &getForUpdate(unsigned evId,
-                      const std::string &stationId,
-                      const Catalog::Phase::Type &type)
+  XCorrCache()  = default;
+  ~XCorrCache() = default;
+
+  XCorrCache(const XCorrCache &other) = default;
+  XCorrCache &operator=(const XCorrCache &other) = default;
+
+  XCorrCache(XCorrCache &&other) = default;
+  XCorrCache &operator=(XCorrCache &&other) = default;
+
+  void add(unsigned evId1,
+           unsigned evId2,
+           const std::string &stationId,
+           const Catalog::Phase::Type &type,
+           bool valid,
+           double coeff,
+           double lag,
+           const std::string component)
   {
-    std::string key = make_key(evId, stationId, type);
-    return resultsByPhase[key];
+    Entry e;
+    e.valid                                 = valid;
+    e.coeff                                 = coeff;
+    e.lag                                   = lag;
+    e.component                             = component;
+    _entries[evId1][stationId][type][evId2] = e;
+    _entries[evId2][stationId][type][evId1] = e;
   }
 
-  void remove(unsigned evId,
+  bool remove(unsigned evId1,
+              unsigned evId2,
               const std::string &stationId,
               const Catalog::Phase::Type &type)
   {
-    std::string key = make_key(evId, stationId, type);
-    resultsByPhase.erase(key);
+    try
+    {
+      return _entries.at(evId1).at(stationId).at(type).erase(evId2) > 0;
+    }
+    catch (...)
+    {
+      return false;
+    }
   }
 
-  void computeStats()
+  bool remove(unsigned evId1,
+              const std::string &stationId,
+              const Catalog::Phase::Type &type)
   {
-    for (auto &pair : resultsByPhase) pair.second.computeStats();
-  }
-
-  bool has(unsigned evId,
-           const std::string &stationId,
-           const Catalog::Phase::Type &type) const
-  {
-    std::string key = make_key(evId, stationId, type);
-    return resultsByPhase.count(key) != 0;
-  }
-
-  const Entry &get(unsigned evId,
-                   const std::string &stationId,
-                   const Catalog::Phase::Type &type) const
-  {
-    std::string key = make_key(evId, stationId, type);
-    return resultsByPhase.at(key);
+    try
+    {
+      return _entries.at(evId1).at(stationId).erase(type) > 0;
+    }
+    catch (...)
+    {
+      return false;
+    }
   }
 
   bool has(unsigned evId1,
@@ -119,29 +94,121 @@ public:
            const std::string &stationId,
            const Catalog::Phase::Type &type) const
   {
-    return has(evId1, stationId, type) &&
-           (get(evId1, stationId, type).peers.count(evId2) != 0);
+    try
+    {
+      _entries.at(evId1).at(stationId).at(type).at(evId2);
+      return true;
+    }
+    catch (...)
+    {
+      return false;
+    }
   }
 
-  const Entry::PeerInfo &get(unsigned evId1,
-                             unsigned evId2,
-                             const std::string &stationId,
-                             const Catalog::Phase::Type &type) const
+  bool has(unsigned evId1,
+           const std::string &stationId,
+           const Catalog::Phase::Type &type) const
   {
-    return get(evId1, stationId, type).peers.at(evId2);
+    try
+    {
+      _entries.at(evId1).at(stationId).at(type);
+      return true;
+    }
+    catch (...)
+    {
+      return false;
+    }
+  }
+
+  const Entry &get(unsigned evId1,
+                   unsigned evId2,
+                   const std::string &stationId,
+                   const Catalog::Phase::Type &type) const
+  {
+    return _entries.at(evId1).at(stationId).at(type).at(evId2);
+  }
+
+  const std::unordered_map<unsigned, Entry> &
+  get(unsigned evId1,
+      const std::string &stationId,
+      const Catalog::Phase::Type &type) const
+  {
+    return _entries.at(evId1).at(stationId).at(type);
+  }
+
+  using ForEachCallback = std::function<void(unsigned ev1,
+                                             unsigned ev2,
+                                             const std::string &stationId,
+                                             const Catalog::Phase::Type &type,
+                                             const Entry &e)>;
+
+  void forEach(const ForEachCallback &c) const
+  {
+    for (const auto &kv1 : _entries)
+      for (const auto &kv2 : kv1.second)
+        for (const auto &kv3 : kv2.second)
+          for (const auto &kv4 : kv3.second)
+          {
+            c(kv1.first, kv4.first, kv2.first, kv3.first, kv4.second);
+          }
+  }
+
+  void forEach(unsigned evId1, const ForEachCallback &c) const
+  {
+    try
+    {
+      for (const auto &kv2 : _entries.at(evId1))
+        for (const auto &kv3 : kv2.second)
+          for (const auto &kv4 : kv3.second)
+          {
+            c(evId1, kv4.first, kv2.first, kv3.first, kv4.second);
+          }
+    }
+    catch (...)
+    {}
+  }
+
+  void forEach(unsigned evId1,
+               const std::string &stationId,
+               const ForEachCallback &c) const
+  {
+    try
+    {
+      for (const auto &kv3 : _entries.at(evId1).at(stationId))
+        for (const auto &kv4 : kv3.second)
+        {
+          c(evId1, kv4.first, stationId, kv3.first, kv4.second);
+        }
+    }
+    catch (...)
+    {}
+  }
+
+  void forEach(unsigned evId1,
+               const std::string &stationId,
+               const Catalog::Phase::Type &type,
+               const ForEachCallback &c) const
+  {
+    try
+    {
+      for (const auto &kv4 : _entries.at(evId1).at(stationId).at(type))
+      {
+        c(evId1, kv4.first, stationId, type, kv4.second);
+      }
+    }
+    catch (...)
+    {}
   }
 
 private:
-  static std::string make_key(unsigned evId,
-                              const std::string &stationId,
-                              const Catalog::Phase::Type &type)
-  {
-    return std::to_string(evId) + "." + stationId + "." +
-           static_cast<char>(type);
-  }
-
-  // cache of computed cross-correlation
-  std::unordered_map<std::string, Entry> resultsByPhase;
+  std::unordered_map<
+      unsigned, // indexed by event id
+      std::unordered_map<
+          std::string,                             // indexed by station id
+          std::unordered_map<Catalog::Phase::Type, // indexed by phase type
+                             std::unordered_map<unsigned, // indexed by event id
+                                                Entry>>>>
+      _entries;
 };
 
 } // namespace HDD

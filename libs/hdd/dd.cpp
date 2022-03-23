@@ -19,6 +19,8 @@
 #include "random.h"
 #include "utils.h"
 #include "xcorr.h"
+#include <iostream>
+#include <limits>
 
 using namespace std;
 using std::chrono::duration;
@@ -245,7 +247,7 @@ void DD::preloadWaveforms()
 
   auto forEventWaveforms =
       [this](const Event &event, unsigned &numPhases, unsigned &numSPhases,
-             std::function<void(const TimeWindow &, const Event &,
+             std::function<bool(const TimeWindow &, const Event &,
                                 const Phase &, const string &)> func) {
         auto eqlrng = _bgCat.getPhases().equal_range(event.id);
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
@@ -256,7 +258,7 @@ void DD::preloadWaveforms()
 
           for (const string &component : xcorrCfg.components)
           {
-            func(tw, event, phase, component);
+            if (func(tw, event, phase, component)) break;
           }
 
           numPhases++;
@@ -283,6 +285,7 @@ void DD::preloadWaveforms()
     auto requestWaveform = [this](const TimeWindow &tw, const Event &ev,
                                   const Phase &ph, const string &component) {
       getWaveform(*_wfAccess.memCache, tw, ev, ph, component);
+      return false;
     };
 
     forEventWaveforms(event, numPhases, numSPhases, requestWaveform);
@@ -293,7 +296,7 @@ void DD::preloadWaveforms()
     // now process and store the waveforms into memory
     auto cacheWaveform = [this](const TimeWindow &tw, const Event &ev,
                                 const Phase &ph, const string &component) {
-      getWaveform(*_wfAccess.memCache, tw, ev, ph, component);
+      return getWaveform(*_wfAccess.memCache, tw, ev, ph, component) != nullptr;
     };
 
     unsigned discard;
@@ -902,6 +905,7 @@ void DD::addObservations(Solver &solver,
     const Phase &refPhase  = it->second;
     const Station &station = catalog.getStations().at(refPhase.stationId);
     char phaseTypeAsChar   = static_cast<char>(refPhase.procInfo.type);
+    const auto xcorrCfg    = _cfg.xcorr.at(refPhase.procInfo.type);
 
     //
     // loop through neighbouring events and look for the matching phase
@@ -953,23 +957,28 @@ void DD::addObservations(Solver &solver,
           usePickUncertainty
               ? (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0
               : 1.0;
-      bool isXcorr = false;
-
       //
       // Check if we have cross-correlation results for the current
-      // event/`refEv` pair at station/phase and use those instead.
+      // event/refEv pair at station/phase and refine the differential
+      // time
       //
+      bool isXcorr = false;
+
       if (xcorr.has(refEv.id, event.id, refPhase.stationId,
                     refPhase.procInfo.type))
       {
+        const auto &e = xcorr.get(refEv.id, event.id, refPhase.stationId,
+                                  refPhase.procInfo.type);
 
-        const auto &xcdata = xcorr.get(refEv.id, event.id, refPhase.stationId,
-                                       refPhase.procInfo.type);
-        diffTime -= duration<double>(xcdata.lag);
-        weight *= xcorrObsWeight;
-        isXcorr = true;
+        if (e.valid && e.coeff >= xcorrCfg.minCoef)
+        {
+          isXcorr = true;
+          diffTime -= duration<double>(e.lag);
+          weight *= xcorrObsWeight;
+        }
       }
-      else
+
+      if (!isXcorr)
       {
         weight *= absTTDiffObsWeight;
       }
@@ -1504,8 +1513,7 @@ Phase DD::createThoreticalPhase(const Station &station,
   refEvNewPhase.stationCode  = station.stationCode;
   refEvNewPhase.locationCode = station.locationCode;
   refEvNewPhase.channelCode =
-      getBandAndInstrumentCodes(streamInfo.channelCode) +
-      xcorrCfg.components[0];
+      getBandAndInstrumentCodes(streamInfo.channelCode) + "X";
   refEvNewPhase.isManual      = false;
   refEvNewPhase.procInfo.type = phaseType;
 
@@ -1532,7 +1540,6 @@ XCorrCache DD::buildXCorrCache(
   logInfo("Computing differential times via cross-correlation...");
 
   XCorrCache xcorr;
-  _counters.reset();
 
   WfCounters wfcount{0};
 
@@ -1574,7 +1581,7 @@ XCorrCache DD::buildXCorrCache(
           wfcount.downloaded, wfcount.no_avail, wfcount.disk_cached,
           wfcount.snr_low);
 
-  printCounters();
+  logXCorrSummary(xcorr);
 
   return xcorr;
 }
@@ -1617,10 +1624,6 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
     }
   }
 
-  // keep track of the `refEv` distance to stations
-  multimap<double, string> stationByDistance; // <distance, stationid>
-  unordered_set<string> computedStations;
-
   //
   // loop through reference event phases
   //
@@ -1629,6 +1632,7 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
   {
     const Phase &refPhase  = itRef->second;
     const Station &station = catalog.getStations().at(refPhase.stationId);
+    const auto xcorrCfg    = _cfg.xcorr.at(refPhase.procInfo.type);
 
     //
     // skip stations too far away
@@ -1678,117 +1682,49 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
         if (phase.procInfo.source != Phase::Source::CATALOG)
           throw Exception("Internal logic error: phase is not from catalog");
 
-        double coeff, lag;
-        if (xcorrPhases(refEv, refPhase, *refPrc, event, phase,
-                        *_wfAccess.memCache, coeff, lag))
+        // skipp cross-correlation if we already have the result in cache
+        if (!xcorr.has(refEv.id, event.id, refPhase.stationId,
+                       refPhase.procInfo.type))
         {
-          bool goodSNR = true;
+          // Do the actual cross-correlation
+          double coeff, lag;
+          string component;
+          bool valid = xcorrPhases(refEv, refPhase, *refPrc, event, phase,
+                                   *_wfAccess.memCache, coeff, lag, component);
 
           // Check the SNR (using the pick time adjusted with the
           // cross-correlation lag) of those phases, where the check hadn't
-          // been performed, yet.
-          if (_cfg.snr.minSnr > 0 && !refPhase.isManual &&
+          // been performed yet.
+          if (valid && coeff >= xcorrCfg.minCoef && _cfg.snr.minSnr > 0 &&
+              !refPhase.isManual &&
               refPhase.procInfo.source != Phase::Source::CATALOG)
           {
-            const auto xcorrCfg = _cfg.xcorr.at(refPhase.procInfo.type);
+            UTCTime adjustedPickTime = refPhase.time - secToDur(lag);
+            TimeWindow snrWin =
+                _wfAccess.snrFilter->snrTimeWindow(adjustedPickTime);
 
-            // Make sure that at least one of the components allowed for this
-            // phase type has a good SNR.
-            goodSNR = false;
-            for (const string &component : xcorrCfg.components)
+            shared_ptr<const Trace> trace =
+                getWaveform(*seWfLdrNoSnr, snrWin, refEv, refPhase, component);
+
+            if (!trace ||
+                !_wfAccess.snrFilter->goodSnr(*trace, adjustedPickTime))
             {
-              UTCTime adjustedPickTime = refPhase.time - secToDur(lag);
-              TimeWindow snrWin =
-                  _wfAccess.snrFilter->snrTimeWindow(adjustedPickTime);
-
-              shared_ptr<const Trace> trace = getWaveform(
-                  *seWfLdrNoSnr, snrWin, refEv, refPhase, component);
-
-              if (trace &&
-                  _wfAccess.snrFilter->goodSnr(*trace, adjustedPickTime))
-              {
-                goodSNR = true;
-                break;
-              }
+              valid = false;
             }
           }
 
-          // store good cross-correlation results
-          if (goodSNR)
-          {
-            auto &entry1 = xcorr.getForUpdate(refEv.id, refPhase.stationId,
-                                              refPhase.procInfo.type);
-            entry1.update(event, phase, coeff, lag);
-            auto &entry2 = xcorr.getForUpdate(event.id, phase.stationId,
-                                              phase.procInfo.type);
-            entry2.update(refEv, refPhase, coeff, lag);
-          }
-        }
-
-        // keep track of events/station distance for every cross-correlation
-        // performed
-        if (computedStations.find(refPhase.stationId) == computedStations.end())
-        {
-          stationByDistance.emplace(stationDistance, refPhase.stationId);
-          computedStations.insert(refPhase.stationId);
+          // cache cross-correlation results
+          xcorr.add(refEv.id, event.id, refPhase.stationId,
+                    refPhase.procInfo.type, valid, coeff, lag, component);
         }
       }
     }
-
-    // finalize statistics
-    if (xcorr.has(refEv.id, refPhase.stationId, refPhase.procInfo.type))
-    {
-      auto &entry = xcorr.getForUpdate(refEv.id, refPhase.stationId,
-                                       refPhase.procInfo.type);
-      entry.computeStats();
-    }
   }
 
-  //
-  // print some useful information
-  //
   if (snrLdr)
   {
     logInfo("Event %s: waveforms with SNR too low %d", string(refEv).c_str(),
             snrLdr->_counters_wf_snr_low);
-  }
-
-  for (const auto &kv : stationByDistance)
-  {
-    const double stationDistance = kv.first;
-    const Station &station       = catalog.getStations().at(kv.second);
-
-    bool goodPXcorr = xcorr.has(refEv.id, station.id, Phase::Type::P);
-    bool goodSXcorr = xcorr.has(refEv.id, station.id, Phase::Type::S);
-
-    if (!goodPXcorr && !goodSXcorr)
-    {
-      logDebug(
-          "xcorr: event %5s sta %4s %5s dist %7.2f [km] - low corr coeff pairs",
-          string(refEv).c_str(), station.networkCode.c_str(),
-          station.stationCode.c_str(), stationDistance);
-    }
-    else
-    {
-      if (goodPXcorr)
-      {
-        const auto &pdata = xcorr.get(refEv.id, station.id, Phase::Type::P);
-        logDebug("xcorr: event %5s sta %4s %5s dist %7.2f [km] - "
-                 "%d P phases, mean coeff %.2f lag %.2f (events: %s)",
-                 string(refEv).c_str(), station.networkCode.c_str(),
-                 station.stationCode.c_str(), stationDistance, pdata.ccCount,
-                 pdata.mean_coeff, pdata.mean_lag, pdata.peersStr.c_str());
-      }
-      if (goodSXcorr)
-      {
-        const auto &sdata = xcorr.get(refEv.id, station.id, Phase::Type::S);
-        logDebug("xcorr: event %5s sta %4s %5s dist %7.2f [km] - "
-                 "%d S phases, mean coeff %.2f lag %.2f (events: %s)",
-                 string(refEv).c_str(), station.networkCode.c_str(),
-                 station.stationCode.c_str(), stationDistance, sdata.ccCount,
-                 sdata.mean_coeff, sdata.mean_lag, sdata.peersStr.c_str());
-      }
-    }
   }
 }
 
@@ -1841,6 +1777,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
   {
     const Phase &refPhase  = itRef->second;
     const Station &station = catalog.getStations().at(refPhase.stationId);
+    const auto xcorrCfg    = _cfg.xcorr.at(refPhase.procInfo.type);
 
     // We deal only with real-time event data
     if (refPhase.procInfo.source == Phase::Source::CATALOG) continue;
@@ -1871,8 +1808,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
         //
         // For each match load the reference event phase waveforms
         //
-        TimeWindow tw       = xcorrTimeWindowLong(refPhase);
-        const auto xcorrCfg = _cfg.xcorr.at(refPhase.procInfo.type);
+        TimeWindow tw = xcorrTimeWindowLong(refPhase);
 
         for (const string &component : xcorrCfg.components)
         {
@@ -1908,7 +1844,9 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
  * cross-correlation results. Drop theoretical phases not passing the
  * cross-correlation verification.
  */
-void DD::fixPhases(Catalog &catalog, const Event &refEv, XCorrCache &xcorr)
+void DD::fixPhases(Catalog &catalog,
+                   const Event &refEv,
+                   XCorrCache &xcorr) const
 {
   unsigned totP = 0, totS = 0;
   unsigned newP = 0, newS = 0;
@@ -1919,8 +1857,24 @@ void DD::fixPhases(Catalog &catalog, const Event &refEv, XCorrCache &xcorr)
   auto eqlrng = catalog.getPhases().equal_range(refEv.id);
   for (auto it = eqlrng.first; it != eqlrng.second; it++)
   {
-    const Phase &phase = it->second;
-    bool goodXcorr = xcorr.has(refEv.id, phase.stationId, phase.procInfo.type);
+    const Phase &phase  = it->second;
+    const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
+
+    // Check if we have at least one food xcorr result for this phase
+    bool goodXcorr = false;
+    if (xcorr.has(refEv.id, phase.stationId, phase.procInfo.type))
+    {
+      for (const auto &kv :
+           xcorr.get(refEv.id, phase.stationId, phase.procInfo.type))
+      {
+        const XCorrCache::Entry &e = kv.second;
+        if (e.valid && e.coeff >= xcorrCfg.minCoef)
+        {
+          goodXcorr = true;
+          break;
+        }
+      }
+    }
 
     if (phase.procInfo.type == Phase::Type::P) totP++;
     if (phase.procInfo.type == Phase::Type::S) totS++;
@@ -1936,22 +1890,51 @@ void DD::fixPhases(Catalog &catalog, const Event &refEv, XCorrCache &xcorr)
       continue;
     }
 
-    const auto &pdata =
-        xcorr.get(refEv.id, phase.stationId, phase.procInfo.type);
+    //
+    // Compute new phase time and uncertainty
+    //
+    double mean_lag  = 0;
+    double min_lag   = 0;
+    double max_lag   = 0;
+    unsigned ccCount = 0;
+    string component;
+    for (const auto &kv :
+         xcorr.get(refEv.id, phase.stationId, phase.procInfo.type))
+    {
+      unsigned neighbourId       = kv.first;
+      const XCorrCache::Entry &e = kv.second;
+      const Phase &neighbourPhase =
+          _bgCat.searchPhase(neighbourId, phase.stationId, phase.procInfo.type)
+              ->second;
+      if (e.valid && e.coeff >= xcorrCfg.minCoef)
+      {
+        mean_lag += e.lag;
+        min_lag += e.lag - neighbourPhase.lowerUncertainty;
+        max_lag += e.lag + neighbourPhase.upperUncertainty;
+        component = e.component; // this is a little ugly
+        ccCount++;
+      }
+    }
+    mean_lag /= ccCount;
+    min_lag /= ccCount;
+    max_lag /= ccCount;
 
     //
     // set new phase time and uncertainty
     //
     Phase newPhase(phase);
-    newPhase.time -= secToDur(pdata.mean_lag);
-    newPhase.lowerUncertainty = pdata.mean_lag - pdata.min_lag;
-    newPhase.upperUncertainty = pdata.max_lag - pdata.mean_lag;
+    newPhase.time -= secToDur(mean_lag);
+    newPhase.lowerUncertainty = mean_lag - min_lag;
+    newPhase.upperUncertainty = max_lag - mean_lag;
     newPhase.procInfo.weight  = Catalog::computePickWeight(newPhase);
     newPhase.procInfo.source  = Phase::Source::XCORR;
     newPhase.type = strf("%cx", static_cast<char>(newPhase.procInfo.type));
 
     if (phase.procInfo.source == Phase::Source::THEORETICAL)
     {
+      newPhase.channelCode =
+          getBandAndInstrumentCodes(newPhase.channelCode) + component;
+
       if (newPhase.procInfo.type == Phase::Type::P) newP++;
       if (newPhase.procInfo.type == Phase::Type::S) newS++;
     }
@@ -1968,6 +1951,7 @@ void DD::fixPhases(Catalog &catalog, const Event &refEv, XCorrCache &xcorr)
     if (ph.procInfo.type == Phase::Type::P) totP--;
     if (ph.procInfo.type == Phase::Type::S) totS--;
     catalog.removePhase(ph.eventId, ph.stationId, ph.procInfo.type);
+    xcorr.remove(ph.eventId, ph.stationId, ph.procInfo.type);
   }
 
   for (Phase &ph : newPhases)
@@ -1975,66 +1959,10 @@ void DD::fixPhases(Catalog &catalog, const Event &refEv, XCorrCache &xcorr)
     catalog.updatePhase(ph, true);
   }
 
-  logDebug("Event %s total phases %u (%u P and %u S): created %u (%u P "
-           "and %u S) from theoretical picks",
-           string(refEv).c_str(), (totP + totS), totP, totS, (newP + newS),
-           newP, newS);
-}
-
-void DD::printCounters() const
-{
-  unsigned skipped        = _counters.xcorr_skipped;
-  unsigned performed      = _counters.xcorr_performed;
-  unsigned performed_s    = _counters.xcorr_performed_s;
-  unsigned performed_p    = performed - performed_s;
-  unsigned perf_theo      = _counters.xcorr_performed_theo;
-  unsigned perf_theo_s    = _counters.xcorr_performed_s_theo;
-  unsigned perf_theo_p    = perf_theo - perf_theo_s;
-  unsigned good_cc        = _counters.xcorr_good_cc;
-  unsigned good_cc_s      = _counters.xcorr_good_cc_s;
-  unsigned good_cc_p      = good_cc - good_cc_s;
-  unsigned good_cc_theo   = _counters.xcorr_good_cc_theo;
-  unsigned good_cc_s_theo = _counters.xcorr_good_cc_s_theo;
-  unsigned good_cc_p_theo = good_cc_theo - good_cc_s_theo;
-
-  logInfo("Cross-correlation performed %u (P phase %.f%%, S phase %.f%%), "
-          "skipped %u (%.f%%)",
-          performed, (performed_p * 100. / performed),
-          (performed_s * 100. / performed), skipped,
-          (skipped * 100. / (performed + skipped)));
-
-  logInfo("Cross-correlation success (coefficient above threshold) %.f%% "
-          "(%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
-          (good_cc * 100. / performed), good_cc, performed,
-          (good_cc_p * 100. / performed_p), good_cc_p, performed_p,
-          (good_cc_s * 100. / performed_s), good_cc_s, performed_s);
-
-  if (perf_theo > 0)
-  {
-    unsigned perf_real      = performed - perf_theo,
-             perf_real_s    = performed_s - perf_theo_s,
-             perf_real_p    = perf_real - perf_real_s,
-             good_cc_real   = good_cc - good_cc_theo,
-             good_cc_s_real = good_cc_s - good_cc_s_theo,
-             good_cc_p_real = good_cc_real - good_cc_s_real;
-
-    logInfo(
-        "xcorr on actual picks %u/%u (P %.f%%, S %.f%%) success %.f%% (%u/%u). "
-        "Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
-        perf_real, performed, (perf_real_p * 100. / perf_real),
-        (perf_real_s * 100. / perf_real), (good_cc_real * 100. / perf_real),
-        good_cc_real, perf_real, (good_cc_p_real * 100. / perf_real_p),
-        good_cc_p_real, perf_real_p, (good_cc_s_real * 100. / perf_real_s),
-        good_cc_s_real, perf_real_s);
-
-    logInfo("xcorr on theoretical picks %u/%u (P %.f%%, S %.f%%) success %.f%% "
-            "(%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
-            perf_theo, performed, (perf_theo_p * 100. / perf_theo),
-            (perf_theo_s * 100. / perf_theo), (good_cc_theo * 100. / perf_theo),
-            good_cc_theo, perf_theo, (good_cc_p_theo * 100. / perf_theo_p),
-            good_cc_p_theo, perf_theo_p, (good_cc_s_theo * 100. / perf_theo_s),
-            good_cc_s_theo, perf_theo_s);
-  }
+  logInfo("Event %s total phases %u (%u P and %u S): created %u (%u P "
+          "and %u S) from theoretical picks",
+          string(refEv).c_str(), (totP + totS), totP, totS, (newP + newS), newP,
+          newS);
 }
 
 TimeWindow DD::xcorrTimeWindowLong(const Phase &phase) const
@@ -2062,14 +1990,13 @@ bool DD::xcorrPhases(const Event &event1,
                      const Phase &phase2,
                      Waveform::Processor &ph2Cache,
                      double &coeffOut,
-                     double &lagOut)
+                     double &lagOut,
+                     string &componentOut)
 {
   if (phase1.procInfo.type != phase2.procInfo.type)
   {
-    logError("Internal logic error: trying to cross-correlate mismatching "
-             "phases (%s and %s)",
+    logError("Skipping cross-correlation: mismatching phases (%s and %s)",
              string(phase1).c_str(), string(phase2).c_str());
-    _counters.xcorr_skipped++;
     return false;
   }
 
@@ -2099,14 +2026,12 @@ bool DD::xcorrPhases(const Event &event1,
                "(%s and %s)",
                channelCodeRoot1.c_str(), channelCodeRoot2.c_str(),
                string(phase1).c_str(), string(phase2).c_str());
-      _counters.xcorr_skipped++;
       return false;
     }
   }
 
   auto xcorrCfg  = _cfg.xcorr.at(phase1.procInfo.type);
   bool performed = false;
-  bool goodCoeff = false;
 
   //
   // Try all registered components until we are able to perform
@@ -2117,45 +2042,13 @@ bool DD::xcorrPhases(const Event &event1,
     performed =
         xcorrPhasesOneComponent(event1, phase1, ph1Cache, event2, phase2,
                                 ph2Cache, component, coeffOut, lagOut);
-    coeffOut  = abs(coeffOut);
-    goodCoeff = (performed && coeffOut >= xcorrCfg.minCoef);
-    if (performed) break;
-  }
-
-  //
-  // deal with counters
-  //
-  bool isS           = (phase1.procInfo.type == Phase::Type::S);
-  bool isTheoretical = (phase1.procInfo.source == Phase::Source::XCORR ||
-                        phase2.procInfo.source == Phase::Source::XCORR ||
-                        phase1.procInfo.source == Phase::Source::THEORETICAL ||
-                        phase2.procInfo.source == Phase::Source::THEORETICAL);
-
-  if (performed)
-  {
-    _counters.xcorr_performed++;
-    if (isTheoretical) _counters.xcorr_performed_theo++;
-    if (isS)
+    if (performed)
     {
-      _counters.xcorr_performed_s++;
-      if (isTheoretical) _counters.xcorr_performed_s_theo++;
-    }
-
-    if (goodCoeff)
-    {
-      _counters.xcorr_good_cc++;
-      if (isTheoretical) _counters.xcorr_good_cc_theo++;
-      if (isS)
-      {
-        _counters.xcorr_good_cc_s++;
-        if (isTheoretical) _counters.xcorr_good_cc_s_theo++;
-      }
+      componentOut = component;
+      break;
     }
   }
-  else
-    _counters.xcorr_skipped++;
-
-  return goodCoeff;
+  return performed;
 }
 
 bool DD::xcorrPhasesOneComponent(const Event &event1,
@@ -2181,6 +2074,9 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
       getWaveform(ph1Cache, tw1, event1, phase1, component);
   if (!tr1)
   {
+    logDebug(
+        "Skipping cross-correlation: no waveform or no good SNR for phase %s",
+        string(phase1).c_str());
     return false;
   }
 
@@ -2190,12 +2086,24 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
       getWaveform(ph2Cache, tw2, event2, phase2, component);
   if (!tr2)
   {
+    logDebug(
+        "Skipping cross-correlation: no waveform or no good SNR for phase %s",
+        string(phase2).c_str());
+    return false;
+  }
+
+  if (tr1->samplingFrequency() != tr2->samplingFrequency())
+  {
+    logInfo("Skipping cross-correlation: traces have different sampling freq "
+            "(%f!=%f): phase1 %s and phase 2 %s",
+            tr1->samplingFrequency(), tr2->samplingFrequency(),
+            string(phase1).c_str(), string(phase2).c_str());
     return false;
   }
 
   // Trust the manual pick on `phase2`: keep `tr2` short and cross-correlate it
   // with the larger `tr1` window.
-  double xcorr_coeff = 0, xcorr_lag = 0;
+  double xcorr_coeff = numeric_limits<double>::quiet_NaN(), xcorr_lag = 0;
 
   if (phase2.isManual || (!phase1.isManual && !phase2.isManual))
   {
@@ -2211,15 +2119,12 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
       return false;
     }
 
-    if (!xcorr(*tr1, tr2Short, xcorrCfg.maxDelay, true, xcorr_lag, xcorr_coeff))
-    {
-      return false;
-    }
+    xcorr(*tr1, tr2Short, xcorrCfg.maxDelay, true, xcorr_lag, xcorr_coeff);
   }
 
   // Trust the manual pick on `phase1`: keep `tr1` short and cross-correlate it
   // with a larger `tr2` window.
-  double xcorr_coeff2 = 0, xcorr_lag2 = 0;
+  double xcorr_coeff2 = numeric_limits<double>::quiet_NaN(), xcorr_lag2 = 0;
 
   if (phase1.isManual || (!phase1.isManual && !phase2.isManual))
   {
@@ -2235,21 +2140,27 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
       return false;
     }
 
-    if (!xcorr(tr1Short, *tr2, xcorrCfg.maxDelay, true, xcorr_lag2,
-               xcorr_coeff2))
+    xcorr(tr1Short, *tr2, xcorrCfg.maxDelay, true, xcorr_lag2, xcorr_coeff2);
+  }
+
+  if (!std::isfinite(xcorr_coeff) && !std::isfinite(xcorr_coeff2))
+  {
+    logDebug("Skipping cross-correlation: no meaningful coefficient for phase "
+             "pair phase1='%s', phase2='%s'",
+             string(phase1).c_str(), string(phase2).c_str());
+    return false;
+  }
+  else if (std::isfinite(xcorr_coeff2))
+  {
+    if (!std::isfinite(xcorr_coeff) ||
+        (std::abs(xcorr_coeff2) > std::abs(xcorr_coeff)))
     {
-      return false;
+      xcorr_coeff = xcorr_coeff2;
+      xcorr_lag   = xcorr_lag2;
     }
   }
 
-  if (std::abs(xcorr_coeff2) > std::abs(xcorr_coeff))
-  {
-    // swap
-    xcorr_coeff = xcorr_coeff2;
-    xcorr_lag   = xcorr_lag2;
-  }
-
-  coeffOut = xcorr_coeff;
+  coeffOut = std::abs(xcorr_coeff);
   lagOut   = xcorr_lag;
 
   return true;
@@ -2264,20 +2175,13 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
  * at which there is the highest (absolute value) correlation coefficient,
  * stored in 'coeffOut'
  */
-bool DD::xcorr(const Trace &tr1,
+void DD::xcorr(const Trace &tr1,
                const Trace &tr2,
                double maxDelay,
                bool qualityCheck,
                double &delayOut,
                double &coeffOut)
 {
-  if (tr1.samplingFrequency() != tr2.samplingFrequency())
-  {
-    logInfo("Skipping cross-correlation: traces have different sampling freq "
-            "(%f!=%f)",
-            tr1.samplingFrequency(), tr2.samplingFrequency());
-    return false;
-  }
   const double freq = tr1.samplingFrequency();
 
   // check longest/shortest trace
@@ -2299,18 +2203,9 @@ bool DD::xcorr(const Trace &tr1,
                    (sizeS + maxDelaySmps * 2), qualityCheck, delayOut,
                    coeffOut);
 
-  if (!std::isfinite(coeffOut))
-  {
-    coeffOut = 0;
-    delayOut = 0.;
-  }
-  else
-  {
-    delayOut -= maxDelaySmps; // the reference is the middle of the long trace
-    delayOut /= freq;         // samples to secs
-    if (swap) delayOut = -delayOut;
-  }
-  return true;
+  delayOut -= maxDelaySmps; // the reference is the middle of the long trace
+  delayOut /= freq;         // samples to secs
+  if (swap) delayOut = -delayOut;
 }
 
 shared_ptr<const Trace> DD::getWaveform(Waveform::Processor &wfProc,
@@ -2345,34 +2240,91 @@ shared_ptr<const Trace> DD::getWaveform(Waveform::Processor &wfProc,
                     _cfg.wfFilter.resampleFreq, trans);
 }
 
+void DD::logXCorrSummary(const XCorrCache &xcorr)
+{
+  struct
+  {
+    unsigned skipped;
+    unsigned performed;
+    unsigned performed_s;
+    unsigned performed_p;
+    unsigned good_cc;
+    unsigned good_cc_s;
+    unsigned good_cc_p;
+  } counters{0};
+
+  auto callback = [&counters, this](unsigned ev1, unsigned ev2,
+                                    const std::string &stationId,
+                                    const Catalog::Phase::Type &type,
+                                    const XCorrCache::Entry &e) {
+    if (e.valid)
+    {
+      const auto xcorrCfg = _cfg.xcorr.at(type);
+      bool goodCoeff      = e.coeff >= xcorrCfg.minCoef;
+
+      counters.performed++;
+      if (type == Phase::Type::S)
+        counters.performed_s++;
+      else if (type == Phase::Type::P)
+        counters.performed_p++;
+
+      if (goodCoeff)
+      {
+        counters.good_cc++;
+        if (type == Phase::Type::S)
+          counters.good_cc_s++;
+        else if (type == Phase::Type::P)
+          counters.good_cc_p++;
+      }
+    }
+    else
+      counters.skipped++;
+  };
+
+  xcorr.forEach(callback);
+
+  // each xcorr is reported twice in XCorrCache (ev1-ev2 and ev2-ev1)
+  counters.skipped /= 2;
+  counters.performed /= 2;
+  counters.performed_s /= 2;
+  counters.performed_p /= 2;
+  counters.good_cc /= 2;
+  counters.good_cc_s /= 2;
+  counters.good_cc_p /= 2;
+
+  logInfo("Cross-correlation performed %u (P phase %.f%%, S phase %.f%%), "
+          "skipped %u (%.f%%)",
+          counters.performed,
+          (counters.performed_p * 100. / counters.performed),
+          (counters.performed_s * 100. / counters.performed), counters.skipped,
+          (counters.skipped * 100. / (counters.performed + counters.skipped)));
+
+  logInfo("Successful cross-correlation (coefficient above threshold) %.f%% "
+          "(%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
+          (counters.good_cc * 100. / counters.performed), counters.good_cc,
+          counters.performed,
+          (counters.good_cc_p * 100. / counters.performed_p),
+          counters.good_cc_p, counters.performed_p,
+          (counters.good_cc_s * 100. / counters.performed_s),
+          counters.good_cc_s, counters.performed_s);
+}
+
 namespace {
 
 struct XCorrEvalStats
 {
-  unsigned total  = 0;
-  unsigned goodCC = 0;
-  vector<double> ccCoeff;
-  vector<double> ccCount;
-  vector<double> timeDiff;
-
-  void addBadCC() { total++; }
-
-  void addGoodCC(double ccCoeff, unsigned ccCount, double timeDiff)
-  {
-    this->total++;
-    this->goodCC++;
-    this->ccCoeff.push_back(ccCoeff);
-    this->ccCount.push_back(ccCount);
-    this->timeDiff.push_back(timeDiff);
-  }
+  vector<unsigned> skipped;
+  vector<unsigned> performed;
+  vector<double> coeff;
+  vector<double> lag;
 
   XCorrEvalStats &operator+=(XCorrEvalStats const &rhs) &
   {
-    total += rhs.total;
-    goodCC += rhs.goodCC;
-    ccCoeff.insert(ccCoeff.end(), rhs.ccCoeff.begin(), rhs.ccCoeff.end());
-    ccCount.insert(ccCount.end(), rhs.ccCount.begin(), rhs.ccCount.end());
-    timeDiff.insert(timeDiff.end(), rhs.timeDiff.begin(), rhs.timeDiff.end());
+    skipped.insert(skipped.end(), rhs.skipped.begin(), rhs.skipped.end());
+    performed.insert(performed.end(), rhs.performed.begin(),
+                     rhs.performed.end());
+    coeff.insert(coeff.end(), rhs.coeff.begin(), rhs.coeff.end());
+    lag.insert(lag.end(), rhs.lag.begin(), rhs.lag.end());
     return *this;
   }
 
@@ -2382,93 +2334,187 @@ struct XCorrEvalStats
     return lhs;
   }
 
-  string describeShort() const
+  void summarize(unsigned &skipped,
+                 unsigned &performed,
+                 double &meanCoeff,
+                 double &coeffMAD,
+                 double &meanLag,
+                 double &lagMAD) const
   {
-    double meanCoeff    = computeMean(ccCoeff);
-    double meanCoeffMAD = computeMeanAbsoluteDeviation(ccCoeff, meanCoeff);
-    double meanCount    = computeMean(ccCount);
-    double meanCountMAD = computeMeanAbsoluteDeviation(ccCount, meanCount);
-    string log        = strf("#pha %6d pha good CC %3.f%% coeff %.2f (+/-%.2f) "
-                      "goodCC/ph %4.1f (+/-%.1f)",
-                      total, (goodCC * 100. / total), meanCoeff, meanCoeffMAD,
-                      meanCount, meanCountMAD);
-    double meanDev    = computeMean(timeDiff);
-    double meanDevMAD = computeMeanAbsoluteDeviation(timeDiff, meanDev);
-    log += strf(" time-diff [msec] %3.f (+/-%.f)", meanDev * 1000,
-                meanDevMAD * 1000);
-    return log;
-  }
-
-  string describe() const
-  {
-    double meanCoeff    = computeMean(ccCoeff);
-    double meanCoeffMAD = computeMeanAbsoluteDeviation(ccCoeff, meanCoeff);
-    double meanCount    = computeMean(ccCount);
-    double meanCountMAD = computeMeanAbsoluteDeviation(ccCount, meanCount);
-    string log        = strf("%9d %5.f%% % 4.2f (%4.2f)   %4.1f (%4.1f)", total,
-                      (goodCC * 100. / total), meanCoeff, meanCoeffMAD,
-                      meanCount, meanCountMAD);
-    double meanDev    = computeMean(timeDiff);
-    double meanDevMAD = computeMeanAbsoluteDeviation(timeDiff, meanDev);
-    log += strf("%8.f (%3.f)", meanDev * 1000, meanDevMAD * 1000);
-    return log;
+    skipped = std::accumulate(this->skipped.begin(), this->skipped.end(), 0.);
+    performed =
+        std::accumulate(this->performed.begin(), this->performed.end(), 0.);
+    meanCoeff = computeMean(this->coeff);
+    coeffMAD  = computeMedianAbsoluteDeviation(this->coeff, meanCoeff);
+    meanLag   = computeMean(this->lag);
+    lagMAD    = computeMedianAbsoluteDeviation(this->lag, meanLag);
+    // each xcorr is reported twice in XCorrCache (ev1-ev2 and ev2-ev1)
+    skipped /= 2;
+    performed /= 2;
+    meanLag *= 1000;
+    lagMAD *= 1000;
   }
 };
+
+struct CallbackCounters
+{
+  unsigned skipped   = 0;
+  unsigned performed = 0;
+  vector<double> coeff;
+  vector<double> lag;
+};
+
+void callback(CallbackCounters &counters,
+              unsigned ev1,
+              unsigned ev2,
+              const std::string &stationId,
+              const Catalog::Phase::Type &type,
+              const XCorrCache::Entry &e)
+{
+  if (e.valid)
+  {
+    counters.performed++;
+    counters.coeff.push_back(e.coeff);
+    counters.lag.push_back(e.lag);
+  }
+  else
+    counters.skipped++;
+}
+
+XCorrEvalStats operator+=(XCorrEvalStats &lhs, CallbackCounters const &rhs)
+{
+  lhs.skipped.push_back(rhs.skipped);
+  lhs.performed.push_back(rhs.performed);
+  lhs.coeff.insert(lhs.coeff.end(), rhs.coeff.begin(), rhs.coeff.end());
+  lhs.lag.insert(lhs.lag.end(), rhs.lag.begin(), rhs.lag.end());
+  return lhs;
+}
+
+void printEvalXcorrStats(const string &title,
+                         XCorrEvalStats &pTotStats,
+                         XCorrEvalStats &sTotStats,
+                         map<string, XCorrEvalStats> &pStatsByStation,
+                         map<string, XCorrEvalStats> &sStatsByStation,
+                         map<unsigned, XCorrEvalStats> &pStatsByStaDistance,
+                         map<unsigned, XCorrEvalStats> &sStatsByStaDistance,
+                         map<unsigned, XCorrEvalStats> &pStatsByInterEvDistance,
+                         map<unsigned, XCorrEvalStats> &sStatsByInterEvDistance,
+                         const double interEvDistStep,
+                         const double staDistStep)
+{
+  unsigned skipped, performed;
+  double meanCoeff, coeffMAD, meanLag, lagMAD;
+
+  string log = title + "\n";
+
+  pTotStats.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag, lagMAD);
+  log += strf("Xcorr P phases: performed %u skipped %u meanCC %.2f (+/-%.2f) "
+              "meanLag %3.f [msec] (+/-%.f)\n",
+              performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
+  sTotStats.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag, lagMAD);
+  log += strf("Xcorr S phases: performed %u kipped %u meanCC %.2f (+/-%.2f) "
+              "meanLag %3.f [msec] (+/-%.f)\n",
+              performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
+
+  log += strf("Xcorr P phases by inter-event distance in %.2f km step\n",
+              interEvDistStep);
+  log += strf(
+      " EvDist [km]      #CC   #Skip   AvgCC (+/-)   AvgLag[msec] (+/-)\n");
+  for (const auto &kv : pStatsByInterEvDistance)
+  {
+    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
+                        lagMAD);
+    log +=
+        strf("%5.2f-%-5.2f %9u %7u %7.2f (%4.2f) %10.f (%3.f)\n",
+             kv.first * interEvDistStep, (kv.first + 1) * interEvDistStep,
+             performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
+  }
+
+  log += strf("Xcorr S phases by inter-event distance in %.2f km step\n",
+              interEvDistStep);
+  log += strf(
+      " EvDist [km]      #CC   #Skip   AvgCC (+/-)   AvgLag[msec] (+/-)\n");
+  for (const auto &kv : sStatsByInterEvDistance)
+  {
+    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
+                        lagMAD);
+    log +=
+        strf("%5.2f-%-5.2f %9u %7u %7.2f (%4.2f) %10.f (%3.f)\n",
+             kv.first * interEvDistStep, (kv.first + 1) * interEvDistStep,
+             performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
+  }
+
+  log += strf("XCorr P phases by event to station distance in %.2f km step\n",
+              staDistStep);
+  log +=
+      strf("StaDist [km]      #CC   #Skip   AvgCC (+/-) AvgLag[msec] (+/-)\n");
+  for (const auto &kv : pStatsByStaDistance)
+  {
+    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
+                        lagMAD);
+    log +=
+        strf("%3d-%-3d %12u %7u %7.2f (%4.2f) %10.f (%3.f)\n",
+             int(kv.first * staDistStep), int((kv.first + 1) * staDistStep),
+             performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
+  }
+
+  log += strf("XCorr S phases by event to station distance in %.2f km step\n",
+              staDistStep);
+  log +=
+      strf("StaDist [km]      #CC   #Skip   AvgCC (+/-) AvgLag[msec] (+/-)\n");
+  for (const auto &kv : sStatsByStaDistance)
+  {
+    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
+                        lagMAD);
+    log +=
+        strf("%3d-%-3d %12u %7u %7.2f (%4.2f) %10.f (%3.f)\n",
+             int(kv.first * staDistStep), int((kv.first + 1) * staDistStep),
+             performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
+  }
+
+  log += strf("XCorr P phases by station\n");
+  log +=
+      strf("Staion            #CC   #Skip   AvgCC (+/-) AvgLag[msec] (+/-)\n");
+  for (const auto &kv : pStatsByStation)
+  {
+    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
+                        lagMAD);
+    log += strf("%-12s %9u %7u %7.2f (%4.2f) %10.f (%3.f)\n", kv.first.c_str(),
+                performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
+  }
+
+  log += strf("XCorr S phases by station\n");
+  log +=
+      strf("Staion            #CC   #Skip   AvgCC (+/-) AvgLag[msec] (+/-)\n");
+  for (const auto &kv : sStatsByStation)
+  {
+    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
+                        lagMAD);
+    log += strf("%-12s %9u %7u %7.2f (%4.2f) %10.f (%3.f)\n", kv.first.c_str(),
+                performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
+  }
+  std::cout << log;
+}
+
 } // namespace
 
-void DD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
+void DD::evalXCorr(const ClusteringOptions &clustOpt,
+                   const double interEvDistStep,
+                   const double staDistStep,
+                   bool theoretical,
+                   unsigned updateInterval)
 {
-  XCorrEvalStats totalStats, pPhaseStats, sPhaseStats;
-  map<string, XCorrEvalStats> statsByStation;      // key station id
-  map<int, XCorrEvalStats> statsByInterEvDistance; // key distance
-  map<int, XCorrEvalStats> statsByStaDistance;     // key distance
-  const double EV_DIST_STEP  = 0.1;                // km
-  const double STA_DIST_STEP = 3;                  // km
-
-  auto printStats = [&](string title) {
-    string log = title + "\n";
-    log += strf("Cumulative stats: %s\n", totalStats.describeShort().c_str());
-    log += strf("Cumulative stats P ph: %s\n",
-                pPhaseStats.describeShort().c_str());
-    log += strf("Cumulative stats S ph: %s\n",
-                sPhaseStats.describeShort().c_str());
-
-    log += strf(
-        "Cross-correlated phases by inter-event distance in %.2f km step\n",
-        EV_DIST_STEP);
-    log += strf(" EvDist [km]  #Phases GoodCC AvgCoeff(+/-) "
-                "GoodCC/Ph(+/-) time-diff[msec] (+/-)\n");
-    for (const auto &kv : statsByInterEvDistance)
-    {
-      log += strf("%5.2f-%-5.2f %s\n", kv.first * EV_DIST_STEP,
-                  (kv.first + 1) * EV_DIST_STEP, kv.second.describe().c_str());
-    }
-
-    log += strf("Cross-correlated phases by event to station distance in "
-                "%.2f km step\n",
-                STA_DIST_STEP);
-    log += strf("StaDist [km]  #Phases GoodCC AvgCoeff(+/-) "
-                "GoodCC/Ph(+/-) time-diff[msec] (+/-)\n");
-    for (const auto &kv : statsByStaDistance)
-    {
-      log += strf("%3d-%-3d     %s\n", int(kv.first * STA_DIST_STEP),
-                  int((kv.first + 1) * STA_DIST_STEP),
-                  kv.second.describe().c_str());
-    }
-
-    log += strf("Cross-correlations by station\n");
-    log += strf("Station       #Phases GoodCC AvgCoeff(+/-) "
-                "GoodCC/Ph(+/-) time-diff[msec] (+/-)\n");
-    for (const auto &kv : statsByStation)
-    {
-      log += strf("%-12s %s\n", kv.first.c_str(), kv.second.describe().c_str());
-    }
-    logInfo("%s", log.c_str());
-  };
+  XCorrEvalStats pTotStats, sTotStats;
+  map<string, XCorrEvalStats> pStatsByStation;           // key station id
+  map<string, XCorrEvalStats> sStatsByStation;           // key station id
+  map<unsigned, XCorrEvalStats> pStatsByStaDistance;     // key distance
+  map<unsigned, XCorrEvalStats> sStatsByStaDistance;     // key distance
+  map<unsigned, XCorrEvalStats> pStatsByInterEvDistance; // key distance
+  map<unsigned, XCorrEvalStats> sStatsByInterEvDistance; // key distance
 
   WfCounters wfcount{0};
-  _counters.reset();
   int loop = 0;
+  XCorrCache xcorr;
 
   for (const auto &kv : _bgCat.getEvents())
   {
@@ -2505,7 +2551,6 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
 
     // Cross-correlate every neighbour phase with its corresponding event
     // theoretical phase.
-    XCorrCache xcorr;
     buildXcorrDiffTTimePairs(*catalog, *neighbours, event,
                              clustOpt.xcorrMaxEvStaDist,
                              clustOpt.xcorrMaxInterEvDist, xcorr);
@@ -2519,122 +2564,121 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt, bool theoretical)
     }
 
     //
-    // Compare the detected phases with the actual event phases (manual or
-    // automatic).
+    // Collect Stats From the XcorrCache
     //
-    XCorrEvalStats evStats;
-
     for (const auto &kv : neighbours->allPhases())
+    {
       for (Phase::Type phaseType : kv.second)
       {
-        //
-        //  collect stats by event, station, station distance
-        //
         const string stationId = kv.first;
         const Phase &catalogPhase =
             _bgCat.searchPhase(event.id, stationId, phaseType)->second;
 
-        XCorrEvalStats phStaStats;
-        double phaseTimeDiff = 0;
-
-        if (xcorr.has(event.id, stationId, phaseType))
-        {
-          const auto &xentry = xcorr.get(event.id, stationId, phaseType);
-          if (theoretical)
-          {
-            const Phase &detectedPhase =
-                catalog->searchPhase(event.id, stationId, phaseType)->second;
-            phaseTimeDiff = durToSec(catalogPhase.time - detectedPhase.time);
-          }
-          else
-          {
-            phaseTimeDiff = xentry.mean_lag;
-          }
-          phStaStats.addGoodCC(xentry.mean_coeff, xentry.ccCount,
-                               phaseTimeDiff);
-        }
-        else
-        {
-          phStaStats.addBadCC();
-        }
-
-        evStats += phStaStats;
-        totalStats += phStaStats;
-        if (phaseType == Phase::Type::P) pPhaseStats += phStaStats;
-        if (phaseType == Phase::Type::S) sPhaseStats += phStaStats;
-        statsByStation[catalogPhase.stationId] += phStaStats;
-
+        //
+        // Collect stats for current station/phaseType
+        //
+        CallbackCounters counters;
+        xcorr.forEach(event.id, stationId, phaseType,
+                      std::bind(callback, std::ref(counters), placeholders::_1,
+                                placeholders::_2, placeholders::_3,
+                                placeholders::_4, placeholders::_5));
+        //
+        //  group stats by event, station, station distance
+        //
         const Station &station =
             _bgCat.getStations().at(catalogPhase.stationId);
         double stationDistance = computeDistance(event, station);
-        statsByStaDistance[int(stationDistance / STA_DIST_STEP)] += phStaStats;
+        unsigned stationDistanceBucket =
+            unsigned(stationDistance / staDistStep);
 
-        //
-        //  collect stats by inter-event distance
-        //
-        map<unsigned, XCorrEvalStats> tmpStatsByInterEvDistance;
-
-        for (unsigned neighEvId : neighbours->ids)
+        if (phaseType == Phase::Type::P)
         {
-          if (neighbours->has(neighEvId, stationId, phaseType))
-          {
-            const Event &neighbEv  = catalog->getEvents().at(neighEvId);
-            double interEvDistance = computeDistance(event, neighbEv);
-            XCorrEvalStats &interEvDistStats =
-                tmpStatsByInterEvDistance[int(interEvDistance / EV_DIST_STEP)];
-            interEvDistStats.total = 1;
-            if (xcorr.has(event.id, neighEvId, stationId, phaseType))
-            {
-              const auto &xpi =
-                  xcorr.get(event.id, neighEvId, stationId, phaseType);
-              interEvDistStats.goodCC = 1;
-              interEvDistStats.ccCount.push_back(1);
-              interEvDistStats.ccCoeff.push_back(xpi.coeff);
-              if (theoretical)
-              {
-                const auto &xentry = xcorr.get(event.id, stationId, phaseType);
-                double timeDiff = phaseTimeDiff - (xentry.mean_lag - xpi.lag);
-                interEvDistStats.timeDiff.push_back(timeDiff);
-              }
-              else
-              {
-                interEvDistStats.timeDiff.push_back(xpi.lag);
-              }
-            }
-          }
+          pTotStats += counters;
+          pStatsByStation[catalogPhase.stationId] += counters;
+          pStatsByStaDistance[stationDistanceBucket] += counters;
         }
-
-        for (auto &kv : tmpStatsByInterEvDistance)
+        else if (phaseType == Phase::Type::S)
         {
-          const double interEvDistanceBucket = kv.first;
-          XCorrEvalStats &newStats           = kv.second;
-          if (newStats.goodCC > 0)
-          {
-            newStats.ccCount  = {std::accumulate(newStats.ccCount.begin(),
-                                                newStats.ccCount.end(), 0.)};
-            newStats.ccCoeff  = {computeMean(newStats.ccCoeff)};
-            newStats.timeDiff = {computeMean(newStats.timeDiff)};
-          }
-          statsByInterEvDistance[interEvDistanceBucket] += newStats;
+          sTotStats += counters;
+          sStatsByStation[catalogPhase.stationId] += counters;
+          sStatsByStaDistance[stationDistanceBucket] += counters;
         }
       }
+    }
 
-    logInfo("Event %-5s mag %3.1f %s", string(event).c_str(), event.magnitude,
-            evStats.describeShort().c_str());
+    //
+    // group stats by inter-event distance
+    //
+    unordered_map<unsigned, CallbackCounters> pCountersByInterEvDist;
+    unordered_map<unsigned, CallbackCounters> sCountersByInterEvDist;
 
-    if (++loop % 100 == 0)
+    for (unsigned neighEvId : neighbours->ids)
     {
-      printStats("<PROGRESSIVE STATS>");
+      const Event &neighbEv  = catalog->getEvents().at(neighEvId);
+      double interEvDistance = computeDistance(event, neighbEv);
+      const unsigned interEvDistanceBucket =
+          unsigned(interEvDistance / interEvDistStep);
+
+      CallbackCounters &pcounters =
+          pCountersByInterEvDist[interEvDistanceBucket];
+      CallbackCounters &scounters =
+          sCountersByInterEvDist[interEvDistanceBucket];
+
+      XCorrCache::ForEachCallback f =
+          [&pcounters, &scounters, neighEvId](
+              unsigned ev1, unsigned ev2, const std::string &stationId,
+              const Catalog::Phase::Type &type, const XCorrCache::Entry &e) {
+            if (ev2 == neighEvId)
+            {
+              if (type == Phase::Type::P)
+                callback(pcounters, ev1, ev2, stationId, type, e);
+              else if (type == Phase::Type::S)
+                callback(scounters, ev1, ev2, stationId, type, e);
+            }
+          };
+
+      xcorr.forEach(event.id, f);
+    }
+
+    for (auto &kv : pCountersByInterEvDist)
+      pStatsByInterEvDistance[kv.first] += kv.second;
+
+    for (auto &kv : sCountersByInterEvDist)
+      sStatsByInterEvDistance[kv.first] += kv.second;
+
+    //
+    // User update
+    //
+    loop++;
+    const unsigned onePercent =
+        _bgCat.getEvents().size() < 100 ? 1 : (_bgCat.getEvents().size() / 100);
+    if (loop % onePercent == 0)
+    {
+      logInfo("Processed %.1f%%...", (loop * 100.0 / _bgCat.getEvents().size()));
+    }
+
+    if (loop % updateInterval == 0)
+    {
+      printEvalXcorrStats("<PROGRESSIVE STATS>", pTotStats, sTotStats,
+                          pStatsByStation, sStatsByStation, pStatsByStaDistance,
+                          sStatsByStaDistance, pStatsByInterEvDistance,
+                          sStatsByInterEvDistance, interEvDistStep,
+                          staDistStep);
     }
   }
 
-  printStats("<FINAL STATS>");
+  printEvalXcorrStats("<FINAL STATS>", pTotStats, sTotStats, pStatsByStation,
+                      sStatsByStation, pStatsByStaDistance, sStatsByStaDistance,
+                      pStatsByInterEvDistance, sStatsByInterEvDistance,
+                      interEvDistStep, staDistStep);
+
   wfcount.update(_wfAccess.loader, _wfAccess.diskCache, _wfAccess.snrFilter);
   logInfo("Catalog waveform data: waveforms downloaded %u, not available "
           "%u, loaded from disk cache %u. Waveforms with SNR too low %u",
           wfcount.downloaded, wfcount.no_avail, wfcount.disk_cached,
           wfcount.snr_low);
-  printCounters();
+
+  logXCorrSummary(xcorr);
 }
 
 } // namespace HDD

@@ -475,7 +475,7 @@ shared_ptr<const Trace> SnrFilterPrc::get(const TimeWindow &tw,
 
   if (_enabled && !goodSnr(*trace, ph.time))
   {
-    logDebug("Trace has too low SNR(%s)", string(ph).c_str());
+    logDebug("Trace has too low SNR (%s)", string(ph).c_str());
     _counters_wf_snr_low++;
     return nullptr;
   }
@@ -711,21 +711,21 @@ unique_ptr<Trace> transformRT(const TimeWindow &tw,
   double h1Start = std::round(trH1.index(startTime));
   if (h1Start < 0 || (h1Start + sampleCount) > trH1.sampleCount())
   {
-    logDebug("Cannot perform L2 transformation: internal logic error");
+    logDebug("Cannot perform RT transformation: internal logic error");
     return nullptr;
   }
 
   double h2Start = std::round(trH2.index(startTime));
   if (h2Start < 0 || (h2Start + sampleCount) > trH2.sampleCount())
   {
-    logDebug("Cannot perform L2 transformation: internal logic error");
+    logDebug("Cannot perform RT transformation: internal logic error");
     return nullptr;
   }
 
   double vStart = std::round(trV.index(startTime));
   if (vStart < 0 || (vStart + sampleCount) > trV.sampleCount())
   {
-    logDebug("Cannot perform L2 transformation: internal logic error");
+    logDebug("Cannot perform RT transformation: internal logic error");
     return nullptr;
   }
 

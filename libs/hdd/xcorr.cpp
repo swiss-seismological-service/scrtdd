@@ -177,7 +177,7 @@ void crossCorrelation(const double *dataS,
       {
         logDebug("Discard cross-correlation (cc %.2f): cycle skipping detected",
                  coeffOut);
-        coeffOut = std::nan("");
+        coeffOut = std::numeric_limits<double>::quiet_NaN();
         break;
       }
     }

@@ -129,11 +129,11 @@ void testReadWriteTrace(const Trace &tr)
 void testXCorrTraces(const Trace &tr1, const Trace &tr2, double expectedLag)
 {
   double delayOut, coeffOut;
-  BOOST_CHECK(DD::xcorr(tr1, tr2,
-                        (std::abs(durToSec(tr1.timeWindow().length() -
-                                          tr2.timeWindow().length())) + 
-                        2. / tr1.samplingFrequency()) / 2.0,
-                        true, delayOut, coeffOut));
+  DD::xcorr(tr1, tr2,
+            (std::abs(durToSec(tr1.timeWindow().length() -
+                              tr2.timeWindow().length())) + 
+            2. / tr1.samplingFrequency()) / 2.0,
+            true, delayOut, coeffOut);
   BOOST_CHECK_SMALL(expectedLag - delayOut,
                     2.0 / tr1.samplingFrequency()); // 2 samples tolerance
   BOOST_CHECK_SMALL(1.0 - std::abs(coeffOut), 0.1); // positive or negative CC
