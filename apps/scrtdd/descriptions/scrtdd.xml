@@ -138,13 +138,13 @@
               <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between events for a cross-correlation to happen. Phases of event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 skips all cross-correlations.</description>
             </parameter>
             <parameter name="theoreticalPhaseAutoOrigin" type="boolean" default="true">
-              <description>Whether cross-correlation is used to detect phases at stations with no associated picks. This option applies to automatic origins.</description>
+              <description>Whether cross-correlation is used to detect phases at stations with no associated picks, which increments the number of double-differences for the event and should improve the relocation quality. This option applies to automatic origins.</description>
             </parameter>
             <parameter name="theoreticalPhaseManualOrigin" type="boolean" default="false">
-              <description>Whether cross-correlation is used to detect phases at stations with no associated picks. This option is applies to manual origins.</description>
+              <description>Whether cross-correlation is used to detect phases at stations with no associated picks, which increments the number of double-differences for the event and should improve the relocation quality. This option is applies to manual origins.</description>
             </parameter>
             <parameter name="compatibleChannels" type="string" default="">
-              <description>Cross-correlation is computed on phases with the same channel code (e.g. HH. EH, HG, etc), however here it is possible to force the cross-correlation between different channel codes. The value is a list separated by ';' and each element is a list (again) of compatible channels separated by ',', For example: "HH,EH;HG,HN"</description>
+              <description>Cross-correlation is computed on phases with the same channel code (e.g. HH. EH, HG, etc), however here it is possible to force the cross-correlation between different channel codes. The value is a list separated by ';' and each element is a list (again) of compatible channels separated by ',' for example: "HH,EH;HG,HN"</description>
             </parameter>
             <group name="p-phase">
               <parameter name="minCCCoef" type="double" default="0.50">
@@ -160,7 +160,7 @@
                 <description>Maximum data windows lag accepted (secs)..</description>
               </parameter>
               <parameter name="components" type="list:string" default="Z">
-                <description>Priority list of components to be used in cross-correlation. If the component exists for a pair of phases it is used for the cross-correlation, otherwise the next component in the list is tried. Special values are 'L', which computes the L2 norm of the 2 horizontal components and 'T', which computes the transversal component with respect with the event location to which the phase belongs to.</description>
+                <description>Priority list of components to be used in cross-correlation. If the component exists for a pair of phases it is used for the cross-correlation, otherwise the next component in the list is tried. Special values are 'L', which computes the L2 norm of the 2 horizontal components and 'T', which computes the transversal component with respect to the event location to which the phase belongs to.</description>
               </parameter>
             </group>
             <group name="s-phase">
