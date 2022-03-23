@@ -691,8 +691,8 @@ bool RTDD::validateParameters()
 
     try
     {
-      string compatibleChannels = 
-        configGetString(prefix + "compatibleChannels");
+      string compatibleChannels =
+          configGetString(prefix + "compatibleChannels");
       vector<string> compatibleSets = ::splitString(compatibleChannels, ";");
       for (const auto &cs : compatibleSets)
       {
@@ -2324,8 +2324,18 @@ void RTDD::Profile::dumpClusters()
         "Cannot dump clusters, profile %s not initialized", name.c_str());
     throw runtime_error(msg.c_str());
   }
-  lastUsage = Core::Time::GMT();
-  dd->dumpClusters(multiEventClustering);
+  lastUsage                   = Core::Time::GMT();
+  list<HDD::Catalog> clusters = dd->findClusters(multiEventClustering);
+  SEISCOMP_INFO("Found %zu clusters", clusters.size());
+  unsigned clusterId = 1;
+  for (const HDD::Catalog &cat : clusters)
+  {
+    SEISCOMP_INFO("Writing cluster %u (%zu events)", clusterId,
+                  cat.getEvents().size());
+    string prefix = stringify("cluster-%u", clusterId++);
+    cat.writeToFile(prefix + "-event.csv", prefix + "-phase.csv",
+                          prefix + "-station.csv");
+  }
 }
 
 // End Profile class

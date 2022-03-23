@@ -395,15 +395,8 @@ void DD::dumpWaveforms(const string &basePath)
   }
 }
 
-void DD::dumpClusters(const ClusteringOptions &clustOpt, const string &basePath)
+std::list<Catalog> DD::findClusters(const ClusteringOptions &clustOpt)
 {
-  if (!basePath.empty() && !pathExists(basePath))
-  {
-    if (!createDirectories(basePath))
-    {
-      throw Exception("Unable to create clusters dump directory: " + basePath);
-    }
-  }
   // find Neighbours for each event in the catalog
   unordered_map<unsigned, unique_ptr<Neighbours>> neighboursByEvent =
       selectNeighbouringEventsCatalog(
@@ -416,20 +409,14 @@ void DD::dumpClusters(const ClusteringOptions &clustOpt, const string &basePath)
   list<unordered_map<unsigned, unique_ptr<Neighbours>>> clusters =
       clusterizeNeighbouringEvents(neighboursByEvent);
 
-  logInfo("Found %lu event clusters", clusters.size());
-
-  unsigned clusterId = 1;
+  std::list<Catalog> catalogs;
   for (const auto &neighCluster : clusters)
   {
-    logInfo("Writing cluster %u (%lu events)", clusterId, neighCluster.size());
-
-    Catalog catToDump;
-    for (const auto &kv : neighCluster) catToDump.add(kv.first, _bgCat, true);
-    string prefix = strf("cluster-%u", clusterId++);
-    catToDump.writeToFile(joinPath(basePath, (prefix + "-event.csv")),
-                          joinPath(basePath, (prefix + "-phase.csv")),
-                          joinPath(basePath, (prefix + "-station.csv")));
+    Catalog cat;
+    for (const auto &kv : neighCluster) cat.add(kv.first, _bgCat, true);
+    catalogs.push_back(std::move(cat));
   }
+  return catalogs;
 }
 
 unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,

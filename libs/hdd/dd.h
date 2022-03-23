@@ -135,8 +135,7 @@ public:
 
   void dumpWaveforms(const std::string &basePath = "");
 
-  void dumpClusters(const ClusteringOptions &clustOpt,
-                    const std::string &basePath = "");
+  std::list<Catalog> findClusters(const ClusteringOptions &clustOpt);
 
   const Catalog &getCatalog() const { return _srcCat; }
 
