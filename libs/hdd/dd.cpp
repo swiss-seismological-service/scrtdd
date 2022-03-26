@@ -37,12 +37,11 @@ struct WfCounters
   unsigned downloaded;
   unsigned no_avail;
   unsigned disk_cached;
-  unsigned snr_low;
 
-  void update(shared_ptr<HDD::Waveform::Loader> &loader)
+  void update(HDD::Waveform::Loader *loader)
   {
     HDD::Waveform::BasicLoader *basic =
-        dynamic_cast<HDD::Waveform::BasicLoader *>(loader.get());
+        dynamic_cast<HDD::Waveform::BasicLoader *>(loader);
     if (basic)
     {
       downloaded += basic->_counters_wf_downloaded;
@@ -53,7 +52,7 @@ struct WfCounters
     }
 
     HDD::Waveform::BatchLoader *batch =
-        dynamic_cast<HDD::Waveform::BatchLoader *>(loader.get());
+        dynamic_cast<HDD::Waveform::BatchLoader *>(loader);
     if (batch)
     {
       downloaded += batch->_counters_wf_downloaded;
@@ -64,42 +63,13 @@ struct WfCounters
     }
   }
 
-  void update(shared_ptr<HDD::Waveform::BatchLoader> &loader)
-  {
-    if (loader)
-    {
-      downloaded += loader->_counters_wf_downloaded;
-      loader->_counters_wf_downloaded = 0;
-      no_avail += loader->_counters_wf_no_avail;
-      loader->_counters_wf_no_avail = 0;
-    }
-  }
-
-  void update(shared_ptr<HDD::Waveform::DiskCachedLoader> &diskCache)
+  void update(HDD::Waveform::DiskCachedLoader *diskCache)
   {
     if (diskCache)
     {
       disk_cached += diskCache->_counters_wf_cached;
       diskCache->_counters_wf_cached = 0;
     }
-  }
-
-  void update(shared_ptr<HDD::Waveform::SnrFilterPrc> &snrFilter)
-  {
-    if (snrFilter)
-    {
-      snr_low += snrFilter->_counters_wf_snr_low;
-      snrFilter->_counters_wf_snr_low = 0;
-    }
-  }
-
-  void update(shared_ptr<HDD::Waveform::Loader> &loader,
-              shared_ptr<HDD::Waveform::DiskCachedLoader> &diskCache,
-              shared_ptr<HDD::Waveform::SnrFilterPrc> &snrFilter)
-  {
-    update(loader);
-    update(diskCache);
-    update(snrFilter);
   }
 };
 
@@ -302,7 +272,7 @@ void DD::preloadWaveforms()
     unsigned discard;
     forEventWaveforms(event, discard, discard, cacheWaveform);
 
-    wfcount.update(batchLoader);
+    wfcount.update(batchLoader.get());
 
     const unsigned onePercent =
         _bgCat.getEvents().size() < 100 ? 1 : (_bgCat.getEvents().size() / 100);
@@ -317,7 +287,8 @@ void DD::preloadWaveforms()
   replaceWaveformCacheLoader(shared_ptr<Waveform::Loader>(
       new Waveform::BasicLoader(_cfg.recordStreamURL)));
 
-  wfcount.update(_wfAccess.loader, _wfAccess.diskCache, _wfAccess.snrFilter);
+  wfcount.update(_wfAccess.loader.get());
+  wfcount.update(_wfAccess.diskCache.get());
 
   logInfo("Finished preloading catalog waveform data: total events %lu total "
           "phases %u (P %.f%%, S %.f%%). Waveforms downloaded %u, not "
@@ -1540,9 +1511,6 @@ XCorrCache DD::buildXCorrCache(
   logInfo("Computing differential times via cross-correlation...");
 
   XCorrCache xcorr;
-
-  WfCounters wfcount{0};
-
   unsigned long performed = 0;
 
   for (const auto &kv : neighCluster)
@@ -1574,12 +1542,13 @@ XCorrCache DD::buildXCorrCache(
     }
   }
 
-  wfcount.update(_wfAccess.loader, _wfAccess.diskCache, _wfAccess.snrFilter);
+  WfCounters wfcount{0};
+  wfcount.update(_wfAccess.loader.get());
+  wfcount.update(_wfAccess.diskCache.get());
 
   logInfo("Catalog waveform data: waveforms downloaded %u, not available "
-          "%u, loaded from disk cache %u. Waveforms with SNR too low %u",
-          wfcount.downloaded, wfcount.no_avail, wfcount.disk_cached,
-          wfcount.snr_low);
+          "%u, loaded from disk cache %u",
+          wfcount.downloaded, wfcount.no_avail, wfcount.disk_cached);
 
   logXCorrSummary(xcorr);
 
@@ -1608,8 +1577,7 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
   shared_ptr<Waveform::Processor> preloaded(preloadNonCatalogWaveforms(
       catalog, neighbours, refEv, xcorrMaxEvStaDist, xcorrMaxInterEvDist));
   shared_ptr<Waveform::Processor> seWfLdrNoSnr; // loader with not SNR check
-  shared_ptr<Waveform::Processor> seWfLdr;   // same loader but with SNR check
-  shared_ptr<Waveform::SnrFilterPrc> snrLdr; // just for keeping track of stats
+  shared_ptr<Waveform::Processor> seWfLdr; // same loader but with SNR check
 
   if (preloaded)
   {
@@ -1617,7 +1585,7 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
     seWfLdr = seWfLdrNoSnr;
     if (_cfg.snr.minSnr > 0)
     {
-      snrLdr.reset(new Waveform::SnrFilterPrc(
+      shared_ptr<Waveform::SnrFilterPrc> snrLdr(new Waveform::SnrFilterPrc(
           seWfLdrNoSnr, _cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
           _cfg.snr.signalStart, _cfg.snr.signalEnd));
       seWfLdr.reset(new Waveform::MemCachedProc(snrLdr));
@@ -1719,12 +1687,6 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
         }
       }
     }
-  }
-
-  if (snrLdr)
-  {
-    logInfo("Event %s: waveforms with SNR too low %d", string(refEv).c_str(),
-            snrLdr->_counters_wf_snr_low);
   }
 }
 
@@ -1830,8 +1792,8 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
 
   // print counters
   WfCounters wfcount{0};
-  wfcount.update(batchLoader);
-  wfcount.update(diskLoader);
+  wfcount.update(batchLoader.get());
+  wfcount.update(diskLoader.get());
   logInfo("Event %s: waveforms downloaded %u, not available %u, loaded from "
           "disk cache %u",
           string(refEv).c_str(), wfcount.downloaded, wfcount.no_avail,
@@ -2512,7 +2474,6 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
   map<unsigned, XCorrEvalStats> pStatsByInterEvDistance; // key distance
   map<unsigned, XCorrEvalStats> sStatsByInterEvDistance; // key distance
 
-  WfCounters wfcount{0};
   int loop = 0;
   XCorrCache xcorr;
 
@@ -2672,11 +2633,12 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
                       pStatsByInterEvDistance, sStatsByInterEvDistance,
                       interEvDistStep, staDistStep);
 
-  wfcount.update(_wfAccess.loader, _wfAccess.diskCache, _wfAccess.snrFilter);
-  logInfo("Catalog waveform data: waveforms downloaded %u, not available "
-          "%u, loaded from disk cache %u. Waveforms with SNR too low %u",
-          wfcount.downloaded, wfcount.no_avail, wfcount.disk_cached,
-          wfcount.snr_low);
+  WfCounters wfcount{0};
+  wfcount.update(_wfAccess.loader.get());
+  wfcount.update(_wfAccess.diskCache.get());
+  logInfo("Catalog waveforms downloaded %u, not available "
+          "%u, loaded from disk cache %u",
+          wfcount.downloaded, wfcount.no_avail, wfcount.disk_cached);
 
   logXCorrSummary(xcorr);
 }
