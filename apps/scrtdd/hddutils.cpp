@@ -19,8 +19,9 @@
 
 #include "hdd/adapters/scconversion.h"
 #include "hdd/csvreader.h"
-#include "hdd/dd.h"
 #include "hdd/log.h"
+
+#include <iostream>
 
 #define SEISCOMP_COMPONENT RTDD
 #include <seiscomp/logging/log.h>
@@ -38,9 +39,11 @@
 
 using namespace std;
 using namespace Seiscomp;
-using PhaseSrc = HDD::Catalog::Phase::Source;
+using PhaseSrc       = HDD::Catalog::Phase::Source;
+using XCorrEvalStats = HDD::DD::XCorrEvalStats;
 using HDD::SeiscompAdapter::fromSC;
 using HDD::SeiscompAdapter::toSC;
+using Seiscomp::Core::stringify;
 
 namespace {
 
@@ -684,6 +687,123 @@ void convertOrigin(DataSource &dataSrc,
   oq.setAzimuthalGap(primaryAz);
   oq.setSecondaryAzimuthalGap(secondaryAz);
   newOrg->setQuality(oq);
+}
+
+void printEvalXcorrStats(
+    const XCorrEvalStats &pTotStats,
+    const XCorrEvalStats &sTotStats,
+    const map<string, XCorrEvalStats> &pStatsByStation,
+    const map<string, XCorrEvalStats> &sStatsByStation,
+    const map<unsigned, XCorrEvalStats> &pStatsByStaDistance,
+    const map<unsigned, XCorrEvalStats> &sStatsByStaDistance,
+    const map<unsigned, XCorrEvalStats> &pStatsByInterEvDistance,
+    const map<unsigned, XCorrEvalStats> &sStatsByInterEvDistance,
+    double interEvDistStep,
+    double staDistStep,
+    double completionPercent)
+{
+  unsigned skipped, performed;
+  double meanCoeff, coeffMAD, meanLag, lagMAD;
+
+  string log;
+  if (completionPercent >= 1)
+    log += "---FINAL STATS--";
+  else
+    log += stringify("---PARTIAL STATS %.1f%%---", completionPercent * 100);
+
+  pTotStats.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag, lagMAD);
+  log +=
+      stringify("Xcorr P phases: performed %u skipped %u meanCC %.2f (+/-%.2f) "
+                "meanLag %3.f [msec] (+/-%.f)\n",
+                performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
+  sTotStats.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag, lagMAD);
+  log +=
+      stringify("Xcorr S phases: performed %u kipped %u meanCC %.2f (+/-%.2f) "
+                "meanLag %3.f [msec] (+/-%.f)\n",
+                performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
+
+  log += stringify("Xcorr P phases by inter-event distance in %.2f km step\n",
+                   interEvDistStep);
+  log += stringify(
+      " EvDist [km]      #CC   #Skip   AvgCC (+/-)   AvgLag[msec] (+/-)\n");
+  for (const auto &kv : pStatsByInterEvDistance)
+  {
+    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
+                        lagMAD);
+    log +=
+        stringify("%5.2f-%-5.2f %9u %7u %7.2f (%4.2f) %10.f (%3.f)\n",
+                  kv.first * interEvDistStep, (kv.first + 1) * interEvDistStep,
+                  performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
+  }
+
+  log += stringify("Xcorr S phases by inter-event distance in %.2f km step\n",
+                   interEvDistStep);
+  log += stringify(
+      " EvDist [km]      #CC   #Skip   AvgCC (+/-)   AvgLag[msec] (+/-)\n");
+  for (const auto &kv : sStatsByInterEvDistance)
+  {
+    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
+                        lagMAD);
+    log +=
+        stringify("%5.2f-%-5.2f %9u %7u %7.2f (%4.2f) %10.f (%3.f)\n",
+                  kv.first * interEvDistStep, (kv.first + 1) * interEvDistStep,
+                  performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
+  }
+
+  log +=
+      stringify("XCorr P phases by event to station distance in %.2f km step\n",
+                staDistStep);
+  log += stringify(
+      "StaDist [km]      #CC   #Skip   AvgCC (+/-) AvgLag[msec] (+/-)\n");
+  for (const auto &kv : pStatsByStaDistance)
+  {
+    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
+                        lagMAD);
+    log += stringify("%3d-%-3d %12u %7u %7.2f (%4.2f) %10.f (%3.f)\n",
+                     int(kv.first * staDistStep),
+                     int((kv.first + 1) * staDistStep), performed, skipped,
+                     meanCoeff, coeffMAD, meanLag, lagMAD);
+  }
+
+  log +=
+      stringify("XCorr S phases by event to station distance in %.2f km step\n",
+                staDistStep);
+  log += stringify(
+      "StaDist [km]      #CC   #Skip   AvgCC (+/-) AvgLag[msec] (+/-)\n");
+  for (const auto &kv : sStatsByStaDistance)
+  {
+    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
+                        lagMAD);
+    log += stringify("%3d-%-3d %12u %7u %7.2f (%4.2f) %10.f (%3.f)\n",
+                     int(kv.first * staDistStep),
+                     int((kv.first + 1) * staDistStep), performed, skipped,
+                     meanCoeff, coeffMAD, meanLag, lagMAD);
+  }
+
+  log += stringify("XCorr P phases by station\n");
+  log += stringify(
+      "Staion            #CC   #Skip   AvgCC (+/-) AvgLag[msec] (+/-)\n");
+  for (const auto &kv : pStatsByStation)
+  {
+    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
+                        lagMAD);
+    log += stringify("%-12s %9u %7u %7.2f (%4.2f) %10.f (%3.f)\n",
+                     kv.first.c_str(), performed, skipped, meanCoeff, coeffMAD,
+                     meanLag, lagMAD);
+  }
+
+  log += stringify("XCorr S phases by station\n");
+  log += stringify(
+      "Staion            #CC   #Skip   AvgCC (+/-) AvgLag[msec] (+/-)\n");
+  for (const auto &kv : sStatsByStation)
+  {
+    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
+                        lagMAD);
+    log += stringify("%-12s %9u %7u %7.2f (%4.2f) %10.f (%3.f)\n",
+                     kv.first.c_str(), performed, skipped, meanCoeff, coeffMAD,
+                     meanLag, lagMAD);
+  }
+  std::cout << log;
 }
 
 } // namespace HDDUtils

@@ -19,7 +19,6 @@
 #include "random.h"
 #include "utils.h"
 #include "xcorr.h"
-#include <iostream>
 #include <limits>
 
 using namespace std;
@@ -2273,51 +2272,6 @@ void DD::logXCorrSummary(const XCorrCache &xcorr)
 
 namespace {
 
-struct XCorrEvalStats
-{
-  vector<unsigned> skipped;
-  vector<unsigned> performed;
-  vector<double> coeff;
-  vector<double> lag;
-
-  XCorrEvalStats &operator+=(XCorrEvalStats const &rhs) &
-  {
-    skipped.insert(skipped.end(), rhs.skipped.begin(), rhs.skipped.end());
-    performed.insert(performed.end(), rhs.performed.begin(),
-                     rhs.performed.end());
-    coeff.insert(coeff.end(), rhs.coeff.begin(), rhs.coeff.end());
-    lag.insert(lag.end(), rhs.lag.begin(), rhs.lag.end());
-    return *this;
-  }
-
-  friend XCorrEvalStats operator+(XCorrEvalStats lhs, XCorrEvalStats const &rhs)
-  {
-    lhs += rhs;
-    return lhs;
-  }
-
-  void summarize(unsigned &skipped,
-                 unsigned &performed,
-                 double &meanCoeff,
-                 double &coeffMAD,
-                 double &meanLag,
-                 double &lagMAD) const
-  {
-    skipped = std::accumulate(this->skipped.begin(), this->skipped.end(), 0.);
-    performed =
-        std::accumulate(this->performed.begin(), this->performed.end(), 0.);
-    meanCoeff = computeMean(this->coeff);
-    coeffMAD  = computeMedianAbsoluteDeviation(this->coeff, meanCoeff);
-    meanLag   = computeMean(this->lag);
-    lagMAD    = computeMedianAbsoluteDeviation(this->lag, meanLag);
-    // each xcorr is reported twice in XCorrCache (ev1-ev2 and ev2-ev1)
-    skipped /= 2;
-    performed /= 2;
-    meanLag *= 1000;
-    lagMAD *= 1000;
-  }
-};
-
 struct CallbackCounters
 {
   unsigned skipped   = 0;
@@ -2343,7 +2297,8 @@ void callback(CallbackCounters &counters,
     counters.skipped++;
 }
 
-XCorrEvalStats operator+=(XCorrEvalStats &lhs, CallbackCounters const &rhs)
+HDD::DD::XCorrEvalStats &operator+=(HDD::DD::XCorrEvalStats &lhs,
+                                    CallbackCounters const &rhs)
 {
   lhs.skipped.push_back(rhs.skipped);
   lhs.performed.push_back(rhs.performed);
@@ -2352,115 +2307,31 @@ XCorrEvalStats operator+=(XCorrEvalStats &lhs, CallbackCounters const &rhs)
   return lhs;
 }
 
-void printEvalXcorrStats(const string &title,
-                         XCorrEvalStats &pTotStats,
-                         XCorrEvalStats &sTotStats,
-                         map<string, XCorrEvalStats> &pStatsByStation,
-                         map<string, XCorrEvalStats> &sStatsByStation,
-                         map<unsigned, XCorrEvalStats> &pStatsByStaDistance,
-                         map<unsigned, XCorrEvalStats> &sStatsByStaDistance,
-                         map<unsigned, XCorrEvalStats> &pStatsByInterEvDistance,
-                         map<unsigned, XCorrEvalStats> &sStatsByInterEvDistance,
-                         const double interEvDistStep,
-                         const double staDistStep)
-{
-  unsigned skipped, performed;
-  double meanCoeff, coeffMAD, meanLag, lagMAD;
-
-  string log = title + "\n";
-
-  pTotStats.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag, lagMAD);
-  log += strf("Xcorr P phases: performed %u skipped %u meanCC %.2f (+/-%.2f) "
-              "meanLag %3.f [msec] (+/-%.f)\n",
-              performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
-  sTotStats.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag, lagMAD);
-  log += strf("Xcorr S phases: performed %u kipped %u meanCC %.2f (+/-%.2f) "
-              "meanLag %3.f [msec] (+/-%.f)\n",
-              performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
-
-  log += strf("Xcorr P phases by inter-event distance in %.2f km step\n",
-              interEvDistStep);
-  log += strf(
-      " EvDist [km]      #CC   #Skip   AvgCC (+/-)   AvgLag[msec] (+/-)\n");
-  for (const auto &kv : pStatsByInterEvDistance)
-  {
-    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
-                        lagMAD);
-    log +=
-        strf("%5.2f-%-5.2f %9u %7u %7.2f (%4.2f) %10.f (%3.f)\n",
-             kv.first * interEvDistStep, (kv.first + 1) * interEvDistStep,
-             performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
-  }
-
-  log += strf("Xcorr S phases by inter-event distance in %.2f km step\n",
-              interEvDistStep);
-  log += strf(
-      " EvDist [km]      #CC   #Skip   AvgCC (+/-)   AvgLag[msec] (+/-)\n");
-  for (const auto &kv : sStatsByInterEvDistance)
-  {
-    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
-                        lagMAD);
-    log +=
-        strf("%5.2f-%-5.2f %9u %7u %7.2f (%4.2f) %10.f (%3.f)\n",
-             kv.first * interEvDistStep, (kv.first + 1) * interEvDistStep,
-             performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
-  }
-
-  log += strf("XCorr P phases by event to station distance in %.2f km step\n",
-              staDistStep);
-  log +=
-      strf("StaDist [km]      #CC   #Skip   AvgCC (+/-) AvgLag[msec] (+/-)\n");
-  for (const auto &kv : pStatsByStaDistance)
-  {
-    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
-                        lagMAD);
-    log +=
-        strf("%3d-%-3d %12u %7u %7.2f (%4.2f) %10.f (%3.f)\n",
-             int(kv.first * staDistStep), int((kv.first + 1) * staDistStep),
-             performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
-  }
-
-  log += strf("XCorr S phases by event to station distance in %.2f km step\n",
-              staDistStep);
-  log +=
-      strf("StaDist [km]      #CC   #Skip   AvgCC (+/-) AvgLag[msec] (+/-)\n");
-  for (const auto &kv : sStatsByStaDistance)
-  {
-    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
-                        lagMAD);
-    log +=
-        strf("%3d-%-3d %12u %7u %7.2f (%4.2f) %10.f (%3.f)\n",
-             int(kv.first * staDistStep), int((kv.first + 1) * staDistStep),
-             performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
-  }
-
-  log += strf("XCorr P phases by station\n");
-  log +=
-      strf("Staion            #CC   #Skip   AvgCC (+/-) AvgLag[msec] (+/-)\n");
-  for (const auto &kv : pStatsByStation)
-  {
-    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
-                        lagMAD);
-    log += strf("%-12s %9u %7u %7.2f (%4.2f) %10.f (%3.f)\n", kv.first.c_str(),
-                performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
-  }
-
-  log += strf("XCorr S phases by station\n");
-  log +=
-      strf("Staion            #CC   #Skip   AvgCC (+/-) AvgLag[msec] (+/-)\n");
-  for (const auto &kv : sStatsByStation)
-  {
-    kv.second.summarize(skipped, performed, meanCoeff, coeffMAD, meanLag,
-                        lagMAD);
-    log += strf("%-12s %9u %7u %7.2f (%4.2f) %10.f (%3.f)\n", kv.first.c_str(),
-                performed, skipped, meanCoeff, coeffMAD, meanLag, lagMAD);
-  }
-  std::cout << log;
-}
-
 } // namespace
 
+void DD::XCorrEvalStats::summarize(unsigned &skipped,
+                                   unsigned &performed,
+                                   double &meanCoeff,
+                                   double &coeffMAD,
+                                   double &meanLag,
+                                   double &lagMAD) const
+{
+  skipped = std::accumulate(this->skipped.begin(), this->skipped.end(), 0.);
+  performed =
+      std::accumulate(this->performed.begin(), this->performed.end(), 0.);
+  meanCoeff = computeMean(this->coeff);
+  coeffMAD  = computeMedianAbsoluteDeviation(this->coeff, meanCoeff);
+  meanLag   = computeMean(this->lag);
+  lagMAD    = computeMedianAbsoluteDeviation(this->lag, meanLag);
+  // each xcorr is reported twice in XCorrCache (ev1-ev2 and ev2-ev1)
+  skipped /= 2;
+  performed /= 2;
+  meanLag *= 1000;
+  lagMAD *= 1000;
+}
+
 void DD::evalXCorr(const ClusteringOptions &clustOpt,
+                   const evalXcorrCallback &cb,
                    const double interEvDistStep,
                    const double staDistStep,
                    bool theoretical,
@@ -2474,7 +2345,7 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
   map<unsigned, XCorrEvalStats> pStatsByInterEvDistance; // key distance
   map<unsigned, XCorrEvalStats> sStatsByInterEvDistance; // key distance
 
-  int loop = 0;
+  int processedEvents = 0;
   XCorrCache xcorr;
 
   for (const auto &kv : _bgCat.getEvents())
@@ -2610,28 +2481,27 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
     //
     // User update
     //
-    loop++;
+    processedEvents++;
     const unsigned onePercent =
         _bgCat.getEvents().size() < 100 ? 1 : (_bgCat.getEvents().size() / 100);
-    if (loop % onePercent == 0)
+    if (processedEvents % onePercent == 0)
     {
-      logInfo("Processed %.1f%%...", (loop * 100.0 / _bgCat.getEvents().size()));
+      logInfo("Processed %.1f%%...",
+              (processedEvents * 100.0 / _bgCat.getEvents().size()));
     }
 
-    if (loop % updateInterval == 0)
+    if (processedEvents % updateInterval == 0)
     {
-      printEvalXcorrStats("<PROGRESSIVE STATS>", pTotStats, sTotStats,
-                          pStatsByStation, sStatsByStation, pStatsByStaDistance,
-                          sStatsByStaDistance, pStatsByInterEvDistance,
-                          sStatsByInterEvDistance, interEvDistStep,
-                          staDistStep);
+      cb(pTotStats, sTotStats, pStatsByStation, sStatsByStation,
+         pStatsByStaDistance, sStatsByStaDistance, pStatsByInterEvDistance,
+         sStatsByInterEvDistance, interEvDistStep, staDistStep,
+         (processedEvents / _bgCat.getEvents().size()));
     }
   }
 
-  printEvalXcorrStats("<FINAL STATS>", pTotStats, sTotStats, pStatsByStation,
-                      sStatsByStation, pStatsByStaDistance, sStatsByStaDistance,
-                      pStatsByInterEvDistance, sStatsByInterEvDistance,
-                      interEvDistStep, staDistStep);
+  cb(pTotStats, sTotStats, pStatsByStation, sStatsByStation,
+     pStatsByStaDistance, sStatsByStaDistance, pStatsByInterEvDistance,
+     sStatsByInterEvDistance, interEvDistStep, staDistStep, 1.0);
 
   WfCounters wfcount{0};
   wfcount.update(_wfAccess.loader.get());

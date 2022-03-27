@@ -19,6 +19,7 @@
 #define __RTDD_APPLICATIONS_HDDUTILS_H__
 
 #include "hdd/catalog.h"
+#include "hdd/dd.h"
 
 #include <seiscomp/client/inventory.h>
 #include <seiscomp/datamodel/databasequery.h>
@@ -88,6 +89,19 @@ void convertOrigin(DataSource &dataSrc,
                    bool includeExistingPicks,
                    Seiscomp::DataModel::OriginPtr &newOrg,
                    std::vector<Seiscomp::DataModel::PickPtr> &newOrgPicks);
+
+void printEvalXcorrStats(
+    const HDD::DD::XCorrEvalStats &pTotStats,
+    const HDD::DD::XCorrEvalStats &sTotStats,
+    const std::map<std::string, HDD::DD::XCorrEvalStats> &pStatsByStation,
+    const std::map<std::string, HDD::DD::XCorrEvalStats> &sStatsByStation,
+    const std::map<unsigned, HDD::DD::XCorrEvalStats> &pStatsByStaDistance,
+    const std::map<unsigned, HDD::DD::XCorrEvalStats> &sStatsByStaDistance,
+    const std::map<unsigned, HDD::DD::XCorrEvalStats> &pStatsByInterEvDistance,
+    const std::map<unsigned, HDD::DD::XCorrEvalStats> &sStatsByInterEvDistance,
+    double interEvDistStep,
+    double staDistStep,
+    double completionPercent);
 
 } // namespace HDDUtils
 
