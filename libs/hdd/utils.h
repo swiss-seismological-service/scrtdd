@@ -19,6 +19,7 @@
 
 #include "catalog.h"
 #include "timewindow.h"
+#include "xcorrcache.h"
 #include <cmath>
 #include <initializer_list>
 #include <random>
@@ -97,6 +98,12 @@ bool directoryEmpty(const std::string &path);
 bool createDirectories(const std::string &path);
 
 bool removePath(const std::string &path);
+
+void writeXCorrToFile(const XCorrCache &xcorr,
+                      const Catalog &cat,
+                      const std::string &file);
+
+XCorrCache readXCorrFromFile(const Catalog &cat, const std::string &file);
 
 } // namespace HDD
 

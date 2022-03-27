@@ -393,7 +393,8 @@ std::list<Catalog> DD::findClusters(const ClusteringOptions &clustOpt)
 }
 
 unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
-                                            const SolverOptions &solverOpt)
+                                            const SolverOptions &solverOpt,
+                                            XCorrCache &precomputed)
 {
   logInfo("Starting DD relocator in multiple events mode");
 
@@ -479,7 +480,7 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
     // theoretical phases.
     const XCorrCache xcorr = buildXCorrCache(
         catToReloc, neighCluster, _useArtificialPhases,
-        clustOpt.xcorrMaxEvStaDist, clustOpt.xcorrMaxInterEvDist);
+        clustOpt.xcorrMaxEvStaDist, clustOpt.xcorrMaxInterEvDist, precomputed);
 
     // the actual relocation
     unique_ptr<Catalog> relocatedCluster =
@@ -496,6 +497,7 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
           joinPath(catalogWorkingDir, (prefix + "-station.csv")));
     }
     clusterId++;
+    precomputed = std::move(xcorr);
   }
 
   if (_saveProcessing)
@@ -504,6 +506,8 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
         joinPath(catalogWorkingDir, "relocated-event.csv"),
         joinPath(catalogWorkingDir, "relocated-phase.csv"),
         joinPath(catalogWorkingDir, "relocated-station.csv"));
+    writeXCorrToFile(precomputed, _bgCat,
+                     joinPath(catalogWorkingDir, "xcorr.csv"));
   }
 
   _ttt->freeResources();
@@ -1505,11 +1509,12 @@ XCorrCache DD::buildXCorrCache(
     const unordered_map<unsigned, unique_ptr<Neighbours>> &neighCluster,
     bool computeTheoreticalPhases,
     double xcorrMaxEvStaDist,
-    double xcorrMaxInterEvDist)
+    double xcorrMaxInterEvDist,
+    const XCorrCache &precomputed)
 {
   logInfo("Computing differential times via cross-correlation...");
 
-  XCorrCache xcorr;
+  XCorrCache xcorr(precomputed);
   unsigned long performed = 0;
 
   for (const auto &kv : neighCluster)
@@ -1920,10 +1925,10 @@ void DD::fixPhases(Catalog &catalog,
     catalog.updatePhase(ph, true);
   }
 
-  logInfo("Event %s total phases %u (%u P and %u S): created %u (%u P "
-          "and %u S) from theoretical picks",
-          string(refEv).c_str(), (totP + totS), totP, totS, (newP + newS), newP,
-          newS);
+  logDebug("Event %s total phases %u (%u P and %u S): created %u (%u P "
+           "and %u S) from theoretical picks",
+           string(refEv).c_str(), (totP + totS), totP, totS, (newP + newS),
+           newP, newS);
 }
 
 TimeWindow DD::xcorrTimeWindowLong(const Phase &phase) const
@@ -2260,13 +2265,13 @@ void DD::logXCorrSummary(const XCorrCache &xcorr)
           (counters.performed_s * 100. / counters.performed), counters.skipped,
           (counters.skipped * 100. / (counters.performed + counters.skipped)));
 
-  logInfo("Successful cross-correlation (coefficient above threshold) %.f%% "
-          "(%u/%u). Successful P %.f%% (%u/%u). Successful S %.f%% (%u/%u)",
-          (counters.good_cc * 100. / counters.performed), counters.good_cc,
+  logInfo("Successful cross-correlation (coefficient above threshold) %.1f%% "
+          "(%u/%u). Successful P %.1f%% (%u/%u). Successful S %.1f%% (%u/%u)",
+          (counters.good_cc * 100.0 / counters.performed), counters.good_cc,
           counters.performed,
-          (counters.good_cc_p * 100. / counters.performed_p),
+          (counters.good_cc_p * 100.0 / counters.performed_p),
           counters.good_cc_p, counters.performed_p,
-          (counters.good_cc_s * 100. / counters.performed_s),
+          (counters.good_cc_s * 100.0 / counters.performed_s),
           counters.good_cc_s, counters.performed_s);
 }
 
@@ -2279,23 +2284,6 @@ struct CallbackCounters
   vector<double> coeff;
   vector<double> lag;
 };
-
-void callback(CallbackCounters &counters,
-              unsigned ev1,
-              unsigned ev2,
-              const std::string &stationId,
-              const Catalog::Phase::Type &type,
-              const XCorrCache::Entry &e)
-{
-  if (e.valid)
-  {
-    counters.performed++;
-    counters.coeff.push_back(e.coeff);
-    counters.lag.push_back(e.lag);
-  }
-  else
-    counters.skipped++;
-}
 
 HDD::DD::XCorrEvalStats &operator+=(HDD::DD::XCorrEvalStats &lhs,
                                     CallbackCounters const &rhs)
@@ -2331,14 +2319,11 @@ void DD::XCorrEvalStats::summarize(unsigned &skipped,
   meanLagAbsDev     = computeMeanAbsoluteDeviation(this->lag, meanLag);
   medianLag         = computeMedian(this->lag);
   medianLagAbsDev   = computeMedianAbsoluteDeviation(this->lag, medianLag);
-
-  // each xcorr is reported twice in XCorrCache (ev1-ev2 and ev2-ev1)
-  skipped /= 2;
-  performed /= 2;
 }
 
 void DD::evalXCorr(const ClusteringOptions &clustOpt,
                    const evalXcorrCallback &cb,
+                   XCorrCache &xcorr,
                    const double interEvDistStep,
                    const double staDistStep,
                    bool theoretical,
@@ -2353,7 +2338,6 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
   map<unsigned, XCorrEvalStats> sStatsByInterEvDistance; // key distance
 
   int processedEvents = 0;
-  XCorrCache xcorr;
 
   for (const auto &kv : _bgCat.getEvents())
   {
@@ -2410,22 +2394,34 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
       for (Phase::Type phaseType : kv.second)
       {
         const string stationId = kv.first;
-        const Phase &catalogPhase =
-            _bgCat.searchPhase(event.id, stationId, phaseType)->second;
 
         //
         // Collect stats for current station/phaseType
         //
         CallbackCounters counters;
-        xcorr.forEach(event.id, stationId, phaseType,
-                      std::bind(callback, std::ref(counters), placeholders::_1,
-                                placeholders::_2, placeholders::_3,
-                                placeholders::_4, placeholders::_5));
+        auto callback = [&counters,
+                         &neighbours](unsigned ev1, unsigned ev2,
+                                      const std::string &stationId,
+                                      const Catalog::Phase::Type &type,
+                                      const XCorrCache::Entry &e) {
+          if (neighbours->has(ev2, stationId, type))
+          {
+            if (e.valid)
+            {
+              counters.performed++;
+              counters.coeff.push_back(e.coeff);
+              counters.lag.push_back(e.lag);
+            }
+            else
+              counters.skipped++;
+          }
+        };
+        xcorr.forEach(event.id, stationId, phaseType, callback);
+
         //
         //  group stats by event, station, station distance
         //
-        const Station &station =
-            _bgCat.getStations().at(catalogPhase.stationId);
+        const Station &station = _bgCat.getStations().at(stationId);
         double stationDistance = computeDistance(event, station);
         unsigned stationDistanceBucket =
             unsigned(stationDistance / staDistStep);
@@ -2433,57 +2429,47 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
         if (phaseType == Phase::Type::P)
         {
           pTotStats += counters;
-          pStatsByStation[catalogPhase.stationId] += counters;
+          pStatsByStation[stationId] += counters;
           pStatsByStaDistance[stationDistanceBucket] += counters;
         }
         else if (phaseType == Phase::Type::S)
         {
           sTotStats += counters;
-          sStatsByStation[catalogPhase.stationId] += counters;
+          sStatsByStation[stationId] += counters;
           sStatsByStaDistance[stationDistanceBucket] += counters;
+        }
+
+        //
+        // group stats by inter-event distance
+        //
+        for (unsigned neighEvId : neighbours->ids)
+        {
+          if (!neighbours->has(neighEvId, stationId, phaseType)) continue;
+          if (!xcorr.has(event.id, neighEvId, stationId, phaseType)) continue;
+
+          const auto &e = xcorr.get(event.id, neighEvId, stationId, phaseType);
+          CallbackCounters counters;
+          if (e.valid)
+          {
+            counters.performed++;
+            counters.coeff.push_back(e.coeff);
+            counters.lag.push_back(e.lag);
+          }
+          else
+            counters.skipped++;
+
+          const Event &neighbEv  = catalog->getEvents().at(neighEvId);
+          double interEvDistance = computeDistance(event, neighbEv);
+          const unsigned interEvDistanceBucket =
+              unsigned(interEvDistance / interEvDistStep);
+
+          if (phaseType == Phase::Type::P)
+            pStatsByInterEvDistance[interEvDistanceBucket] += counters;
+          else if (phaseType == Phase::Type::S)
+            sStatsByInterEvDistance[interEvDistanceBucket] += counters;
         }
       }
     }
-
-    //
-    // group stats by inter-event distance
-    //
-    unordered_map<unsigned, CallbackCounters> pCountersByInterEvDist;
-    unordered_map<unsigned, CallbackCounters> sCountersByInterEvDist;
-
-    for (unsigned neighEvId : neighbours->ids)
-    {
-      const Event &neighbEv  = catalog->getEvents().at(neighEvId);
-      double interEvDistance = computeDistance(event, neighbEv);
-      const unsigned interEvDistanceBucket =
-          unsigned(interEvDistance / interEvDistStep);
-
-      CallbackCounters &pcounters =
-          pCountersByInterEvDist[interEvDistanceBucket];
-      CallbackCounters &scounters =
-          sCountersByInterEvDist[interEvDistanceBucket];
-
-      XCorrCache::ForEachCallback f =
-          [&pcounters, &scounters, neighEvId](
-              unsigned ev1, unsigned ev2, const std::string &stationId,
-              const Catalog::Phase::Type &type, const XCorrCache::Entry &e) {
-            if (ev2 == neighEvId)
-            {
-              if (type == Phase::Type::P)
-                callback(pcounters, ev1, ev2, stationId, type, e);
-              else if (type == Phase::Type::S)
-                callback(scounters, ev1, ev2, stationId, type, e);
-            }
-          };
-
-      xcorr.forEach(event.id, f);
-    }
-
-    for (auto &kv : pCountersByInterEvDist)
-      pStatsByInterEvDistance[kv.first] += kv.second;
-
-    for (auto &kv : sCountersByInterEvDist)
-      sStatsByInterEvDistance[kv.first] += kv.second;
 
     //
     // User update
@@ -2516,8 +2502,6 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
   logInfo("Catalog waveforms downloaded %u, not available "
           "%u, loaded from disk cache %u",
           wfcount.downloaded, wfcount.no_avail, wfcount.disk_cached);
-
-  logXCorrSummary(xcorr);
 }
 
 } // namespace HDD

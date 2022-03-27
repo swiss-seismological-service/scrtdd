@@ -139,6 +139,7 @@ private:
     std::string dumpWaveforms;
     std::string mergeCatalogs;
     std::string evalXCorr;
+    std::string xcorrCache;
     std::string reloadProfileMsg;
     bool loadProfileWf = false;
 
@@ -167,8 +168,8 @@ private:
     void freeResources();
     Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
     std::unique_ptr<HDD::Catalog> relocateSingleEvent(DataModel::Origin *org);
-    std::unique_ptr<HDD::Catalog> relocateCatalog();
-    void evalXCorr();
+    std::unique_ptr<HDD::Catalog> relocateCatalog(const std::string &xcorrFile);
+    void evalXCorr(const std::string &xcorrFile);
     void dumpWaveforms();
     void dumpClusters();
 

@@ -19,6 +19,8 @@
 
 #include "catalog.h"
 
+#include <functional>
+#include <string>
 #include <unordered_map>
 
 namespace HDD {
@@ -53,39 +55,44 @@ public:
   {
     Entry e;
     e.valid                                 = valid;
+    e.component                             = component;
     e.coeff                                 = coeff;
     e.lag                                   = lag;
-    e.component                             = component;
     _entries[evId1][stationId][type][evId2] = e;
+    e.lag                                   = -lag;
     _entries[evId2][stationId][type][evId1] = e;
   }
 
-  bool remove(unsigned evId1,
+  void remove(unsigned evId1,
               unsigned evId2,
               const std::string &stationId,
               const Catalog::Phase::Type &type)
   {
     try
     {
-      return _entries.at(evId1).at(stationId).at(type).erase(evId2) > 0;
+      _entries.at(evId1).at(stationId).at(type).erase(evId2);
     }
     catch (...)
+    {}
+    try
     {
-      return false;
+      _entries.at(evId2).at(stationId).at(type).erase(evId1);
     }
+    catch (...)
+    {}
   }
 
-  bool remove(unsigned evId1,
+  void remove(unsigned evId1,
               const std::string &stationId,
               const Catalog::Phase::Type &type)
   {
-    try
+    if (has(evId1, stationId, type))
     {
-      return _entries.at(evId1).at(stationId).erase(type) > 0;
-    }
-    catch (...)
-    {
-      return false;
+      std::unordered_map<unsigned, Entry> copy = get(evId1, stationId, type);
+      for (const auto &kv : copy)
+      {
+        remove(evId1, kv.first, stationId, type);
+      }
     }
   }
 

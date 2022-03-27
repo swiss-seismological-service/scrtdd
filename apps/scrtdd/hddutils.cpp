@@ -21,6 +21,7 @@
 #include "hdd/csvreader.h"
 #include "hdd/log.h"
 
+#include <fstream>
 #include <iostream>
 
 #define SEISCOMP_COMPONENT RTDD

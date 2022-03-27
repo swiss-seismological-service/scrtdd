@@ -156,7 +156,16 @@ public:
 
   std::unique_ptr<Catalog>
   relocateMultiEvents(const ClusteringOptions &clustOpt,
-                      const SolverOptions &solverOpt);
+                      const SolverOptions &solverOpt,
+                      XCorrCache &precomputed);
+
+  std::unique_ptr<Catalog>
+  relocateMultiEvents(const ClusteringOptions &clustOpt,
+                      const SolverOptions &solverOpt)
+  {
+    XCorrCache empty;
+    return relocateMultiEvents(clustOpt, solverOpt, empty);
+  }
 
   std::unique_ptr<Catalog>
   relocateSingleEvent(const Catalog &singleEvent,
@@ -197,10 +206,23 @@ public:
 
   void evalXCorr(const ClusteringOptions &clustOpt,
                  const evalXcorrCallback &cb,
+                 XCorrCache &precomputed,
                  const double interEvDistStep = 0.1, // km
                  const double staDistStep     = 3,   // km
                  bool theoretical             = false,
                  unsigned updateInterval      = 100);
+
+  void evalXCorr(const ClusteringOptions &clustOpt,
+                 const evalXcorrCallback &cb,
+                 const double interEvDistStep = 0.1, // km
+                 const double staDistStep     = 3,   // km
+                 bool theoretical             = false,
+                 unsigned updateInterval      = 100)
+  {
+    XCorrCache empty;
+    evalXCorr(clustOpt, cb, empty, interEvDistStep, staDistStep, theoretical,
+              updateInterval);
+  }
 
   //
   // Static method
@@ -327,8 +349,9 @@ private:
       const std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
           &neighCluster,
       bool computeTheoreticalPhases,
-      double xcorrMaxEvStaDist   = -1,
-      double xcorrMaxInterEvDist = -1);
+      double xcorrMaxEvStaDist      = -1,
+      double xcorrMaxInterEvDist    = -1,
+      const XCorrCache &precomputed = XCorrCache());
 
   void buildXcorrDiffTTimePairs(Catalog &catalog,
                                 const Neighbours &neighbours,

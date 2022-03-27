@@ -337,6 +337,10 @@ void RTDD::createCommandLineDescription()
       "profile configuration to use",
       &_config.forceProfile, true);
   commandline().addOption(
+      "ModeOptions", "xcorr-cache",
+      "Specify a file containing precomputed cross-correlation values",
+      &_config.xcorrCache, true);
+  commandline().addOption(
       "ModeOptions", "expiry,x",
       "Defines the time span in hours after which objects expire.",
       &_config.fExpiry, true);
@@ -1106,7 +1110,7 @@ bool RTDD::run()
     ProfilePtr profile               = getProfile(_config.forceProfile);
     if (!catalog || !profile) return false;
     loadProfile(profile, catalog.get());
-    profile->evalXCorr();
+    profile->evalXCorr(_config.xcorrCache);
     return true;
   }
 
@@ -1211,11 +1215,7 @@ bool RTDD::run()
     unique_ptr<HDD::Catalog> relocatedCat;
     try
     {
-      relocatedCat = profile->relocateCatalog();
-      relocatedCat->writeToFile("reloc-event.csv", "reloc-phase.csv",
-                                "reloc-station.csv");
-      SEISCOMP_INFO("Wrote relocated catalog files reloc-event.csv, "
-                    "reloc-phase.csv, reloc-station.csv");
+      relocatedCat = profile->relocateCatalog(_config.xcorrCache);
     }
     catch (exception &e)
     {
@@ -2277,7 +2277,8 @@ RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   return rel;
 }
 
-std::unique_ptr<HDD::Catalog> RTDD::Profile::relocateCatalog()
+std::unique_ptr<HDD::Catalog>
+RTDD::Profile::relocateCatalog(const std::string &xcorrFile)
 {
   if (!loaded)
   {
@@ -2286,11 +2287,22 @@ std::unique_ptr<HDD::Catalog> RTDD::Profile::relocateCatalog()
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::GMT();
+  HDD::XCorrCache xcorr;
+  if (!xcorrFile.empty())
+    xcorr = HDD::readXCorrFromFile(dd->getCatalog(), xcorrFile);
   dd->setUseArtificialPhases(this->useTheoreticalManual);
-  return dd->relocateMultiEvents(multiEventClustering, solverCfg);
+  unique_ptr<HDD::Catalog> relocatedCat =
+      dd->relocateMultiEvents(multiEventClustering, solverCfg, xcorr);
+  relocatedCat->writeToFile("reloc-event.csv", "reloc-phase.csv",
+                            "reloc-station.csv");
+  HDD::writeXCorrToFile(xcorr, dd->getCatalog(), "xcorr.csv");
+  cout << "Wrote relocated catalog files reloc-event.csv, reloc-phase.csv, "
+          "reloc-station.csv and cross-correlation results xcorr.csv"
+       << endl;
+  return relocatedCat;
 }
 
-void RTDD::Profile::evalXCorr()
+void RTDD::Profile::evalXCorr(const std::string &xcorrFile)
 {
   if (!loaded)
   {
@@ -2300,7 +2312,12 @@ void RTDD::Profile::evalXCorr()
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::GMT();
-  dd->evalXCorr(multiEventClustering, printEvalXcorrStats);
+  HDD::XCorrCache xcorr;
+  if (!xcorrFile.empty())
+    xcorr = HDD::readXCorrFromFile(dd->getCatalog(), xcorrFile);
+  dd->evalXCorr(multiEventClustering, printEvalXcorrStats, xcorr);
+  HDD::writeXCorrToFile(xcorr, dd->getCatalog(), "xcorr.csv");
+  cout << "Wrote cross-correlation results xcorr.csv" << endl;
 }
 
 void RTDD::Profile::dumpWaveforms()
@@ -2326,12 +2343,13 @@ void RTDD::Profile::dumpClusters()
   }
   lastUsage                   = Core::Time::GMT();
   list<HDD::Catalog> clusters = dd->findClusters(multiEventClustering);
-  SEISCOMP_INFO("Found %zu clusters", clusters.size());
+  cout << stringify("Found %zu clusters", clusters.size()) << endl;
   unsigned clusterId = 1;
   for (const HDD::Catalog &cat : clusters)
   {
-    SEISCOMP_INFO("Writing cluster %u (%zu events)", clusterId,
-                  cat.getEvents().size());
+    cout << stringify("Writing cluster %u (%zu events)", clusterId,
+                      cat.getEvents().size())
+         << endl;
     string prefix = stringify("cluster-%u", clusterId++);
     cat.writeToFile(prefix + "-event.csv", prefix + "-phase.csv",
                     prefix + "-station.csv");
