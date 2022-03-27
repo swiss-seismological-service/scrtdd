@@ -173,9 +173,13 @@ public:
     void summarize(unsigned &skipped,
                    unsigned &performed,
                    double &meanCoeff,
-                   double &coeffMAD,
+                   double &meanCoeffAbsDev,
+                   double &medianCoeff,
+                   double &medianCoeffAbsDev,
                    double &meanLag,
-                   double &lagMAD) const;
+                   double &meanLagAbsDev,
+                   double &medianLag,
+                   double &medianLagAbsDev) const;
   };
 
   using evalXcorrCallback = std::function<void(

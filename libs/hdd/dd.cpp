@@ -2312,22 +2312,29 @@ HDD::DD::XCorrEvalStats &operator+=(HDD::DD::XCorrEvalStats &lhs,
 void DD::XCorrEvalStats::summarize(unsigned &skipped,
                                    unsigned &performed,
                                    double &meanCoeff,
-                                   double &coeffMAD,
+                                   double &meanCoeffAbsDev,
+                                   double &medianCoeff,
+                                   double &medianCoeffAbsDev,
                                    double &meanLag,
-                                   double &lagMAD) const
+                                   double &meanLagAbsDev,
+                                   double &medianLag,
+                                   double &medianLagAbsDev) const
 {
   skipped = std::accumulate(this->skipped.begin(), this->skipped.end(), 0.);
   performed =
       std::accumulate(this->performed.begin(), this->performed.end(), 0.);
-  meanCoeff = computeMean(this->coeff);
-  coeffMAD  = computeMedianAbsoluteDeviation(this->coeff, meanCoeff);
-  meanLag   = computeMean(this->lag);
-  lagMAD    = computeMedianAbsoluteDeviation(this->lag, meanLag);
+  meanCoeff         = computeMean(this->coeff);
+  meanCoeffAbsDev   = computeMeanAbsoluteDeviation(this->coeff, meanCoeff);
+  medianCoeff       = computeMedian(this->coeff);
+  medianCoeffAbsDev = computeMedianAbsoluteDeviation(this->coeff, medianCoeff);
+  meanLag           = computeMean(this->lag);
+  meanLagAbsDev     = computeMeanAbsoluteDeviation(this->lag, meanLag);
+  medianLag         = computeMedian(this->lag);
+  medianLagAbsDev   = computeMedianAbsoluteDeviation(this->lag, medianLag);
+
   // each xcorr is reported twice in XCorrCache (ev1-ev2 and ev2-ev1)
   skipped /= 2;
   performed /= 2;
-  meanLag *= 1000;
-  lagMAD *= 1000;
 }
 
 void DD::evalXCorr(const ClusteringOptions &clustOpt,
@@ -2495,7 +2502,7 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
       cb(pTotStats, sTotStats, pStatsByStation, sStatsByStation,
          pStatsByStaDistance, sStatsByStaDistance, pStatsByInterEvDistance,
          sStatsByInterEvDistance, interEvDistStep, staDistStep,
-         (processedEvents / _bgCat.getEvents().size()));
+         (double(processedEvents) / _bgCat.getEvents().size()));
     }
   }
 

@@ -2300,7 +2300,7 @@ void RTDD::Profile::evalXCorr()
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::GMT();
-  dd->evalXCorr(multiEventClustering, HDDUtils::printEvalXcorrStats);
+  dd->evalXCorr(multiEventClustering, printEvalXcorrStats);
 }
 
 void RTDD::Profile::dumpWaveforms()
