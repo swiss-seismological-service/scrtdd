@@ -107,7 +107,7 @@ Long story short:
 
 * Use the relocation output (`reloc-event.csv`, `reloc-phase.csv` and `reloc-stations.csv` or the SCML file `relocated.xml`) as you please
 
-As an example you may want to have a look at `multi-event.sh` script in [this folder](/stuff/scripts/).
+As an example you may want to have a look at `multi-event.sh` script in [this folder](/scripts/).
 
 To relocate events not stored in a SeisComP database, refer to [this paragraph](#134-relocating-external-data).
 
@@ -253,7 +253,7 @@ Finally, the events to be relocated can also be stored in SeisComP XML format. P
 
 Before performing the relocation we need to create a new profile in the rtDD configuration where it is possible to select the values for the relocation steps: double-difference system creation, cross-correlation and solver.
 
-![Profile options](/stuff/img/configOverview.png?raw=true "Profile options")
+![Profile options](/doc/base/media/configOverview.png?raw=true "Profile options")
 
 The default values provided by rtDD are meant to be a good starting choice, so there is no need to tweak every parameter. However, it is a good choice to configure a custom velocity model (`solver.travelTimeTable`). The cross-correlation parameters are described in a dedicated paragraph. Finally, when the configuration is ready, we can relocate the catalog with the following commands...
 
@@ -372,7 +372,7 @@ A typical *multi-event* relocation log looks like the following:
 
 The relevant part for the evaluation of the double-difference inversion is the following:
 
-![QC residuals](/stuff/img/qc1.png?raw=true "QC residuals")
+![QC residuals](/doc/base/media/qc1.png?raw=true "QC residuals")
 
 It is clear how the residuals decrease at each iteration and how they are related to the inter-event distance: the close the events the lower the residuals.
 
@@ -381,12 +381,12 @@ An independent method to evalute the correctness of the relative locations is to
 ```
 scrtdd --eval-xcorr station.csv,event.csv,phase.csv --profile myProfile --verbosity=3 --console=1
 ```
-![QC xcorr pre](/stuff/img/qc2a.png?raw=true "QC xcorr pre")
+![QC xcorr pre](/doc/base/media/qc2a.png?raw=true "QC xcorr pre")
 
 ```
 scrtdd --eval-xcorr station.csv,reloc-event.csv,phase.csv --profile myProfile --verbosity=3 --console=1
 ```
-![QC xcorr post](/stuff/img/qc2b.png?raw=true "QC xcorr post")
+![QC xcorr post](/doc/base/media/qc2b.png?raw=true "QC xcorr post")
 
 
 ### 1.5 Useful options
@@ -463,11 +463,11 @@ Catalog:
 
 Here are a few catalogs before and after rtDD relocation:
 
-![Relocation example picture](/stuff/img/multiEventRelocationExample.png?raw=true "Relocation example") 
+![Relocation example picture](/doc/base/media/multiEventRelocationExample.png?raw=true "Relocation example") 
 
 The unit testing folder contains the code to generate some tests with synthetic data:
 
-![Synthetic Data Relocation example picture](/stuff/img/multiEventRelocationSyntDataExample.png?raw=true "Synthetic Data Relocation example") 
+![Synthetic Data Relocation example picture](/doc/base/media/multiEventRelocationSyntDataExample.png?raw=true "Synthetic Data Relocation example") 
 
 ## 2. Real-time single-event relocation
 
@@ -499,11 +499,11 @@ If step2 completes successfully the relocated origin is sent to the messaging sy
 
 The easiest choice is to use as background catalog the relocated multi-event results; the triplet *reloc-event.csv*, *phase.csv*, *station.csv*:
 
-![Catalog selection option](/stuff/img/catalog-selection3.png?raw=true "Catalog selection from raw file format")
+![Catalog selection option](/doc/base/media/catalog-selection3.png?raw=true "Catalog selection from raw file format")
 
 However, if the catalog is generated in XML format, it can be imported in the SeisComP database. In this case the background catalog can be a file containing just the origin ids. 
 
-![Catalog selection option](/stuff/img/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
+![Catalog selection option](/doc/base/media/catalog-selection1.png?raw=true "Catalog selection from event/origin ids")
 
 While it is neat to have the background catalog in the SeisComP database, this approach has few limitations. First it may take a lot of time for rtDD to load a big catalog from the database comparing to loading it from files. Also, since the background catalog should be periodically updated, old events are continuously updated with new origins, which can lead to a not optimal database performance-wise.
 
@@ -682,17 +682,17 @@ scmag         LOCATION,RELOCATION, ...             ...
 
 Below the single-event relocation of several manually reviewed origins.
 
-![Single event relocation example picture](/stuff/img/singleEventRelocationExample.png?raw=true "Single Event Relocation example") 
+![Single event relocation example picture](/doc/base/media/singleEventRelocationExample.png?raw=true "Single Event Relocation example") 
 
 The unit testing folder contains the code to generate some tests with synthetic data.
 
-![Synthetic Data Relocation example picture](/stuff/img/singleEventRelocationSyntDataExample.png?raw=true "Synthetic Data Relocation example")
+![Synthetic Data Relocation example picture](/doc/base/media/singleEventRelocationSyntDataExample.png?raw=true "Synthetic Data Relocation example")
 
 ## 3. A continuously updated multi-event relocated catalog
 
-Thanks to the integration in SeisComP it is quite easy to use rtDD to periodically generate a double-difference catalog of a region, so that recent events are continuously included in the double-difference inversion. This is not only useful for having up-to-date snapshots of high quality earthquakes locations for a region (multi-event), but it is crucial for real-time double-difference inversion, where new origins are relocated against a reference (background) catalog. This is especially important when monitoring regions where the historical seismicity is not known. For this purpose it might come in handy the `generate-background-catalog.sh` script in [this folder](/stuff/scripts/), that can be easily adapted to the specific use case and it is useful to periodically generate a multi-event relocated catalog, which can be also displayed in an interactive map, given a web server is available.
+Thanks to the integration in SeisComP it is quite easy to use rtDD to periodically generate a double-difference catalog of a region, so that recent events are continuously included in the double-difference inversion. This is not only useful for having up-to-date snapshots of high quality earthquakes locations for a region (multi-event), but it is crucial for real-time double-difference inversion, where new origins are relocated against a reference (background) catalog. This is especially important when monitoring regions where the historical seismicity is not known. For this purpose it might come in handy the `generate-background-catalog.sh` script in [this folder](/scripts/), that can be easily adapted to the specific use case and it is useful to periodically generate a multi-event relocated catalog, which can be also displayed in an interactive map, given a web server is available.
 
-![Relocation example picture](/stuff/img/multiEventRelocationContinuousExample.png?raw=true "Continuously updated relocation example") 
+![Relocation example picture](/doc/base/media/multiEventRelocationContinuousExample.png?raw=true "Continuously updated relocation example") 
 
  
 ## 4. Cross-correlation
@@ -1013,7 +1013,7 @@ Last step is to copy the travel time tables to the SeisComP installation folder 
 cp mymodel* seiscomp_installation/share/locsat/tables/
 ```
 
-![LOCSAT TTT](/stuff/img/locsat-ttt.png?raw=true "LOCSAT TTT")
+![LOCSAT TTT](/doc/base/media/locsat-ttt.png?raw=true "LOCSAT TTT")
 
 
 ### 7.2 NonLinLoc
@@ -1024,14 +1024,14 @@ The following geographic transformations (TRANS statement) are currently support
 
 Since scrtdd never loads the grid files into memory, but reads the data from the files themselves, there could be issues with the maximum number of open files limits in your system. If that's the case (check scrtdd logs), make sure to increase that number to allow for many grid files to be open at the same time during the inversion.
 
-![NLL TTT](/stuff/img/nll-ttt.png?raw=true "NLL TTT")
+![NLL TTT](/doc/base/media/nll-ttt.png?raw=true "NLL TTT")
 
 
 ## 8. Scolv Locator plugin
 
 A (re)locator plugin is also available in the code, which makes rtDD available via `scolv`. To enable this plugin just add `rtddloc` to the list of plugins in the global configuration.
 
-![Locator plugin](/stuff/img/locator-plugin.png?raw=true "Locator plugin")
+![Locator plugin](/doc/base/media/locator-plugin.png?raw=true "Locator plugin")
 
 Please note that this plugin is not strictly required since rtDD would relocated any manual origins anyway (if configured to do so) and the relocated origin will appear on `scolv` as soon as ready.
 
