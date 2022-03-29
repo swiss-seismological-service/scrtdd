@@ -209,19 +209,16 @@ public:
                  XCorrCache &precomputed,
                  const double interEvDistStep = 0.1, // km
                  const double staDistStep     = 3,   // km
-                 bool theoretical             = false,
-                 unsigned updateInterval      = 100);
+                 bool theoretical             = false);
 
   void evalXCorr(const ClusteringOptions &clustOpt,
                  const evalXcorrCallback &cb,
                  const double interEvDistStep = 0.1, // km
                  const double staDistStep     = 3,   // km
-                 bool theoretical             = false,
-                 unsigned updateInterval      = 100)
+                 bool theoretical             = false)
   {
     XCorrCache empty;
-    evalXCorr(clustOpt, cb, empty, interEvDistStep, staDistStep, theoretical,
-              updateInterval);
+    evalXCorr(clustOpt, cb, empty, interEvDistStep, staDistStep, theoretical);
   }
 
   //

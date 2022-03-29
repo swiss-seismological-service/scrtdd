@@ -2326,8 +2326,7 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
                    XCorrCache &xcorr,
                    const double interEvDistStep,
                    const double staDistStep,
-                   bool theoretical,
-                   unsigned updateInterval)
+                   bool theoretical)
 {
   XCorrEvalStats pTotStats, sTotStats;
   map<string, XCorrEvalStats> pStatsByStation;           // key station id
@@ -2394,19 +2393,20 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
       for (Phase::Type phaseType : kv.second)
       {
         const string stationId = kv.first;
+        const auto xcorrCfg    = _cfg.xcorr.at(phaseType);
 
         //
         // Collect stats for current station/phaseType
         //
         CallbackCounters counters;
-        auto callback = [&counters,
-                         &neighbours](unsigned ev1, unsigned ev2,
-                                      const std::string &stationId,
-                                      const Catalog::Phase::Type &type,
-                                      const XCorrCache::Entry &e) {
+        auto callback = [&counters, &neighbours,
+                         &xcorrCfg](unsigned ev1, unsigned ev2,
+                                    const std::string &stationId,
+                                    const Catalog::Phase::Type &type,
+                                    const XCorrCache::Entry &e) {
           if (neighbours->has(ev2, stationId, type))
           {
-            if (e.valid)
+            if (e.valid && (e.coeff >= xcorrCfg.minCoef))
             {
               counters.performed++;
               counters.coeff.push_back(e.coeff);
@@ -2449,7 +2449,7 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
 
           const auto &e = xcorr.get(event.id, neighEvId, stationId, phaseType);
           CallbackCounters counters;
-          if (e.valid)
+          if (e.valid && (e.coeff >= xcorrCfg.minCoef))
           {
             counters.performed++;
             counters.coeff.push_back(e.coeff);
@@ -2483,7 +2483,7 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
               (processedEvents * 100.0 / _bgCat.getEvents().size()));
     }
 
-    if (processedEvents % updateInterval == 0)
+    if (processedEvents % (10 * onePercent) == 0)
     {
       cb(pTotStats, sTotStats, pStatsByStation, sStatsByStation,
          pStatsByStaDistance, sStatsByStaDistance, pStatsByInterEvDistance,

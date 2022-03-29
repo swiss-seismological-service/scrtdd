@@ -86,12 +86,12 @@ Example output::
     [...]
 
 
-* ``#CC``: numer of cross-correlation performed
-* ``#Skip``: numer of skipped cross-correlation (waveform not available, SNR lower than configured threshold, ...)
-* ``coeff``: correlation coefficient
-* ``lag``: cross-correlation lag between phase waveforms
+* ``#CC``: number of cross-correlations performed
+* ``#Skip``: number of cross-correlations whose results do not account for the computation of the statistics
+* ``coeff``: correlation coefficient between phase waveforms 
+* ``lag``: cross-correlation lag between phase waveforms in milliseconds
 
-There could be several reasons why the cross-correlation between 2 phase waveforms is skipped: the waveform data for one or both the phases is not available, the configured components (``crossCorrelation.x-phase.components``) were not available, the SNR of one or both the waveforms is below the configured threshold (see ``crossCorrelation.snr.minSnr``), the phases were detected on different channel codes (see ``crossCorrelation.compatibleChannels`` configuration option), the waveforms of the two phases use different frequencies and the option ``crossCorrelation.waveformFilteringiresampling`` is not used. It is possible to know the reason on why a cross-correlation was skipped for a particular phase pair by looking at the logs at debug level (--verbosity=4).
+There could be several reasons why the cross-correlation between 2 phase waveforms is not considered for computing the statistics: the correlation coefficient is below the configured threshold (see ``crossCorrelation.x-phase.minCCCoef``), the SNR of one or both the waveforms is below the configured threshold (see ``crossCorrelation.snr.minSnr``), the waveform data for one or both the phases is not available and in general when the it is not possible to perform the cross-correlation. It is possible to know the exact reason by looking at the logs at debug level (--verbosity=4).
 
 The SNR is particularly important to reject bad picks (automatic picks or picks detected via cross-correlation, see :ref:`phase-update-label`, but it is not so relevant when relocating manually reviewed origins). The SNR signal/noise windows should be chosen so that they satisfies ALL the following 5 conditions:
 
@@ -108,7 +108,7 @@ The SNR is particularly important to reject bad picks (automatic picks or picks 
 Reusing cross-correlation results
 ---------------------------------
 
-When the cross-correlation settings are not changed, it might be useful to reuse the cross-correlation results to save processing time. Both the ``--eval-xcorr`` and ``--reloc-catalog`` options save a ``xcorr.csv`` file after finishing their execution. That file contains the computed cross-correlation results and can be given back to rtDD via the command line option ``--xcorr-cache``.
+When the cross-correlation settings are not changed, it might be useful to reuse the cross-correlation results to save processing time. Both the ``--eval-xcorr`` and ``--reloc-catalog`` options save a ``xcorr.csv`` file after finishing their execution. That file contains the computed cross-correlation results and can be given back to rtDD via the command line option ``--xcorr-cache``. It is safe to change the value of ``crossCorrelation.x-phase.minCCCoef`` and reuse the cross-correlation results.
 
 --------------------
 Waveforms inspection
