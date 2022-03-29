@@ -155,8 +155,12 @@ void TravelTimeTable::compute(double eventLat,
 {
   string timeGId =
       "timeGrid:" + Grid::filePath(_timeGridPath, station, phaseType);
-  auto timeIt = _timeGrids.find(timeGId);
-  if (timeIt == _timeGrids.end())
+  try
+  {
+    travelTime =
+        _timeGrids.get(timeGId)->getTime(eventLat, eventLon, eventDepth);
+  }
+  catch (std::range_error &e)
   {
     // Check if we have already excluded the grid because we couldn't load it
     if (_unloadableGrids.find(timeGId) != _unloadableGrids.end())
@@ -165,21 +169,22 @@ void TravelTimeTable::compute(double eventLat,
       throw Exception(msg.c_str());
     }
 
+    // Load the grid
     try
     {
-      timeIt = _timeGrids
-                   .emplace(timeGId, new TimeGrid(_timeGridPath, station,
-                                                  phaseType, _swapBytes))
-                   .first;
+      _timeGrids.put(timeGId,
+                     shared_ptr<TimeGrid>(new TimeGrid(_timeGridPath, station,
+                                                       phaseType, _swapBytes)));
     }
     catch (exception &e)
     {
       _unloadableGrids.insert(timeGId);
       throw Exception(e.what());
     }
-  }
 
-  travelTime = timeIt->second->getTime(eventLat, eventLon, eventDepth);
+    travelTime =
+        _timeGrids.get(timeGId)->getTime(eventLat, eventLon, eventDepth);
+  }
 }
 
 void TravelTimeTable::compute(double eventLat,
@@ -195,9 +200,14 @@ void TravelTimeTable::compute(double eventLat,
   // get travelTime
   compute(eventLat, eventLon, eventDepth, station, phaseType, travelTime);
 
+  // Get velocityAtSrc
   string velGId = "velGrid:" + Grid::filePath(_velGridPath, station, phaseType);
-  auto velIt    = _velGrids.find(velGId);
-  if (velIt == _velGrids.end())
+  try
+  {
+    velocityAtSrc =
+        _velGrids.get(velGId)->getVel(eventLat, eventLon, eventDepth);
+  }
+  catch (std::range_error &e)
   {
     // Check if we have already excluded the grid because we couldn't load it
     if (_unloadableGrids.find(velGId) != _unloadableGrids.end())
@@ -206,65 +216,60 @@ void TravelTimeTable::compute(double eventLat,
       throw Exception(msg.c_str());
     }
 
+    // Load the grid
     try
     {
-      velIt = _velGrids
-                  .emplace(velGId, new VelGrid(_velGridPath, station, phaseType,
-                                               _swapBytes))
-                  .first;
+      _velGrids.put(velGId, shared_ptr<VelGrid>(new VelGrid(
+                                _velGridPath, station, phaseType, _swapBytes)));
     }
     catch (exception &e)
     {
       _unloadableGrids.insert(velGId);
       throw Exception(e.what());
     }
+
+    // Again, get the value from the grid now that it is loaded
+    velocityAtSrc =
+        _velGrids.get(velGId)->getVel(eventLat, eventLon, eventDepth);
   }
 
-  // set velocityAtSrc
-  velocityAtSrc = velIt->second->getVel(eventLat, eventLon, eventDepth);
+  // Get takeOffAngles
+  takeOffAngleAzim = std::numeric_limits<double>::quiet_NaN();
+  takeOffAngleDip  = std::numeric_limits<double>::quiet_NaN();
 
   string angleGId =
       "angleGrid:" + Grid::filePath(_angleGridPath, station, phaseType);
-  auto angleIt = _angleGrids.find(angleGId);
-  if (angleIt == _angleGrids.end())
+
+  try
+  {
+    _angleGrids.get(angleGId)->getAngles(eventLat, eventLon, eventDepth,
+                                         takeOffAngleAzim, takeOffAngleDip);
+  }
+  catch (std::range_error &e)
   {
     // Check if we have already excluded the grid because we couldn't load it
-    if (_unloadableGrids.find(angleGId) == _unloadableGrids.end())
+    if (_unloadableGrids.find(angleGId) != _unloadableGrids.end())
     {
-      try
-      {
-        angleIt = _angleGrids
-                      .emplace(angleGId, new AngleGrid(_angleGridPath, station,
-                                                       phaseType, _swapBytes))
-                      .first;
-      }
-      catch (exception &e)
-      {
-        _unloadableGrids.insert(angleGId);
-        logWarning(
-            "Cannot load angle grid file: using approximated angles (%s)",
-            e.what());
-      }
+      string msg = strf("Time grid (%s) not avaliable", angleGId.c_str());
+      throw Exception(msg.c_str());
     }
-  }
 
-  // set takeOffAngles
-  takeOffAngleAzim = std::nan("");
-  takeOffAngleDip  = std::nan("");
-  if (angleIt != _angleGrids.end())
-  {
+    // Load the grid
     try
     {
-      angleIt->second->getAngles(eventLat, eventLon, eventDepth,
-                                 takeOffAngleAzim, takeOffAngleDip);
+      _angleGrids.put(angleGId,
+                      shared_ptr<AngleGrid>(new AngleGrid(
+                          _angleGridPath, station, phaseType, _swapBytes)));
     }
     catch (exception &e)
     {
-      logWarning(
-          "Error reading angle grid file: using approximated angles (%s)",
-          e.what());
+      _unloadableGrids.insert(angleGId);
+      throw Exception(e.what());
     }
+    _angleGrids.get(angleGId)->getAngles(eventLat, eventLon, eventDepth,
+                                         takeOffAngleAzim, takeOffAngleDip);
   }
+
   // approximate angles if not already provided by the grid
   computeApproximatedTakeOfAngles(
       eventLat, eventLon, eventDepth, station, phaseType,
@@ -785,8 +790,8 @@ void AngleGrid::getAngles(
   if (angles.quality < QUALITY_CUTOFF)
   {
     // this is not an error, the code handles nans
-    azim = std::nan("");
-    dip  = std::nan("");
+    azim = std::numeric_limits<double>::quiet_NaN();
+    dip  = std::numeric_limits<double>::quiet_NaN();
     return;
   }
 
@@ -798,7 +803,7 @@ void AngleGrid::getAngles(
   }
   else
   {
-    azim = std::nan("");
+    azim = std::numeric_limits<double>::quiet_NaN();
   }
   dip = (angles.dip / 10.0);
   dip = degToRad(dip);

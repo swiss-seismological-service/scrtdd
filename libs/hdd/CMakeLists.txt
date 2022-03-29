@@ -35,6 +35,7 @@ SET(HDD_HEADERS
 	catalog.h
 	clustering.h
 	ttt.h
+	lrucache.h
 	nllttt.h
 	solver.h
 	xcorr.h

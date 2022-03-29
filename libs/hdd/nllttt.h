@@ -17,6 +17,7 @@
 #ifndef __HDD_NLLTTT_H__
 #define __HDD_NLLTTT_H__
 
+#include "lrucache.h"
 #include "ttt.h"
 
 #include <fstream>
@@ -357,9 +358,9 @@ private:
   std::string _timeGridPath;
   std::string _angleGridPath;
   bool _swapBytes;
-  std::unordered_map<std::string, std::unique_ptr<VelGrid>> _velGrids;
-  std::unordered_map<std::string, std::unique_ptr<TimeGrid>> _timeGrids;
-  std::unordered_map<std::string, std::unique_ptr<AngleGrid>> _angleGrids;
+  lru_cache<std::string, std::shared_ptr<VelGrid>> _velGrids{255};
+  lru_cache<std::string, std::shared_ptr<TimeGrid>> _timeGrids{255};
+  lru_cache<std::string, std::shared_ptr<AngleGrid>> _angleGrids{255};
   std::unordered_set<std::string> _unloadableGrids;
 };
 

@@ -10,9 +10,7 @@ Please refer to `NonLinLoc by Anthony Lomax <http://alomax.free.fr/nlloc/>`_ doc
 
 The following geographic transformations (TRANS statement) are currently supported: GLOBAL 2D, SIMPLE 2D, SIMPLE 3D, SDS 2D, SDS 3D. Also, both float and double values are supported as well as byte swapping.
 
-Please note that ``scrtdd`` doesn't load the grid files into memory in full and that allows to work with grids of a large size (it has been tested with 1TB grids, without noticing any sort of slow down or memory issue). Also, the grid values are interpolated, which means high accuracy can be achived even with coarse grids, although a more dense grid would certainly be more accurate.
-
-However, since ``scrtdd`` never loads the grid files into memory, but reads the data from the files themselves, there could be issues with the maximum number of open files limits in your system. If that's the case (check scrtdd logs), make sure to increase that number to allow for many grid files to be open at the same time during the inversion.
+Please note that ``scrtdd`` doesn't load the grid files into memory in full and that allows to work with grids of unlimited size. Also, the grid values are interpolated, which allows to achive accurate results even with coarse grids, although more dense grids would certainly allow more precise results.
 
 .. image:: media/nll-ttt.png
    :width: 800
