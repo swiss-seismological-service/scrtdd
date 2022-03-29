@@ -8,15 +8,15 @@ Summay
 ------
 
 * Use the multi-event relocation feature to prepare a background catalog
-* Create a rtDD profile or use the same profile used for generating the background catalog, then set the profile background catalog and add the profile to the list of active real-time profiles (`activeProfiles` parameter). The default profile parameter values are meant to be a good starting choice, so there is no need to tweak them heavily. However, it is a good choice to configure a custom velocity model (`solver.travelTimeTable`)
+* Create a rtDD profile or use the same profile used for generating the background catalog, then set the profile background catalog and add the profile to the list of active real-time profiles (``activeProfiles`` parameter). The default profile parameter values are meant to be a good starting choice, so there is no need to tweak them heavily. However, it is a good choice to configure a custom velocity model (``solver.travelTimeTable``)
 * Make sure to read :ref:`avoid-loop-label` paragraph to avoid a potential issue
-* Enable and start rtDD (`seiscomp enable scrtdd`, `seiscomp start scrtdd`)
+* Enable and start rtDD (``seiscomp enable scrtdd``, ``seiscomp start scrtdd``)
 
 --------------
 The long story
 --------------
 
-To enable the real-time processing a profile should be created and enabled by including it in `scrtdd.activeProfiles` option.
+To enable the real-time processing a profile should be created and enabled by including it in ``scrtdd.activeProfiles`` option.
  
 In real-time processing rtDD relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generated via multi-event relocation, which has already been covered in the previous sections.
 
@@ -87,7 +87,7 @@ You might consider testing the configuration relocating some existing events to 
 Relocate origin ID and send the relocation to the messaging system for further processing
 -----------------------------------------------------------------------------------------
 
-If we want to process an origin we can run the following command and then check on `scolv` the relocated origin (the messaging system must be active). This is mostly useful when we want to relocate an origin on a running system and keep the relocation::
+If we want to process an origin we can run the following command and then check on ``scolv`` the relocated origin (the messaging system must be active). This is mostly useful when we want to relocate an origin on a running system and keep the relocation::
 
     scrtdd --origin-id someOriginId \
            --verbosity=3 --console=1 [db options] 
@@ -96,7 +96,7 @@ If we want to process an origin we can run the following command and then check 
 Relocate origin ID but do not send the relocation (debug)
 ---------------------------------------------------------
 
-As above but add `--test` and the origin will not be sent to the messaging system. Useful for troubleshooting when the `scrtdd.saveProcessingFiles` option is enabled to verify the relocation files in `scrtdd.workingDirectory`.
+As above but add ``--test`` and the origin will not be sent to the messaging system. Useful for troubleshooting when the ``scrtdd.saveProcessingFiles`` option is enabled to verify the relocation files in ``scrtdd.workingDirectory``.
 ::
 
     scrtdd --origin-id someOriginId --test \
@@ -105,7 +105,7 @@ As above but add `--test` and the origin will not be sent to the messaging syste
 Relocate origin ID and store the result to XML file
 ---------------------------------------------------
 
-Adding the `--xmlout` option allows to save the origin as a XML file. We can finally open the ile with `scolv` for inspection::
+Adding the ``--xmlout`` option allows to save the origin as a XML file. We can finally open the ile with ``scolv`` for inspection::
 
     scrtdd --origin-id someOriginId --xmlout \
            --verbosity=3 --console=1 [db options] \
@@ -114,7 +114,7 @@ Adding the `--xmlout` option allows to save the origin as a XML file. We can fin
 Relocate XML file and store the result to XML file
 --------------------------------------------------
 
-Similarly to other SeisComP commands the `--ep` option can be used for full offline processing. All origins contained in the input XML file are relocated::
+Similarly to other SeisComP commands the ``--ep`` option can be used for full offline processing. All origins contained in the input XML file are relocated::
 
     scrtdd --ep origin.xml --verbosity=3 --console=1 [db options] \
       > relocated-origin.xml
@@ -165,9 +165,9 @@ Here we report an example *single-event* relocation log::
            DD residuals [msec]: before=40+/-59.4 after=-5+/-6.5
 
 
-rtDD adds two comments to each relocated origin: `scrtddSourceOrigin` and `scrtddRelocationReport`. They can be both visualized in `scolv` (see official SeisComP documentation on how to visualize comments as additional columns), or they can be seen on the logs.
+rtDD adds two comments to each relocated origin: ``scrtddSourceOrigin`` and ``scrtddRelocationReport``. They can be both visualized in ``scolv`` (see official SeisComP documentation on how to visualize comments as additional columns), or they can be seen on the logs.
 
-`scrtddSourceOrigin` contains the id of the origin that triggered the relocation. `scrtddRelocationReport` contains a summary of the relocation process. E.g.::
+``scrtddSourceOrigin`` contains the id of the origin that triggered the relocation. ``scrtddRelocationReport`` contains a summary of the relocation process. E.g.::
 
     Origin changes: location=0.23[km] depth=1.40[km] time=-0.147[sec]
     Rms change [sec]: -0.153 (before/after 0.502/0.349)
@@ -177,6 +177,8 @@ rtDD adds two comments to each relocated origin: `scrtddSourceOrigin` and `scrtd
     DD residuals [msec]: before=-106+/-21.6 after=9+/-26.2
 
 
+.. _phase-update-label:
+
 ------------
 Phase update
 ------------
@@ -185,9 +187,9 @@ rtDD uses cross-correlation to detect phases at stations with no associated pick
 
 For automatic picks, the pick time is updated according to the average lag detected by all the good (above configured threshold) cross-correlation results. Since the real-time events are cross-correlated against catalog events, which have good manual picks, the updated pick time is expected to improve. The pick uncertainty is derived from the uncertainties of catalog-events. If no cross-correlation coefficients above the configured threshold are found, the pick is kept untouched.
 
-For stations with no associated phases, rtDD computes theoretical picks. Those are then cross-correlated against the catalog event ones. Every theoretical pick that has at least one good cross-correlation result is added to the relocated origin, with pick time and uncertainties derived from catalog phases (similarly to what is done for automatic picks). Those *good* theoretical picks are thus used in the double-difference system inversion. Theoretical picks that have no good cross-correlation results are simply discarded.
+For stations with no associated phases, rtDD computes theoretical picks (see ``crossCorrelation.theoreticalPhaseAutoOrigin`` and ``crossCorrelation.theoreticalPhaseManualOrigin``). Those are then cross-correlated against the catalog event ones. Every theoretical pick that has at least one good cross-correlation result is added to the relocated origin, with pick time and uncertainties derived from catalog phases (similarly to what is done for automatic picks). Those *good* theoretical picks are thus used in the double-difference system inversion. Theoretical picks that have no good cross-correlation results are simply discarded.
 
-Picks that have been updated or created by rtDD are identifiable by a `x` suffix (Px, Sx).
+Picks that have been updated or created by rtDD are identifiable by a ``x`` suffix (Px, Sx).
 
 Manual picks are never modified.
 
@@ -197,7 +199,7 @@ Manual picks are never modified.
 Avoiding Relocation Loops
 -------------------------
 
-rtDD listens and sends messages to the LOCATION group. In a default installation where the only locator is `scautoloc` that's not an issue: `scautoloc` will send an origin to LOCATION and rtDD will receive it and send an updated origin to LOCATION.  However, when there are multiple (re)locators (e.g. scanloc, screloc) that listen to LOCATION and send their own updated origin to LOCATION too, then an infinite loop happens! In this case a new messaging group needs to be created, e.g. RELOCATION, so that the origins flow from LOCATION to RELOCATION without going back.
+rtDD listens and sends messages to the LOCATION group. In a default installation where the only locator is ``scautoloc`` that's not an issue: ``scautoloc`` will send an origin to LOCATION and rtDD will receive it and send an updated origin to LOCATION.  However, when there are multiple (re)locators (e.g. scanloc, screloc) that listen to LOCATION and send their own updated origin to LOCATION too, then an infinite loop happens! In this case a new messaging group needs to be created, e.g. RELOCATION, so that the origins flow from LOCATION to RELOCATION without going back.
 
  E.g. of a properly configured system::
 

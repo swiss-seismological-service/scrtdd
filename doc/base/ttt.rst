@@ -10,7 +10,9 @@ Please refer to `NonLinLoc by Anthony Lomax <http://alomax.free.fr/nlloc/>`_ doc
 
 The following geographic transformations (TRANS statement) are currently supported: GLOBAL 2D, SIMPLE 2D, SIMPLE 3D, SDS 2D, SDS 3D. Also, both float and double values are supported as well as byte swapping.
 
-Since scrtdd never loads the grid files into memory, but reads the data from the files themselves, there could be issues with the maximum number of open files limits in your system. If that's the case (check scrtdd logs), make sure to increase that number to allow for many grid files to be open at the same time during the inversion.
+Please note that ``scrtdd`` doesn't load the grid files into memory in full and that allows to work with grids of a large size (it has been tested with 1TB grids, without noticing any sort of slow down or memory issue). Also, the grid values are interpolated, which means high accuracy can be achived even with coarse grids, although a more dense grid would certainly be more accurate.
+
+However, since ``scrtdd`` never loads the grid files into memory, but reads the data from the files themselves, there could be issues with the maximum number of open files limits in your system. If that's the case (check scrtdd logs), make sure to increase that number to allow for many grid files to be open at the same time during the inversion.
 
 .. image:: media/nll-ttt.png
    :width: 800
@@ -21,9 +23,9 @@ LOCSAT
 
 In the rtDD configuration it is possible to select any travel time table installed in SeisComP; this means the default SeisComP travel time tables and any other tables installed by the user. Although, this is a general SeisComP topic and we suggest to refer to the official SeisComP documentation, here is a quick recipe for generating your own travel time table from a custom velocity model.
 
-SeisComP supports `LOCSAT` and `libtau` travel time table formats (1D velocity model). It is possible to generate a custom travel time table in `LOCSAT` format using the `TauP toolkit <https://www.seis.sc.edu/taup>`_. 
+SeisComP supports ``LOCSAT`` and ``libtau`` travel time table formats (1D velocity model). It is possible to generate a custom travel time table in ``LOCSAT`` format using the `TauP toolkit <https://www.seis.sc.edu/taup>`_. 
 
-First step is to have a velocity model in one of the formats supported by `TauP`. To do so, just make a copy of the SeisComP iasp91 or ak135 velocity models::
+First step is to have a velocity model in one of the formats supported by ``TauP``. To do so, just make a copy of the SeisComP iasp91 or ak135 velocity models::
 
     cp seiscomp_installation/share/ttt/iasp91.tvel mymodel.tvel
 
@@ -36,11 +38,11 @@ Then edit the relevant layers to match your velocity model and leave the others 
 
     ./TauP-installation/bin/taup_create -tvel mymodel.tvel --verbose
 
-That generates `mymodel.taup` file that will be used by the subsequent TauP commands.
+That generates ``mymodel.taup`` file that will be used by the subsequent TauP commands.
 
 Before generating the travel time tables we need to decide the resolution (range of depths and distances). TauP uses a default range of depths and distances that is not very dense. So create a header file containing the desired depths and distances ranges.
 
-E.g. file `mymodel.header` ::
+E.g. file ``mymodel.header`` ::
 
     n # P,S travel-time tables resolution for mymodel
     30     # number of depth samples

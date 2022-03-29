@@ -9,12 +9,12 @@ Multi-event relocation is used to relocate an event catalog in offline mode.
 Summary
 -------
 
-* Use `sclistorg` command to select an event catalog from a SeisComP database.
-* Create a rtDD profile (e.g. use `scconfig` GUI) which defines the settings for the relocation. The default values provided by rtDD are meant to be a good starting choice, so there is no need to tweak every parameter. However, it is a good choice to configure a custom velocity model.
-* Use `scrtdd --reloc-catalog` option to relocate the events.
-* Use the relocation output (`reloc-event.csv`, `reloc-phase.csv` and `reloc-stations.csv` or the SCML file `relocated.xml`) as you please
+* Use ``sclistorg`` command to select an event catalog from a SeisComP database.
+* Create a rtDD profile (e.g. use ``scconfig`` GUI) which defines the settings for the relocation. The default values provided by rtDD are meant to be a good starting choice, so there is no need to tweak every parameter. However, it is a good choice to configure a custom velocity model.
+* Use ``scrtdd --reloc-catalog`` option to relocate the events.
+* Use the relocation output (``reloc-event.csv``, ``reloc-phase.csv`` and ``reloc-stations.csv`` or the SCML file ``relocated.xml``) as you please
 
-As an example you may want to have a look at `multi-event.sh` script in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_.
+As an example you may want to have a look at ``multi-event.sh`` script in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_.
 
 To relocate events not stored in a SeisComP database, refer to :ref:`multi-event-external-data-label`.
 
@@ -27,15 +27,15 @@ To relocate a catalog (multi-event) three pieces of information need to be provi
 
 Events data can be provided in three ways:
 
-* A flat file triple `station.csv,event.csv,phase.csv`, which is explained later.
-* A file containing the origin ids of events stored in a SeisComP database. In this case an utility `sclistorg` might come in handy to fetch those ids. `sclistorg` is distributed with rtDD and it is explained later.
+* A flat file triple ``station.csv,event.csv,phase.csv``, which is explained later.
+* A file containing the origin ids of events stored in a SeisComP database. In this case an utility ``sclistorg`` might come in handy to fetch those ids. ``sclistorg`` is distributed with rtDD and it is explained later.
 * A file in `SCML format <https://www.seiscomp.de/doc/base/glossary.html#term-SCML>`_, which is a flavor of QuakeML. It is possible to convert between formats with `sccnv command <https://www.seiscomp.de/doc/apps/sccnv.html>`_ .
 
 Waveform data can to be provided in several formats, see :ref:`waveform-label` for more information. The first time you try to relocate a catalog downloading the waveforms might takes some time, but then they are stored in a disk cache that avoids further downloading. Also, If the waveforms are not available (e.g. RecordStream not configured), then rtDD will proceed with the relocation anyway, but without refining the differential times via cross-correlation. 
 
-`Inventory information <https://www.seiscomp.de/doc/base/concepts/inventory.html>`_ can be stored in a SeisComP database or provided via command line (`--inventory-db inventory.xml`). In the latter case the inventory has be in SeisComP own station meta-data XML format called inventory ML (the SeisComP documentation provide information on how to convert from standard formats like FDSN StationXML or dataless SEED). When the events are provided as station.csv,event.csv,phase.csv file triplet, the inventory can be passed as an empty inventory ML.
+`Inventory information <https://www.seiscomp.de/doc/base/concepts/inventory.html>`_ can be stored in a SeisComP database or provided via command line (``--inventory-db inventory.xml``). In the latter case the inventory has be in SeisComP own station meta-data XML format called inventory ML (the SeisComP documentation provide information on how to convert from standard formats like FDSN StationXML or dataless SEED). When the events are provided as station.csv,event.csv,phase.csv file triplet, the inventory can be passed as an empty inventory ML.
 
-The multi-event relocation itself consists in running the command `scrtdd --reloc-catalog [options]` with appropirate options, discussed later.
+The multi-event relocation itself consists in running the command ``scrtdd --reloc-catalog [options]`` with appropirate options, discussed later.
 
 The output will be another catalog containing the relocated origins. Depending on the command line options this catalog is stored in plain text files or SCML format (which can be converted to QuakeML).
 
@@ -45,7 +45,7 @@ In multi-event mode there is no interaction with the running SeisComP modules an
 Event catalog from SeisComP origin ids
 --------------------------------------
 
-There is a tool that is installed alongside rtDD, called `sclistorg`, that is useful for listing origin ids satisfying certain criteria, such as time period, geographic area, author, agency and so on. E.g.::
+There is a tool that is installed alongside rtDD, called ``sclistorg``, that is useful for listing origin ids satisfying certain criteria, such as time period, geographic area, author, agency and so on. E.g.::
 
     # list the preferred origin ids for all events between 2018-11-27 and 2018-12-14
     sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --org-type preferred [db options]
@@ -58,7 +58,7 @@ There is a tool that is installed alongside rtDD, called `sclistorg`, that is us
     sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --org-type preferred \
               --area 46.0,8.5,46.5,8.7 [db options]
 
-See `sclistorg --help` for a full list of options.::
+See ``sclistorg --help`` for a full list of options.::
 
     Events:
       --begin arg                   specify the lower bound of the time interval
@@ -93,9 +93,9 @@ Formats of Events Catalog
 
 The origin ids of the events to be relocated must be stored in a format that rtDD understands.
 
-One of the compatible formats is a text file containing the origin IDs (`sclistorg` output is compatible with that). rtDD will use the origin IDs in the file to fetch all necessary information from the SeisComP database.
+One of the compatible formats is a text file containing the origin IDs (``sclistorg`` output is compatible with that). rtDD will use the origin IDs in the file to fetch all necessary information from the SeisComP database.
 
-E.g. *file myCatalog.csv* (a mandatory column named `seiscompId` is required, but other column might be present too).::
+E.g. *file myCatalog.csv* (a mandatory column named ``seiscompId`` is required, but other column might be present too).::
 
     seiscompId
     Origin/20181214107387.056851.253104
@@ -118,7 +118,7 @@ E.g. *file event.csv* ::
     3,2019-11-05T01:06:27.140654Z,46.325626,7.356148,3.9756,0.84
     4,2019-11-05T01:12:25.753816Z,46.325012,7.353627,3.7090,0.39
 
-Notes: `magnitude` column is currently not used
+Notes: ``magnitude`` column is currently not used
 
 E.g. *file station.csv*::
 
@@ -144,13 +144,13 @@ E.g. *file phase.csv* ::
 
 Notes:
 
-* `type`: mutiple picks are allowed for the same event-station (P,Pn,P1,Pg,S,Sn,S1,Sg), but they must have a different `type`. However only one P and one S will be used per each event-station (see `profile.myProfile.catalog.P|S-Phases`).
-* `channelCode` is used in crossCorrelation to know which waveform to load. However the Orientation Code (the component) of the `channelCode` is currently not used (e.g. `Z` in `HHZ`). Instead the component to use for a specific phase during crossCorrelation is configured via `profile.myProfile.crossCorrelation.p|s-phase.components`
-* `lowerUncertainty` and `upperUncertainty` are used only when `profile.myProfile.solver.aPrioriWeights.usePickUncertainties` is set to `true`
+* ``type``: mutiple picks are allowed for the same event-station (P,Pn,P1,Pg,S,Sn,S1,Sg), but they must have a different ``type``. However only one P and one S will be used per each event-station (see ``profile.myProfile.catalog.P|S-Phases``).
+* ``channelCode`` is used in crossCorrelation to know which waveform to load. However the Orientation Code (the component) of the ``channelCode`` is currently not used (e.g. ``Z`` in ``HHZ``). Instead the component to use for a specific phase during crossCorrelation is configured via ``profile.myProfile.crossCorrelation.p|s-phase.components``
+* ``lowerUncertainty`` and ``upperUncertainty`` are used only when ``profile.myProfile.solver.aPrioriWeights.usePickUncertainties`` is set to ``true``
 
 With this format it is possible to relocate events that are not stored in any SeisComP database, since all the origins information are contained in those files.
 
-Finally, the events to be relocated can also be stored in SeisComP XML format. Please refer to the official SeisComP  documentation of `scxmldump`, a very convenient tool for dumping events to XML file.
+Finally, the events to be relocated can also be stored in SeisComP XML format. Please refer to the official SeisComP  documentation of ``scxmldump``, a very convenient tool for dumping events to XML file.
 
 -------------------------------
 Relocating the candidate events
@@ -161,7 +161,7 @@ Before performing the relocation we need to create a new profile in the rtDD con
 .. image:: media/configOverview.png
    :width: 800
 
-The default values provided by rtDD are meant to be a good starting choice, so there is no need to tweak every parameter. However, it is a good choice to configure a custom velocity model (`solver.travelTimeTable`). The cross-correlation parameters are described in a dedicated paragraph. Finally, when the configuration is ready, we can relocate the catalog with the following commands...
+The default values provided by rtDD are meant to be a good starting choice, so there is no need to tweak every parameter. However, it is a good choice to configure a custom velocity model (``solver.travelTimeTable``). The cross-correlation parameters are described in a dedicated paragraph. Finally, when the configuration is ready, we can relocate the catalog with the following commands...
 
 Relocating a file containing a list of origin ids
 -------------------------------------------------
@@ -204,9 +204,9 @@ Events are stored in a `SCML format <https://www.seiscomp.de/doc/base/glossary.h
 Relocating external data
 ------------------------
 
-The easiest way to relocate external (non SeisComP) data is to provide the event catalog in the `station.csv,event.csv,phase.csv` file triplet format explained above. Alternatively it can be converted from a standard QuakeML to SeisComP ML using `sccnv command <https://www.seiscomp.de/doc/apps/sccnv.html>`_.
-The waveform data can to be provided via `-I RecordStream` command line option, which support several formats (see :ref:`waveform-label` for more details).
-The inventory can be provided via command line `--inventory-db inventory.xml`. The inventory has be in SeisComP own format called inventory ML, (the SeisComP documentation provide information on how to convert from standard formats like FDSN StationXML or dataless SEED). When the events are provided as station.csv,event.csv,phase.csv file triplet, the inventory can be passed as an empty inventory ML.
+The easiest way to relocate external (non SeisComP) data is to provide the event catalog in the ``station.csv,event.csv,phase.csv`` file triplet format explained above. Alternatively it can be converted from a standard QuakeML to SeisComP ML using `sccnv command <https://www.seiscomp.de/doc/apps/sccnv.html>`_.
+The waveform data can to be provided via ``-I RecordStream`` command line option, which support several formats (see :ref:`waveform-label` for more details).
+The inventory can be provided via command line ``--inventory-db inventory.xml``. The inventory has be in SeisComP own format called inventory ML, (the SeisComP documentation provide information on how to convert from standard formats like FDSN StationXML or dataless SEED). When the events are provided as station.csv,event.csv,phase.csv file triplet, the inventory can be passed as an empty inventory ML.
 
 Relocating a catalog in **"station.csv,event.csv,phase.csv"** file triplet format. In this example the data is stored in sds miniseed archive::
 
@@ -237,12 +237,12 @@ Relocating a catalog in **SCML format** (the inventory is always required). The 
 Evaluating the results
 ----------------------
 
-Independently on how the input events are provided, rtDD will output a set of files *reloc-event.csv*, *reloc-phase.csv* and *reloc-stations.csv*, these contain the relocated catalog and additional statistical information.  Also, enabling the `scrtdd.saveProcessingFiles` option makes rtDD generates multiple information files inside `scrtdd.workingDirectory`, including a copy of the log file.
+Independently on how the input events are provided, rtDD will output a set of files *reloc-event.csv*, *reloc-phase.csv* and *reloc-stations.csv*, these contain the relocated catalog and additional statistical information.  Also, enabling the ``scrtdd.saveProcessingFiles`` option makes rtDD generates multiple information files inside ``scrtdd.workingDirectory``, including a copy of the log file.
 
-To be good, the new locations must have improved the relative locations (the DD residuals should decrease after the inversion), without introducing absolute location errors (the events RMS should not increase, otherwise the damping factor was too low) or even improving the absolute locations if the `absoluteLocationConstraint` option was used. This information can be found in the logs, where the solver prints, at each iteration, the residuals of the double-difference system and the travel time RMS of the events. Moreover the *reloc-event.csv* file contains the information too, which allows to plot the distribution of DD residuals and events RMS before and after the relocation for comparison (see columns `startRms`, `finalRms`, `dd_startResidualMedian`, `dd_startResidualMAD`, `dd_finalResidualMedian`, `dd_finalResidualMAD` where MAD is Median Absolute Deviation).
+To be good, the new locations must have improved the relative locations (the DD residuals should decrease after the inversion), without introducing absolute location errors (the events RMS should not increase, otherwise the damping factor was too low) or even improving the absolute locations if the ``absoluteLocationConstraint`` option was used. This information can be found in the logs, where the solver prints, at each iteration, the residuals of the double-difference system and the travel time RMS of the events. Moreover the *reloc-event.csv* file contains the information too, which allows to plot the distribution of DD residuals and events RMS before and after the relocation for comparison (see columns ``startRms``, ``finalRms``, ``dd_startResidualMedian``, ``dd_startResidualMAD``, ``dd_finalResidualMedian``, ``dd_finalResidualMAD`` where MAD is Median Absolute Deviation).
 
 **Note**:
-rtDD computes the RMS after (`finalRms` column) but also before (`startRms` column) the relocation. The computation of the initial RMS is required for a sensible comparison of RMSs. Each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a travel time table that might not be the same as rtDD. Moreover, a locator might apply a specific logic to the RMS computation, which prevents a comparison across locators. For example NonLinLoc locator weighs the residuals by pick weight, and the weighting scheme is decided by NonLinLoc, making the resulting RMS unsuitable for comparison.
+rtDD computes the RMS after (``finalRms`` column) but also before (``startRms`` column) the relocation. The computation of the initial RMS is required for a sensible comparison of RMSs. Each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a travel time table that might not be the same as rtDD. Moreover, a locator might apply a specific logic to the RMS computation, which prevents a comparison across locators. For example NonLinLoc locator weighs the residuals by pick weight, and the weighting scheme is decided by NonLinLoc, making the resulting RMS unsuitable for comparison.
  
 
 Log files are located in ~/.seiscomp/log/scrtdd.log, or alternatively, when running rtDD from the command line, the following options can be used to see the logs on the console::
@@ -308,7 +308,7 @@ Useful options
 
 In addition to the options we have already seen, there are also some other useful ones.
 
-`--xmlout` option can be used in combination with `--reloc-catalog` to generate a XML output, which is useful to later insert the relocated catalog in a SeisComP database (e.g. scdb command).
+``--xmlout`` option can be used in combination with ``--reloc-catalog`` to generate a XML output, which is useful to later insert the relocated catalog in a SeisComP database (e.g. scdb command).
 
 E.g.::
 
@@ -317,11 +317,15 @@ E.g.::
            --xmlout > relocated-catalog.xml
 
 
-`--merge-catalogs` and `--merge-catalogs-keepid` are useful to merge several catalogs into a single one. 
+``--merge-catalogs`` and ``--merge-catalogs-keepid`` are useful to merge several catalogs into a single one. 
 
 ::
 
     scrtdd --merge-catalogs station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,phase2.csv
+
+``--xcorr-cache`` option allows to reuse precomputed cross-correlations, see :ref:`reusing-xcorr-label`.
+
+``--dump-clusters`` option allows to dump the catalog clusters that rtDD finds accordingly with the profile options.
 
 Here is a list of all the options we have seen so far::
     
@@ -332,19 +336,28 @@ Here is a list of all the options we have seen so far::
       --reloc-catalog arg                   Relocate the catalog passed as argument
                                             in multi-event mode. The input can be a
                                             single file (containing seiscomp origin
-                                            ids) or a file triplet
-                                            (station.csv,event.csv,phase.csv). For
-                                            events stored in a XML files add the
-                                            --ep option. Use in combination with
+                                            ids) or a file triplet 
+                                            (station.csv,event.csv,phase.csv). For 
+                                            events stored in a XML files add the 
+                                            --ep option. Use in combination with 
                                             --profile
 
-      --ep arg                              Event parameters XML file for offline
-                                            processing of contained origins
+      --ep arg                              Event parameters XML file for offline 
+                                            processing of contained origins 
                                             (implies --test option). Each contained
-                                            origin will be processed in
-                                            signle-event mode unless
-                                            --reloc-catalog is provided, which
+                                            origin will be processed in 
+                                            signle-event mode unless 
+                                            --reloc-catalog is provided, which 
                                             enable multi-event mode.
+
+      --dump-clusters arg                   Find clusters in the catalog passed as 
+                                            argument and save them in the working 
+                                            directory.The catalog can be a single 
+                                            file (containing seiscomp origin ids) 
+                                            or a file triplet (station.csv,event.cs
+                                            v,phase.csv). Use in combination with 
+                                            --profile. The clusters will be saved 
+                                            into the working directory
 
     ModeOptions:
 
@@ -352,8 +365,11 @@ Here is a list of all the options we have seen so far::
                                             options: select the profile 
                                             configuration to use
 
+      --xcorr-cache arg                     Specify a file containing precomputed 
+                                            cross-correlation values
+
       --xmlout                              Enable XML output when combined with 
-                                            --reloc-catalog or --oring-id options
+                                            --reloc-catalog or --oring-id options 
 
     Catalog:
 

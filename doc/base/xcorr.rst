@@ -3,26 +3,15 @@
 Cross-correlation
 =================
 
-Good cross-correlation results are needed to achieve high quality double-difference observations, which in turn results in high resolution relocations. The purpose of the cross-correlation is to find the exact time difference between two picks of an event pair at a common station. The cross-correlation is automatically performed by rtDD before the double-difference inversion when `RecordStream` is configured, otherwise it is simply skipped, The cross-correlation step can also be disabled setting the configuration parametters `crossCorrelation.maxStationDistance` and/or `crossCorrelation.maxInterEventDistance` to 0.
-
-----
-Logs
-----
-
-Some cross-correlation statistics are printed in both multi-event and single-event mode. Those can be seen in the log file or in the console output (with options `--console=1 --verbosity=3`)::
-
-    [info] Cross-correlation statistics: performed 40361, waveforms with Signal to Noise ratio too low 2435, waveforms not available 98
-    [info] Total xcorr 40361 (P 59%, S 41%) success 28% (11499/40361). Successful P 22% (5300/23844). Successful S 38% (6199/16517)
-    [info] xcorr on actual picks 24784/40361 (P 60%, S 40%) success 37% (9186/24784). Successful P 31% (4629/14761). Successful S 45% (4557/10023)
-    [info] xcorr on theoretical picks 15577/40361 (P 58%, S 42%) success 15% (2313/15577). Successful P 7% (671/9083). Successful S 25% (1642/6494)
-
-There could be several reasons why the cross-correlation between 2 phase waveforms is skipped: the waveform data for one or both the phases is not available, the configured components (`crossCorrelation.x-phase.components`) were not found for the phase,the SNR of one or both the waveforms is below the configured threshold (see `crossCorrelation.snr.minSnr`), the phases were detected on different channel codes (see `crossCorrelation.compatibleChannels` configuration option), the waveforms of the two phases use different frequencies and the option `crossCorrelation.waveformFilteringiresampling` is not used. It is possible to know the reason on why a cross-correlation was skipped for a particular phase pair looking at the logs at debug level (--verbosity=4).
+Good cross-correlation results are needed to achieve high quality double-difference observations, which in turn results in high resolution relocations. The purpose of the cross-correlation is to find the exact time difference between two picks of an event pair at a common station. The cross-correlation is automatically performed by rtDD before the double-difference inversion when ``RecordStream`` is configured, otherwise it is simply skipped, The cross-correlation step can also be disabled setting the configuration parametters ``crossCorrelation.maxStationDistance`` and/or ``crossCorrelation.maxInterEventDistance`` to 0.
 
 ------------------
 Eval-xcorr command
 ------------------
 
-The `--eval-xcorr` command can be used to evaluate the cross-correlation parameter::
+The ``--eval-xcorr`` option should be used to properly configure the cross-correlation parameters. The optimization process involves running ``--eval-xcorr`` with different configuration and analyzes the results. The goal is to have as many matches as possible (increase correlation coefficient) avoiding bad/false matches (``lag`` values higher than the expected pick time uncertainty are probably an indication of false matches): this is a trade-off.
+
+Example of ``--eval-xcorr`` command::
 
     scrtdd --eval-xcorr station.csv,event.csv,phase.csv --profile myProfile --verbosity=3 --console=1
 
@@ -97,14 +86,14 @@ Example output::
     [...]
 
 
-* `#CC`: numer of cross-correlation performed
-* `#Skip`: numer of skipped cross-correlation (waveform not available, SNR lower than configured threshold)
-* `coeff`: correlation coefficient
-* `lag`: cross-correlation lag, which correspond to the differential time between two phases
+* ``#CC``: numer of cross-correlation performed
+* ``#Skip``: numer of skipped cross-correlation (waveform not available, SNR lower than configured threshold, ...)
+* ``coeff``: correlation coefficient
+* ``lag``: cross-correlation lag between phase waveforms
 
-The `--eval-xcorr` option should be used to properly configure the cross-correlation parameters. The optimization process involves running `--eval-xcorr` with different configuration and analyzes the results. The goal is to have as many matches as possible (increase correlation coefficient) avoiding bad/false matches (`lag` values higher than the expected pick time uncertainty are probably an indication of false matches): this is a trade-off.
+There could be several reasons why the cross-correlation between 2 phase waveforms is skipped: the waveform data for one or both the phases is not available, the configured components (``crossCorrelation.x-phase.components``) were not available, the SNR of one or both the waveforms is below the configured threshold (see ``crossCorrelation.snr.minSnr``), the phases were detected on different channel codes (see ``crossCorrelation.compatibleChannels`` configuration option), the waveforms of the two phases use different frequencies and the option ``crossCorrelation.waveformFilteringiresampling`` is not used. It is possible to know the reason on why a cross-correlation was skipped for a particular phase pair by looking at the logs at debug level (--verbosity=4).
 
-The SNR is particularly important to reject bad picks (automatic picks or picks detected via cross-correlation by rtDD). The SNR signal/noise windows should be chosen so that they satisfies ALL the following 5 conditions:
+The SNR is particularly important to reject bad picks (automatic picks or picks detected via cross-correlation, see :ref:`phase-update-label`, but it is not so relevant when relocating manually reviewed origins). The SNR signal/noise windows should be chosen so that they satisfies ALL the following 5 conditions:
 
 * pick time too early -> we want low SNR
 * pick time too late -> we want low SNR
@@ -112,11 +101,20 @@ The SNR is particularly important to reject bad picks (automatic picks or picks 
 * pick time is early but acceptable -> we want high SNR
 * pick time is late but acceptable -> we want high SNR
 
+
+.. _reusing-xcorr-label:
+
+---------------------------------
+Reusing cross-correlation results
+---------------------------------
+
+When the cross-correlation settings are not changed, it might be useful to reuse the cross-correlation results to save processing time. Both the ``--eval-xcorr`` and ``--reloc-catalog`` options save a ``xcorr.csv`` file after finishing their execution. That file contains the computed cross-correlation results and can be given back to rtDD via the command line option ``--xcorr-cache``.
+
 --------------------
 Waveforms inspection
 --------------------
 
-The `--dump-wf` option will make rtDD dump to disk the waveforms of the catalog passed as argument. Those files are in miniseed format and can be viewed with an external tool (e.g. `scrttv waveform.mseed`) or obspy). The waveforms are written to disk after the filterting and resampling have been applied::
+The ``--dump-wf`` option will make rtDD dump to disk the waveforms of the catalog passed as argument. Those files are in miniseed format and can be viewed with an external tool (e.g. ``scrttv waveform.mseed``) or obspy). The waveforms are written to disk after the filterting and resampling have been applied::
 
     scrtdd --help
       --dump-wf arg                         Dump processed waveforms of the catalog

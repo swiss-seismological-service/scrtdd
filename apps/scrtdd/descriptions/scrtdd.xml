@@ -358,7 +358,10 @@
         </option>  
         <option long-flag="xmlout">
           <description>Enable XML output when combined with --reloc-catalog or --oring-id options.</description>
-        </option>      
+        </option> 
+        <option long-flag="xcorr-cache">
+          <description>Specify a file containing precomputed cross-correlation values.</description>
+        </option>       
         <option long-flag="test">
           <description>Test mode, no messages are sent</description>
         </option>
