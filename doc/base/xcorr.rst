@@ -108,7 +108,7 @@ The SNR is particularly important to reject bad picks (automatic picks or picks 
 Reusing cross-correlation results
 ---------------------------------
 
-When the cross-correlation settings are not changed, it might be useful to reuse the cross-correlation results to save processing time. Both the ``--eval-xcorr`` and ``--reloc-catalog`` options save a ``xcorr.csv`` file after finishing their execution. That file contains the computed cross-correlation results and can be given back to rtDD via the command line option ``--xcorr-cache``. It is safe to change the value of ``crossCorrelation.x-phase.minCCCoef`` and reuse the cross-correlation results.
+When cross-correlation settings are not changed, it might be useful to reuse the cross-correlation results to save processing time. Both the ``--eval-xcorr`` and ``--reloc-catalog`` options save a ``xcorr.csv`` file after finishing their execution (thay overwrite it if already present!). That file contains the computed cross-correlation results and can be given back to rtDD via the command line option ``--xcorr-cache``. It is safe to change the value of ``crossCorrelation.x-phase.minCCCoef`` and reuse the cross-correlation results to see how performance change at varying correlation-coefficient threshold.
 
 --------------------
 Waveforms inspection

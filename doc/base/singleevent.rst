@@ -3,6 +3,13 @@
 Real-time single-event relocation
 =================================
 
+Single-event relocation is used to relocate events in real-time and it requires a background catalog to work.
+
+.. figure:: media/singleEventRelocationSyntDataExample.png
+   :width: 800
+   
+   Test with synthetic data from the unit testing folder
+
 ------
 Summay
 ------
@@ -213,19 +220,4 @@ rtDD listens and sends messages to the LOCATION group. In a default installation
     scevent       LOCATION,RELOCATION, ...             ...
     scamp         LOCATION,RELOCATION, ...             ...
     scmag         LOCATION,RELOCATION, ...             ...
-
-
---------
-Examples
---------
-
-Below the single-event relocation of several manually reviewed origins.
-
-.. image:: media/singleEventRelocationExample.png
-   :width: 800
-
-The unit testing folder contains the code to generate some tests with synthetic data.
-
-.. image:: media/singleEventRelocationSyntDataExample.png
-   :width: 800
 

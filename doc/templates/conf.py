@@ -116,7 +116,6 @@ pygments_style = 'sphinx'
 # a list of builtin themes.
 html_theme = 'agogo'
 html_static_path = ['_static']
-html_logo = "base/media/logo.png"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the

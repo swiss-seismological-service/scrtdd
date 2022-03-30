@@ -5,6 +5,11 @@ Multi-event relocation
 
 Multi-event relocation is used to relocate an event catalog in offline mode.
 
+.. figure:: media/multiEventRelocationSyntDataExample.png
+   :width: 800
+   
+   Test with synthetic data from the unit testing folder 
+
 -------
 Summary
 -------
@@ -239,11 +244,9 @@ Evaluating the results
 
 Independently on how the input events are provided, rtDD will output a set of files *reloc-event.csv*, *reloc-phase.csv* and *reloc-stations.csv*, these contain the relocated catalog and additional statistical information.  Also, enabling the ``scrtdd.saveProcessingFiles`` option makes rtDD generates multiple information files inside ``scrtdd.workingDirectory``, including a copy of the log file.
 
-To be good, the new locations must have improved the relative locations (the DD residuals should decrease after the inversion), without introducing absolute location errors (the events RMS should not increase, otherwise the damping factor was too low) or even improving the absolute locations if the ``absoluteLocationConstraint`` option was used. This information can be found in the logs, where the solver prints, at each iteration, the residuals of the double-difference system and the travel time RMS of the events. Moreover the *reloc-event.csv* file contains the information too, which allows to plot the distribution of DD residuals and events RMS before and after the relocation for comparison (see columns ``startRms``, ``finalRms``, ``dd_startResidualMedian``, ``dd_startResidualMAD``, ``dd_finalResidualMedian``, ``dd_finalResidualMAD`` where MAD is Median Absolute Deviation).
+To be good, the new locations must improve the relative locations (the residuals of the double-difference system should have decreased after the inversion), without introducing absolute location errors (the events RMS should not have increased - if that is the case the damping factor was too low) or even improving the absolute locations (if the ``absoluteLocationConstraint`` option was used). We can verify those conditions looking at the logs, where the solver prints, at each iteration, the residuals of the double-difference system and the absolute travel time RMS of the events. 
 
-**Note**:
-rtDD computes the RMS after (``finalRms`` column) but also before (``startRms`` column) the relocation. The computation of the initial RMS is required for a sensible comparison of RMSs. Each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a travel time table that might not be the same as rtDD. Moreover, a locator might apply a specific logic to the RMS computation, which prevents a comparison across locators. For example NonLinLoc locator weighs the residuals by pick weight, and the weighting scheme is decided by NonLinLoc, making the resulting RMS unsuitable for comparison.
- 
+The *reloc-event.csv* file contains even more detailed information, which allows to plot the distribution of DD residuals and events RMS before and after the catalog relocation (see columns ``startRms``, ``finalRms``, ``dd_startResidualMedian``, ``dd_startResidualMAD``, ``dd_finalResidualMedian``, ``dd_finalResidualMAD`` where MAD is Median Absolute Deviation).
 
 Log files are located in ~/.seiscomp/log/scrtdd.log, or alternatively, when running rtDD from the command line, the following options can be used to see the logs on the console::
 
@@ -280,26 +283,46 @@ A typical *multi-event* relocation log looks like the following::
     [info] Relocating cluster 3 (1583 events)
     [...] 
 
+
+Verifying DD system residuals and absolute RMS
+----------------------------------------------
+
 The relevant part for the evaluation of the double-difference inversion is the following:
 
 .. image:: media/qc1.png
    :width: 800
 
-It is clear how the residuals decrease at each iteration and how they are related to the inter-event distance: the close the events the lower the residuals.
+We can clearly see how the DD residuals decrease at each iteration and how they are related to the inter-event distance: the close the events the lower the residuals.
+Also, the absolute travel time RMS didn't worsen, it slightly improved. That confirms we didn't introduce absolute location errors in the cluster position during the inversion.
 
-An independent method to evalute the correctness of the relative locations is to use the cross-correlation results. Since the waveforms similarity is  indicative of the proximity of the events, that information can used to compare the cross-correlation results by inter-event distance before and after the inversion (for detail see the cross-correlation paragraph).
+
+Verifying relative locations with cross-correlation
+---------------------------------------------------
+
+An independent method to evalute the correctness of the relative locations is to use the cross-correlation results. Since the waveforms similarity is  indicative of the proximity of the events, that information can used to compare the cross-correlation results by inter-event distance before and after the double-difference inversion, see :ref:`xcorr-event-label` (to avoid recomputing cross-correlations pass the `xcorr.csv` file generated by the relocation, see :ref:`reusing-xcorr-label`).
 ::
 
-    scrtdd --eval-xcorr station.csv,event.csv,phase.csv --profile myProfile --verbosity=3 --console=1
+    scrtdd --eval-xcorr station.csv,event.csv,phase.csv --profile myProfile --verbosity=3 --console=1 [--xcor-cache xcorr.csv]
 
 .. image:: media/qc2a.png
    :width: 800
 
 ::
 
-    scrtdd --eval-xcorr station.csv,reloc-event.csv,phase.csv --profile myProfile --verbosity=3 --console=1
+    scrtdd --eval-xcorr station.csv,reloc-event.csv,phase.csv --profile myProfile --verbosity=3 --console=1 [--xcor-cache xcorr.csv]
 
 .. image:: media/qc2b.png
+   :width: 800
+
+
+Verifying the absolute location of the events
+---------------------------------------------
+
+rtDD computes the RMS after (``finalRms`` column in *reloc-event.csv* file) but also before (``startRms`` column in *reloc-event.csv* file) the relocation. The computation of the initial RMS is required for a sensible comparison of RMSs. Each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a travel time table that might not be the same as rtDD. Moreover, a locator might apply a specific logic to the RMS computation, which prevents a comparison across locators. For example NonLinLoc locator weighs the residuals by pick weight, and the weighting scheme is decided by NonLinLoc, making the resulting RMS unsuitable for comparison.
+
+Plotting ``startRms`` and ``finalRms`` allows for a sensible comparison of the absolute location of the relocated cluster(s).
+
+.. image:: media/qc3.png
    :width: 800
 
 --------------
@@ -388,19 +411,4 @@ Here is a list of all the options we have seen so far::
                                             but events keep their ids. If multiple 
                                             events share the same id, subsequent 
                                             events will be discarded.
-
-
---------
-Examples
---------
-
-Here are a few catalogs before and after rtDD relocation:
-
-.. image:: media/multiEventRelocationExample.png
-   :width: 800
-
-The unit testing folder contains the code to generate some tests with synthetic data:
-
-.. image:: media/multiEventRelocationSyntDataExample.png
-   :width: 800
 
