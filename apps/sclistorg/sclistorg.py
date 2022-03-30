@@ -173,7 +173,7 @@ class EventList(sc_client.Application):
     def run(self):
 
         if not self.simple:
-            sys.stdout.write("seiscompId,event,eventType,evalMode,creationTime,modificationTime,agencyID,author,methodID,latitude,longitude\n")
+            sys.stdout.write("seiscompId,event,eventType,evalMode,agencyID,author,methodID,latitude,longitude,time,creationTime,modificationTime\n")
 
         events = []
         for obj in self.query().getEvents(self._startTime, self._endTime):
@@ -205,9 +205,10 @@ class EventList(sc_client.Application):
             if self.simple:
                 sys.stdout.write("%s\n" % orgInfo.id)
             else:
-                sys.stdout.write("%s,%s,%s,%s,%s,%s,%s,%s,%s,%f,%f\n" % (orgInfo.id, evId, evtype,
-                    orgInfo.evalMode, orgInfo.creationTime, orgInfo.modificationTime, orgInfo.agencyID,
-                    orgInfo.author, orgInfo.methodID, orgInfo.latitude, orgInfo.longitude))
+                sys.stdout.write("%s,%s,%s,%s,%s,%s,%s,%f,%f,%s,%s,%s\n" % (orgInfo.id, evId, evtype,
+                    orgInfo.evalMode, orgInfo.agencyID, orgInfo.author, orgInfo.methodID,
+                    orgInfo.latitude, orgInfo.longitude, orgInfo.time, orgInfo.creationTime,
+                    orgInfo.modificationTime))
 
         return True
 
@@ -224,7 +225,7 @@ class EventList(sc_client.Application):
                 if org is not None:
                     origins.append(org)
 
-        OrgInfo = namedtuple('OrgInfo', 'id evalMode creationTime modificationTime agencyID author methodID latitude longitude')
+        OrgInfo = namedtuple('OrgInfo', 'id evalMode creationTime modificationTime agencyID author methodID latitude longitude time')
         orgInfo = None
         for currOrg in origins:
 
@@ -265,18 +266,23 @@ class EventList(sc_client.Application):
                 latitude = None
                 longitude = None
 
+            try:
+                time  = currOrg.time().value() 
+            except ValueError:
+                time = None
+
             if self.automaticOnly and evalMode != sc_datamodel.AUTOMATIC:
                 continue
 
             if self.manualOnly and evalMode != sc_datamodel.MANUAL:
                 continue
 
-            if self.orgType == "last" and (org is not None) and \
-               (creationTime < org.creationInfo().creationTime()):
+            if self.orgType == "last" and (orgInfo is not None) and \
+               (creationTime < orgInfo.creationTime):
                 continue
 
-            if self.orgType == "first" and (org is not None) and \
-               (creationTime > org.creationInfo().creationTime()):
+            if self.orgType == "first" and (orgInfo is not None) and \
+               (creationTime > orgInfo.creationTime):
                 continue
 
             if (self.incAuthor is not None) and (author is None or
@@ -319,7 +325,8 @@ class EventList(sc_client.Application):
             if evalMode is not None:
                 evalModeStr = sc_datamodel.EEvaluationModeNames.name(evalMode)
             orgInfo = OrgInfo(currOrg.publicID(), evalModeStr, creationTime, 
-                    modificationTime, agencyID, author, methodID, latitude, longitude)
+                    modificationTime, agencyID, author, methodID, latitude, longitude,
+                    time)
 
         return orgInfo
 
