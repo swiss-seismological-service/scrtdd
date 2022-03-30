@@ -2085,7 +2085,7 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
       return false;
     }
 
-    xcorr(*tr1, tr2Short, xcorrCfg.maxDelay, true, xcorr_lag, xcorr_coeff);
+    xcorr(*tr1, tr2Short, xcorrCfg.maxDelay, xcorr_lag, xcorr_coeff);
   }
 
   // Trust the manual pick on `phase1`: keep `tr1` short and cross-correlate it
@@ -2106,7 +2106,7 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
       return false;
     }
 
-    xcorr(tr1Short, *tr2, xcorrCfg.maxDelay, true, xcorr_lag2, xcorr_coeff2);
+    xcorr(tr1Short, *tr2, xcorrCfg.maxDelay, xcorr_lag2, xcorr_coeff2);
   }
 
   if (!std::isfinite(xcorr_coeff) && !std::isfinite(xcorr_coeff2))
@@ -2144,7 +2144,6 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
 void DD::xcorr(const Trace &tr1,
                const Trace &tr2,
                double maxDelay,
-               bool qualityCheck,
                double &delayOut,
                double &coeffOut)
 {
@@ -2166,8 +2165,7 @@ void DD::xcorr(const Trace &tr1,
   if (maxDelaySmps > availableData) maxDelaySmps = availableData;
 
   crossCorrelation(dataS, sizeS, (dataL + availableData - maxDelaySmps),
-                   (sizeS + maxDelaySmps * 2), qualityCheck, delayOut,
-                   coeffOut);
+                   (sizeS + maxDelaySmps * 2), delayOut, coeffOut);
 
   delayOut -= maxDelaySmps; // the reference is the middle of the long trace
   delayOut /= freq;         // samples to secs

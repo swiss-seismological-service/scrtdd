@@ -23,7 +23,6 @@ void crossCorrelation(const double *dataS,
                       const int sizeS,
                       const double *dataL,
                       const int sizeL,
-                      bool qualityCheck,
                       double &delayOut,
                       double &coeffOut);
 

@@ -28,28 +28,9 @@ void crossCorrelation(const double *dataS,
                       const int sizeS,
                       const double *dataL,
                       const int sizeL,
-                      bool qualityCheck,
                       double &delayOut,
                       double &coeffOut)
 {
-  /*
-   * for later quality check: save local maxima/minima
-   */
-  struct LocalMaxima
-  {
-    bool notDecreasing = false;
-    double prevCoeff   = -1;
-    vector<double> values;
-    void update(double coeff)
-    {
-      if (!std::isfinite(coeff)) return;
-      if (coeff < prevCoeff && notDecreasing) values.push_back(prevCoeff);
-      notDecreasing = coeff >= prevCoeff;
-      prevCoeff     = coeff;
-    }
-  };
-  LocalMaxima localMaxs, localMins;
-
   /*
    * Pearson correlation coefficient for time series X and Y of length n
    *
@@ -133,10 +114,6 @@ void crossCorrelation(const double *dataS,
       coeffOut = coeff;
       delayOut = delay;
     }
-
-    // for later quality check
-    localMaxs.update(coeff);
-    localMins.update(-coeff);
   }
 
   int fe = fetestexcept(FE_ALL_EXCEPT);
@@ -147,40 +124,6 @@ void crossCorrelation(const double *dataS,
     if (fe & FE_INVALID) logWarning("FE_INVALID");
     if (fe & FE_OVERFLOW) logWarning("FE_OVERFLOW");
     if (fe & FE_UNDERFLOW) logWarning("FE_UNDERFLOW");
-  }
-
-  /*
-   * To avoid errors introduced by cycle skipping, the differential time
-   * measurement is only accepted if all side lobe maxima CCslm of the
-   * cross-correlation function fulfill the following condition:
-   *
-   *                CCslm < CCmax - ( (1.0-CCmax) / 2.0 )
-   *
-   * where CCmax corresponds to the global maximum of the cross-correlation
-   * function. By discarding measurements with local maxima CCslm close to the
-   * global maximum CC, the number of potential blunders due to cycle skipping
-   * is significantly reduced.
-   *
-   * See Diehl et al. (2017): The induced earthquake sequence related to the St.
-   * Gallen deep geothermal project: Fault reactivation and fluid interactions
-   * imaged by microseismicity
-   * */
-  if (qualityCheck && std::isfinite(coeffOut))
-  {
-    double threshold = std::abs(coeffOut) - ((1.0 - std::abs(coeffOut)) / 2.0);
-    int numMax       = 0;
-    vector<double> localMs = coeffOut > 0 ? localMaxs.values : localMins.values;
-    for (double CCslm : localMs)
-    {
-      if (std::isfinite(CCslm) && CCslm >= threshold) numMax++;
-      if (numMax > 1)
-      {
-        logDebug("Discard cross-correlation (cc %.2f): cycle skipping detected",
-                 coeffOut);
-        coeffOut = std::numeric_limits<double>::quiet_NaN();
-        break;
-      }
-    }
   }
 }
 

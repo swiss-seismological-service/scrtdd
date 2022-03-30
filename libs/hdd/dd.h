@@ -229,7 +229,6 @@ public:
   static void xcorr(const Trace &tr1,
                     const Trace &tr2,
                     double maxDelay,
-                    bool qualityCheck,
                     double &delayOut,
                     double &coeffOut);
 
