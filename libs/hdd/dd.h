@@ -110,7 +110,7 @@ struct SolverOptions
   double dampingFactorStart    = 0.3;        // 0 -> disable damping factor
   double dampingFactorEnd      = 0.3;        // 0 -> disable damping factor
   double downWeightingByResidualStart = 10.; // 0 -> disbale downweighting
-  double downWeightingByResidualEnd   = 6.;  // 0 -> disbale downweighting
+  double downWeightingByResidualEnd   = 3.;  // 0 -> disbale downweighting
   bool usePickUncertainty             = false;
   double absTTDiffObsWeight           = 0.5;
   double xcorrObsWeight               = 1.0;

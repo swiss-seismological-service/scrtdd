@@ -221,7 +221,7 @@
               <parameter name="startingValue" type="double" default="10">
                 <description>Value for the first iteration of the solver.</description>
               </parameter>
-              <parameter name="finalValue" type="double" default="6">
+              <parameter name="finalValue" type="double" default="3">
                 <description>Value for the last iteration of the solver.</description>
               </parameter>
             </group>

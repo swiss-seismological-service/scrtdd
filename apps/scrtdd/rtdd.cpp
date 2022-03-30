@@ -972,7 +972,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->solverCfg.downWeightingByResidualEnd = 6.;
+      prof->solverCfg.downWeightingByResidualEnd = 3.;
     }
     try
     {
