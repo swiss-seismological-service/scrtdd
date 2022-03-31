@@ -165,6 +165,7 @@ void addEvents3ToCatalog(HDD::Catalog &cat,
 }
 
 HDD::Catalog buildCatalog(HDD::TravelTimeTable &ttt,
+                          bool nllStations,
                           const UTCTime &time,
                           double lat,
                           double lon,
@@ -173,6 +174,10 @@ HDD::Catalog buildCatalog(HDD::TravelTimeTable &ttt,
                           double extent)
 {
   HDD::Catalog cat;
+
+  if (nllStations) addNLLStationsToCatalog(cat);
+  else addStationsToCatalog(cat, lat, lon, 20);
+
   double distance = extent * 2.5;
   double clusterLat, clusterLon;
   // cluster 1
@@ -199,6 +204,7 @@ HDD::Catalog buildCatalog(HDD::TravelTimeTable &ttt,
 }
 
 HDD::Catalog buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
+                                    bool nllStations,
                                     const UTCTime &time,
                                     double lat,
                                     double lon,
@@ -207,6 +213,10 @@ HDD::Catalog buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
                                     double extent)
 {
   HDD::Catalog cat;
+
+  if (nllStations) addNLLStationsToCatalog(cat);
+  else addStationsToCatalog(cat, lat, lon, 20);
+
   addEvents1ToCatalog(cat, ttt, time + secToDur(1), lat, lon, depth,
                       numEvents / 3, extent);
   addEvents2ToCatalog(cat, ttt, time + secToDur(2), lat, lon, depth,
@@ -324,10 +334,10 @@ void testCatalogEqual(const HDD::Catalog &cat1, const HDD::Catalog &cat2)
     const Event &ev2 = cat2.getEvents().at(ev1.id);
     BOOST_CHECK_SMALL(durToSec((ev1.time - ev2.time)),
                       0.005); // tolerance 5 millisec
-    BOOST_CHECK_SMALL(computeDistance(ev1.latitude, ev1.longitude, ev2.latitude,
-                                      ev2.longitude),
-                      0.05);                       // tolerance 50 meter
-    BOOST_CHECK_SMALL(ev1.depth - ev2.depth, 0.5); // tolerance 0.5 km
+    BOOST_CHECK_SMALL(computeDistance(ev1.latitude, ev1.longitude,
+                                      ev2.latitude, ev2.longitude),
+                      0.05); // tolerance 50 meter
+    BOOST_CHECK_SMALL(ev1.depth-ev2.depth, 0.5); // tolerance 0.5 km
   }
 }
 
@@ -343,9 +353,11 @@ struct Centroid
 // varying depths
 const Centroid nllCentroid{47.0, 8.5, 5};
 
-const vector<Centroid> centroidList{nllCentroid,     {0, 0, 5},
-                                    {85, -90, 2},    {-85, 90, 3},
-                                    {30, 179.99, 4}, {-60, -179.99, 6}};
+const vector<Centroid> centroidList{
+  nllCentroid,  {0, 0, 5},
+  { 85, -90, 2},  {-85, 90, 3},
+  { 30, 179.99, 4},  { -60, -179.99, 6}
+};
 
 } // namespace
 
@@ -356,26 +368,21 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event1,
                      tttIdx)
 {
   const Centroid &centroid             = centroidList.at(cIdx);
+  bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
+
+  if (nllStations && 
+   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+  {
+    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
+    return;
+  }
+
   unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
   HDD::Catalog baseCat =
-      buildCatalog(*ttt, UTCClock::fromDate(2001, 1, 2, 0, 0, 0, 0),
+      buildCatalog(*ttt, nllStations, UTCClock::fromDate(2001, 1, 2, 0, 0, 0, 0),
                    centroid.lat, centroid.lon, centroid.depth, 42, 3.0);
-
-  if (tttList.at(tttIdx).type == "NonLinLoc")
-  {
-    if (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon)
-    {
-      BOOST_TEST_MESSAGE(
-          "Skipping NonLinLoc test in a location without grid files");
-      BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check
-                         // any assertions"
-      return;
-    }
-    addNLLStationsToCatalog(baseCat);
-  }
-  else
-    addStationsToCatalog(baseCat, centroid.lat, centroid.lon);
 
   // Test no event changes, the relocation should not move the events
   string workingDir =
@@ -392,26 +399,21 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event2,
                      tttIdx)
 {
   const Centroid &centroid             = centroidList.at(cIdx);
+  bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
+
+  if (nllStations && 
+   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+  {
+    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
+    return;
+  }
+
   unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
   HDD::Catalog baseCat =
-      buildCatalog(*ttt, UTCClock::fromDate(1914, 11, 23, 11, 34, 23, 1234),
+      buildCatalog(*ttt, nllStations, UTCClock::fromDate(1914, 11, 23, 11, 34, 23, 1234),
                    centroid.lat, centroid.lon, centroid.depth, 42, 1.5);
-
-  if (tttList.at(tttIdx).type == "NonLinLoc")
-  {
-    if (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon)
-    {
-      BOOST_TEST_MESSAGE(
-          "Skipping NonLinLoc test in a location without grid files");
-      BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check
-                         // any assertions"
-      return;
-    }
-    addNLLStationsToCatalog(baseCat);
-  }
-  else
-    addStationsToCatalog(baseCat, centroid.lat, centroid.lon);
 
   // Test 2: all events at centroid location, with random perturbation of time
   HDD::Catalog cat(baseCat);
@@ -440,26 +442,21 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event3,
                      tttIdx)
 {
   const Centroid &centroid             = centroidList.at(cIdx);
+  bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
+
+  if (nllStations && 
+   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+  {
+    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
+    return;
+  }
+
   unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
   HDD::Catalog baseCat =
-      buildCatalog(*ttt, UTCClock::fromDate(2041, 6, 14, 23, 46, 3, 65),
+      buildCatalog(*ttt, nllStations, UTCClock::fromDate(2041, 6, 14, 23, 46, 3, 65),
                    centroid.lat, centroid.lon, centroid.depth, 42, 1.0);
-
-  if (tttList.at(tttIdx).type == "NonLinLoc")
-  {
-    if (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon)
-    {
-      BOOST_TEST_MESSAGE(
-          "Skipping NonLinLoc test in a location without grid files");
-      BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check
-                         // any assertions"
-      return;
-    }
-    addNLLStationsToCatalog(baseCat);
-  }
-  else
-    addStationsToCatalog(baseCat, centroid.lat, centroid.lon);
 
   // Test 3: random changes to all events (mean of all changes is != 0)
   HDD::Catalog cat(baseCat);
@@ -479,33 +476,24 @@ BOOST_DATA_TEST_CASE(test_dd_single_event1,
                      tttIdx)
 {
   const Centroid &centroid             = centroidList.at(cIdx);
+  bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
+
+  if (nllStations && 
+   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+  {
+    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
+    return;
+  }
+
   unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
   const UTCTime clusterTime =
       UTCClock::fromDate(1973, 12, 4, 14, 53, 32, 69854);
   HDD::Catalog backgroundCat = buildBackgroundCatalog(
-      *ttt, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 2.0);
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 2.0);
   HDD::Catalog realTimeCat = buildCatalog(
-      *ttt, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 2.0);
-
-  if (tttList.at(tttIdx).type == "NonLinLoc")
-  {
-    if (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon)
-    {
-      BOOST_TEST_MESSAGE(
-          "Skipping NonLinLoc test in a location without grid files");
-      BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check
-                         // any assertions"
-      return;
-    }
-    addNLLStationsToCatalog(backgroundCat);
-    addNLLStationsToCatalog(realTimeCat);
-  }
-  else
-  {
-    addStationsToCatalog(backgroundCat, centroid.lat, centroid.lon);
-    addStationsToCatalog(realTimeCat, centroid.lat, centroid.lon);
-  }
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 2.0);
 
   // Test 1: no event changes
   string workingDir =
@@ -522,33 +510,24 @@ BOOST_DATA_TEST_CASE(test_dd_single_event2,
                      tttIdx)
 {
   const Centroid &centroid             = centroidList.at(cIdx);
+  bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
+
+  if (nllStations &&  
+   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+  {
+    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
+    return;
+  }
+
   unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
   const UTCTime clusterTime =
       UTCClock::fromDate(1989, 7, 18, 23, 59, 59, 999999);
   HDD::Catalog backgroundCat = buildBackgroundCatalog(
-      *ttt, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 1.5);
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 1.5);
   HDD::Catalog realTimeCat = buildCatalog(
-      *ttt, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.5);
-
-  if (tttList.at(tttIdx).type == "NonLinLoc")
-  {
-    if (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon)
-    {
-      BOOST_TEST_MESSAGE(
-          "Skipping NonLinLoc test in a location without grid files");
-      BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check
-                         // any assertions"
-      return;
-    }
-    addNLLStationsToCatalog(backgroundCat);
-    addNLLStationsToCatalog(realTimeCat);
-  }
-  else
-  {
-    addStationsToCatalog(backgroundCat, centroid.lat, centroid.lon);
-    addStationsToCatalog(realTimeCat, centroid.lat, centroid.lon);
-  }
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.5);
 
   // Test 2: all events at centroid location, with random perturbation of time
   HDD::Catalog cat(realTimeCat);
@@ -577,32 +556,23 @@ BOOST_DATA_TEST_CASE(test_dd_single_event3,
                      tttIdx)
 {
   const Centroid &centroid             = centroidList.at(cIdx);
+  bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
+
+  if (nllStations &&
+   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+  {
+    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
+    return;
+  }
+
   unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
   const UTCTime clusterTime  = UTCClock::fromDate(2034, 4, 8, 3, 24, 54, 2354);
   HDD::Catalog backgroundCat = buildBackgroundCatalog(
-      *ttt, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 1.0);
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 1.0);
   HDD::Catalog realTimeCat = buildCatalog(
-      *ttt, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.0);
-
-  if (tttList.at(tttIdx).type == "NonLinLoc")
-  {
-    if (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon)
-    {
-      BOOST_TEST_MESSAGE(
-          "Skipping NonLinLoc test in a location without grid files");
-      BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check
-                         // any assertions"
-      return;
-    }
-    addNLLStationsToCatalog(backgroundCat);
-    addNLLStationsToCatalog(realTimeCat);
-  }
-  else
-  {
-    addStationsToCatalog(backgroundCat, centroid.lat, centroid.lon);
-    addStationsToCatalog(realTimeCat, centroid.lat, centroid.lon);
-  }
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.0);
 
   // Test 3: random changes to all events (mean of all changes is != 0)
   HDD::Catalog cat(realTimeCat);
