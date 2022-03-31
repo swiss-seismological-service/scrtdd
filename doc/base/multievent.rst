@@ -305,14 +305,14 @@ An independent method to evalute the correctness of the relative locations is to
     scrtdd --eval-xcorr station.csv,event.csv,phase.csv --profile myProfile --verbosity=3 --console=1 [--xcor-cache xcorr.csv]
 
 .. image:: media/qc2a.png
-   :width: 800
+   :align: center
 
 ::
 
     scrtdd --eval-xcorr station.csv,reloc-event.csv,phase.csv --profile myProfile --verbosity=3 --console=1 [--xcor-cache xcorr.csv]
 
 .. image:: media/qc2b.png
-   :width: 800
+   :align: center
 
 
 Verifying the absolute location of the events
@@ -323,7 +323,7 @@ rtDD computes the RMS after (``finalRms`` column in *reloc-event.csv* file) but 
 Plotting ``startRms`` and ``finalRms`` allows for a sensible comparison of the absolute location of the relocated cluster(s).
 
 .. image:: media/qc3.png
-   :width: 800
+   :align: center
 
 --------------
 Useful options

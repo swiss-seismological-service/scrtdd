@@ -82,7 +82,5 @@ Last step is to copy the travel time tables to the SeisComP installation folder 
     cp mymodel* seiscomp_installation/share/locsat/tables/
 
 .. image:: media/locsat-ttt.png
-   :width: 800
-
-
+   :align: center
 

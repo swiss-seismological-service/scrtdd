@@ -7,7 +7,7 @@ This is documentation for rtDD software in version |version|, which consists in 
 
 |appname| is a `SeisComP <https://seiscomp.de>`_ extension module developed at the `Swiss Seismological Service <http://www.seismo.ethz.ch>`_ that implements Double-Difference event relocation both in Real-Time, one event at the time, and classic offline mode, where an earthquake catalog is relocated as a whole.
 
-.. image:: base/media/logo-big.png
+.. image:: base/media/logo.png
    :width: 400
    :align: center
    :target: http://www.seismo.ethz.ch
