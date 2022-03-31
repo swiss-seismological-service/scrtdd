@@ -206,7 +206,7 @@ shared_ptr<const Trace> ExtraLenLoader::get(const TimeWindow &tw,
     {
       logDebug("Error while loading phase '%s': cannot slice trace "
                "from %s length %.2f sec. Trace "
-               "data from %s length %.2f sec, samples %u sampfreq %f",
+               "data from %s length %.2f sec, samples %zu sampfreq %f",
                string(ph).c_str(),
                HDD::UTCClock::toString(tw.startTime()).c_str(),
                HDD::durToSec(tw.length()),
@@ -487,7 +487,7 @@ shared_ptr<const Trace> SnrFilterPrc::get(const TimeWindow &tw,
     {
       logDebug("Error while checking SNR for phase '%s': cannot slice trace "
                "from %s length %.2f sec. Trace "
-               "data from %s length %.2f sec, samples %u sampfreq %f",
+               "data from %s length %.2f sec, samples %zu sampfreq %f",
                string(ph).c_str(),
                HDD::UTCClock::toString(tw.startTime()).c_str(),
                HDD::durToSec(tw.length()),

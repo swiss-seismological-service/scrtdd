@@ -686,7 +686,7 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
         clustOpt.maxNumNeigh, clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize,
         keepUnmatchedPhases);
 
-    logInfo("Found %u neighbouring events", neighbours->ids.size());
+    logInfo("Found %zu neighbouring events", neighbours->ids.size());
 
     //
     // prepare catalog to relocate

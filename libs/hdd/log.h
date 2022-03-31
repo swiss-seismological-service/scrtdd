@@ -153,6 +153,22 @@ template <typename... Args> void logError(Args &&... args)
   Logger::logError(strf(std::forward<Args>(args)...));
 }
 
+/*
+ * Use these macros to let the compiler checks the correctness of
+ * the arguments with respect to the format specifiers
+
+#define logLevel(level, fmt, ...)   Logger::log(level, strf(fmt,##__VA_ARGS__))
+
+#define logDebug(fmt, ...)   Logger::logDebug(strf(fmt,##__VA_ARGS__))
+
+#define logInfo(fmt, ...)    Logger::logInfo(strf(fmt,##__VA_ARGS__))
+
+#define logWarning(fmt, ...) Logger::logWarning(strf(fmt,##__VA_ARGS__))
+
+#define logError(fmt, ...)   Logger::logError(strf(fmt,##__VA_ARGS__))
+
+*/
+
 } // namespace HDD
 
 #endif

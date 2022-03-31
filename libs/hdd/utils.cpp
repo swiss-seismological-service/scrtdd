@@ -49,7 +49,7 @@ std::string strf(const char *fmt, ...)
   if (r < 0)
   {
     va_end(params);
-    logError("strf error " + std::to_string(r) + ": aborting");
+    Logger::logError("strf error");
     return std::string();
   }
 
@@ -69,7 +69,7 @@ std::string strf(const char *fmt, ...)
     r = vsnprintf(buffer, size, fmt, params);
     if (r < 0)
     {
-      Logger::logError("strf error " + std::to_string(r) + ": aborting");
+      Logger::logError("strf error");
       break;
     }
 
@@ -81,10 +81,8 @@ std::string strf(const char *fmt, ...)
 
   if (maxIterations < 0)
   {
-    logError(
-        "strf failed after 10 iterations: buffer still not large enough: " +
-        std::to_string(size) + " < " + std::to_string(requiredSize) +
-        ": aborting");
+    Logger::logError(
+        "strf failed after 10 iterations: buffer still not large enough");
   }
   return ret;
 }
