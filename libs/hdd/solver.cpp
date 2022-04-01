@@ -272,10 +272,10 @@ bool Solver::getEventChanges(unsigned evId,
   if (_eventDeltas.find(evIdx) == _eventDeltas.end()) return false;
 
   const EventDeltas &evDelta = _eventDeltas.at(evIdx);
-  deltaLat                   = evDelta.deltaLat;
-  deltaLon                   = evDelta.deltaLon;
-  deltaDepth                 = evDelta.deltaDepth;
-  deltaTT                    = evDelta.deltaTT;
+  deltaLat                   = evDelta.latitude;
+  deltaLon                   = evDelta.longitude;
+  deltaDepth                 = evDelta.depth;
+  deltaTT                    = evDelta.time;
   return true;
 }
 
@@ -332,34 +332,17 @@ void Solver::loadSolutions()
     const EventParams &evprm = _eventParams.at(evIdx);
     const unsigned evOffset  = evIdx * 4;
 
-    double deltaX      = _dd->m[evOffset + 0];
-    double deltaY      = _dd->m[evOffset + 1];
-    evDelta.deltaDepth = _dd->m[evOffset + 2];
-    evDelta.deltaTT    = _dd->m[evOffset + 3];
+    evDelta.longitude = _dd->m[evOffset + 0];
+    evDelta.latitude  = _dd->m[evOffset + 1];
+    evDelta.depth     = _dd->m[evOffset + 2];
+    evDelta.time      = _dd->m[evOffset + 3];
 
-    if (!std::isfinite(deltaX) || !std::isfinite(deltaY) ||
-        !std::isfinite(evDelta.deltaDepth) || !std::isfinite(evDelta.deltaTT))
+    if (!std::isfinite(evDelta.longitude) || !std::isfinite(evDelta.latitude) ||
+        !std::isfinite(evDelta.depth) || !std::isfinite(evDelta.time))
     {
       return false;
     }
 
-    double newX = evprm.x + deltaX;
-    double newY = evprm.y + deltaY;
-
-    // compute distance and azimuth of `evId` to centroid (0,0,0)
-    double hdist = std::sqrt(square(newX) + square(newY)); // km
-
-    double azimuth = radToDeg(std::atan2(newX, newY));
-
-    // Computes the coordinates (lat, lon) of the point which is at a degree
-    // azimuth of 'azi' and a distance of 'dist' as seen from the centroid
-    // (lat0, lon0).
-    double newLat, newLon;
-    computeCoordinates(hdist, azimuth, _centroid.lat, _centroid.lon, newLat,
-                       newLon);
-
-    evDelta.deltaLat = newLat - evprm.lat;
-    evDelta.deltaLon = newLon - evprm.lon;
     return true;
   };
 

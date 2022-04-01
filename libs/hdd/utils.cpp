@@ -108,6 +108,7 @@ void computeCoordinates(double distance,
 {
   Seiscomp::Math::Geo::delandaz2coord(Seiscomp::Math::Geo::km2deg(distance),
                                       azimuth, clat, clon, &lat, &lon);
+  lon = normalizeLon(lon);
 }
 
 /*

@@ -46,6 +46,13 @@ inline double degToRad(double d) { return M_PI * d / 180.0; }
 
 template <typename T> T square(T x) { return x * x; }
 
+inline double normalizeLon(double lon)
+{
+  while (lon < -180.0) lon += 360.0;
+  while (lon > 180.0) lon -= 360.0;
+  return lon;
+}
+
 void computeCoordinates(double distance,
                         double azimuth,
                         double clat,

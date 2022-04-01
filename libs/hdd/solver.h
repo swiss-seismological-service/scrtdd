@@ -262,7 +262,10 @@ private:
 
   struct EventDeltas
   {
-    double deltaLat, deltaLon, deltaDepth, deltaTT;
+    double time;      // sec
+    double depth;     // km
+    double latitude;  // km
+    double longitude; // km
   };
   std::unordered_map<unsigned, EventDeltas> _eventDeltas; // key = evIdx
 

@@ -544,7 +544,7 @@ void Catalog::writeToFile(string eventFile,
  * event/station pair there is only one P and one S phase. If multiple phases
  * are found, keep the one with the highest priority.
  */
-unique_ptr<Catalog>
+Catalog
 Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
                                    const Phase::Source &source,
                                    const std::vector<std::string> &PphaseToKeep,
@@ -653,8 +653,7 @@ Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
     filteredPhases.emplace(phase.eventId, phase);
   }
 
-  return unique_ptr<Catalog>(
-      new Catalog(catalog.getStations(), catalog.getEvents(), filteredPhases));
+  return Catalog(catalog.getStations(), catalog.getEvents(), filteredPhases);
 }
 
 /*

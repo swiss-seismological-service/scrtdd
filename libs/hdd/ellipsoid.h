@@ -139,11 +139,7 @@ public:
     if (lat > ellip.lat && std::set<int>{3, 4, 7, 8}.count(quadrant) != 0)
       return false;
 
-    double lonDelta = lon - ellip.lon;
-    if (lonDelta > 180)
-      lonDelta = 360 - lonDelta;
-    else if (lonDelta < -180)
-      lonDelta = 360 + lonDelta;
+    double lonDelta = normalizeLon(lon - ellip.lon);
 
     if (lonDelta < 0 && std::set<int>{1, 4, 5, 8}.count(quadrant) != 0)
       return false;

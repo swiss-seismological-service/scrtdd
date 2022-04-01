@@ -20,35 +20,39 @@ namespace {
 
 void addStationsToCatalog(HDD::Catalog &cat,
                           double lat,
-                          double lon,
-                          double distance = 20)
+                          double lon)
 {
   Station sta;
   double staLat, staLon;
 
+  double distance = 25;
+
   computeCoordinates(distance, 0, lat, lon, staLat, staLon);
-  sta = {"NET.ST01", staLat, staLon, 250, "NET", "ST01", ""};
+  sta = {"NET.ST01", staLat, staLon, 0, "NET", "ST01", ""};
   cat.addStation(sta);
   computeCoordinates(distance, 90, lat, lon, staLat, staLon);
-  sta = {"NET.ST02", staLat, staLon, 295, "NET", "ST02", ""};
+  sta = {"NET.ST02", staLat, staLon, 0, "NET", "ST02", ""};
   cat.addStation(sta);
   computeCoordinates(distance, 180, lat, lon, staLat, staLon);
-  sta = {"NET.ST03", staLat, staLon, 301, "NET", "ST03", ""};
+  sta = {"NET.ST03", staLat, staLon, 0, "NET", "ST03", ""};
   cat.addStation(sta);
   computeCoordinates(distance, 270, lat, lon, staLat, staLon);
-  sta = {"NET.ST04", staLat, staLon, 395, "NET", "ST04", ""};
+  sta = {"NET.ST04", staLat, staLon, 0, "NET", "ST04", ""};
   cat.addStation(sta);
+
+  distance = 15;
+
   computeCoordinates(distance, 45, lat, lon, staLat, staLon);
-  sta = {"NET.ST05", staLat, staLon, 150, "NET", "ST05", ""};
+  sta = {"NET.ST05", staLat, staLon, 0, "NET", "ST05", ""};
   cat.addStation(sta);
   computeCoordinates(distance, 135, lat, lon, staLat, staLon);
-  sta = {"NET.ST06", staLat, staLon, 25, "NET", "ST06", ""};
+  sta = {"NET.ST06", staLat, staLon, 0, "NET", "ST06", ""};
   cat.addStation(sta);
   computeCoordinates(distance, 225, lat, lon, staLat, staLon);
-  sta = {"NET.ST07", staLat, staLon, 110, "NET", "ST07", ""};
+  sta = {"NET.ST07", staLat, staLon, 0, "NET", "ST07", ""};
   cat.addStation(sta);
   computeCoordinates(distance, 315, lat, lon, staLat, staLon);
-  sta = {"NET.ST08", staLat, staLon, 80, "NET", "ST08", ""};
+  sta = {"NET.ST08", staLat, staLon, 0, "NET", "ST08", ""};
   cat.addStation(sta);
 }
 
@@ -72,7 +76,7 @@ void addEventToCatalog(HDD::Catalog &cat,
   Event ev{0};
   ev.time                = time;
   ev.latitude            = lat;
-  ev.longitude           = lon;
+  ev.longitude           = normalizeLon(lon);
   ev.depth               = depth;
   ev.magnitude           = 1.0;
   const unsigned eventId = cat.addEvent(ev);
@@ -176,7 +180,7 @@ HDD::Catalog buildCatalog(HDD::TravelTimeTable &ttt,
   HDD::Catalog cat;
 
   if (nllStations) addNLLStationsToCatalog(cat);
-  else addStationsToCatalog(cat, lat, lon, 20);
+  else addStationsToCatalog(cat, lat, lon);
 
   double distance = extent * 2.5;
   double clusterLat, clusterLon;
@@ -200,7 +204,9 @@ HDD::Catalog buildCatalog(HDD::TravelTimeTable &ttt,
                       depth, numEvents / 6, extent);
   addEvents3ToCatalog(cat, ttt, time + secToDur(4), clusterLat, clusterLon,
                       depth, numEvents / 6, extent);
-  return cat;
+
+  return Catalog::filterPhasesAndSetWeights(cat, Phase::Source::CATALOG, 
+                                            {"P"}, {"S"});
 }
 
 HDD::Catalog buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
@@ -215,7 +221,7 @@ HDD::Catalog buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
   HDD::Catalog cat;
 
   if (nllStations) addNLLStationsToCatalog(cat);
-  else addStationsToCatalog(cat, lat, lon, 20);
+  else addStationsToCatalog(cat, lat, lon);
 
   addEvents1ToCatalog(cat, ttt, time + secToDur(1), lat, lon, depth,
                       numEvents / 3, extent);
@@ -223,7 +229,9 @@ HDD::Catalog buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
                       numEvents / 3, extent);
   addEvents3ToCatalog(cat, ttt, time + secToDur(3), lat, lon, depth,
                       numEvents / 3, extent);
-  return cat;
+
+  return Catalog::filterPhasesAndSetWeights(cat, Phase::Source::CATALOG, 
+                                            {"P"}, {"S"});
 }
 
 void randomPerturbation(HDD::Catalog &cat)
@@ -237,12 +245,26 @@ void randomPerturbation(HDD::Catalog &cat)
   {
     Event ev = kv.second;
     ev.time += secToDur(timeDist.next());
-    computeCoordinates(latDist.next(), 180, ev.latitude, ev.longitude,
-                       ev.latitude, ev.longitude);
-    computeCoordinates(lonDist.next(), 90, ev.latitude, ev.longitude,
-                       ev.latitude, ev.longitude);
+
+    double distance = latDist.next();
+    if ( distance >= 0 )
+      computeCoordinates(distance, 180, ev.latitude, ev.longitude,
+                         ev.latitude, ev.longitude);
+    else
+      computeCoordinates(-distance, 0, ev.latitude, ev.longitude,
+                         ev.latitude, ev.longitude);
+
+    distance = lonDist.next();
+    if ( distance >= 0 )
+      computeCoordinates(distance, 90, ev.latitude, ev.longitude,
+                         ev.latitude, ev.longitude);
+    else
+      computeCoordinates(-distance, 270, ev.latitude, ev.longitude,
+                         ev.latitude, ev.longitude); 
+
     ev.depth += depthDist.next();
     if (ev.depth < 0) ev.depth = 0;
+
     cat.updateEvent(ev);
   }
 }
@@ -327,13 +349,14 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
 
 void testCatalogEqual(const HDD::Catalog &cat1, const HDD::Catalog &cat2)
 {
+  BOOST_REQUIRE_EQUAL(cat1.getEvents().size(), cat2.getEvents().size());
   for (const auto &kv : cat1.getEvents())
   {
     const Event &ev1 = kv.second;
     BOOST_REQUIRE_EQUAL(cat2.getEvents().count(ev1.id), 1);
     const Event &ev2 = cat2.getEvents().at(ev1.id);
     BOOST_CHECK_SMALL(durToSec((ev1.time - ev2.time)),
-                      0.005); // tolerance 5 millisec
+                      0.05); // tolerance 50 millisec
     BOOST_CHECK_SMALL(computeDistance(ev1.latitude, ev1.longitude,
                                       ev2.latitude, ev2.longitude),
                       0.05); // tolerance 50 meter
@@ -380,13 +403,13 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event1,
 
   unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
-  HDD::Catalog baseCat =
+  const HDD::Catalog baseCat =
       buildCatalog(*ttt, nllStations, UTCClock::fromDate(2001, 1, 2, 0, 0, 0, 0),
                    centroid.lat, centroid.lon, centroid.depth, 42, 3.0);
 
   // Test no event changes, the relocation should not move the events
   string workingDir =
-      strf("./data/test_dd_multi_event1_%lu_%lu_reloc1", cIdx, tttIdx);
+      strf("./data/test_dd_multi_event1_%lu_%lu_reloc", cIdx, tttIdx);
   const HDD::Catalog relocCat =
       relocateCatalog(baseCat, std::move(ttt), workingDir);
   testCatalogEqual(baseCat, relocCat);
@@ -411,7 +434,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event2,
 
   unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
-  HDD::Catalog baseCat =
+  const HDD::Catalog baseCat =
       buildCatalog(*ttt, nllStations, UTCClock::fromDate(1914, 11, 23, 11, 34, 23, 1234),
                    centroid.lat, centroid.lon, centroid.depth, 42, 1.5);
 
@@ -429,7 +452,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event2,
   }
 
   string workingDir =
-      strf("./data/test_dd_multi_event2_%lu_%lu_reloc2", cIdx, tttIdx);
+      strf("./data/test_dd_multi_event2_%lu_%lu_reloc", cIdx, tttIdx);
   const HDD::Catalog relocCat =
       relocateCatalog(cat, std::move(ttt), workingDir);
   testCatalogEqual(baseCat, relocCat);
@@ -454,7 +477,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event3,
 
   unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
-  HDD::Catalog baseCat =
+  const HDD::Catalog baseCat =
       buildCatalog(*ttt, nllStations, UTCClock::fromDate(2041, 6, 14, 23, 46, 3, 65),
                    centroid.lat, centroid.lon, centroid.depth, 42, 1.0);
 
@@ -463,7 +486,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event3,
   randomPerturbation(cat);
 
   string workingDir =
-      strf("./data/test_dd_multi_event3_%lu_%lu_reloc3", cIdx, tttIdx);
+      strf("./data/test_dd_multi_event3_%lu_%lu_reloc", cIdx, tttIdx);
   const HDD::Catalog relocCat =
       relocateCatalog(cat, std::move(ttt), workingDir);
   testCatalogEqual(baseCat, relocCat);
@@ -490,14 +513,14 @@ BOOST_DATA_TEST_CASE(test_dd_single_event1,
 
   const UTCTime clusterTime =
       UTCClock::fromDate(1973, 12, 4, 14, 53, 32, 69854);
-  HDD::Catalog backgroundCat = buildBackgroundCatalog(
+  const HDD::Catalog backgroundCat = buildBackgroundCatalog(
       *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 2.0);
-  HDD::Catalog realTimeCat = buildCatalog(
+  const HDD::Catalog realTimeCat = buildCatalog(
       *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 2.0);
 
   // Test 1: no event changes
   string workingDir =
-      strf("./data/test_dd_single_event1_%lu_%lu, reloc1", cIdx, tttIdx);
+      strf("./data/test_dd_single_event1_%lu_%lu_reloc", cIdx, tttIdx);
   HDD::Catalog relocCat = relocateSingleEvent(backgroundCat, std::move(ttt),
                                               workingDir, realTimeCat);
   testCatalogEqual(realTimeCat, relocCat);
@@ -524,9 +547,9 @@ BOOST_DATA_TEST_CASE(test_dd_single_event2,
 
   const UTCTime clusterTime =
       UTCClock::fromDate(1989, 7, 18, 23, 59, 59, 999999);
-  HDD::Catalog backgroundCat = buildBackgroundCatalog(
+  const HDD::Catalog backgroundCat = buildBackgroundCatalog(
       *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 1.5);
-  HDD::Catalog realTimeCat = buildCatalog(
+  const HDD::Catalog realTimeCat = buildCatalog(
       *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.5);
 
   // Test 2: all events at centroid location, with random perturbation of time
@@ -543,7 +566,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event2,
   }
 
   string workingDir =
-      strf("./data/test_dd_single_event2_%lu_%lu_reloc2", cIdx, tttIdx);
+      strf("./data/test_dd_single_event2_%lu_%lu_reloc", cIdx, tttIdx);
   const HDD::Catalog relocCat = relocateSingleEvent(
       backgroundCat, std::move(ttt), workingDir, realTimeCat);
   testCatalogEqual(realTimeCat, relocCat);
@@ -569,9 +592,9 @@ BOOST_DATA_TEST_CASE(test_dd_single_event3,
   unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
 
   const UTCTime clusterTime  = UTCClock::fromDate(2034, 4, 8, 3, 24, 54, 2354);
-  HDD::Catalog backgroundCat = buildBackgroundCatalog(
+  const HDD::Catalog backgroundCat = buildBackgroundCatalog(
       *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 1.0);
-  HDD::Catalog realTimeCat = buildCatalog(
+  const HDD::Catalog realTimeCat = buildCatalog(
       *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.0);
 
   // Test 3: random changes to all events (mean of all changes is != 0)
@@ -579,7 +602,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event3,
   randomPerturbation(cat);
 
   string workingDir =
-      strf("./data/test_dd_single_event3_%lu_%lu_reloc3", cIdx, tttIdx);
+      strf("./data/test_dd_single_event3_%lu_%lu_reloc", cIdx, tttIdx);
   const HDD::Catalog relocCat = relocateSingleEvent(
       backgroundCat, std::move(ttt), workingDir, realTimeCat);
   testCatalogEqual(realTimeCat, relocCat);

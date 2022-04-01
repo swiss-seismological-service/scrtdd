@@ -81,10 +81,10 @@ DD::DD(const Catalog &catalog,
        const string &workingDir,
        std::unique_ptr<HDD::TravelTimeTable> ttt)
     : _cfg(cfg), _srcCat(catalog),
-      _bgCat(*Catalog::filterPhasesAndSetWeights(_srcCat,
-                                                 Phase::Source::CATALOG,
-                                                 _cfg.validPphases,
-                                                 _cfg.validSphases)),
+      _bgCat(Catalog::filterPhasesAndSetWeights(_srcCat,
+                                                Phase::Source::CATALOG,
+                                                _cfg.validPphases,
+                                                _cfg.validSphases)),
       _ttt(std::move(ttt)), _workingDir(workingDir),
       _cacheDir(joinPath(_workingDir, "wfcache")),
       _tmpCacheDir(joinPath(_workingDir, "tmpcache"))
@@ -567,12 +567,12 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
 
   string eventWorkingDir = joinPath(baseWorkingDir, "step1");
 
-  unique_ptr<Catalog> evToRelocateCat =
+  Catalog evToRelocateCat =
       Catalog::filterPhasesAndSetWeights(singleEvent, Phase::Source::RT_EVENT,
                                          _cfg.validPphases, _cfg.validSphases);
 
   unique_ptr<Catalog> relocatedEvCat =
-      relocateEventSingleStep(bgCat, *evToRelocateCat, eventWorkingDir,
+      relocateEventSingleStep(bgCat, evToRelocateCat, eventWorkingDir,
                               clustOpt1, solverOpt, false, false);
 
   if (relocatedEvCat)
@@ -584,7 +584,7 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
             UTCClock::toString(ev.time).c_str());
     logInfo("Relocation report: %s", relocationReport(*relocatedEvCat).c_str());
 
-    evToRelocateCat = std::move(relocatedEvCat);
+    evToRelocateCat = std::move(*relocatedEvCat);
   }
   else
   {
@@ -596,7 +596,7 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   eventWorkingDir = joinPath(baseWorkingDir, "step2");
 
   unique_ptr<Catalog> relocatedEvWithXcorr =
-      relocateEventSingleStep(bgCat, *evToRelocateCat, eventWorkingDir,
+      relocateEventSingleStep(bgCat, evToRelocateCat, eventWorkingDir,
                               clustOpt2, solverOpt, true, _useArtificialPhases);
 
   if (relocatedEvWithXcorr)
@@ -1041,27 +1041,27 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
   {
     Event &event = events.at(kv.second->refEvId);
 
-    // get relocation changes computed by the solver for the current event
-    double deltaLat, deltaLon, deltaDepth, deltaTT;
+    //
+    // get relocation changes (km and sec) computed by the solver for
+    // the current event
+    //
+    double deltaLat, deltaLon, deltaDepth, deltaTime;
     if (!solver.getEventChanges(event.id, deltaLat, deltaLon, deltaDepth,
-                                deltaTT))
+                                deltaTime))
     {
       event.relocInfo.isRelocated = false;
       continue;
     }
 
-    // check for airquakes (can we trust ttt/vel.model above surface?)
-    if (event.depth + deltaDepth < 0)
-    {
-      // allow 100 meters change
-      if (deltaDepth > 0.100)
-      {
-        logDebug("Ignoring airquake event %s", string(event).c_str());
-        continue;
-      }
-      // do not move the depth in this case
-      deltaDepth = 0;
-    }
+    // compute distance and azimuth of the event to the new location
+    double distance = std::sqrt(square(deltaLon) + square(deltaLat)); // km
+    double azimuth  = radToDeg(std::atan2(deltaLon, deltaLat));
+
+    // Computes the coordinates (lat, lon) of the point which is at a degree
+    // azimuth and km distance as seen from the original event location
+    double newLat, newLon;
+    computeCoordinates(distance, azimuth, event.latitude, event.longitude,
+                       newLat, newLon);
 
     unique_ptr<Neighbours> finalNeighbours(new Neighbours());
     finalNeighbours->refEvId = event.id;
@@ -1071,10 +1071,10 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     // update event location/time and compute statistics
     //
     relocatedEvs++;
-    event.latitude += deltaLat;
-    event.longitude += deltaLon;
+    event.latitude  = newLat;
+    event.longitude = newLon;
     event.depth += deltaDepth;
-    event.time += secToDur(deltaTT);
+    event.time += secToDur(deltaTime);
     event.relocInfo.finalRms      = 0;
     event.relocInfo.isRelocated   = true;
     event.relocInfo.numNeighbours = 0;
