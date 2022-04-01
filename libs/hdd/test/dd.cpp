@@ -237,10 +237,10 @@ HDD::Catalog buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
 void randomPerturbation(HDD::Catalog &cat)
 {
   // random changes to all events (mean of all changes is != 0)
-  HDD::NormalRandomer timeDist(0.1, 0.4, 0x1004); // sec
-  HDD::NormalRandomer latDist(2.5, 2, 0x1001);    // km
-  HDD::NormalRandomer lonDist(-1.5, 3., 0x1002);  // km
-  HDD::NormalRandomer depthDist(-0.9, 3, 0x1003); // km
+  HDD::NormalRandomer timeDist(0.1, 0.2, 0x1004); // sec
+  HDD::NormalRandomer latDist(1.5, 0.3, 0x1001);   // km
+  HDD::NormalRandomer lonDist(-0.7, 0.8, 0x1002);  // km
+  HDD::NormalRandomer depthDist(1.5, 0.7, 0x1003);  // km
   for (const auto &kv : cat.getEvents())
   {
     Event ev = kv.second;
@@ -289,6 +289,7 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
   clusterCfg.xcorrMaxInterEvDist = 0;
 
   HDD::SolverOptions solverCfg;
+  solverCfg.algoIterations               = 20;
   solverCfg.absLocConstraintStart        = 0.3;
   solverCfg.absLocConstraintEnd          = 0.3;
   solverCfg.dampingFactorStart           = 0.01;
@@ -326,6 +327,7 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
   clusterCfg.xcorrMaxInterEvDist = 0;
 
   HDD::SolverOptions solverCfg;
+  solverCfg.algoIterations        = 20;
   solverCfg.absLocConstraintStart = 0.3;
   solverCfg.absLocConstraintEnd   = 0.3;
   solverCfg.dampingFactorStart    = 0.01;
@@ -374,12 +376,12 @@ struct Centroid
 // This centroid is in the middle of the generated nll grid files
 // Tests that runs with nll grids, should use this centroid, with
 // varying depths
-const Centroid nllCentroid{47.0, 8.5, 5};
+const Centroid nllCentroid{47.0, 8.5, 7};
 
 const vector<Centroid> centroidList{
-  nllCentroid,  {0, 0, 5},
-  { 85, -90, 2},  {-85, 90, 3},
-  { 30, 179.99, 4},  { -60, -179.99, 6}
+  nllCentroid, {0, 0, 7},
+  { 85, -90, 9},  {-85, 90, 10},
+  { 30, 170, 8},  { -60, -170, 6}
 };
 
 } // namespace
