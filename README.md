@@ -42,18 +42,16 @@ You can find compiled version of this module at https://data.gempa.de/packages/P
 
 ## Installation from source code
 
-In order to use this module the sources have to be merged into the *SeisComP* sources, then *SeisComP* can be compiled and installed as usual.
+In order to use this module the sources have to be merged into the *SeisComP* sources, then *SeisComP* can be compiled and installed as usual. Follow the up-to-date procedure at https://github.com/SeisComP/seiscomp
 
 <pre>
 #
-# get SeisComP (follow the up-to-date procedure at https://github.com/SeisComP/seiscomp)
+# get SeisComP (follow official documentation)
 #
 git clone https://github.com/SeisComP/seiscomp.git seiscomp
 cd seiscomp/src/base
-git clone https://github.com/SeisComP/seedlink.git
 git clone https://github.com/SeisComP/common.git
 git clone https://github.com/SeisComP/main.git
-git clone https://github.com/SeisComP/extras.git
 [...etc...]
 
 #
@@ -64,9 +62,9 @@ git clone https://github.com/swiss-seismological-service/scrtdd.git
 cd scrtdd
 
 #
-# Checkout the tag pointing to the latest version (see releases)
+# Compile code as per SeisComP official documentation
 #
-git checkout vX.Y.Z
+...
 </pre>
 
 To update rtDD to a new version:
@@ -85,7 +83,8 @@ git fetch origin -p --tags
 #
 # checkout the new version
 #
-git checkout vX.Y.Z
+git checkout master
+git rebase origin/master
 </pre>
 
 
