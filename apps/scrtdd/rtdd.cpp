@@ -2296,9 +2296,9 @@ RTDD::Profile::relocateCatalog(const std::string &xcorrFile)
   relocatedCat->writeToFile("reloc-event.csv", "reloc-phase.csv",
                             "reloc-station.csv");
   HDD::writeXCorrToFile(xcorr, dd->getCatalog(), "xcorr.csv");
-  cout << "Wrote relocated catalog files reloc-event.csv, reloc-phase.csv, "
-          "reloc-station.csv and cross-correlation results xcorr.csv"
-       << endl;
+  SEISCOMP_INFO(
+      "Wrote relocated catalog files reloc-event.csv, reloc-phase.csv, "
+      "reloc-station.csv and cross-correlation results xcorr.csv");
   return relocatedCat;
 }
 
@@ -2317,7 +2317,7 @@ void RTDD::Profile::evalXCorr(const std::string &xcorrFile)
     xcorr = HDD::readXCorrFromFile(dd->getCatalog(), xcorrFile);
   dd->evalXCorr(multiEventClustering, printEvalXcorrStats, xcorr);
   HDD::writeXCorrToFile(xcorr, dd->getCatalog(), "xcorr.csv");
-  cout << "Wrote cross-correlation results xcorr.csv" << endl;
+  SEISCOMP_INFO("Wrote cross-correlation results xcorr.csv");
 }
 
 void RTDD::Profile::dumpWaveforms()
@@ -2343,13 +2343,12 @@ void RTDD::Profile::dumpClusters()
   }
   lastUsage                   = Core::Time::GMT();
   list<HDD::Catalog> clusters = dd->findClusters(multiEventClustering);
-  cout << stringify("Found %zu clusters", clusters.size()) << endl;
+  SEISCOMP_INFO("Found %zu clusters", clusters.size());
   unsigned clusterId = 1;
   for (const HDD::Catalog &cat : clusters)
   {
-    cout << stringify("Writing cluster %u (%zu events)", clusterId,
-                      cat.getEvents().size())
-         << endl;
+    SEISCOMP_INFO("Writing cluster %u (%zu events)", clusterId,
+                  cat.getEvents().size());
     string prefix = stringify("cluster-%u", clusterId++);
     cat.writeToFile(prefix + "-event.csv", prefix + "-phase.csv",
                     prefix + "-station.csv");
