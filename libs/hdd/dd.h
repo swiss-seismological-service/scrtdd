@@ -114,6 +114,7 @@ struct SolverOptions
   bool usePickUncertainty             = false;
   double absTTDiffObsWeight           = 0.5;
   double xcorrObsWeight               = 1.0;
+  bool resetAirQuakes                 = true;
 };
 
 class DD
@@ -297,6 +298,7 @@ private:
   std::unique_ptr<Catalog> updateRelocatedEvents(
       const Solver &solver,
       const Catalog &catalog,
+      bool resetAirQuakes,
       const std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
           &neighCluster,
       ObservationParams &obsparams,

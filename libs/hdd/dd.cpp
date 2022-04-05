@@ -813,8 +813,9 @@ unique_ptr<Catalog> DD::relocate(
 
     // update event parameters
     finalCatalog = updateRelocatedEvents(
-        solver, *finalCatalog, neighCluster, obsparams,
-        std::max(absTTDiffObsWeight, xcorrObsWeight), finalNeighCluster);
+        solver, *finalCatalog, solverOpt.resetAirQuakes, neighCluster,
+        obsparams, std::max(absTTDiffObsWeight, xcorrObsWeight),
+        finalNeighCluster);
   }
 
   // compute last bit of statistics for the relocated events
@@ -1022,6 +1023,7 @@ void DD::ObservationParams::addToSolver(Solver &solver) const
 unique_ptr<Catalog> DD::updateRelocatedEvents(
     const Solver &solver,
     const Catalog &catalog,
+    bool resetAirQuakes,
     const unordered_map<unsigned, unique_ptr<Neighbours>> &neighCluster,
     ObservationParams &obsparams,
     double pickWeightScaler,
@@ -1050,6 +1052,13 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
                                 deltaTime))
     {
       event.relocInfo.isRelocated = false;
+      continue;
+    }
+
+    // check for airquakes
+    if (resetAirQuakes && (event.depth + deltaDepth < 0))
+    {
+      logDebug("Ignoring airquake event %s", string(event).c_str());
       continue;
     }
 

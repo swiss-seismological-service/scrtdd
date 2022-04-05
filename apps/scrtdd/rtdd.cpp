@@ -921,6 +921,14 @@ bool RTDD::validateParameters()
     }
     try
     {
+      prof->solverCfg.resetAirQuakes = configGetBool(prefix + "resetAirQuakes");
+    }
+    catch (...)
+    {
+      prof->solverCfg.resetAirQuakes = true;
+    }
+    try
+    {
       prof->solverCfg.absLocConstraintStart =
           configGetDouble(prefix + "absoluteLocationConstraint.startingValue");
     }
