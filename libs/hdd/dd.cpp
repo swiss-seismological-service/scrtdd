@@ -27,6 +27,7 @@ using Event     = HDD::Catalog::Event;
 using Phase     = HDD::Catalog::Phase;
 using Station   = HDD::Catalog::Station;
 using Transform = HDD::Waveform::Processor::Transform;
+using AQ_ACTION = HDD::SolverOptions::AQ_ACTION;
 using HDD::Waveform::getBandAndInstrumentCodes;
 
 namespace {
@@ -813,9 +814,8 @@ unique_ptr<Catalog> DD::relocate(
 
     // update event parameters
     finalCatalog = updateRelocatedEvents(
-        solver, *finalCatalog, solverOpt.resetAirQuakes, neighCluster,
-        obsparams, std::max(absTTDiffObsWeight, xcorrObsWeight),
-        finalNeighCluster);
+        solver, *finalCatalog, solverOpt, neighCluster, obsparams,
+        std::max(absTTDiffObsWeight, xcorrObsWeight), finalNeighCluster);
   }
 
   // compute last bit of statistics for the relocated events
@@ -1023,7 +1023,7 @@ void DD::ObservationParams::addToSolver(Solver &solver) const
 unique_ptr<Catalog> DD::updateRelocatedEvents(
     const Solver &solver,
     const Catalog &catalog,
-    bool resetAirQuakes,
+    const SolverOptions &solverOpt,
     const unordered_map<unsigned, unique_ptr<Neighbours>> &neighCluster,
     ObservationParams &obsparams,
     double pickWeightScaler,
@@ -1056,10 +1056,22 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     }
 
     // check for airquakes
-    if (resetAirQuakes && (event.depth + deltaDepth < 0))
+    if (solverOpt.airQuakes.action != AQ_ACTION::NONE &&
+        (event.depth + deltaDepth) <
+            -(solverOpt.airQuakes.elevationThreshold / 1000.))
     {
-      logDebug("Ignoring airquake event %s", string(event).c_str());
-      continue;
+      if (solverOpt.airQuakes.action == AQ_ACTION::RESET)
+      {
+        logDebug("Revert airquake event %s to previous location",
+                 string(event).c_str());
+        continue;
+      }
+      else if (solverOpt.airQuakes.action == AQ_ACTION::RESET_DEPTH)
+      {
+        logDebug("Revert airquake event %s to previous depth",
+                 string(event).c_str());
+        deltaDepth = 0;
+      }
     }
 
     // compute distance and azimuth of the event to the new location

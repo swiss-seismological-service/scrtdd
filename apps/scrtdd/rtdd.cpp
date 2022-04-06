@@ -55,6 +55,7 @@ using namespace HDDUtils;
 using Seiscomp::Core::fromString;
 using Seiscomp::Core::stringify;
 using PhaseType = HDD::Catalog::Phase::Type;
+using AQ_ACTION = HDD::SolverOptions::AQ_ACTION;
 
 namespace {
 
@@ -184,10 +185,11 @@ struct CircularRegion : public Seiscomp::RTDD::Region
   double lat, lon, radius;
 };
 
-void makeUpper(string &dest, const string &src)
+string makeUpper(const string &src)
 {
-  dest = src;
+  string dest = src;
   for (size_t i = 0; i < src.size(); ++i) dest[i] = toupper(src[i]);
+  return dest;
 }
 
 bool startsWith(const string &haystack,
@@ -198,8 +200,8 @@ bool startsWith(const string &haystack,
   string _needle   = needle;
   if (!caseSensitive)
   {
-    makeUpper(_haystack, haystack);
-    makeUpper(_needle, needle);
+    _haystack = makeUpper(haystack);
+    _needle   = makeUpper(needle);
   }
   return _haystack.compare(0, _needle.length(), _needle) == 0;
 }
@@ -458,7 +460,7 @@ bool RTDD::validateParameters()
     string regionType;
     try
     {
-      makeUpper(regionType, configGetString(prefix + "regionType"));
+      regionType = makeUpper(configGetString(prefix + "regionType"));
     }
     catch (...)
     {}
@@ -903,6 +905,32 @@ bool RTDD::validateParameters()
     {
       prof->tttModel = "iasp91";
     }
+
+    try
+    {
+      prof->solverCfg.airQuakes.elevationThreshold =
+          configGetDouble(prefix + "airQuakes.elevationThreshold");
+    }
+    catch (...)
+    {
+      prof->solverCfg.airQuakes.elevationThreshold = 0;
+    }
+
+    try
+    {
+      string action = makeUpper(configGetString(prefix + "airQuakes.action"));
+      if (action == "RESET")
+        prof->solverCfg.airQuakes.action = AQ_ACTION::RESET;
+      else if (action == "RESET_DEPTH")
+        prof->solverCfg.airQuakes.action = AQ_ACTION::RESET_DEPTH;
+      else
+        prof->solverCfg.airQuakes.action = AQ_ACTION::NONE;
+    }
+    catch (...)
+    {
+      prof->solverCfg.airQuakes.action = AQ_ACTION::NONE;
+    }
+
     try
     {
       prof->solverCfg.type = configGetString(prefix + "solverType");
@@ -918,14 +946,6 @@ bool RTDD::validateParameters()
     catch (...)
     {
       prof->solverCfg.algoIterations = 20;
-    }
-    try
-    {
-      prof->solverCfg.resetAirQuakes = configGetBool(prefix + "resetAirQuakes");
-    }
-    catch (...)
-    {
-      prof->solverCfg.resetAirQuakes = true;
     }
     try
     {

@@ -114,7 +114,21 @@ struct SolverOptions
   bool usePickUncertainty             = false;
   double absTTDiffObsWeight           = 0.5;
   double xcorrObsWeight               = 1.0;
-  bool resetAirQuakes                 = true;
+
+  // Air-quakes are events whose depth shift above the range of the velocity
+  // model (typically 0) during the inversion
+  enum class AQ_ACTION
+  {
+    NONE,
+    RESET,
+    RESET_DEPTH
+  };
+  struct
+  {
+    // meters, threshold above which an event is considered an air-quake
+    double elevationThreshold = 0;
+    AQ_ACTION action          = AQ_ACTION::NONE;
+  } airQuakes;
 };
 
 class DD
@@ -298,7 +312,7 @@ private:
   std::unique_ptr<Catalog> updateRelocatedEvents(
       const Solver &solver,
       const Catalog &catalog,
-      bool resetAirQuakes,
+      const SolverOptions &solverOpt,
       const std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
           &neighCluster,
       ObservationParams &obsparams,

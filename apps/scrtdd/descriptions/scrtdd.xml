@@ -216,9 +216,6 @@
             <parameter name="algoIterations" type="int" default="20">
               <description>This parameter control how many iterations the solver performs</description>
             </parameter>
-            <parameter name="resetAirQuakes" type="boolean" default="true">
-              <description>Air-quakes are events whose depth shift above the surface during the inversion. If this option is enabled the air-quakes are not allowed and their location is restored to what it was in the previous solver iteration.</description>
-            </parameter> 
             <group name="downWeightingByResidual">
               <description>At each iteration the solver down-weighs the system equations accordingly to their residuals of the previous iteration, which scales differential time accordingly to their quality. This option value expresses the standard deviations of the double-difference residuals beyond which the observations are dropped. For residuals below this value, the weighing scheme follows the Waldhauser/Ellsworth paper. A value of 0 disables downweighting.</description>
               <parameter name="startingValue" type="double" default="10">
@@ -265,6 +262,15 @@
               </parameter>
               <parameter name="tableModel" type="string" default="iasp91">
                 <description>Any SeisComP configured model or a user defined one</description>
+              </parameter>
+            </group>
+            <group name="airQuakes">
+              <description>Air-quakes are origins whose depth shift above the range of the velocity model (typically 0) during the inversion. These options define how the air-quakes are handled. `elevationThreshold` defines the elevation above which an origin is considered an air-quake. `action` control how the air-quakes are handled; "NONE": no special action is performed. "RESET": reset air-quake location and time to the previous solver iteration, before it became an air-quake. "RESET_DEPTH" similar to RESET but only the depth is restored"</description>
+              <parameter name="elevationThreshold" type="double" default="0" unit="meter">
+                <description>Elevation above which origins are considered air-quakes</description>
+              </parameter>  
+              <parameter name="action" type="string" default="NONE">
+                <description>Possible values are NONE, RESET, RESET_DEPTH. </description>
               </parameter>
             </group>
           </group>
