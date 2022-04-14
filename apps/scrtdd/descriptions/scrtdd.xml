@@ -137,10 +137,10 @@
             <parameter name="maxInterEventDistance" type="double" default="-1" unit="km">
               <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between events for a cross-correlation to happen. Phases of event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 skips all cross-correlations.</description>
             </parameter>
-            <parameter name="theoreticalPhaseAutoOrigin" type="boolean" default="true">
+            <parameter name="detectMissingPhasesAutoOrigin" type="boolean" default="true">
               <description>Whether cross-correlation is used to detect phases at stations with no associated picks. This option applies to automatic origins. If the background catalog contains events with high quality picks, those can serve as template for detecting picks on real-time events. In multi-event mode this option is not used.</description>
             </parameter>
-            <parameter name="theoreticalPhaseManualOrigin" type="boolean" default="false">
+            <parameter name="detectMissingPhasesManualOrigin" type="boolean" default="false">
               <description>Whether cross-correlation is used to detect phases at stations with no associated picks. This option applies to manual origins. If the background catalog contains events with high quality picks, those can serve as template for detecting picks on real-time events. This option also affects the multi-event mode.</description> 
             </parameter>
             <parameter name="compatibleChannels" type="string" default="">

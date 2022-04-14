@@ -714,21 +714,21 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->useTheoreticalAuto =
-          configGetBool(prefix + "theoreticalPhaseAutoOrigin");
+      prof->detectMissingPhasesAuto =
+          configGetBool(prefix + "detectMissingPhasesAutoOrigin");
     }
     catch (...)
     {
-      prof->useTheoreticalAuto = true;
+      prof->detectMissingPhasesAuto = true;
     }
     try
     {
-      prof->useTheoreticalManual =
-          configGetBool(prefix + "theoreticalPhaseManualOrigin");
+      prof->detectMissingPhasesManual =
+          configGetBool(prefix + "detectMissingPhasesManualOrigin");
     }
     catch (...)
     {
-      prof->useTheoreticalManual = false;
+      prof->detectMissingPhasesManual = false;
     }
 
     prefix = string("profile.") + prof->name + ".crossCorrelation.p-phase.";
@@ -2294,9 +2294,9 @@ RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   addToCatalog(orgToRelocate, {org}, dataSrc);
 
   if (org->evaluationMode() == DataModel::MANUAL)
-    dd->setUseArtificialPhases(this->useTheoreticalManual);
+    dd->setUseArtificialPhases(this->detectMissingPhasesManual);
   else
-    dd->setUseArtificialPhases(this->useTheoreticalAuto);
+    dd->setUseArtificialPhases(this->detectMissingPhasesAuto);
 
   unique_ptr<HDD::Catalog> rel = dd->relocateSingleEvent(
       orgToRelocate, singleEventClustering, singleEventClustering, solverCfg);
@@ -2317,7 +2317,7 @@ RTDD::Profile::relocateCatalog(const std::string &xcorrFile)
   HDD::XCorrCache xcorr;
   if (!xcorrFile.empty())
     xcorr = HDD::readXCorrFromFile(dd->getCatalog(), xcorrFile);
-  dd->setUseArtificialPhases(this->useTheoreticalManual);
+  dd->setUseArtificialPhases(this->detectMissingPhasesManual);
   unique_ptr<HDD::Catalog> relocatedCat =
       dd->relocateMultiEvents(multiEventClustering, solverCfg, xcorr);
   relocatedCat->writeToFile("reloc-event.csv", "reloc-phase.csv",
