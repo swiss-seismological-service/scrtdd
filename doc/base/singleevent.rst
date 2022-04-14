@@ -172,9 +172,9 @@ Here we report an example *single-event* relocation log::
            DD residuals [msec]: before=40+/-59.4 after=-5+/-6.5
 
 
-rtDD adds two comments to each relocated origin: ``scrtddSourceOrigin`` and ``scrtddRelocationReport``. They can be both visualized in ``scolv`` (see official SeisComP documentation on how to visualize comments as additional columns), or they can be seen on the logs.
+rtDD adds two comments to each relocated origin: ``relocation::sourceOrigin`` and ``relocation::report``. 
 
-``scrtddSourceOrigin`` contains the id of the origin that triggered the relocation. ``scrtddRelocationReport`` contains a summary of the relocation process. E.g.::
+``relocation::sourceOrigin`` contains the id of the origin that triggered the relocation. ``relocation::report`` contains a summary of the relocation process. E.g.::
 
     Origin changes: location=0.23[km] depth=1.40[km] time=-0.147[sec]
     Rms change [sec]: -0.153 (before/after 0.502/0.349)
@@ -182,6 +182,19 @@ rtDD adds two comments to each relocated origin: ``scrtddSourceOrigin`` and ``sc
     Stations distance [km]: min=15.9 median=57.0 max=99.8
     DD observations: 687 (CC P/S 141/47 TT P/S 375/124)
     DD residuals [msec]: before=-106+/-21.6 after=9+/-26.2
+
+They can be both visualized in ``scolv`` as additional columns adding the following settings to ``scolv.cfg``::
+
+    # SCRTDD: display source origin that generated a scrtdd relocation
+    eventlist.customColumn.default = ""
+    eventlist.customColumn.originCommentID = relocation::sourceOrigin
+    eventlist.customColumn = triggeringOrigin
+    
+    # SCRTDD: display origin comment containing rtdd relocation report
+    eventedit.customColumn.default = ""
+    eventedit.customColumn.originCommentID = relocation::report
+    eventedit.customColumn.pos = 99
+    eventedit.customColumn = scrtd
 
 
 .. _phase-update-label:
