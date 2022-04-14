@@ -366,9 +366,21 @@ bool RTDD::validateParameters()
 
   Environment *env = Environment::Instance();
 
-  _config.testMode          = commandline().hasOption("test");
-  _config.loadProfileWf     = commandline().hasOption("load-profile-wf");
-  _config.cacheAllWaveforms = commandline().hasOption("cache-wf-all");
+  _config.workingDirectory =
+      env->absolutePath(configGetPath("workingDirectory"));
+
+  _config.saveProcessingFiles  = configGetBool("saveProcessingFiles");
+  _config.onlyPreferredOrigin  = configGetBool("onlyPreferredOrigins");
+  _config.allowAutomaticOrigin = configGetBool("automaticOrigins");
+  _config.allowManualOrigin    = configGetBool("manualOrigins");
+  _config.activeProfiles       = configGetStrings("activeProfiles");
+  _config.logCrontab           = configGetBool("cron.logging");
+  _config.delayTimes           = configGetInts("cron.delayTimes");
+  _config.profileTimeAlive     = configGetInt("performance.profileTimeAlive");
+  _config.cacheWaveforms       = configGetBool("performance.cacheWaveforms");
+  _config.testMode             = commandline().hasOption("test");
+  _config.loadProfileWf        = commandline().hasOption("load-profile-wf");
+  _config.cacheAllWaveforms    = commandline().hasOption("cache-wf-all");
 
   // disable messaging (offline mode) with certain command line options
   if (!_config.eventXML.empty() || !_config.dumpCatalog.empty() ||
@@ -411,9 +423,6 @@ bool RTDD::validateParameters()
     profileRequireDB = true;
   }
 
-  _config.workingDirectory =
-      env->absolutePath(configGetPath("workingDirectory"));
-
   // make sure to load the profile passed via command line too
   std::vector<string> profilesToLoad(_config.activeProfiles);
   if (!_config.forceProfile.empty() &&
@@ -422,16 +431,6 @@ bool RTDD::validateParameters()
   {
     profilesToLoad.push_back(_config.forceProfile);
   }
-
-  _config.saveProcessingFiles  = configGetBool("saveProcessingFiles");
-  _config.onlyPreferredOrigin  = configGetBool("onlyPreferredOrigins");
-  _config.allowAutomaticOrigin = configGetBool("automaticOrigins");
-  _config.allowManualOrigin    = configGetBool("manualOrigins");
-  _config.activeProfiles       = configGetStrings("activeProfiles");
-  _config.logCrontab           = configGetBool("cron.logging");
-  _config.delayTimes           = configGetInts("cron.delayTimes");
-  _config.profileTimeAlive     = configGetInt("performance.profileTimeAlive");
-  _config.cacheWaveforms       = configGetBool("performance.cacheWaveforms");
 
   bool profilesOK = true;
   for (const string &profileName : profilesToLoad)
