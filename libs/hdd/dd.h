@@ -65,7 +65,7 @@ struct Config
     double noiseStart  = -3.0;
     double noiseEnd    = -0.350;
     double signalStart = -0.350;
-    double signalEnd   = 0.350;
+    double signalEnd   = 1;
   } snr;
 };
 

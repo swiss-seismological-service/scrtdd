@@ -884,7 +884,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->ddCfg.snr.signalEnd = 0.350;
+      prof->ddCfg.snr.signalEnd = 1;
     }
 
     prefix = string("profile.") + prof->name + ".solver.";

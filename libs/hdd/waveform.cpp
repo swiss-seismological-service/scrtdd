@@ -869,44 +869,48 @@ double computeSnr(const Trace &tr,
                   double signalOffsetStart,
                   double signalOffsetEnd)
 {
-  const double *data          = tr.data();
-  const size_t data_size      = tr.sampleCount();
-  const double freq           = tr.samplingFrequency();
-  const UTCTime dataStartTime = tr.startTime();
+  const double *data     = tr.data();
+  const size_t data_size = tr.sampleCount();
 
-  // convert time w.r.t. guiding pick time to sample number
-  auto secToSample = [&freq, &data_size](double sec) {
-    double max = std::max(std::round(sec * freq), 0.);
-    return std::min(max, data_size - 1.);
-  };
-  const double pickOffset  = durToSec(pickTime - dataStartTime);
-  const size_t noiseStart  = secToSample(noiseOffsetStart + pickOffset);
-  const size_t noiseEnd    = secToSample(noiseOffsetEnd + pickOffset);
-  const size_t signalStart = secToSample(signalOffsetStart + pickOffset);
-  const size_t signalEnd   = secToSample(signalOffsetEnd + pickOffset);
+  const double noiseStartIdx =
+      std::round(tr.index(pickTime + secToDur(noiseOffsetStart)));
+  const double noiseEndIdx =
+      std::round(tr.index(pickTime + secToDur(noiseOffsetEnd)));
+  const double signalStartIdx =
+      std::round(tr.index(pickTime + secToDur(signalOffsetStart)));
+  const double signalEndIdx =
+      std::round(tr.index(pickTime + secToDur(signalOffsetEnd)));
 
-  if ((std::max({noiseStart, noiseEnd, signalStart, signalEnd}) >= data_size))
+  if ((std::min({noiseStartIdx, noiseEndIdx, signalStartIdx, signalEndIdx}) <
+       0) ||
+      (std::max({noiseStartIdx, noiseEndIdx, signalStartIdx, signalEndIdx}) >=
+       data_size))
   {
     logError(
         "Cannot compute SNR: noise/signal windows exceed waveform boundaries");
     return -1;
   }
 
-  // get maximum (absolute) amplitude in noise window
-  double noiseMax = -1.0;
+  const size_t noiseStart  = noiseStartIdx;
+  const size_t noiseEnd    = noiseEndIdx;
+  const size_t signalStart = signalStartIdx;
+  const size_t signalEnd   = signalEndIdx;
+
+  double noise = 0;
   for (size_t i = noiseStart; i < noiseEnd; i++)
   {
-    noiseMax = std::max(std::abs(data[i]), noiseMax);
+    noise += square(data[i]);
   }
+  noise /= (noiseEnd - noiseStart);
 
-  // get maximum (absolute) amplitude in signal window
-  double signalMax = -1.0;
+  double signal = 0;
   for (size_t i = signalStart; i < signalEnd; i++)
   {
-    signalMax = std::max(std::abs(data[i]), signalMax);
+    signal += square(data[i]);
   }
+  signal /= (signalEnd - signalStart);
 
-  return signalMax / noiseMax;
+  return signal / noise;
 }
 
 void writeTrace(const Trace &trace, const string &file)

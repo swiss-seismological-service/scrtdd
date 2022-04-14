@@ -402,8 +402,8 @@ BOOST_DATA_TEST_CASE(test_snr_bad, bdata::make(badSnrTraces), trace)
 BOOST_DATA_TEST_CASE(test_snr_ok, bdata::make(realTraces), trace)
 {
   double snr = HDD::Waveform::computeSnr(
-      trace, trace.startTime() + (trace.timeWindow().length() / 2), -3, -0.350,
-      -0.350, 0.350);
+      trace, trace.startTime() + (trace.timeWindow().length() / 2), -0.7, -0.1,
+      -0.1, 0.5);
   BOOST_CHECK(snr >= 2);
 }
 

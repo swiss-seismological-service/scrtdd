@@ -203,7 +203,7 @@
               <parameter name="signalStart" type="double" default="-0.350" unit="sec">
                 <description>Start of signal window with respect to pick time (+/- secs).</description>
               </parameter>
-              <parameter name="signalEnd" type="double" default="0.350" unit="sec">
+              <parameter name="signalEnd" type="double" default="1" unit="sec">
                 <description>End of signal window with respect to pick time (+/- secs).</description>
               </parameter>
             </group>
