@@ -52,6 +52,8 @@ L.tileLayer(
     attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>',
     }).addTo(map);
 
+L.control.scale().addTo(map);
+
 var markerSize = d3.scalePow()
   .exponent(2)
   .domain([0,5])  // What's in the data
