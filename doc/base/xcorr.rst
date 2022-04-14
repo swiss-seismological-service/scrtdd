@@ -93,13 +93,7 @@ Example output::
 
 There could be several reasons why the cross-correlation between 2 phase waveforms is not considered for computing the statistics: the correlation coefficient is below the configured threshold (see ``crossCorrelation.x-phase.minCCCoef``), the SNR of one or both the waveforms is below the configured threshold (see ``crossCorrelation.snr.minSnr``), the waveform data for one or both the phases is not available and in general when the it is not possible to perform the cross-correlation. It is possible to know the exact reason by looking at the logs at debug level (--verbosity=4).
 
-The SNR is particularly important to reject bad picks (automatic picks or picks detected via cross-correlation, see :ref:`phase-update-label`, but it is not so relevant when relocating manually reviewed origins). The SNR signal/noise windows should be chosen so that they satisfies ALL the following 5 conditions:
-
-* pick time too early -> we want low SNR
-* pick time too late -> we want low SNR
-* pick time perfect -> we want high SNR
-* pick time is early but acceptable -> we want high SNR
-* pick time is late but acceptable -> we want high SNR
+The SNR is particularly important to reject bad automatic picks or picks detected via cross-correlation (see :ref:`phase-update-label`), but but it is not so relevant when relocating manually reviewed origins since the picks are checked already and bad ones discarded.
 
 
 .. _reusing-xcorr-label:

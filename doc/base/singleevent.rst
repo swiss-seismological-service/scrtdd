@@ -203,11 +203,9 @@ They can be both visualized in ``scolv`` as additional columns adding the follow
 Phase update
 ------------
 
-rtDD uses cross-correlation to detect phases at stations with no associated picks in order to fix the pick time and uncertainty of automatic picks. Those features are especially useful in real-time to increase the quality and number of double-difference observations when automatic origins have only few picks/phases.
-
-For automatic picks, the pick time is updated according to the average lag detected by all the good (above configured threshold) cross-correlation results. Since the real-time events are cross-correlated against catalog events, which have good manual picks, the updated pick time is expected to improve. The pick uncertainty is derived from the uncertainties of catalog-events. If no cross-correlation coefficients above the configured threshold are found, the pick is kept untouched.
-
-For stations with no associated phases, rtDD computes theoretical picks (see ``crossCorrelation.theoreticalPhaseAutoOrigin`` and ``crossCorrelation.theoreticalPhaseManualOrigin``). Those are then cross-correlated against the catalog event ones. Every theoretical pick that has at least one good cross-correlation result is added to the relocated origin, with pick time and uncertainties derived from catalog phases (similarly to what is done for automatic picks). Those *good* theoretical picks are thus used in the double-difference system inversion. Theoretical picks that have no good cross-correlation results are simply discarded.
+rtDD uses cross-correlation to fix the pick time and uncertainty of automatic picks. The pick time is updated according to the average lag detected by all the good (above configured threshold) cross-correlation results. Since the real-time events are cross-correlated against catalog events, which have good manual picks, the updated pick time is expected to improve. The pick uncertainty is derived from the uncertainties of catalog-events. If no cross-correlation result is above the configured threshold, the automatic pick is kept untouched.
+ 
+rtDD can also use cross-correlation to detect phases at stations with no associated picks (see ``crossCorrelation.detectMissingPhasesAutoOrigin`` and ``crossCorrelation.detectMissingPhasesManualOrigin``). It firstly computes the theoretical pick time and then cross-correlates it against the catalog event phases. Every theoretical pick that has at least one good cross-correlation result is added to the relocated origin, with pick time and uncertainties derived from catalog phases (similarly to what is done for automatic picks). Those detected picks are thus used in the double-difference system inversion. Theoretical picks that have no good cross-correlation results are simply discarded.
 
 Picks that have been updated or created by rtDD are identifiable by a ``x`` suffix (Px, Sx).
 
