@@ -329,8 +329,7 @@ void Solver::loadSolutions()
 {
   auto computeEventDelta = [this](unsigned evIdx,
                                   EventDeltas &evDelta) -> bool {
-    const EventParams &evprm = _eventParams.at(evIdx);
-    const unsigned evOffset  = evIdx * 4;
+    const unsigned evOffset = evIdx * 4;
 
     evDelta.longitude = _dd->m[evOffset + 0];
     evDelta.latitude  = _dd->m[evOffset + 1];
@@ -399,15 +398,16 @@ void Solver::computePartialDerivatives()
   // the new system.
   //
   _centroid = {0, 0, 0};
+  vector<double> longitudes;
   for (const auto &kw : _eventParams)
   {
     _centroid.lat += kw.second.lat;
-    _centroid.lon += kw.second.lon;
     _centroid.depth += kw.second.depth;
+    longitudes.push_back(degToRad(kw.second.lon));
   }
   _centroid.lat /= _eventParams.size();
-  _centroid.lon /= _eventParams.size();
   _centroid.depth /= _eventParams.size();
+  _centroid.lon = normalizeLon(radToDeg(computeCircularMean(longitudes)));
 
   auto convertCoord = [this](double lat, double lon, double depth, double &x,
                              double &y, double &z) {

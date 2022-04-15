@@ -96,6 +96,8 @@ double computeMean(const std::vector<double> &values);
 double computeMeanAbsoluteDeviation(const std::vector<double> &values,
                                     const double mean);
 
+double computeCircularMean(const std::vector<double> &angles);
+
 std::string joinPath(const std::string &path1, const std::string &path2);
 
 bool pathExists(const std::string &path);

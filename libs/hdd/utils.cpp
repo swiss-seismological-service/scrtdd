@@ -274,6 +274,17 @@ double computeMeanAbsoluteDeviation(const std::vector<double> &values,
   return computeMean(absoluteDeviations);
 }
 
+double computeCircularMean(const std::vector<double> &angles)
+{
+  double y = 0, x = 0;
+  for (size_t i = 0; i < angles.size(); i++)
+  {
+    x += cos(angles[i]);
+    y += sin(angles[i]);
+  }
+  return atan2(y / angles.size(), x / angles.size());
+}
+
 void writeXCorrToFile(const XCorrCache &xcorr,
                       const Catalog &cat,
                       const std::string &file)
