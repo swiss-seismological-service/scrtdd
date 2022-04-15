@@ -296,6 +296,7 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
   solverCfg.dampingFactorEnd             = 0.01;
   solverCfg.downWeightingByResidualStart = 0;
   solverCfg.downWeightingByResidualEnd   = 0;
+  solverCfg.airQuakes.action = HDD::SolverOptions::AQ_ACTION::RESET_DEPTH;
 
   std::unique_ptr<HDD::Catalog> relocCat =
       dd.relocateMultiEvents(clusterCfg, solverCfg);
@@ -332,6 +333,7 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
   solverCfg.absLocConstraintEnd   = 0.3;
   solverCfg.dampingFactorStart    = 0.01;
   solverCfg.dampingFactorEnd      = 0.01;
+  solverCfg.airQuakes.action = HDD::SolverOptions::AQ_ACTION::RESET_DEPTH;
 
   HDD::Catalog relocCat;
   for (const auto &kv : realTimeCat.getEvents())
@@ -376,11 +378,11 @@ struct Centroid
 // This centroid is in the middle of the generated nll grid files
 // Tests that runs with nll grids, should use this centroid, with
 // varying depths
-const Centroid nllCentroid{47.0, 8.5, 7};
+const Centroid nllCentroid{47.0, 8.5, 5};
 
 const vector<Centroid> centroidList{
-  nllCentroid, {0, 0, 7},
-  { 85, -90, 9},  {-85, 90, 10},
+  nllCentroid, {0, 0, 2},
+  { 85, -90, 3},  {-85, 90, 10},
   { 30, 170, 8},  { -60, -170, 6}
 };
 
