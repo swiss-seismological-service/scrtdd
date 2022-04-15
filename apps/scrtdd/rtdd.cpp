@@ -435,6 +435,7 @@ bool RTDD::validateParameters()
   bool profilesOK = true;
   for (const string &profileName : profilesToLoad)
   {
+    if ( profileName.empty() ) continue;
 
     ProfilePtr prof = new Profile;
     prof->name      = profileName;
