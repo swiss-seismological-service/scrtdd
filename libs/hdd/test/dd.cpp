@@ -383,7 +383,8 @@ const Centroid nllCentroid{47.0, 8.5, 5};
 const vector<Centroid> centroidList{
   nllCentroid, {0, 0, 2},
   { 85, -90, 3},  {-85, 90, 10},
-  { 75, 170, 8},  { -60, -170, 2}
+  { 75, 170, 8},  { -60, -170, 2},
+  { 0, 179.99, 4},
 };
 
 } // namespace
