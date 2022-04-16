@@ -30,6 +30,10 @@
         <parameter name="cacheWaveforms" type="boolean" default="true">
           <description>Save catalog waveforms to local disk after they have been loaded the first time. This avoids re-reading them from the configured recordStream in the future since this operation is dramatically slow (unless the recordStream points to a local disk source, in which case there is no advantage over caching the waveforms). Note: It is safe to delete the cache folder, in which case the waveforms will be loaded and saved again on disk the next time the profile is loaded (they will be read again from the configured recordStream).</description>
         </parameter>
+        <parameter name="cachedWaveformLength" type="double" default="10" unit="sec">
+          <description>The waveform length to store in the disk cache (centered around pick time). Although the minimum required waveform length is inferred from the cross-correlation settings (the max between cross-correlation and SNR windows), this option allows to cache to disk a longer window, which become useful to skip the data re-downloading if the cross-correlation settings are changed in the future.
+          </description>
+        </parameter> 
       </group>
       <group name="cron">
         <parameter name="delayTimes" type="list:int" default="10" unit="sec">

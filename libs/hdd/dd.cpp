@@ -142,7 +142,7 @@ void DD::createWaveformCache()
     _wfAccess.diskCache.reset(
         new Waveform::DiskCachedLoader(currLdr, _cacheDir));
     _wfAccess.extraLen.reset(
-        new Waveform::ExtraLenLoader(_wfAccess.diskCache, DISK_TRACE_MIN_LEN));
+        new Waveform::ExtraLenLoader(_wfAccess.diskCache, _cfg.diskTraceMinLen));
     currLdr = _wfAccess.extraLen;
   }
 
@@ -1735,7 +1735,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
   if (_useCatalogWaveformDiskCache && _waveformCacheAll)
   {
     diskLoader.reset(new Waveform::DiskCachedLoader(batchLoader, _tmpCacheDir));
-    loader.reset(new Waveform::ExtraLenLoader(diskLoader, DISK_TRACE_MIN_LEN));
+    loader.reset(new Waveform::ExtraLenLoader(diskLoader, _cfg.diskTraceMinLen));
   }
 
   // Load a large enough waveform to be able to check the SNR after

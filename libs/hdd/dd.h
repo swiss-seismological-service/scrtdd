@@ -41,6 +41,12 @@ struct Config
 
   std::string recordStreamURL; // where to fetch waveforms from
 
+  // For waveforms that are cached to disk, store at least `diskTraceMinLen`
+  // secs of data (centered at pick time).
+  // This is to avoid re-downloading waveforms at every cross-correlation
+  // configuration change
+  double diskTraceMinLen = 10;
+
   struct XCorr
   {
     double minCoef;     // min cross-correlatation coefficient required (0-1)
@@ -440,16 +446,6 @@ private:
     std::shared_ptr<Waveform::SnrFilterPrc> snrFilter;
     std::shared_ptr<Waveform::MemCachedProc> memCache;
   } _wfAccess;
-
-  // For waveforms that are cached to disk, store at least `DISK_TRACE_MIN_LEN`
-  // secs of data (centered at pick time).
-  // This is to avoid re-downloading waveforms every time the application is
-  // restarted with a minimum change of the cross-correlation configuration,
-  // which happens when the user is experimenting with the configuration
-  // options.
-  // Note that this approach requires slightly more disk space, but saves lot of
-  // precious user time.
-  static constexpr double DISK_TRACE_MIN_LEN = 10;
 };
 
 } // namespace HDD

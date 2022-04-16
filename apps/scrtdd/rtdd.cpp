@@ -435,7 +435,7 @@ bool RTDD::validateParameters()
   bool profilesOK = true;
   for (const string &profileName : profilesToLoad)
   {
-    if ( profileName.empty() ) continue;
+    if (profileName.empty()) continue;
 
     ProfilePtr prof = new Profile;
     prof->name      = profileName;
@@ -1031,6 +1031,7 @@ bool RTDD::validateParameters()
     }
 
     prof->ddCfg.recordStreamURL = recordStreamURL();
+    prof->ddCfg.diskTraceMinLen = configGetDouble("performance.cachedWaveformLength");
 
     // no reason to make those configurable
     prof->singleEventClustering.minWeight = 0;
