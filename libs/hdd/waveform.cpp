@@ -896,7 +896,7 @@ double computeSnr(const Trace &tr,
       (std::max({noiseStartIdx, noiseEndIdx, signalStartIdx, signalEndIdx}) >=
        data_size))
   {
-    logError(
+    logDebug(
         "Cannot compute SNR: noise/signal windows exceed waveform boundaries");
     return -1;
   }
