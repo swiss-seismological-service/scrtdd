@@ -62,7 +62,7 @@ source_suffix = ['.rst']
 master_doc = 'index'
 
 # General information about the project.
-project = u'rtDD: Real-time Double-Difference locations'
+project = u'rtDD: Real-time Double-Difference'
 copyright = u'2020, SED'
 
 # The version info for the project you're documenting, acts as replacement for
