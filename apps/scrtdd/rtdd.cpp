@@ -838,6 +838,14 @@ bool RTDD::validateParameters()
     }
     try
     {
+      prof->ddCfg.wfFilter.extraTraceLen = configGetDouble(prefix + "margin");
+    }
+    catch (...)
+    {
+      prof->ddCfg.wfFilter.extraTraceLen = 1.0;
+    }
+    try
+    {
       prof->ddCfg.wfFilter.resampleFreq =
           configGetDouble(prefix + "resampling");
     }
@@ -1031,7 +1039,8 @@ bool RTDD::validateParameters()
     }
 
     prof->ddCfg.recordStreamURL = recordStreamURL();
-    prof->ddCfg.diskTraceMinLen = configGetDouble("performance.cachedWaveformLength");
+    prof->ddCfg.diskTraceMinLen =
+        configGetDouble("performance.cachedWaveformLength");
 
     // no reason to make those configurable
     prof->singleEventClustering.minWeight = 0;

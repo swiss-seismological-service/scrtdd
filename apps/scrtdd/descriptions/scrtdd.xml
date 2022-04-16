@@ -189,6 +189,9 @@
               <parameter name="filterString" type="string" default="&quot;ITAPER(1)&gt;&gt;BW_HLP(2,1,20)&quot;">
                 <description>SeisComP string based filter definition. Set to "" to disable filtering.</description>
               </parameter>
+              <parameter name="margin" type="double" default="1" unit="sec">
+                <description>Extra seconds to add to the waveform ends before applying the filter. Useful to initialize the filter and to discard potential filter artifacts at the beginning and end of trace</description>
+              </parameter> 
               <parameter name="resampling" type="double" default="400" unit="Hz">
                 <description>Resample all traces at this samplig interval (hz) Set it to 0 disable resampling.</description>
               </parameter>

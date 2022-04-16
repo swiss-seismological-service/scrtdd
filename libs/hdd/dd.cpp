@@ -141,13 +141,13 @@ void DD::createWaveformCache()
   {
     _wfAccess.diskCache.reset(
         new Waveform::DiskCachedLoader(currLdr, _cacheDir));
-    _wfAccess.extraLen.reset(
-        new Waveform::ExtraLenLoader(_wfAccess.diskCache, _cfg.diskTraceMinLen));
+    _wfAccess.extraLen.reset(new Waveform::ExtraLenLoader(
+        _wfAccess.diskCache, _cfg.diskTraceMinLen));
     currLdr = _wfAccess.extraLen;
   }
 
   shared_ptr<Waveform::Processor> currProc(
-      new Waveform::BasicProcessor(currLdr));
+      new Waveform::BasicProcessor(currLdr, _cfg.wfFilter.extraTraceLen));
 
   if (_cfg.snr.minSnr > 0)
   {
@@ -168,13 +168,13 @@ void DD::replaceWaveformCacheLoader(const shared_ptr<Waveform::Loader> &baseLdr)
   }
   else if (_cfg.snr.minSnr > 0)
   {
-    _wfAccess.snrFilter->setAuxProcessor(
-        shared_ptr<Waveform::Processor>(new Waveform::BasicProcessor(baseLdr)));
+    _wfAccess.snrFilter->setAuxProcessor(shared_ptr<Waveform::Processor>(
+        new Waveform::BasicProcessor(baseLdr, _cfg.wfFilter.extraTraceLen)));
   }
   else
   {
-    _wfAccess.memCache->setAuxProcessor(
-        shared_ptr<Waveform::Processor>(new Waveform::BasicProcessor(baseLdr)));
+    _wfAccess.memCache->setAuxProcessor(shared_ptr<Waveform::Processor>(
+        new Waveform::BasicProcessor(baseLdr, _cfg.wfFilter.extraTraceLen)));
   }
 }
 
@@ -1735,7 +1735,8 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
   if (_useCatalogWaveformDiskCache && _waveformCacheAll)
   {
     diskLoader.reset(new Waveform::DiskCachedLoader(batchLoader, _tmpCacheDir));
-    loader.reset(new Waveform::ExtraLenLoader(diskLoader, _cfg.diskTraceMinLen));
+    loader.reset(
+        new Waveform::ExtraLenLoader(diskLoader, _cfg.diskTraceMinLen));
   }
 
   // Load a large enough waveform to be able to check the SNR after
@@ -1747,13 +1748,16 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
     double extraBefore =
         std::min({_cfg.snr.noiseStart, _cfg.snr.signalStart}) - maxDelay;
     extraBefore = extraBefore > 0 ? 0 : std::abs(extraBefore);
+    extraBefore += _cfg.wfFilter.extraTraceLen;
     double extraAfter =
         std::max({_cfg.snr.noiseEnd, _cfg.snr.signalEnd}) + maxDelay;
     extraAfter = extraAfter < 0 ? 0 : extraAfter;
+    extraAfter += _cfg.wfFilter.extraTraceLen;
     loader.reset(new Waveform::ExtraLenLoader(loader, extraBefore, extraAfter));
   }
 
-  shared_ptr<Waveform::Processor> proc(new Waveform::BasicProcessor(loader));
+  shared_ptr<Waveform::Processor> proc(
+      new Waveform::BasicProcessor(loader, _cfg.wfFilter.extraTraceLen));
 
   //
   // loop through reference event phases

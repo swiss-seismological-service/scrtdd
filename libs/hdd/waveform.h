@@ -200,7 +200,9 @@ public:
 class BasicProcessor : public Processor
 {
 public:
-  BasicProcessor(const std::shared_ptr<Loader> &auxLdr) : _auxLdr(auxLdr) {}
+  BasicProcessor(const std::shared_ptr<Loader> &auxLdr, double extraTraceLen)
+      : _auxLdr(auxLdr), _extraTraceLen(extraTraceLen)
+  {}
 
   virtual ~BasicProcessor() = default;
 
@@ -216,10 +218,14 @@ public:
                                    Transform trans) override;
 
 private:
-  std::shared_ptr<Trace> process(const Trace &trace,
-                                 const std::string &filterStr,
-                                 double resampleFreq) const;
+  std::shared_ptr<Trace> loadAndProcess(const TimeWindow &tw,
+                                        Catalog::Phase ph,
+                                        const std::string &channelCode,
+                                        const std::string &filterStr,
+                                        double resampleFreq) const;
+
   std::shared_ptr<Loader> _auxLdr;
+  double _extraTraceLen;
 };
 
 class MemCachedProc : public Processor

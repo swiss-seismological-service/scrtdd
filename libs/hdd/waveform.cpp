@@ -156,20 +156,9 @@ void BatchLoader::load()
 TimeWindow ExtraLenLoader::traceTimeWindowToLoad(const TimeWindow &neededTW,
                                                  const UTCTime &pickTime) const
 {
-  TimeWindow twToLoad = neededTW;
-
-  // Make sure to load at least `_traceMinLenh` seconds of the waveform.
-  if (_beforePickLen > 0 || _afterPickLen > 0)
-  {
-    const UTCTime::duration additionalTimeBefore = secToDur(_beforePickLen);
-    const UTCTime::duration additionalTimeAfter  = secToDur(_afterPickLen);
-
-    if (twToLoad.startTime() > pickTime - additionalTimeBefore)
-      twToLoad.setStartTime(pickTime - additionalTimeBefore);
-
-    if (twToLoad.endTime() < pickTime + additionalTimeAfter)
-      twToLoad.setEndTime(pickTime + additionalTimeAfter);
-  }
+  TimeWindow extraTW(pickTime - secToDur(_beforePickLen),
+                     pickTime + secToDur(_afterPickLen));
+  TimeWindow twToLoad = extraTW.merge(neededTW);
 
   //
   // round the start/end time to the nearest second
@@ -299,18 +288,9 @@ shared_ptr<const Trace> BasicProcessor::get(const TimeWindow &tw,
                                             double resampleFreq,
                                             Transform trans)
 {
-  auto loadWaveform = [this, &tw, &ph, &filterStr,
-                       resampleFreq](const string &channelCode) {
-    Catalog::Phase copy(ph);
-    copy.channelCode              = channelCode;
-    shared_ptr<const Trace> trace = _auxLdr->get(tw, copy);
-    if (trace) trace = process(*trace, filterStr, resampleFreq);
-    return trace;
-  };
-
   if (trans == Transform::NONE)
   {
-    return loadWaveform(ph.channelCode);
+    return loadAndProcess(tw, ph, ph.channelCode, filterStr, resampleFreq);
   }
 
   //
@@ -338,20 +318,25 @@ shared_ptr<const Trace> BasicProcessor::get(const TimeWindow &tw,
   if (trans == Transform::TRANSVERSAL || trans == Transform::RADIAL)
   {
     shared_ptr<const Trace> trV(
-        loadWaveform(comps.names[ThreeComponents::Vertical]));
+        loadAndProcess(tw, ph, comps.names[ThreeComponents::Vertical],
+                       filterStr, resampleFreq));
     shared_ptr<const Trace> trH1(
-        loadWaveform(comps.names[ThreeComponents::FirstHorizontal]));
+        loadAndProcess(tw, ph, comps.names[ThreeComponents::FirstHorizontal],
+                       filterStr, resampleFreq));
     shared_ptr<const Trace> trH2(
-        loadWaveform(comps.names[ThreeComponents::SecondHorizontal]));
+        loadAndProcess(tw, ph, comps.names[ThreeComponents::SecondHorizontal],
+                       filterStr, resampleFreq));
     if (trH1 && trH2 && trV)
       trace = transformRT(tw, ph, ev, sta, comps, *trV, *trH1, *trH2, trans);
   }
   else if (trans == Transform::L2)
   {
     shared_ptr<const Trace> trH1(
-        loadWaveform(comps.names[ThreeComponents::FirstHorizontal]));
+        loadAndProcess(tw, ph, comps.names[ThreeComponents::FirstHorizontal],
+                       filterStr, resampleFreq));
     shared_ptr<const Trace> trH2(
-        loadWaveform(comps.names[ThreeComponents::SecondHorizontal]));
+        loadAndProcess(tw, ph, comps.names[ThreeComponents::SecondHorizontal],
+                       filterStr, resampleFreq));
     if (trH1 && trH2) trace = transformL2(tw, ph, comps, *trH1, *trH2);
   }
 
@@ -368,19 +353,44 @@ shared_ptr<const Trace> BasicProcessor::get(const TimeWindow &tw,
   return trace;
 }
 
-std::shared_ptr<Trace> BasicProcessor::process(const Trace &trace,
-                                               const std::string &filterStr,
-                                               double resampleFreq) const
+std::shared_ptr<Trace>
+BasicProcessor::loadAndProcess(const TimeWindow &tw,
+                               Catalog::Phase ph, // copied
+                               const string &channelCode,
+                               const string &filterStr,
+                               double resampleFreq) const
 {
-  shared_ptr<Trace> copy(new Trace(trace));
+  ph.channelCode = channelCode;
+
+  const TimeWindow twToLoad =
+      tw.extend(secToDur(_extraTraceLen), secToDur(_extraTraceLen));
+
+  shared_ptr<const Trace> trace = _auxLdr->get(twToLoad, ph);
+  if (!trace) return nullptr;
+
+  shared_ptr<Trace> copy(new Trace(*trace));
   try
   {
     filter(*copy, true, filterStr, resampleFreq);
   }
   catch (exception &e)
   {
-    logWarning("Errow while filtering waveform: %s", e.what());
-    copy.reset();
+    logDebug("Errow while filtering waveform: %s", e.what());
+    return nullptr;
+  }
+
+  if (!copy->slice(tw))
+  {
+    logDebug("Error while processing phase data '%s': cannot slice trace from "
+             "%s length %.2f sec. Trace data from %s length %.2f sec, samples "
+             "%zu sampfreq %f",
+             string(ph).c_str(),
+             HDD::UTCClock::toString(tw.startTime()).c_str(),
+             HDD::durToSec(tw.length()),
+             HDD::UTCClock::toString(copy->startTime()).c_str(),
+             HDD::durToSec(copy->timeWindow().length()), copy->sampleCount(),
+             copy->samplingFrequency());
+    return nullptr;
   }
   return copy;
 }

@@ -63,6 +63,10 @@ struct Config
   {
     std::string filterStr = "ITAPER(1)>>BW_HLP(2,1,20)"; // "" -> no filtering
     double resampleFreq   = 400;                         // 0 -> no resampling
+    // Extra waveform to load before and after the required window. This extra
+    // len is useful to initialize the filter and to discard potential filter
+    // artifacts at the beginning and end of trace
+    double extraTraceLen = 1; // seconds
   } wfFilter;
 
   struct
