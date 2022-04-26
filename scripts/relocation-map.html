@@ -1,0 +1,221 @@
+<html>
+   <head>
+      <meta charset="UTF-8" />
+      <title>Multi-Event Double-Difference Relocation</title>
+
+      <!-- Load Leaflet -->
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+   integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin=""/>
+      <!-- Make sure you put this AFTER Leaflet's CSS -->
+      <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
+
+      <!-- Load d3.js -->
+      <script src="https://d3js.org/d3.v6.js"></script>
+   </head>
+   <body onload="loadData();">
+      <center style="margin-bottom: 20px;margin-top: 40px;" >
+             <font size='+2' >Multi Event Double Difference</font>
+      </center>
+      <center>
+      <div>
+          <table>
+            <tr><td>
+              <input type="checkbox" class="checkbox" value="abs-events" checked><label>Catalog Events</label>
+              <input type="checkbox" class="checkbox" value="medd-events" checked><label>ME-DD Events</label>
+              <input type="checkbox" class="checkbox" value="event-links" ><label>Events links</label>
+              <input type="checkbox" class="checkbox" value="stations" ><label>Stations</label>
+            </td><tr>
+            </tr><td>
+              From <input type="date" class="date" id="start-date">
+              to <input type="date" class="date" id="end-date">
+            </td></tr>
+          </table>
+      </div>
+      <div id="mapid" style="height: 80%; width: 90%"></div>
+      </center>
+      <table width='99%' cellpaddding='2' cellspacing='1' border='0'>
+      <tr>
+        <td align="left">Last update: <iframe style="border:none; width:300px; height: 50px; display:block; " src="LAST_RUN"></iframe></td>
+      </tr>
+      </table>
+   </body>
+</html>
+
+
+<script>
+
+// mapid is the id of the div where the map will appear
+var map = L.map('mapid').setView([46.7, 8.3], 8);
+
+L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>',
+    }).addTo(map);
+
+L.control.scale().addTo(map);
+
+var markerSize = d3.scalePow()
+  .exponent(2)
+  .domain([0,5])  // What's in the data
+  .range([ 4, 25])  // Size in pixel
+
+var markerColor = d3.scaleOrdinal()
+  .domain(["abs-events", "medd-events", "event-links", "stations" ])
+  .range([ "red", "blue", "red", "yellow"]);
+
+var markerLayer = d3.scaleOrdinal()
+  .domain(["abs-events", "medd-events", "event-links", "stations" ])
+  .range([ L.layerGroup(), L.layerGroup(), L.layerGroup(), L.layerGroup()]);
+
+d3.selectAll(".checkbox").on("change", updateVisibleLayers);
+
+function updateVisibleLayers() {
+
+  // For each check box:
+  d3.selectAll(".checkbox").each(function(d){
+    cb = d3.select(this);
+    grp = cb.property("value")
+
+    if(cb.property("checked")){     // If the box is check, I show the group
+      markerLayer(grp).addTo(map);
+    } else {     // Otherwise I hide it
+      markerLayer(grp).remove();
+    }
+  });
+}
+
+var absEvents = null;
+var meddEvents = null;
+
+d3.selectAll(".date").on("change", updateVisibleEvents);
+
+function updateVisibleEvents() {
+    // check all data has been loaded
+    if (absEvents != null && meddEvents != null)
+    {
+      markerLayer("abs-events").clearLayers();
+      markerLayer("medd-events").clearLayers();
+      markerLayer("event-links").clearLayers();
+      buildEventsLayer(absEvents);
+      buildEventsLayer(meddEvents);
+      buildEventLinksLayer(absEvents, meddEvents)
+    }
+}
+
+function eventDateFilter() {
+    var startDate = new Date(document.getElementById("start-date").value);
+    var endDate   = new Date(document.getElementById("end-date").value);
+    return function(ev) { 
+    if ( (!isNaN(startDate) && ev.time < startDate) ||
+             (!isNaN(endDate) && ev.time > endDate) )
+      {
+          return false;
+      }
+      return true;
+    };
+}
+
+function buildEventsLayer(evData) {
+    evData.filter( eventDateFilter() ).forEach(ev => {
+        var circle = L.circleMarker([ev.lat, ev.lon], {
+            color: markerColor(ev.group),
+            fillColor: markerColor(ev.group),
+            fillOpacity: 0.5,
+            weight : 1,
+            radius: markerSize(ev.magnitude)
+        });
+        circle.bindPopup(ev.desc);
+        circle.addTo(markerLayer(ev.group));
+    });
+}
+
+function buildEventLinksLayer(absEvents, meddEvents) {
+    evLinks = new Map();
+    meddEvents.filter( eventDateFilter() ).forEach(ev => {
+        evLinks.set(ev.id, new Array(2));
+        evLinks.get(ev.id)[0]= [ev.lat, ev.lon];
+    });
+    absEvents.filter( eventDateFilter() ).filter( ev => evLinks.has(ev.id) ).forEach(ev => {
+        evLinks.get(ev.id)[1]= [ev.lat, ev.lon];
+    });
+    evLinks.forEach((value, key) => {
+      var polyline = L.polyline(value, {
+        color: markerColor("event-links"),
+        weight : 1
+      });
+      polyline.addTo(markerLayer("event-links"));
+    });
+}
+
+
+function buildStationsLayer(stData) {
+    stData.forEach(st => {
+        var circle = L.circleMarker([st.lat, st.lon], {
+            color: markerColor(st.group),
+            fillColor: markerColor(st.group),
+            fillOpacity: 0.3,
+            radius: 10
+        });
+        circle.bindTooltip(st.desc);
+        circle.addTo(markerLayer(st.group));
+    });
+}
+
+function loadData() {
+
+  d3.csv("./event.csv", function(data) {
+    return {
+      id    : +data.id, 
+      time  : new Date(data.isotime),
+      lat   : +data.latitude,
+      lon   : +data.longitude,
+      magnitude  : +data.magnitude,
+      desc  : new Date(data.isotime).toUTCString()
+              + "<br>Mag " + data.magnitude 
+              + "<br>Depth km " + data.depth,
+      group : "abs-events"
+    };
+  }).then(function(data){
+     absEvents = data;
+     updateVisibleEvents();
+     updateVisibleLayers();
+  });
+
+  d3.csv("./me-dd-event.csv", function(data) {
+    return {
+      id    : +data.id, 
+      time  : new Date(data.isotime),
+      lat   : +data.latitude,
+      lon   : +data.longitude,
+      magnitude  : +data.magnitude,
+      desc  : new Date(data.isotime).toUTCString()
+              + "<br>Mag " + data.magnitude 
+              + "<br>Depth km " + data.depth
+              + "<br>Depth change km " + data.depthChange
+              + "<br>Epicenter change km " + data.locChange
+              + "<br>Rms change sec " + (parseFloat(data.finalRms) - parseFloat(data.startRms)).toFixed(3)
+              + "<br>Used phases P " + data.ph_usedP + " S " + data.ph_usedS
+              + "<br>Used neighbours " + data.numNeighbours, 
+      group : "medd-events"
+    };
+  }).then(function(data){
+     meddEvents = data;
+     updateVisibleEvents();
+     updateVisibleLayers();
+  });
+
+  d3.csv("./station.csv", function(data) {
+    return {
+      lat   : +data.latitude,
+      lon   : +data.longitude,
+      desc  : data.networkCode + "." + data.stationCode + "." + data.locationCode,
+      group : "stations"
+    };
+  }).then(function(data){
+     buildStationsLayer(data);
+     updateVisibleLayers();
+  });
+}
+
+</script>
+

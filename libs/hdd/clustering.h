@@ -18,28 +18,22 @@
 #define __HDD_CLUSTERING_H__
 
 #include "catalog.h"
-#include <deque>
 #include <list>
-#include <seiscomp3/core/baseobject.h>
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
 
-namespace Seiscomp {
 namespace HDD {
 
-DEFINE_SMARTPOINTER(Neighbours);
-
 // DD background catalog
-struct Neighbours : public Core::BaseObject
+struct Neighbours
 {
   unsigned refEvId;
-
   std::unordered_set<unsigned> ids; // neighbouring event id
-
-  std::unordered_map<unsigned,                       // indexed by event id
-                     std::unordered_map<std::string, // indexed by station id
-                                        std::set<Catalog::Phase::Type>>>
+  std::unordered_map<
+      unsigned,                       // indexed by event id
+      std::unordered_map<std::string, // indexed by station id
+                         std::unordered_set<Catalog::Phase::Type>>>
       phases;
 
   void add(unsigned neighbourId,
@@ -48,11 +42,6 @@ struct Neighbours : public Core::BaseObject
   {
     ids.insert(neighbourId);
     phases[neighbourId][stationId].insert(phase);
-  }
-
-  std::unordered_set<unsigned>::size_type numNeighbours() const
-  {
-    return ids.size();
   }
 
   bool has(unsigned neighbourId) const
@@ -83,17 +72,20 @@ struct Neighbours : public Core::BaseObject
     return false;
   }
 
-  std::unordered_map<std::string, std::set<Catalog::Phase::Type>>
+  std::unordered_map<std::string, std::unordered_set<Catalog::Phase::Type>>
   allPhases() const;
 
-  CatalogPtr toCatalog(const CatalogCPtr &catalog,
-                       bool includeRefEv = false) const;
+  std::unordered_map<std::string, std::unordered_set<Catalog::Phase::Type>>
+  allPhases(unsigned neighbourId) const;
+
+  std::unique_ptr<Catalog> toCatalog(const Catalog &catalog,
+                                     bool includeRefEv = false) const;
 };
 
-NeighboursPtr
-selectNeighbouringEvents(const CatalogCPtr &catalog,
+std::unique_ptr<Neighbours>
+selectNeighbouringEvents(const Catalog &catalog,
                          const Catalog::Event &refEv,
-                         const CatalogCPtr &refEvCatalog,
+                         const Catalog &refEvCatalog,
                          double minPhaseWeight   = 0,
                          double minESdis         = 0,
                          double maxESdis         = -1, // -1 = no limits
@@ -106,8 +98,9 @@ selectNeighbouringEvents(const CatalogCPtr &catalog,
                          double maxEllipsoidSize = 10,
                          bool keepUnmatched      = false);
 
-std::list<NeighboursPtr>
-selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
+// find Neighbours for each event in the catalog
+std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
+selectNeighbouringEventsCatalog(const Catalog &catalog,
                                 double minPhaseWeight,
                                 double minESdis,
                                 double maxESdis,
@@ -120,10 +113,15 @@ selectNeighbouringEventsCatalog(const CatalogCPtr &catalog,
                                 double maxEllipsoidSize,
                                 bool keepUnmatched);
 
-std::deque<std::list<NeighboursPtr>>
-clusterizeNeighbouringEvents(const std::list<NeighboursPtr> &neighboursList);
+// Organize the neighbours by not connected clusters. In addition,
+// don't report the same pair multiple times (e.g. ev1-ev2 and ev2-ev1)
+// since we only need one observation per pair in the DD solver.
+// The input will be moved to the return value
+std::list<std::unordered_map<unsigned, std::unique_ptr<Neighbours>>>
+clusterizeNeighbouringEvents(
+    std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
+        &neighboursByEvent);
 
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

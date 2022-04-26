@@ -17,6 +17,9 @@
 
 #include "rtdd.h"
 
+#define SEISCOMP_COMPONENT RTDD
+#include <seiscomp/logging/log.h>
+
 int main(int argc, char **argv)
 {
   int retCode = EXIT_SUCCESS;

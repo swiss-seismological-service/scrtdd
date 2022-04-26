@@ -19,19 +19,18 @@
 
 #include "catalog.h"
 
-#include <seiscomp3/core/baseobject.h>
-#include <seiscomp3/seismology/ttt.h>
-
-namespace Seiscomp {
 namespace HDD {
 
-DEFINE_SMARTPOINTER(TravelTimeTable);
-
-class TravelTimeTable : public Core::BaseObject
+class TravelTimeTable
 {
 public:
-  static TravelTimeTable *create(const std::string &type,
-                                 const std::string &model);
+  TravelTimeTable()          = default;
+  virtual ~TravelTimeTable() = default;
+
+  TravelTimeTable(const TravelTimeTable &other) = delete;
+  TravelTimeTable &operator=(const TravelTimeTable &other) = delete;
+
+  virtual void freeResources() = 0;
 
   /*
    * The implementation of this interface MUST compute:
@@ -82,9 +81,6 @@ public:
                    phaseType, travelTime);
   }
 
-  const std::string type;
-  const std::string model;
-
 protected:
   /*
    * Utility function to compute straight ray path approximation
@@ -99,14 +95,8 @@ protected:
                                   const std::string &phaseType,
                                   double *takeOffAngleAzim = nullptr,
                                   double *takeOffAngleDip  = nullptr);
-
-  TravelTimeTable(const std::string &t, const std::string &m)
-      : type(t), model(m)
-  {}
-  virtual ~TravelTimeTable() {}
 };
 
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

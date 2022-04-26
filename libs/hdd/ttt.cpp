@@ -15,46 +15,14 @@
  ***************************************************************************/
 
 #include "ttt.h"
-#include "nllttt.h"
-#include "scttt.h"
+#include "log.h"
 #include "utils.h"
 
-#include <seiscomp3/core/strings.h>
-#include <seiscomp3/math/math.h>
 #include <sstream>
-#include <stdexcept>
-
-#define SEISCOMP_COMPONENT HDD
-#include <seiscomp3/logging/log.h>
 
 using namespace std;
-using Seiscomp::Core::stringify;
 
-namespace Seiscomp {
 namespace HDD {
-
-TravelTimeTable *TravelTimeTable::create(const std::string &type,
-                                         const std::string &model)
-{
-  TravelTimeTable *ttt = nullptr;
-
-  if (type == "LOCSAT" || type == "libtau")
-  {
-    ttt = new ScTravelTimeTable(type, model);
-  }
-  else if (type == "NonLinLoc")
-  {
-    ttt = new NLL::NllTravelTimeTable(type, model);
-  }
-
-  if (ttt == nullptr)
-  {
-    string msg = stringify("Cannot load travel time table: unknown type %s",
-                           type.c_str());
-    throw runtime_error(msg.c_str());
-  }
-  return ttt;
-}
 
 void TravelTimeTable::computeApproximatedTakeOfAngles(
     double eventLat,
@@ -77,15 +45,14 @@ void TravelTimeTable::computeApproximatedTakeOfAngles(
     {
       double VertDist  = eventDepth + station.elevation / 1000.;
       *takeOffAngleDip = std::asin(VertDist / distance);
-      *takeOffAngleDip += deg2rad(90); // -90(down):+90(up) -> 0(down):180(up)
+      *takeOffAngleDip += degToRad(90); // -90(down):+90(up) -> 0(down):180(up)
     }
 
     if (takeOffAngleAzim)
     {
-      *takeOffAngleAzim = deg2rad(azimuth);
+      *takeOffAngleAzim = degToRad(azimuth);
     }
   }
 }
 
 } // namespace HDD
-} // namespace Seiscomp

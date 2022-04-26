@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <seiscomp>
-  <module name="scrtdd" category="Processing" inherit-global-bindings="true">
+  <module name="scrtdd" category="Processing" inherit-global-bindings="false">
     <description>
-      Double-Difference relocation module for real-time and catalogs relocation.
-      Please see https://github.com/swiss-seismological-service/scrtdd for the documentation.
+      Double-Difference location module for real-time and event catalogs.
     </description>
     <configuration>
       <parameter name="onlyPreferredOrigins" type="boolean" default="true">
@@ -19,7 +18,7 @@
         <description>Defines the directory used for storing processing files (waveforms cache and debugging files).</description>
       </parameter>
       <parameter name="saveProcessingFiles" type="boolean" default="false">
-        <description>Store advanced processing information files in the working directory (useful for debugging/troubleshooting).</description>
+        <description>Store logs and processing files in the working directory (useful for debugging/troubleshooting or further analysis).</description>
       </parameter>
       <parameter name="activeProfiles" type="list:string" default="">
         <description>Defines a list of active profiles for real-time/single-event processing.</description>
@@ -31,6 +30,10 @@
         <parameter name="cacheWaveforms" type="boolean" default="true">
           <description>Save catalog waveforms to local disk after they have been loaded the first time. This avoids re-reading them from the configured recordStream in the future since this operation is dramatically slow (unless the recordStream points to a local disk source, in which case there is no advantage over caching the waveforms). Note: It is safe to delete the cache folder, in which case the waveforms will be loaded and saved again on disk the next time the profile is loaded (they will be read again from the configured recordStream).</description>
         </parameter>
+        <parameter name="cachedWaveformLength" type="double" default="10" unit="sec">
+          <description>The waveform length to store in the disk cache (centered around pick time). Although the minimum required waveform length is inferred from the cross-correlation settings (the max between cross-correlation and SNR windows), this option allows to cache to disk a longer window, which become useful to skip the data re-downloading if the cross-correlation settings are changed in the future.
+          </description>
+        </parameter> 
       </group>
       <group name="cron">
         <parameter name="delayTimes" type="list:int" default="10" unit="sec">
@@ -74,20 +77,20 @@
             </parameter>
           </group>
           <group name="doubleDifferenceSystem">
-            <description>These options control selection of event pairs and phases within a pair, to be used in the creation of double-difference equation system. For each event pair, when a phase exists for both paired events at a common station an equation is added to the system.</description> 
+            <description>These options control which events and phases are used in the double-difference equation system. For each event pair, when a phase exists for both paired events at a common station an equation is added to the system.</description> 
             <group name="eventFiltering">
-              <description>Control the selection of events to use for the pairs of the DD system.</description>
-              <parameter name="minNumPhases" type="int">
+              <description>Control the selection of events to be used the DD system. These options allow the exclusion of poorly connected events (not enough phases and/or neighbours)</description>
+              <parameter name="minNumPhases" type="int" default="4">
                 <description>Minimum number of phases at common stations required by event pairs. Event pairs not satisfying this condition will not be used. Useful to include only well connected neighbours.</description>
               </parameter> 
-              <parameter name="minNumNeighbours" type="int">
+              <parameter name="minNumNeighbours" type="int" default="4">
                 <description>Minimum number of neighbours required by both events in the pairs. Useful to avoid inclusion of poorly constrained events.</description>
               </parameter>
             </group>
             <group name="phaseFiltering">
-              <description>Control the selection of phases to use for the event pairs of the DD system.</description> 
+              <description>Control the selection of phases to be used in the DD system.</description> 
               <parameter name="maxNumPhases" type="int">
-                <description>Maximum number of phases at common stations used in the event pairs. If this value is set, closer stations will have higher precedence over further ones. A value of 0 disables this limit.</description>
+                <description>Maximum number of phases per event pair. If this value is set, closer stations will have higher precedence over further ones. A value of 0 disables this limit.</description>
               </parameter>
               <parameter name="minStationDistance" type="double" unit="km">
                 <description>Minimum distance (km) between event and station required for a phase to be used. Phases belonging to stations not satisfying this condition will not be used.</description>
@@ -95,7 +98,7 @@
               <parameter name="maxStationDistance" type="double" unit="km">
                 <description>Max distance (km) between event and station allowed for a phase to be used. Phases belonging to stations not satisfying this condition will not be used. A value of 0 or less disables this limit.</description>
               </parameter>
-              <parameter name="minStationToEventPairDistRatio" type="double">
+              <parameter name="minStationToEventPairDistRatio" type="double" default="2">
                 <description>Minimum ratio between event-station to inter-event distance allowed. Phases belonging to stations not satisfying this condition will not be used.</description>
               </parameter>
             </group>
@@ -131,19 +134,21 @@
           </group>
 
           <group name="crossCorrelation">
-           <description>cross-correlation is used to improve the quality of the differential travel times between event pairs in the of double-difference system</description> 
-
+           <description>cross-correlation is used to improve the differential travel times used in the double-difference system. The differential travel times are computed as difference between the phase absolute travel time of two events' phases and consequently rely on the accuracy and consistency across pick times. The cross-correlation is used to improve those differential times by cross-correlating the phases waveforms and using the detected lag as differential time for every phase pair whose correlation coefficient exceeds the configured threshold. This lag then replaces the absolute travel time difference value in the double-difference system. The phase pairs with low correlation coefficient maintain the differential time derived from the absolute travel time difference. The cross-correlation step is not mandatory and can be disabled using either 'maxStationDistance' or 'maxInterEventDistance'</description> 
             <parameter name="maxStationDistance" type="double" default="85" unit="km">
-              <description>Max distance (km) between event and station allowed. Phases belonging to further stations will not be used in cross-correlation. Set it to -1 to remove limits.</description>
+              <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between event and station for a cross-correlation to happen. Phases belonging to further stations will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 skips all cross-correlations.</description> 
             </parameter>
             <parameter name="maxInterEventDistance" type="double" default="-1" unit="km">
-              <description>Max distance (km) between events allowed. Event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Set it to -1 to remove limits.</description>
+              <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between events for a cross-correlation to happen. Phases of event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 skips all cross-correlations.</description>
             </parameter>
-            <parameter name="theoreticalPhaseAutoOrigin" type="boolean" default="true">
-              <description>The cross-correlation is used to detect phases at stations with no associated picks. This option is applied to automatic origins.</description>
+            <parameter name="detectMissingPhasesAutoOrigin" type="boolean" default="true">
+              <description>Whether cross-correlation is used to detect phases at stations with no associated picks. This option applies to automatic origins. If the background catalog contains events with high quality picks, those can serve as template for detecting picks on real-time events. In multi-event mode this option is not used.</description>
             </parameter>
-            <parameter name="theoreticalPhaseManualOrigin" type="boolean" default="false">
-              <description>The cross-correlation is used to detect phases at stations with no associated picks. This option is applied to manual origins.</description>
+            <parameter name="detectMissingPhasesManualOrigin" type="boolean" default="false">
+              <description>Whether cross-correlation is used to detect phases at stations with no associated picks. This option applies to manual origins. If the background catalog contains events with high quality picks, those can serve as template for detecting picks on real-time events. This option also affects the multi-event mode.</description> 
+            </parameter>
+            <parameter name="compatibleChannels" type="string" default="">
+              <description>Cross-correlation is computed on phases with the same channel code (e.g. HH. EH, HG, etc), however here it is possible to force the cross-correlation between different channel codes. The value is a list separated by ';' and each element is a list (again) of compatible channels separated by ',' for example: "HH,EH;HG,HN"</description>
             </parameter>
             <group name="p-phase">
               <parameter name="minCCCoef" type="double" default="0.50">
@@ -159,7 +164,7 @@
                 <description>Maximum data windows lag accepted (secs)..</description>
               </parameter>
               <parameter name="components" type="list:string" default="Z">
-                <description>Priority list of components to be used in cross-correlation. If cross-correlation is below threshold on a component, the subsequent component is used.</description>
+                <description>Priority list of components to be used in cross-correlation. If the component exists for a pair of phases it is used for the cross-correlation, otherwise the next component in the list is tried. Special values are 'L', which computes the L2 norm of the 2 horizontal components and 'T', which computes the transversal component with respect to the event location to which the phase belongs to.</description>
               </parameter>
             </group>
             <group name="s-phase">
@@ -175,8 +180,8 @@
               <parameter name="maxDelay" type="double" default="0.350" unit="sec">
                 <description>Maximum data windows lag accepted (secs).</description>
               </parameter>
-              <parameter name="components" type="list:string" default="T,Z">
-                <description>Priority list of components to be used in cross-correlation. If cross-correlation is below threshold on a component, the subsequent component is used.</description>
+              <parameter name="components" type="list:string" default="H">
+                <description>Priority list of components to be used in cross-correlation. If the component exists for a pair of phases it is used for the cross-correlation, otherwise the next component in the list is tried. Special values are 'H', which computes the L2 norm of the 2 horizontal components and 'T' (and 'R'), which computes the transversal (and radial) component with respect with the event location to which the phase belongs to.</description>
               </parameter>
             </group>
             <group name="waveformFiltering">
@@ -184,14 +189,17 @@
               <parameter name="filterString" type="string" default="&quot;ITAPER(1)&gt;&gt;BW_HLP(2,1,20)&quot;">
                 <description>SeisComP string based filter definition. Set to "" to disable filtering.</description>
               </parameter>
+              <parameter name="margin" type="double" default="1" unit="sec">
+                <description>Extra seconds to add to the waveform ends before applying the filter. Useful to initialize the filter and to discard potential filter artifacts at the beginning and end of trace</description>
+              </parameter> 
               <parameter name="resampling" type="double" default="400" unit="Hz">
                 <description>Resample all traces at this samplig interval (hz) Set it to 0 disable resampling.</description>
               </parameter>
             </group>
             <group name="snr">
-              <description>Exclude phases from cross-correlation when the Signal to Noise Ratio (SNR) is below a configured threshold.</description>
+              <description>Exclude phases from cross-correlation when the Signal to Noise Ratio (SNR) is below a configured threshold. Useful to avoid that low quality phases (e.g. automatic) generate low quality cross-correlation differential travel times. Set 'minSnr' to 0 to disable this feature.</description>
               <parameter name="minSnr" type="double" default="2">
-                <description>Minimum SNR value required to use a pick in cross-correlation. If 'minSnr' is used, then the noise and signal windows must be defined too.</description>
+                <description>Minimum SNR value required for a pick to be used in cross-correlation.</description>
               </parameter>
               <parameter name="noiseStart" type="double" default="-3" unit="sec">
                 <description>Start of noise window with respect to pick time (+/- secs).</description>
@@ -202,7 +210,7 @@
               <parameter name="signalStart" type="double" default="-0.350" unit="sec">
                 <description>Start of signal window with respect to pick time (+/- secs).</description>
               </parameter>
-              <parameter name="signalEnd" type="double" default="0.350" unit="sec">
+              <parameter name="signalEnd" type="double" default="1" unit="sec">
                 <description>End of signal window with respect to pick time (+/- secs).</description>
               </parameter>
             </group>
@@ -215,9 +223,6 @@
             <parameter name="algoIterations" type="int" default="20">
               <description>This parameter control how many iterations the solver performs</description>
             </parameter>
-            <parameter name="includeTravelTimeResiduals" type="boolean" default="false">
-              <description>Include absolute travel time residuals in the double-difference system. This force the solver to find a solution that satisfies both dd-relative and absolute locations at the cost of an increased computation time</description>
-            </parameter>
             <group name="downWeightingByResidual">
               <description>At each iteration the solver down-weighs the system equations accordingly to their residuals of the previous iteration, which scales differential time accordingly to their quality. This option value expresses the standard deviations of the double-difference residuals beyond which the observations are dropped. For residuals below this value, the weighing scheme follows the Waldhauser/Ellsworth paper. A value of 0 disables downweighting.</description>
               <parameter name="startingValue" type="double" default="10">
@@ -228,7 +233,7 @@
               </parameter>
             </group>
             <group name="dampingFactor">
-              <description>Setting a value different than 0 enables the solver to use a damped (regularized) least squares system.</description>
+              <description>Setting a value different than 0 enables the solver to use a damped (regularized) least squares system. A too high value prevents the solver from changing the events locations, while a too low value allows the event cluster(s) to shift away from their initial absolute location, which might result in a larger events RMS.</description>
               <parameter name="startingValue" type="double" default="0.3">
                 <description>Value for the first iteration of the solver.</description>
               </parameter>
@@ -236,6 +241,15 @@
                 <description>Value for the last iteration of the solver.</description>
               </parameter>
             </group>
+            <group name="absoluteLocationConstraint">
+              <description>When a value greater than 0 is used, then additional equations are included in the double-difference system (one equation for each event phase) whose purpose is to constrain the absolute travel time residuals of the events being relocated. This forces the solver to find a solution that improves the events relative locations while positioning the cluster(s) in the absolute location that minimize the events RMS. However this is a trade-off and giving too much weight to the absolute location constraint prevents the solver from improving the relative locations. When using this feature the damping factor value can be decreased. The value specified in here is the weight to be given to the equations that constrain the absolute travel time residuals. A good starting point for testing the optimal values, is to set it to 0.3 and the damping factor to 0.03</description>
+              <parameter name="startingValue" type="double" default="0.0">
+                <description>Value for the first iteration of the solver.</description>
+              </parameter>
+              <parameter name="finalValue" type="double" default="0.0">
+                <description>Value for the last iteration of the solver.</description>
+              </parameter>
+            </group> 
             <group name="aPrioriWeights">
               <description>Those options allow the double-difference equations to have different starting weights. By default they are equally weighted and the residual itselfs drive the re-weighting (see downWeightingByResidual option). So these settings shouldn't be strictly necessary but it could be interesting to experiment with them</description>
               <parameter name="usePickUncertainties" type="boolean" default="false">
@@ -255,6 +269,15 @@
               </parameter>
               <parameter name="tableModel" type="string" default="iasp91">
                 <description>Any SeisComP configured model or a user defined one</description>
+              </parameter>
+            </group>
+            <group name="airQuakes">
+              <description>Air-quakes are origins whose depth shift above the range of the velocity model (typically 0) during the inversion. These options define how the air-quakes are handled. `elevationThreshold` defines the elevation above which an origin is considered an air-quake. `action` control how the air-quakes are handled; "NONE": no special action is performed. "RESET": reset air-quake location and time to the previous solver iteration, before it became an air-quake. "RESET_DEPTH" similar to RESET but only the depth is restored"</description>
+              <parameter name="elevationThreshold" type="double" default="0" unit="meter">
+                <description>Elevation above which origins are considered air-quakes</description>
+              </parameter>  
+              <parameter name="action" type="string" default="NONE">
+                <description>Possible values are NONE, RESET, RESET_DEPTH. </description>
               </parameter>
             </group>
           </group>
@@ -289,7 +312,7 @@
         <optionReference>messaging#timeout</optionReference>
         <optionReference>messaging#primary-group</optionReference>
         <optionReference>messaging#subscribe-group</optionReference>
-        <optionReference>messaging#encoding</optionReference>
+        <optionReference>messaging#content-type</optionReference>
         <optionReference>messaging#start-stop-msg</optionReference>
       </group>
       <group name="Database">
@@ -318,11 +341,14 @@
         <option long-flag="eval-xcorr" argument="profile">
           <description>Evaluate cross-correlation settings for the given profile.</description>
         </option>
+        <option long-flag="dump-clusters" argument="profile">
+          <description>Find clusters in the catalog passed as argument and save them in the working directory. The catalog can be a single file (containing seiscomp origin ids) or a file triplet (station.csv,event.csv,phase.csv). Use in combination with --profile.</description>
+        </option>
+        <option long-flag="dump-wf" argument="profile">
+          <description>Dump processed waveforms of the catalog passed as argument in the current working directory. The catalog can be a single file (containing seiscomp origin ids) or a file triplet (station.csv,event.csv,phase.csv). Use in combination with --profile.</description>
+        </option>
         <option long-flag="load-profile-wf" argument="profile">
           <description>Load catalog waveforms from the configured recordstream and save them into the profile working directory.</description>
-        </option>
-        <option long-flag="dump-config">
-          <description>Dump the configuration and exit</description>
         </option>
         <option long-flag="send-reload-profile-msg">
           <description>Send a message to any running scrtdd module requesting to reload a specific profile passed as argument.</description>
@@ -348,12 +374,12 @@
         </option>  
         <option long-flag="xmlout">
           <description>Enable XML output when combined with --reloc-catalog or --oring-id options.</description>
-        </option>      
+        </option> 
+        <option long-flag="xcorr-cache">
+          <description>Specify a file containing precomputed cross-correlation values.</description>
+        </option>       
         <option long-flag="test">
           <description>Test mode, no messages are sent</description>
-        </option>
-        <option long-flag="debug-wf">
-          <description>Enable saving of processed waveforms (filtered/resampled, SNR rejected, ZRT projected, etc.) into the profile working directory.</description>
         </option>
         <option long-flag="cache-wf-all">
           <description>All waveforms will be saved to disk cache, even temporarily ones. Normally only catalog phase waveforms are cached to disk. This is useful to speed up debugging/testing when the same origins are repeatedly processed.</description>

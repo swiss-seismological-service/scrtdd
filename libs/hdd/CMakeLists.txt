@@ -4,33 +4,46 @@ INCLUDE_DIRECTORIES(${LSMR_LSQR_DIR})
 SET(HDD_SOURCES
 	${LSMR_LSQR_DIR}/lsmr.cpp
 	${LSMR_LSQR_DIR}/lsqr.cpp
+	log.cpp
 	utils.cpp
-	solver.cpp
 	csvreader.cpp
+	utctime.cpp
 	catalog.cpp
-	sccatalog.cpp
-	waveform.cpp
 	clustering.cpp
 	ttt.cpp
-	scttt.cpp
 	nllttt.cpp
-	hypodd.cpp
+	solver.cpp
+	xcorr.cpp
+	waveform.cpp
+	dd.cpp
+	adapters/scttt.cpp
+	adapters/sclog.cpp
+	adapters/scwaveform.cpp
 )
 
 SET(HDD_HEADERS
-	ellipsoid.ipp
-	xcorrcache.ipp
+	ellipsoid.h
+	xcorrcache.h
+	random.h
+	index.h
+	trace.h
+	timewindow.h
+	log.h
 	utils.h
-	clustering.h
-	solver.h
-	ttt.h
-	scttt.h
-	nllttt.h
-	waveform.h
 	csvreader.h
+	utctime.h
 	catalog.h
-	sccatalog.h
-	hypodd.h
+	clustering.h
+	ttt.h
+	lrucache.h
+	nllttt.h
+	solver.h
+	xcorr.h
+	waveform.h
+	dd.h
+	adapters/scttt.h
+	adapters/sclog.h
+	adapters/scconversion.h
 )
 
 SC_ADD_LIBRARY(HDD hdd)

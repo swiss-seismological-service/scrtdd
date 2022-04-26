@@ -25,7 +25,6 @@
 
 using namespace std;
 
-namespace Seiscomp {
 namespace HDD {
 namespace CSV {
 
@@ -162,4 +161,3 @@ readWithHeader(const string &filename, const vector<string> &header)
 
 } // namespace CSV
 } // namespace HDD
-} // namespace Seiscomp

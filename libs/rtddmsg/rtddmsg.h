@@ -18,9 +18,9 @@
 #define __RTDD_RTDDMSG_H__
 
 #include <seiscomp/client.h>
-#include <seiscomp3/core/genericmessage.h>
-#include <seiscomp3/datamodel/origin.h>
-#include <seiscomp3/io/archive/xmlarchive.h>
+#include <seiscomp/core/genericmessage.h>
+#include <seiscomp/datamodel/origin.h>
+#include <seiscomp/io/archive/xmlarchive.h>
 
 namespace Seiscomp {
 

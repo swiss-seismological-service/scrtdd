@@ -16,36 +16,19 @@
 
 #include "catalog.h"
 #include "csvreader.h"
+#include "log.h"
+#include "utils.h"
 
-#include <boost/bind.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/range/iterator_range_core.hpp>
 #include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <seiscomp3/client/inventory.h>
-#include <seiscomp3/core/datetime.h>
-#include <seiscomp3/core/strings.h>
-#include <seiscomp3/datamodel/amplitude.h>
-#include <seiscomp3/datamodel/event.h>
-#include <seiscomp3/datamodel/magnitude.h>
-#include <seiscomp3/datamodel/origin.h>
-#include <seiscomp3/datamodel/pick.h>
-#include <seiscomp3/datamodel/station.h>
-#include <seiscomp3/utils/files.h>
-#include <stdexcept>
-
-#define SEISCOMP_COMPONENT HDD
-#include <seiscomp3/logging/log.h>
 
 using namespace std;
-using namespace Seiscomp;
-using Seiscomp::Core::stringify;
 
 namespace {
 
-template <class Map, class Val>
+template <typename Map, class Val>
 typename Map::iterator searchByValue(Map &SearchMap, const Val &SearchVal)
 {
   typename Map::iterator iRet = SearchMap.end();
@@ -61,7 +44,7 @@ typename Map::iterator searchByValue(Map &SearchMap, const Val &SearchVal)
   return iRet;
 }
 
-template <class Map, class Val>
+template <typename Map, class Val>
 typename Map::const_iterator searchByValue(const Map &SearchMap,
                                            const Val &SearchVal)
 {
@@ -85,48 +68,29 @@ bool strToBool(const std::string &s)
 
 } // namespace
 
-namespace Seiscomp {
 namespace HDD {
-
-Catalog::Catalog()
-    : Catalog(unordered_map<string, Station>(),
-              map<unsigned, Event>(),
-              unordered_multimap<unsigned, Phase>())
-{}
-
-Catalog::Catalog(const unordered_map<string, Station> &stations,
-                 const map<unsigned, Event> &events,
-                 const unordered_multimap<unsigned, Phase> &phases)
-    : _stations(stations), _events(events), _phases(phases)
-{}
-
-Catalog::Catalog(unordered_map<string, Station> &&stations,
-                 map<unsigned, Event> &&events,
-                 unordered_multimap<unsigned, Phase> &&phases)
-    : _stations(stations), _events(events), _phases(phases)
-{}
 
 Catalog::Catalog(const string &stationFile,
                  const string &eventFile,
                  const string &phaFile,
                  bool loadRelocationInfo)
 {
-  if (!Util::fileExists(stationFile))
+  if (!pathExists(stationFile))
   {
     string msg = "File " + stationFile + " does not exist";
-    throw runtime_error(msg);
+    throw Exception(msg);
   }
 
-  if (!Util::fileExists(eventFile))
+  if (!pathExists(eventFile))
   {
     string msg = "File " + eventFile + " does not exist";
-    throw runtime_error(msg);
+    throw Exception(msg);
   }
 
-  if (!Util::fileExists(phaFile))
+  if (!pathExists(phaFile))
   {
     string msg = "File " + phaFile + " does not exist";
-    throw runtime_error(msg);
+    throw Exception(msg);
   }
 
   vector<unordered_map<string, string>> stations =
@@ -135,13 +99,13 @@ Catalog::Catalog(const string &stationFile,
   for (const auto &row : stations)
   {
     Station sta;
-    sta.id            = row.at("id");
-    sta.latitude      = std::stod(row.at("latitude"));
-    sta.longitude     = std::stod(row.at("longitude"));
-    sta.elevation     = std::stod(row.at("elevation"));
-    sta.networkCode   = row.at("networkCode");
-    sta.stationCode   = row.at("stationCode");
-    sta.locationCode  = row.at("locationCode");
+    sta.latitude     = std::stod(row.at("latitude"));
+    sta.longitude    = std::stod(row.at("longitude"));
+    sta.elevation    = std::stod(row.at("elevation"));
+    sta.networkCode  = row.at("networkCode");
+    sta.stationCode  = row.at("stationCode");
+    sta.locationCode = row.at("locationCode");
+    sta.id = sta.networkCode + "." + sta.stationCode + "." + sta.locationCode;
     _stations[sta.id] = sta;
   }
 
@@ -151,51 +115,42 @@ Catalog::Catalog(const string &stationFile,
   {
     Event ev;
     ev.id                    = std::stoul(row.at("id"));
-    ev.time                  = Core::Time::FromString(row.at("isotime").c_str(),
-                                     "%FT%T.%fZ"); // iso format
+    ev.time                  = UTCClock::fromString(row.at("isotime"));
     ev.latitude              = std::stod(row.at("latitude"));
     ev.longitude             = std::stod(row.at("longitude"));
     ev.depth                 = std::stod(row.at("depth"));
     ev.magnitude             = std::stod(row.at("magnitude"));
-    ev.rms                   = std::stod(row.at("rms"));
     ev.relocInfo.isRelocated = false;
     if (loadRelocationInfo && (row.count("relocated") != 0) &&
         strToBool(row.at("relocated")))
     {
-      ev.relocInfo.isRelocated       = true;
-      ev.relocInfo.startRms          = std::stod(row.at("startRms"));
-      ev.relocInfo.locChange         = std::stod(row.at("locChange"));
-      ev.relocInfo.depthChange       = std::stod(row.at("depthChange"));
-      ev.relocInfo.timeChange        = std::stod(row.at("timeChange"));
-      ev.relocInfo.neighbours.amount = std::stoul(row.at("numNeighbours"));
-      ev.relocInfo.neighbours.meanDistToCentroid =
-          std::stod(row.at("neigh_meanDistToCentroid"));
-      ev.relocInfo.neighbours.meanDepthDistToCentroid =
-          std::stod(row.at("neigh_meanDepthDistToCentroid"));
-      ev.relocInfo.neighbours.eventDistToCentroid =
-          std::stod(row.at("neigh_centroidToEventDist"));
-      ev.relocInfo.neighbours.eventDepthDistToCentroid =
-          std::stod(row.at("neigh_centroidToEventDepthDist"));
-      ev.relocInfo.phases.usedP = std::stoul(row.at("ph_usedP"));
-      ev.relocInfo.phases.usedS = std::stoul(row.at("ph_usedS"));
+      ev.relocInfo.isRelocated   = true;
+      ev.relocInfo.startRms      = std::stod(row.at("startRms"));
+      ev.relocInfo.finalRms      = std::stod(row.at("finalRms"));
+      ev.relocInfo.locChange     = std::stod(row.at("locChange"));
+      ev.relocInfo.depthChange   = std::stod(row.at("depthChange"));
+      ev.relocInfo.timeChange    = std::stod(row.at("timeChange"));
+      ev.relocInfo.numNeighbours = std::stoul(row.at("numNeighbours"));
+      ev.relocInfo.phases.usedP  = std::stoul(row.at("ph_usedP"));
+      ev.relocInfo.phases.usedS  = std::stoul(row.at("ph_usedS"));
       ev.relocInfo.phases.stationDistMin =
           std::stod(row.at("ph_stationDistMin"));
       ev.relocInfo.phases.stationDistMedian =
           std::stod(row.at("ph_stationDistMedian"));
       ev.relocInfo.phases.stationDistMax =
           std::stod(row.at("ph_stationDistMax"));
-      ev.relocInfo.ddObs.numTTp = std::stoul(row.at("ddObs_numTTp"));
-      ev.relocInfo.ddObs.numTTs = std::stoul(row.at("ddObs_numTTs"));
-      ev.relocInfo.ddObs.numCCp = std::stoul(row.at("ddObs_numCCp"));
-      ev.relocInfo.ddObs.numCCs = std::stoul(row.at("ddObs_numCCs"));
-      ev.relocInfo.ddObs.startResidualMedian =
-          std::stod(row.at("ddObs_startResidualMedian"));
-      ev.relocInfo.ddObs.startResidualMAD =
-          std::stod(row.at("ddObs_startResidualMAD"));
-      ev.relocInfo.ddObs.finalResidualMedian =
-          std::stod(row.at("ddObs_finalResidualMedian"));
-      ev.relocInfo.ddObs.finalResidualMAD =
-          std::stod(row.at("ddObs_finalResidualMAD"));
+      ev.relocInfo.dd.numTTp = std::stoul(row.at("dd_numTTp"));
+      ev.relocInfo.dd.numTTs = std::stoul(row.at("dd_numTTs"));
+      ev.relocInfo.dd.numCCp = std::stoul(row.at("dd_numCCp"));
+      ev.relocInfo.dd.numCCs = std::stoul(row.at("dd_numCCs"));
+      ev.relocInfo.dd.startResidualMedian =
+          std::stod(row.at("dd_startResidualMedian"));
+      ev.relocInfo.dd.startResidualMAD =
+          std::stod(row.at("dd_startResidualMAD"));
+      ev.relocInfo.dd.finalResidualMedian =
+          std::stod(row.at("dd_finalResidualMedian"));
+      ev.relocInfo.dd.finalResidualMAD =
+          std::stod(row.at("dd_finalResidualMAD"));
     }
     _events[ev.id] = ev;
   }
@@ -205,33 +160,33 @@ Catalog::Catalog(const string &stationFile,
   for (const auto &row : phases)
   {
     Phase ph;
-    ph.eventId               = std::stoul(row.at("eventId"));
-    ph.stationId             = row.at("stationId");
-    ph.time                  = Core::Time::FromString(row.at("isotime").c_str(),
-                                     "%FT%T.%fZ"); // iso format
-    ph.lowerUncertainty      = std::stod(row.at("lowerUncertainty"));
-    ph.upperUncertainty      = std::stod(row.at("upperUncertainty"));
-    ph.type                  = row.at("type");
-    ph.networkCode           = row.at("networkCode");
-    ph.stationCode           = row.at("stationCode");
-    ph.locationCode          = row.at("locationCode");
-    ph.channelCode           = row.at("channelCode");
+    ph.eventId          = std::stoul(row.at("eventId"));
+    ph.time             = UTCClock::fromString(row.at("isotime"));
+    ph.lowerUncertainty = std::stod(row.at("lowerUncertainty"));
+    ph.upperUncertainty = std::stod(row.at("upperUncertainty"));
+    ph.type             = row.at("type");
+    ph.networkCode      = row.at("networkCode");
+    ph.stationCode      = row.at("stationCode");
+    ph.locationCode     = row.at("locationCode");
+    ph.channelCode      = row.at("channelCode");
+    ph.stationId =
+        ph.networkCode + "." + ph.stationCode + "." + ph.locationCode;
     ph.isManual              = row.at("evalMode") == "manual";
     ph.relocInfo.isRelocated = false;
     if (loadRelocationInfo && (row.count("usedInReloc") != 0) &&
         strToBool(row.at("usedInReloc")))
     {
-      ph.relocInfo.isRelocated   = true;
-      ph.procInfo.weight         = std::stod(row.at("startWeight"));
-      ph.relocInfo.finalWeight   = std::stod(row.at("finalWeight"));
-      ph.relocInfo.startResidual = std::stod(row.at("startTTTResidual"));
-      ph.relocInfo.finalResidual = std::stod(row.at("finalTTTResidual"));
-      ph.relocInfo.numTTObs      = std::stoul(row.at("numTTObs"));
-      ph.relocInfo.numCCObs      = std::stoul(row.at("numCCObs"));
-      ph.relocInfo.startMeanObsResidual =
-          std::stod(row.at("startMeanObsResidual"));
-      ph.relocInfo.finalMeanObsResidual =
-          std::stod(row.at("finalMeanObsResidual"));
+      ph.relocInfo.isRelocated     = true;
+      ph.procInfo.weight           = std::stod(row.at("startWeight"));
+      ph.relocInfo.finalWeight     = std::stod(row.at("finalWeight"));
+      ph.relocInfo.startTTResidual = std::stod(row.at("startTTResidual"));
+      ph.relocInfo.finalTTResidual = std::stod(row.at("finalTTResidual"));
+      ph.relocInfo.numTTObs        = std::stoul(row.at("numTTObs"));
+      ph.relocInfo.numCCObs        = std::stoul(row.at("numCCObs"));
+      ph.relocInfo.startMeanDDResidual =
+          std::stod(row.at("startMeanDDResidual"));
+      ph.relocInfo.finalMeanDDResidual =
+          std::stod(row.at("finalMeanDDResidual"));
     }
     _phases.emplace(ph.eventId, ph);
   }
@@ -244,22 +199,22 @@ void Catalog::add(const Catalog &other, bool keepEvId)
     const Catalog::Event &event = kv.second;
     if (keepEvId && _events.find(event.id) != _events.end())
     {
-      SEISCOMP_DEBUG("Skipping duplicated event id %u", event.id);
+      logDebug("Skipping duplicated event id %u", event.id);
       continue;
     }
     this->add(event.id, other, keepEvId);
   }
 }
 
-CatalogPtr Catalog::extractEvent(unsigned eventId, bool keepEvId) const
+unique_ptr<Catalog> Catalog::extractEvent(unsigned eventId, bool keepEvId) const
 {
-  CatalogPtr eventToExtract = new Catalog();
+  unique_ptr<Catalog> eventToExtract(new Catalog());
 
   auto search = this->getEvents().find(eventId);
   if (search == this->getEvents().end())
   {
-    string msg = stringify("Cannot find event id %u in the catalog.", eventId);
-    throw runtime_error(msg);
+    string msg = strf("Cannot find event id %u in the catalog.", eventId);
+    throw Exception(msg);
   }
 
   const Catalog::Event &event = search->second;
@@ -299,7 +254,7 @@ unsigned Catalog::add(unsigned evId, const Catalog &evCat, bool keepEvId)
   if (keepEvId)
   {
     if (_events.find(event.id) != _events.end())
-      throw runtime_error("Cannot add event, internal logic error");
+      throw Exception("Cannot add event, internal logic error");
     _events[event.id] = event;
     newEventId        = event.id;
   }
@@ -466,18 +421,16 @@ void Catalog::writeToFile(string eventFile,
   stringstream evStreamNoReloc;
   stringstream evStreamReloc;
 
-  evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude,rms";
-  evStreamReloc
-      << evStreamNoReloc.str()
-      << ",relocated,startRms,locChange,depthChange,timeChange,numNeighbours,"
-         "neigh_meanDistToCentroid,neigh_centroidToEventDist,"
-         "neigh_meanDepthDistToCentroid,neigh_centroidToEventDepthDist,"
-         "ph_usedP,ph_usedS,"
-         "ph_stationDistMin,ph_stationDistMedian,ph_stationDistMax,"
-         "ddObs_numTTp,ddObs_numTTs,ddObs_numCCp,ddObs_numCCs,"
-         "ddObs_startResidualMedian,ddObs_startResidualMAD,"
-         "ddObs_finalResidualMedian,ddObs_finalResidualMAD"
-      << endl;
+  evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude";
+  evStreamReloc << evStreamNoReloc.str()
+                << ",relocated,startRms,finalRms,locChange,depthChange,"
+                   "timeChange,numNeighbours,"
+                   "ph_usedP,ph_usedS,ph_stationDistMin,ph_stationDistMedian,"
+                   "ph_stationDistMax,"
+                   "dd_numTTp,dd_numTTs,dd_numCCp,dd_numCCs,"
+                   "dd_startResidualMedian,dd_startResidualMAD,"
+                   "dd_finalResidualMedian,dd_finalResidualMAD"
+                << endl;
   evStreamNoReloc << endl;
 
   bool relocInfo = false;
@@ -486,39 +439,33 @@ void Catalog::writeToFile(string eventFile,
     const Catalog::Event &ev = kv.second;
 
     stringstream evStream;
-    evStream << stringify("%u,%s,%.6f,%.6f,%.4f,%.2f,%.3f", ev.id,
-                          ev.time.iso().c_str(), ev.latitude, ev.longitude,
-                          ev.depth, ev.magnitude, ev.rms);
+    evStream << strf("%u,%s,%.6f,%.6f,%.4f,%.2f", ev.id,
+                     UTCClock::toString(ev.time).c_str(), ev.latitude,
+                     ev.longitude, ev.depth, ev.magnitude);
 
     evStreamNoReloc << evStream.str() << endl;
     evStreamReloc << evStream.str();
 
     if (!ev.relocInfo.isRelocated)
     {
-      evStreamReloc << ",false,,,,,,,,,,,,,,,,,,,,,,";
+      evStreamReloc << ",false,,,,,,,,,,,,,,,,,,,";
     }
     else
     {
       relocInfo = true;
-      evStreamReloc << stringify(
-          ",true,%.3f,%.3f,%.3f,%.3f,%u,%.3f,%.3f,%.3f,%.3f,"
-          "%u,%u,%.3f,%.3f,%.3f,%u,%u,%u,%u,%.4f,%.4f,%.4f,%.4f",
-          ev.relocInfo.startRms, ev.relocInfo.locChange,
+      evStreamReloc << strf(
+          ",true,%.3f,%.3f,%.3f,%.3f,%.3f,%u,%u,%u,%.3f,%.3f,%.3f,%u,%u,%u,%u,%"
+          ".4f,%.4f,%.4f,%.4f",
+          ev.relocInfo.startRms, ev.relocInfo.finalRms, ev.relocInfo.locChange,
           ev.relocInfo.depthChange, ev.relocInfo.timeChange,
-          ev.relocInfo.neighbours.amount,
-          ev.relocInfo.neighbours.meanDistToCentroid,
-          ev.relocInfo.neighbours.eventDistToCentroid,
-          ev.relocInfo.neighbours.meanDepthDistToCentroid,
-          ev.relocInfo.neighbours.eventDepthDistToCentroid,
-          ev.relocInfo.phases.usedP, ev.relocInfo.phases.usedS,
-          ev.relocInfo.phases.stationDistMin,
+          ev.relocInfo.numNeighbours, ev.relocInfo.phases.usedP,
+          ev.relocInfo.phases.usedS, ev.relocInfo.phases.stationDistMin,
           ev.relocInfo.phases.stationDistMedian,
-          ev.relocInfo.phases.stationDistMax, ev.relocInfo.ddObs.numTTp,
-          ev.relocInfo.ddObs.numTTs, ev.relocInfo.ddObs.numCCp,
-          ev.relocInfo.ddObs.numCCs, ev.relocInfo.ddObs.startResidualMedian,
-          ev.relocInfo.ddObs.startResidualMAD,
-          ev.relocInfo.ddObs.finalResidualMedian,
-          ev.relocInfo.ddObs.finalResidualMAD);
+          ev.relocInfo.phases.stationDistMax, ev.relocInfo.dd.numTTp,
+          ev.relocInfo.dd.numTTs, ev.relocInfo.dd.numCCp,
+          ev.relocInfo.dd.numCCs, ev.relocInfo.dd.startResidualMedian,
+          ev.relocInfo.dd.startResidualMAD, ev.relocInfo.dd.finalResidualMedian,
+          ev.relocInfo.dd.finalResidualMAD);
     }
     evStreamReloc << endl;
   }
@@ -531,13 +478,13 @@ void Catalog::writeToFile(string eventFile,
    */
   ofstream phStream(phaseFile);
 
-  phStream << "eventId,stationId,isotime,lowerUncertainty,upperUncertainty,"
+  phStream << "eventId,isotime,lowerUncertainty,upperUncertainty,"
               "type,networkCode,stationCode,locationCode,channelCode,evalMode";
   if (relocInfo)
   {
-    phStream << ",usedInReloc,startTTTResidual,finalTTTResidual,"
+    phStream << ",usedInReloc,startTTResidual,finalTTResidual,"
                 "startWeight,finalWeight,numTTObs,numCCObs,"
-                "startMeanObsResidual,finalMeanObsResidual";
+                "startMeanDDResidual,finalMeanDDResidual";
   }
   phStream << endl;
 
@@ -546,12 +493,12 @@ void Catalog::writeToFile(string eventFile,
   for (const auto &kv : orderedPhases)
   {
     const Catalog::Phase &ph = kv.second;
-    phStream << stringify(
-        "%u,%s,%s,%.3f,%.3f,%s,%s,%s,%s,%s,%s", ph.eventId,
-        ph.stationId.c_str(), ph.time.iso().c_str(), ph.lowerUncertainty,
-        ph.upperUncertainty, ph.type.c_str(), ph.networkCode.c_str(),
-        ph.stationCode.c_str(), ph.locationCode.c_str(), ph.channelCode.c_str(),
-        (ph.isManual ? "manual" : "automatic"));
+    phStream << strf("%u,%s,%.3f,%.3f,%s,%s,%s,%s,%s,%s", ph.eventId,
+                     UTCClock::toString(ph.time).c_str(), ph.lowerUncertainty,
+                     ph.upperUncertainty, ph.type.c_str(),
+                     ph.networkCode.c_str(), ph.stationCode.c_str(),
+                     ph.locationCode.c_str(), ph.channelCode.c_str(),
+                     (ph.isManual ? "manual" : "automatic"));
 
     if (relocInfo)
     {
@@ -561,12 +508,12 @@ void Catalog::writeToFile(string eventFile,
       }
       else
       {
-        phStream << stringify(
+        phStream << strf(
             ",true,%.3f,%.3f,%.2f,%.2f,%u,%u,%.4f,%.4f",
-            ph.relocInfo.startResidual, ph.relocInfo.finalResidual,
+            ph.relocInfo.startTTResidual, ph.relocInfo.finalTTResidual,
             ph.procInfo.weight, ph.relocInfo.finalWeight, ph.relocInfo.numTTObs,
-            ph.relocInfo.numCCObs, ph.relocInfo.startMeanObsResidual,
-            ph.relocInfo.finalMeanObsResidual);
+            ph.relocInfo.numCCObs, ph.relocInfo.startMeanDDResidual,
+            ph.relocInfo.finalMeanDDResidual);
       }
     }
     phStream << endl;
@@ -577,7 +524,7 @@ void Catalog::writeToFile(string eventFile,
    */
   ofstream staStream(stationFile);
   staStream
-      << "id,latitude,longitude,elevation,networkCode,stationCode,locationCode"
+      << "latitude,longitude,elevation,networkCode,stationCode,locationCode"
       << endl;
 
   const map<string, Catalog::Station> orderedStations(_stations.begin(),
@@ -585,10 +532,9 @@ void Catalog::writeToFile(string eventFile,
   for (const auto &kv : orderedStations)
   {
     const Catalog::Station &sta = kv.second;
-    staStream << stringify("%s,%.6f,%.6f,%.1f,%s,%s,%s", sta.id.c_str(),
-                           sta.latitude, sta.longitude, sta.elevation,
-                           sta.networkCode.c_str(), sta.stationCode.c_str(),
-                           sta.locationCode.c_str())
+    staStream << strf("%.6f,%.6f,%.1f,%s,%s,%s", sta.latitude, sta.longitude,
+                      sta.elevation, sta.networkCode.c_str(),
+                      sta.stationCode.c_str(), sta.locationCode.c_str())
               << endl;
   }
 }
@@ -598,7 +544,7 @@ void Catalog::writeToFile(string eventFile,
  * event/station pair there is only one P and one S phase. If multiple phases
  * are found, keep the one with the highest priority.
  */
-Catalog *
+Catalog
 Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
                                    const Phase::Source &source,
                                    const std::vector<std::string> &PphaseToKeep,
@@ -680,9 +626,8 @@ Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
         continue;
       }
 
-      SEISCOMP_DEBUG(
-          "Discard phase (%s), the type is not among the selected ones",
-          string(phase).c_str());
+      logDebug("Discard phase (%s), the type is not among the selected ones",
+               string(phase).c_str());
     }
   }
 
@@ -708,8 +653,7 @@ Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
     filteredPhases.emplace(phase.eventId, phase);
   }
 
-  return new Catalog(catalog.getStations(), catalog.getEvents(),
-                     filteredPhases);
+  return Catalog(catalog.getStations(), catalog.getEvents(), filteredPhases);
 }
 
 /*
@@ -749,4 +693,3 @@ double Catalog::computePickWeight(const Phase &phase)
 }
 
 } // namespace HDD
-} // namespace Seiscomp

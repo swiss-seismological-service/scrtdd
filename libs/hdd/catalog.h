@@ -17,19 +17,17 @@
 #ifndef __HDD_CATALOG_H__
 #define __HDD_CATALOG_H__
 
-#include <seiscomp3/core/baseobject.h>
-#include <seiscomp3/datamodel/station.h>
-
+#include <map>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
-namespace Seiscomp {
+#include "utctime.h"
+
 namespace HDD {
 
-DEFINE_SMARTPOINTER(Catalog);
-
 // DD background catalog
-class Catalog : public Core::BaseObject
+class Catalog
 {
 
 public:
@@ -60,29 +58,21 @@ public:
   struct Event
   {
     unsigned id; // makes it unique in the catalog
-    Core::Time time;
+    UTCTime time;
     double latitude;
     double longitude;
     double depth; // km
     double magnitude;
-    double rms;
 
     struct
     {
       bool isRelocated = false;
       double startRms;
+      double finalRms;
       double locChange;
       double depthChange;
       double timeChange;
-
-      struct
-      {
-        unsigned amount;
-        double meanDistToCentroid;
-        double meanDepthDistToCentroid;
-        double eventDistToCentroid;
-        double eventDepthDistToCentroid;
-      } neighbours;
+      unsigned numNeighbours;
 
       struct
       {
@@ -103,7 +93,7 @@ public:
         double startResidualMAD;
         double finalResidualMedian;
         double finalResidualMAD;
-      } ddObs;
+      } dd; // double-difference
 
     } relocInfo;
 
@@ -113,7 +103,7 @@ public:
     {
       return (time == other.time) && (latitude == other.latitude) &&
              (longitude == other.longitude) && (depth == other.depth) &&
-             (magnitude == other.magnitude) && (rms == other.rms);
+             (magnitude == other.magnitude);
     }
     bool operator!=(const Event &other) const { return !operator==(other); }
     operator std::string() const { return std::to_string(id); }
@@ -123,7 +113,7 @@ public:
   {
     unsigned eventId;
     std::string stationId;
-    Core::Time time;
+    UTCTime time;
     double lowerUncertainty;
     double upperUncertainty;
     std::string type;
@@ -157,13 +147,13 @@ public:
     struct
     {
       bool isRelocated = false;
-      double startResidual;
-      double finalResidual;
+      double startTTResidual;
+      double finalTTResidual;
       double finalWeight;
       unsigned numTTObs;
       unsigned numCCObs;
-      double startMeanObsResidual;
-      double finalMeanObsResidual;
+      double startMeanDDResidual;
+      double finalMeanDDResidual;
     } relocInfo;
 
     // Compare attributes when the id is not known (works between multiple
@@ -181,15 +171,14 @@ public:
     bool operator!=(const Phase &other) const { return !operator==(other); }
     operator std::string() const
     {
-      return "\"Phase " + type + (isManual ? " (manual) " : " (auto) ") +
-             networkCode + "." + stationCode + "." + locationCode + "." +
-             channelCode + " " + time.iso() + " evId " +
-             std::to_string(eventId) + " staId " + stationId + "\"";
+      return type + "@" + networkCode + "." + stationCode + "." + locationCode +
+             "." + channelCode + ":" + UTCClock::toString(time) + ":evId-" +
+             std::to_string(eventId);
     }
   };
 
-  Catalog();
-  virtual ~Catalog() {}
+  Catalog()  = default;
+  ~Catalog() = default;
 
   Catalog(const Catalog &other) = default;
   Catalog &operator=(const Catalog &other) = default;
@@ -199,10 +188,16 @@ public:
 
   Catalog(std::unordered_map<std::string, Station> &&stations,
           std::map<unsigned, Event> &&events,
-          std::unordered_multimap<unsigned, Phase> &&phases);
+          std::unordered_multimap<unsigned, Phase> &&phases)
+      : _stations(stations), _events(events), _phases(phases)
+  {}
+
   Catalog(const std::unordered_map<std::string, Station> &stations,
           const std::map<unsigned, Event> &events,
-          const std::unordered_multimap<unsigned, Phase> &phases);
+          const std::unordered_multimap<unsigned, Phase> &phases)
+      : _stations(stations), _events(events), _phases(phases)
+  {}
+
   Catalog(const std::string &stationFile,
           const std::string &eventFile,
           const std::string &phaseFile,
@@ -210,7 +205,7 @@ public:
 
   void add(const Catalog &other, bool keepEvId);
   unsigned add(unsigned evId, const Catalog &eventCatalog, bool keepEvId);
-  CatalogPtr extractEvent(unsigned eventId, bool keepEvId) const;
+  std::unique_ptr<Catalog> extractEvent(unsigned eventId, bool keepEvId) const;
 
   void removeEvent(unsigned eventId);
   void removePhase(unsigned eventId,
@@ -254,7 +249,7 @@ public:
   //
   static double computePickWeight(double uncertainty);
   static double computePickWeight(const Catalog::Phase &phase);
-  static Catalog *
+  static Catalog
   filterPhasesAndSetWeights(const Catalog &catalog,
                             const Catalog::Phase::Source &source,
                             const std::vector<std::string> &PphaseToKeep,
@@ -263,13 +258,12 @@ public:
   static constexpr double DEFAULT_MANUAL_PICK_UNCERTAINTY    = 0.030;
   static constexpr double DEFAULT_AUTOMATIC_PICK_UNCERTAINTY = 0.100;
 
-protected:
+private:
   std::unordered_map<std::string, Station> _stations; // indexed by station id
   std::map<unsigned, Event> _events;                  // indexed by event id
   std::unordered_multimap<unsigned, Phase> _phases;   // indexed by event id
 };
 
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

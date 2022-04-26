@@ -21,7 +21,6 @@
 #include <cmath>
 #include <iostream>
 
-namespace Seiscomp {
 namespace HDD {
 
 lsqrBase::lsqrBase()
@@ -676,4 +675,3 @@ void lsqrBase::TerminationPrintOut()
 }
 
 } // namespace HDD
-} // namespace Seiscomp

@@ -17,16 +17,14 @@
 #ifndef __HDD_NLLTTT_H__
 #define __HDD_NLLTTT_H__
 
+#include "lrucache.h"
 #include "ttt.h"
 
-#include <seiscomp3/core/baseobject.h>
-#include <seiscomp3/seismology/ttt.h>
-
 #include <fstream>
+#include <functional>
 #include <unordered_map>
 #include <unordered_set>
 
-namespace Seiscomp {
 namespace HDD {
 namespace NLL {
 
@@ -37,7 +35,13 @@ namespace NLL {
 struct Transform
 {
   Transform(const std::vector<std::string> &tokens);
-  ~Transform() {}
+  ~Transform() = default;
+
+  Transform(const Transform &other) = default;
+  Transform &operator=(const Transform &other) = default;
+
+  Transform(Transform &&other) = default;
+  Transform &operator=(Transform &&other) = default;
 
   void fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const;
   void toLatLon(double xLoc, double yLoc, double &lat, double &lon) const;
@@ -76,7 +80,7 @@ struct Transform
   static constexpr double MAP_TRANS_SDC_DRLT = 0.99330647;
 };
 
-class Grid : public Core::BaseObject
+class Grid
 {
 public:
   enum class Type
@@ -94,7 +98,11 @@ public:
        const Catalog::Station &station,
        const std::string &phaseType,
        bool swapBytes);
-  virtual ~Grid() {}
+
+  virtual ~Grid() = default;
+
+  Grid(const Grid &other) = delete;
+  Grid &operator=(const Grid &other) = delete;
 
   bool isLocationInside(double xloc, double yloc, double zloc) const;
   bool isIndexInside(unsigned long long ix,
@@ -213,17 +221,19 @@ public:
            const Catalog::Station &station,
            const std::string &phaseType,
            bool swapBytes);
+  virtual ~TimeGrid() = default;
+
   double getTime(double lat, double lon, double depth);
 
 protected:
-  template <class GRID_FLOAT_TYPE>
+  template <typename GRID_FLOAT_TYPE>
   static GRID_FLOAT_TYPE interpolateValues2D(double xdiff,
                                              double zdiff,
                                              GRID_FLOAT_TYPE vval00,
                                              GRID_FLOAT_TYPE vval01,
                                              GRID_FLOAT_TYPE vval10,
                                              GRID_FLOAT_TYPE vval11);
-  template <class GRID_FLOAT_TYPE>
+  template <typename GRID_FLOAT_TYPE>
   static GRID_FLOAT_TYPE interpolateValues3D(double xdiff,
                                              double ydiff,
                                              double zdiff,
@@ -244,6 +254,7 @@ public:
             const Catalog::Station &station,
             const std::string &phaseType,
             bool swapBytes);
+  virtual ~AngleGrid() = default;
   void
   getAngles(double lat, double lon, double depth, double &azim, double &dip);
 
@@ -257,14 +268,14 @@ public:
   static const unsigned QUALITY_CUTOFF = 5;
 
 protected:
-  template <class GRID_FLOAT_TYPE>
+  template <typename GRID_FLOAT_TYPE>
   static GRID_FLOAT_TYPE interpolateValues2D(double xdiff,
                                              double zdiff,
                                              GRID_FLOAT_TYPE vval00,
                                              GRID_FLOAT_TYPE vval01,
                                              GRID_FLOAT_TYPE vval10,
                                              GRID_FLOAT_TYPE vval11);
-  template <class GRID_FLOAT_TYPE>
+  template <typename GRID_FLOAT_TYPE>
   static GRID_FLOAT_TYPE interpolateValues3D(double xdiff,
                                              double ydiff,
                                              double zdiff,
@@ -285,19 +296,20 @@ public:
           const Catalog::Station &station,
           const std::string &phaseType,
           bool swapBytes);
-  virtual bool is3D() const { return info.numx > 2; }
+  virtual ~VelGrid() = default;
+  bool is3D() const override { return info.numx > 2; }
 
   double getVel(double lat, double lon, double depth);
 
 protected:
-  template <class GRID_FLOAT_TYPE>
+  template <typename GRID_FLOAT_TYPE>
   static GRID_FLOAT_TYPE interpolateValues2D(double xdiff,
                                              double zdiff,
                                              GRID_FLOAT_TYPE vval00,
                                              GRID_FLOAT_TYPE vval01,
                                              GRID_FLOAT_TYPE vval10,
                                              GRID_FLOAT_TYPE vval11);
-  template <class GRID_FLOAT_TYPE>
+  template <typename GRID_FLOAT_TYPE>
   static GRID_FLOAT_TYPE interpolateValues3D(double xdiff,
                                              double ydiff,
                                              double zdiff,
@@ -312,46 +324,47 @@ protected:
   std::function<double(double)> convertUnits; // velocity -> km/sec
 };
 
-DEFINE_SMARTPOINTER(Grid);
-DEFINE_SMARTPOINTER(TimeGrid);
-DEFINE_SMARTPOINTER(AngleGrid);
-DEFINE_SMARTPOINTER(VelGrid);
-
-class NllTravelTimeTable : public TravelTimeTable
+class TravelTimeTable : public HDD::TravelTimeTable
 {
 public:
-  NllTravelTimeTable(const std::string &type, const std::string &model);
-  virtual ~NllTravelTimeTable() {}
+  TravelTimeTable(const std::string &velGridPath,
+                  const std::string &timeGridPath,
+                  const std::string &angleGridPath,
+                  bool swapBytes);
 
-  virtual void compute(double eventLat,
-                       double eventLon,
-                       double eventDepth,
-                       const Catalog::Station &station,
-                       const std::string &phaseType,
-                       double &travelTime);
+  virtual ~TravelTimeTable() = default;
 
-  virtual void compute(double eventLat,
-                       double eventLon,
-                       double eventDepth,
-                       const Catalog::Station &station,
-                       const std::string &phaseType,
-                       double &travelTime,
-                       double &takeOffAngleAzim,
-                       double &takeOffAngleDip,
-                       double &velocityAtSrc);
+  void freeResources() override;
+
+  void compute(double eventLat,
+               double eventLon,
+               double eventDepth,
+               const Catalog::Station &station,
+               const std::string &phaseType,
+               double &travelTime) override;
+
+  void compute(double eventLat,
+               double eventLon,
+               double eventDepth,
+               const Catalog::Station &station,
+               const std::string &phaseType,
+               double &travelTime,
+               double &takeOffAngleAzim,
+               double &takeOffAngleDip,
+               double &velocityAtSrc) override;
 
 private:
   std::string _velGridPath;
   std::string _timeGridPath;
   std::string _angleGridPath;
   bool _swapBytes;
-  std::unordered_map<std::string, VelGridPtr> _velGrids;
-  std::unordered_map<std::string, TimeGridPtr> _timeGrids;
-  std::unordered_map<std::string, AngleGridPtr> _angleGrids;
+  lru_cache<std::string, std::shared_ptr<VelGrid>> _velGrids{255};
+  lru_cache<std::string, std::shared_ptr<TimeGrid>> _timeGrids{255};
+  lru_cache<std::string, std::shared_ptr<AngleGrid>> _angleGrids{255};
   std::unordered_set<std::string> _unloadableGrids;
 };
+
 } // namespace NLL
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

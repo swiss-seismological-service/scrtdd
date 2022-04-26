@@ -17,14 +17,14 @@
 #ifndef __HDD_SOLVER_H__
 #define __HDD_SOLVER_H__
 
-#include "utils.h"
+#include "index.h"
 
-#include <seiscomp3/core/baseobject.h>
+#include <map>
+#include <memory>
 #include <set>
 #include <unordered_map>
 #include <vector>
 
-namespace Seiscomp {
 namespace HDD {
 
 /*
@@ -45,7 +45,7 @@ namespace HDD {
  *
  * We take advantage of the sparsness of G matrix, so G is not a full matrix.
  */
-struct DDSystem : public Core::BaseObject
+struct DDSystem
 {
 
   // number of observations
@@ -95,7 +95,7 @@ struct DDSystem : public Core::BaseObject
     phStaByObs = new unsigned[numRowsG];
   }
 
-  virtual ~DDSystem()
+  ~DDSystem()
   {
     delete[] phStaByObs;
     delete[] evByObs[0];
@@ -107,26 +107,24 @@ struct DDSystem : public Core::BaseObject
     delete[] W;
   }
 
-private:
   DDSystem(const DDSystem &other) = delete;
   DDSystem operator=(const DDSystem &other) = delete;
 };
-
-DEFINE_SMARTPOINTER(DDSystem);
 
 /*
  * Solver for double difference problems.
  *
  * For details, see Waldhauser & Ellsworth 2000 paper.
  */
-class Solver : public Core::BaseObject
+class Solver
 {
 
 public:
   Solver(std::string type) : _type(type) {}
-  ~Solver() {}
+  ~Solver() = default;
 
-  void reset() { *this = Solver(_type); }
+  Solver(const Solver &other) = delete;
+  Solver operator=(const Solver &other) = delete;
 
   void addObservation(unsigned evId1,
                       unsigned evId2,
@@ -153,7 +151,7 @@ public:
                             double velocityAtSrc);
 
   void solve(unsigned numIterations    = 0,
-             bool useTTconstraint      = false,
+             double ttConstraint       = 0,
              double dampingFactor      = 0,
              double residualDownWeight = 0,
              bool normalizeG           = true);
@@ -184,13 +182,13 @@ private:
   computeResidualWeights(const std::vector<double> &residuals,
                          const double alpha) const;
 
-  void prepareDDSystem(bool useTTconstraint,
+  void prepareDDSystem(double ttConstraint,
                        double dampingFactor,
                        double residualDownWeight);
 
-  template <class T>
+  template <typename T>
   void _solve(unsigned numIterations,
-              bool useTTconstraint,
+              double ttConstraint,
               double dampingFactor,
               double residualDownWeight,
               bool normalizeG);
@@ -264,18 +262,18 @@ private:
 
   struct EventDeltas
   {
-    double deltaLat, deltaLon, deltaDepth, deltaTT;
+    double time;      // sec
+    double depth;     // km
+    double latitude;  // km
+    double longitude; // km
   };
   std::unordered_map<unsigned, EventDeltas> _eventDeltas; // key = evIdx
 
   std::vector<double> _residuals;
-  DDSystemPtr _dd;
+  std::unique_ptr<DDSystem> _dd;
   std::string _type;
 };
 
-DEFINE_SMARTPOINTER(Solver);
-
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

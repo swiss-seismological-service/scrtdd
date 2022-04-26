@@ -15,21 +15,18 @@
  ***************************************************************************/
 
 #include "solver.h"
+#include "log.h"
 #include "lsmr.h"
 #include "lsqr.h"
+#include "utils.h"
 
-#include <seiscomp3/core/strings.h>
-#include <seiscomp3/math/geo.h>
-#include <seiscomp3/math/math.h>
 #include <sstream>
-#include <stdexcept>
-
-#define SEISCOMP_COMPONENT HDD
-#include <seiscomp3/logging/log.h>
 
 using namespace std;
-using Seiscomp::Core::stringify;
-using Seiscomp::HDD::square;
+using HDD::degToRad;
+using HDD::Exception;
+using HDD::radToDeg;
+using HDD::square;
 
 namespace {
 
@@ -37,14 +34,14 @@ namespace {
  * Common DDSystem adapter for both LSQR and LSMR solvers
  * T can be `lsqrBase` or `lsmrBase`.
  */
-template <class T> class Adapter : public T
+template <typename T> class Adapter : public T
 {
+private:
+  HDD::DDSystem &_dd; // doesn't own the DDSystem
 
 public:
-  Adapter() {}
-  virtual ~Adapter() {}
-
-  void setDDSytem(const Seiscomp::HDD::DDSystemPtr &dd) { _dd = dd; }
+  Adapter(HDD::DDSystem &dd) : _dd(dd) {}
+  virtual ~Adapter() = default;
 
   /*
    * Scale G by normalizing the L2-norm of each column as suggested
@@ -52,42 +49,42 @@ public:
    */
   void L2normalize()
   {
-    std::fill_n(_dd->L2NScaler, _dd->numColsG, 0.);
+    std::fill_n(_dd.L2NScaler, _dd.numColsG, 0.);
 
-    for (unsigned int ob = 0; ob < _dd->numRowsG; ob++)
+    for (unsigned int ob = 0; ob < _dd.numRowsG; ob++)
     {
-      const double obsW = _dd->W[ob];
+      const double obsW = _dd.W[ob];
       if (obsW == 0.) continue;
 
       const unsigned phStaIdx =
-          _dd->phStaByObs[ob]; // station for this observation
+          _dd.phStaByObs[ob]; // station for this observation
 
-      const int evIdx1 = _dd->evByObs[0][ob]; // event 1 for this observation
+      const int evIdx1 = _dd.evByObs[0][ob]; // event 1 for this observation
       if (evIdx1 >= 0)
       {
-        const unsigned idxG     = evIdx1 * _dd->nPhStas + phStaIdx;
+        const unsigned idxG     = evIdx1 * _dd.nPhStas + phStaIdx;
         const unsigned evOffset = evIdx1 * 4;
-        _dd->L2NScaler[evOffset + 0] += square(_dd->G[idxG][0] * obsW);
-        _dd->L2NScaler[evOffset + 1] += square(_dd->G[idxG][1] * obsW);
-        _dd->L2NScaler[evOffset + 2] += square(_dd->G[idxG][2] * obsW);
-        _dd->L2NScaler[evOffset + 3] += square(_dd->G[idxG][3] * obsW);
+        _dd.L2NScaler[evOffset + 0] += square(_dd.G[idxG][0] * obsW);
+        _dd.L2NScaler[evOffset + 1] += square(_dd.G[idxG][1] * obsW);
+        _dd.L2NScaler[evOffset + 2] += square(_dd.G[idxG][2] * obsW);
+        _dd.L2NScaler[evOffset + 3] += square(_dd.G[idxG][3] * obsW);
       }
 
-      const int evIdx2 = _dd->evByObs[1][ob]; // event 2 for this observation
+      const int evIdx2 = _dd.evByObs[1][ob]; // event 2 for this observation
       if (evIdx2 >= 0)
       {
-        const unsigned idxG     = evIdx2 * _dd->nPhStas + phStaIdx;
+        const unsigned idxG     = evIdx2 * _dd.nPhStas + phStaIdx;
         const unsigned evOffset = evIdx2 * 4;
-        _dd->L2NScaler[evOffset + 0] += square(_dd->G[idxG][0] * obsW);
-        _dd->L2NScaler[evOffset + 1] += square(_dd->G[idxG][1] * obsW);
-        _dd->L2NScaler[evOffset + 2] += square(_dd->G[idxG][2] * obsW);
-        _dd->L2NScaler[evOffset + 3] += square(_dd->G[idxG][3] * obsW);
+        _dd.L2NScaler[evOffset + 0] += square(_dd.G[idxG][0] * obsW);
+        _dd.L2NScaler[evOffset + 1] += square(_dd.G[idxG][1] * obsW);
+        _dd.L2NScaler[evOffset + 2] += square(_dd.G[idxG][2] * obsW);
+        _dd.L2NScaler[evOffset + 3] += square(_dd.G[idxG][3] * obsW);
       }
     }
 
-    for (unsigned col = 0; col < _dd->numColsG; col++)
+    for (unsigned col = 0; col < _dd.numColsG; col++)
     {
-      _dd->L2NScaler[col] = 1. / std::sqrt(_dd->L2NScaler[col]);
+      _dd.L2NScaler[col] = 1. / std::sqrt(_dd.L2NScaler[col]);
     }
   }
 
@@ -96,12 +93,12 @@ public:
    */
   void L2DeNormalize()
   {
-    for (unsigned evOffset = 0; evOffset < _dd->numColsG; evOffset += 4)
+    for (unsigned evOffset = 0; evOffset < _dd.numColsG; evOffset += 4)
     {
-      _dd->m[evOffset + 0] *= _dd->L2NScaler[evOffset + 0];
-      _dd->m[evOffset + 1] *= _dd->L2NScaler[evOffset + 1];
-      _dd->m[evOffset + 2] *= _dd->L2NScaler[evOffset + 2];
-      _dd->m[evOffset + 3] *= _dd->L2NScaler[evOffset + 3];
+      _dd.m[evOffset + 0] *= _dd.L2NScaler[evOffset + 0];
+      _dd.m[evOffset + 1] *= _dd.L2NScaler[evOffset + 1];
+      _dd.m[evOffset + 2] *= _dd.L2NScaler[evOffset + 2];
+      _dd.m[evOffset + 3] *= _dd.L2NScaler[evOffset + 3];
     }
   }
 
@@ -115,45 +112,45 @@ public:
    */
   void Aprod1(unsigned int m, unsigned int n, const double *x, double *y) const
   {
-    if (m != _dd->numRowsG || n != _dd->numColsG)
+    if (m != _dd.numRowsG || n != _dd.numColsG)
     {
       string msg =
-          stringify("Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m,
-                    n, _dd->numRowsG, _dd->numColsG);
-      throw std::runtime_error(msg.c_str());
+          HDD::strf("Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m,
+                    n, _dd.numRowsG, _dd.numColsG);
+      throw Exception(msg);
     }
 
-    for (unsigned int ob = 0; ob < _dd->numRowsG; ob++)
+    for (unsigned int ob = 0; ob < _dd.numRowsG; ob++)
     {
-      if (_dd->W[ob] == 0.) continue;
+      if (_dd.W[ob] == 0.) continue;
 
       const unsigned phStaIdx =
-          _dd->phStaByObs[ob]; // station for this observation
+          _dd.phStaByObs[ob]; // station for this observation
       double sum = 0;
 
-      const int evIdx1 = _dd->evByObs[0][ob]; // event 1 for this observation
+      const int evIdx1 = _dd.evByObs[0][ob]; // event 1 for this observation
       if (evIdx1 >= 0)
       {
-        const unsigned idxG     = evIdx1 * _dd->nPhStas + phStaIdx;
+        const unsigned idxG     = evIdx1 * _dd.nPhStas + phStaIdx;
         const unsigned evOffset = evIdx1 * 4;
-        sum += _dd->G[idxG][0] * _dd->L2NScaler[evOffset + 0] * x[evOffset + 0];
-        sum += _dd->G[idxG][1] * _dd->L2NScaler[evOffset + 1] * x[evOffset + 1];
-        sum += _dd->G[idxG][2] * _dd->L2NScaler[evOffset + 2] * x[evOffset + 2];
-        sum += _dd->G[idxG][3] * _dd->L2NScaler[evOffset + 3] * x[evOffset + 3];
+        sum += _dd.G[idxG][0] * _dd.L2NScaler[evOffset + 0] * x[evOffset + 0];
+        sum += _dd.G[idxG][1] * _dd.L2NScaler[evOffset + 1] * x[evOffset + 1];
+        sum += _dd.G[idxG][2] * _dd.L2NScaler[evOffset + 2] * x[evOffset + 2];
+        sum += _dd.G[idxG][3] * _dd.L2NScaler[evOffset + 3] * x[evOffset + 3];
       }
 
-      const int evIdx2 = _dd->evByObs[1][ob]; // event 2 for this observation
+      const int evIdx2 = _dd.evByObs[1][ob]; // event 2 for this observation
       if (evIdx2 >= 0)
       {
-        const unsigned idxG     = evIdx2 * _dd->nPhStas + phStaIdx;
+        const unsigned idxG     = evIdx2 * _dd.nPhStas + phStaIdx;
         const unsigned evOffset = evIdx2 * 4;
-        sum -= _dd->G[idxG][0] * _dd->L2NScaler[evOffset + 0] * x[evOffset + 0];
-        sum -= _dd->G[idxG][1] * _dd->L2NScaler[evOffset + 1] * x[evOffset + 1];
-        sum -= _dd->G[idxG][2] * _dd->L2NScaler[evOffset + 2] * x[evOffset + 2];
-        sum -= _dd->G[idxG][3] * _dd->L2NScaler[evOffset + 3] * x[evOffset + 3];
+        sum -= _dd.G[idxG][0] * _dd.L2NScaler[evOffset + 0] * x[evOffset + 0];
+        sum -= _dd.G[idxG][1] * _dd.L2NScaler[evOffset + 1] * x[evOffset + 1];
+        sum -= _dd.G[idxG][2] * _dd.L2NScaler[evOffset + 2] * x[evOffset + 2];
+        sum -= _dd.G[idxG][3] * _dd.L2NScaler[evOffset + 3] * x[evOffset + 3];
       }
 
-      y[ob] += _dd->W[ob] * sum;
+      y[ob] += _dd.W[ob] * sum;
     }
   }
 
@@ -167,53 +164,49 @@ public:
    */
   void Aprod2(unsigned int m, unsigned int n, double *x, const double *y) const
   {
-    if (m != _dd->numRowsG || n != _dd->numColsG)
+    if (m != _dd.numRowsG || n != _dd.numColsG)
     {
       string msg =
-          stringify("Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m,
-                    n, _dd->numRowsG, _dd->numColsG);
-      throw std::runtime_error(msg.c_str());
+          HDD::strf("Solver: Internal logic error (m=%u n=%u but G=%ux%u)", m,
+                    n, _dd.numRowsG, _dd.numColsG);
+      throw Exception(msg);
     }
 
-    for (unsigned int ob = 0; ob < _dd->numRowsG; ob++)
+    for (unsigned int ob = 0; ob < _dd.numRowsG; ob++)
     {
-      const double wY = y[ob] * _dd->W[ob];
+      const double wY = y[ob] * _dd.W[ob];
       if (wY == 0.) continue;
 
       const unsigned phStaIdx =
-          _dd->phStaByObs[ob]; // station for this observation
+          _dd.phStaByObs[ob]; // station for this observation
 
-      const int evIdx1 = _dd->evByObs[0][ob]; // event 1 for this observation
+      const int evIdx1 = _dd.evByObs[0][ob]; // event 1 for this observation
       if (evIdx1 >= 0)
       {
-        const unsigned idxG     = evIdx1 * _dd->nPhStas + phStaIdx;
+        const unsigned idxG     = evIdx1 * _dd.nPhStas + phStaIdx;
         const unsigned evOffset = evIdx1 * 4;
-        x[evOffset + 0] += _dd->G[idxG][0] * _dd->L2NScaler[evOffset + 0] * wY;
-        x[evOffset + 1] += _dd->G[idxG][1] * _dd->L2NScaler[evOffset + 1] * wY;
-        x[evOffset + 2] += _dd->G[idxG][2] * _dd->L2NScaler[evOffset + 2] * wY;
-        x[evOffset + 3] += _dd->G[idxG][3] * _dd->L2NScaler[evOffset + 3] * wY;
+        x[evOffset + 0] += _dd.G[idxG][0] * _dd.L2NScaler[evOffset + 0] * wY;
+        x[evOffset + 1] += _dd.G[idxG][1] * _dd.L2NScaler[evOffset + 1] * wY;
+        x[evOffset + 2] += _dd.G[idxG][2] * _dd.L2NScaler[evOffset + 2] * wY;
+        x[evOffset + 3] += _dd.G[idxG][3] * _dd.L2NScaler[evOffset + 3] * wY;
       }
 
-      const int evIdx2 = _dd->evByObs[1][ob]; // event 2 for this observation
+      const int evIdx2 = _dd.evByObs[1][ob]; // event 2 for this observation
       if (evIdx2 >= 0)
       {
-        const unsigned idxG     = evIdx2 * _dd->nPhStas + phStaIdx;
+        const unsigned idxG     = evIdx2 * _dd.nPhStas + phStaIdx;
         const unsigned evOffset = evIdx2 * 4;
-        x[evOffset + 0] -= _dd->G[idxG][0] * _dd->L2NScaler[evOffset + 0] * wY;
-        x[evOffset + 1] -= _dd->G[idxG][1] * _dd->L2NScaler[evOffset + 1] * wY;
-        x[evOffset + 2] -= _dd->G[idxG][2] * _dd->L2NScaler[evOffset + 2] * wY;
-        x[evOffset + 3] -= _dd->G[idxG][3] * _dd->L2NScaler[evOffset + 3] * wY;
+        x[evOffset + 0] -= _dd.G[idxG][0] * _dd.L2NScaler[evOffset + 0] * wY;
+        x[evOffset + 1] -= _dd.G[idxG][1] * _dd.L2NScaler[evOffset + 1] * wY;
+        x[evOffset + 2] -= _dd.G[idxG][2] * _dd.L2NScaler[evOffset + 2] * wY;
+        x[evOffset + 3] -= _dd.G[idxG][3] * _dd.L2NScaler[evOffset + 3] * wY;
       }
     }
   }
-
-private:
-  Seiscomp::HDD::DDSystemPtr _dd;
 };
 
 } // namespace
 
-namespace Seiscomp {
 namespace HDD {
 
 void Solver::addObservation(unsigned evId1,
@@ -279,10 +272,10 @@ bool Solver::getEventChanges(unsigned evId,
   if (_eventDeltas.find(evIdx) == _eventDeltas.end()) return false;
 
   const EventDeltas &evDelta = _eventDeltas.at(evIdx);
-  deltaLat                   = evDelta.deltaLat;
-  deltaLon                   = evDelta.deltaLon;
-  deltaDepth                 = evDelta.deltaDepth;
-  deltaTT                    = evDelta.deltaTT;
+  deltaLat                   = evDelta.latitude;
+  deltaLon                   = evDelta.longitude;
+  deltaDepth                 = evDelta.depth;
+  deltaTT                    = evDelta.time;
   return true;
 }
 
@@ -336,39 +329,19 @@ void Solver::loadSolutions()
 {
   auto computeEventDelta = [this](unsigned evIdx,
                                   EventDeltas &evDelta) -> bool {
-    const EventParams &evprm = _eventParams.at(evIdx);
-    const unsigned evOffset  = evIdx * 4;
+    const unsigned evOffset = evIdx * 4;
 
-    double deltaX      = _dd->m[evOffset + 0];
-    double deltaY      = _dd->m[evOffset + 1];
-    evDelta.deltaDepth = _dd->m[evOffset + 2];
-    evDelta.deltaTT    = _dd->m[evOffset + 3];
+    evDelta.longitude = _dd->m[evOffset + 0];
+    evDelta.latitude  = _dd->m[evOffset + 1];
+    evDelta.depth     = _dd->m[evOffset + 2];
+    evDelta.time      = _dd->m[evOffset + 3];
 
-    if (!std::isfinite(deltaX) || !std::isfinite(deltaY) ||
-        !std::isfinite(evDelta.deltaDepth) || !std::isfinite(evDelta.deltaTT))
+    if (!std::isfinite(evDelta.longitude) || !std::isfinite(evDelta.latitude) ||
+        !std::isfinite(evDelta.depth) || !std::isfinite(evDelta.time))
     {
       return false;
     }
 
-    double newX = evprm.x + deltaX;
-    double newY = evprm.y + deltaY;
-
-    // compute distance and azimuth of `evId` to centroid (0,0,0)
-    double hdist = std::sqrt(square(newX) + square(newY));
-    hdist        = Math::Geo::km2deg(hdist); // distance to degree
-
-    double azimuth = std::atan2(newX, newY);
-    azimuth        = rad2deg(azimuth);
-
-    // Computes the coordinates (lat, lon) of the point which is at a degree
-    // azimuth of 'azi' and a distance of 'dist' as seen from the centroid
-    // (lat0, lon0).
-    double newLat, newLon;
-    Math::Geo::delandaz2coord(hdist, azimuth, _centroid.lat, _centroid.lon,
-                              &newLat, &newLon);
-
-    evDelta.deltaLat = newLat - evprm.lat;
-    evDelta.deltaLon = newLon - evprm.lon;
     return true;
   };
 
@@ -425,22 +398,23 @@ void Solver::computePartialDerivatives()
   // the new system.
   //
   _centroid = {0, 0, 0};
+  vector<double> longitudes;
   for (const auto &kw : _eventParams)
   {
     _centroid.lat += kw.second.lat;
-    _centroid.lon += kw.second.lon;
     _centroid.depth += kw.second.depth;
+    longitudes.push_back(degToRad(kw.second.lon));
   }
   _centroid.lat /= _eventParams.size();
-  _centroid.lon /= _eventParams.size();
   _centroid.depth /= _eventParams.size();
+  _centroid.lon = normalizeLon(radToDeg(computeCircularMean(longitudes)));
 
   auto convertCoord = [this](double lat, double lon, double depth, double &x,
                              double &y, double &z) {
     double distance, az;
     distance = computeDistance(this->_centroid.lat, this->_centroid.lon, 0, lat,
                                lon, 0, &az);
-    az       = deg2rad(az);
+    az       = degToRad(az);
     x        = distance * std::sin(az);
     y        = distance * std::cos(az);
     z        = depth - _centroid.depth;
@@ -469,9 +443,9 @@ void Solver::computePartialDerivatives()
       ObservationParams &obprm = kv2.second;
 
       // dip angle:  0(down):180(up) -> -90(down):+90(up)
-      const double dip = obprm.takeOffAngleDip - deg2rad(90);
+      const double dip = obprm.takeOffAngleDip - degToRad(90);
       // azimuth angle to backazimuth
-      const double azi      = obprm.takeOffAngleAzim - deg2rad(180);
+      const double azi      = obprm.takeOffAngleAzim - degToRad(180);
       const double slowness = 1. / obprm.velocityAtSrc;
 
       obprm.dx = slowness * std::cos(dip) * std::sin(azi);
@@ -541,9 +515,9 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
   const double median = computeMedian(residuals);
   const double MAD    = computeMedianAbsoluteDeviation(residuals, median);
 
-  SEISCOMP_INFO("Solver: #observations %lu residual median %.1f [msec] "
-                "MedianAbsoluteDeviation %.1f [msec]",
-                _observations.size(), median * 1000, MAD * 1000);
+  logInfo("Solver: num DD %lu residual median %.1f [msec] "
+          "MedianAbsoluteDeviation %.1f [msec]",
+          _observations.size(), median * 1000, MAD * 1000);
 
   //
   // compute weights
@@ -563,7 +537,7 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
   return weights;
 }
 
-void Solver::prepareDDSystem(bool useTTconstraint,
+void Solver::prepareDDSystem(double ttConstraint,
                              double dampingFactor,
                              double residualDownWeight)
 {
@@ -571,7 +545,7 @@ void Solver::prepareDDSystem(bool useTTconstraint,
 
   // Count how many travel time constraints we need in the DD system.
   unsigned ttconstraintNum = 0;
-  if (useTTconstraint)
+  if (ttConstraint > 0)
   {
     for (const auto &kv1 : _obsParams)
       for (const auto &kv2 : kv1.second)
@@ -579,8 +553,8 @@ void Solver::prepareDDSystem(bool useTTconstraint,
   }
 
   // allocate DD system memory
-  _dd = DDSystemPtr(new DDSystem(_observations.size(), _eventIdConverter.size(),
-                                 _phStaIdConverter.size(), ttconstraintNum));
+  _dd.reset(new DDSystem(_observations.size(), _eventIdConverter.size(),
+                         _phStaIdConverter.size(), ttconstraintNum));
 
   // initialize `m` and `L2NScaler`
   std::fill_n(_dd->m, _dd->numColsG, 0);
@@ -689,7 +663,7 @@ void Solver::prepareDDSystem(bool useTTconstraint,
   }
 
   // add travel time residual constraints after DD observations
-  if (useTTconstraint)
+  if (ttConstraint > 0)
   {
     unsigned ttconstraintIdx = _dd->nObs - 1;
     for (const auto &kv1 : _obsParams)
@@ -713,17 +687,17 @@ void Solver::prepareDDSystem(bool useTTconstraint,
 
         if (++ttconstraintIdx >= _dd->numRowsG)
         {
-          string msg = stringify("Solver: internal logic error "
-                                 "(ttconstraintIdx=%u but _dd->numRowsG=%u)",
-                                 ttconstraintIdx, _dd->numRowsG);
-          throw runtime_error(msg.c_str());
+          string msg = strf("Solver: internal logic error "
+                            "(ttconstraintIdx=%u but _dd->numRowsG=%u)",
+                            ttconstraintIdx, _dd->numRowsG);
+          throw Exception(msg);
         }
 
         _dd->W[ttconstraintIdx] =
-            (prmSts.finalTotalObs != 0)
-                ? (prmSts.totalFinalWeight /
-                   (prmSts.finalTotalObs * evObsParamMap.size()))
-                : 0;
+            ttConstraint *
+            (prmSts.finalTotalObs != 0
+                 ? (prmSts.totalFinalWeight / prmSts.finalTotalObs)
+                 : 0);
         _dd->d[ttconstraintIdx] =
             -obprm.travelTimeResidual * _dd->W[ttconstraintIdx];
         _dd->evByObs[0][ttconstraintIdx] = evIdx;
@@ -745,11 +719,10 @@ void Solver::prepareDDSystem(bool useTTconstraint,
     // just a safety belt
     if (ttconstraintNum != (ttconstraintIdx - _dd->nObs))
     {
-      string msg =
-          stringify("Solver: internal logic error (ttconstraintNum=%u "
-                    "but only added %u constraints)",
-                    ttconstraintNum, (ttconstraintIdx + 1 - _dd->nObs));
-      throw runtime_error(msg.c_str());
+      string msg = strf("Solver: internal logic error (ttconstraintNum=%u "
+                        "but only added %u constraints)",
+                        ttconstraintNum, (ttconstraintIdx + 1 - _dd->nObs));
+      throw Exception(msg);
     }
   }
 
@@ -775,10 +748,10 @@ void Solver::prepareDDSystem(bool useTTconstraint,
     const double median = computeMedian(decileRes);
     const double MAD    = computeMedianAbsoluteDeviation(decileRes, median);
 
-    SEISCOMP_INFO(
-        "Solver: Inter-event dist %.2f-%-.2f [km] #observations %lu residual "
-        "median %4.1f [msec] MedianAbsoluteDeviation %4.1f [msec]",
-        startingDist, finalDist, decileRes.size(), median * 1000, MAD * 1000);
+    logInfo("Solver: Inter-event dist %.2f-%-.2f [km] num DD %lu residual "
+            "median %4.1f [msec] MedianAbsoluteDeviation %4.1f [msec]",
+            startingDist, finalDist, decileRes.size(), median * 1000,
+            MAD * 1000);
   }
 
   // free some memory
@@ -788,44 +761,43 @@ void Solver::prepareDDSystem(bool useTTconstraint,
 }
 
 void Solver::solve(unsigned numIterations,
-                   bool useTTconstraint,
+                   double ttConstraint,
                    double dampingFactor,
                    double residualDownWeight,
                    bool normalizeG)
 {
   if (_observations.size() == 0)
   {
-    throw runtime_error("Solver: no observations given");
+    throw Exception("Solver: no observations given");
   }
 
   if (_type == "LSQR")
   {
-    _solve<lsqrBase>(numIterations, useTTconstraint, dampingFactor,
+    _solve<lsqrBase>(numIterations, ttConstraint, dampingFactor,
                      residualDownWeight, normalizeG);
   }
   else if (_type == "LSMR")
   {
-    _solve<lsmrBase>(numIterations, useTTconstraint, dampingFactor,
+    _solve<lsmrBase>(numIterations, ttConstraint, dampingFactor,
                      residualDownWeight, normalizeG);
   }
   else
   {
-    throw runtime_error(
+    throw Exception(
         "Solver: invalid type, only LSQR and LSMR are valid methods");
   }
 }
 
-template <class T>
+template <typename T>
 void Solver::_solve(unsigned numIterations,
-                    bool useTTconstraint,
+                    double ttConstraint,
                     double dampingFactor,
                     double residualDownWeight,
                     bool normalizeG)
 {
-  prepareDDSystem(useTTconstraint, dampingFactor, residualDownWeight);
+  prepareDDSystem(ttConstraint, dampingFactor, residualDownWeight);
 
-  Adapter<T> solver;
-  solver.setDDSytem(_dd);
+  Adapter<T> solver(*_dd); // keeps only a reference to _dd, doesn't copy it!!!
   if (normalizeG)
   {
     solver.L2normalize();
@@ -833,10 +805,10 @@ void Solver::_solve(unsigned numIterations,
   solver.SetDamp(dampingFactor);
   solver.SetMaximumNumberOfIterations(numIterations ? numIterations
                                                     : _dd->numColsG / 2);
-  const double eps = 1e-15;
+  const double eps = std::numeric_limits<double>::epsilon();
   solver.SetEpsilon(eps);
-  solver.SetToleranceA(1e-16);
-  solver.SetToleranceB(1e-16);
+  solver.SetToleranceA(1e-6); // we use [km] and [sec] in the DD system, so
+  solver.SetToleranceB(1e-6); // this tolerance looks like enough (mm and usec)
   solver.SetUpperLimitOnConditional(1.0 / (10 * sqrt(eps)));
 
   std::ostringstream solverLogs;
@@ -844,19 +816,18 @@ void Solver::_solve(unsigned numIterations,
 
   solver.Solve(_dd->numRowsG, _dd->numColsG, _dd->d, _dd->m);
 
-  SEISCOMP_DEBUG("%s", solverLogs.str().c_str());
+  logDebug("%s", solverLogs.str().c_str());
 
-  SEISCOMP_INFO("Stopped because %u : %s (used %u iterations)",
-                solver.GetStoppingReason(),
-                solver.GetStoppingReasonMessage().c_str(),
-                solver.GetNumberOfIterationsPerformed());
+  logInfo("Stopped because %u : %s (used %u iterations)",
+          solver.GetStoppingReason(), solver.GetStoppingReasonMessage().c_str(),
+          solver.GetNumberOfIterationsPerformed());
 
   if (solver.GetStoppingReason() == 4)
   {
     _dd        = nullptr;
-    string msg = stringify("Solver: no solution found (%s)",
-                           solver.GetStoppingReasonMessage().c_str());
-    throw runtime_error(msg.c_str());
+    string msg = strf("Solver: no solution found (%s)",
+                      solver.GetStoppingReasonMessage().c_str());
+    throw Exception(msg);
   }
 
   if (normalizeG)
@@ -868,9 +839,8 @@ void Solver::_solve(unsigned numIterations,
 
   if (_eventDeltas.empty())
   {
-    throw runtime_error("Solver: no event has been relocated");
+    throw Exception("Solver: no event has been relocated");
   }
 }
 
 } // namespace HDD
-} // namespace Seiscomp

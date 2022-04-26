@@ -18,23 +18,47 @@
 #define __HDD_UTILS_H__
 
 #include "catalog.h"
+#include "timewindow.h"
+#include "xcorrcache.h"
+#include <cmath>
 #include <initializer_list>
 #include <random>
 #include <regex>
-#include <seiscomp3/core/strings.h>
+#include <stdexcept>
 #include <vector>
 
-namespace Seiscomp {
 namespace HDD {
 
-template <class T> inline T square(T x) { return x * x; }
-
-inline std::vector<std::string> splitString(const std::string &str,
-                                            const std::regex &regex)
+class Exception : public std::runtime_error
 {
-  return {std::sregex_token_iterator{str.begin(), str.end(), regex, -1},
-          std::sregex_token_iterator()};
+public:
+  Exception(const std::string &message) : std::runtime_error(message) {}
+};
+
+std::string strf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+
+std::vector<std::string> splitString(const std::string &str,
+                                     const std::regex &regex);
+
+inline double radToDeg(double r) { return 180.0 * r / M_PI; }
+
+inline double degToRad(double d) { return M_PI * d / 180.0; }
+
+template <typename T> T square(T x) { return x * x; }
+
+inline double normalizeLon(double lon)
+{
+  while (lon < -180.0) lon += 360.0;
+  while (lon > 180.0) lon -= 360.0;
+  return lon;
 }
+
+void computeCoordinates(double distance,
+                        double azimuth,
+                        double clat,
+                        double clon,
+                        double &lat,
+                        double &lon);
 
 double computeDistance(double lat1,
                        double lon1,
@@ -72,97 +96,24 @@ double computeMean(const std::vector<double> &values);
 double computeMeanAbsoluteDeviation(const std::vector<double> &values,
                                     const double mean);
 
-class UniformRandomer
-{
+double computeCircularMean(const std::vector<double> &angles);
 
-public:
-  UniformRandomer(size_t min,
-                  size_t max,
-                  unsigned int seed = std::random_device{}())
-      : _gen(seed), _dist(min, max)
-  {}
+std::string joinPath(const std::string &path1, const std::string &path2);
 
-  // if you want predictable numbers
-  void setSeed(unsigned int seed) { _gen.seed(seed); }
+bool pathExists(const std::string &path);
 
-  size_t next() { return _dist(_gen); }
+bool directoryEmpty(const std::string &path);
 
-private:
-  // random seed by default
-  std::mt19937 _gen;
-  std::uniform_int_distribution<size_t> _dist;
-};
+bool createDirectories(const std::string &path);
 
-class NormalRandomer
-{
+bool removePath(const std::string &path);
 
-public:
-  NormalRandomer(double mean,
-                 double stdDev,
-                 unsigned int seed = std::random_device{}())
-      : _gen(seed), _dist(mean, stdDev)
-  {}
+void writeXCorrToFile(const XCorrCache &xcorr,
+                      const Catalog &cat,
+                      const std::string &file);
 
-  // if you want predictable numbers
-  void setSeed(unsigned int seed) { _gen.seed(seed); }
-
-  double next() { return _dist(_gen); }
-
-private:
-  // random seed by default
-  std::mt19937 _gen;
-  std::normal_distribution<double> _dist;
-};
-
-/*
- *  Convert some hashable id of type T (e.g. `std::string`) to an alternative
- *  representation i.e. a sequentially growing integer starting from 0
- *  (suitable for array index).
- */
-template <class T> class IdToIndex
-{
-public:
-  unsigned convert(const T &id)
-  {
-    unsigned idx;
-    if (hasId(id, idx)) return idx;
-    unsigned newIdx = _currentIdx++;
-    _to[id]         = newIdx;
-    _from[newIdx]   = id;
-    return newIdx;
-  }
-
-  unsigned toIdx(const T &id) const { return _to.at(id); }
-  T fromIdx(unsigned idx) const { return _from.at(idx); }
-
-  bool hasIdx(unsigned idx) const { return _from.find(idx) != _from.end(); }
-  bool hasId(const T &id) const { return _to.find(id) != _to.end(); }
-
-  bool hasIdx(unsigned idx, T &id) const
-  {
-    const auto &iter = _from.find(idx);
-    if (iter == _from.end()) return false;
-    id = iter->second;
-    return true;
-  }
-
-  bool hasId(const T &id, unsigned &idx) const
-  {
-    const auto &iter = _to.find(id);
-    if (iter == _to.end()) return false;
-    idx = iter->second;
-    return true;
-  }
-
-  unsigned size() const { return _to.size(); }
-
-private:
-  unsigned _currentIdx = 0;
-  std::unordered_map<T, unsigned> _to;
-  std::unordered_map<unsigned, T> _from;
-};
+XCorrCache readXCorrFromFile(const Catalog &cat, const std::string &file);
 
 } // namespace HDD
-} // namespace Seiscomp
 
 #endif

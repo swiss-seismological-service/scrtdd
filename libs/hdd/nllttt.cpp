@@ -15,21 +15,14 @@
  ***************************************************************************/
 
 #include "nllttt.h"
+#include "log.h"
 #include "utils.h"
 
 #include <array>
 #include <cstring>
-#include <seiscomp3/core/strings.h>
-#include <seiscomp3/math/math.h>
-#include <seiscomp3/utils/files.h>
-#include <stdexcept>
-
-#define SEISCOMP_COMPONENT HDD
-#include <seiscomp3/logging/log.h>
 
 using namespace std;
-using Seiscomp::Core::stringify;
-using TakeOffAngles = Seiscomp::HDD::NLL::AngleGrid::TakeOffAngles;
+using TakeOffAngles = HDD::NLL::AngleGrid::TakeOffAngles;
 
 namespace {
 
@@ -135,154 +128,148 @@ TakeOffAngles interpolateCubeAngles(double xdiff,
 
 } // namespace
 
-namespace Seiscomp {
 namespace HDD {
 namespace NLL {
 
-NllTravelTimeTable::NllTravelTimeTable(const std::string &type,
-                                       const std::string &model)
-    : TravelTimeTable(type, model)
+TravelTimeTable::TravelTimeTable(const std::string &velGridPath,
+                                 const std::string &timeGridPath,
+                                 const std::string &angleGridPath,
+                                 bool swapBytes)
+    : _velGridPath(velGridPath), _timeGridPath(timeGridPath),
+      _angleGridPath(angleGridPath), _swapBytes(swapBytes)
+{}
+
+void TravelTimeTable::freeResources()
 {
-  static const std::regex regex(";", std::regex::optimize);
-  std::vector<std::string> tokens(splitString(model, regex));
-  if (tokens.size() != 3 && tokens.size() != 4)
-  {
-    string msg =
-        stringify("Error while initialzing NLL grids: invalid table model (%s)",
-                  model.c_str());
-    throw runtime_error(msg.c_str());
-  }
-  _velGridPath   = tokens.at(0);
-  _timeGridPath  = tokens.at(1);
-  _angleGridPath = tokens.at(2);
-  _swapBytes     = false;
-  if (tokens.size() > 3 && tokens.at(3) == "swapBytes")
-  {
-    _swapBytes = true;
-  }
+  _velGrids.clear();
+  _timeGrids.clear();
+  _angleGrids.clear();
 }
 
-void NllTravelTimeTable::compute(double eventLat,
-                                 double eventLon,
-                                 double eventDepth,
-                                 const Catalog::Station &station,
-                                 const std::string &phaseType,
-                                 double &travelTime)
+void TravelTimeTable::compute(double eventLat,
+                              double eventLon,
+                              double eventDepth,
+                              const Catalog::Station &station,
+                              const std::string &phaseType,
+                              double &travelTime)
 {
   string timeGId =
       "timeGrid:" + Grid::filePath(_timeGridPath, station, phaseType);
-  auto timeIt = _timeGrids.find(timeGId);
-  if (timeIt == _timeGrids.end())
+  try
+  {
+    travelTime =
+        _timeGrids.get(timeGId)->getTime(eventLat, eventLon, eventDepth);
+  }
+  catch (std::range_error &e)
   {
     // Check if we have already excluded the grid because we couldn't load it
     if (_unloadableGrids.find(timeGId) != _unloadableGrids.end())
     {
-      string msg = stringify("Time grid (%s) not avaliable", timeGId.c_str());
-      throw runtime_error(msg.c_str());
+      string msg = strf("Time grid (%s) not avaliable", timeGId.c_str());
+      throw Exception(msg.c_str());
     }
 
+    // Load the grid
     try
     {
-      TimeGridPtr tg =
-          new TimeGrid(_timeGridPath, station, phaseType, _swapBytes);
-      timeIt =
-          _timeGrids.insert(std::pair<string, TimeGridPtr>(timeGId, tg)).first;
+      _timeGrids.put(timeGId,
+                     shared_ptr<TimeGrid>(new TimeGrid(_timeGridPath, station,
+                                                       phaseType, _swapBytes)));
     }
     catch (exception &e)
     {
       _unloadableGrids.insert(timeGId);
-      throw runtime_error(e.what());
+      throw Exception(e.what());
     }
-  }
 
-  TimeGridPtr timeGrid = timeIt->second;
-  travelTime           = timeGrid->getTime(eventLat, eventLon, eventDepth);
+    travelTime =
+        _timeGrids.get(timeGId)->getTime(eventLat, eventLon, eventDepth);
+  }
 }
 
-void NllTravelTimeTable::compute(double eventLat,
-                                 double eventLon,
-                                 double eventDepth,
-                                 const Catalog::Station &station,
-                                 const std::string &phaseType,
-                                 double &travelTime,
-                                 double &takeOffAngleAzim,
-                                 double &takeOffAngleDip,
-                                 double &velocityAtSrc)
+void TravelTimeTable::compute(double eventLat,
+                              double eventLon,
+                              double eventDepth,
+                              const Catalog::Station &station,
+                              const std::string &phaseType,
+                              double &travelTime,
+                              double &takeOffAngleAzim,
+                              double &takeOffAngleDip,
+                              double &velocityAtSrc)
 {
   // get travelTime
   compute(eventLat, eventLon, eventDepth, station, phaseType, travelTime);
 
+  // Get velocityAtSrc
   string velGId = "velGrid:" + Grid::filePath(_velGridPath, station, phaseType);
-  auto velIt    = _velGrids.find(velGId);
-  if (velIt == _velGrids.end())
+  try
+  {
+    velocityAtSrc =
+        _velGrids.get(velGId)->getVel(eventLat, eventLon, eventDepth);
+  }
+  catch (std::range_error &e)
   {
     // Check if we have already excluded the grid because we couldn't load it
     if (_unloadableGrids.find(velGId) != _unloadableGrids.end())
     {
-      string msg = stringify("Vel grid (%s) not avaliable", velGId.c_str());
-      throw runtime_error(msg.c_str());
+      string msg = strf("Vel grid (%s) not avaliable", velGId.c_str());
+      throw Exception(msg.c_str());
     }
 
+    // Load the grid
     try
     {
-      VelGridPtr vg = new VelGrid(_velGridPath, station, phaseType, _swapBytes);
-      velIt = _velGrids.insert(std::pair<string, VelGridPtr>(velGId, vg)).first;
+      _velGrids.put(velGId, shared_ptr<VelGrid>(new VelGrid(
+                                _velGridPath, station, phaseType, _swapBytes)));
     }
     catch (exception &e)
     {
       _unloadableGrids.insert(velGId);
-      throw runtime_error(e.what());
+      throw Exception(e.what());
     }
+
+    // Again, get the value from the grid now that it is loaded
+    velocityAtSrc =
+        _velGrids.get(velGId)->getVel(eventLat, eventLon, eventDepth);
   }
 
-  // set velocityAtSrc
-  VelGridPtr velGrid = velIt->second;
-  velocityAtSrc      = velGrid->getVel(eventLat, eventLon, eventDepth);
+  // Get takeOffAngles
+  takeOffAngleAzim = std::numeric_limits<double>::quiet_NaN();
+  takeOffAngleDip  = std::numeric_limits<double>::quiet_NaN();
 
   string angleGId =
       "angleGrid:" + Grid::filePath(_angleGridPath, station, phaseType);
-  auto angleIt = _angleGrids.find(angleGId);
-  if (angleIt == _angleGrids.end())
+
+  try
+  {
+    _angleGrids.get(angleGId)->getAngles(eventLat, eventLon, eventDepth,
+                                         takeOffAngleAzim, takeOffAngleDip);
+  }
+  catch (std::range_error &e)
   {
     // Check if we have already excluded the grid because we couldn't load it
-    if (_unloadableGrids.find(angleGId) == _unloadableGrids.end())
+    if (_unloadableGrids.find(angleGId) != _unloadableGrids.end())
     {
-      try
-      {
-        AngleGridPtr ag =
-            new AngleGrid(_angleGridPath, station, phaseType, _swapBytes);
-        angleIt =
-            _angleGrids.insert(std::pair<string, AngleGridPtr>(angleGId, ag))
-                .first;
-      }
-      catch (exception &e)
-      {
-        _unloadableGrids.insert(angleGId);
-        SEISCOMP_WARNING(
-            "Cannot load angle grid file: using approximated angles (%s)",
-            e.what());
-      }
+      string msg = strf("Time grid (%s) not avaliable", angleGId.c_str());
+      throw Exception(msg.c_str());
     }
-  }
 
-  // set takeOffAngles
-  takeOffAngleAzim = std::nan("");
-  takeOffAngleDip  = std::nan("");
-  if (angleIt != _angleGrids.end())
-  {
-    AngleGridPtr angleGrid = angleIt->second;
+    // Load the grid
     try
     {
-      angleGrid->getAngles(eventLat, eventLon, eventDepth, takeOffAngleAzim,
-                           takeOffAngleDip);
+      _angleGrids.put(angleGId,
+                      shared_ptr<AngleGrid>(new AngleGrid(
+                          _angleGridPath, station, phaseType, _swapBytes)));
     }
     catch (exception &e)
     {
-      SEISCOMP_WARNING(
-          "Error reading angle grid file: using approximated angles (%s)",
-          e.what());
+      _unloadableGrids.insert(angleGId);
+      throw Exception(e.what());
     }
+    _angleGrids.get(angleGId)->getAngles(eventLat, eventLon, eventDepth,
+                                         takeOffAngleAzim, takeOffAngleDip);
   }
+
   // approximate angles if not already provided by the grid
   computeApproximatedTakeOfAngles(
       eventLat, eventLon, eventDepth, station, phaseType,
@@ -313,11 +300,11 @@ Grid::Grid(Type gridType,
     : info(parse(filePath(basePath, station, phaseType), gridType, swapBytes))
 {
 
-  if (!Util::fileExists(info.bufFilePath))
+  if (!pathExists(info.bufFilePath))
   {
     string msg =
-        stringify("Cannot find grid data file %s", info.bufFilePath.c_str());
-    throw runtime_error(msg.c_str());
+        strf("Cannot find grid data file %s", info.bufFilePath.c_str());
+    throw Exception(msg.c_str());
   }
 }
 
@@ -379,7 +366,7 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
     }
     else if (tokens.at(0) == "TRANSFORM" || tokens.at(0) == "TRANS")
     {
-      info.transform = std::unique_ptr<Transform>(new Transform(tokens));
+      info.transform.reset(new Transform(tokens));
       ++parsedLines;
     }
   }
@@ -389,8 +376,8 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
       (gridType == Type::velocity && parsedLines != 2))
   {
     string msg =
-        stringify("Cannot load grid header file %s", info.hdrFilePath.c_str());
-    throw runtime_error(msg.c_str());
+        strf("Cannot load grid header file %s", info.hdrFilePath.c_str());
+    throw Exception(msg.c_str());
   }
 
   // make sure that dx for 2D grids is non-zero
@@ -398,7 +385,7 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
 
   if (info.useDouble && info.swapBytes)
   {
-    throw runtime_error(
+    throw Exception(
         "Grid files with DOUBLE values and byte swapping are not supported");
   }
 
@@ -440,14 +427,14 @@ bool Grid::isIndexInside(unsigned long long ix,
  * (e.g. grids stored on a network folder) prove an additional
  * caching layer to be necessary
  */
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
                                       unsigned long long iy,
                                       unsigned long long iz)
 {
   if (!isIndexInside(ix, iy, iz))
   {
-    throw runtime_error("Requested index is out of grid boundaries");
+    throw Exception("Requested index is out of grid boundaries");
   }
 
   if (!_bufReader.is_open())
@@ -468,9 +455,9 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
   catch (exception &e)
   {
     _bufReader.close();
-    string msg = stringify("Error while reading grid file %s (%s)",
-                           info.bufFilePath.c_str(), e.what());
-    throw runtime_error(msg.c_str());
+    string msg = strf("Error while reading grid file %s (%s)",
+                      info.bufFilePath.c_str(), e.what());
+    throw Exception(msg.c_str());
   }
 
   if (info.swapBytes && sizeof(GRID_FLOAT_TYPE) == 4)
@@ -486,7 +473,7 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
   return value;
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 void Grid::getValuesAt3DLocation(double xloc,
                                  double yloc,
                                  double zloc,
@@ -504,15 +491,15 @@ void Grid::getValuesAt3DLocation(double xloc,
 {
   if (!isLocationInside(xloc, yloc, zloc))
   {
-    string msg = stringify("Requested location is out of grid boundaries "
-                           "(xloc %.2f yloc %.2f zloc %.2f - grid %s "
-                           "origx %.3f origy %.3f origz %.3f "
-                           "dx %.2f dy %.2f dz %.2f "
-                           "numx %u numy %u numz %u)",
-                           xloc, yloc, zloc, info.hdrFilePath.c_str(),
-                           info.origx, info.origy, info.origz, info.dx, info.dy,
-                           info.dz, info.numx, info.numy, info.numz);
-    throw runtime_error(msg.c_str());
+    string msg = strf("Requested location is out of grid boundaries "
+                      "(xloc %.2f yloc %.2f zloc %.2f - grid %s "
+                      "origx %.3f origy %.3f origz %.3f "
+                      "dx %.2f dy %.2f dz %.2f "
+                      "numx %llu numy %llu numz %llu)",
+                      xloc, yloc, zloc, info.hdrFilePath.c_str(), info.origx,
+                      info.origy, info.origz, info.dx, info.dy, info.dz,
+                      info.numx, info.numy, info.numz);
+    throw Exception(msg.c_str());
   }
 
   /* calculate grid locations at the vertex of the cube containing the point */
@@ -549,7 +536,7 @@ void Grid::getValuesAt3DLocation(double xloc,
   vval111 = getValueAtIndex<GRID_FLOAT_TYPE>(ix1, iy1, iz1);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 void Grid::getValuesAt2DLocation(double yloc,
                                  double zloc,
                                  double &ydiff,
@@ -564,15 +551,15 @@ void Grid::getValuesAt2DLocation(double yloc,
 
   if (!isLocationInside(xloc, yloc, zloc))
   {
-    string msg = stringify("Requested location is out of grid boundaries "
-                           "(xloc %.2f yloc %.2f zloc %.2f - grid %s "
-                           "origx %.3f origy %.3f origz %.3f "
-                           "dx %.2f dy %.2f dz %.2f "
-                           "numx %u numy %u numz %u)",
-                           xloc, yloc, zloc, info.hdrFilePath.c_str(),
-                           info.origx, info.origy, info.origz, info.dx, info.dy,
-                           info.dz, info.numx, info.numy, info.numz);
-    throw runtime_error(msg.c_str());
+    string msg = strf("Requested location is out of grid boundaries "
+                      "(xloc %.2f yloc %.2f zloc %.2f - grid %s "
+                      "origx %.3f origy %.3f origz %.3f "
+                      "dx %.2f dy %.2f dz %.2f "
+                      "numx %llu numy %llu numz %llu)",
+                      xloc, yloc, zloc, info.hdrFilePath.c_str(), info.origx,
+                      info.origy, info.origz, info.dx, info.dy, info.dz,
+                      info.numx, info.numy, info.numz);
+    throw Exception(msg.c_str());
   }
 
   /* calculate grid locations at the face of the cube containing the point */
@@ -601,7 +588,7 @@ void Grid::getValuesAt2DLocation(double yloc,
   vval11 = getValueAtIndex<GRID_FLOAT_TYPE>(ix0, iy1, iz1);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE Grid::getValue(
     double lat,
     double lon,
@@ -619,7 +606,7 @@ GRID_FLOAT_TYPE Grid::getValue(
   }
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE Grid::getValue3D(
     double lat,
     double lon,
@@ -641,7 +628,7 @@ GRID_FLOAT_TYPE Grid::getValue3D(
                              vval011, vval100, vval101, vval110, vval111);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE Grid::getValue2D(
     double lat,
     double lon,
@@ -683,9 +670,9 @@ TimeGrid::TimeGrid(const std::string &basePath,
 {
   if (info.type != "TIME" && info.type != "TIME2D")
   {
-    string msg = stringify("Unrecognized time grid type %s (%s)",
-                           info.type.c_str(), info.hdrFilePath.c_str());
-    throw runtime_error(msg.c_str());
+    string msg = strf("Unrecognized time grid type %s (%s)", info.type.c_str(),
+                      info.hdrFilePath.c_str());
+    throw Exception(msg.c_str());
   }
 }
 
@@ -703,7 +690,7 @@ double TimeGrid::getTime(double lat, double lon, double depth)
   }
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE TimeGrid::interpolateValues3D(double xdiff,
                                               double ydiff,
                                               double zdiff,
@@ -720,13 +707,13 @@ GRID_FLOAT_TYPE TimeGrid::interpolateValues3D(double xdiff,
   if (vval000 < 0.0 || vval010 < 0.0 || vval100 < 0.0 || vval110 < 0.0 ||
       vval001 < 0.0 || vval011 < 0.0 || vval101 < 0.0 || vval111 < 0.0)
   {
-    throw runtime_error("Negative times found in the grid file");
+    throw Exception("Negative times found in the grid file");
   }
   return interpolateCubeLagrange(xdiff, ydiff, zdiff, vval000, vval001, vval010,
                                  vval011, vval100, vval101, vval110, vval111);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE TimeGrid::interpolateValues2D(double xdiff,
                                               double zdiff,
                                               GRID_FLOAT_TYPE vval00,
@@ -736,7 +723,7 @@ GRID_FLOAT_TYPE TimeGrid::interpolateValues2D(double xdiff,
 {
   if (vval00 < 0.0 || vval01 < 0.0 || vval10 < 0.0 || vval11 < 0.0)
   {
-    throw runtime_error("Negative times found in the grid file");
+    throw Exception("Negative times found in the grid file");
   }
   return interpolateSquareLagrange(xdiff, zdiff, vval00, vval01, vval10,
                                    vval11);
@@ -750,9 +737,8 @@ AngleGrid::AngleGrid(const std::string &basePath,
 {
   if (info.type != "ANGLE" && info.type != "ANGLE2D")
   {
-    string msg =
-        stringify("Unrecognized angle grid type %s", info.type.c_str());
-    throw runtime_error(msg.c_str());
+    string msg = strf("Unrecognized angle grid type %s", info.type.c_str());
+    throw Exception(msg.c_str());
   }
 
   //
@@ -762,8 +748,7 @@ AngleGrid::AngleGrid(const std::string &basePath,
   //
   if (sizeof(TakeOffAngles) != sizeof(float))
   {
-    throw runtime_error(
-        "Internal error: sizeof(TakeOffAngles) != sizeof(float)");
+    throw Exception("Internal error: sizeof(TakeOffAngles) != sizeof(float)");
   }
 
   unsigned short quality  = 0x06;
@@ -784,15 +769,14 @@ AngleGrid::AngleGrid(const std::string &basePath,
 
   if (std::memcmp(&test, reference, 4) != 0)
   {
-    throw runtime_error(
-        "Internal error: TakeOffAngles memory mapping is not ok");
+    throw Exception("Internal error: TakeOffAngles memory mapping is not ok");
   }
 
   // assumes angle files store floats only (never double)
   if (info.useDouble)
   {
-    throw runtime_error("Angle grid files with DOUBLE values are not "
-                        "supported, only FLOAT allowed");
+    throw Exception("Angle grid files with DOUBLE values are not "
+                    "supported, only FLOAT allowed");
   }
 }
 
@@ -806,8 +790,8 @@ void AngleGrid::getAngles(
   if (angles.quality < QUALITY_CUTOFF)
   {
     // this is not an error, the code handles nans
-    azim = std::nan("");
-    dip  = std::nan("");
+    azim = std::numeric_limits<double>::quiet_NaN();
+    dip  = std::numeric_limits<double>::quiet_NaN();
     return;
   }
 
@@ -815,17 +799,17 @@ void AngleGrid::getAngles(
   {
     azim = angles.azimuth / 10.0; // tenths of degree -> degree
     azim = info.transform->toLatLonAngle(azim);
-    azim = deg2rad(azim);
+    azim = degToRad(azim);
   }
   else
   {
-    azim = std::nan("");
+    azim = std::numeric_limits<double>::quiet_NaN();
   }
   dip = (angles.dip / 10.0);
-  dip = deg2rad(dip);
+  dip = degToRad(dip);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE AngleGrid::interpolateValues3D(double xdiff,
                                                double ydiff,
                                                double zdiff,
@@ -843,7 +827,7 @@ GRID_FLOAT_TYPE AngleGrid::interpolateValues3D(double xdiff,
                                QUALITY_CUTOFF);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE AngleGrid::interpolateValues2D(double xdiff,
                                                double zdiff,
                                                GRID_FLOAT_TYPE vval00,
@@ -863,10 +847,10 @@ VelGrid::VelGrid(const std::string &basePath,
 {
   if (info.numx < 2)
   {
-    string msg = stringify(
-        "Velocity grid must have xNum greater than 2, found %llu (%s)",
-        info.numx, info.hdrFilePath.c_str());
-    throw runtime_error(msg.c_str());
+    string msg =
+        strf("Velocity grid must have xNum greater than 2, found %llu (%s)",
+             info.numx, info.hdrFilePath.c_str());
+    throw Exception(msg.c_str());
   }
 
   if (info.type == "VELOCITY_METERS")
@@ -891,9 +875,8 @@ VelGrid::VelGrid(const std::string &basePath,
     convertUnits = [](double vel) -> double { return vel; };
   else
   {
-    string msg =
-        stringify("Unrecognized velocity grid type %s", info.type.c_str());
-    throw runtime_error(msg.c_str());
+    string msg = strf("Unrecognized velocity grid type %s", info.type.c_str());
+    throw Exception(msg.c_str());
   }
 }
 
@@ -914,7 +897,7 @@ double VelGrid::getVel(double lat, double lon, double depth)
   return convertUnits(velAtSrc);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE VelGrid::interpolateValues3D(double xdiff,
                                              double ydiff,
                                              double zdiff,
@@ -930,13 +913,13 @@ GRID_FLOAT_TYPE VelGrid::interpolateValues3D(double xdiff,
   if (vval000 < 0.0 || vval010 < 0.0 || vval100 < 0.0 || vval110 < 0.0 ||
       vval001 < 0.0 || vval011 < 0.0 || vval101 < 0.0 || vval111 < 0.0)
   {
-    throw runtime_error("Negative velocities found in the grid file");
+    throw Exception("Negative velocities found in the grid file");
   }
   return interpolateCubeLagrange(xdiff, ydiff, zdiff, vval000, vval001, vval010,
                                  vval011, vval100, vval101, vval110, vval111);
 }
 
-template <class GRID_FLOAT_TYPE>
+template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE VelGrid::interpolateValues2D(double xdiff,
                                              double zdiff,
                                              GRID_FLOAT_TYPE vval00,
@@ -946,7 +929,7 @@ GRID_FLOAT_TYPE VelGrid::interpolateValues2D(double xdiff,
 {
   if (vval00 < 0.0 || vval01 < 0.0 || vval10 < 0.0 || vval11 < 0.0)
   {
-    throw runtime_error("Negative velocities found in the grid file");
+    throw Exception("Negative velocities found in the grid file");
   }
   return interpolateSquareLagrange(xdiff, zdiff, vval00, vval01, vval10,
                                    vval11);
@@ -962,7 +945,7 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
 
   if (tokens.at(0) != "TRANSFORM" && tokens.at(0) != "TRANS")
   {
-    throw runtime_error("Malformed transform line");
+    throw Exception("Malformed transform line");
   }
 
   info.type = tokens.at(1);
@@ -978,36 +961,36 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
     info.orig_lat  = std::stod(tokens.at(3));
     info.orig_long = std::stod(tokens.at(5));
     info.rot       = std::stod(tokens.at(7));
-    info.angle     = -deg2rad(info.rot);
+    info.angle     = -degToRad(info.rot);
     info.cosang    = std::cos(info.angle);
     info.sinang    = std::sin(info.angle);
 
     if (info.orig_lat > 90 || info.orig_lat < -90)
     {
-      throw runtime_error("Origin latitude must be in range -90,90");
+      throw Exception("Origin latitude must be in range -90,90");
     }
     if (info.orig_long > 180 || info.orig_long < -180)
     {
-      throw runtime_error("Origin longitude must be in range -180,180");
+      throw Exception("Origin longitude must be in range -180,180");
     }
     if (info.rot > 360 || info.rot < -360)
     {
-      throw runtime_error("Rotation must be in range -360,360");
+      throw Exception("Rotation must be in range -360,360");
     }
 
     if (info.type == "SDC")
     {
       //  conversion factor for latitude
       double dlt1 =
-          std::atan(MAP_TRANS_SDC_DRLT * std::tan(deg2rad(info.orig_lat)));
+          std::atan(MAP_TRANS_SDC_DRLT * std::tan(degToRad(info.orig_lat)));
       double dlt2    = std::atan(MAP_TRANS_SDC_DRLT *
-                              std::tan(deg2rad(info.orig_lat + 1.0)));
+                              std::tan(degToRad(info.orig_lat + 1.0)));
       double del     = dlt2 - dlt1;
       double r       = ERAD * (1.0 - square(std::sin(dlt1)) * FLATTENING);
       info.sdc_xltkm = r * del;
       //  conversion factor for longitude
       del            = std::acos(1.0 -
-                      (1.0 - std::cos(deg2rad(1))) * square(std::cos(dlt1)));
+                      (1.0 - std::cos(degToRad(1))) * square(std::cos(dlt1)));
       double bc      = r * del;
       info.sdc_xlnkm = bc / std::cos(dlt1);
     }
@@ -1032,8 +1015,8 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
   }
   else
   {
-    string msg = stringify("Unsupported transform %s", info.type.c_str());
-    throw runtime_error(msg.c_str());
+    string msg = strf("Unsupported transform %s", info.type.c_str());
+    throw Exception(msg.c_str());
   }
   return info;
 }
@@ -1054,7 +1037,7 @@ void Transform::fromLatLon(double lat,
     double xtemp = lon - info.orig_long;
     if (xtemp > 180.0) xtemp -= 360.0;
     if (xtemp < -180.0) xtemp += 360.0;
-    xtemp        = xtemp * c111 * std::cos(deg2rad(lat));
+    xtemp        = xtemp * c111 * std::cos(degToRad(lat));
     double ytemp = (lat - info.orig_lat) * c111;
     xLoc         = xtemp * info.cosang - ytemp * info.sinang;
     yLoc         = ytemp * info.cosang + xtemp * info.sinang;
@@ -1067,7 +1050,7 @@ void Transform::fromLatLon(double lat,
     double ytemp = lat - info.orig_lat;
 
     double xlt1 = std::atan(MAP_TRANS_SDC_DRLT *
-                            std::tan(deg2rad(lat + info.orig_lat) / 2.0));
+                            std::tan(degToRad(lat + info.orig_lat) / 2.0));
     xtemp       = xtemp * info.sdc_xlnkm * std::cos(xlt1);
     ytemp       = ytemp * info.sdc_xltkm;
 
@@ -1098,8 +1081,8 @@ void Transform::fromLatLon(double lat,
   }  
   else // this never happens
   {
-    string msg = stringify("Unsupported transform %s", info.type.c_str());
-    throw runtime_error(msg.c_str());
+    string msg = strf("Unsupported transform %s", info.type.c_str());
+    throw Exception(msg.c_str());
   }
 }
 
@@ -1118,7 +1101,7 @@ void Transform::toLatLon(double xLoc,
     double xtemp = xLoc * info.cosang + yLoc * info.sinang;
     double ytemp = yLoc * info.cosang - xLoc * info.sinang;
     lat          = info.orig_lat + ytemp / c111;
-    lon          = info.orig_long + xtemp / (c111 * std::cos(deg2rad(lat)));
+    lon          = info.orig_long + xtemp / (c111 * std::cos(degToRad(lat)));
     if (lon < -180.0)
       lon += 360.0;
     else if (lon > 180.0)
@@ -1131,7 +1114,7 @@ void Transform::toLatLon(double xLoc,
     ytemp        = ytemp / info.sdc_xltkm;
     lat          = info.orig_lat + ytemp;
     double xlt1  = std::atan(MAP_TRANS_SDC_DRLT *
-                            std::tan(deg2rad(lat + info.orig_lat) / 2.0));
+                            std::tan(degToRad(lat + info.orig_lat) / 2.0));
     xtemp        = xtemp / (info.sdc_xlnkm * std::cos(xlt1));
     lon          = info.orig_long + xtemp;
     if (lon < -180.0)
@@ -1156,8 +1139,8 @@ void Transform::toLatLon(double xLoc,
   }  
   else // this never happens
   {
-    string msg = stringify("Unsupported transform %s", info.type.c_str());
-    throw runtime_error(msg.c_str());
+    string msg = strf("Unsupported transform %s", info.type.c_str());
+    throw Exception(msg.c_str());
   }
 }
 
@@ -1178,8 +1161,8 @@ double Transform::fromLatLonAngle(double latlonAngle) const
   }
   else // this never happens
   {
-    string msg = stringify("Unsupported transform %s", info.type.c_str());
-    throw runtime_error(msg.c_str());
+    string msg = strf("Unsupported transform %s", info.type.c_str());
+    throw Exception(msg.c_str());
   }
 }
 
@@ -1200,8 +1183,8 @@ double Transform::toLatLonAngle(double rectAngle) const
   }
   else // this never happens
   {
-    string msg = stringify("Unsupported transform %s", info.type.c_str());
-    throw runtime_error(msg.c_str());
+    string msg = strf("Unsupported transform %s", info.type.c_str());
+    throw Exception(msg.c_str());
   }
 }
 
@@ -1240,4 +1223,3 @@ double Transform::distance(double xLoc1,
 
 } // namespace NLL
 } // namespace HDD
-} // namespace Seiscomp

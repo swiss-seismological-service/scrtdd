@@ -18,25 +18,16 @@
 #ifndef __RTDD_APPLICATIONS_RTDD_H__
 #define __RTDD_APPLICATIONS_RTDD_H__
 
-#include <seiscomp3/client/application.h>
-#include <seiscomp3/datamodel/amplitude.h>
-#include <seiscomp3/datamodel/eventparameters.h>
-#include <seiscomp3/datamodel/journaling.h>
-#include <seiscomp3/datamodel/origin.h>
-#include <seiscomp3/datamodel/publicobjectcache.h>
-#include <seiscomp3/processing/amplitudeprocessor.h>
-#include <seiscomp3/utils/timer.h>
-
-#include "app.h"
-#include "hypodd.h"
-#include "sccatalog.h"
-
-#define SEISCOMP_COMPONENT RTDD
-#include <seiscomp3/logging/log.h>
-
 #include <map>
 #include <set>
 #include <vector>
+
+#include "hdd/dd.h"
+
+#include <seiscomp/client/streamapplication.h>
+#include <seiscomp/datamodel/eventparameters.h>
+#include <seiscomp/datamodel/publicobjectcache.h>
+#include <seiscomp/utils/timer.h>
 
 namespace Seiscomp {
 
@@ -44,11 +35,10 @@ namespace DataModel {
 
 class Pick;
 class Origin;
-class Event;
 
 } // namespace DataModel
 
-class RTDD : public Application
+class RTDD : public Client::StreamApplication
 {
 public:
   RTDD(int argc, char **argv);
@@ -61,24 +51,24 @@ public:
   };
   DEFINE_SMARTPOINTER(Region);
 
-  virtual const char *version() { return "1.5.3+"; }
+  const char *version() override { return RTDD_VERSION; }
 
 protected:
-  void createCommandLineDescription();
-  bool validateParameters();
+  void createCommandLineDescription() override;
+  bool validateParameters() override;
 
-  bool init();
-  bool run();
-  void done();
+  bool init() override;
+  bool run() override;
+  void done() override;
 
-  void handleMessage(Core::Message *msg);
-  void addObject(const std::string &, DataModel::Object *object);
-  void updateObject(const std::string &, DataModel::Object *object);
-  void handleRecord(Record *rec)
+  void handleMessage(Core::Message *msg) override;
+  void addObject(const std::string &, DataModel::Object *object) override;
+  void updateObject(const std::string &, DataModel::Object *object) override;
+  void handleRecord(Record *rec) override
   { /* we don't really need this */
   }
 
-  void handleTimeout();
+  void handleTimeout() override;
   void checkProfileStatus();
   void runNewJobs();
 
@@ -105,18 +95,9 @@ private:
                       DataModel::OriginPtr &newOrg,
                       std::vector<DataModel::PickPtr> &newOrgPicks);
 
-  void convertOrigin(const HDD::CatalogCPtr &relocatedOrg,
-                     ProfilePtr profile,
-                     DataModel::Origin *org,
-                     bool includeMagnitude,
-                     bool fullMagnitude,
-                     bool includeExistingPicks,
-                     DataModel::OriginPtr &newOrg,
-                     std::vector<DataModel::PickPtr> &newOrgPicks);
-
   void removedFromCache(DataModel::PublicObject *);
 
-  HDD::Catalog *getCatalog(
+  std::unique_ptr<HDD::Catalog> getCatalog(
       const std::string &catalogPath,
       std::unordered_map<unsigned, DataModel::OriginPtr> *idmap = nullptr);
   ProfilePtr getProfile(const std::string &profile);
@@ -127,45 +108,44 @@ private:
                         const std::string &forceProfile = "");
 
   void loadProfile(ProfilePtr profile,
-                   bool preloadData,
-                   const HDD::CatalogCPtr &alternativeCatalog = nullptr);
+                   const HDD::Catalog *alternativeCatalog = nullptr);
 
   std::vector<DataModel::OriginPtr> fetchOrigins(const std::string &idFile,
                                                  std::string options);
-
   struct Config
   {
-    Config();
-
     std::vector<std::string> activeProfiles;
-    std::string workingDirectory;
-    bool saveProcessingFiles;
-    bool onlyPreferredOrigin;
-    bool allowAutomaticOrigin;
-    bool allowManualOrigin;
-    int profileTimeAlive; // seconds
-    bool cacheWaveforms;
-    bool cacheAllWaveforms;
-    bool debugWaveforms;
+    std::string workingDirectory = "/tmp/rtdd";
+    bool saveProcessingFiles     = false;
+    bool onlyPreferredOrigin     = true;
+    bool allowAutomaticOrigin    = true;
+    bool allowManualOrigin       = true;
+    int profileTimeAlive         = -1; // seconds
+    bool cacheWaveforms          = false;
+    bool cacheAllWaveforms       = false;
+    bool debugWaveforms          = false;
 
     // Mode
-    bool forceProcessing;
-    bool testMode;
-    bool dumpWaveforms;
-    double fExpiry;
+    bool forceProcessing = false;
+    bool testMode        = false;
+    double fExpiry       = 1.0;
     std::string originIDs;
     std::string eventXML;
     std::string forceProfile;
     std::string relocateCatalog;
+    std::string dumpClusters;
     std::string dumpCatalog;
+    std::string dumpCatalogOptions;
+    std::string dumpWaveforms;
     std::string mergeCatalogs;
     std::string evalXCorr;
+    std::string xcorrCache;
     std::string reloadProfileMsg;
-    bool loadProfileWf;
+    bool loadProfileWf = false;
 
     // cron
-    int wakeupInterval;
-    bool logCrontab;
+    int wakeupInterval = 1; // sec
+    bool logCrontab    = true;
     std::vector<int> delayTimes;
   };
 
@@ -181,16 +161,17 @@ private:
               bool saveProcessingFiles,
               bool cacheWaveforms,
               bool cacheAllWaveforms,
-              bool debugWaveforms,
-              bool preloadData,
-              const HDD::CatalogCPtr &alternativeCatalog = nullptr);
+              const HDD::Catalog *alternativeCatalog = nullptr);
     void unload();
     bool isLoaded() { return loaded; }
+    void preloadWaveforms();
     void freeResources();
     Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
-    HDD::CatalogPtr relocateSingleEvent(DataModel::Origin *org);
-    HDD::CatalogPtr relocateCatalog();
-    void evalXCorr();
+    std::unique_ptr<HDD::Catalog> relocateSingleEvent(DataModel::Origin *org);
+    std::unique_ptr<HDD::Catalog> relocateCatalog(const std::string &xcorrFile);
+    void evalXCorr(const std::string &xcorrFile);
+    void dumpWaveforms();
+    void dumpClusters();
 
     std::string name;
     std::string earthModelID;
@@ -199,18 +180,20 @@ private:
     std::string stationFile;
     std::string eventFile;
     std::string phaFile;
+    std::string tttType;
+    std::string tttModel;
     RegionPtr region;
     HDD::Config ddCfg;
     HDD::ClusteringOptions singleEventClustering;
     HDD::ClusteringOptions multiEventClustering;
     HDD::SolverOptions solverCfg;
-    bool useTheoreticalAuto;
-    bool useTheoreticalManual;
+    bool detectMissingPhasesAuto;
+    bool detectMissingPhasesManual;
 
   private:
     bool loaded;
     Core::Time lastUsage;
-    HDD::HypoDDPtr hypodd;
+    std::unique_ptr<HDD::DD> dd;
     DataModel::DatabaseQuery *query;
     DataModel::PublicObjectTimeSpanBuffer *cache;
     DataModel::EventParameters *eventParameters;

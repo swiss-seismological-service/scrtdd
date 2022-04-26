@@ -18,9 +18,9 @@
 #ifndef __RTDD_PLUGIN_RTDDLOC_H__
 #define __RTDD_PLUGIN_RTDDLOC_H__
 
-#include <seiscomp3/core/plugin.h>
-#include <seiscomp3/messaging/connection.h>
-#include <seiscomp3/seismology/locatorinterface.h>
+#include <seiscomp/core/plugin.h>
+#include <seiscomp/messaging/connection.h>
+#include <seiscomp/seismology/locatorinterface.h>
 #include <string>
 
 namespace Seiscomp {
