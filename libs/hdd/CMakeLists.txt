@@ -1,9 +1,12 @@
 SET(LSMR_LSQR_DIR ${SC3_PACKAGE_SOURCE_DIR}/libs/3rd-party/lsqr-lsmr)
+SET(GMT_DIR ${SC3_PACKAGE_SOURCE_DIR}/libs/3rd-party/gmt)
 INCLUDE_DIRECTORIES(${LSMR_LSQR_DIR})
+INCLUDE_DIRECTORIES(${GMT_DIR})
 
 SET(HDD_SOURCES
 	${LSMR_LSQR_DIR}/lsmr.cpp
 	${LSMR_LSQR_DIR}/lsqr.cpp
+	${GMT_DIR}/map_project.c	
 	log.cpp
 	utils.cpp
 	csvreader.cpp
