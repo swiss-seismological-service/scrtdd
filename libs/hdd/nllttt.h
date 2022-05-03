@@ -58,6 +58,7 @@ struct Transform
   struct Info
   {
     std::string type;
+    std::string ref_ellip;    
     double angle;
     double cosang;
     double sinang;
@@ -68,7 +69,6 @@ struct Transform
     double sdc_xlnkm;
     double stdpar1;
     double stdpar2;
-    //need to add string for ref_ellip (reference ellipsoid? where is this done?)
   };
   const Info info;
   static Info parse(const std::vector<std::string> &tokens);
