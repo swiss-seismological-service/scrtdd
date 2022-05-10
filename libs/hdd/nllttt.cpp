@@ -18,6 +18,8 @@
 #include "log.h"
 #include "utils.h"
 
+#include "../3rd-party/gmt/map_project.h"
+
 #include <array>
 #include <cstring>
 
@@ -1019,7 +1021,7 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
     {
       throw Exception("Rotation must be in range -360,360");
     }
-
+    //TODO vazeqdist(0, double &lon0, double &lat0);
   }
   else if (info.type == "TRANS_MERC")
   {
@@ -1043,7 +1045,7 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
     {
       throw Exception("Rotation must be in range -360,360");
     }
-    //vtm(0, double lon0, double lat0);   
+    //TODO vtm(0, double &lon0, double &lat0);
   }
 
   else if (info.type == "LAMBERT")
@@ -1051,8 +1053,8 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
     info.ref_ellip = std::stod(tokens.at(3));
     info.orig_lat  = std::stod(tokens.at(5));
     info.orig_long = std::stod(tokens.at(7));
-    info.stdpar1   = std::stod(tokens.at(9)); //added
-    info.stdpar2   = std::stod(tokens.at(11)); //added    
+    info.pha       = std::stod(tokens.at(9)); //added
+    info.phb       = std::stod(tokens.at(11)); //added    
     info.rot       = std::stod(tokens.at(13));
     info.angle     = -degToRad(info.rot);
     info.cosang    = std::cos(info.angle);
@@ -1070,9 +1072,8 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
     {
       throw Exception("Rotation must be in range -360,360");
     }
-    map_setup_proxy(0, info.ref_ellip);
-    vlamb(0, info.orig_long, info.orig_lat, info.stdpar1, info.stdpar2);
-
+    map_setup_proxy(0, (char*)"WGS-84"); //would need to convert std::string to char* array to add options
+    vlamb(0, info.orig_long, info.orig_lat, info.pha, info.phb);
   }
 
   else
@@ -1086,9 +1087,7 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
 void Transform::fromLatLon(double lat,
                            double lon,
                            double &xLoc,
-                           double &yLoc,
-                           double pha,
-                           double phb) const
+                           double &yLoc) const
 {
 
   if (info.type == "GLOBAL" || info.type == "NONE")
@@ -1121,6 +1120,7 @@ void Transform::fromLatLon(double lat,
     xLoc = xtemp * info.cosang - ytemp * info.sinang;
     yLoc = ytemp * info.cosang + xtemp * info.sinang;
   }
+
   else if (info.type == "LAMBERT")
   {
     double xtemp = lon - info.orig_long;
@@ -1128,13 +1128,14 @@ void Transform::fromLatLon(double lat,
     if (xtemp < -180.0) xtemp += 360.0;
     double ytemp = lat - info.orig_lat;
 
-    lamb(0, xtemp, ytemp, xLoc, yLoc);
-    xLoc /= 1000.
-    yLoc /= 1000.
+    lamb(0, xtemp, ytemp, &xLoc, &yLoc);
+    xLoc /= 1000.;
+    yLoc /= 1000.;
     xLoc = xLoc * info.cosang - yLoc * info.sinang;
     yLoc = yLoc * info.cosang + xLoc * info.sinang;
     
   }
+
   else if (info.type == "TRANS_MERC")
   {
     double xtemp = lon - info.orig_long;
@@ -1142,12 +1143,13 @@ void Transform::fromLatLon(double lat,
     if (xtemp < -180.0) xtemp += 360.0;
     double ytemp = lat - info.orig_lat;
 
-    tm(0, xtemp, ytemp, xLoc, yLoc);
-    xLoc /= 1000.
-    yLoc /= 1000.
+    tvm(0, xtemp, ytemp, &xLoc, &yLoc);
+    xLoc /= 1000.;
+    yLoc /= 1000.;
     xLoc = xLoc * info.cosang - yLoc * info.sinang;
     yLoc = yLoc * info.cosang + xLoc * info.sinang;
   }
+
   else if (info.type == "AZIMUTHAL_EQUIDIST")
   {
     double xtemp = lon - info.orig_long;
@@ -1155,9 +1157,9 @@ void Transform::fromLatLon(double lat,
     if (xtemp < -180.0) xtemp += 360.0;
     double ytemp = lat - info.orig_lat;
 
-    azeqdist(0, xtemp, ytemp, xLoc, yLoc);
-    xLoc /= 1000.
-    yLoc /= 1000.
+    azeqdist(0, xtemp, ytemp, &xLoc, &yLoc);
+    xLoc /= 1000.;
+    yLoc /= 1000.;
     xLoc = xLoc * info.cosang - yLoc * info.sinang;
     yLoc = yLoc * info.cosang + xLoc * info.sinang;
   }  
@@ -1209,7 +1211,7 @@ void Transform::toLatLon(double xLoc,
     double xtemp = xLoc * info.cosang + yLoc * info.sinang;
     double ytemp = yLoc * info.cosang - xLoc * info.sinang;
 
-    ilamb(0, lon, lat, xtemp * 1000.0, ytemp * 1000.0) // hardwired n_proj with 0 (WGS84) for now
+    ilamb(0, &lon, &lat, xtemp * 1000.0, ytemp * 1000.0); // hardwired n_proj with 0 (WGS84) for now
     lon          = info.orig_long + lon;
     lat          = info.orig_lat + lat;
     if (lon < -180.0)
@@ -1222,7 +1224,7 @@ void Transform::toLatLon(double xLoc,
     double xtemp = xLoc * info.cosang + yLoc * info.sinang;
     double ytemp = yLoc * info.cosang - xLoc * info.sinang;
 
-    itm(0, lon, lat, xtemp, ytemp) // hardwired n_proj with 0 (WGS84) for now
+    itm(0, &lon, &lat, xtemp, ytemp); // hardwired n_proj with 0 (WGS84) for now
     lon          = info.orig_long + lon;
     lat          = info.orig_lat + lat;
     if (lon < -180.0)
@@ -1235,7 +1237,7 @@ void Transform::toLatLon(double xLoc,
     double xtemp = xLoc * info.cosang + yLoc * info.sinang;
     double ytemp = yLoc * info.cosang - xLoc * info.sinang;
 
-    iazeqdist(0, lon, lat, xtemp, ytemp) // hardwired n_proj with 0 (WGS84) for now
+    iazeqdist(0, &lon, &lat, xtemp, ytemp); // hardwired n_proj with 0 (WGS84) for now
     lon          = info.orig_long + lon;
     lat          = info.orig_lat + lat;
     if (lon < -180.0)

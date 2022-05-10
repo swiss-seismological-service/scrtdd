@@ -294,7 +294,7 @@ double *lon, *lat, x, y; {
 	return(0);
 }
 
-/* Transverse Mercator Projection (TM) */
+/* Transverse Mercator Projection (TvM) */
 
 struct TRANS_MERCATOR {
     BOOLEAN north_pole; /* TRUE if projection is on northern hemisphere, FALSE on southern */
@@ -319,7 +319,7 @@ double map_scale_factor = 1.0;
 int map_init_tm(int n_proj) {
     BOOLEAN search;
     double xmin, xmax, ymin, ymax;
-    vtm(TransverseMercator[n_proj].pars[0]);
+    vtvm(TransverseMercator[n_proj].pars[0]);
     if (TransverseMercator[n_proj].units_pr_degree) TransverseMercator[n_proj].pars[1] /= M_PR_DEG;
     TransverseMercator[n_proj].x_scale = TransverseMercator[n_proj].y_scale = TransverseMercator[n_proj].pars[1];
     forward = (PFI) tm;
@@ -351,7 +351,7 @@ int map_init_tm(int n_proj) {
     return (search);
 }*/
 
-void vtm(int n_proj, double lon0, double lat0, int use_false_easting) {
+void vtvm(int n_proj, double lon0, double lat0, int use_false_easting) {
     /* Set up an TM projection */
     double e1;
 
@@ -372,11 +372,11 @@ void vtm(int n_proj, double lon0, double lat0, int use_false_easting) {
     double lon, lat, x, y;
     lon = lon0;
     lat = lat0;
-    tm(n_proj, lon, lat, &x, &y);
+    tvm(n_proj, lon, lat, &x, &y);
     TransverseMercator[n_proj].y_central_parralel = y;
 }
 
-void tm(n_proj, lon, lat, x, y)
+void tvm(n_proj, lon, lat, x, y)
 int n_proj;
 double lon, lat, *x, *y;
 {
@@ -420,7 +420,7 @@ double lon, lat, *x, *y;
     }
 }
 
-void itm(n_proj, lon, lat, x, y)
+void itvm(n_proj, lon, lat, x, y)
 int n_proj;
 double *lon, *lat, x, y;
 {
@@ -476,7 +476,7 @@ int map_init_utm(int n_proj) {
     double xmin, xmax, ymin, ymax, lon0;
     lon0 = 180.0 + 6.0 * TransverseMercator[n_proj].pars[0] - 3.0;
     if (lon0 >= 360.0) lon0 -= 360.0;
-    vtm(lon0); // Central meridian for this zone
+    vtvm(lon0); // Central meridian for this zone
     if (TransverseMercator[n_proj].units_pr_degree) TransverseMercator[n_proj].pars[1] /= M_PR_DEG;
     TransverseMercator[n_proj].x_scale = TransverseMercator[n_proj].y_scale = TransverseMercator[n_proj].pars[1];
     forward = (PFI) utm;
@@ -520,7 +520,7 @@ double lon, lat, *x, *y;
     /* Convert lon/lat to UTM x/y */
 
     if (lon < 0.0) lon += 360.0;
-    tm(n_proj, lon, lat, x, y);
+    tvm(n_proj, lon, lat, x, y);
     (*x) += 500000.0;
     if (!TransverseMercator[n_proj].north_pole)
         (*y) += 10000000.0; /* For S hemisphere, add 10^6 m */
@@ -542,7 +542,7 @@ double *lon, *lat, x, y;
 // created by ALomax to enable setting of north_pole flag
 
 void vutm(int n_proj, double lon0, int lat0, int use_false_easting) {
-    vtm(n_proj, lon0, lat0, use_false_easting);
+    vtvm(n_proj, lon0, lat0, use_false_easting);
     TransverseMercator[n_proj].north_pole = lat0 >= 0.0 ? 1 : 0;
 }
 

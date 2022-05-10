@@ -43,6 +43,7 @@ SET(HDD_HEADERS
 	xcorr.h
 	waveform.h
 	dd.h
+	map_project.h
 	adapters/scttt.h
 	adapters/sclog.h
 	adapters/scconversion.h
