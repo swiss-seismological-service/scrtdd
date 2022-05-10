@@ -43,8 +43,8 @@ struct Transform
   Transform(Transform &&other) = default;
   Transform &operator=(Transform &&other) = default;
 
-  void fromLatLon(double lat, double lon, double &xLoc, double &yLoc, double pha, double phb) const;
-  void toLatLon(double xLoc, double yLoc, double &lat, double &lon, double pha, double phb) const;
+  void fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const;
+  void toLatLon(double xLoc, double yLoc, double &lat, double &lon) const;
   double fromLatLonAngle(double latlonAngle) const;
   double toLatLonAngle(double rectAngle) const;
   double distance(double xLoc1, double yLoc1, double xLoc2, double yLoc2) const;
@@ -173,8 +173,6 @@ protected:
   getValue(double lat,
            double lon,
            double depth,
-           double pha,
-           double phb,
            const typename Interpolate3D<GRID_FLOAT_TYPE>::Type &,
            const typename Interpolate2D<GRID_FLOAT_TYPE>::Type &);
 
@@ -183,8 +181,6 @@ protected:
   getValue3D(double lat,
              double lon,
              double depth,
-             double pha,
-             double phb,
              const typename Interpolate3D<GRID_FLOAT_TYPE>::Type &);
 
   template <typename GRID_FLOAT_TYPE>
@@ -192,8 +188,6 @@ protected:
   getValue2D(double lat,
              double lon,
              double depth,
-             double pha,
-             double phb,
              const typename Interpolate2D<GRID_FLOAT_TYPE>::Type &);
 
   template <typename GRID_FLOAT_TYPE>

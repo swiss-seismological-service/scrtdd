@@ -1224,7 +1224,7 @@ void Transform::toLatLon(double xLoc,
     double xtemp = xLoc * info.cosang + yLoc * info.sinang;
     double ytemp = yLoc * info.cosang - xLoc * info.sinang;
 
-    itm(0, &lon, &lat, xtemp, ytemp); // hardwired n_proj with 0 (WGS84) for now
+    itvm(0, &lon, &lat, xtemp, ytemp); // hardwired n_proj with 0 (WGS84) for now
     lon          = info.orig_long + lon;
     lat          = info.orig_lat + lat;
     if (lon < -180.0)
