@@ -535,7 +535,7 @@ double *lon, *lat, x, y;
     x -= 500000.0;
     if (!TransverseMercator[n_proj].north_pole)
         y -= 10000000.0;
-    itm(n_proj, lon, lat, x, y);
+    itvm(n_proj, lon, lat, x, y);
 }
 
 // utm init function

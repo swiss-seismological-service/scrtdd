@@ -76,16 +76,17 @@ struct Transform
   /*
    * Adopting NLL constants to improve compatibility
    */
-  //static constexpr double FLATTENING =
-  //    1.0 / 298.26;                              // Earth flattening (WGS '72) (why WGS72 ?)
-  //static constexpr double ERAD = 6378.135;       // WGS-72
-  //static constexpr double c111 = 10000.0 / 90.0; // kilometers per degree
-  //static constexpr double MAP_TRANS_SDC_DRLT = 0.99330647;
   static constexpr double FLATTENING =
-      1.0 / 298.254;                             // Earth flattening (WGS-84)
-  static constexpr double ERAD = 6378.137;       // WGS-84
+      1.0 / 298.26;                              // Earth flattening (WGS '72) (why WGS72 ?)
+  static constexpr double ERAD = 6378.135;       // WGS-72
   static constexpr double c111 = 10000.0 / 90.0; // kilometers per degree
-  static constexpr double MAP_TRANS_SDC_DRLT = 0.99330647; // << unclear how this changes from 72 to 84 TODO
+  static constexpr double MAP_TRANS_SDC_DRLT = 0.99330647;
+  
+  //static constexpr double FLATTENING =
+  //    1.0 / 298.254;                             // Earth flattening (WGS-84)
+  //static constexpr double ERAD = 6378.137;       // WGS-84
+  //static constexpr double c111 = 10000.0 / 90.0; // kilometers per degree
+  //static constexpr double MAP_TRANS_SDC_DRLT = 0.99330647; // unclear how this would change from 72 to 84
 };
 
 class Grid

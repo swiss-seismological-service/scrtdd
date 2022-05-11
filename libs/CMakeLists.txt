@@ -1,1 +1,1 @@
-SUBDIRS(hdd rtddmsg 3rd-party)
+SUBDIRS(hdd rtddmsg)
