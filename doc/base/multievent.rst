@@ -123,7 +123,10 @@ E.g. *file event.csv* ::
     3,2019-11-05T01:06:27.140654Z,46.325626,7.356148,3.9756,0.84
     4,2019-11-05T01:12:25.753816Z,46.325012,7.353627,3.7090,0.39
 
-Notes: ``magnitude`` column is currently not used
+Notes:
+* ``magnitude`` column is currently not used
+* ``depth`` is in km
+
 
 E.g. *file station.csv*::
 
@@ -133,6 +136,8 @@ E.g. *file station.csv*::
     46.585719,8.383171,2320.4,4D,RA43,
     45.903349,6.885881,2250.0,8D,AMIDI,00
     46.371345,6.873937,379.0,8D,NVL3,
+
+* ``elevation`` is in meter
 
 E.g. *file phase.csv* ::
 
@@ -150,7 +155,7 @@ E.g. *file phase.csv* ::
 Notes:
 
 * ``type``: mutiple picks are allowed for the same event-station (P,Pn,P1,Pg,S,Sn,S1,Sg), but they must have a different ``type``. However only one P and one S will be used per each event-station (see ``profile.myProfile.catalog.P|S-Phases``).
-* ``channelCode`` is used in crossCorrelation to know which waveform to load. However the Orientation Code (the component) of the ``channelCode`` is currently not used (e.g. ``Z`` in ``HHZ``). Instead the component to use for a specific phase during crossCorrelation is configured via ``profile.myProfile.crossCorrelation.p|s-phase.components``
+* ``channelCode`` is used only for crossCorrelation to select the correct waveform to fetch. However the Orientation Code (the component) of the ``channelCode`` is currently not used (e.g. ``Z`` in ``HHZ``). Instead it is the parameter ``profile.myProfile.crossCorrelation.p|s-phase.components`` that decides the component to use in the crossCorrelation.
 * ``lowerUncertainty`` and ``upperUncertainty`` are used only when ``profile.myProfile.solver.aPrioriWeights.usePickUncertainties`` is set to ``true``
 
 With this format it is possible to relocate events that are not stored in any SeisComP database, since all the origins information are contained in those files.
@@ -220,7 +225,7 @@ Relocating a catalog in **"station.csv,event.csv,phase.csv"** file triplet forma
            --inventory-db inventory.xml \
            --verbosity=3 --console=1
 
-The inventory can optionally be empty, but in this case the waveform projection is not available (123->ZNE->ZRT) because that requires information not present in station.csv. That means the cross-correlation can be only performed on  existing components (e.g. no cross-correlation of S phases on the T component).
+The inventory can optionally be empty, which is not an issue if the cross-correlation is not enabled. However if the cross-correlation is used, special waveform transformations (Transversal/Radial component or L2 norm of the horizontal components) become unavailable without an inventory, because those require information contained in the inventory. In this case only existing components can be used.
 This is an **empty inventory**::
 
     <?xml version="1.0" encoding="UTF-8"?>
