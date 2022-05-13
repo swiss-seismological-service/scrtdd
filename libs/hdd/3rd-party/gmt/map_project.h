@@ -1,3 +1,7 @@
+#ifndef __HDD_GMT_H__
+#define __HDD_GMT_H__
+
+namespace HDD {
 
 int map_setup_proxy(int n_proj, char* ellipsoid_name);
 
@@ -21,3 +25,7 @@ void iutm(int n_proj, double *lon, double *lat, double x, double y);
 void vazeqdist(int n_proj, double lon0, double lat0);
 void azeqdist(int n_proj, double lon, double lat, double *x, double *y);
 void iazeqdist(int n_proj, double *lon, double *lat, double x, double y);
+
+}
+
+#endif

@@ -1,11 +1,12 @@
-SET(LSMR_LSQR_DIR ${SC3_PACKAGE_SOURCE_DIR}/libs/3rd-party/lsqr-lsmr)
-SET(GMT_DIR ${SC3_PACKAGE_SOURCE_DIR}/libs/3rd-party/gmt)
-INCLUDE_DIRECTORIES(${LSMR_LSQR_DIR} ${GMT_DIR})
+SET(3RDPARTY_DIR ${SC3_PACKAGE_SOURCE_DIR}/libs/hdd/3rd-party)
+SET(LSMR_LSQR_DIR ${3RDPARTY_DIR}/lsqr-lsmr)
+SET(GMT_DIR ${3RDPARTY_DIR}/gmt)
+INCLUDE_DIRECTORIES(${3RDPARTY_DIR} ${LSMR_LSQR_DIR} ${GMT_DIR})
 
 SET(HDD_SOURCES
 	${LSMR_LSQR_DIR}/lsmr.cpp
 	${LSMR_LSQR_DIR}/lsqr.cpp
-	${GMT_DIR}/map_project.c	
+	${GMT_DIR}/map_project.cpp
 	log.cpp
 	utils.cpp
 	csvreader.cpp
@@ -43,7 +44,6 @@ SET(HDD_HEADERS
 	xcorr.h
 	waveform.h
 	dd.h
-	map_project.h
 	adapters/scttt.h
 	adapters/sclog.h
 	adapters/scconversion.h

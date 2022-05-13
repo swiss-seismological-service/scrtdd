@@ -94,6 +94,8 @@
 
 #include "map_project.h"
 
+namespace HDD {
+
 #define PI_2 (2.0 * M_PI)
 #define D2R (M_PI / 180.0)
 #define R2D (180.0/M_PI)
@@ -198,9 +200,7 @@ int map_setup_proxy (int n_proj, char* ellipsoid_name) {
 
 /*** function to set up a Lambert Conformal Conic projection */
 
-int vlamb (n_proj, rlong0, rlat0, pha, phb)
-int n_proj;
-double rlong0, rlat0, pha, phb; {
+int vlamb(int n_proj, double rlong0, double rlat0, double pha, double phb){
 
 	double t_pha, m_pha, t_phb, m_phb, t_rlat0;
 
@@ -241,9 +241,7 @@ double rlong0, rlat0, pha, phb; {
 
 /*** function to do x,y to lat,long Lambert Conformal Conic projection */
 
-int lamb (n_proj, lon, lat, x, y)
-int n_proj;
-double lon, lat, *x, *y; {
+int lamb(int n_proj, double lon, double lat, double *x, double *y){
 	double rho,theta,hold1,hold2,hold3;
 
 	while ((lon - CentralMeridian[n_proj]) < -180.0) lon += 360.0;
@@ -268,9 +266,7 @@ double lon, lat, *x, *y; {
 /*** function to do lat,long to x,y inverse
 			Lambert Conformal Conic projection */
 
-int ilamb (n_proj, lon, lat, x, y)
-int n_proj;
-double *lon, *lat, x, y; {
+int ilamb(int n_proj, double *lon, double *lat, double x, double y){
 	int i;
 	double theta, temp, rho, t, tphi, phi, delta;
 
@@ -376,9 +372,7 @@ void vtvm(int n_proj, double lon0, double lat0, int use_false_easting) {
     TransverseMercator[n_proj].y_central_parralel = y;
 }
 
-void tvm(n_proj, lon, lat, x, y)
-int n_proj;
-double lon, lat, *x, *y;
+void tvm(int n_proj, double lon, double lat, double *x, double *y)
 {
     /* Convert lon/lat to TM x/y */
     double N, T, T2, C, A, M, dlon, tan_lat, cos_lat, A2, A3, A5;
@@ -420,9 +414,7 @@ double lon, lat, *x, *y;
     }
 }
 
-void itvm(n_proj, lon, lat, x, y)
-int n_proj;
-double *lon, *lat, x, y;
+void itvm(int n_proj, double *lon, double *lat, double x, double y)
 {
 
     // correct for TM x offset of central parallel
@@ -513,9 +505,7 @@ int map_init_utm(int n_proj) {
     return (search);
 }*/
 
-void utm(n_proj, lon, lat, x, y)
-int n_proj;
-double lon, lat, *x, *y;
+void utm(int n_proj, double lon, double lat, double *x, double *y)
 {
     /* Convert lon/lat to UTM x/y */
 
@@ -526,9 +516,7 @@ double lon, lat, *x, *y;
         (*y) += 10000000.0; /* For S hemisphere, add 10^6 m */
 }
 
-void iutm(n_proj, lon, lat, x, y)
-int n_proj;
-double *lon, *lat, x, y;
+void iutm(int n_proj, double *lon, double *lat, double x, double y)
 {
     /* Convert UTM x/y to lon/lat */
 
@@ -688,4 +676,6 @@ void iazeqdist(int n_proj, double *lon, double *lat, double x, double y) {
                 R2D * atan2(x * sin_c, (rho * AzimuthalEquidistant[n_proj].cosp * cos_c - y * AzimuthalEquidistant[n_proj].sinp * sin_c));
         if ((*lon) <= -180) (*lon) += 360.0;
     }
+}
+
 }
