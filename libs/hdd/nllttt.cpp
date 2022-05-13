@@ -1072,7 +1072,7 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
     {
       throw Exception("Rotation must be in range -360,360");
     }
-    map_setup_proxy(0, (char*)"WGS-84"); //would need to convert std::string to char* array to add options
+    map_setup_proxy(0, info.ref_ellip.c_str());
     vlamb(0, info.orig_long, info.orig_lat, info.pha, info.phb);
   }
 

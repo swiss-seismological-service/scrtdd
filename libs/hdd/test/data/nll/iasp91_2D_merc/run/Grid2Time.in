@@ -1,0 +1,63 @@
+# =============================================================================
+# =============================================================================
+# Grid2Time control file statements
+# =============================================================================
+#
+#
+
+# time grid modes
+# (GTMODE grid_mode, angle_mode)
+#    (char[])   grid_mode (GRID3D, GRID2D)
+#    (char[])   angle_mode (ANGLES_YES, ANGLES_NO)
+#
+GTMODE GRID2D ANGLES_YES
+
+# source description (multiple sources can be specified)
+# (GTSRCE  label  x_srce  y_srce   z_srce   elev)
+#
+#    (char[])   label
+#
+#    (char[])   loc type (XYZ, LATLON (+/-dec deg), LATLONDM (deg, dec min))
+#  XYZ---------------      LATLON/LATLONDM--------
+#  x_srce : km pos E   or  lat   : pos N
+#  y_srce : km pos N   or  long  : pos E
+#  z_srce : km pos DN  or  depth : pos DN
+#
+#    elev : km pos UP
+#
+# Examples:
+#
+#GTSRCE  STA   XYZ  	27.25  -67.78  0.0  1.242
+#GTSRCE  CALF  LATLON  	43.753  6.922  0.0  1.242
+#GTSRCE  JOU  LATLONDM  43 38.00 N  05 39.52 E   0.0   0.300
+#
+GTSRCE ST01A LATLON  47.1  8.6  0.0  0.250
+GTSRCE ST02A LATLON  47.1  8.4  0.0  0.295
+GTSRCE ST03A LATLON  46.9  8.4  0.0  0.301
+GTSRCE ST04A LATLON  46.9  8.6  0.0  0.395
+GTSRCE ST01B LATLON  47.0  8.7  0.0  0.212
+GTSRCE ST02B LATLON  47.0  8.3  0.0  0.346
+GTSRCE ST03B LATLON  47.2  8.5  0.0  0.351
+GTSRCE ST04B LATLON  46.8  8.5  0.0  0.268
+
+
+# Podvin & Lecomte FD params
+# Podvin and Lemcomte, 1991, GJI, 105, 271-284.
+# (PLFD  hs_eps_init  message_flag)
+#    (float) hs_eps_init : fraction (typically 1.0E-3) defining the toler-
+#                          ated model inhomogeneity for exact initialization.
+#                          A tolerance larger than 0.01 will potentially
+#                          create errors larger than those involved by the
+#                          F.D. scheme without any exact initialization.
+#    (int)  message_flag : Message flag (0:silent,1:few messages,2:verbose)
+#                          A negative value inhibits "clever"
+#                          initialization.
+#
+GT_PLFD  1.0e-3  0
+
+#
+#
+# =============================================================================
+# END of Grid2Time control file statements
+# =============================================================================
+# =============================================================================

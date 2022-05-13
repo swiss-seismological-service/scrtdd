@@ -123,14 +123,38 @@ struct ELLIPSOID {
 		/* Table taken from Snyder "Map projection - a working manual",
 				p 12 Table 1 */
 
-#define N_ELLIPSOIDS 3
+#define N_ELLIPSOIDS 15
 
 struct ELLIPSOID ellipse[N_ELLIPSOIDS] = {
-		{ "WGS-84", 1984, 6378137.0, 6356752.1, 1.0/298.254 },
-		{ "GRS-80", 1980, 6378137.0, 6356752.3, 1.0/298.257 },
-		{ "WGS-72", 1972, 6378135.0, 6356750.5, 1.0/298.26 }
-};
+    // name, date, eq_radius, pol_radius, flattening
+    { "WGS-84", 1984, 6378137.0, 6356752.1, 1.0 / 298.254},
+    { "GRS-80", 1980, 6378137.0, 6356752.3, 1.0 / 298.257},
+    { "WGS-72", 1972, 6378135.0, 6356750.5, 1.0 / 298.26},
+    { "Australian", 1965, 6378160.0, 6356774.7, 1.0 / 298.25},
+    { "Krasovsky", 1940, 6378245.0, 6356863.0, 1.0 / 298.3},
+    { "International", 1924, 6378388.0, 6356911.9, 1.0 / 297.0},
+    { "Hayford-1909", 1909, 6378388.0, 6356911.9, 1.0 / 297.0},
+    { "Clarke-1880", 1880, 6378249.1, 6356514.9, 1.0 / 293.46},
+    { "Clarke-1866", 1866, 6378206.4, 6356583.8, 1.0 / 294.98},
+    { "Airy", 1830, 6377563.4, 6356256.9, 1.0 / 299.32},
+    { "Bessel", 1841, 6377397.2, 6356079.0, 1.0 / 299.15},
+    { "Hayford-1830", 1830, 6377276.3, 6356075.4, 1.0 / 300.80},
+    { "Sphere", 1980, 6371008.7714, 6371008.7714, 0.0},
+        /* https://gisgeography.com/geodetic-datums-nad27-nad83-wgs84/
+        NAD27 Datum vs NAD83 Datum
+        The NAD27 datum was based on the Clarke Ellipsoid of 1866:
+        Semi-major axis: 6,378,206.4 m
+        Semi-minor axis: 6,356,583.8 m
+        Inverse flattening: 294.98
+        The NAD83 datum was based on the Geodetic Reference System (GRS80) Ellipsoid:
+        Semi-major axis: 6,378,137.0 m
+        Semi-minor axis: 6,356,752.3 m
+        Inverse flattening: 298.26
+         */
+    { "NAD-27", 1927, 6378206.4, 6356583.8, 1.0 / 294.98},
+    { "NAD-83", 1983, 6378137.4, 6356752.3, 1.0 / 294.26}
 
+};
 
 // number of projections supported
 #define NUM_PROJ_MAX 2
@@ -163,7 +187,7 @@ double LambertConfConic_rho0[NUM_PROJ_MAX];
 
 /* use values from gmt_defaults.h: */
 
-int map_setup_proxy (int n_proj, char* ellipsoid_name) {
+int map_setup_proxy (int n_proj, const char* ellipsoid_name) {
 
 	int num_ellipsoid;
 	double f;

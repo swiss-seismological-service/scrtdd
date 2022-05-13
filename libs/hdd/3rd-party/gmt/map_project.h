@@ -3,7 +3,7 @@
 
 namespace HDD {
 
-int map_setup_proxy(int n_proj, char* ellipsoid_name);
+int map_setup_proxy(int n_proj, const char* ellipsoid_name);
 
 // Lambert Conformal Conic projection (e.g. LAMBERT)
 int vlamb(int n_proj, double rlong0, double rlat0, double pha, double phb);

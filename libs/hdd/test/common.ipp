@@ -30,13 +30,26 @@ std::vector<TTTParams> __getTTTList__()
        "./data/nll/iasp91_2D_simple/model/iasp91.PHASE.mod;"
        "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.time;"
        "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.angle"},
-      {"NonLinLoc", "./data/nll/iasp91_2D_sdc/model/iasp91.PHASE.mod;"
-                    "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.time;"
-                    "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.angle"},
+      {"NonLinLoc",
+        "./data/nll/iasp91_2D_sdc/model/iasp91.PHASE.mod;"
+        "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.time;"
+        "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.angle"},
       {"NonLinLoc",
        "./data/nll/iasp91_2D_global/model/iasp91.PHASE.mod;"
        "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.time;"
        "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.angle"},
+      {"NonLinLoc",
+       "./data/nll/iasp91_2D_azimuthal_equidist/model/iasp91.PHASE.mod;"
+       "./data/nll/iasp91_2D_azimuthal_equidist/time/iasp91.PHASE.STATION.time;"
+       "./data/nll/iasp91_2D_azimuthal_equidist/time/iasp91.PHASE.STATION.angle"}, 
+      {"NonLinLoc",
+       "./data/nll/iasp91_2D_merc/model/iasp91.PHASE.mod;"
+       "./data/nll/iasp91_2D_merc/time/iasp91.PHASE.STATION.time;"
+       "./data/nll/iasp91_2D_merc/time/iasp91.PHASE.STATION.angle"},
+      {"NonLinLoc",
+       "./data/nll/iasp91_2D_lambert/model/iasp91.PHASE.mod;"
+       "./data/nll/iasp91_2D_lambert/time/iasp91.PHASE.STATION.time;"
+       "./data/nll/iasp91_2D_lambert/time/iasp91.PHASE.STATION.angle"}, 
       {"NonLinLoc",
        "./data/nll/iasp91_3D_simple/model/iasp91.PHASE.mod;"
        "./data/nll/iasp91_3D_simple/time/iasp91.PHASE.STATION.time;"
