@@ -151,21 +151,32 @@ void loadTracesFromRecordStream(
     double tolerance,
     double minAvailability)
 {
-  unordered_multimap<string, const Core::TimeWindow> reqCopy;
+  // Prepare the requests in a more convenient format
+  struct Request
+  {
+    string net, sta, loc, ch;
+    Core::TimeWindow tw;
+  };
+  unordered_multimap<string, Request> reqCopy;
   unordered_multimap<string, TimeWindowBuffer> streamBuf;
   for (const auto &kv : request)
   {
-    Core::TimeWindow tw = toSC(kv.second);
-    reqCopy.emplace(kv.first, tw);
-    streamBuf.emplace(kv.first, TimeWindowBuffer(tw, tolerance));
+    static const std::regex dot("\\.", std::regex::optimize);
+    const vector<string> tokens(splitString(kv.first, dot));
+    const Request req{tokens.at(0), tokens.at(1), tokens.at(2), tokens.at(3),
+                      toSC(kv.second)};
+    reqCopy.emplace(req.net + "." + req.sta, req); // group by net.sta
+    streamBuf.emplace(kv.first, TimeWindowBuffer(req.tw, tolerance));
   }
 
+  //
+  // Split all the requests in multiple connections to RecordStream.
+  // The reason of this split is that RecordStream can only handle one single
+  // time window per stream. Also, in case of seedlink, it accepts only one
+  // location and channel code per station
+  //
   IO::RecordStreamPtr rs;
 
-  //
-  // The reason of this loop is that RecordStream can only handle one single
-  // time window per stream
-  //
   while (!reqCopy.empty())
   {
     rs = IO::RecordStream::Open(recordStreamURL.c_str());
@@ -175,43 +186,49 @@ void loadTracesFromRecordStream(
       break;
     }
 
-    //
-    // Convert multiple time windows requests close to each others to a
-    // single RecordStream request on the stream
-    //
+    // For seedlink: we grouped the requests by net.sta because
+    // no multiple requests for the same net.sta are allowed in the same
+    // connection
     for (auto it = reqCopy.begin(), end = reqCopy.end();
-         it != end;) // loop by stream
+         it != end;) // loop by net.sta
     {
-      const string streamID = it->first;
+      const Request req = it->second;
       Core::TimeWindow contiguousRequest;
-      auto eqlrng = reqCopy.equal_range(streamID);
-      for (auto it2 = eqlrng.first;
-           it2 != eqlrng.second;) // loop by stream windows
+      auto eqlrng = reqCopy.equal_range(it->first);        // net.sta
+      for (auto it2 = eqlrng.first; it2 != eqlrng.second;) // loop by net.sta
       {
-        const Core::TimeWindow &tw = it2->second;
+        const Request req2         = it2->second;
+        const Core::TimeWindow &tw = req2.tw;
         bool requested             = false;
 
-        if (it2 == eqlrng.first)
+        //
+        // Convert multiple time windows requests close to each others to a
+        // single RecordStream request
+        //
+        if (req.loc == req2.loc && req.ch == req2.ch)
         {
-          contiguousRequest = tw;
-          requested         = true;
-        }
-        else if (contiguousRequest.overlaps(tw))
-        {
-          contiguousRequest = contiguousRequest.merge(tw);
-          requested         = true;
-        }
-        else if (contiguousRequest.endTime() <= tw.startTime() &&
-                 contiguousRequest.contiguous(tw, 60))
-        {
-          contiguousRequest = contiguousRequest.merge(tw);
-          requested         = true;
-        }
-        else if (contiguousRequest.startTime() >= tw.endTime() &&
-                 tw.contiguous(contiguousRequest, 60))
-        {
-          contiguousRequest = contiguousRequest.merge(tw);
-          requested         = true;
+          if (it2 == eqlrng.first)
+          {
+            contiguousRequest = tw;
+            requested         = true;
+          }
+          else if (contiguousRequest.overlaps(tw))
+          {
+            contiguousRequest = contiguousRequest.merge(tw);
+            requested         = true;
+          }
+          else if (contiguousRequest.endTime() <= tw.startTime() &&
+                   contiguousRequest.contiguous(tw, 60))
+          {
+            contiguousRequest = contiguousRequest.merge(tw);
+            requested         = true;
+          }
+          else if (contiguousRequest.startTime() >= tw.endTime() &&
+                   tw.contiguous(contiguousRequest, 60))
+          {
+            contiguousRequest = contiguousRequest.merge(tw);
+            requested         = true;
+          }
         }
 
         if (requested)
@@ -219,9 +236,7 @@ void loadTracesFromRecordStream(
         else
           it2++;
       }
-      static const std::regex dot("\\.", std::regex::optimize);
-      const vector<string> tokens(splitString(streamID, dot));
-      rs->addStream(tokens.at(0), tokens.at(1), tokens.at(2), tokens.at(3),
+      rs->addStream(req.net, req.sta, req.loc, req.ch,
                     contiguousRequest.startTime(), contiguousRequest.endTime());
       it = eqlrng.second;
     }
