@@ -21,7 +21,7 @@
 #include "hdd/csvreader.h"
 #include "hdd/nllttt.h"
 #include "hddutils.h"
-#include "rtddmsg/rtddmsg.h"
+#include "msg.h"
 
 #define SEISCOMP_COMPONENT RTDD
 #include <seiscomp/logging/log.h>
@@ -1413,65 +1413,6 @@ void RTDD::handleMessage(Core::Message *msg)
     }
     if (!connection()->send("SERVICE_PROVIDE", &resp))
       SEISCOMP_ERROR("Failed sending profile reload response");
-  }
-
-  // Relocate origins coming from scolv
-  RTDDRelocateRequestMessage *reloc_req = RTDDRelocateRequestMessage::Cast(msg);
-  if (reloc_req)
-  {
-    SEISCOMP_INFO("Received relocation request");
-
-    RTDDRelocateResponseMessage reloc_resp;
-    ProfilePtr currProfile;
-    OriginPtr originToReloc = reloc_req->getOrigin();
-
-    if (originToReloc)
-    {
-      currProfile = getProfile(originToReloc.get(), reloc_req->getProfile());
-      if (!currProfile)
-      {
-        reloc_resp.setError(
-            stringify("No profile available, ignoring origin %s",
-                      originToReloc->publicID().c_str()));
-      }
-    }
-    else
-    {
-      reloc_resp.setError("No origin to relocate has been received");
-    }
-
-    // Inform scolv we are going to relocate this origin or not
-    reloc_resp.setRequestAccepted(!reloc_resp.hasError());
-
-    if (!connection()->send("SERVICE_PROVIDE", &reloc_resp))
-      SEISCOMP_ERROR("Failed sending relocation response");
-
-    if (!reloc_resp.hasError())
-    {
-      OriginPtr relocatedOrg;
-      std::vector<DataModel::PickPtr>
-          relocatedOrgPicks; // we cannot return these to scolv
-      processOrigin(originToReloc.get(), relocatedOrg, relocatedOrgPicks,
-                    currProfile, true, true, true, false);
-
-      if (relocatedOrg)
-      {
-        reloc_resp.setOrigin(relocatedOrg);
-      }
-      else
-      {
-        reloc_resp.setError(stringify("OriginId %s has not been relocated",
-                                      originToReloc->publicID().c_str()));
-      }
-
-      SEISCOMP_DEBUG("Sending relocation response (%s)",
-                     (reloc_resp.hasError() ? reloc_resp.getError()
-                                            : "no relocation errors")
-                         .c_str());
-
-      if (!connection()->send("SERVICE_PROVIDE", &reloc_resp))
-        SEISCOMP_ERROR("Failed sending relocation response");
-    }
   }
 }
 

@@ -39,4 +39,3 @@ About
    /base/waveforms
    /base/database
    /apps/scrtdd
-   /base/plugin
