@@ -8,7 +8,7 @@
 
 /*AJL ... AJL*/
 
-/*AJL*/    /*END AJL*/
+/*AJL*/ /*END AJL*/
 
 /*--------------------------------------------------------------------*/
 
@@ -96,8 +96,8 @@
 
 namespace HDD {
 
-#define PI_2 (2.0 * M_PI)
-#define D2R (M_PI / 180.0)
+#define PI_2 (2.0*M_PI)
+#define D2R (M_PI/180.0)
 #define R2D (180.0/M_PI)
 
 #define SMALL 1.0e-10
@@ -108,20 +108,19 @@ namespace HDD {
 
 /*double gmt_NaN;*/
 
-typedef int BOOLEAN;              /* BOOLEAN used for logical variables */
-
+typedef int BOOLEAN; /* BOOLEAN used for logical variables */
 
 struct ELLIPSOID {
-	char name[20];
-	int date;
-	double eq_radius;
-	double pol_radius;
-	double flattening;
+    char name[20];
+    int date;
+    double eq_radius;
+    double pol_radius;
+    double flattening;
 };
 
-		/* Information about a particular ellipsoid */
-		/* Table taken from Snyder "Map projection - a working manual",
-				p 12 Table 1 */
+/* Information about a particular ellipsoid */
+/* Table taken from Snyder "Map projection - a working manual",
+                p 12 Table 1 */
 
 #define N_ELLIPSOIDS 15
 
@@ -156,25 +155,26 @@ struct ELLIPSOID ellipse[N_ELLIPSOIDS] = {
 
 };
 
+
 // number of projections supported
-#define NUM_PROJ_MAX 2
+#define NUM_PROJ_MAX 3
 
 double EQ_RAD[NUM_PROJ_MAX];
 double ECC[NUM_PROJ_MAX], ECC2[NUM_PROJ_MAX], ECC4[NUM_PROJ_MAX], ECC6[NUM_PROJ_MAX];
 //double M_PR_DEG;
 
 /* fields from struct MAP_PROJECTIONS taken from gmt_project.h,
-	and converted to globals.
-	WARNING - many fields removed! */
+        and converted to globals.
+        WARNING - many fields removed! */
 
-BOOLEAN NorthPole[NUM_PROJ_MAX];		/* TRUE if projection is on northern
+BOOLEAN NorthPole[NUM_PROJ_MAX]; /* TRUE if projection is on northern
 					  hermisphere, FALSE on southern */
-double CentralMeridian[NUM_PROJ_MAX];		/* Central meridian for projection */
-double Pole[NUM_PROJ_MAX];			/* +90 pr -90, depending on which pole */
+double CentralMeridian[NUM_PROJ_MAX]; /* Central meridian for projection */
+double Pole[NUM_PROJ_MAX]; /* +90 pr -90, depending on which pole */
 
 
 /* Lambert conformal conic parameters.
-		(See Snyder for details on all parameters) */
+                (See Snyder for details on all parameters) */
 
 double LambertConfConic_N[NUM_PROJ_MAX];
 double LambertConfConic_F[NUM_PROJ_MAX];
@@ -189,27 +189,27 @@ double LambertConfConic_rho0[NUM_PROJ_MAX];
 
 int map_setup_proxy (int n_proj, const char* ellipsoid_name) {
 
-	int num_ellipsoid;
-	double f;
+    int num_ellipsoid;
+    double f;
 
-	/*mknan (gmt_NaN);*/
+    /*mknan (gmt_NaN);*/
 
-	/* determine ellipsoid */
-	for (num_ellipsoid = 0;
-		num_ellipsoid < N_ELLIPSOIDS
-		&& strcmp (ellipsoid_name, ellipse[num_ellipsoid].name);
-		num_ellipsoid++);
-	if (num_ellipsoid == N_ELLIPSOIDS)
-		return(-1);
+    /* determine ellipsoid */
+    for (num_ellipsoid = 0;
+            num_ellipsoid < N_ELLIPSOIDS
+            && strcmp(ellipsoid_name, ellipse[num_ellipsoid].name);
+            num_ellipsoid++);
+    if (num_ellipsoid == N_ELLIPSOIDS)
+        return (-1);
 
-	EQ_RAD[n_proj] = ellipse[num_ellipsoid].eq_radius;
-	f = ellipse[num_ellipsoid].flattening;
-	ECC2[n_proj] = 2 * f - f * f;
-	ECC4[n_proj] = ECC2[n_proj] * ECC2[n_proj];
-	ECC6[n_proj] = ECC2[n_proj] * ECC4[n_proj];
-	ECC[n_proj] = d_sqrt (ECC2[n_proj]);
+    EQ_RAD[n_proj] = ellipse[num_ellipsoid].eq_radius;
+    f = ellipse[num_ellipsoid].flattening;
+    ECC2[n_proj] = 2 * f - f * f;
+    ECC4[n_proj] = ECC2[n_proj] * ECC2[n_proj];
+    ECC6[n_proj] = ECC2[n_proj] * ECC4[n_proj];
+    ECC[n_proj] = d_sqrt(ECC2[n_proj]);
 
-	return(0);
+    return (0);
 
 }
 
@@ -224,102 +224,103 @@ int map_setup_proxy (int n_proj, const char* ellipsoid_name) {
 
 /*** function to set up a Lambert Conformal Conic projection */
 
-int vlamb(int n_proj, double rlong0, double rlat0, double pha, double phb){
+int vlamb(int n_proj, double rlong0, double rlat0, double pha, double phb)
+{
 
-	double t_pha, m_pha, t_phb, m_phb, t_rlat0;
+    double t_pha, m_pha, t_phb, m_phb, t_rlat0;
 
-	NorthPole[n_proj] = (rlat0 > 0.0);
-        // AJL 20090812 BUG FIX
-	Pole[n_proj] = (NorthPole[n_proj]) ? 90.0 : -90.0;
-	//Pole[n_proj] = (NorthPole) ? 90.0 : -90.0;
-	pha *= D2R;
-	phb *= D2R;
+    NorthPole[n_proj] = (rlat0 > 0.0);
+    // AJL 20090812 BUG FIX
+    Pole[n_proj] = (NorthPole[n_proj]) ? 90.0 : -90.0;
+    //Pole[n_proj] = (NorthPole) ? 90.0 : -90.0;
+    pha *= D2R;
+    phb *= D2R;
 
-	t_pha = tan (45.0 * D2R - 0.5 * pha) / pow ((1.0 - ECC[n_proj] *
-		sin (pha)) / (1.0 + ECC[n_proj] * sin (pha)), 0.5 * ECC[n_proj]);
-	m_pha = cos (pha) / d_sqrt (1.0 - ECC2[n_proj]
-		* pow (sin (pha), 2.0));
-	t_phb = tan (45.0 * D2R - 0.5 * phb) / pow ((1.0 - ECC[n_proj] *
-		sin (phb)) / (1.0 + ECC[n_proj] * sin (phb)), 0.5 * ECC[n_proj]);
-	m_phb = cos (phb) / d_sqrt (1.0 - ECC2[n_proj]
-		* pow (sin (phb), 2.0));
-	t_rlat0 = tan (45.0 * D2R - 0.5 * rlat0 * D2R) /
-		pow ((1.0 - ECC[n_proj] * sin (rlat0 * D2R)) /
-		(1.0 + ECC[n_proj] * sin (rlat0 * D2R)), 0.5 * ECC[n_proj]);
+    t_pha = tan(45.0 * D2R - 0.5 * pha) / pow((1.0 - ECC[n_proj] *
+            sin(pha)) / (1.0 + ECC[n_proj] * sin(pha)), 0.5 * ECC[n_proj]);
+    m_pha = cos(pha) / d_sqrt(1.0 - ECC2[n_proj]
+            * pow(sin(pha), 2.0));
+    t_phb = tan(45.0 * D2R - 0.5 * phb) / pow((1.0 - ECC[n_proj] *
+            sin(phb)) / (1.0 + ECC[n_proj] * sin(phb)), 0.5 * ECC[n_proj]);
+    m_phb = cos(phb) / d_sqrt(1.0 - ECC2[n_proj]
+            * pow(sin(phb), 2.0));
+    t_rlat0 = tan(45.0 * D2R - 0.5 * rlat0 * D2R) /
+            pow((1.0 - ECC[n_proj] * sin(rlat0 * D2R)) /
+            (1.0 + ECC[n_proj] * sin(rlat0 * D2R)), 0.5 * ECC[n_proj]);
 
-	if(pha != phb)
-		LambertConfConic_N[n_proj] = (d_log(m_pha) - d_log(m_phb))
-					/(d_log(t_pha) - d_log(t_phb));
-	else
-		LambertConfConic_N[n_proj] = sin(pha);
+    if (pha != phb)
+        LambertConfConic_N[n_proj] = (d_log(m_pha) - d_log(m_phb))
+        / (d_log(t_pha) - d_log(t_phb));
+    else
+        LambertConfConic_N[n_proj] = sin(pha);
 
-	LambertConfConic_F[n_proj] = m_pha/(LambertConfConic_N[n_proj] *
-		pow(t_pha,LambertConfConic_N[n_proj]));
-	CentralMeridian[n_proj] = rlong0;
-	LambertConfConic_rho0[n_proj] = EQ_RAD[n_proj] * LambertConfConic_F[n_proj] *
-		pow(t_rlat0,LambertConfConic_N[n_proj]);
+    LambertConfConic_F[n_proj] = m_pha / (LambertConfConic_N[n_proj] *
+            pow(t_pha, LambertConfConic_N[n_proj]));
+    CentralMeridian[n_proj] = rlong0;
+    LambertConfConic_rho0[n_proj] = EQ_RAD[n_proj] * LambertConfConic_F[n_proj] *
+            pow(t_rlat0, LambertConfConic_N[n_proj]);
 
-	return(0);
+    return (0);
 }
-
 
 /*** function to do x,y to lat,long Lambert Conformal Conic projection */
 
-int lamb(int n_proj, double lon, double lat, double *x, double *y){
-	double rho,theta,hold1,hold2,hold3;
+int lamb(int n_proj, double lon, double lat, double *x, double *y)
+{
+    double rho, theta, hold1, hold2, hold3;
 
-	while ((lon - CentralMeridian[n_proj]) < -180.0) lon += 360.0;
-	while ((lon - CentralMeridian[n_proj]) > 180.0) lon -= 360.0;
-	lat *= D2R;
+    while ((lon - CentralMeridian[n_proj]) < -180.0) lon += 360.0;
+    while ((lon - CentralMeridian[n_proj]) > 180.0) lon -= 360.0;
+    lat *= D2R;
 
-	hold2 = pow (((1.0 - ECC[n_proj] * sin (lat))
-		/ (1.0 + ECC[n_proj] * sin (lat))), 0.5 * ECC[n_proj]);
-	hold3 = tan (45.0 * D2R - 0.5 * lat);
-	if (fabs (hold3) < SMALL) hold3 = 0.0;
-	hold1 = (hold3 == 0.0) ? 0.0 : pow (hold3 / hold2, LambertConfConic_N[n_proj]);
-	rho = EQ_RAD[n_proj] * LambertConfConic_F[n_proj] * hold1;
-	theta = LambertConfConic_N[n_proj] * (lon - CentralMeridian[n_proj]) * D2R;
+    hold2 = pow(((1.0 - ECC[n_proj] * sin(lat))
+            / (1.0 + ECC[n_proj] * sin(lat))), 0.5 * ECC[n_proj]);
+    hold3 = tan(45.0 * D2R - 0.5 * lat);
+    if (fabs(hold3) < SMALL) hold3 = 0.0;
+    hold1 = (hold3 == 0.0) ? 0.0 : pow(hold3 / hold2, LambertConfConic_N[n_proj]);
+    rho = EQ_RAD[n_proj] * LambertConfConic_F[n_proj] * hold1;
+    theta = LambertConfConic_N[n_proj] * (lon - CentralMeridian[n_proj]) * D2R;
 
-	*x = rho * sin (theta);
-	*y = LambertConfConic_rho0[n_proj] - rho * cos (theta);
+    *x = rho * sin(theta);
+    *y = LambertConfConic_rho0[n_proj] - rho * cos(theta);
 
-	return(0);
+    return (0);
 }
-
 
 /*** function to do lat,long to x,y inverse
-			Lambert Conformal Conic projection */
+                        Lambert Conformal Conic projection */
 
-int ilamb(int n_proj, double *lon, double *lat, double x, double y){
-	int i;
-	double theta, temp, rho, t, tphi, phi, delta;
+int ilamb(int n_proj, double *lon, double *lat, double x, double y)
+{
+    int i;
+    double theta, temp, rho, t, tphi, phi, delta;
 
-	theta = atan (x / (LambertConfConic_rho0[n_proj] - y));
-	*lon = (theta /LambertConfConic_N[n_proj]) * R2D + CentralMeridian[n_proj];
+    theta = atan(x / (LambertConfConic_rho0[n_proj] - y));
+    *lon = (theta / LambertConfConic_N[n_proj]) * R2D + CentralMeridian[n_proj];
 
-	temp = x * x + (LambertConfConic_rho0[n_proj] - y)
-		* (LambertConfConic_rho0[n_proj] - y);
-	rho = copysign (d_sqrt (temp), LambertConfConic_N[n_proj]);
-	t = pow ((rho / (EQ_RAD[n_proj] * LambertConfConic_F[n_proj])), 1./LambertConfConic_N[n_proj]);
-	tphi = 90.0 * D2R - 2.0 * atan (t);
-	delta = 1.0;
-	for (i = 0; i < 100 && delta > 1.0e-8; i++) {
-		temp = (1.0 - ECC[n_proj] * sin (tphi)) / (1.0 + ECC[n_proj] * sin (tphi));
-		phi = 90.0 * D2R - 2.0 * atan (t * pow (temp, 0.5 * ECC[n_proj]));
-		delta = fabs (fabs (tphi) - fabs (phi));
-		tphi = phi;
-	}
-	*lat = phi * R2D;
+    temp = x * x + (LambertConfConic_rho0[n_proj] - y)
+            * (LambertConfConic_rho0[n_proj] - y);
+    rho = copysign(d_sqrt(temp), LambertConfConic_N[n_proj]);
+    t = pow((rho / (EQ_RAD[n_proj] * LambertConfConic_F[n_proj])), 1. / LambertConfConic_N[n_proj]);
+    tphi = 90.0 * D2R - 2.0 * atan(t);
+    delta = 1.0;
+    for (i = 0; i < 100 && delta > 1.0e-8; i++) {
+        temp = (1.0 - ECC[n_proj] * sin(tphi)) / (1.0 + ECC[n_proj] * sin(tphi));
+        phi = 90.0 * D2R - 2.0 * atan(t * pow(temp, 0.5 * ECC[n_proj]));
+        delta = fabs(fabs(tphi) - fabs(phi));
+        tphi = phi;
+    }
+    *lat = phi * R2D;
 
-	return(0);
+    return (0);
 }
 
-/* Transverse Mercator Projection (TvM) */
+/* Transverse Mercator Projection (TM) */
 
 struct TRANS_MERCATOR {
     BOOLEAN north_pole; /* TRUE if projection is on northern hemisphere, FALSE on southern */
 
-    int use_false_easting;  // flag to apply false easting (500km added to X when converting geog->UTM, and v.v.)
+    bool use_false_easting;  // flag to apply false easting (500km added to X when converting geog->UTM, and v.v.)
     double central_meridian; // Central meridian for projection
     double y_central_parralel; // y offset of central parallel
     double t_e2;
@@ -339,11 +340,13 @@ double map_scale_factor = 1.0;
 int map_init_tm(int n_proj) {
     BOOLEAN search;
     double xmin, xmax, ymin, ymax;
-    vtvm(TransverseMercator[n_proj].pars[0]);
+
+    vtm(TransverseMercator[n_proj].pars[0]);
     if (TransverseMercator[n_proj].units_pr_degree) TransverseMercator[n_proj].pars[1] /= M_PR_DEG;
     TransverseMercator[n_proj].x_scale = TransverseMercator[n_proj].y_scale = TransverseMercator[n_proj].pars[1];
     forward = (PFI) tm;
     inverse = (PFI) itm;
+
     if (TransverseMercator[n_proj].region) {
         xy_search(&xmin, &xmax, &ymin, &ymax);
         outside = (PFI) wesn_outside;
@@ -365,13 +368,16 @@ int map_init_tm(int n_proj) {
         frame_info.check_side = TRUE;
         search = TRUE;
     }
+
     frame_info.horizontal = TRUE;
     map_setinfo(xmin, xmax, ymin, ymax, TransverseMercator[n_proj].pars[1]);
+
     gmtdefs.basemap_type = 1;
+
     return (search);
 }*/
 
-void vtvm(int n_proj, double lon0, double lat0, int use_false_easting) {
+void vtm(int n_proj, double lon0, double lat0, bool use_false_easting) {
     /* Set up an TM projection */
     double e1;
 
@@ -392,11 +398,11 @@ void vtvm(int n_proj, double lon0, double lat0, int use_false_easting) {
     double lon, lat, x, y;
     lon = lon0;
     lat = lat0;
-    tvm(n_proj, lon, lat, &x, &y);
+    tm(n_proj, lon, lat, &x, &y);
     TransverseMercator[n_proj].y_central_parralel = y;
 }
 
-void tvm(int n_proj, double lon, double lat, double *x, double *y)
+void tm(int n_proj, double lon, double lat, double *x, double *y)
 {
     /* Convert lon/lat to TM x/y */
     double N, T, T2, C, A, M, dlon, tan_lat, cos_lat, A2, A3, A5;
@@ -438,7 +444,7 @@ void tvm(int n_proj, double lon, double lat, double *x, double *y)
     }
 }
 
-void itvm(int n_proj, double *lon, double *lat, double x, double y)
+void itm(int n_proj, double *lon, double *lat, double x, double y)
 {
 
     // correct for TM x offset of central parallel
@@ -482,82 +488,6 @@ void itvm(int n_proj, double *lon, double *lat, double x, double y)
     (*lat) *= R2D;
 }
 
-/*
- *	TRANSFORMATION ROUTINES FOR THE Universal Transverse Mercator Projection (UTM)
- */
-
-/*
-int map_init_utm(int n_proj) {
-    BOOLEAN search;
-    double xmin, xmax, ymin, ymax, lon0;
-    lon0 = 180.0 + 6.0 * TransverseMercator[n_proj].pars[0] - 3.0;
-    if (lon0 >= 360.0) lon0 -= 360.0;
-    vtvm(lon0); // Central meridian for this zone
-    if (TransverseMercator[n_proj].units_pr_degree) TransverseMercator[n_proj].pars[1] /= M_PR_DEG;
-    TransverseMercator[n_proj].x_scale = TransverseMercator[n_proj].y_scale = TransverseMercator[n_proj].pars[1];
-    forward = (PFI) utm;
-    inverse = (PFI) iutm;
-    if (fabs(TransverseMercator[n_proj].w - TransverseMercator[n_proj].e) > 360.0) { // -R in UTM meters
-        iutm(&TransverseMercator[n_proj].w, &TransverseMercator[n_proj].s, TransverseMercator[n_proj].w, TransverseMercator[n_proj].s);
-        iutm(&TransverseMercator[n_proj].e, &TransverseMercator[n_proj].n, TransverseMercator[n_proj].e, TransverseMercator[n_proj].n);
-        TransverseMercator[n_proj].region = FALSE;
-    }
-    if (TransverseMercator[n_proj].region) {
-        xy_search(&xmin, &xmax, &ymin, &ymax);
-        outside = (PFI) wesn_outside;
-        crossing = (PFI) wesn_crossing;
-        overlap = (PFI) wesn_overlap;
-        map_clip = (PFI) wesn_clip;
-        left_edge = (PFD) left_rect;
-        right_edge = (PFD) right_rect;
-        search = FALSE;
-    } else {
-        utm(TransverseMercator[n_proj].w, TransverseMercator[n_proj].s, &xmin, &ymin);
-        utm(TransverseMercator[n_proj].e, TransverseMercator[n_proj].n, &xmax, &ymax);
-        outside = (PFI) rect_outside;
-        crossing = (PFI) rect_crossing;
-        overlap = (PFI) rect_overlap;
-        map_clip = (PFI) rect_clip;
-        left_edge = (PFD) left_rect;
-        right_edge = (PFD) right_rect;
-        frame_info.check_side = TRUE;
-        search = TRUE;
-    }
-    frame_info.horizontal = TRUE;
-    map_setxy(xmin, xmax, ymin, ymax);
-    gmtdefs.basemap_type = 1;
-    return (search);
-}*/
-
-void utm(int n_proj, double lon, double lat, double *x, double *y)
-{
-    /* Convert lon/lat to UTM x/y */
-
-    if (lon < 0.0) lon += 360.0;
-    tvm(n_proj, lon, lat, x, y);
-    (*x) += 500000.0;
-    if (!TransverseMercator[n_proj].north_pole)
-        (*y) += 10000000.0; /* For S hemisphere, add 10^6 m */
-}
-
-void iutm(int n_proj, double *lon, double *lat, double x, double y)
-{
-    /* Convert UTM x/y to lon/lat */
-
-    x -= 500000.0;
-    if (!TransverseMercator[n_proj].north_pole)
-        y -= 10000000.0;
-    itvm(n_proj, lon, lat, x, y);
-}
-
-// utm init function
-// created by ALomax to enable setting of north_pole flag
-
-void vutm(int n_proj, double lon0, int lat0, int use_false_easting) {
-    vtvm(n_proj, lon0, lat0, use_false_easting);
-    TransverseMercator[n_proj].north_pole = lat0 >= 0.0 ? 1 : 0;
-}
-
 /* Azimuthal Equidistant Projection (AE) */
 
 struct AZIMUTHAL_EQUIDIST {
@@ -580,7 +510,9 @@ struct AZIMUTHAL_EQUIDIST AzimuthalEquidistant[NUM_PROJ_MAX];
 int map_init_azeqdist () {
         BOOLEAN search;
         double xmin, xmax, ymin, ymax, dummy, radius;
+
         gmt_set_spherical ();	// PW: Force spherical for now
+
         if (project_info.units_pr_degree) {
                 vazeqdist (0.0, 90.0);
                 azeqdist (0.0, project_info.pars[3], &dummy, &radius);
@@ -589,15 +521,19 @@ int map_init_azeqdist () {
         }
         else
                 project_info.x_scale = project_info.y_scale = project_info.pars[2];
+
         vazeqdist (project_info.pars[0], project_info.pars[1]);
         forward = (PFI)azeqdist;		inverse = (PFI)iazeqdist;
+
         if (fabs (project_info.pars[1]) == 90.0) {
                 project_info.polar = TRUE;
                 project_info.north_pole	= (project_info.pars[1] == 90.0);
         }
+
         if (!project_info.region) {	// Rectangular box given
                 (*forward) (project_info.w, project_info.s, &xmin, &ymin);
                 (*forward) (project_info.e, project_info.n, &xmax, &ymax);
+
                 outside = (PFI) rect_outside;
                 crossing = (PFI) rect_crossing;
                 overlap = (PFI) rect_overlap;
@@ -640,8 +576,10 @@ int map_init_azeqdist () {
                 left_edge = (PFD) left_circle;
                 right_edge = (PFD) right_circle;
         }
+
         map_setinfo (xmin, xmax, ymin, ymax, project_info.pars[2]);
         project_info.r = 0.5 * project_info.xmax;
+
         return (search);
 }*/
 

@@ -968,6 +968,12 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
     info.cosang    = std::cos(info.angle);
     info.sinang    = std::sin(info.angle);
 
+    if (tokens.at(2) != "LatOrig" || tokens.at(4) != "LongOrig" ||
+        tokens.at(6) != "RotCW")
+    {
+      throw Exception("Cannot parse grid header");
+    }
+
     if (info.orig_lat > 90 || info.orig_lat < -90)
     {
       throw Exception("Origin latitude must be in range -90,90");
@@ -998,67 +1004,65 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
       info.sdc_xlnkm = bc / std::cos(dlt1);
     }
   }
-
-  else if (info.type == "AZIMUTHAL_EQUIDIST")
-  {
-    info.ref_ellip = std::stod(tokens.at(3));
-    info.orig_lat  = std::stod(tokens.at(5));
-    info.orig_long = std::stod(tokens.at(7));
-    info.rot       = std::stod(tokens.at(9));
-    info.angle     = -degToRad(info.rot);
-    info.cosang    = std::cos(info.angle);
-    info.sinang    = std::sin(info.angle);
-
-    if (info.orig_lat > 90 || info.orig_lat < -90)
-    {
-      throw Exception("Origin latitude must be in range -90,90");
-    }
-    if (info.orig_long > 180 || info.orig_long < -180)
-    {
-      throw Exception("Origin longitude must be in range -180,180");
-    }
-    if (info.rot > 360 || info.rot < -360)
-    {
-      throw Exception("Rotation must be in range -360,360");
-    }
-    //TODO vazeqdist(0, double &lon0, double &lat0);
-  }
-  else if (info.type == "TRANS_MERC")
-  {
-    info.ref_ellip = std::stod(tokens.at(3));
-    info.orig_lat  = std::stod(tokens.at(5));
-    info.orig_long = std::stod(tokens.at(7));
-    info.rot       = std::stod(tokens.at(9));
-    info.angle     = -degToRad(info.rot);
-    info.cosang    = std::cos(info.angle);
-    info.sinang    = std::sin(info.angle);
-
-    if (info.orig_lat > 90 || info.orig_lat < -90)
-    {
-      throw Exception("Origin latitude must be in range -90,90");
-    }
-    if (info.orig_long > 180 || info.orig_long < -180)
-    {
-      throw Exception("Origin longitude must be in range -180,180");
-    }
-    if (info.rot > 360 || info.rot < -360)
-    {
-      throw Exception("Rotation must be in range -360,360");
-    }
-    //TODO vtm(0, double &lon0, double &lat0);
-  }
-
   else if (info.type == "LAMBERT")
   {
-    info.ref_ellip = std::stod(tokens.at(3));
+    info.ref_ellip = tokens.at(3);
     info.orig_lat  = std::stod(tokens.at(5));
     info.orig_long = std::stod(tokens.at(7));
-    info.pha       = std::stod(tokens.at(9)); //added
-    info.phb       = std::stod(tokens.at(11)); //added    
+    info.pha       = std::stod(tokens.at(9));
+    info.phb       = std::stod(tokens.at(11));
     info.rot       = std::stod(tokens.at(13));
     info.angle     = -degToRad(info.rot);
     info.cosang    = std::cos(info.angle);
     info.sinang    = std::sin(info.angle);
+
+    if (tokens.at(2) != "RefEllipsoid" || tokens.at(4) != "LatOrig" ||
+        tokens.at(6) != "LongOrig" || tokens.at(8) != "FirstStdParal" ||
+        tokens.at(10) != "SecondStdParal" || tokens.at(12) != "RotCW")
+    {
+      throw Exception("Cannot parse grid header");
+    }
+
+    if (info.orig_lat > 90 || info.orig_lat < -90)
+    {
+      throw Exception("Origin latitude must be in range -90,90");
+    }
+    if (info.orig_long > 180 || info.orig_long < -180)
+    {
+      throw Exception("Origin longitude must be in range -180,180");
+    }
+    if (info.pha > 90 || info.pha < -90)
+    {
+      throw Exception("FirstStdParal must be in range -90,90");
+    }
+    if (info.phb > 90 || info.phb < -90)
+    {
+      throw Exception("SecondStdParal must be in range -90,90");
+    }
+    if (info.rot > 360 || info.rot < -360)
+    {
+      throw Exception("Rotation must be in range -360,360");
+    }
+    map_setup_proxy(0, info.ref_ellip.c_str());
+    vlamb(0, info.orig_long, info.orig_lat, info.pha, info.phb);
+  }
+  else if (info.type == "TRANS_MERC")
+  {
+    info.ref_ellip         = tokens.at(3);
+    info.orig_lat          = std::stod(tokens.at(5));
+    info.orig_long         = std::stod(tokens.at(7));
+    info.rot               = std::stod(tokens.at(9));
+    info.angle             = -degToRad(info.rot);
+    info.cosang            = std::cos(info.angle);
+    info.sinang            = std::sin(info.angle);
+    info.use_false_easting = std::stod(tokens.at(11)) != 0;
+
+    if (tokens.at(2) != "RefEllipsoid" || tokens.at(4) != "LatOrig" ||
+        tokens.at(6) != "LongOrig" || tokens.at(8) != "RotCW" ||
+        tokens.at(10) != "UseFalseEasting")
+    {
+      throw Exception("Cannot parse grid header");
+    }
 
     if (info.orig_lat > 90 || info.orig_lat < -90)
     {
@@ -1073,9 +1077,39 @@ Transform::Info Transform::parse(const std::vector<string> &tokens)
       throw Exception("Rotation must be in range -360,360");
     }
     map_setup_proxy(0, info.ref_ellip.c_str());
-    vlamb(0, info.orig_long, info.orig_lat, info.pha, info.phb);
+    vtm(1, info.orig_long, info.orig_lat, info.use_false_easting);
   }
+  else if (info.type == "AZIMUTHAL_EQUIDIST")
+  {
+    info.ref_ellip = tokens.at(3);
+    info.orig_lat  = std::stod(tokens.at(5));
+    info.orig_long = std::stod(tokens.at(7));
+    info.rot       = std::stod(tokens.at(9));
+    info.angle     = -degToRad(info.rot);
+    info.cosang    = std::cos(info.angle);
+    info.sinang    = std::sin(info.angle);
 
+    if (tokens.at(2) != "RefEllipsoid" || tokens.at(4) != "LatOrig" ||
+        tokens.at(6) != "LongOrig" || tokens.at(8) != "RotCW")
+    {
+      throw Exception("Cannot parse grid header");
+    }
+
+    if (info.orig_lat > 90 || info.orig_lat < -90)
+    {
+      throw Exception("Origin latitude must be in range -90,90");
+    }
+    if (info.orig_long > 180 || info.orig_long < -180)
+    {
+      throw Exception("Origin longitude must be in range -180,180");
+    }
+    if (info.rot > 360 || info.rot < -360)
+    {
+      throw Exception("Rotation must be in range -360,360");
+    }
+    map_setup_proxy(0, info.ref_ellip.c_str());
+    vazeqdist(2, info.orig_long, info.orig_lat);
+  }
   else
   {
     string msg = strf("Unsupported transform %s", info.type.c_str());
@@ -1094,80 +1128,51 @@ void Transform::fromLatLon(double lat,
   {
     xLoc = lon;
     yLoc = lat;
+    return;
   }
-  else if (info.type == "SIMPLE")
+
+  double xtemp, ytemp;
+
+  if (info.type == "SIMPLE")
   {
-    double xtemp = lon - info.orig_long;
-    if (xtemp > 180.0) xtemp -= 360.0;
-    if (xtemp < -180.0) xtemp += 360.0;
-    xtemp        = xtemp * c111 * std::cos(degToRad(lat));
-    double ytemp = (lat - info.orig_lat) * c111;
-    xLoc         = xtemp * info.cosang - ytemp * info.sinang;
-    yLoc         = ytemp * info.cosang + xtemp * info.sinang;
+    xtemp = normalizeLon(lon - info.orig_long);
+    xtemp = xtemp * c111 * std::cos(degToRad(lat));
+    ytemp = (lat - info.orig_lat) * c111;
   }
   else if (info.type == "SDC")
   {
-    double xtemp = lon - info.orig_long;
-    if (xtemp > 180.0) xtemp -= 360.0;
-    if (xtemp < -180.0) xtemp += 360.0;
-    double ytemp = lat - info.orig_lat;
-
+    xtemp       = normalizeLon(lon - info.orig_long);
+    ytemp       = lat - info.orig_lat;
     double xlt1 = std::atan(MAP_TRANS_SDC_DRLT *
                             std::tan(degToRad(lat + info.orig_lat) / 2.0));
     xtemp       = xtemp * info.sdc_xlnkm * std::cos(xlt1);
     ytemp       = ytemp * info.sdc_xltkm;
-
-    xLoc = xtemp * info.cosang - ytemp * info.sinang;
-    yLoc = ytemp * info.cosang + xtemp * info.sinang;
   }
-
   else if (info.type == "LAMBERT")
   {
-    double xtemp = lon - info.orig_long;
-    if (xtemp > 180.0) xtemp -= 360.0;
-    if (xtemp < -180.0) xtemp += 360.0;
-    double ytemp = lat - info.orig_lat;
-
-    lamb(0, xtemp, ytemp, &xLoc, &yLoc);
-    xLoc /= 1000.;
-    yLoc /= 1000.;
-    xLoc = xLoc * info.cosang - yLoc * info.sinang;
-    yLoc = yLoc * info.cosang + xLoc * info.sinang;
-    
+    lamb(0, lat, lon, &xtemp, &ytemp);
+    xtemp /= 1000.0; /* m -> km */
+    ytemp /= 1000.0; /* m -> km */
   }
-
   else if (info.type == "TRANS_MERC")
   {
-    double xtemp = lon - info.orig_long;
-    if (xtemp > 180.0) xtemp -= 360.0;
-    if (xtemp < -180.0) xtemp += 360.0;
-    double ytemp = lat - info.orig_lat;
-
-    tvm(0, xtemp, ytemp, &xLoc, &yLoc);
-    xLoc /= 1000.;
-    yLoc /= 1000.;
-    xLoc = xLoc * info.cosang - yLoc * info.sinang;
-    yLoc = yLoc * info.cosang + xLoc * info.sinang;
+    tm(1, lat, lon, &xtemp, &ytemp);
+    xtemp /= 1000.0; /* m -> km */
+    ytemp /= 1000.0; /* m -> km */
   }
-
   else if (info.type == "AZIMUTHAL_EQUIDIST")
   {
-    double xtemp = lon - info.orig_long;
-    if (xtemp > 180.0) xtemp -= 360.0;
-    if (xtemp < -180.0) xtemp += 360.0;
-    double ytemp = lat - info.orig_lat;
-
-    azeqdist(0, xtemp, ytemp, &xLoc, &yLoc);
-    xLoc /= 1000.;
-    yLoc /= 1000.;
-    xLoc = xLoc * info.cosang - yLoc * info.sinang;
-    yLoc = yLoc * info.cosang + xLoc * info.sinang;
-  }  
+    azeqdist(2, lat, lon, &xtemp, &ytemp);
+    xtemp /= 1000.0; /* m -> km */
+    ytemp /= 1000.0; /* m -> km */
+  }
   else // this never happens
   {
     string msg = strf("Unsupported transform %s", info.type.c_str());
     throw Exception(msg.c_str());
   }
+  xLoc = xtemp * info.cosang - ytemp * info.sinang;
+  yLoc = ytemp * info.cosang + xtemp * info.sinang;
 }
 
 void Transform::toLatLon(double xLoc,
@@ -1179,83 +1184,51 @@ void Transform::toLatLon(double xLoc,
   {
     lat = yLoc;
     lon = xLoc;
+    return;
   }
-  else if (info.type == "SIMPLE")
+
+  double xtemp = xLoc * info.cosang + yLoc * info.sinang;
+  double ytemp = yLoc * info.cosang - xLoc * info.sinang;
+
+  if (info.type == "SIMPLE")
   {
-    double xtemp = xLoc * info.cosang + yLoc * info.sinang;
-    double ytemp = yLoc * info.cosang - xLoc * info.sinang;
-    lat          = info.orig_lat + ytemp / c111;
-    lon          = info.orig_long + xtemp / (c111 * std::cos(degToRad(lat)));
-    if (lon < -180.0)
-      lon += 360.0;
-    else if (lon > 180.0)
-      lon -= 360.0;
+    lat = info.orig_lat + ytemp / c111;
+    lon = info.orig_long + xtemp / (c111 * std::cos(degToRad(lat)));
   }
   else if (info.type == "SDC")
   {
-    double xtemp = xLoc * info.cosang + yLoc * info.sinang;
-    double ytemp = yLoc * info.cosang - xLoc * info.sinang;
-    ytemp        = ytemp / info.sdc_xltkm;
-    lat          = info.orig_lat + ytemp;
-    double xlt1  = std::atan(MAP_TRANS_SDC_DRLT *
+    ytemp       = ytemp / info.sdc_xltkm;
+    lat         = info.orig_lat + ytemp;
+    double xlt1 = std::atan(MAP_TRANS_SDC_DRLT *
                             std::tan(degToRad(lat + info.orig_lat) / 2.0));
-    xtemp        = xtemp / (info.sdc_xlnkm * std::cos(xlt1));
-    lon          = info.orig_long + xtemp;
-    if (lon < -180.0)
-      lon += 360.0;
-    else if (lon > 180.0)
-      lon -= 360.0;
+    xtemp       = xtemp / (info.sdc_xlnkm * std::cos(xlt1));
+    lon         = info.orig_long + xtemp;
   }
   else if (info.type == "LAMBERT")
   {
-    double xtemp = xLoc * info.cosang + yLoc * info.sinang;
-    double ytemp = yLoc * info.cosang - xLoc * info.sinang;
-
-    ilamb(0, &lon, &lat, xtemp * 1000.0, ytemp * 1000.0); // hardwired n_proj with 0 (WGS84) for now
-    lon          = info.orig_long + lon;
-    lat          = info.orig_lat + lat;
-    if (lon < -180.0)
-      lon += 360.0;
-    else if (lon > 180.0)
-      lon -= 360.0;
+    ilamb(0, &lon, &lat, xtemp * 1000.0, ytemp * 1000.0);
   }
   else if (info.type == "TRANS_MERC")
   {
-    double xtemp = xLoc * info.cosang + yLoc * info.sinang;
-    double ytemp = yLoc * info.cosang - xLoc * info.sinang;
-
-    itvm(0, &lon, &lat, xtemp, ytemp); // hardwired n_proj with 0 (WGS84) for now
-    lon          = info.orig_long + lon;
-    lat          = info.orig_lat + lat;
-    if (lon < -180.0)
-      lon += 360.0;
-    else if (lon > 180.0)
-      lon -= 360.0;
-  }  
+    itm(1, &lon, &lat, xtemp * 1000.0, ytemp * 1000.0);
+  }
   else if (info.type == "AZIUMUTHAL_EQUIDIST")
   {
-    double xtemp = xLoc * info.cosang + yLoc * info.sinang;
-    double ytemp = yLoc * info.cosang - xLoc * info.sinang;
-
-    iazeqdist(0, &lon, &lat, xtemp, ytemp); // hardwired n_proj with 0 (WGS84) for now
-    lon          = info.orig_long + lon;
-    lat          = info.orig_lat + lat;
-    if (lon < -180.0)
-      lon += 360.0;
-    else if (lon > 180.0)
-      lon -= 360.0;
+    iazeqdist(2, &lon, &lat, xtemp, ytemp);
   }
   else // this never happens
   {
     string msg = strf("Unsupported transform %s", info.type.c_str());
     throw Exception(msg.c_str());
   }
+
+  lon = normalizeLon(lon);
 }
 
 double Transform::fromLatLonAngle(double latlonAngle) const
 {
-  if (info.type == "SIMPLE" || info.type == "SDC" || info.type == "LAMBERT" 
-    || info.type == "AZIMUTHAL_EQUIDIST" || info.type == "TRANS_MERC")
+  if (info.type == "SIMPLE" || info.type == "SDC" || info.type == "LAMBERT" ||
+      info.type == "AZIMUTHAL_EQUIDIST" || info.type == "TRANS_MERC")
   {
     double angle = latlonAngle + info.rot;
     if (angle < 0.0)
@@ -1277,8 +1250,8 @@ double Transform::fromLatLonAngle(double latlonAngle) const
 
 double Transform::toLatLonAngle(double rectAngle) const
 {
-  if (info.type == "SIMPLE" || info.type == "SDC" || info.type == "LAMBERT" 
-    || info.type == "AZIMUTHAL_EQUIDIST" || info.type == "TRANS_MERC")
+  if (info.type == "SIMPLE" || info.type == "SDC" || info.type == "LAMBERT" ||
+      info.type == "AZIMUTHAL_EQUIDIST" || info.type == "TRANS_MERC")
   {
     double angle = rectAngle - info.rot;
     if (angle < 0.0)
