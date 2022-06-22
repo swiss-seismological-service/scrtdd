@@ -14,6 +14,7 @@ SET(HDD_SOURCES
 	catalog.cpp
 	clustering.cpp
 	ttt.cpp
+	nllgrid.cpp
 	nllttt.cpp
 	solver.cpp
 	xcorr.cpp
@@ -39,6 +40,7 @@ SET(HDD_HEADERS
 	clustering.h
 	ttt.h
 	lrucache.h
+	nllgrid.h
 	nllttt.h
 	solver.h
 	xcorr.h
