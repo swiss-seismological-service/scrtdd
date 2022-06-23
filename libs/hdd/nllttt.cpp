@@ -26,7 +26,8 @@ namespace NLL {
 TravelTimeTable::TravelTimeTable(const std::string &velGridPath,
                                  const std::string &timeGridPath,
                                  const std::string &angleGridPath,
-                                 bool swapBytes, unsigned cacheSize)
+                                 bool swapBytes,
+                                 unsigned cacheSize)
     : _velGridPath(velGridPath), _timeGridPath(timeGridPath),
       _angleGridPath(angleGridPath), _swapBytes(swapBytes),
       _velGrids(cacheSize), _timeGrids(cacheSize), _angleGrids(cacheSize)

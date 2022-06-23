@@ -18,8 +18,8 @@
 #define __HDD_NLLTTT_H__
 
 #include "lrucache.h"
-#include "ttt.h"
 #include "nllgrid.h"
+#include "ttt.h"
 
 #include <unordered_set>
 
