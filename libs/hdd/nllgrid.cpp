@@ -16,9 +16,8 @@
 
 #include "nllgrid.h"
 #include "log.h"
+#include "map_project.h"
 #include "utils.h"
-
-#include "../3rd-party/gmt/map_project.h"
 
 #include <array>
 #include <cstring>
@@ -27,6 +26,357 @@ using namespace std;
 using TakeOffAngles = HDD::NLL::AngleGrid::TakeOffAngles;
 
 namespace {
+
+using namespace HDD;
+using namespace HDD::NLL;
+
+class GlobalTransform : public Transform
+{
+public:
+  GlobalTransform(const std::string &type);
+  virtual ~GlobalTransform() = default;
+  void
+  fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
+  void
+  toLatLon(double xLoc, double yLoc, double &lat, double &lon) const override;
+  double distance(double xLoc1,
+                  double yLoc1,
+                  double xLoc2,
+                  double yLoc2) const override;
+  double distance(double xLoc1,
+                  double yLoc1,
+                  double zLoc1,
+                  double xLoc2,
+                  double yLoc2,
+                  double zLoc2) const override;
+};
+
+class SimpleTransform : public Transform
+{
+public:
+  /*
+   * Adopting NLL constants to improve compatibility
+   */
+  static constexpr double AVG_ERAD = 6371.0;
+  static constexpr double c111 =
+      M_PI * AVG_ERAD / 180.; // kilometers per degree
+
+public:
+  SimpleTransform(const std::string &type,
+                  double orgLat,
+                  double orgLong,
+                  double rot);
+  virtual ~SimpleTransform() = default;
+  void
+  fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
+  void
+  toLatLon(double xLoc, double yLoc, double &lat, double &lon) const override;
+};
+
+class SDCTransform : public Transform
+{
+public:
+  /*
+   * Adopting NLL constants to improve compatibility
+   */
+  static constexpr double FLATTENING =
+      1.0 / 298.26; // Earth flattening (WGS-72)
+  static constexpr double ERAD               = 6378.135; // WGS-72
+  static constexpr double MAP_TRANS_SDC_DRLT = 0.99330647;
+
+public:
+  SDCTransform(const std::string &type,
+               double orgLat,
+               double orgLong,
+               double rot,
+               double xltkm,
+               double xlnkm);
+  virtual ~SDCTransform() = default;
+  void
+  fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
+  void
+  toLatLon(double xLoc, double yLoc, double &lat, double &lon) const override;
+
+private:
+  const double _xltkm;
+  const double _xlnkm;
+};
+
+class LambertTransform : public Transform
+{
+public:
+  LambertTransform(const std::string &type,
+                   double orgLat,
+                   double orgLong,
+                   double rot,
+                   const std::string &refEllip,
+                   double pha,
+                   double phb);
+  virtual ~LambertTransform() = default;
+  void
+  fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
+  void
+  toLatLon(double xLoc, double yLoc, double &lat, double &lon) const override;
+
+private:
+  std::string _refEllip;
+  double _pha;
+  double _phb;
+  GMT::LAMBERT _proj;
+};
+
+class TransMercTransform : public Transform
+{
+public:
+  TransMercTransform(const std::string &type,
+                     double orgLat,
+                     double orgLong,
+                     double rot,
+                     const std::string &refEllip,
+                     bool useFalseEasting);
+  virtual ~TransMercTransform() = default;
+  void
+  fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
+  void
+  toLatLon(double xLoc, double yLoc, double &lat, double &lon) const override;
+
+private:
+  const std::string _refEllip;
+  const bool _useFalseEasting;
+  GMT::TRANS_MERCATOR _proj;
+};
+
+class AziEqdistTransform : public Transform
+{
+public:
+  AziEqdistTransform(const std::string &type,
+                     double orgLat,
+                     double orgLong,
+                     double rot,
+                     const std::string &refEllip);
+  virtual ~AziEqdistTransform() = default;
+  void
+  fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
+  void
+  toLatLon(double xLoc, double yLoc, double &lat, double &lon) const override;
+
+private:
+  const std::string _refEllip;
+  GMT::AZIMUTHAL_EQUIDIST _proj;
+};
+
+GlobalTransform::GlobalTransform(const std::string &type)
+    : Transform(type, 0, 0, 0)
+{}
+
+void GlobalTransform::fromLatLon(double lat,
+                                 double lon,
+                                 double &xLoc,
+                                 double &yLoc) const
+{
+  xLoc = lon;
+  yLoc = lat;
+}
+
+void GlobalTransform::toLatLon(double xLoc,
+                               double yLoc,
+                               double &lat,
+                               double &lon) const
+{
+  lat = yLoc;
+  lon = xLoc;
+}
+
+double GlobalTransform::distance(double xLoc1,
+                                 double yLoc1,
+                                 double xLoc2,
+                                 double yLoc2) const
+{
+  return computeDistance(yLoc1, xLoc1, yLoc2, xLoc2);
+}
+
+double GlobalTransform::distance(double xLoc1,
+                                 double yLoc1,
+                                 double zLoc1,
+                                 double xLoc2,
+                                 double yLoc2,
+                                 double zLoc2) const
+{
+  return computeDistance(yLoc1, xLoc1, zLoc1, yLoc2, xLoc2, zLoc2);
+}
+
+SimpleTransform::SimpleTransform(const std::string &type,
+                                 double orgLat,
+                                 double orgLong,
+                                 double rot)
+    : Transform(type, orgLat, orgLong, rot)
+{}
+
+void SimpleTransform::fromLatLon(double lat,
+                                 double lon,
+                                 double &xLoc,
+                                 double &yLoc) const
+{
+  xLoc = normalizeLon(lon - _orgLong);
+  xLoc *= c111 * std::cos(degToRad(lat));
+  yLoc = (lat - _orgLat) * c111;
+  rotate(xLoc, yLoc);
+}
+
+void SimpleTransform::toLatLon(double xLoc,
+                               double yLoc,
+                               double &lat,
+                               double &lon) const
+{
+  rotate(xLoc, yLoc);
+  lat = _orgLat + yLoc / c111;
+  lon = _orgLong + xLoc / (c111 * std::cos(degToRad(lat)));
+  lon = normalizeLon(lon);
+}
+
+SDCTransform::SDCTransform(const std::string &type,
+                           double orgLat,
+                           double orgLong,
+                           double rot,
+                           double xltkm,
+                           double xlnkm)
+    : Transform(type, orgLat, orgLong, rot), _xltkm(xltkm), _xlnkm(xlnkm)
+{}
+
+void SDCTransform::fromLatLon(double lat,
+                              double lon,
+                              double &xLoc,
+                              double &yLoc) const
+{
+  xLoc = normalizeLon(lon - _orgLong);
+  yLoc = lat - _orgLat;
+  double xlt1 =
+      std::atan(MAP_TRANS_SDC_DRLT * std::tan(degToRad(lat + _orgLat) / 2.0));
+  xLoc *= _xlnkm * std::cos(xlt1);
+  yLoc *= _xltkm;
+  rotate(xLoc, yLoc);
+}
+
+void SDCTransform::toLatLon(double xLoc,
+                            double yLoc,
+                            double &lat,
+                            double &lon) const
+{
+  rotate(xLoc, yLoc);
+  yLoc /= _xltkm;
+  lat = _orgLat + yLoc;
+  double xlt1 =
+      std::atan(MAP_TRANS_SDC_DRLT * std::tan(degToRad(lat + _orgLat) / 2.0));
+  xLoc /= (_xlnkm * std::cos(xlt1));
+  lon = _orgLong + xLoc;
+  lon = normalizeLon(lon);
+}
+
+LambertTransform::LambertTransform(const std::string &type,
+                                   double orgLat,
+                                   double orgLong,
+                                   double rot,
+                                   const std::string &refEllip,
+                                   double pha,
+                                   double phb)
+    : Transform(type, orgLat, orgLong, rot), _refEllip(refEllip), _pha(pha),
+      _phb(phb)
+{
+  if (_pha > 90 || _pha < -90)
+  {
+    throw Exception("FirstStdParal must be in range -90,90");
+  }
+  if (_phb > 90 || _phb < -90)
+  {
+    throw Exception("SecondStdParal must be in range -90,90");
+  }
+  _proj = GMT::vlamb(_refEllip.c_str(), _orgLong, _orgLat, _pha, _phb);
+}
+
+void LambertTransform::fromLatLon(double lat,
+                                  double lon,
+                                  double &xLoc,
+                                  double &yLoc) const
+{
+  GMT::lamb(_proj, lon, lat, &xLoc, &yLoc);
+  xLoc /= 1000.0; /* m -> km */
+  yLoc /= 1000.0; /* m -> km */
+  rotate(xLoc, yLoc);
+}
+
+void LambertTransform::toLatLon(double xLoc,
+                                double yLoc,
+                                double &lat,
+                                double &lon) const
+{
+  rotate(xLoc, yLoc);
+  GMT::ilamb(_proj, &lon, &lat, xLoc * 1000.0, yLoc * 1000.0);
+  lon = normalizeLon(lon);
+}
+
+TransMercTransform::TransMercTransform(const std::string &type,
+                                       double orgLat,
+                                       double orgLong,
+                                       double rot,
+                                       const std::string &refEllip,
+                                       bool useFalseEasting)
+    : Transform(type, orgLat, orgLong, rot), _refEllip(refEllip),
+      _useFalseEasting(useFalseEasting)
+{
+  _proj = GMT::vtm(_refEllip.c_str(), _orgLong, _orgLat, _useFalseEasting);
+}
+
+void TransMercTransform::fromLatLon(double lat,
+                                    double lon,
+                                    double &xLoc,
+                                    double &yLoc) const
+{
+  GMT::tm(_proj, lon, lat, &xLoc, &yLoc);
+  xLoc /= 1000.0; /* m -> km */
+  yLoc /= 1000.0; /* m -> km */
+  rotate(xLoc, yLoc);
+}
+
+void TransMercTransform::toLatLon(double xLoc,
+                                  double yLoc,
+                                  double &lat,
+                                  double &lon) const
+{
+  rotate(xLoc, yLoc);
+  GMT::itm(_proj, &lon, &lat, xLoc * 1000.0, yLoc * 1000.0);
+  lon = normalizeLon(lon);
+}
+
+AziEqdistTransform::AziEqdistTransform(const std::string &type,
+                                       double orgLat,
+                                       double orgLong,
+                                       double rot,
+                                       const std::string &refEllip)
+    : Transform(type, orgLat, orgLong, rot), _refEllip(refEllip)
+{
+  _proj = GMT::vazeqdist(_refEllip.c_str(), _orgLong, _orgLat);
+}
+
+void AziEqdistTransform::fromLatLon(double lat,
+                                    double lon,
+                                    double &xLoc,
+                                    double &yLoc) const
+{
+  GMT::azeqdist(_proj, lon, lat, &xLoc, &yLoc);
+  xLoc /= 1000.0; /* m -> km */
+  yLoc /= 1000.0; /* m -> km */
+  rotate(xLoc, yLoc);
+}
+
+void AziEqdistTransform::toLatLon(double xLoc,
+                                  double yLoc,
+                                  double &lat,
+                                  double &lon) const
+{
+  rotate(xLoc, yLoc);
+  GMT::iazeqdist(_proj, &lon, &lat, xLoc * 1000.0, yLoc * 1000.0);
+  lon = normalizeLon(lon);
+}
 
 /*
  * function to find value inside a square using Lagrange interpolation
@@ -132,6 +482,179 @@ TakeOffAngles interpolateCubeAngles(double xdiff,
 
 namespace HDD {
 namespace NLL {
+
+unique_ptr<Transform> Transform::parse(const std::vector<string> &tokens)
+{
+  if (tokens.at(0) != "TRANSFORM" && tokens.at(0) != "TRANS")
+  {
+    throw Exception("Malformed transform line");
+  }
+
+  string type = tokens.at(1);
+
+  if (type == "GLOBAL")
+  {
+    return unique_ptr<Transform>(new GlobalTransform(type));
+  }
+  else if (type == "SDC" || type == "SIMPLE")
+  {
+    if (tokens.at(2) != "LatOrig" || tokens.at(4) != "LongOrig" ||
+        tokens.at(6) != "RotCW")
+    {
+      throw Exception("Cannot parse grid header");
+    }
+
+    double orgLat  = std::stod(tokens.at(3));
+    double orgLong = std::stod(tokens.at(5));
+    double rot     = std::stod(tokens.at(7));
+
+    if (type == "SIMPLE")
+    {
+      return unique_ptr<Transform>(
+          new SimpleTransform(type, orgLat, orgLong, rot));
+    }
+    else
+    {
+      //  conversion factor for latitude
+      double dlt1 = std::atan(SDCTransform::MAP_TRANS_SDC_DRLT *
+                              std::tan(degToRad(orgLat)));
+      double dlt2 = std::atan(SDCTransform::MAP_TRANS_SDC_DRLT *
+                              std::tan(degToRad(orgLat + 1.0)));
+      double del  = dlt2 - dlt1;
+      double r    = SDCTransform::ERAD *
+                 (1.0 - square(std::sin(dlt1)) * SDCTransform::FLATTENING);
+      double sdc_xltkm = r * del;
+      //  conversion factor for longitude
+      del              = std::acos(1.0 -
+                      (1.0 - std::cos(degToRad(1))) * square(std::cos(dlt1)));
+      double bc        = r * del;
+      double sdc_xlnkm = bc / std::cos(dlt1);
+
+      return unique_ptr<Transform>(
+          new SDCTransform(type, orgLat, orgLong, rot, sdc_xltkm, sdc_xlnkm));
+    }
+  }
+  else if (type == "LAMBERT")
+  {
+    if (tokens.at(2) != "RefEllipsoid" || tokens.at(4) != "LatOrig" ||
+        tokens.at(6) != "LongOrig" || tokens.at(8) != "FirstStdParal" ||
+        tokens.at(10) != "SecondStdParal" || tokens.at(12) != "RotCW")
+    {
+      throw Exception("Cannot parse grid header");
+    }
+
+    string refEllip = tokens.at(3);
+    double orgLat   = std::stod(tokens.at(5));
+    double orgLong  = std::stod(tokens.at(7));
+    double pha      = std::stod(tokens.at(9));
+    double phb      = std::stod(tokens.at(11));
+    double rot      = std::stod(tokens.at(13));
+
+    return unique_ptr<Transform>(
+        new LambertTransform(type, orgLat, orgLong, rot, refEllip, pha, phb));
+  }
+  else if (type == "TRANS_MERC")
+  {
+    if (tokens.at(2) != "RefEllipsoid" || tokens.at(4) != "LatOrig" ||
+        tokens.at(6) != "LongOrig" || tokens.at(8) != "RotCW" ||
+        tokens.at(10) != "UseFalseEasting")
+    {
+      throw Exception("Cannot parse grid header");
+    }
+
+    string refEllip      = tokens.at(3);
+    double orgLat        = std::stod(tokens.at(5));
+    double orgLong       = std::stod(tokens.at(7));
+    double rot           = std::stod(tokens.at(9));
+    bool useFalseEasting = std::stod(tokens.at(11)) != 0;
+
+    return unique_ptr<Transform>(new TransMercTransform(
+        type, orgLat, orgLong, rot, refEllip, useFalseEasting));
+  }
+  else if (type == "AZIMUTHAL_EQUIDIST")
+  {
+    if (tokens.at(2) != "RefEllipsoid" || tokens.at(4) != "LatOrig" ||
+        tokens.at(6) != "LongOrig" || tokens.at(8) != "RotCW")
+    {
+      throw Exception("Cannot parse grid header");
+    }
+    string refEllip = tokens.at(3);
+    double orgLat   = std::stod(tokens.at(5));
+    double orgLong  = std::stod(tokens.at(7));
+    double rot      = std::stod(tokens.at(9));
+
+    return unique_ptr<Transform>(
+        new AziEqdistTransform(type, orgLat, orgLong, rot, refEllip));
+  }
+  else
+  {
+    string msg = strf("Unsupported transform %s", type.c_str());
+    throw Exception(msg.c_str());
+  }
+}
+
+Transform::Transform(const std::string &type,
+                     double orgLat,
+                     double orgLong,
+                     double rot)
+    : _type(type), _orgLat(orgLat), _orgLong(orgLong), _rot(rot),
+      _angle(-degToRad(_rot)), _cosang(std::cos(_angle)),
+      _sinang(std::sin(_angle))
+{
+  if (_orgLat > 90 || _orgLat < -90)
+  {
+    throw Exception("Origin latitude must be in range -90,90");
+  }
+
+  if (_orgLong > 180 || _orgLong < -180)
+  {
+    throw Exception("Origin longitude must be in range -180,180");
+  }
+
+  if (_rot > 360 || _rot < -360)
+  {
+    throw Exception("Rotation must be in range -360,360");
+  }
+}
+
+double Transform::fromLatLonAngle(double latlonAngle) const
+{
+  double angle = latlonAngle + _rot;
+  if (angle < 0.0)
+    angle += 360.0;
+  else if (angle > 360.0)
+    angle -= 360.0;
+  return angle;
+}
+
+double Transform::toLatLonAngle(double rectAngle) const
+{
+  double angle = rectAngle - _rot;
+  if (angle < 0.0)
+    angle += 360.0;
+  else if (angle > 360.0)
+    angle -= 360.0;
+  return (angle);
+}
+
+double Transform::distance(double xLoc1,
+                           double yLoc1,
+                           double xLoc2,
+                           double yLoc2) const
+{
+  return std::sqrt(square(xLoc2 - xLoc1) + square(yLoc2 - yLoc1));
+}
+
+double Transform::distance(double xLoc1,
+                           double yLoc1,
+                           double zLoc1,
+                           double xLoc2,
+                           double yLoc2,
+                           double zLoc2) const
+{
+  return std::sqrt(square(xLoc2 - xLoc1) + square(yLoc2 - yLoc1) +
+                   square(zLoc2 - zLoc1));
+}
 
 std::string Grid::filePath(const std::string &basePath,
                            const Catalog::Station &station,
@@ -816,398 +1339,6 @@ GRID_FLOAT_TYPE VelGrid::interpolateValues2D(double xdiff,
   }
   return interpolateSquareLagrange(xdiff, zdiff, vval00, vval01, vval10,
                                    vval11);
-}
-
-unique_ptr<Transform> Transform::parse(const std::vector<string> &tokens)
-{
-  if (tokens.at(0) != "TRANSFORM" && tokens.at(0) != "TRANS")
-  {
-    throw Exception("Malformed transform line");
-  }
-
-  string type = tokens.at(1);
-
-  if (type == "GLOBAL")
-  {
-    return unique_ptr<Transform>(new GlobalTransform(type));
-  }
-  else if (type == "SDC" || type == "SIMPLE")
-  {
-    if (tokens.at(2) != "LatOrig" || tokens.at(4) != "LongOrig" ||
-        tokens.at(6) != "RotCW")
-    {
-      throw Exception("Cannot parse grid header");
-    }
-
-    double orgLat  = std::stod(tokens.at(3));
-    double orgLong = std::stod(tokens.at(5));
-    double rot     = std::stod(tokens.at(7));
-
-    if (type == "SIMPLE")
-    {
-      return unique_ptr<Transform>(
-          new SimpleTransform(type, orgLat, orgLong, rot));
-    }
-    else
-    {
-      //  conversion factor for latitude
-      double dlt1 = std::atan(SDCTransform::MAP_TRANS_SDC_DRLT *
-                              std::tan(degToRad(orgLat)));
-      double dlt2 = std::atan(SDCTransform::MAP_TRANS_SDC_DRLT *
-                              std::tan(degToRad(orgLat + 1.0)));
-      double del  = dlt2 - dlt1;
-      double r    = SDCTransform::ERAD *
-                 (1.0 - square(std::sin(dlt1)) * SDCTransform::FLATTENING);
-      double sdc_xltkm = r * del;
-      //  conversion factor for longitude
-      del              = std::acos(1.0 -
-                      (1.0 - std::cos(degToRad(1))) * square(std::cos(dlt1)));
-      double bc        = r * del;
-      double sdc_xlnkm = bc / std::cos(dlt1);
-
-      return unique_ptr<Transform>(
-          new SDCTransform(type, orgLat, orgLong, rot, sdc_xltkm, sdc_xlnkm));
-    }
-  }
-  else if (type == "LAMBERT")
-  {
-    if (tokens.at(2) != "RefEllipsoid" || tokens.at(4) != "LatOrig" ||
-        tokens.at(6) != "LongOrig" || tokens.at(8) != "FirstStdParal" ||
-        tokens.at(10) != "SecondStdParal" || tokens.at(12) != "RotCW")
-    {
-      throw Exception("Cannot parse grid header");
-    }
-
-    string refEllip = tokens.at(3);
-    double orgLat   = std::stod(tokens.at(5));
-    double orgLong  = std::stod(tokens.at(7));
-    double pha      = std::stod(tokens.at(9));
-    double phb      = std::stod(tokens.at(11));
-    double rot      = std::stod(tokens.at(13));
-
-    return unique_ptr<Transform>(
-        new LambertTransform(type, orgLat, orgLong, rot, refEllip, pha, phb));
-  }
-  else if (type == "TRANS_MERC")
-  {
-    if (tokens.at(2) != "RefEllipsoid" || tokens.at(4) != "LatOrig" ||
-        tokens.at(6) != "LongOrig" || tokens.at(8) != "RotCW" ||
-        tokens.at(10) != "UseFalseEasting")
-    {
-      throw Exception("Cannot parse grid header");
-    }
-
-    string refEllip      = tokens.at(3);
-    double orgLat        = std::stod(tokens.at(5));
-    double orgLong       = std::stod(tokens.at(7));
-    double rot           = std::stod(tokens.at(9));
-    bool useFalseEasting = std::stod(tokens.at(11)) != 0;
-
-    return unique_ptr<Transform>(new TransMercTransform(
-        type, orgLat, orgLong, rot, refEllip, useFalseEasting));
-  }
-  else if (type == "AZIMUTHAL_EQUIDIST")
-  {
-    if (tokens.at(2) != "RefEllipsoid" || tokens.at(4) != "LatOrig" ||
-        tokens.at(6) != "LongOrig" || tokens.at(8) != "RotCW")
-    {
-      throw Exception("Cannot parse grid header");
-    }
-    string refEllip = tokens.at(3);
-    double orgLat   = std::stod(tokens.at(5));
-    double orgLong  = std::stod(tokens.at(7));
-    double rot      = std::stod(tokens.at(9));
-
-    return unique_ptr<Transform>(
-        new AziEqdistTransform(type, orgLat, orgLong, rot, refEllip));
-  }
-  else
-  {
-    string msg = strf("Unsupported transform %s", type.c_str());
-    throw Exception(msg.c_str());
-  }
-}
-
-Transform::Transform(std::string type,
-                     double orgLat,
-                     double orgLong,
-                     double rot)
-{
-  if (orgLat > 90 || orgLat < -90)
-  {
-    throw Exception("Origin latitude must be in range -90,90");
-  }
-
-  if (orgLong > 180 || orgLong < -180)
-  {
-    throw Exception("Origin longitude must be in range -180,180");
-  }
-
-  if (rot > 360 || rot < -360)
-  {
-    throw Exception("Rotation must be in range -360,360");
-  }
-
-  _type    = type;
-  _orgLat  = orgLat;
-  _orgLong = orgLong;
-  _rot     = rot;
-  _angle   = -degToRad(_rot);
-  _cosang  = std::cos(_angle);
-  _sinang  = std::sin(_angle);
-}
-
-double Transform::fromLatLonAngle(double latlonAngle) const
-{
-  double angle = latlonAngle + _rot;
-  if (angle < 0.0)
-    angle += 360.0;
-  else if (angle > 360.0)
-    angle -= 360.0;
-  return angle;
-}
-
-double Transform::toLatLonAngle(double rectAngle) const
-{
-  double angle = rectAngle - _rot;
-  if (angle < 0.0)
-    angle += 360.0;
-  else if (angle > 360.0)
-    angle -= 360.0;
-  return (angle);
-}
-
-double Transform::distance(double xLoc1,
-                           double yLoc1,
-                           double xLoc2,
-                           double yLoc2) const
-{
-  return std::sqrt(square(xLoc2 - xLoc1) + square(yLoc2 - yLoc1));
-}
-
-double Transform::distance(double xLoc1,
-                           double yLoc1,
-                           double zLoc1,
-                           double xLoc2,
-                           double yLoc2,
-                           double zLoc2) const
-{
-  return std::sqrt(square(xLoc2 - xLoc1) + square(yLoc2 - yLoc1) +
-                   square(zLoc2 - zLoc1));
-}
-
-GlobalTransform::GlobalTransform(std::string type) : Transform(type, 0, 0, 0) {}
-
-void GlobalTransform::fromLatLon(double lat,
-                                 double lon,
-                                 double &xLoc,
-                                 double &yLoc) const
-{
-  xLoc = lon;
-  yLoc = lat;
-}
-
-void GlobalTransform::toLatLon(double xLoc,
-                               double yLoc,
-                               double &lat,
-                               double &lon) const
-{
-  lat = yLoc;
-  lon = xLoc;
-}
-
-double GlobalTransform::distance(double xLoc1,
-                                 double yLoc1,
-                                 double xLoc2,
-                                 double yLoc2) const
-{
-  return computeDistance(yLoc1, xLoc1, yLoc2, xLoc2);
-}
-
-double GlobalTransform::distance(double xLoc1,
-                                 double yLoc1,
-                                 double zLoc1,
-                                 double xLoc2,
-                                 double yLoc2,
-                                 double zLoc2) const
-{
-  return computeDistance(yLoc1, xLoc1, zLoc1, yLoc2, xLoc2, zLoc2);
-}
-
-SimpleTransform::SimpleTransform(std::string type,
-                                 double orgLat,
-                                 double orgLong,
-                                 double rot)
-    : Transform(type, orgLat, orgLong, rot)
-{}
-
-void SimpleTransform::fromLatLon(double lat,
-                                 double lon,
-                                 double &xLoc,
-                                 double &yLoc) const
-{
-  xLoc = normalizeLon(lon - _orgLong);
-  xLoc *= c111 * std::cos(degToRad(lat));
-  yLoc = (lat - _orgLat) * c111;
-  rotate(xLoc, yLoc);
-}
-
-void SimpleTransform::toLatLon(double xLoc,
-                               double yLoc,
-                               double &lat,
-                               double &lon) const
-{
-  rotate(xLoc, yLoc);
-  lat = _orgLat + yLoc / c111;
-  lon = _orgLong + xLoc / (c111 * std::cos(degToRad(lat)));
-  lon = normalizeLon(lon);
-}
-
-SDCTransform::SDCTransform(std::string type,
-                           double orgLat,
-                           double orgLong,
-                           double rot,
-                           double xltkm,
-                           double xlnkm)
-    : Transform(type, orgLat, orgLong, rot), _xltkm(xltkm), _xlnkm(xlnkm)
-{}
-
-void SDCTransform::fromLatLon(double lat,
-                              double lon,
-                              double &xLoc,
-                              double &yLoc) const
-{
-  xLoc = normalizeLon(lon - _orgLong);
-  yLoc = lat - _orgLat;
-  double xlt1 =
-      std::atan(MAP_TRANS_SDC_DRLT * std::tan(degToRad(lat + _orgLat) / 2.0));
-  xLoc *= _xlnkm * std::cos(xlt1);
-  yLoc *= _xltkm;
-  rotate(xLoc, yLoc);
-}
-
-void SDCTransform::toLatLon(double xLoc,
-                            double yLoc,
-                            double &lat,
-                            double &lon) const
-{
-  rotate(xLoc, yLoc);
-  yLoc /= _xltkm;
-  lat = _orgLat + yLoc;
-  double xlt1 =
-      std::atan(MAP_TRANS_SDC_DRLT * std::tan(degToRad(lat + _orgLat) / 2.0));
-  xLoc /= (_xlnkm * std::cos(xlt1));
-  lon = _orgLong + xLoc;
-  lon = normalizeLon(lon);
-}
-
-LambertTransform::LambertTransform(std::string type,
-                                   double orgLat,
-                                   double orgLong,
-                                   double rot,
-                                   std::string refEllip,
-                                   double pha,
-                                   double phb)
-    : Transform(type, orgLat, orgLong, rot), _refEllip(refEllip), _pha(pha),
-      _phb(phb)
-{
-  if (_pha > 90 || _pha < -90)
-  {
-    throw Exception("FirstStdParal must be in range -90,90");
-  }
-  if (_phb > 90 || _phb < -90)
-  {
-    throw Exception("SecondStdParal must be in range -90,90");
-  }
-  map_setup_proxy(0, _refEllip.c_str());
-  vlamb(0, _orgLong, _orgLat, _pha, _phb);
-}
-
-void LambertTransform::fromLatLon(double lat,
-                                  double lon,
-                                  double &xLoc,
-                                  double &yLoc) const
-{
-  lamb(0, lat, lon, &xLoc, &yLoc);
-  xLoc /= 1000.0; /* m -> km */
-  yLoc /= 1000.0; /* m -> km */
-  rotate(xLoc, yLoc);
-}
-
-void LambertTransform::toLatLon(double xLoc,
-                                double yLoc,
-                                double &lat,
-                                double &lon) const
-{
-  rotate(xLoc, yLoc);
-  ilamb(0, &lon, &lat, xLoc * 1000.0, yLoc * 1000.0);
-  lon = normalizeLon(lon);
-}
-
-TransMercTransform::TransMercTransform(std::string type,
-                                       double orgLat,
-                                       double orgLong,
-                                       double rot,
-                                       std::string refEllip,
-                                       bool useFalseEasting)
-    : Transform(type, orgLat, orgLong, rot), _refEllip(refEllip),
-      _useFalseEasting(useFalseEasting)
-{
-  map_setup_proxy(2, _refEllip.c_str());
-  vtm(1, _orgLong, _orgLat, _useFalseEasting);
-}
-
-void TransMercTransform::fromLatLon(double lat,
-                                    double lon,
-                                    double &xLoc,
-                                    double &yLoc) const
-{
-  tm(1, lat, lon, &xLoc, &yLoc);
-  xLoc /= 1000.0; /* m -> km */
-  yLoc /= 1000.0; /* m -> km */
-  rotate(xLoc, yLoc);
-}
-
-void TransMercTransform::toLatLon(double xLoc,
-                                  double yLoc,
-                                  double &lat,
-                                  double &lon) const
-{
-  rotate(xLoc, yLoc);
-  itm(1, &lon, &lat, xLoc * 1000.0, yLoc * 1000.0);
-  lon = normalizeLon(lon);
-}
-
-AziEqdistTransform::AziEqdistTransform(std::string type,
-                                       double orgLat,
-                                       double orgLong,
-                                       double rot,
-                                       std::string refEllip)
-    : Transform(type, orgLat, orgLong, rot), _refEllip(refEllip)
-{
-  map_setup_proxy(2, _refEllip.c_str());
-  vazeqdist(2, _orgLong, _orgLat);
-}
-
-void AziEqdistTransform::fromLatLon(double lat,
-                                    double lon,
-                                    double &xLoc,
-                                    double &yLoc) const
-{
-  azeqdist(2, lat, lon, &xLoc, &yLoc);
-  xLoc /= 1000.0; /* m -> km */
-  yLoc /= 1000.0; /* m -> km */
-  rotate(xLoc, yLoc);
-}
-
-void AziEqdistTransform::toLatLon(double xLoc,
-                                  double yLoc,
-                                  double &lat,
-                                  double &lon) const
-{
-  rotate(xLoc, yLoc);
-  iazeqdist(2, &lon, &lat, xLoc * 1000.0, yLoc * 1000.0);
-  lon = normalizeLon(lon);
 }
 
 } // namespace NLL

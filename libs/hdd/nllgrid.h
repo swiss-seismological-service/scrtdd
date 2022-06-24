@@ -19,12 +19,12 @@
 
 #include "catalog.h"
 
+#include <cmath>
 #include <fstream>
 #include <functional>
 #include <memory>
 #include <unordered_map>
 #include <vector>
-#include <cmath>
 
 namespace HDD {
 namespace NLL {
@@ -35,7 +35,10 @@ public:
   static std::unique_ptr<Transform>
   parse(const std::vector<std::string> &tokens);
 
-  Transform(std::string type, double orgLat, double _orgLong, double rot);
+  Transform(const std::string &type,
+            double orgLat,
+            double _orgLong,
+            double rot);
   virtual ~Transform() = default;
 
   Transform(const Transform &other) = delete;
@@ -67,142 +70,13 @@ protected:
     yLoc         = ytemp * _cosang + xtemp * _sinang;
   }
 
-  std::string _type;
-  double _orgLat;
-  double _orgLong;
-  double _rot;
-  double _angle;
-  double _cosang;
-  double _sinang;
-};
-
-class GlobalTransform : public Transform
-{
-public:
-  GlobalTransform(std::string type);
-  virtual ~GlobalTransform() = default;
-  void
-  fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
-  void
-  toLatLon(double xLoc, double yLoc, double &lat, double &lon) const override;
-  double distance(double xLoc1,
-                  double yLoc1,
-                  double xLoc2,
-                  double yLoc2) const override;
-  double distance(double xLoc1,
-                  double yLoc1,
-                  double zLoc1,
-                  double xLoc2,
-                  double yLoc2,
-                  double zLoc2) const override;
-};
-
-class SimpleTransform : public Transform
-{
-public:
-  /*
-   * Adopting NLL constants to improve compatibility
-   */
-  static constexpr double AVG_ERAD = 6371.0;
-  static constexpr double c111 =
-      M_PI * AVG_ERAD / 180.; // kilometers per degree
-
-public:
-  SimpleTransform(std::string type, double orgLat, double orgLong, double rot);
-  virtual ~SimpleTransform() = default;
-  void
-  fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
-  void
-  toLatLon(double xLoc, double yLoc, double &lat, double &lon) const override;
-};
-
-class SDCTransform : public Transform
-{
-public:
-  /*
-   * Adopting NLL constants to improve compatibility
-   */
-  static constexpr double FLATTENING =
-      1.0 / 298.26; // Earth flattening (WGS-72)
-  static constexpr double ERAD               = 6378.135; // WGS-72
-  static constexpr double MAP_TRANS_SDC_DRLT = 0.99330647;
-
-public:
-  SDCTransform(std::string type,
-               double orgLat,
-               double orgLong,
-               double rot,
-               double xltkm,
-               double xlnkm);
-  virtual ~SDCTransform() = default;
-  void
-  fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
-  void
-  toLatLon(double xLoc, double yLoc, double &lat, double &lon) const override;
-
-private:
-  double _xltkm;
-  double _xlnkm;
-};
-
-class LambertTransform : public Transform
-{
-public:
-  LambertTransform(std::string type,
-                   double orgLat,
-                   double orgLong,
-                   double rot,
-                   std::string refEllip,
-                   double pha,
-                   double phb);
-  virtual ~LambertTransform() = default;
-  void
-  fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
-  void
-  toLatLon(double xLoc, double yLoc, double &lat, double &lon) const override;
-
-private:
-  std::string _refEllip;
-  double _pha;
-  double _phb;
-};
-
-class TransMercTransform : public Transform
-{
-public:
-  TransMercTransform(std::string type,
-                     double orgLat,
-                     double orgLong,
-                     double rot,
-                     std::string refEllip,
-                     bool useFalseEasting);
-  virtual ~TransMercTransform() = default;
-  void
-  fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
-  void
-  toLatLon(double xLoc, double yLoc, double &lat, double &lon) const override;
-
-private:
-  std::string _refEllip;
-  bool _useFalseEasting;
-};
-
-class AziEqdistTransform : public Transform
-{
-public:
-  AziEqdistTransform(std::string type,
-                     double orgLat,
-                     double orgLong,
-                     double rot,
-                     std::string refEllip);
-  virtual ~AziEqdistTransform() = default;
-  void
-  fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
-  void
-  toLatLon(double xLoc, double yLoc, double &lat, double &lon) const override;
-
-private:
-  std::string _refEllip;
+  const std::string _type;
+  const double _orgLat;
+  const double _orgLong;
+  const double _rot;
+  const double _angle;
+  const double _cosang;
+  const double _sinang;
 };
 
 class Grid
