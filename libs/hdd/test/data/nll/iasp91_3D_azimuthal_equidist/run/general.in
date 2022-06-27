@@ -1,0 +1,59 @@
+
+# =============================================================================
+#  Sample NonLinLoc programs control file
+#
+#  NonLinLoc Version 2.3 - APR2001
+#
+#  Anthony Lomax <anthony@alomax.net>
+#
+#  See "Control File" and "Running the Sample Location" pages
+#     in the NonLicLoc on-line documentation:
+#     http://www.alomax.net/nlloc
+# =============================================================================
+
+
+# = comment
+
+# non-nested include files allowed, use:
+# INCLUDE <include_file_name>
+
+
+# =============================================================================
+# =============================================================================
+# Generic control file statements
+# =============================================================================
+#
+#
+
+# control (CONTROL message_flag (0:silent,1:few messages,2:verbose,...),
+#		RandomNumSeed)
+CONTROL 1 99991
+
+# TRANS - Geographic Transformation
+# required, non-repeatable
+# Syntax 1: TRANS GLOBAL
+# Syntax 2: TRANS SIMPLE latOrig longOrig rotAngle
+# Syntax 3: TRANS NONE
+# Syntax 4: TRANS SDC latOrig longOrig rotAngle
+# Syntax 5: TRANS LAMBERT refEllipsoid latOrig longOrig firstStdParal secondStdParal rotAngle
+# Syntax 6: TRANS TRANS_MERC refEllipsoid latOrig longOrig rotAngle
+# Syntax 7: TRANS AZIMUTHAL_EQUIDIST refEllipsoid latOrig longOrig rotAngle
+# Sets geographic to working coordinates transformation parameters. The GLOBAL option sets spherical regional/teleseismic mode, with no geographic transformation - most position values are input and used directly as latitude and longitude in degrees. The SIMPLE, SDC, LAMBERT and TRANS_MERC options make transformations of geographic coordinates into a Cartesian/rectangular system. The NONE transformation performs no geographic conversion.
+#
+#    latOrig (float, min:-90.0, max:90.0) latitude in decimal degrees of the rectangular coordinates origin
+#    longOrig (float, min:-180.0, max:180.0) longitude in decimal degrees of the rectangular coordinates origin
+#    rotAngle (float, min:-360.0, max:360.0) rotation angle of geographic north in degrees clockwise relative to the rectangular coordinates system Y-axis
+#    refEllipsoid (choice: WGS-84 GRS-80 WGS-72 Australian Krasovsky International Hayford-1909 Clarke-1880 Clarke-1866 Airy Bessel Hayford-1830 Sphere) reference ellipsoid name
+#    latOrig (float, min:-90.0, max:90.0) latitude in decimal degrees of the rectangular coordinates origin
+#    longOrig (float, min:-180.0, max:180.0) longitude in decimal degrees of the rectangular coordinates origin
+#    firstStdParal secondStdParal (float, min:-90.0, max:90.0) first and second standard parallels (meridians) in decimal degrees
+#    rotAngle (float, min:-360.0, max:360.0) rotation angle of geographic north in degrees clockwise relative to the rectangular coordinates system Y-axis
+#
+TRANS AZIMUTHAL_EQUIDIST WGS-72  46.9 8.4 70.0
+
+#
+#
+# =============================================================================
+# END of Generic control file statements
+# =============================================================================
+# =============================================================================

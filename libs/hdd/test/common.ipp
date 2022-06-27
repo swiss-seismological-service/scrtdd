@@ -57,7 +57,19 @@ std::vector<TTTParams> __getTTTList__()
       {"NonLinLoc",
        "./data/nll/iasp91_3D_sdc/model/iasp91.PHASE.mod;"
        "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.time;"
-       "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.angle"}};
+       "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.angle"},
+      {"NonLinLoc",
+       "./data/nll/iasp91_3D_azimuthal_equidist/model/iasp91.PHASE.mod;"
+       "./data/nll/iasp91_3D_azimuthal_equidist/time/iasp91.PHASE.STATION.time;"
+       "./data/nll/iasp91_3D_azimuthal_equidist/time/iasp91.PHASE.STATION.angle"}, 
+      {"NonLinLoc",
+       "./data/nll/iasp91_3D_merc/model/iasp91.PHASE.mod;"
+       "./data/nll/iasp91_3D_merc/time/iasp91.PHASE.STATION.time;"
+       "./data/nll/iasp91_3D_merc/time/iasp91.PHASE.STATION.angle"},
+      {"NonLinLoc",
+       "./data/nll/iasp91_3D_lambert/model/iasp91.PHASE.mod;"
+       "./data/nll/iasp91_3D_lambert/time/iasp91.PHASE.STATION.time;"
+       "./data/nll/iasp91_3D_lambert/time/iasp91.PHASE.STATION.angle"}};
 
   std::vector<TTTParams> ttts;
   for (const auto &prms : tttList)
