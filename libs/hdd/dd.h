@@ -56,13 +56,13 @@ struct Config
     std::vector<std::string> components; // priority list of components to use
   };
   std::map<Catalog::Phase::Type, struct XCorr> xcorr = {
-      {Catalog::Phase::Type::P, {0.50, -0.50, 0.50, 0.350, {"Z"}}},
-      {Catalog::Phase::Type::S, {0.50, -0.50, 0.75, 0.350, {"H"}}}};
+      {Catalog::Phase::Type::P, {0.50, -0.50, 0.50, 0.50, {"Z"}}},
+      {Catalog::Phase::Type::S, {0.50, -0.50, 0.75, 0.50, {"H"}}}};
 
   struct
   {
     std::string filterStr = "ITAPER(1)>>BW_HLP(2,1,20)"; // "" -> no filtering
-    double resampleFreq   = 400;                         // 0 -> no resampling
+    double resampleFreq   = 0;                           // 0 -> no resampling
     // Extra waveform to load before and after the required window. This extra
     // len is useful to initialize the filter and to discard potential filter
     // artifacts at the beginning and end of trace
@@ -83,7 +83,7 @@ struct ClusteringOptions
 {
   // min weight of phases required (0-1)
   double minWeight = 0;
-  // min hypocenter-station to interevent distance ration required
+  // min hypocenter-station to interevent distance ratio required
   double minEStoIEratio = 0;
   // min hypocenter-station distance required
   double minESdist = 0;

@@ -603,8 +603,8 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->singleEventClustering.minEStoIEratio = 2;
-      prof->multiEventClustering.minEStoIEratio  = 2;
+      prof->singleEventClustering.minEStoIEratio = 0;
+      prof->multiEventClustering.minEStoIEratio  = 0;
     }
 
     prefix = string("profile.") + prof->name +
@@ -758,7 +758,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::P].maxDelay = 0.350;
+      prof->ddCfg.xcorr[PhaseType::P].maxDelay = 0.50;
     }
     try
     {
@@ -805,7 +805,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::S].maxDelay = 0.350;
+      prof->ddCfg.xcorr[PhaseType::S].maxDelay = 0.50;
     }
     try
     {
@@ -851,7 +851,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->ddCfg.wfFilter.resampleFreq = 400;
+      prof->ddCfg.wfFilter.resampleFreq = 0;
     }
 
     prefix = string("profile.") + prof->name + ".crossCorrelation.snr.";

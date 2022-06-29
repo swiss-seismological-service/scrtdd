@@ -98,7 +98,7 @@
               <parameter name="maxStationDistance" type="double" unit="km">
                 <description>Max distance (km) between event and station allowed for a phase to be used. Phases belonging to stations not satisfying this condition will not be used. A value of 0 or less disables this limit.</description>
               </parameter>
-              <parameter name="minStationToEventPairDistRatio" type="double" default="2">
+              <parameter name="minStationToEventPairDistRatio" type="double" default="0">
                 <description>Minimum ratio between event-station to inter-event distance allowed. Phases belonging to stations not satisfying this condition will not be used.</description>
               </parameter>
             </group>
@@ -160,7 +160,7 @@
               <parameter name="end" type="double" default="0.50" unit="sec">
                 <description>End of data window to cross-correlate with respect to pick time (+/- secs).</description>
               </parameter>
-              <parameter name="maxDelay" type="double" default="0.350" unit="sec">
+              <parameter name="maxDelay" type="double" default="0.50" unit="sec">
                 <description>Maximum data windows lag accepted (secs)..</description>
               </parameter>
               <parameter name="components" type="list:string" default="Z">
@@ -177,7 +177,7 @@
               <parameter name="end" type="double" default="0.75" unit="sec">
                 <description>End of data window to cross-correlate with respect to pick time (+/- secs).</description>
               </parameter>
-              <parameter name="maxDelay" type="double" default="0.350" unit="sec">
+              <parameter name="maxDelay" type="double" default="0.50" unit="sec">
                 <description>Maximum data windows lag accepted (secs).</description>
               </parameter>
               <parameter name="components" type="list:string" default="H">
@@ -192,14 +192,14 @@
               <parameter name="margin" type="double" default="1" unit="sec">
                 <description>Extra seconds to add to the waveform ends before applying the filter. Useful to initialize the filter and to discard potential filter artifacts at the beginning and end of trace</description>
               </parameter> 
-              <parameter name="resampling" type="double" default="400" unit="Hz">
-                <description>Resample all traces at this samplig interval (hz) Set it to 0 disable resampling.</description>
+              <parameter name="resampling" type="double" default="0" unit="Hz">
+                <description>Resample all traces at this samplig interval (hz) Set it to 0 disable resampling. If the event phases are picked on different channels for the same station(s), this option has to be used to allow a common sampling rate.</description>
               </parameter>
             </group>
             <group name="snr">
               <description>Exclude phases from cross-correlation when the Signal to Noise Ratio (SNR) is below a configured threshold. Useful to avoid that low quality phases (e.g. automatic) generate low quality cross-correlation differential travel times. Set 'minSnr' to 0 to disable this feature.</description>
               <parameter name="minSnr" type="double" default="2">
-                <description>Minimum SNR value required for a pick to be used in cross-correlation.</description>
+                <description>Minimum SNR value required for a P or S pick to be used in cross-correlation.</description>
               </parameter>
               <parameter name="noiseStart" type="double" default="-3" unit="sec">
                 <description>Start of noise window with respect to pick time (+/- secs).</description>
