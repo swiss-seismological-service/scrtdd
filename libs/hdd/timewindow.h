@@ -30,12 +30,12 @@ private:
 public:
   GenericTimeWindow() = default;
   GenericTimeWindow(const T &startTime, Duration length)
-  {
-    set(startTime, startTime + length);
-  }
+      : GenericTimeWindow(startTime, startTime + length)
+  {}
   GenericTimeWindow(const T &startTime, const T &endTime)
+      : _startTime(startTime)
   {
-    set(startTime, endTime);
+    setEndTime(endTime);
   }
 
   ~GenericTimeWindow() = default;
@@ -68,7 +68,14 @@ public:
     setEndTime(endTime);
   }
 
-  void setStartTime(const T &t) { _startTime = t; }
+  void setStartTime(const T &t)
+  {
+    _startTime = t;
+    if (_endTime < _startTime)
+    {
+      _endTime = _startTime;
+    }
+  }
 
   void setEndTime(const T &t)
   {
