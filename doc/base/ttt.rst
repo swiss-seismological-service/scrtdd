@@ -8,7 +8,7 @@ NonLinLoc
 
 Please refer to `NonLinLoc by Anthony Lomax <http://alomax.free.fr/nlloc/>`_ documentation on how to generate grid files. Once you have them you can configure the path in the travel time table options.
 
-The following geographic transformations (TRANS statement) are currently supported: GLOBAL 2D, SIMPLE 2D, SIMPLE 3D, SDS 2D, SDS 3D. Also, both float and double values are supported as well as byte swapping.
+The following geographic transformations (TRANS statement) are currently supported: GLOBAL 2D, SIMPLE 2D/3D, SDS 2D/3D, LAMBERT 2D/3D, TRANS_MERC 2D/3D, AZIMUTHAL_EQUIDIST 2D/3D. Also, both float and double values are supported as well as byte swapping.
 
 Please note that ``scrtdd`` doesn't load the grid files into memory in full and that allows to work with grids of unlimited size. Also, the grid values are interpolated, which allows to achive accurate results even with coarse grids, although more dense grids would certainly allow more precise results.
 
