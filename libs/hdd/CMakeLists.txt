@@ -1,3 +1,4 @@
+SET(ADAPTERS_DIR ${SC3_PACKAGE_SOURCE_DIR}/libs/hdd/adapters)
 SET(3RDPARTY_DIR ${SC3_PACKAGE_SOURCE_DIR}/libs/hdd/3rd-party)
 SET(LSMR_LSQR_DIR ${3RDPARTY_DIR}/lsqr-lsmr)
 SET(GMT_DIR ${3RDPARTY_DIR}/gmt)
@@ -7,6 +8,7 @@ SET(HDD_SOURCES
 	${LSMR_LSQR_DIR}/lsmr.cpp
 	${LSMR_LSQR_DIR}/lsqr.cpp
 	${GMT_DIR}/map_project.cpp
+	${3RDPARTY_DIR}/geo.cpp
 	log.cpp
 	utils.cpp
 	csvreader.cpp
@@ -20,12 +22,14 @@ SET(HDD_SOURCES
 	xcorr.cpp
 	waveform.cpp
 	dd.cpp
-	adapters/scttt.cpp
-	adapters/sclog.cpp
-	adapters/scwaveform.cpp
+	${ADAPTERS_DIR}/scttt.cpp
+	${ADAPTERS_DIR}/sclog.cpp
+	${ADAPTERS_DIR}/scwaveform.cpp
 )
 
 SET(HDD_HEADERS
+	${3RDPARTY_DIR}/lrucache.h
+	${3RDPARTY_DIR}/geo.h
 	ellipsoid.h
 	xcorrcache.h
 	random.h
@@ -39,16 +43,15 @@ SET(HDD_HEADERS
 	catalog.h
 	clustering.h
 	ttt.h
-	lrucache.h
 	nllgrid.h
 	nllttt.h
 	solver.h
 	xcorr.h
 	waveform.h
 	dd.h
-	adapters/scttt.h
-	adapters/sclog.h
-	adapters/scconversion.h
+	${ADAPTERS_DIR}/scttt.h
+	${ADAPTERS_DIR}/sclog.h
+	${ADAPTERS_DIR}/scconversion.h
 )
 
 SC_ADD_LIBRARY(HDD hdd)

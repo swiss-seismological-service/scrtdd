@@ -17,8 +17,8 @@
 #include "utils.h"
 #include "csvreader.h"
 #include "log.h"
+#include "geo.h"
 #include <boost/filesystem.hpp>
-#include <seiscomp3/math/geo.h>
 #include <stdarg.h>
 
 using namespace std;
@@ -106,7 +106,7 @@ void computeCoordinates(double distance,
                         double &lat,
                         double &lon)
 {
-  Seiscomp::Math::Geo::delandaz2coord(Seiscomp::Math::Geo::km2deg(distance),
+  delandaz2coord(km2deg(distance),
                                       azimuth, clat, clon, &lat, &lon);
   lon = normalizeLon(lon);
 }
@@ -142,8 +142,8 @@ double computeDistance(double lat1,
                        double *backAzimuth)
 {
   double dist, az, baz;
-  Seiscomp::Math::Geo::delazi(lat1, lon1, lat2, lon2, &dist, &az, &baz);
-  dist = Seiscomp::Math::Geo::deg2km(dist);
+  delazi(lat1, lon1, lat2, lon2, &dist, &az, &baz);
+  dist = deg2km(dist);
 
   if (azimuth) *azimuth = az;
   if (backAzimuth) *backAzimuth = baz;
