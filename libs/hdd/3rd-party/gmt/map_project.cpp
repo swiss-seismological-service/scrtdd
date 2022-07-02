@@ -195,6 +195,8 @@ LAMBERT vlamb(const char *ellipsoid_name,
 {
   LAMBERT proj;
   proj.e = map_setup_proxy(ellipsoid_name);
+  proj.pha = pha;
+  proj.phb = phb;
 
   double t_pha, m_pha, t_phb, m_phb, t_rlat0;
 
@@ -285,12 +287,12 @@ void ilamb(const LAMBERT &proj, double *lon, double *lat, double x, double y)
 
 /* Transverse Mercator Projection (TM) */
 
-double map_scale_factor = 1.0;
-
 TRANS_MERCATOR vtm(const char *ellipsoid_name,
                    double lon0,
                    double lat0,
-                   bool use_false_easting)
+                   bool use_false_easting,
+                   long false_easting,
+                   double map_scale_factor)
 {
   TRANS_MERCATOR proj;
   proj.e = map_setup_proxy(ellipsoid_name);
@@ -312,6 +314,8 @@ TRANS_MERCATOR vtm(const char *ellipsoid_name,
   proj.t_ic4 = (1097.0 * pow(e1, 4.0) / 512.0);
   proj.central_meridian  = lon0;
   proj.use_false_easting = use_false_easting;
+  proj.false_easting = false_easting;
+  proj.map_scale_factor = map_scale_factor;
 
   // get y offset of central parallel (use lat0 = 0.0 for standard TM w/o
   // offset)
@@ -338,7 +342,7 @@ void tm(
   if (fabs(lat) == M_PI_2)
   {
     *x = 0.0;
-    *y = map_scale_factor * M;
+    *y = proj.map_scale_factor * M;
   }
   else
   {
@@ -352,13 +356,13 @@ void tm(
     A2      = A * A;
     A3      = A2 * A;
     A5      = A3 * A2;
-    *x      = map_scale_factor * N *
+    *x      = proj.map_scale_factor * N *
          (A + (1.0 - T + C) * (A3 * 0.16666666666666666667) +
           (5.0 - 18.0 * T + T2 + 72.0 * C - 58.0 * proj.t_e2) *
               (A5 * 0.00833333333333333333));
     A3 *= A;
     A5 *= A;
-    *y = map_scale_factor *
+    *y = proj.map_scale_factor *
          (M + N * tan(lat) *
                   (0.5 * A2 +
                    (5.0 - T + 9.0 * C + 4.0 * C * C) *
@@ -373,7 +377,7 @@ void tm(
   // correct for false easting
   if (proj.use_false_easting)
   {
-    *x += 500000.0;
+    *x += proj.false_easting;
   }
 }
 
@@ -387,14 +391,14 @@ void itm(
   // correct for false easting
   if (proj.use_false_easting)
   {
-    x -= 500000.0;
+    x -= proj.false_easting;
   }
 
   /* Convert TM x/y to lon/lat */
   double M, mu, phi1, C1, C12, T1, T12, tmp, tmp2, N1, R1, D, D2, D3, D5,
       cos_phi1, tan_phi1;
 
-  M    = y / map_scale_factor;
+  M    = y / proj.map_scale_factor;
   mu   = M / (proj.e.EQ_RAD * proj.t_c1);
   phi1 = mu + proj.t_ic1 * sin(2.0 * mu) + proj.t_ic2 * sin(4.0 * mu) +
          proj.t_ic3 * sin(6.0 * mu) + proj.t_ic4 * sin(8.0 * mu);
@@ -408,7 +412,7 @@ void itm(
   tmp2     = d_sqrt(tmp);
   N1       = proj.e.EQ_RAD / tmp2;
   R1       = proj.e.EQ_RAD * (1.0 - proj.e.ECC2) / (tmp * tmp2);
-  D        = x / (N1 * map_scale_factor);
+  D        = x / (N1 * proj.map_scale_factor);
   D2       = D * D;
   D3       = D2 * D;
   D5       = D3 * D2;

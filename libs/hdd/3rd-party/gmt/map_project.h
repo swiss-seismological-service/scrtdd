@@ -18,6 +18,8 @@ struct Ellip
 struct LAMBERT
 {
   Ellip e;
+  double pha;
+  double phb;
   bool NorthPole; /* TRUE if projection is on northern hermisphere, FALSE on
                      southern */
   double CentralMeridian; /* Central meridian for projection */
@@ -45,6 +47,8 @@ struct TRANS_MERCATOR
   Ellip e;
   bool use_false_easting;  // flag to apply false easting (500km added to X when
                            // converting geog->UTM, and v.v.)
+  long false_easting;  // false easting to use (e.g. many UTM systems use 500km added to X when converting geog->UTM, and v.v.)
+  double map_scale_factor;
   double central_meridian; // Central meridian for projection
   double y_central_parralel; // y offset of central parallel
   double t_e2;
@@ -55,7 +59,9 @@ struct TRANS_MERCATOR
 TRANS_MERCATOR vtm(const char *ellipsoid_name,
                    double lon0,
                    double lat0,
-                   bool use_false_easting);
+                   bool use_false_easting,
+                   long false_easting,
+                   double map_scale_factor);
 void tm(
     const TRANS_MERCATOR &proj, double lon, double lat, double *x, double *y);
 void itm(

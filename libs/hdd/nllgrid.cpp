@@ -120,8 +120,6 @@ public:
 
 private:
   std::string _refEllip;
-  double _pha;
-  double _phb;
   GMT::LAMBERT _proj;
 };
 
@@ -133,7 +131,9 @@ public:
                      double orgLong,
                      double rot,
                      const std::string &refEllip,
-                     bool useFalseEasting);
+                     bool useFalseEasting,
+                     long falseEasting,
+                     double mapScaleFactor);
   virtual ~TransMercTransform() = default;
   void
   fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
@@ -142,7 +142,6 @@ public:
 
 private:
   const std::string _refEllip;
-  const bool _useFalseEasting;
   GMT::TRANS_MERCATOR _proj;
 };
 
@@ -279,18 +278,17 @@ LambertTransform::LambertTransform(const std::string &type,
                                    const std::string &refEllip,
                                    double pha,
                                    double phb)
-    : Transform(type, orgLat, orgLong, rot), _refEllip(refEllip), _pha(pha),
-      _phb(phb)
+    : Transform(type, orgLat, orgLong, rot), _refEllip(refEllip)
 {
-  if (_pha > 90 || _pha < -90)
+  if (pha > 90 || pha < -90)
   {
     throw Exception("FirstStdParal must be in range -90,90");
   }
-  if (_phb > 90 || _phb < -90)
+  if (phb > 90 || phb < -90)
   {
     throw Exception("SecondStdParal must be in range -90,90");
   }
-  _proj = GMT::vlamb(_refEllip.c_str(), _orgLong, _orgLat, _pha, _phb);
+  _proj = GMT::vlamb(_refEllip.c_str(), _orgLong, _orgLat, pha, phb);
 }
 
 void LambertTransform::fromLatLon(double lat,
@@ -319,11 +317,13 @@ TransMercTransform::TransMercTransform(const std::string &type,
                                        double orgLong,
                                        double rot,
                                        const std::string &refEllip,
-                                       bool useFalseEasting)
-    : Transform(type, orgLat, orgLong, rot), _refEllip(refEllip),
-      _useFalseEasting(useFalseEasting)
+                                       bool useFalseEasting,
+                                       long falseEasting,
+                                       double mapScaleFactor)
+    : Transform(type, orgLat, orgLong, rot), _refEllip(refEllip)
 {
-  _proj = GMT::vtm(_refEllip.c_str(), _orgLong, _orgLat, _useFalseEasting);
+  _proj = GMT::vtm(_refEllip.c_str(), _orgLong, _orgLat, useFalseEasting,
+                   falseEasting, mapScaleFactor);
 }
 
 void TransMercTransform::fromLatLon(double lat,
@@ -556,20 +556,44 @@ unique_ptr<Transform> Transform::parse(const std::vector<string> &tokens)
   else if (type == "TRANS_MERC")
   {
     if (tokens.at(2) != "RefEllipsoid" || tokens.at(4) != "LatOrig" ||
-        tokens.at(6) != "LongOrig" || tokens.at(8) != "RotCW" ||
-        tokens.at(10) != "UseFalseEasting")
+        tokens.at(6) != "LongOrig" || tokens.at(8) != "RotCW")
     {
       throw Exception("Cannot parse grid header");
     }
 
-    string refEllip      = tokens.at(3);
-    double orgLat        = std::stod(tokens.at(5));
-    double orgLong       = std::stod(tokens.at(7));
-    double rot           = std::stod(tokens.at(9));
-    bool useFalseEasting = std::stod(tokens.at(11)) != 0;
+    string refEllip = tokens.at(3);
+    double orgLat   = std::stod(tokens.at(5));
+    double orgLong  = std::stod(tokens.at(7));
+    double rot      = std::stod(tokens.at(9));
 
-    return unique_ptr<Transform>(new TransMercTransform(
-        type, orgLat, orgLong, rot, refEllip, useFalseEasting));
+    bool useFalseEasting  = false;
+    long falseEasting     = 500000;
+    double mapScaleFactor = 1.0;
+
+    if (tokens.size() > 10)
+    {
+      if (tokens.at(10) != "UseFalseEasting")
+        throw Exception("Cannot parse grid header");
+      useFalseEasting = std::stod(tokens.at(11)) != 0;
+    }
+
+    if (tokens.size() > 12)
+    {
+      if (tokens.at(12) != "FalseEasting")
+        throw Exception("Cannot parse grid header");
+      falseEasting = std::stol(tokens.at(13));
+    }
+
+    if (tokens.size() > 14)
+    {
+      if (tokens.at(14) != "ScaleFactor")
+        throw Exception("Cannot parse grid header");
+      mapScaleFactor = std::stod(tokens.at(15));
+    }
+
+    return unique_ptr<Transform>(
+        new TransMercTransform(type, orgLat, orgLong, rot, refEllip,
+                               useFalseEasting, falseEasting, mapScaleFactor));
   }
   else if (type == "AZIMUTHAL_EQUIDIST")
   {
