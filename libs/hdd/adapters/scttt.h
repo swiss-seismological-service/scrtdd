@@ -23,9 +23,7 @@
 
 #include <unordered_map>
 
-namespace HDD {
-
-namespace SeiscompAdapter {
+namespace HDDSCAdapter {
 
 class TravelTimeTable : public HDD::TravelTimeTable
 {
@@ -40,7 +38,7 @@ public:
   void compute(double eventLat,
                double eventLon,
                double eventDepth,
-               const Catalog::Station &station,
+               const HDD::Catalog::Station &station,
                const std::string &phaseType,
                double &travelTime,
                double &takeOfAngleAzim,
@@ -50,7 +48,7 @@ public:
   void compute(double eventLat,
                double eventLon,
                double eventDepth,
-               const Catalog::Station &station,
+               const HDD::Catalog::Station &station,
                const std::string &phaseType,
                double &travelTime) override;
 
@@ -66,8 +64,6 @@ private:
   Seiscomp::TravelTimeTableInterfacePtr _ttt;
 };
 
-} // namespace SeiscompAdapter
-
-} // namespace HDD
+} // namespace HDDSCAdapter
 
 #endif

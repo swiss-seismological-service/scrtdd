@@ -4,7 +4,7 @@
 #include <boost/test/data/test_case.hpp>
 
 #include "hdd/dd.h"
-#include "hdd/waveform.h"
+#include "hdd/adapters/scwaveform.h"
 #include <cstring>
 #include <ostream>
 
@@ -23,6 +23,26 @@ std::ostream &operator<<(std::ostream &os, const HDD::Trace &tr)
 } // namespace std
 
 namespace {
+
+void writeTrace(const Trace &trace, const std::string &filename)
+{
+  HDDSCAdapter::WaveformProxy().writeTrace(trace, filename);
+}
+
+Trace readTrace(const std::string &filename)
+{
+  return *HDDSCAdapter::WaveformProxy().readTrace(filename);
+}
+
+void filter(Trace &trace,
+              bool demeaning,
+              const std::string &filterStr,
+              double resampleFreq)
+{
+  Waveform::BasicProcessor(shared_ptr<Waveform::Proxy>(
+        new HDDSCAdapter::WaveformProxy()), nullptr,  0)
+    .filter(trace, demeaning, filterStr, resampleFreq);
+}
 
 Trace buildSyntheticTrace1(double samplingFrequency)
 {
@@ -120,8 +140,8 @@ void testReadWriteTrace(const Trace &tr)
   const string filename = "test_read_write.mseed";
   if (pathExists(filename)) removePath(filename);
   BOOST_REQUIRE(!pathExists(filename));
-  HDD::Waveform::writeTrace(tr, filename);
-  Trace cmpTr = *HDD::Waveform::readTrace(filename);
+  writeTrace(tr, filename);
+  Trace cmpTr = readTrace(filename);
   testTracesEqual(tr, cmpTr);
   removePath(filename);
 }
@@ -170,55 +190,55 @@ void testReampling(const vector<Trace> &traces)
     {
       Trace tr1(traces[i]);
       Trace tr2(traces[j]);
-      HDD::Waveform::resample(tr1, 1000);
-      HDD::Waveform::resample(tr2, 1000);
+      Waveform::resample(tr1, 1000);
+      Waveform::resample(tr2, 1000);
       testXCorrTraces(tr1, tr2, 0);
 
-      // HDD::Waveform::writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
-      //                           tr1.networkCode().c_str(),
-      //                           traces[i].samplingFrequency(),
-      //                           tr1.samplingFrequency()));
-      // HDD::Waveform::writeTrace(tr2,
-      // strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
-      //                           tr2.networkCode().c_str(),
-      //                           traces[j].samplingFrequency(),
-      //                           tr2.samplingFrequency()));
+      // writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
+      //            tr1.networkCode().c_str(),
+      //            traces[i].samplingFrequency(),
+      //            tr1.samplingFrequency()));
+      // writeTrace(tr2,
+      //            strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
+      //            tr2.networkCode().c_str(),
+      //            traces[j].samplingFrequency(),
+      //            tr2.samplingFrequency()));
 
       tr1 = traces[i];
       tr2 = traces[j];
-      HDD::Waveform::resample(tr1, 60);
-      HDD::Waveform::resample(tr2, 60);
+      Waveform::resample(tr1, 60);
+      Waveform::resample(tr2, 60);
       testXCorrTraces(tr1, tr2, 0);
 
-      // HDD::Waveform::writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
-      //                           tr1.networkCode().c_str(),
-      //                           traces[i].samplingFrequency(),
-      //                           tr1.samplingFrequency()));
-      // HDD::Waveform::writeTrace(tr2,
-      // strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
-      //                           tr2.networkCode().c_str(),
-      //                           traces[j].samplingFrequency(),
-      //                           tr2.samplingFrequency()));
+      // writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
+      //            tr1.networkCode().c_str(),
+      //            traces[i].samplingFrequency(),
+      //            tr1.samplingFrequency()));
+      // writeTrace(tr2,
+      //            strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
+      //            tr2.networkCode().c_str(),
+      //            traces[j].samplingFrequency(),
+      //            tr2.samplingFrequency()));
 
       tr1 = traces[i];
       tr2 = traces[j];
-      HDD::Waveform::resample(tr1, tr2.samplingFrequency());
+      Waveform::resample(tr1, tr2.samplingFrequency());
       testXCorrTraces(tr1, tr2, 0);
 
-      // HDD::Waveform::writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
-      //                           tr1.networkCode().c_str(),
-      //                           traces[i].samplingFrequency(),
-      //                           tr1.samplingFrequency()));
+      // writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
+      //            tr1.networkCode().c_str(),
+      //            traces[i].samplingFrequency(),
+      //            tr1.samplingFrequency()));
 
       tr1 = traces[i];
       tr2 = traces[j];
-      HDD::Waveform::resample(tr2, tr1.samplingFrequency());
+      Waveform::resample(tr2, tr1.samplingFrequency());
       testXCorrTraces(tr1, tr2, 0);
 
-      // HDD::Waveform::writeTrace(tr2, strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
-      //                           tr2.networkCode().c_str(),
-      //                           traces[j].samplingFrequency(),
-      //                           tr2.samplingFrequency()));
+      // writeTrace(tr2, strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
+      //            tr2.networkCode().c_str(),
+      //            traces[j].samplingFrequency(),
+      //            tr2.samplingFrequency()));
     }
   }
 }
@@ -234,66 +254,66 @@ void testFiltering(const vector<Trace> &traces)
     {
       Trace tr1 = alterTrace(traces[i], 0, 0, 10, 1);
       Trace tr2 = alterTrace(traces[j], 0, 0, -10, 1);
-      HDD::Waveform::filter(tr1, true, filterStr, 500);
-      HDD::Waveform::filter(tr2, true, filterStr, 500);
+      filter(tr1, true, filterStr, 500);
+      filter(tr2, true, filterStr, 500);
       testXCorrTraces(tr1, tr2, 0);
 
-      // HDD::Waveform::writeTrace(tr1,strf("testFilteringTr1_%s_%.f-%.fHz.mseed",
-      //                           tr1.networkCode().c_str(),
-      //                           traces[i].samplingFrequency(),
-      //                           tr1.samplingFrequency()));
-      // HDD::Waveform::writeTrace(tr2, strf("testFilteringTr2_%s_%.f-%.fHz.mseed",
-      //                           tr2.networkCode().c_str(),
-      //                           traces[j].samplingFrequency(),
-      //                           tr2.samplingFrequency()));
+      // writeTrace(tr1,strf("testFilteringTr1_%s_%.f-%.fHz.mseed",
+      //            tr1.networkCode().c_str(),
+      //            traces[i].samplingFrequency(),
+      //            tr1.samplingFrequency()));
+      // writeTrace(tr2, strf("testFilteringTr2_%s_%.f-%.fHz.mseed",
+      //            tr2.networkCode().c_str(),
+      //            traces[j].samplingFrequency(),
+      //            tr2.samplingFrequency()));
 
       tr1 = alterTrace(traces[i], 0, 0, 10, 1);
       tr2 = alterTrace(traces[j], 0, 0, -10, 1);
-      HDD::Waveform::filter(tr1, true, filterStr, 50);
-      HDD::Waveform::filter(tr2, true, filterStr, 50);
+      filter(tr1, true, filterStr, 50);
+      filter(tr2, true, filterStr, 50);
       testXCorrTraces(tr1, tr2, 0);
 
-      // HDD::Waveform::writeTrace(tr1, strf("testFilteringTr1_%s_%.f-%.fHz.mseed",
-      //                           tr1.networkCode().c_str(),
-      //                           traces[i].samplingFrequency(),
-      //                           tr1.samplingFrequency()));
-      // HDD::Waveform::writeTrace(tr2, strf("testFilteringTr2_%s_%.f-%.fHz.mseed",
-      //                           tr2.networkCode().c_str(),
-      //                           traces[j].samplingFrequency(),
-      //                           tr2.samplingFrequency()));
+      // writeTrace(tr1, strf("testFilteringTr1_%s_%.f-%.fHz.mseed",
+      //            tr1.networkCode().c_str(),
+      //            traces[i].samplingFrequency(),
+      //            tr1.samplingFrequency()));
+      // writeTrace(tr2, strf("testFilteringTr2_%s_%.f-%.fHz.mseed",
+      //            tr2.networkCode().c_str(),
+      //            traces[j].samplingFrequency(),
+      //            tr2.samplingFrequency()));
     }
   }
 }
 
 void testSnrSynthetic(const Trace &trace)
 {
-  double snr = HDD::Waveform::computeSnr(
+  double snr = Waveform::computeSnr(
       trace, trace.startTime() + (trace.timeWindow().length() / 2), -0.5, 0, 0,
       0.5);
   BOOST_CHECK(snr > 2);
 
-  snr = HDD::Waveform::computeSnr(
+  snr = Waveform::computeSnr(
       trace, trace.startTime() + (trace.timeWindow().length() / 2), 0, 0.5, 0.5,
       1);
   BOOST_CHECK(snr < 2);
 }
 
 const vector<Trace> realTraces = {
-    *HDD::Waveform::readTrace("./data/waveform/xcorr1.mseed"),
-    *HDD::Waveform::readTrace("./data/waveform/xcorr2.mseed"),
-    *HDD::Waveform::readTrace("./data/waveform/xcorr3.mseed"),
-    *HDD::Waveform::readTrace("./data/waveform/xcorr4.mseed"),
-    *HDD::Waveform::readTrace("./data/waveform/xcorr5.mseed"),
-    *HDD::Waveform::readTrace("./data/waveform/xcorr6.mseed")};
+    readTrace("./data/waveform/xcorr1.mseed"),
+    readTrace("./data/waveform/xcorr2.mseed"),
+    readTrace("./data/waveform/xcorr3.mseed"),
+    readTrace("./data/waveform/xcorr4.mseed"),
+    readTrace("./data/waveform/xcorr5.mseed"),
+    readTrace("./data/waveform/xcorr6.mseed")};
 
 const vector<Trace> badSnrTraces = {
-    *HDD::Waveform::readTrace("./data/waveform/snr1.mseed"),
-    *HDD::Waveform::readTrace("./data/waveform/snr2.mseed"),
-    *HDD::Waveform::readTrace("./data/waveform/snr3.mseed"),
-    *HDD::Waveform::readTrace("./data/waveform/snr4.mseed"),
-    *HDD::Waveform::readTrace("./data/waveform/snr5.mseed"),
-    *HDD::Waveform::readTrace("./data/waveform/snr6.mseed"),
-    *HDD::Waveform::readTrace("./data/waveform/snr7.mseed")};
+    readTrace("./data/waveform/snr1.mseed"),
+    readTrace("./data/waveform/snr2.mseed"),
+    readTrace("./data/waveform/snr3.mseed"),
+    readTrace("./data/waveform/snr4.mseed"),
+    readTrace("./data/waveform/snr5.mseed"),
+    readTrace("./data/waveform/snr6.mseed"),
+    readTrace("./data/waveform/snr7.mseed")};
 
 const vector<Trace> synthetic1Traces = {
     buildSyntheticTrace1(160), buildSyntheticTrace1(158),
@@ -393,7 +413,7 @@ BOOST_AUTO_TEST_CASE(test_filtering2)
 
 BOOST_DATA_TEST_CASE(test_snr_bad, bdata::make(badSnrTraces), trace)
 {
-  double snr = HDD::Waveform::computeSnr(
+  double snr = Waveform::computeSnr(
       trace, trace.startTime() + (trace.timeWindow().length() / 2), -3, -0.350,
       -0.350, 0.350);
   BOOST_CHECK(snr < 2);
@@ -401,7 +421,7 @@ BOOST_DATA_TEST_CASE(test_snr_bad, bdata::make(badSnrTraces), trace)
 
 BOOST_DATA_TEST_CASE(test_snr_ok, bdata::make(realTraces), trace)
 {
-  double snr = HDD::Waveform::computeSnr(
+  double snr = Waveform::computeSnr(
       trace, trace.startTime() + (trace.timeWindow().length() / 2), -0.7, -0.1,
       -0.1, 0.5);
   BOOST_CHECK(snr >= 2);

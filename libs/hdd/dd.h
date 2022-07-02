@@ -39,8 +39,6 @@ struct Config
 
   std::vector<std::pair<std::string, std::string>> compatibleChannels;
 
-  std::string recordStreamURL; // where to fetch waveforms from
-
   // For waveforms that are cached to disk, store at least `diskTraceMinLen`
   // secs of data (centered at pick time).
   // This is to avoid re-downloading waveforms at every cross-correlation
@@ -107,6 +105,9 @@ struct ClusteringOptions
   // cross-correlation observations specific
   double xcorrMaxEvStaDist = -1; // max event to station distance -1 -> disable
   double xcorrMaxInterEvDist = -1; // max inter-event distance -1 -> disable
+  // use cross-correlation to detect phase for stations without one
+  // (single-event only)
+  bool xcorrDetectMissingPhases = false;
 };
 
 struct SolverOptions
@@ -147,38 +148,59 @@ class DD
 public:
   DD(const Catalog &catalog,
      const Config &cfg,
-     const std::string &workingDir,
-     std::unique_ptr<HDD::TravelTimeTable> ttt);
+     std::unique_ptr<TravelTimeTable> ttt,
+     std::unique_ptr<Waveform::Proxy> wf =
+         std::unique_ptr<Waveform::Proxy>(new Waveform::NoWaveformProxy()));
   ~DD() = default;
 
   DD(const DD &other) = delete;
   DD &operator=(const DD &other) = delete;
 
-  void preloadWaveforms();
-
-  void unloadWaveforms() { createWaveformCache(); }
-
   const Catalog &getCatalog() const { return _srcCat; }
 
-  void setSaveProcessing(bool dump) { _saveProcessing = dump; }
+  // Save relocation data into working directory: e.g. input catalog,
+  // output catalog, found clusters, logs
+  void disableSaveProcessing();
+  void enableSaveProcessing(const std::string &workingDir);
+  std::string saveProcessingDir() const { return _workingDir; }
   bool saveProcessing() const { return _saveProcessing; }
 
-  void setUseCatalogWaveformDiskCache(bool cache);
+  // Enable/disable the usage of disk cache for the background
+  // catalog waveforms
+  void disableCatalogWaveformDiskCache();
+  void enableCatalogWaveformDiskCache(const std::string &workingDir);
+  std::string catalogWaveformDiskCache() const { return _cacheDir; }
   bool useCatalogWaveformDiskCache() const
   {
     return _useCatalogWaveformDiskCache;
   }
 
-  void setWaveformCacheAll(bool all) { _waveformCacheAll = all; }
-  bool waveformCacheAll() const { return _waveformCacheAll; }
+  // Enable/disable the usage of disk cache for temporary waveforms
+  // (e.g. single-event). Normaly only background catalog waveforms
+  // are cached to disk, but his might come in handy when testing or
+  // developing and multiple relocations are attempted on the same
+  // single-events
+  void disableAllWaveformDiskCache();
+  void enableAllWaveformDiskCache(const std::string &tmpCacheDir);
+  std::string allgWaveformDiskCache() const { return _tmpCacheDir; }
+  bool useAllWaveformCache() const { return _waveformCacheAll; }
 
-  void setUseArtificialPhases(bool use) { _useArtificialPhases = use; }
-  bool useArtificialPhases() const { return _useArtificialPhases; }
+  // preload all background catalog waveforms: store them on disk cache
+  // (if enabled and not already there) then cache them in memory
+  // already processed, ready for cross-correlation
+  void preloadWaveforms();
 
+  // free waveforms memory
+  void unloadWaveforms();
+
+  // save to disk the background catalog waveforms after being
+  // resampled and filtered (for debugging)
   void dumpWaveforms(const std::string &basePath = "");
 
+  // Find clusters in the background catalogs and return them
   std::list<Catalog> findClusters(const ClusteringOptions &clustOpt);
 
+  // Multi-event relocation of the background catalog
   std::unique_ptr<Catalog>
   relocateMultiEvents(const ClusteringOptions &clustOpt,
                       const SolverOptions &solverOpt,
@@ -192,6 +214,7 @@ public:
     return relocateMultiEvents(clustOpt, solverOpt, empty);
   }
 
+  // Single-event relocation against background catalog
   std::unique_ptr<Catalog>
   relocateSingleEvent(const Catalog &singleEvent,
                       const ClusteringOptions &clustOpt1,
@@ -229,6 +252,7 @@ public:
       double staDistStep,
       double completionPercent)>;
 
+  // Compute statistics on cross-correlatio results
   void evalXCorr(const ClusteringOptions &clustOpt,
                  const evalXcorrCallback &cb,
                  XCorrCache &precomputed,
@@ -236,6 +260,7 @@ public:
                  const double staDistStep     = 3,   // km
                  bool theoretical             = false);
 
+  // Compute statistics on cross-correlatio results
   void evalXCorr(const ClusteringOptions &clustOpt,
                  const evalXcorrCallback &cb,
                  const double interEvDistStep = 0.1, // km
@@ -271,8 +296,7 @@ private:
                           const std::string &workingDir,
                           const ClusteringOptions &clustOpt,
                           const SolverOptions &solverOpt,
-                          bool doXcorr,
-                          bool computeTheoreticalPhases);
+                          bool doXcorr);
 
   std::unique_ptr<Catalog>
   relocate(const Catalog &catalog,
@@ -431,16 +455,16 @@ private:
   const Catalog _srcCat;
   const Catalog _bgCat;
 
-  std::unique_ptr<HDD::TravelTimeTable> _ttt;
+  std::unique_ptr<TravelTimeTable> _ttt;
+  std::shared_ptr<Waveform::Proxy> _wf;
 
   bool _saveProcessing = true;
 
-  const std::string _workingDir;
-  const std::string _cacheDir;
-  const std::string _tmpCacheDir;
+  std::string _workingDir;
+  std::string _cacheDir;
+  std::string _tmpCacheDir;
   bool _useCatalogWaveformDiskCache = true;
   bool _waveformCacheAll            = false;
-  bool _useArtificialPhases         = true;
 
   struct
   {

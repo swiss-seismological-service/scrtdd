@@ -19,10 +19,9 @@
 #include "hdd/utils.h"
 
 using namespace std;
+using namespace HDD;
 
-namespace HDD {
-
-namespace SeiscompAdapter {
+namespace HDDSCAdapter {
 
 TravelTimeTable::TravelTimeTable(const std::string &type,
                                  const std::string &model,
@@ -141,6 +140,4 @@ double TravelTimeTable::velocityAtSource(double eventDepth,
   return binVelocity;
 }
 
-} // namespace SeiscompAdapter
-
-} // namespace HDD
+} // namespace HDDSCAdapter

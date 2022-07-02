@@ -23,41 +23,48 @@
 #include <string>
 #include <unordered_map>
 
-namespace HDD {
+namespace HDDSCAdapter {
 
-namespace SeiscompAdapter {
+class WaveformProxy : public HDD::Waveform::Proxy
+{
+public:
+  WaveformProxy(const std::string &recordStream = "")
+      : _recordStreamURL(recordStream)
+  {}
+  virtual ~WaveformProxy() = default;
 
-std::unique_ptr<Trace>
-loadTraceFromRecordStream(const std::string &recordStreamURL,
-                          const TimeWindow &tw,
-                          const std::string &networkCode,
-                          const std::string &stationCode,
-                          const std::string &locationCode,
-                          const std::string &channelCode,
-                          double tolerance       = 0.1,
-                          double minAvailability = 0.95);
+  std::unique_ptr<HDD::Trace> loadTrace(const HDD::TimeWindow &tw,
+                                        const std::string &networkCode,
+                                        const std::string &stationCode,
+                                        const std::string &locationCode,
+                                        const std::string &channelCode,
+                                        double tolerance       = 0.1,
+                                        double minAvailability = 0.95) override;
 
-void loadTracesFromRecordStream(
-    const std::string &recordStreamURL,
-    const std::unordered_multimap<std::string, const TimeWindow> &request,
-    const std::function<void(const std::string &,
-                             const TimeWindow &,
-                             std::unique_ptr<Trace>)> &onTraceLoaded,
-    const std::function<void(const std::string &,
-                             const TimeWindow &,
-                             const std::string &)> &onTraceFailed,
-    double tolerance       = 0.1,
-    double minAvailability = 0.95);
+  void loadTraces(
+      const std::unordered_multimap<std::string, const HDD::TimeWindow>
+          &request,
+      const std::function<void(const std::string &,
+                               const HDD::TimeWindow &,
+                               std::unique_ptr<HDD::Trace>)> &onTraceLoaded,
+      const std::function<void(const std::string &,
+                               const HDD::TimeWindow &,
+                               const std::string &)> &onTraceFailed,
+      double tolerance       = 0.1,
+      double minAvailability = 0.95) override;
 
-void getComponentsInfo(const Catalog::Phase &ph,
-                       Waveform::ThreeComponents &components);
+  void getComponentsInfo(const HDD::Catalog::Phase &ph,
+                         HDD::Waveform::ThreeComponents &components) override;
 
-void filter(Trace &trace, const std::string &filterStr);
+  void filter(HDD::Trace &trace, const std::string &filterStr) override;
 
-void writeTrace(const Trace &trace, const std::string &file);
-std::unique_ptr<Trace> readTrace(const std::string &file);
+  void writeTrace(const HDD::Trace &trace, const std::string &file) override;
+  std::unique_ptr<HDD::Trace> readTrace(const std::string &file) override;
 
-} // namespace SeiscompAdapter
-} // namespace HDD
+private:
+  const std::string _recordStreamURL;
+};
+
+} // namespace HDDSCAdapter
 
 #endif

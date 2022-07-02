@@ -18,6 +18,7 @@
 #include "rtdd.h"
 #include "hdd/adapters/sclog.h"
 #include "hdd/adapters/scttt.h"
+#include "hdd/adapters/scwaveform.h"
 #include "hdd/csvreader.h"
 #include "hdd/nllttt.h"
 #include "hddutils.h"
@@ -1038,11 +1039,11 @@ bool RTDD::validateParameters()
       prof->solverCfg.xcorrObsWeight = 1.0;
     }
 
-    prof->ddCfg.recordStreamURL = recordStreamURL();
     prof->ddCfg.diskTraceMinLen =
         configGetDouble("performance.cachedWaveformLength");
 
     // no reason to make those configurable
+    prof->recordStreamURL                 = recordStreamURL();
     prof->singleEventClustering.minWeight = 0;
     prof->multiEventClustering.minWeight  = 0;
     prof->solverCfg.L2normalization       = true;
@@ -1098,7 +1099,7 @@ bool RTDD::init()
   // Check each N seconds if a new job needs to be started
   _cronCounter = _config.wakeupInterval;
 
-  HDD::SeiscompAdapter::initLogger();
+  HDDSCAdapter::initLogger();
 
   return true;
 }
@@ -2149,7 +2150,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
 
     if (tttType == "LOCSAT" || tttType == "libtau")
     {
-      ttt.reset(new HDD::SeiscompAdapter::TravelTimeTable(tttType, tttModel));
+      ttt.reset(new HDDSCAdapter::TravelTimeTable(tttType, tttModel));
     }
     else if (tttType == "NonLinLoc")
     {
@@ -2179,10 +2180,25 @@ void RTDD::Profile::load(DatabaseQuery *query,
       throw runtime_error(msg.c_str());
     }
 
-    dd.reset(new HDD::DD(ddbgc, ddCfg, pWorkingDir, std::move(ttt)));
-    dd->setSaveProcessing(saveProcessingFiles);
-    dd->setUseCatalogWaveformDiskCache(cacheWaveforms);
-    dd->setWaveformCacheAll(cacheAllWaveforms);
+    std::unique_ptr<HDD::Waveform::Proxy> wf(
+        new HDDSCAdapter::WaveformProxy(recordStreamURL));
+
+    dd.reset(new HDD::DD(ddbgc, ddCfg, std::move(ttt), std::move(wf)));
+
+    if (saveProcessingFiles)
+      dd->enableSaveProcessing(pWorkingDir);
+    else
+      dd->disableSaveProcessing();
+
+    if (cacheWaveforms)
+      dd->enableCatalogWaveformDiskCache(HDD::joinPath(pWorkingDir, "wfcache"));
+    else
+      dd->disableCatalogWaveformDiskCache();
+
+    if (cacheAllWaveforms)
+      dd->enableAllWaveformDiskCache(HDD::joinPath(pWorkingDir, "tmpcache"));
+    else
+      dd->disableAllWaveformDiskCache();
   }
   catch (exception &e)
   {
@@ -2246,9 +2262,11 @@ RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   addToCatalog(orgToRelocate, {org}, dataSrc);
 
   if (org->evaluationMode() == DataModel::MANUAL)
-    dd->setUseArtificialPhases(this->detectMissingPhasesManual);
+    singleEventClustering.xcorrDetectMissingPhases =
+        this->detectMissingPhasesManual;
   else
-    dd->setUseArtificialPhases(this->detectMissingPhasesAuto);
+    singleEventClustering.xcorrDetectMissingPhases =
+        this->detectMissingPhasesAuto;
 
   unique_ptr<HDD::Catalog> rel = dd->relocateSingleEvent(
       orgToRelocate, singleEventClustering, singleEventClustering, solverCfg);
@@ -2266,15 +2284,21 @@ RTDD::Profile::relocateCatalog(const std::string &xcorrFile)
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::GMT();
+
   HDD::XCorrCache xcorr;
   if (!xcorrFile.empty())
     xcorr = HDD::readXCorrFromFile(dd->getCatalog(), xcorrFile);
-  dd->setUseArtificialPhases(this->detectMissingPhasesManual);
+
+  multiEventClustering.xcorrDetectMissingPhases = false;
+
   unique_ptr<HDD::Catalog> relocatedCat =
       dd->relocateMultiEvents(multiEventClustering, solverCfg, xcorr);
+
   relocatedCat->writeToFile("reloc-event.csv", "reloc-phase.csv",
                             "reloc-station.csv");
+
   HDD::writeXCorrToFile(xcorr, dd->getCatalog(), "xcorr.csv");
+
   SEISCOMP_INFO(
       "Wrote relocated catalog files reloc-event.csv, reloc-phase.csv, "
       "reloc-station.csv and cross-correlation results xcorr.csv");
@@ -2291,11 +2315,15 @@ void RTDD::Profile::evalXCorr(const std::string &xcorrFile)
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::GMT();
+
   HDD::XCorrCache xcorr;
   if (!xcorrFile.empty())
     xcorr = HDD::readXCorrFromFile(dd->getCatalog(), xcorrFile);
+
   dd->evalXCorr(multiEventClustering, printEvalXcorrStats, xcorr);
+
   HDD::writeXCorrToFile(xcorr, dd->getCatalog(), "xcorr.csv");
+
   SEISCOMP_INFO("Wrote cross-correlation results xcorr.csv");
 }
 

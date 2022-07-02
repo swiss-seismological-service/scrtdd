@@ -1,4 +1,3 @@
-SET(ADAPTERS_DIR ${SC3_PACKAGE_SOURCE_DIR}/libs/hdd/adapters)
 SET(3RDPARTY_DIR ${SC3_PACKAGE_SOURCE_DIR}/libs/hdd/3rd-party)
 SET(LSMR_LSQR_DIR ${3RDPARTY_DIR}/lsqr-lsmr)
 SET(GMT_DIR ${3RDPARTY_DIR}/gmt)
@@ -22,9 +21,6 @@ SET(HDD_SOURCES
 	xcorr.cpp
 	waveform.cpp
 	dd.cpp
-	${ADAPTERS_DIR}/scttt.cpp
-	${ADAPTERS_DIR}/sclog.cpp
-	${ADAPTERS_DIR}/scwaveform.cpp
 )
 
 SET(HDD_HEADERS
@@ -49,15 +45,28 @@ SET(HDD_HEADERS
 	xcorr.h
 	waveform.h
 	dd.h
-	${ADAPTERS_DIR}/scttt.h
-	${ADAPTERS_DIR}/sclog.h
-	${ADAPTERS_DIR}/scconversion.h
 )
 
 SC_ADD_LIBRARY(HDD hdd)
-SC_LIB_LINK_LIBRARIES_INTERNAL(hdd core)
 SC_LIB_INSTALL_HEADERS(HDD)
 
+SET(HDDSC_DIR ${SC3_PACKAGE_SOURCE_DIR}/libs/hdd/adapters)
+
+SET(HDDSC_SOURCES
+	${HDDSC_DIR}/scttt.cpp
+	${HDDSC_DIR}/sclog.cpp
+	${HDDSC_DIR}/scwaveform.cpp
+)
+
+SET(HDDSC_HEADERS
+	${HDDSC_DIR}/scttt.h
+	${HDDSC_DIR}/sclog.h
+	${HDDSC_DIR}/scwaveform.h
+	${HDDSC_DIR}/scconversion.h
+)
+SC_ADD_LIBRARY(HDDSC hddsc)
+SC_LIB_INSTALL_HEADERS(HDDSC)
+ 
 # Add test directory
 IF (SC_GLOBAL_UNITTESTS)
 	SUBDIRS(test)

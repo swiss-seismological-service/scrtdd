@@ -79,17 +79,26 @@ namespace HDD {
 
 DD::DD(const Catalog &catalog,
        const Config &cfg,
-       const string &workingDir,
-       std::unique_ptr<HDD::TravelTimeTable> ttt)
+       std::unique_ptr<HDD::TravelTimeTable> ttt,
+       std::unique_ptr<HDD::Waveform::Proxy> wf)
     : _cfg(cfg), _srcCat(catalog),
       _bgCat(Catalog::filterPhasesAndSetWeights(_srcCat,
                                                 Phase::Source::CATALOG,
                                                 _cfg.validPphases,
                                                 _cfg.validSphases)),
-      _ttt(std::move(ttt)), _workingDir(workingDir),
-      _cacheDir(joinPath(_workingDir, "wfcache")),
-      _tmpCacheDir(joinPath(_workingDir, "tmpcache"))
+      _ttt(std::move(ttt)), _wf(std::move(wf))
 {
+  disableSaveProcessing();
+  disableCatalogWaveformDiskCache();
+  disableAllWaveformDiskCache();
+}
+
+void DD::disableSaveProcessing() { _saveProcessing = false; }
+
+void DD::enableSaveProcessing(const string &workingDir)
+{
+  _saveProcessing = true;
+  _workingDir     = workingDir;
   if (!pathExists(_workingDir))
   {
     if (!createDirectories(_workingDir))
@@ -98,7 +107,18 @@ DD::DD(const Catalog &catalog,
       throw Exception(msg);
     }
   }
+}
 
+void DD::disableCatalogWaveformDiskCache()
+{
+  _useCatalogWaveformDiskCache = false;
+  createWaveformCache();
+}
+
+void DD::enableCatalogWaveformDiskCache(const std::string &cacheDir)
+{
+  _useCatalogWaveformDiskCache = true;
+  _cacheDir                    = cacheDir;
   if (!pathExists(_cacheDir))
   {
     if (!createDirectories(_cacheDir))
@@ -107,6 +127,15 @@ DD::DD(const Catalog &catalog,
       throw Exception(msg);
     }
   }
+  createWaveformCache();
+}
+
+void DD::disableAllWaveformDiskCache() { _waveformCacheAll = false; }
+
+void DD::enableAllWaveformDiskCache(const std::string &tmpCacheDir)
+{
+  _waveformCacheAll = true;
+  _tmpCacheDir      = tmpCacheDir;
 
   if (!pathExists(_tmpCacheDir))
   {
@@ -116,20 +145,11 @@ DD::DD(const Catalog &catalog,
       throw Exception(msg);
     }
   }
-
-  setUseCatalogWaveformDiskCache(true);
-  setWaveformCacheAll(false);
-}
-
-void DD::setUseCatalogWaveformDiskCache(bool cache)
-{
-  _useCatalogWaveformDiskCache = cache;
-  createWaveformCache();
 }
 
 void DD::createWaveformCache()
 {
-  _wfAccess.loader.reset(new Waveform::BasicLoader(_cfg.recordStreamURL));
+  _wfAccess.loader.reset(new Waveform::BasicLoader(_wf));
   _wfAccess.diskCache = nullptr;
   _wfAccess.extraLen  = nullptr;
   _wfAccess.snrFilter = nullptr;
@@ -140,14 +160,14 @@ void DD::createWaveformCache()
   if (_useCatalogWaveformDiskCache)
   {
     _wfAccess.diskCache.reset(
-        new Waveform::DiskCachedLoader(currLdr, _cacheDir));
+        new Waveform::DiskCachedLoader(_wf, currLdr, _cacheDir));
     _wfAccess.extraLen.reset(new Waveform::ExtraLenLoader(
         _wfAccess.diskCache, _cfg.diskTraceMinLen));
     currLdr = _wfAccess.extraLen;
   }
 
   shared_ptr<Waveform::Processor> currProc(
-      new Waveform::BasicProcessor(currLdr, _cfg.wfFilter.extraTraceLen));
+      new Waveform::BasicProcessor(_wf, currLdr, _cfg.wfFilter.extraTraceLen));
 
   if (_cfg.snr.minSnr > 0)
   {
@@ -168,13 +188,15 @@ void DD::replaceWaveformCacheLoader(const shared_ptr<Waveform::Loader> &baseLdr)
   }
   else if (_cfg.snr.minSnr > 0)
   {
-    _wfAccess.snrFilter->setAuxProcessor(shared_ptr<Waveform::Processor>(
-        new Waveform::BasicProcessor(baseLdr, _cfg.wfFilter.extraTraceLen)));
+    _wfAccess.snrFilter->setAuxProcessor(
+        shared_ptr<Waveform::Processor>(new Waveform::BasicProcessor(
+            _wf, baseLdr, _cfg.wfFilter.extraTraceLen)));
   }
   else
   {
-    _wfAccess.memCache->setAuxProcessor(shared_ptr<Waveform::Processor>(
-        new Waveform::BasicProcessor(baseLdr, _cfg.wfFilter.extraTraceLen)));
+    _wfAccess.memCache->setAuxProcessor(
+        shared_ptr<Waveform::Processor>(new Waveform::BasicProcessor(
+            _wf, baseLdr, _cfg.wfFilter.extraTraceLen)));
   }
 }
 
@@ -203,6 +225,8 @@ string DD::generateWorkingSubDir(const Event &ev) const
            hour, min, sec, int(ev.latitude * 1000), int(ev.longitude * 1000));
   return generateWorkingSubDir(prefix);
 }
+
+void DD::unloadWaveforms() { createWaveformCache(); }
 
 void DD::preloadWaveforms()
 {
@@ -246,7 +270,7 @@ void DD::preloadWaveforms()
     logDebug("Loading event %u waveforms...", event.id);
 
     shared_ptr<Waveform::BatchLoader> batchLoader(
-        new Waveform::BatchLoader(_cfg.recordStreamURL));
+        new Waveform::BatchLoader(_wf));
     replaceWaveformCacheLoader(batchLoader);
 
     // the following doesn't load anything unless the waveform is not alreday on
@@ -284,8 +308,8 @@ void DD::preloadWaveforms()
   }
 
   // restore proper loader
-  replaceWaveformCacheLoader(shared_ptr<Waveform::Loader>(
-      new Waveform::BasicLoader(_cfg.recordStreamURL)));
+  replaceWaveformCacheLoader(
+      shared_ptr<Waveform::Loader>(new Waveform::BasicLoader(_wf)));
 
   wfcount.update(_wfAccess.loader.get());
   wfcount.update(_wfAccess.diskCache.get());
@@ -363,7 +387,16 @@ void DD::dumpWaveforms(const string &basePath)
             waveformPath(basePath, event, phase, channelCode, ext);
 
         logInfo("Writing %s", wfPath.c_str());
-        Waveform::writeTrace(*tr, wfPath);
+        try
+        {
+
+          _wf->writeTrace(*tr, wfPath);
+        }
+        catch (exception &e)
+        {
+          logWarning("Couldn't write waveform to disk %s: %s", wfPath.c_str(),
+                     e.what());
+        }
       }
     }
   }
@@ -480,8 +513,8 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
     // arrival times. The catalog will be updated with the corresponding
     // theoretical phases.
     const XCorrCache xcorr = buildXCorrCache(
-        catToReloc, neighCluster, _useArtificialPhases,
-        clustOpt.xcorrMaxEvStaDist, clustOpt.xcorrMaxInterEvDist, precomputed);
+        catToReloc, neighCluster, false, clustOpt.xcorrMaxEvStaDist,
+        clustOpt.xcorrMaxInterEvDist, precomputed);
 
     // the actual relocation
     unique_ptr<Catalog> relocatedCluster =
@@ -572,9 +605,8 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
       Catalog::filterPhasesAndSetWeights(singleEvent, Phase::Source::RT_EVENT,
                                          _cfg.validPphases, _cfg.validSphases);
 
-  unique_ptr<Catalog> relocatedEvCat =
-      relocateEventSingleStep(bgCat, evToRelocateCat, eventWorkingDir,
-                              clustOpt1, solverOpt, false, false);
+  unique_ptr<Catalog> relocatedEvCat = relocateEventSingleStep(
+      bgCat, evToRelocateCat, eventWorkingDir, clustOpt1, solverOpt, false);
 
   if (relocatedEvCat)
   {
@@ -596,9 +628,8 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
 
   eventWorkingDir = joinPath(baseWorkingDir, "step2");
 
-  unique_ptr<Catalog> relocatedEvWithXcorr =
-      relocateEventSingleStep(bgCat, evToRelocateCat, eventWorkingDir,
-                              clustOpt2, solverOpt, true, _useArtificialPhases);
+  unique_ptr<Catalog> relocatedEvWithXcorr = relocateEventSingleStep(
+      bgCat, evToRelocateCat, eventWorkingDir, clustOpt2, solverOpt, true);
 
   if (relocatedEvWithXcorr)
   {
@@ -650,8 +681,7 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
                             const string &workingDir,
                             const ClusteringOptions &clustOpt,
                             const SolverOptions &solverOpt,
-                            bool doXcorr,
-                            bool computeTheoreticalPhases)
+                            bool doXcorr)
 {
   if (_saveProcessing)
   {
@@ -710,12 +740,12 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
     XCorrCache xcorr;
     if (doXcorr)
     {
-      // Perform cross-correlation, which also detects picks around theoretical
-      // arrival times. The catalog will be updated with the corresponding
-      // phases.
-      xcorr = buildXCorrCache(*catalog, neighCluster, computeTheoreticalPhases,
-                              clustOpt.xcorrMaxEvStaDist,
-                              clustOpt.xcorrMaxInterEvDist);
+      // Perform cross-correlation, which also detects picks around
+      // theoretical arrival times. The catalog will be updated with the
+      // corresponding phases.
+      xcorr = buildXCorrCache(
+          *catalog, neighCluster, clustOpt.xcorrDetectMissingPhases,
+          clustOpt.xcorrMaxEvStaDist, clustOpt.xcorrMaxInterEvDist);
     }
 
     // the actual relocation
@@ -1292,9 +1322,9 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
       const string &stationId = kv.first;
       for (Phase::Type phaseType : kv.second)
       {
-        // Check if this station is actually part of the event phases (remember
-        // keepUnmatchedPhases option during clustering). Make sure that the
-        // phase was used for relocation.
+        // Check if this station is actually part of the event phases
+        // (remember keepUnmatchedPhases option during clustering). Make sure
+        // that the phase was used for relocation.
         auto it = tmpCat->searchPhase(finalEvent.id, stationId, phaseType);
         if (it != tmpCat->getPhases().end() && it->second.relocInfo.isRelocated)
         {
@@ -1553,9 +1583,9 @@ XCorrCache DD::buildXCorrCache(
     buildXcorrDiffTTimePairs(catalog, *neighbours, refEv, xcorrMaxEvStaDist,
                              xcorrMaxInterEvDist, xcorr);
 
-    // Update theoretical and automatic phase pick time and uncertainties based
-    // on cross-correlation results. Also, drop theoretical phases wihout any
-    // good cross-correlation result.
+    // Update theoretical and automatic phase pick time and uncertainties
+    // based on cross-correlation results. Also, drop theoretical phases
+    // wihout any good cross-correlation result.
     fixPhases(catalog, refEv, xcorr);
 
     const unsigned onePerThousand =
@@ -1581,8 +1611,8 @@ XCorrCache DD::buildXCorrCache(
 }
 
 /*
- * Compute and store to `XCorrCache` cross-correlated differential travel times
- * for pairs of the earthquake.
+ * Compute and store to `XCorrCache` cross-correlated differential travel
+ * times for pairs of the earthquake.
  */
 void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
                                   const Neighbours &neighbours,
@@ -1670,8 +1700,8 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
                                               refPhase.procInfo.type)
                                  ->second;
 
-        // In single-event mode `refPhase` is real-time and `phase` is from the
-        // catalog. In multi-event mode both are from the catalog.
+        // In single-event mode `refPhase` is real-time and `phase` is from
+        // the catalog. In multi-event mode both are from the catalog.
         if (phase.procInfo.source != Phase::Source::CATALOG)
           throw Exception("Internal logic error: phase is not from catalog");
 
@@ -1724,17 +1754,18 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
 {
   //
   // For single-event relocation in real-time we want to load the waveforms
-  // in batch otherwise the seedlink server gets stuck and becomes unresponsive
-  // due to the multiple connections requests, one for each event phase
+  // in batch otherwise the seedlink server gets stuck and becomes
+  // unresponsive due to the multiple connections requests, one for each event
+  // phase
   //
-  shared_ptr<Waveform::BatchLoader> batchLoader(
-      new Waveform::BatchLoader(_cfg.recordStreamURL));
+  shared_ptr<Waveform::BatchLoader> batchLoader(new Waveform::BatchLoader(_wf));
 
   shared_ptr<Waveform::Loader> loader = batchLoader;
   shared_ptr<Waveform::DiskCachedLoader> diskLoader;
   if (_useCatalogWaveformDiskCache && _waveformCacheAll)
   {
-    diskLoader.reset(new Waveform::DiskCachedLoader(batchLoader, _tmpCacheDir));
+    diskLoader.reset(
+        new Waveform::DiskCachedLoader(_wf, batchLoader, _tmpCacheDir));
     loader.reset(
         new Waveform::ExtraLenLoader(diskLoader, _cfg.diskTraceMinLen));
   }
@@ -1757,7 +1788,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
   }
 
   shared_ptr<Waveform::Processor> proc(
-      new Waveform::BasicProcessor(loader, _cfg.wfFilter.extraTraceLen));
+      new Waveform::BasicProcessor(_wf, loader, _cfg.wfFilter.extraTraceLen));
 
   //
   // loop through reference event phases
@@ -1831,8 +1862,8 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
 }
 
 /*
- * Update theoretical and automatic phase pick times and uncertainties based on
- * cross-correlation results. Drop theoretical phases not passing the
+ * Update theoretical and automatic phase pick times and uncertainties based
+ * on cross-correlation results. Drop theoretical phases not passing the
  * cross-correlation verification.
  */
 void DD::fixPhases(Catalog &catalog,
@@ -2059,8 +2090,8 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
   TimeWindow tw1 = xcorrTimeWindowLong(phase1);
   TimeWindow tw2 = xcorrTimeWindowLong(phase2);
 
-  // Load the long `tr1`, because we want to cache the long version. Then we'll
-  // trim it.
+  // Load the long `tr1`, because we want to cache the long version. Then
+  // we'll trim it.
   shared_ptr<const Trace> tr1 =
       getWaveform(ph1Cache, tw1, event1, phase1, component);
   if (!tr1)
@@ -2071,8 +2102,8 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
     return false;
   }
 
-  // Load the long `tr2`, because we want to cache the long version. Then we'll
-  // trim it.
+  // Load the long `tr2`, because we want to cache the long version. Then
+  // we'll trim it.
   shared_ptr<const Trace> tr2 =
       getWaveform(ph2Cache, tw2, event2, phase2, component);
   if (!tr2)
@@ -2085,15 +2116,16 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
 
   if (tr1->samplingFrequency() != tr2->samplingFrequency())
   {
-    logInfo("Skipping cross-correlation: traces have different sampling freq "
-            "(%f!=%f): phase1 %s and phase 2 %s",
-            tr1->samplingFrequency(), tr2->samplingFrequency(),
-            string(phase1).c_str(), string(phase2).c_str());
+    logWarning(
+        "Skipping cross-correlation: traces have different sampling freq "
+        "(%f!=%f): phase1 %s and phase 2 %s",
+        tr1->samplingFrequency(), tr2->samplingFrequency(),
+        string(phase1).c_str(), string(phase2).c_str());
     return false;
   }
 
-  // Trust the manual pick on `phase2`: keep `tr2` short and cross-correlate it
-  // with the larger `tr1` window.
+  // Trust the manual pick on `phase2`: keep `tr2` short and cross-correlate
+  // it with the larger `tr1` window.
   double xcorr_coeff = numeric_limits<double>::quiet_NaN(), xcorr_lag = 0;
 
   if (phase2.isManual || (!phase1.isManual && !phase2.isManual))
@@ -2113,8 +2145,8 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
     xcorr(*tr1, tr2Short, xcorrCfg.maxDelay, xcorr_lag, xcorr_coeff);
   }
 
-  // Trust the manual pick on `phase1`: keep `tr1` short and cross-correlate it
-  // with a larger `tr2` window.
+  // Trust the manual pick on `phase1`: keep `tr1` short and cross-correlate
+  // it with a larger `tr2` window.
   double xcorr_coeff2 = numeric_limits<double>::quiet_NaN(), xcorr_lag2 = 0;
 
   if (phase1.isManual || (!phase1.isManual && !phase2.isManual))
@@ -2158,13 +2190,13 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
 }
 
 /*
- * Compute cross-correlation between two traces centered around their respective
- * picks. The cross-correlation will be performed with the short trace against
- * the longest trace starting from the longest trace middle point minus
- * 'maxDelay' until middle point pluse 'maxDelay'. `delayOut` will store the
- * shift in seconds (positive or negative) from the longest trace middle point
- * at which there is the highest (absolute value) correlation coefficient,
- * stored in 'coeffOut'
+ * Compute cross-correlation between two traces centered around their
+ * respective picks. The cross-correlation will be performed with the short
+ * trace against the longest trace starting from the longest trace middle
+ * point minus 'maxDelay' until middle point pluse 'maxDelay'. `delayOut` will
+ * store the shift in seconds (positive or negative) from the longest trace
+ * middle point at which there is the highest (absolute value) correlation
+ * coefficient, stored in 'coeffOut'
  */
 void DD::xcorr(const Trace &tr1,
                const Trace &tr2,
@@ -2400,9 +2432,9 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
                              clustOpt.xcorrMaxEvStaDist,
                              clustOpt.xcorrMaxInterEvDist, xcorr);
 
-    // Update theoretical and automatic phase pick time and uncertainties based
-    // on cross-correlation results. Drop theoretical phases wihout any good
-    // cross-correlation result.
+    // Update theoretical and automatic phase pick time and uncertainties
+    // based on cross-correlation results. Drop theoretical phases wihout any
+    // good cross-correlation result.
     if (theoretical)
     {
       fixPhases(*catalog, event, xcorr);

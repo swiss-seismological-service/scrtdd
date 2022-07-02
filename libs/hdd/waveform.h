@@ -21,11 +21,112 @@
 #include "trace.h"
 #include "utils.h"
 
+#include <memory>
 #include <unordered_map>
 #include <unordered_set>
 
 namespace HDD {
 namespace Waveform {
+
+struct ThreeComponents
+{
+  enum Component
+  {
+    Vertical         = 0, /* usually Z */
+    FirstHorizontal  = 1, /* usually N */
+    SecondHorizontal = 2  /* usually E */
+  };
+  std::string names[3];
+  double gain[3];
+  double dip[3];
+  double azimuth[3];
+};
+
+class Proxy
+{
+public:
+  Proxy()          = default;
+  virtual ~Proxy() = default;
+
+  Proxy(const Proxy &other) = delete;
+  Proxy &operator=(const Proxy &other) = delete;
+
+  virtual std::unique_ptr<Trace> loadTrace(const TimeWindow &tw,
+                                           const std::string &networkCode,
+                                           const std::string &stationCode,
+                                           const std::string &locationCode,
+                                           const std::string &channelCode,
+                                           double tolerance       = 0.1,
+                                           double minAvailability = 0.95) = 0;
+
+  virtual void loadTraces(
+      const std::unordered_multimap<std::string, const TimeWindow> &request,
+      const std::function<void(const std::string &,
+                               const TimeWindow &,
+                               std::unique_ptr<Trace>)> &onTraceLoaded,
+      const std::function<void(const std::string &,
+                               const TimeWindow &,
+                               const std::string &)> &onTraceFailed,
+      double tolerance       = 0.1,
+      double minAvailability = 0.95) = 0;
+
+  virtual void getComponentsInfo(const Catalog::Phase &ph,
+                                 ThreeComponents &components) = 0;
+
+  virtual void filter(Trace &trace, const std::string &filterStr) = 0;
+
+  virtual void writeTrace(const Trace &trace, const std::string &file) = 0;
+  virtual std::unique_ptr<Trace> readTrace(const std::string &file)    = 0;
+};
+
+class NoWaveformProxy : public Proxy
+{
+public:
+  std::unique_ptr<HDD::Trace> loadTrace(const HDD::TimeWindow &tw,
+                                        const std::string &networkCode,
+                                        const std::string &stationCode,
+                                        const std::string &locationCode,
+                                        const std::string &channelCode,
+                                        double tolerance       = 0.1,
+                                        double minAvailability = 0.95) override
+  {
+    throw HDD::Exception("No waveform available");
+  }
+
+  void loadTraces(
+      const std::unordered_multimap<std::string, const HDD::TimeWindow>
+          &request,
+      const std::function<void(const std::string &,
+                               const HDD::TimeWindow &,
+                               std::unique_ptr<HDD::Trace>)> &onTraceLoaded,
+      const std::function<void(const std::string &,
+                               const HDD::TimeWindow &,
+                               const std::string &)> &onTraceFailed,
+      double tolerance       = 0.1,
+      double minAvailability = 0.95) override
+  {}
+
+  void getComponentsInfo(const HDD::Catalog::Phase &ph,
+                         HDD::Waveform::ThreeComponents &components) override
+  {
+    throw HDD::Exception("No waveform available");
+  }
+
+  void filter(HDD::Trace &trace, const std::string &filterStr) override
+  {
+    throw HDD::Exception("Not implemented");
+  }
+
+  void writeTrace(const HDD::Trace &trace, const std::string &file) override
+  {
+    throw HDD::Exception("Not implemented");
+  }
+
+  std::unique_ptr<HDD::Trace> readTrace(const std::string &file) override
+  {
+    throw HDD::Exception("Not implemented");
+  }
+};
 
 class Loader
 {
@@ -46,8 +147,7 @@ class BasicLoader : public Loader
 {
 
 public:
-  BasicLoader(const std::string &recordStream) : _recordStreamURL(recordStream)
-  {}
+  BasicLoader(const std::shared_ptr<Proxy> &wf) : _wf(wf) {}
   virtual ~BasicLoader() = default;
 
   std::shared_ptr<const Trace> get(const TimeWindow &tw,
@@ -58,15 +158,13 @@ public:
   unsigned _counters_wf_downloaded = 0;
 
 private:
-  const std::string _recordStreamURL;
+  std::shared_ptr<Proxy> _wf;
 };
 
 class BatchLoader : public Loader
 {
 public:
-  BatchLoader(const std::string &recordStream)
-      : _recordStreamURL(recordStream), _dataLoaded(false)
-  {}
+  BatchLoader(const std::shared_ptr<Proxy> &wf) : _wf(wf), _dataLoaded(false) {}
 
   virtual ~BatchLoader() = default;
 
@@ -84,7 +182,7 @@ public:
   unsigned _counters_wf_downloaded = 0;
 
 private:
-  const std::string _recordStreamURL;
+  std::shared_ptr<Proxy> _wf;
   bool _dataLoaded;
   std::unordered_multimap<std::string, const TimeWindow> _requests;
   std::unordered_map<std::string, std::shared_ptr<const Trace>> _traces;
@@ -124,9 +222,10 @@ private:
 class DiskCachedLoader : public Loader
 {
 public:
-  DiskCachedLoader(const std::shared_ptr<Loader> &auxLdr,
+  DiskCachedLoader(const std::shared_ptr<Proxy> &wf,
+                   const std::shared_ptr<Loader> &auxLdr,
                    const std::string &cacheDir)
-      : _auxLdr(auxLdr), _cacheDir(cacheDir)
+      : _wf(wf), _auxLdr(auxLdr), _cacheDir(cacheDir)
   {}
 
   virtual ~DiskCachedLoader() = default;
@@ -140,6 +239,9 @@ public:
   bool isCached(const TimeWindow &tw,
                 const Catalog::Phase &ph,
                 const Catalog::Event &ev) const;
+
+  void writeTrace(const Trace &trace, const std::string &file);
+  std::unique_ptr<Trace> readTrace(const std::string &file);
 
   // ugly, but we need to give the user some feedbacks
   unsigned _counters_wf_cached = 0;
@@ -165,6 +267,7 @@ private:
                            const std::string &locationCode,
                            const std::string &channelCode) const;
 
+  std::shared_ptr<Proxy> _wf;
   std::shared_ptr<Loader> _auxLdr;
   std::string _cacheDir;
 };
@@ -200,8 +303,10 @@ public:
 class BasicProcessor : public Processor
 {
 public:
-  BasicProcessor(const std::shared_ptr<Loader> &auxLdr, double extraTraceLen)
-      : _auxLdr(auxLdr), _extraTraceLen(extraTraceLen)
+  BasicProcessor(const std::shared_ptr<Proxy> &wf,
+                 const std::shared_ptr<Loader> &auxLdr,
+                 double extraTraceLen)
+      : _wf(wf), _auxLdr(auxLdr), _extraTraceLen(extraTraceLen)
   {}
 
   virtual ~BasicProcessor() = default;
@@ -217,13 +322,18 @@ public:
                                    double resampleFreq,
                                    Transform trans) override;
 
+  void filter(Trace &trace,
+              bool demeaning,
+              const std::string &filterStr,
+              double resampleFreq) const;
+
 private:
   std::shared_ptr<Trace> loadAndProcess(const TimeWindow &tw,
                                         Catalog::Phase ph,
                                         const std::string &channelCode,
                                         const std::string &filterStr,
                                         double resampleFreq) const;
-
+  std::shared_ptr<Proxy> _wf;
   std::shared_ptr<Loader> _auxLdr;
   double _extraTraceLen;
 };
@@ -316,20 +426,6 @@ private:
   bool _enabled = true;
 };
 
-struct ThreeComponents
-{
-  enum Component
-  {
-    Vertical         = 0, /* usually Z */
-    FirstHorizontal  = 1, /* usually N */
-    SecondHorizontal = 2  /* usually E */
-  };
-  std::string names[3];
-  double gain[3];
-  double dip[3];
-  double azimuth[3];
-};
-
 inline std::string getBandAndInstrumentCodes(const std::string &channelCode)
 {
   if (channelCode.size() >= 2) return channelCode.substr(0, 2);
@@ -342,15 +438,7 @@ inline std::string getOrientationCode(const std::string &channelCode)
   return "";
 }
 
-void writeTrace(const Trace &trace, const std::string &file);
-std::unique_ptr<Trace> readTrace(const std::string &file);
-
 void resample(Trace &trace, double new_sf);
-
-void filter(Trace &trace,
-            bool demeaning,
-            const std::string &filterStr,
-            double resampleFreq);
 
 double computeSnr(const Trace &tr,
                   const UTCTime &pickTime,

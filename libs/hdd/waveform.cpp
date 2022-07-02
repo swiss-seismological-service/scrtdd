@@ -19,8 +19,6 @@
 #include "timewindow.h"
 #include "utils.h"
 
-#include "adapters/scwaveform.h"
-
 using namespace std;
 using Catalog         = HDD::Catalog;
 using ThreeComponents = HDD::Waveform::ThreeComponents;
@@ -57,23 +55,18 @@ shared_ptr<const Trace> BasicLoader::get(const TimeWindow &tw,
 {
   unique_ptr<Trace> trace;
 
-  if (!_recordStreamURL.empty())
+  try
   {
-    try
-    {
-      trace = SeiscompAdapter::loadTraceFromRecordStream(
-          _recordStreamURL, tw, ph.networkCode, ph.stationCode, ph.locationCode,
-          ph.channelCode);
-    }
-    catch (exception &e)
-    {
-      logDebug(
-          "Cannnot load trace (stream %s.%s.%s.%s from %s length %.2f sec): %s",
-          ph.networkCode.c_str(), ph.stationCode.c_str(),
-          ph.locationCode.c_str(), ph.channelCode.c_str(),
-          UTCClock::toString(tw.startTime()).c_str(), durToSec(tw.length()),
-          e.what());
-    }
+    trace = _wf->loadTrace(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+                           ph.channelCode);
+  }
+  catch (exception &e)
+  {
+    logDebug(
+        "Cannnot load trace (stream %s.%s.%s.%s from %s length %.2f sec): %s",
+        ph.networkCode.c_str(), ph.stationCode.c_str(), ph.locationCode.c_str(),
+        ph.channelCode.c_str(), UTCClock::toString(tw.startTime()).c_str(),
+        durToSec(tw.length()), e.what());
   }
 
   if (!trace)
@@ -142,8 +135,7 @@ void BatchLoader::load()
 
   if (_requests.size() > 0)
   {
-    SeiscompAdapter::loadTracesFromRecordStream(_recordStreamURL, _requests,
-                                                onTraceLoaded, onTraceFailed);
+    _wf->loadTraces(_requests, onTraceLoaded, onTraceFailed);
 
     logInfo("Fetched %u/%lu waveforms, not available %u",
             _counters_wf_downloaded, _requests.size(), _counters_wf_no_avail);
@@ -252,7 +244,18 @@ unique_ptr<Trace> DiskCachedLoader::getFromCache(const TimeWindow &tw,
 {
   const string cacheFile = waveformPath(_cacheDir, tw, networkCode, stationCode,
                                         locationCode, channelCode);
-  return readTrace(cacheFile);
+
+  if (!pathExists(cacheFile)) return nullptr;
+
+  try
+  {
+    return _wf->readTrace(cacheFile);
+  }
+  catch (exception &e)
+  {
+    logWarning("Couldn't load waveform %s: %s", cacheFile.c_str(), e.what());
+    return nullptr;
+  }
 }
 
 void DiskCachedLoader::storeInCache(const TimeWindow &tw,
@@ -264,7 +267,15 @@ void DiskCachedLoader::storeInCache(const TimeWindow &tw,
 {
   const string cacheFile = waveformPath(_cacheDir, tw, networkCode, stationCode,
                                         locationCode, channelCode);
-  writeTrace(trace, cacheFile);
+  try
+  {
+    _wf->writeTrace(trace, cacheFile);
+  }
+  catch (exception &e)
+  {
+    logWarning("Couldn't write waveform to disk %s: %s", cacheFile.c_str(),
+               e.what());
+  }
 }
 
 string DiskCachedLoader::waveformPath(const string &cacheDir,
@@ -299,7 +310,7 @@ shared_ptr<const Trace> BasicProcessor::get(const TimeWindow &tw,
   ThreeComponents comps;
   try
   {
-    SeiscompAdapter::getComponentsInfo(ph, comps);
+    _wf->getComponentsInfo(ph, comps);
   }
   catch (exception &e)
   {
@@ -393,6 +404,31 @@ BasicProcessor::loadAndProcess(const TimeWindow &tw,
     return nullptr;
   }
   return copy;
+}
+
+void BasicProcessor::filter(Trace &trace,
+                            bool demeaning,
+                            const string &filterStr,
+                            double resampleFreq) const
+{
+  double *data           = trace.data();
+  const size_t data_size = trace.sampleCount();
+
+  if (demeaning)
+  {
+    double mean = std::accumulate(data, data + data_size, 0.0) / data_size;
+    for (size_t i = 0; i < data_size; i++) data[i] -= mean;
+  }
+
+  if (!filterStr.empty())
+  {
+    _wf->filter(trace, filterStr);
+  }
+
+  if (resampleFreq > 0)
+  {
+    resample(trace, resampleFreq);
+  }
 }
 
 shared_ptr<const Trace> MemCachedProc::get(const TimeWindow &tw,
@@ -847,31 +883,6 @@ void resample(Trace &trace, double new_sf)
   trace.setSamplingFrequency(new_sf);
 }
 
-void filter(Trace &trace,
-            bool demeaning,
-            const string &filterStr,
-            double resampleFreq)
-{
-  double *data           = trace.data();
-  const size_t data_size = trace.sampleCount();
-
-  if (demeaning)
-  {
-    double mean = std::accumulate(data, data + data_size, 0.0) / data_size;
-    for (size_t i = 0; i < data_size; i++) data[i] -= mean;
-  }
-
-  if (!filterStr.empty())
-  {
-    SeiscompAdapter::filter(trace, filterStr);
-  }
-
-  if (resampleFreq > 0)
-  {
-    resample(trace, resampleFreq);
-  }
-}
-
 double computeSnr(const Trace &tr,
                   const UTCTime &pickTime,
                   double noiseOffsetStart,
@@ -921,34 +932,6 @@ double computeSnr(const Trace &tr,
   signal /= (signalEnd - signalStart);
 
   return signal / noise;
-}
-
-void writeTrace(const Trace &trace, const string &file)
-{
-  try
-  {
-    SeiscompAdapter::writeTrace(trace, file);
-  }
-  catch (exception &e)
-  {
-    logWarning("Couldn't write waveform to disk %s: %s", file.c_str(),
-               e.what());
-  }
-}
-
-unique_ptr<Trace> readTrace(const string &file)
-{
-  if (!pathExists(file)) return nullptr;
-
-  try
-  {
-    return SeiscompAdapter::readTrace(file);
-  }
-  catch (exception &e)
-  {
-    logWarning("Couldn't load waveform %s: %s", file.c_str(), e.what());
-    return nullptr;
-  }
 }
 
 } // namespace Waveform

@@ -40,8 +40,8 @@ using SC3Comps  = Seiscomp::DataModel::ThreeComponents;
 
 namespace {
 
-using HDD::SeiscompAdapter::fromSC;
-using HDD::SeiscompAdapter::toSC;
+using HDDSCAdapter::fromSC;
+using HDDSCAdapter::toSC;
 
 unique_ptr<HDD::Trace> contiguousRecord(const RecordSequence &seq,
                                         const HDD::TimeWindow &tw,
@@ -104,25 +104,22 @@ template <class T> T nextPowerOf2(T a, T min = 1, T max = 1 << 31)
 
 } // namespace
 
-namespace HDD {
+namespace HDDSCAdapter {
 
-namespace SeiscompAdapter {
-
-unique_ptr<HDD::Trace> loadTraceFromRecordStream(const string &recordStreamURL,
-                                                 const HDD::TimeWindow &tw,
-                                                 const string &networkCode,
-                                                 const string &stationCode,
-                                                 const string &locationCode,
-                                                 const string &channelCode,
-                                                 double tolerance,
-                                                 double minAvailability)
+unique_ptr<HDD::Trace> WaveformProxy::loadTrace(const HDD::TimeWindow &tw,
+                                                const string &networkCode,
+                                                const string &stationCode,
+                                                const string &locationCode,
+                                                const string &channelCode,
+                                                double tolerance,
+                                                double minAvailability)
 {
   const Core::TimeWindow sctw = toSC(tw);
 
-  IO::RecordStreamPtr rs = IO::RecordStream::Open(recordStreamURL.c_str());
+  IO::RecordStreamPtr rs = IO::RecordStream::Open(_recordStreamURL.c_str());
   if (rs == nullptr)
   {
-    string msg = "Cannot open RecordStream: " + recordStreamURL;
+    string msg = "Cannot open RecordStream: " + _recordStreamURL;
     throw HDD::Exception(msg);
   }
 
@@ -141,13 +138,14 @@ unique_ptr<HDD::Trace> loadTraceFromRecordStream(const string &recordStreamURL,
   return contiguousRecord(seq, tw, minAvailability);
 }
 
-void loadTracesFromRecordStream(
-    const string &recordStreamURL,
-    const unordered_multimap<string, const TimeWindow> &request,
-    const function<void(const string &, const TimeWindow &, unique_ptr<Trace>)>
-        &onTraceLoaded,
-    const function<void(const string &, const TimeWindow &, const string &)>
-        &onTraceFailed,
+void WaveformProxy::loadTraces(
+    const unordered_multimap<string, const HDD::TimeWindow> &request,
+    const function<void(const string &,
+                        const HDD::TimeWindow &,
+                        unique_ptr<HDD::Trace>)> &onTraceLoaded,
+    const function<void(const string &,
+                        const HDD::TimeWindow &,
+                        const string &)> &onTraceFailed,
     double tolerance,
     double minAvailability)
 {
@@ -162,7 +160,7 @@ void loadTracesFromRecordStream(
   for (const auto &kv : request)
   {
     static const std::regex dot("\\.", std::regex::optimize);
-    const vector<string> tokens(splitString(kv.first, dot));
+    const vector<string> tokens(HDD::splitString(kv.first, dot));
     const Request req{tokens.at(0), tokens.at(1), tokens.at(2), tokens.at(3),
                       toSC(kv.second)};
     reqCopy.emplace(req.net + "." + req.sta, req); // group by net.sta
@@ -179,10 +177,10 @@ void loadTracesFromRecordStream(
 
   while (!reqCopy.empty())
   {
-    rs = IO::RecordStream::Open(recordStreamURL.c_str());
+    rs = IO::RecordStream::Open(_recordStreamURL.c_str());
     if (rs == nullptr)
     {
-      logError("Cannot open RecordStream: %s", recordStreamURL.c_str());
+      HDD::logError("Cannot open RecordStream: %s", _recordStreamURL.c_str());
       break;
     }
 
@@ -264,13 +262,13 @@ void loadTracesFromRecordStream(
   //
   for (auto &kv : streamBuf)
   {
-    const string &streamID = kv.first;
-    TimeWindowBuffer &seq  = kv.second;
-    const TimeWindow &tw   = fromSC(seq.timeWindowToStore());
+    const string &streamID    = kv.first;
+    TimeWindowBuffer &seq     = kv.second;
+    const HDD::TimeWindow &tw = fromSC(seq.timeWindowToStore());
 
     try
     {
-      unique_ptr<Trace> trace = contiguousRecord(seq, tw, minAvailability);
+      unique_ptr<HDD::Trace> trace = contiguousRecord(seq, tw, minAvailability);
       onTraceLoaded(streamID, tw, std::move(trace));
     }
     catch (exception &e)
@@ -280,7 +278,8 @@ void loadTracesFromRecordStream(
   }
 }
 
-void getComponentsInfo(const Catalog::Phase &ph, HDD3Comps &components)
+void WaveformProxy::getComponentsInfo(const Catalog::Phase &ph,
+                                      HDD3Comps &components)
 {
   const Core::Time sctime = toSC(ph.time);
   const string channelCodeRoot =
@@ -301,9 +300,9 @@ void getComponentsInfo(const Catalog::Phase &ph, HDD3Comps &components)
 
   if (!loc)
   {
-    string msg =
-        strf("Unable to fetch SensorLocation information from inventory: %s",
-             error.toString());
+    string msg = HDD::strf(
+        "Unable to fetch SensorLocation information from inventory: %s",
+        error.toString());
     throw HDD::Exception(msg);
   }
 
@@ -346,7 +345,7 @@ void getComponentsInfo(const Catalog::Phase &ph, HDD3Comps &components)
   }
 }
 
-void filter(Trace &trace, const string &filterStr)
+void WaveformProxy::filter(HDD::Trace &trace, const string &filterStr)
 {
   double *data           = trace.data();
   const size_t data_size = trace.sampleCount();
@@ -356,16 +355,16 @@ void filter(Trace &trace, const string &filterStr)
       Math::Filtering::InPlaceFilter<double>::Create(filterStr, &filterError);
   if (!filter)
   {
-    string msg = strf("Filter creation failed %s: %s", filterStr.c_str(),
-                      filterError.c_str());
-    throw Exception(msg);
+    string msg = HDD::strf("Filter creation failed %s: %s", filterStr.c_str(),
+                           filterError.c_str());
+    throw HDD::Exception(msg);
   }
   filter->setSamplingFrequency(trace.samplingFrequency());
   filter->apply(data_size, data);
   delete filter;
 }
 
-void writeTrace(const Trace &trace, const string &file)
+void WaveformProxy::writeTrace(const HDD::Trace &trace, const string &file)
 {
   ofstream ofs(file);
 
@@ -385,7 +384,7 @@ void writeTrace(const Trace &trace, const string &file)
   }
 }
 
-unique_ptr<Trace> readTrace(const string &file)
+unique_ptr<HDD::Trace> WaveformProxy::readTrace(const string &file)
 {
   ifstream ifs(file);
   IO::MSeedRecord msRec(Array::DOUBLE, Record::Hint::DATA_ONLY);
@@ -398,11 +397,10 @@ unique_ptr<Trace> readTrace(const string &file)
     throw HDD::Exception("Internal logic error: cannot create HDD::Trace from "
                          "Seiscomp::Core::GenericRecord");
   }
-  return unique_ptr<Trace>(
-      new Trace(msRec.networkCode(), msRec.stationCode(), msRec.locationCode(),
-                msRec.channelCode(), fromSC(msRec.startTime()),
-                msRec.samplingFrequency(), data->typedData(), data->size()));
+  return unique_ptr<HDD::Trace>(new HDD::Trace(
+      msRec.networkCode(), msRec.stationCode(), msRec.locationCode(),
+      msRec.channelCode(), fromSC(msRec.startTime()), msRec.samplingFrequency(),
+      data->typedData(), data->size()));
 }
 
-} // namespace SeiscompAdapter
-} // namespace HDD
+} // namespace HDDSCAdapter

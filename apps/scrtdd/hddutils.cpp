@@ -42,8 +42,8 @@ using namespace std;
 using namespace Seiscomp;
 using PhaseSrc       = HDD::Catalog::Phase::Source;
 using XCorrEvalStats = HDD::DD::XCorrEvalStats;
-using HDD::SeiscompAdapter::fromSC;
-using HDD::SeiscompAdapter::toSC;
+using HDDSCAdapter::fromSC;
+using HDDSCAdapter::toSC;
 using Seiscomp::Core::stringify;
 
 namespace {

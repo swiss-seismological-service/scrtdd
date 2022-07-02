@@ -16,8 +16,8 @@
 
 #include "utils.h"
 #include "csvreader.h"
-#include "log.h"
 #include "geo.h"
+#include "log.h"
 #include <boost/filesystem.hpp>
 #include <stdarg.h>
 
@@ -106,8 +106,7 @@ void computeCoordinates(double distance,
                         double &lat,
                         double &lon)
 {
-  delandaz2coord(km2deg(distance),
-                                      azimuth, clat, clon, &lat, &lon);
+  delandaz2coord(km2deg(distance), azimuth, clat, clon, &lat, &lon);
   lon = normalizeLon(lon);
 }
 

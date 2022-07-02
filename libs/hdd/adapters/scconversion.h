@@ -26,9 +26,7 @@
 #include <seiscomp/core/timewindow.h>
 #include <seiscomp/core/typedarray.h>
 
-namespace HDD {
-
-namespace SeiscompAdapter {
+namespace HDDSCAdapter {
 
 inline Seiscomp::Core::Time toSC(const HDD::UTCTime &t)
 {
@@ -50,8 +48,6 @@ inline HDD::TimeWindow fromSC(const Seiscomp::Core::TimeWindow &tw)
   return HDD::TimeWindow(fromSC(tw.startTime()), fromSC(tw.endTime()));
 }
 
-} // namespace SeiscompAdapter
-
-} // namespace HDD
+} // namespace HDDSCAdapter
 
 #endif

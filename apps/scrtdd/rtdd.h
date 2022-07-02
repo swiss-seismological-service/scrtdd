@@ -182,6 +182,7 @@ private:
     std::string phaFile;
     std::string tttType;
     std::string tttModel;
+    std::string recordStreamURL;
     RegionPtr region;
     HDD::Config ddCfg;
     HDD::ClusteringOptions singleEventClustering;

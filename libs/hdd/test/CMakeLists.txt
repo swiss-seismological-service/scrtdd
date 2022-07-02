@@ -1,9 +1,9 @@
 SET(TESTS
-	waveform.cpp
 	ellipsoid.cpp
 	ttt.cpp
 	clustering.cpp
 	dd.cpp
+	waveform.cpp
 )
 
 INCLUDE_DIRECTORIES(${HDD_DIR})
@@ -15,7 +15,7 @@ FOREACH(testSrc ${TESTS})
 	GET_FILENAME_COMPONENT(testName ${testSrc} NAME_WE)
 	SET(testName test_hdd_${testName})
 	ADD_EXECUTABLE(${testName} ${testSrc})
-	SC_LINK_LIBRARIES_INTERNAL(${testName} unittest hdd client)
+	SC_LINK_LIBRARIES_INTERNAL(${testName} unittest hddsc hdd client)
 	SC_LINK_LIBRARIES(${testName})
 
 	ADD_TEST(

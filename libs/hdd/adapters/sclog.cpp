@@ -25,9 +25,9 @@
 using namespace std;
 using namespace Seiscomp;
 
-namespace HDD {
+using namespace HDD;
 
-namespace SeiscompAdapter {
+namespace HDDSCAdapter {
 
 void initLogger()
 {
@@ -64,6 +64,4 @@ void initLogger()
                                destroyFileLogger);
 }
 
-} // namespace SeiscompAdapter
-
-} // namespace HDD
+} // namespace HDDSCAdapter

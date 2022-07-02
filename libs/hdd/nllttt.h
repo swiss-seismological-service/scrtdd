@@ -17,9 +17,9 @@
 #ifndef __HDD_NLLTTT_H__
 #define __HDD_NLLTTT_H__
 
+#include "3rd-party/lrucache.h"
 #include "nllgrid.h"
 #include "ttt.h"
-#include "3rd-party/lrucache.h"
 
 #include <unordered_set>
 

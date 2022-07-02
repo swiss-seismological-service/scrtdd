@@ -275,11 +275,9 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
 {
   HDD::Config ddCfg;
 
-  HDD::DD dd(cat, ddCfg, workingDir, std::move(ttt));
-  dd.setSaveProcessing(false); // set to true for debugging
-  dd.setUseCatalogWaveformDiskCache(false);
-  dd.setWaveformCacheAll(false);
-  dd.setUseArtificialPhases(false);
+  HDD::DD dd(cat, ddCfg, std::move(ttt));
+
+  //dd.enableSaveProcessing(workingDir); // for debugging
 
   HDD::ClusteringOptions clusterCfg;
   clusterCfg.numEllipsoids    = 0;
@@ -287,6 +285,7 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
   // disable cross-correlation
   clusterCfg.xcorrMaxEvStaDist   = 0;
   clusterCfg.xcorrMaxInterEvDist = 0;
+  clusterCfg.xcorrDetectMissingPhases = false;
 
   HDD::SolverOptions solverCfg;
   solverCfg.algoIterations               = 20;
@@ -301,8 +300,6 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
   std::unique_ptr<HDD::Catalog> relocCat =
       dd.relocateMultiEvents(clusterCfg, solverCfg);
 
-  removePath(workingDir); // comment this for debugging
-
   return *relocCat;
 }
 
@@ -313,11 +310,9 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
 {
   HDD::Config ddCfg;
 
-  HDD::DD dd(bgCat, ddCfg, workingDir, std::move(ttt));
-  dd.setSaveProcessing(false); // set to true for debugging
-  dd.setUseCatalogWaveformDiskCache(false);
-  dd.setWaveformCacheAll(false);
-  dd.setUseArtificialPhases(false);
+  HDD::DD dd(bgCat, ddCfg, std::move(ttt));
+
+  //dd.enableSaveProcessing(workingDir); // for debugging
 
   HDD::ClusteringOptions clusterCfg;
   clusterCfg.numEllipsoids    = 5;
@@ -326,6 +321,7 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
   // disable cross-correlation
   clusterCfg.xcorrMaxEvStaDist   = 0;
   clusterCfg.xcorrMaxInterEvDist = 0;
+  clusterCfg.xcorrDetectMissingPhases = false;
 
   HDD::SolverOptions solverCfg;
   solverCfg.algoIterations        = 20;
@@ -345,8 +341,6 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
         *orgToRelocate, clusterCfg, clusterCfg, solverCfg);
     relocCat.add(*relocatedEvent, false);
   }
-
-  removePath(workingDir); // comment this for debugging
 
   return relocCat;
 }
