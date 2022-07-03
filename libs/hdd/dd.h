@@ -168,8 +168,8 @@ public:
   // Enable/disable the usage of disk cache for the background
   // catalog waveforms
   void disableCatalogWaveformDiskCache();
-  void enableCatalogWaveformDiskCache(const std::string &workingDir);
-  std::string catalogWaveformDiskCache() const { return _cacheDir; }
+  void enableCatalogWaveformDiskCache(const std::string &cacheDir);
+  std::string catalogWaveformDiskCacheDir() const { return _cacheDir; }
   bool useCatalogWaveformDiskCache() const
   {
     return _useCatalogWaveformDiskCache;
@@ -182,7 +182,7 @@ public:
   // single-events
   void disableAllWaveformDiskCache();
   void enableAllWaveformDiskCache(const std::string &tmpCacheDir);
-  std::string allgWaveformDiskCache() const { return _tmpCacheDir; }
+  std::string allWaveformDiskCacheDir() const { return _tmpCacheDir; }
   bool useAllWaveformCache() const { return _waveformCacheAll; }
 
   // preload all background catalog waveforms: store them on disk cache
