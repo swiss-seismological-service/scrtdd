@@ -19,6 +19,7 @@
 #include "geo.h"
 #include "log.h"
 #include <boost/filesystem.hpp>
+#include <fstream>
 #include <stdarg.h>
 
 using namespace std;
