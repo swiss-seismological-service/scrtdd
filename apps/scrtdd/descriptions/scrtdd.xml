@@ -263,12 +263,12 @@
               </parameter>
             </group>
             <group name="travelTimeTable">
-              <description>Travel time table used by the solver. Supported format are LOCSAT, libtau or NonLinLoc. For 'tableType' LOCSAT or libtau: valid 'tableModel' are the ones configured in SeisComP global configuration. For 'tableType' NonLinLoc: 'tableModel' is the path to velocity, time and angle grid files. The path format is "path_to_velocity_grids;path_to_time_grids;path_to_angle_grids;" E.g. "/some_path/anything.PHASE.mod;/some_path/anything.PHASE.STATION.time;/some_path/anything.PHASE.STATION.angle" Valid placeholders are NETWORK,STATION,LOCATION,PHASE and they will be replaced with actual values, if present</description>
+              <description>Travel time table used by the solver. 'tableType' can be any format available in SeisComP (e.g. LOCSAT, libtau) or NonLinLoc. In this latter case 'tableModel' is the path to velocity, time and angle grid files. The path format is "path_to_velocity_grids;path_to_time_grids;path_to_angle_grids;" E.g. "/some_path/anything.PHASE.mod;/some_path/anything.PHASE.STATION.time;/some_path/anything.PHASE.STATION.angle". Valid placeholders are NETWORK,STATION,LOCATION,PHASE and they will be replaced with actual values, if present</description>
               <parameter name="tableType" type="string" default="libtau">
-                <description>LOCSAT, libtau or NonLinLoc</description>
+                <description>Travel time table format type (e.g. LOCSAT, libtau, NonLinLoc).</description>
               </parameter>
               <parameter name="tableModel" type="string" default="iasp91">
-                <description>Any SeisComP configured model or a user defined one</description>
+                <description>The model to be used</description>
               </parameter>
             </group>
             <group name="airQuakes">
