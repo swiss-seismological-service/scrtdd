@@ -2148,11 +2148,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
     // Load the travel time table
     unique_ptr<HDD::TravelTimeTable> ttt;
 
-    if (tttType == "LOCSAT" || tttType == "libtau")
-    {
-      ttt.reset(new HDDSCAdapter::TravelTimeTable(tttType, tttModel));
-    }
-    else if (tttType == "NonLinLoc")
+    if (tttType == "NonLinLoc")
     {
       std::vector<std::string> tokens(::splitString(tttModel, ";"));
       if (tokens.size() != 3 && tokens.size() != 4)
@@ -2175,9 +2171,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
     }
     else
     {
-      string msg = stringify("Cannot load travel time table: unknown type %s",
-                             tttType.c_str());
-      throw runtime_error(msg.c_str());
+      ttt.reset(new HDDSCAdapter::TravelTimeTable(tttType, tttModel));
     }
 
     std::unique_ptr<HDD::Waveform::Proxy> wf(

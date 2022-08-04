@@ -54,7 +54,10 @@ public:
 
 private:
   void load();
-  double velocityAtSource(double eventDepth, const std::string &phaseType);
+  double velocityAtSource(double eventLat,
+                          double eventLon,
+                          double eventDepth,
+                          const std::string &phaseType);
 
   const std::string _type;
   const std::string _model;

@@ -30,17 +30,17 @@ TravelTimeTable::TravelTimeTable(const std::string &type,
 {
   load();
   /*
-  for (int i = 0; i < 500; i++)
+  for (int i = -10; i < 50; i++)
   {
-    double vel = velocityAtSource(i * _depthVelResolution, "P");
+    double vel = velocityAtSource(0, 0, i * _depthVelResolution, "P");
     logInfo("Velocity model phase P depth %.2f [km] vel %.2f [m/sec]",
-                   (i * _depthVelResolution), vel);
+            (i * _depthVelResolution), vel);
   }
-  for (int i = 0; i < 500; i++)
+  for (int i = -10; i < 50; i++)
   {
-    double vel = velocityAtSource(i * _depthVelResolution, "S");
+    double vel = velocityAtSource(0, 0, i * _depthVelResolution, "S");
     logInfo("Velocity model phase S depth %.2f [km] vel %.2f [m/sec]",
-                   (i * _depthVelResolution), vel);
+            (i * _depthVelResolution), vel);
   }
   */
 }
@@ -48,7 +48,11 @@ TravelTimeTable::TravelTimeTable(const std::string &type,
 void TravelTimeTable::load()
 {
   _ttt = Seiscomp::TravelTimeTableInterface::Create(_type.c_str());
-  _ttt->setModel(_model.c_str());
+  if (!_ttt || !_ttt->setModel(_model.c_str()))
+  {
+    throw Exception(strf("Unable to set travel time format %s and model %s",
+                         _type.c_str(), _model.c_str()));
+  }
 }
 
 void TravelTimeTable::freeResources() { _ttt = nullptr; }
@@ -61,6 +65,7 @@ void TravelTimeTable::compute(double eventLat,
                               double &travelTime)
 {
   if (!_ttt) load();
+
   double depth = eventDepth > 0 ? eventDepth : 0;
   Seiscomp::TravelTime tt =
       _ttt->compute(phaseType.c_str(), eventLat, eventLon, depth,
@@ -79,30 +84,30 @@ void TravelTimeTable::compute(double eventLat,
                               double &velocityAtSrc)
 {
   if (!_ttt) load();
-  double depth = eventDepth > 0 ? eventDepth : 0;
+
   Seiscomp::TravelTime tt =
-      _ttt->compute(phaseType.c_str(), eventLat, eventLon, depth,
+      _ttt->compute(phaseType.c_str(), eventLat, eventLon, eventDepth,
                     station.latitude, station.longitude, station.elevation);
   travelTime = tt.time;
   computeApproximatedTakeOfAngles(eventLat, eventLon, eventDepth, station,
                                   phaseType, &takeOffAngleAzim,
                                   &takeOffAngleDip);
   // tt.takeoff is not computed for LOCSAT
-  if (_type == "libtau")
+  if (_type != "LOCSAT")
   {
     takeOffAngleDip = degToRad(tt.takeoff);
   }
-  velocityAtSrc = velocityAtSource(depth, phaseType);
+  velocityAtSrc = velocityAtSource(eventLat, eventLon, eventDepth, phaseType);
 }
 
 // Since the seiscomp travel time API doesn't offer the velocity at source we
 // need to reverse-engineer that information.
-double TravelTimeTable::velocityAtSource(double eventDepth,
+double TravelTimeTable::velocityAtSource(double eventLat,
+                                         double eventLon,
+                                         double eventDepth,
                                          const std::string &phaseType)
 {
-  if (eventDepth < 0) eventDepth = 0;
-
-  const unsigned bin         = std::floor(eventDepth / _depthVelResolution);
+  const int bin              = std::floor(eventDepth / _depthVelResolution);
   const double binStartDepth = bin * _depthVelResolution;
   const double binEndDepth   = (bin + 1) * _depthVelResolution;
 
@@ -120,14 +125,18 @@ double TravelTimeTable::velocityAtSource(double eventDepth,
   //
   // this is a new phase/depth pair
   //
-  double tt1 =
-      (binStartDepth == 0)
-          ? 0
-          : _ttt->compute(phaseType.c_str(), 0, 0, binStartDepth, 0, 0, 0).time;
-  double tt2 =
-      _ttt->compute(phaseType.c_str(), 0, 0, binEndDepth, 0, 0, 0).time;
+  double tt1 = (binStartDepth == 0)
+                   ? 0
+                   : _ttt->compute(phaseType.c_str(), eventLat, eventLon,
+                                   binStartDepth, eventLat, eventLon, 0)
+                         .time;
+  double tt2 = (binEndDepth == 0)
+                   ? 0
+                   : _ttt->compute(phaseType.c_str(), eventLat, eventLon,
+                                   binEndDepth, eventLat, eventLon, 0)
+                         .time;
 
-  double binVelocity = _depthVelResolution / (tt2 - tt1); // [km/sec]
+  double binVelocity = _depthVelResolution / std::abs(tt2 - tt1); // [km/sec]
 
   if (!std::isfinite(binVelocity))
   {
