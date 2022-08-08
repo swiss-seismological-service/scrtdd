@@ -193,7 +193,7 @@ LAMBERT vlamb(const char *ellipsoid_name,
               double pha,
               double phb)
 {
-  LAMBERT proj;
+  LAMBERT proj{0};
   proj.e = map_setup_proxy(ellipsoid_name);
   proj.pha = pha;
   proj.phb = phb;
@@ -294,7 +294,7 @@ TRANS_MERCATOR vtm(const char *ellipsoid_name,
                    long false_easting,
                    double map_scale_factor)
 {
-  TRANS_MERCATOR proj;
+  TRANS_MERCATOR proj{0};
   proj.e = map_setup_proxy(ellipsoid_name);
 
   /* Set up an TM projection */
@@ -442,7 +442,7 @@ void itm(
 AZIMUTHAL_EQUIDIST
 vazeqdist(const char *ellipsoid_name, double lon0, double lat0)
 {
-  AZIMUTHAL_EQUIDIST proj;
+  AZIMUTHAL_EQUIDIST proj{0};
   proj.e = map_setup_proxy(ellipsoid_name);
 
   /* Set up azimuthal equidistant projection */
