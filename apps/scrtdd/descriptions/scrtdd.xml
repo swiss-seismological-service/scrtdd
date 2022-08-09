@@ -263,12 +263,12 @@
               </parameter>
             </group>
             <group name="travelTimeTable">
-              <description>Travel time table used by the solver. 'tableType' can be any format available in SeisComP (e.g. LOCSAT, libtau) or NonLinLoc. In this latter case 'tableModel' is the path to velocity, time and angle grid files. The path format is "path_to_velocity_grids;path_to_time_grids;path_to_angle_grids;" E.g. "/some_path/anything.PHASE.mod;/some_path/anything.PHASE.STATION.time;/some_path/anything.PHASE.STATION.angle". Valid placeholders are NETWORK,STATION,LOCATION,PHASE and they will be replaced with actual values, if present</description>
+              <description>Travel time table used by the solver. 'tableType' specifies the format and it can be any format available in SeisComP (e.g. 'LOCSAT', 'libtau') or 'ConstVel' or 'NonLinLoc'. 'ConstVel' is a simple constant velocity model while 'NonLinLoc' allows to use NonLinLoc grid files. When 'ConstVel' is selected, then 'tableModel' specifies P;S velocity in Km/s e.g. "5.8;3.6" for P=5.8[Km/s] and S=3.6[Km/s]. When 'NonLinLoc' is selected, then 'tableModel' is the path to velocity, time and angle grid files. The path format is "path_to_velocity_grids;path_to_time_grids;path_to_angle_grids;" E.g. "/path/name.PHASE.mod;/path/name.PHASE.STATION.time;/path/name.PHASE.STATION.angle". PHASE and STATION are placeholders and they will be replaced with actual values when looking for the grid file of a specific phase and station. Valid placeholders are NETWORK,STATION,LOCATION,PHASE </description>
               <parameter name="tableType" type="string" default="libtau">
-                <description>Travel time table format type (e.g. LOCSAT, libtau, NonLinLoc).</description>
+                <description>Travel time table format type (e.g. LOCSAT, libtau, ConstVel, NonLinLoc).</description>
               </parameter>
               <parameter name="tableModel" type="string" default="iasp91">
-                <description>The model to be used</description>
+                <description>The model to be used. The format depends on tableType.</description>
               </parameter>
             </group>
             <group name="airQuakes">

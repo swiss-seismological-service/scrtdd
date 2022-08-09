@@ -63,7 +63,9 @@ public:
   }
 
   /*
-   * Sometimes only travel time is required (save computation)
+   * The implementation of this interface MUST compute:
+   * - travelTime [seconds]
+   * Many times  only travel time is required (save computation)
    */
   virtual void compute(double eventLat,
                        double eventLon,

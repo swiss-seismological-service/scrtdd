@@ -17,6 +17,7 @@ SET(HDD_SOURCES
 	ttt.cpp
 	nllgrid.cpp
 	nllttt.cpp
+	cvttt.cpp
 	solver.cpp
 	xcorr.cpp
 	waveform.cpp
@@ -41,6 +42,7 @@ SET(HDD_HEADERS
 	ttt.h
 	nllgrid.h
 	nllttt.h
+	cvttt.h
 	solver.h
 	xcorr.h
 	waveform.h

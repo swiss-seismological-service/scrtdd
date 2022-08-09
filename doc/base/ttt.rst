@@ -3,6 +3,15 @@
 Custom velocity models
 ======================
 
+ConstVel
+---------
+
+For very local seismicity it is possible to use a simple homogeneous model with constant P and S velocities. That can be selected via 'ConstVel' tableType and then specifying the P/S velocities in tableModel.
+
+.. image:: media/constvel-ttt.png
+   :width: 800
+
+
 NonLinLoc
 ---------
 
@@ -19,9 +28,9 @@ Please note that ``scrtdd`` doesn't load the grid files into memory in full and 
 LOCSAT
 ------
 
-In the rtDD configuration it is possible to select any travel time table installed in SeisComP; this means the default SeisComP travel time tables and any other tables installed by the user. Although, this is a general SeisComP topic and we suggest to refer to the official SeisComP documentation, here is a quick recipe for generating your own travel time table from a custom velocity model.
+In the rtDD configuration it is possible to select any travel time table supported by SeisComP; this means the default SeisComP travel time tables and any other tables installed by the user. Although, this is a general SeisComP topic and we suggest to refer to the official SeisComP documentation, here is a quick recipe for generating your own travel time table from a custom velocity model.
 
-SeisComP supports ``LOCSAT`` and ``libtau`` travel time table formats (1D velocity model). It is possible to generate a custom travel time table in ``LOCSAT`` format using the `TauP toolkit <https://www.seis.sc.edu/taup>`_. 
+Currently SeisComP supports ``LOCSAT`` and ``libtau`` travel time table formats by default (1D velocity model). It is possible to generate a custom travel time table in ``LOCSAT`` format using the `TauP toolkit <https://www.seis.sc.edu/taup>`_. 
 
 First step is to have a velocity model in one of the formats supported by ``TauP``. To do so, just make a copy of the SeisComP iasp91 or ak135 velocity models::
 

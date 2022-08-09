@@ -20,6 +20,7 @@
 #include "hdd/adapters/scttt.h"
 #include "hdd/adapters/scwaveform.h"
 #include "hdd/csvreader.h"
+#include "hdd/cvttt.h"
 #include "hdd/nllttt.h"
 #include "hddutils.h"
 #include "msg.h"
@@ -2168,6 +2169,20 @@ void RTDD::Profile::load(DatabaseQuery *query,
       }
       ttt.reset(new HDD::NLL::TravelTimeTable(velGridPath, timeGridPath,
                                               angleGridPath, swapBytes));
+    }
+    else if (tttType == "ConstVel")
+    {
+      std::vector<std::string> tokens(::splitString(tttModel, ";"));
+      if (tokens.size() != 2)
+      {
+        string msg = stringify("Error while initialzing ConstVel travel time "
+                               "table. Invalid model (%s)",
+                               tttModel.c_str());
+        throw runtime_error(msg.c_str());
+      }
+      double pVel = std::stod(tokens.at(0));
+      double sVel = std::stod(tokens.at(1));
+      ttt.reset(new HDD::ConstantVelocity(pVel, sVel));
     }
     else
     {
