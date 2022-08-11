@@ -169,7 +169,7 @@ Ellip map_setup_proxy(const char *ellipsoid_name)
     throw std::runtime_error("Invalid ellipsoid " +
                              std::string(ellipsoid_name));
 
-  Ellip e;
+  Ellip e{};
   e.EQ_RAD = ellipse[num_ellipsoid].eq_radius;
   double f = ellipse[num_ellipsoid].flattening;
   e.ECC2   = 2 * f - f * f;
@@ -193,7 +193,7 @@ LAMBERT vlamb(const char *ellipsoid_name,
               double pha,
               double phb)
 {
-  LAMBERT proj{0};
+  LAMBERT proj{};
   proj.e = map_setup_proxy(ellipsoid_name);
   proj.pha = pha;
   proj.phb = phb;
@@ -294,7 +294,7 @@ TRANS_MERCATOR vtm(const char *ellipsoid_name,
                    long false_easting,
                    double map_scale_factor)
 {
-  TRANS_MERCATOR proj{0};
+  TRANS_MERCATOR proj{};
   proj.e = map_setup_proxy(ellipsoid_name);
 
   /* Set up an TM projection */
@@ -442,7 +442,7 @@ void itm(
 AZIMUTHAL_EQUIDIST
 vazeqdist(const char *ellipsoid_name, double lon0, double lat0)
 {
-  AZIMUTHAL_EQUIDIST proj{0};
+  AZIMUTHAL_EQUIDIST proj{};
   proj.e = map_setup_proxy(ellipsoid_name);
 
   /* Set up azimuthal equidistant projection */
