@@ -1867,6 +1867,8 @@ RTDD::getCatalog(const std::string &catalogPath,
   {
     if (tokens.size() == 1) // single file containing origin ids
     {
+      SEISCOMP_INFO("Loading catalog from origin id file %s",
+                    tokens[0].c_str());
       DataSource dataSrc(query(), &_cache, _eventParameters.get());
       unique_ptr<HDD::Catalog> cat(new HDD::Catalog());
       auto _map = addToCatalog(*cat, tokens[0], dataSrc);
@@ -1875,14 +1877,25 @@ RTDD::getCatalog(const std::string &catalogPath,
     }
     else if (tokens.size() == 3) // triplet: station.csv,event.csv,phase.csv
     {
+      SEISCOMP_INFO(
+          "Loading catalog from station file %s, event file %s, phase file %s",
+          tokens[0].c_str(), tokens[1].c_str(), tokens[2].c_str());
       return unique_ptr<HDD::Catalog>(
           new HDD::Catalog(tokens[0], tokens[1], tokens[2], true));
     }
+    else
+    {
+      throw runtime_error(
+          "The catalog should be a single file containing origin ids or a file "
+          "triplet 'station.csv,event.csv,phase.csv'");
+    }
   }
-  catch (...)
-  {}
-  SEISCOMP_ERROR("Cannot load catalog %s", catalogPath.c_str());
-  return nullptr;
+  catch (exception &e)
+  {
+    SEISCOMP_ERROR("Cannot load catalog %s (%s)", catalogPath.c_str(),
+                   e.what());
+    return nullptr;
+  }
 }
 
 RTDD::ProfilePtr RTDD::getProfile(const std::string &profile)

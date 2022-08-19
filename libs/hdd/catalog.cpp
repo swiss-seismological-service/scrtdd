@@ -95,100 +95,125 @@ Catalog::Catalog(const string &stationFile,
 
   vector<unordered_map<string, string>> stations =
       CSV::readWithHeader(stationFile);
-
-  for (const auto &row : stations)
+  try
   {
-    Station sta;
-    sta.latitude     = std::stod(row.at("latitude"));
-    sta.longitude    = std::stod(row.at("longitude"));
-    sta.elevation    = std::stod(row.at("elevation"));
-    sta.networkCode  = row.at("networkCode");
-    sta.stationCode  = row.at("stationCode");
-    sta.locationCode = row.at("locationCode");
-    sta.id = sta.networkCode + "." + sta.stationCode + "." + sta.locationCode;
-    _stations[sta.id] = sta;
+    for (const auto &row : stations)
+    {
+      Station sta;
+      sta.latitude     = std::stod(row.at("latitude"));
+      sta.longitude    = std::stod(row.at("longitude"));
+      sta.elevation    = std::stod(row.at("elevation"));
+      sta.networkCode  = row.at("networkCode");
+      sta.stationCode  = row.at("stationCode");
+      sta.locationCode = row.at("locationCode");
+      sta.id = sta.networkCode + "." + sta.stationCode + "." + sta.locationCode;
+      _stations[sta.id] = sta;
+    }
+  }
+  catch (std::out_of_range &e)
+  {
+    string msg =
+        strf("Error while parsing station file '%s': check column names",
+             stationFile.c_str());
+    throw Exception(msg);
   }
 
   vector<unordered_map<string, string>> events = CSV::readWithHeader(eventFile);
-
-  for (const auto &row : events)
+  try
   {
-    Event ev;
-    ev.id                    = std::stoul(row.at("id"));
-    ev.time                  = UTCClock::fromString(row.at("isotime"));
-    ev.latitude              = std::stod(row.at("latitude"));
-    ev.longitude             = std::stod(row.at("longitude"));
-    ev.depth                 = std::stod(row.at("depth"));
-    ev.magnitude             = std::stod(row.at("magnitude"));
-    ev.relocInfo.isRelocated = false;
-    if (loadRelocationInfo && (row.count("relocated") != 0) &&
-        strToBool(row.at("relocated")))
+    for (const auto &row : events)
     {
-      ev.relocInfo.isRelocated   = true;
-      ev.relocInfo.startRms      = std::stod(row.at("startRms"));
-      ev.relocInfo.finalRms      = std::stod(row.at("finalRms"));
-      ev.relocInfo.locChange     = std::stod(row.at("locChange"));
-      ev.relocInfo.depthChange   = std::stod(row.at("depthChange"));
-      ev.relocInfo.timeChange    = std::stod(row.at("timeChange"));
-      ev.relocInfo.numNeighbours = std::stoul(row.at("numNeighbours"));
-      ev.relocInfo.phases.usedP  = std::stoul(row.at("ph_usedP"));
-      ev.relocInfo.phases.usedS  = std::stoul(row.at("ph_usedS"));
-      ev.relocInfo.phases.stationDistMin =
-          std::stod(row.at("ph_stationDistMin"));
-      ev.relocInfo.phases.stationDistMedian =
-          std::stod(row.at("ph_stationDistMedian"));
-      ev.relocInfo.phases.stationDistMax =
-          std::stod(row.at("ph_stationDistMax"));
-      ev.relocInfo.dd.numTTp = std::stoul(row.at("dd_numTTp"));
-      ev.relocInfo.dd.numTTs = std::stoul(row.at("dd_numTTs"));
-      ev.relocInfo.dd.numCCp = std::stoul(row.at("dd_numCCp"));
-      ev.relocInfo.dd.numCCs = std::stoul(row.at("dd_numCCs"));
-      ev.relocInfo.dd.startResidualMedian =
-          std::stod(row.at("dd_startResidualMedian"));
-      ev.relocInfo.dd.startResidualMAD =
-          std::stod(row.at("dd_startResidualMAD"));
-      ev.relocInfo.dd.finalResidualMedian =
-          std::stod(row.at("dd_finalResidualMedian"));
-      ev.relocInfo.dd.finalResidualMAD =
-          std::stod(row.at("dd_finalResidualMAD"));
+      Event ev;
+      ev.id                    = std::stoul(row.at("id"));
+      ev.time                  = UTCClock::fromString(row.at("isotime"));
+      ev.latitude              = std::stod(row.at("latitude"));
+      ev.longitude             = std::stod(row.at("longitude"));
+      ev.depth                 = std::stod(row.at("depth"));
+      ev.magnitude             = std::stod(row.at("magnitude"));
+      ev.relocInfo.isRelocated = false;
+      if (loadRelocationInfo && (row.count("relocated") != 0) &&
+          strToBool(row.at("relocated")))
+      {
+        ev.relocInfo.isRelocated   = true;
+        ev.relocInfo.startRms      = std::stod(row.at("startRms"));
+        ev.relocInfo.finalRms      = std::stod(row.at("finalRms"));
+        ev.relocInfo.locChange     = std::stod(row.at("locChange"));
+        ev.relocInfo.depthChange   = std::stod(row.at("depthChange"));
+        ev.relocInfo.timeChange    = std::stod(row.at("timeChange"));
+        ev.relocInfo.numNeighbours = std::stoul(row.at("numNeighbours"));
+        ev.relocInfo.phases.usedP  = std::stoul(row.at("ph_usedP"));
+        ev.relocInfo.phases.usedS  = std::stoul(row.at("ph_usedS"));
+        ev.relocInfo.phases.stationDistMin =
+            std::stod(row.at("ph_stationDistMin"));
+        ev.relocInfo.phases.stationDistMedian =
+            std::stod(row.at("ph_stationDistMedian"));
+        ev.relocInfo.phases.stationDistMax =
+            std::stod(row.at("ph_stationDistMax"));
+        ev.relocInfo.dd.numTTp = std::stoul(row.at("dd_numTTp"));
+        ev.relocInfo.dd.numTTs = std::stoul(row.at("dd_numTTs"));
+        ev.relocInfo.dd.numCCp = std::stoul(row.at("dd_numCCp"));
+        ev.relocInfo.dd.numCCs = std::stoul(row.at("dd_numCCs"));
+        ev.relocInfo.dd.startResidualMedian =
+            std::stod(row.at("dd_startResidualMedian"));
+        ev.relocInfo.dd.startResidualMAD =
+            std::stod(row.at("dd_startResidualMAD"));
+        ev.relocInfo.dd.finalResidualMedian =
+            std::stod(row.at("dd_finalResidualMedian"));
+        ev.relocInfo.dd.finalResidualMAD =
+            std::stod(row.at("dd_finalResidualMAD"));
+      }
+      _events[ev.id] = ev;
     }
-    _events[ev.id] = ev;
+  }
+  catch (std::out_of_range &e)
+  {
+    string msg = strf("Error while parsing event file '%s': check column names",
+                      eventFile.c_str());
+    throw Exception(msg);
   }
 
   vector<unordered_map<string, string>> phases = CSV::readWithHeader(phaFile);
-
-  for (const auto &row : phases)
+  try
   {
-    Phase ph;
-    ph.eventId          = std::stoul(row.at("eventId"));
-    ph.time             = UTCClock::fromString(row.at("isotime"));
-    ph.lowerUncertainty = std::stod(row.at("lowerUncertainty"));
-    ph.upperUncertainty = std::stod(row.at("upperUncertainty"));
-    ph.type             = row.at("type");
-    ph.networkCode      = row.at("networkCode");
-    ph.stationCode      = row.at("stationCode");
-    ph.locationCode     = row.at("locationCode");
-    ph.channelCode      = row.at("channelCode");
-    ph.stationId =
-        ph.networkCode + "." + ph.stationCode + "." + ph.locationCode;
-    ph.isManual              = row.at("evalMode") == "manual";
-    ph.relocInfo.isRelocated = false;
-    if (loadRelocationInfo && (row.count("usedInReloc") != 0) &&
-        strToBool(row.at("usedInReloc")))
+    for (const auto &row : phases)
     {
-      ph.relocInfo.isRelocated     = true;
-      ph.procInfo.weight           = std::stod(row.at("startWeight"));
-      ph.relocInfo.finalWeight     = std::stod(row.at("finalWeight"));
-      ph.relocInfo.startTTResidual = std::stod(row.at("startTTResidual"));
-      ph.relocInfo.finalTTResidual = std::stod(row.at("finalTTResidual"));
-      ph.relocInfo.numTTObs        = std::stoul(row.at("numTTObs"));
-      ph.relocInfo.numCCObs        = std::stoul(row.at("numCCObs"));
-      ph.relocInfo.startMeanDDResidual =
-          std::stod(row.at("startMeanDDResidual"));
-      ph.relocInfo.finalMeanDDResidual =
-          std::stod(row.at("finalMeanDDResidual"));
+      Phase ph;
+      ph.eventId          = std::stoul(row.at("eventId"));
+      ph.time             = UTCClock::fromString(row.at("isotime"));
+      ph.lowerUncertainty = std::stod(row.at("lowerUncertainty"));
+      ph.upperUncertainty = std::stod(row.at("upperUncertainty"));
+      ph.type             = row.at("type");
+      ph.networkCode      = row.at("networkCode");
+      ph.stationCode      = row.at("stationCode");
+      ph.locationCode     = row.at("locationCode");
+      ph.channelCode      = row.at("channelCode");
+      ph.stationId =
+          ph.networkCode + "." + ph.stationCode + "." + ph.locationCode;
+      ph.isManual              = row.at("evalMode") == "manual";
+      ph.relocInfo.isRelocated = false;
+      if (loadRelocationInfo && (row.count("usedInReloc") != 0) &&
+          strToBool(row.at("usedInReloc")))
+      {
+        ph.relocInfo.isRelocated     = true;
+        ph.procInfo.weight           = std::stod(row.at("startWeight"));
+        ph.relocInfo.finalWeight     = std::stod(row.at("finalWeight"));
+        ph.relocInfo.startTTResidual = std::stod(row.at("startTTResidual"));
+        ph.relocInfo.finalTTResidual = std::stod(row.at("finalTTResidual"));
+        ph.relocInfo.numTTObs        = std::stoul(row.at("numTTObs"));
+        ph.relocInfo.numCCObs        = std::stoul(row.at("numCCObs"));
+        ph.relocInfo.startMeanDDResidual =
+            std::stod(row.at("startMeanDDResidual"));
+        ph.relocInfo.finalMeanDDResidual =
+            std::stod(row.at("finalMeanDDResidual"));
+      }
+      _phases.emplace(ph.eventId, ph);
     }
-    _phases.emplace(ph.eventId, ph);
+  }
+  catch (std::out_of_range &e)
+  {
+    string msg = strf("Error while parsing phase file '%s': check column names",
+                      phaFile.c_str());
+    throw Exception(msg);
   }
 }
 
