@@ -96,6 +96,11 @@ vector<vector<string>> read(istream &in)
     {
       break;
     }
+    // handle windows end-of-line
+    if (!row.empty() && *row.rbegin() == '\r')
+    {
+      row.pop_back();
+    }
     auto fields = readRow(row);
     table.push_back(fields);
   }
