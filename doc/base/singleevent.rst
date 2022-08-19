@@ -8,7 +8,7 @@ Single-event relocation is used to relocate events in real-time and it requires 
 .. figure:: media/singleEventRelocationSyntDataExample.png
    :width: 800
    
-   Test with synthetic data from the unit testing folder
+   Test with synthetic data from the unit testing folder. Events from 4 clusters have their locations and times altered - using several normal distributions with non-zero mean - to simulate location/time errors. The single-event double-difference inversion is then applied on those altered events, one at a time against the background catalog and their original locations and times are properly recovered. It is interesting to note that the backgroud catalog is not part of the 4 clusters, but the double-differene inversion is still able to perfectly recover the event locations of those close-by clusters.
 
 ------
 Summay

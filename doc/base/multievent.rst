@@ -8,7 +8,7 @@ Multi-event relocation is used to relocate an event catalog in offline mode.
 .. figure:: media/multiEventRelocationSyntDataExample.png
    :width: 800
    
-   Test with synthetic data from the unit testing folder 
+   Test with synthetic data from the unit testing folder. Events from 4 clusters have their locations and times altered - using several normal distributions with non-zero mean - to simulate location/time errors. The multi-event double-difference inversion is then applied on those altered event clusters and their original locations and times are properly recovered. It is interesting to note that the relocation is performed on the 4 clusters together, in a single inversion.
 
 -------
 Summary
