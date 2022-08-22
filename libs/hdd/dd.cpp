@@ -1348,8 +1348,8 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
   const double allRmsMedian = computeMedian(allRms);
   const double allRmsMAD = computeMedianAbsoluteDeviation(allRms, allRmsMedian);
 
-  logInfo("Events RMS before relocation: median %.4f median absolute "
-          "deviation %.4f",
+  logInfo("Events RMS before relocation: median %.4f [sec] median absolute "
+          "deviation %.4f [sec]",
           allRmsMedian, allRmsMAD);
 
   return catalogToReturn;
