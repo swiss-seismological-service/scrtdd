@@ -656,8 +656,8 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
       }
     }
 
-    logInfo("Total Changes: location=%.2f[km] depth=%.2f[km] "
-            "time=%.3f[sec] Rms=%.3f[sec] (before/after %.3f/%.3f)",
+    logInfo("Total Changes: location=%.3f[km] depth=%.3f[km] "
+            "time=%.4f[sec] Rms=%.4f[sec] (before/after %.4f/%.4f)",
             ev.relocInfo.locChange, ev.relocInfo.depthChange,
             ev.relocInfo.timeChange,
             (ev.relocInfo.finalRms - ev.relocInfo.startRms),
@@ -858,8 +858,8 @@ string DD::relocationReport(const Catalog &relocatedEv)
   const Event &event = relocatedEv.getEvents().begin()->second;
   if (!event.relocInfo.isRelocated) return "Event not relocated";
 
-  return strf("Origin changes: location=%.2f[km] depth=%.2f[km] time=%.3f[sec] "
-              "Rms change [sec]: %.3f (before/after %.3f/%.3f) "
+  return strf("Origin changes: location=%.3f[km] depth=%.3f[km] time=%.4f[sec] "
+              "Rms change [sec]: %.4f (before/after %.4f/%.4f) "
               "Neighbours=%u Used Phases: P=%u S=%u "
               "Stations distance [km]: min=%.1f median=%.1f max=%.1f "
               "DD observations: %u (CC P/S %u/%u TT P/S %u/%u) "
@@ -1227,9 +1227,9 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
   const double allRmsMedian = computeMedian(allRms);
   const double allRmsMAD = computeMedianAbsoluteDeviation(allRms, allRmsMedian);
 
-  logInfo("Successfully relocated %u events, RMS median %.4f [sec] median "
-          "absolute deviation %.4f [sec]",
-          relocatedEvs, allRmsMedian, allRmsMAD);
+  logInfo("Successfully relocated %u events, RMS median %.3f [msec] median "
+          "absolute deviation %.3f [msec]",
+          relocatedEvs, allRmsMedian * 1000, allRmsMAD * 1000);
 
   return unique_ptr<Catalog>(new Catalog(stations, events, phases));
 }
@@ -1348,9 +1348,9 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
   const double allRmsMedian = computeMedian(allRms);
   const double allRmsMAD = computeMedianAbsoluteDeviation(allRms, allRmsMedian);
 
-  logInfo("Events RMS before relocation: median %.4f [sec] median absolute "
-          "deviation %.4f [sec]",
-          allRmsMedian, allRmsMAD);
+  logInfo("Events RMS before relocation: median %.3f [msec] median absolute "
+          "deviation %.3f [msec]",
+          allRmsMedian * 1000, allRmsMAD * 1000);
 
   return catalogToReturn;
 }
