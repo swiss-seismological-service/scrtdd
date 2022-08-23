@@ -322,6 +322,7 @@ TRANS_MERCATOR vtm(const char *ellipsoid_name,
   double lon, lat, x, y;
   lon = lon0;
   lat = lat0;
+  proj.y_central_parralel = 0;
   tm(proj, lon, lat, &x, &y);
   proj.y_central_parralel = y;
   return proj;
