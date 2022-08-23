@@ -17,7 +17,10 @@
 #ifndef __HDD_CSVREADER_H__
 #define __HDD_CSVREADER_H__
 
+#include <istream>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace HDD {
 namespace CSV {

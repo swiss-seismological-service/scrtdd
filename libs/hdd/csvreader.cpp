@@ -15,11 +15,7 @@
  ***************************************************************************/
 
 #include <fstream>
-#include <iostream>
-#include <istream>
 #include <iterator>
-#include <string>
-#include <vector>
 
 #include "csvreader.h"
 
