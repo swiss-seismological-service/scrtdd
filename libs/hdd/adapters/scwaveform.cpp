@@ -110,9 +110,7 @@ unique_ptr<HDD::Trace> WaveformProxy::loadTrace(const HDD::TimeWindow &tw,
                                                 const string &networkCode,
                                                 const string &stationCode,
                                                 const string &locationCode,
-                                                const string &channelCode,
-                                                double tolerance,
-                                                double minAvailability)
+                                                const string &channelCode)
 {
   const Core::TimeWindow sctw = toSC(tw);
 
@@ -145,9 +143,7 @@ void WaveformProxy::loadTraces(
                         unique_ptr<HDD::Trace>)> &onTraceLoaded,
     const function<void(const string &,
                         const HDD::TimeWindow &,
-                        const string &)> &onTraceFailed,
-    double tolerance,
-    double minAvailability)
+                        const string &)> &onTraceFailed)
 {
   // Prepare the requests in a more convenient format
   struct Request

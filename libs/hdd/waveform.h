@@ -51,14 +51,21 @@ public:
   Proxy(const Proxy &other) = delete;
   Proxy &operator=(const Proxy &other) = delete;
 
+  // load one trace at the requested time window for a specific station
+  // throw std::exception is the trace cannot be loaded
   virtual std::unique_ptr<Trace> loadTrace(const TimeWindow &tw,
                                            const std::string &networkCode,
                                            const std::string &stationCode,
                                            const std::string &locationCode,
-                                           const std::string &channelCode,
-                                           double tolerance       = 0.1,
-                                           double minAvailability = 0.95) = 0;
+                                           const std::string &channelCode) = 0;
 
+  // load multiple traces: this is used in single-event relocation and when
+  // preloading all the catalog traces. The reason of this method is to avoid
+  // multiple re-connections to the data source (e.g. fdsn, seedlink) when
+  // loading multiple traces. If there is no overhead in the initial connection,
+  // this method can be implemented by calling loadTrace multiple times. For
+  // each succefully loaded trace the 'onTraceLoaded' callback is called,
+  // otherwise 'onTraceFailed' is called
   virtual void loadTraces(
       const std::unordered_multimap<std::string, const TimeWindow> &request,
       const std::function<void(const std::string &,
@@ -66,19 +73,33 @@ public:
                                std::unique_ptr<Trace>)> &onTraceLoaded,
       const std::function<void(const std::string &,
                                const TimeWindow &,
-                               const std::string &)> &onTraceFailed,
-      double tolerance       = 0.1,
-      double minAvailability = 0.95) = 0;
+                               const std::string &)> &onTraceFailed) = 0;
 
+  // Return orientation information for a station. This is used to
+  // perform rotation on the RT components or to know which components
+  // are horizontal or vertical.
+  // If this information is not knwon then throw std::exception and the
+  // code will still be able to work as long as the user doesn't configure
+  // R, T, H, or V components in HDD::Config::xcorr::components
   virtual void getComponentsInfo(const Catalog::Phase &ph,
                                  ThreeComponents &components) = 0;
 
+  // Run a bandpass filter on the trace. The syntax of the 'filterStr' is
+  // implementation specific. The 'filterStr' is configured in
+  // HDD::Config::wfFilter::filterStr and passed to this function
+  // when the filtering is required
+  // throw HDD::Exception when an error happens
   virtual void filter(Trace &trace, const std::string &filterStr) = 0;
 
+  // Write and Read traces. Used to create the waveform cache and to dump
+  // waveforms for debugging. Choosing a standard format like miniseed allows
+  // the user to inspect the traces with an external tool
+  // throw std::exception when an error happens
   virtual void writeTrace(const Trace &trace, const std::string &file) = 0;
   virtual std::unique_ptr<Trace> readTrace(const std::string &file)    = 0;
 };
 
+// This class can be used when no-crosscorrelation is required
 class NoWaveformProxy : public Proxy
 {
 public:
@@ -86,9 +107,7 @@ public:
                                         const std::string &networkCode,
                                         const std::string &stationCode,
                                         const std::string &locationCode,
-                                        const std::string &channelCode,
-                                        double tolerance       = 0.1,
-                                        double minAvailability = 0.95) override
+                                        const std::string &channelCode) override
   {
     throw HDD::Exception("No waveform available");
   }
@@ -101,9 +120,7 @@ public:
                                std::unique_ptr<HDD::Trace>)> &onTraceLoaded,
       const std::function<void(const std::string &,
                                const HDD::TimeWindow &,
-                               const std::string &)> &onTraceFailed,
-      double tolerance       = 0.1,
-      double minAvailability = 0.95) override
+                               const std::string &)> &onTraceFailed) override
   {}
 
   void getComponentsInfo(const HDD::Catalog::Phase &ph,

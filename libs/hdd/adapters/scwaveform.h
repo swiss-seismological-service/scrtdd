@@ -33,13 +33,12 @@ public:
   {}
   virtual ~WaveformProxy() = default;
 
-  std::unique_ptr<HDD::Trace> loadTrace(const HDD::TimeWindow &tw,
-                                        const std::string &networkCode,
-                                        const std::string &stationCode,
-                                        const std::string &locationCode,
-                                        const std::string &channelCode,
-                                        double tolerance       = 0.1,
-                                        double minAvailability = 0.95) override;
+  std::unique_ptr<HDD::Trace>
+  loadTrace(const HDD::TimeWindow &tw,
+            const std::string &networkCode,
+            const std::string &stationCode,
+            const std::string &locationCode,
+            const std::string &channelCode) override;
 
   void loadTraces(
       const std::unordered_multimap<std::string, const HDD::TimeWindow>
@@ -49,9 +48,7 @@ public:
                                std::unique_ptr<HDD::Trace>)> &onTraceLoaded,
       const std::function<void(const std::string &,
                                const HDD::TimeWindow &,
-                               const std::string &)> &onTraceFailed,
-      double tolerance       = 0.1,
-      double minAvailability = 0.95) override;
+                               const std::string &)> &onTraceFailed) override;
 
   void getComponentsInfo(const HDD::Catalog::Phase &ph,
                          HDD::Waveform::ThreeComponents &components) override;
@@ -63,6 +60,8 @@ public:
 
 private:
   const std::string _recordStreamURL;
+  static constexpr double tolerance       = 0.5;
+  static constexpr double minAvailability = 0.95;
 };
 
 } // namespace HDDSCAdapter
