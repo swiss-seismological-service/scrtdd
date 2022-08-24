@@ -449,6 +449,9 @@ private:
 
   void logXCorrSummary(const XCorrCache &xcorr);
 
+  const std::vector<std::string>
+  xcorrComponents(const Catalog::Phase &phase) const;
+
 private:
   const Config _cfg;
 

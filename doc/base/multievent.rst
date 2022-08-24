@@ -155,7 +155,7 @@ E.g. *file phase.csv* ::
 Notes:
 
 * ``type``: mutiple picks are allowed for the same event-station (P,Pn,P1,Pg,S,Sn,S1,Sg), but they must have a different ``type``. However only one P and one S will be used per each event-station (see ``profile.myProfile.catalog.P|S-Phases``).
-* ``channelCode`` is used only for crossCorrelation to select the correct waveform to fetch. However the Orientation Code (the component) of the ``channelCode`` is currently not used (e.g. ``Z`` in ``HHZ``). Instead it is the parameter ``profile.myProfile.crossCorrelation.p|s-phase.components`` that decides the component to use in the crossCorrelation.
+* ``channelCode``: used only for crossCorrelation, it specifies the channel code to use for fetching the waveform. The Orientation Code of the ``channelCode`` (e.g. ``Z`` in ``HHZ``) can be overridden by the parameter ``profile.myProfile.crossCorrelation.p|s-phase.components``.
 * ``lowerUncertainty`` and ``upperUncertainty`` are used only when ``profile.myProfile.solver.aPrioriWeights.usePickUncertainties`` is set to ``true``
 
 With this format it is possible to relocate events that are not stored in any SeisComP database, since all the origins information are contained in those files.
@@ -225,7 +225,8 @@ Relocating a catalog in **"station.csv,event.csv,phase.csv"** file triplet forma
            --inventory-db inventory.xml \
            --verbosity=3 --console=1
 
-The inventory can optionally be empty, which is not an issue if the cross-correlation is not enabled. However if the cross-correlation is used, special waveform transformations (Transversal/Radial component or L2 norm of the horizontal components) become unavailable without an inventory, because those require information contained in the inventory. In this case only existing components can be used.
+The inventory can optionally be empty, which is not an issue if the cross-correlation is not enabled. However when the cross-correlation is used the implication of having an empty invenory is that rtDD doesn't know the orientation of the sensor components and for this reason the special waveform transformations (rotation to the Transversal/Radial component, L2 norm of the horizontal components) become unavailable and should not be selected in ``profile.myProfile.crossCorrelation.p|s-phase.components``. The real componets should be selected instead (e.g. Z, E, N, 1, 2, 3).
+
 This is an **empty inventory**::
 
     <?xml version="1.0" encoding="UTF-8"?>

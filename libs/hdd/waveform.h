@@ -451,7 +451,7 @@ inline std::string getBandAndInstrumentCodes(const std::string &channelCode)
 
 inline std::string getOrientationCode(const std::string &channelCode)
 {
-  if (channelCode.size() == 3) return channelCode.substr(2, 3);
+  if (channelCode.size() == 3) return channelCode.substr(2, 1);
   return "";
 }
 

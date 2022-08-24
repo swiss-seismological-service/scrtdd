@@ -29,6 +29,7 @@ using Station   = HDD::Catalog::Station;
 using Transform = HDD::Waveform::Processor::Transform;
 using AQ_ACTION = HDD::SolverOptions::AQ_ACTION;
 using HDD::Waveform::getBandAndInstrumentCodes;
+using HDD::Waveform::getOrientationCode;
 
 namespace {
 
@@ -228,6 +229,20 @@ string DD::generateWorkingSubDir(const Event &ev) const
 
 void DD::unloadWaveforms() { createWaveformCache(); }
 
+const std::vector<std::string> DD::xcorrComponents(const Phase &phase) const
+{
+  const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
+  if (xcorrCfg.components.empty() ||
+      (xcorrCfg.components.size() == 1 && xcorrCfg.components.at(0).empty()))
+  {
+    return {getOrientationCode(phase.channelCode)};
+  }
+  else
+  {
+    return xcorrCfg.components;
+  }
+}
+
 void DD::preloadWaveforms()
 {
   //
@@ -246,11 +261,10 @@ void DD::preloadWaveforms()
         auto eqlrng = _bgCat.getPhases().equal_range(event.id);
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
-          const Phase &phase  = it->second;
-          TimeWindow tw       = xcorrTimeWindowLong(phase);
-          const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
+          const Phase &phase = it->second;
+          TimeWindow tw      = xcorrTimeWindowLong(phase);
 
-          for (const string &component : xcorrCfg.components)
+          for (const string &component : xcorrComponents(phase))
           {
             if (func(tw, event, phase, component)) break;
           }
@@ -349,11 +363,10 @@ void DD::dumpWaveforms(const string &basePath)
     auto eqlrng        = _bgCat.getPhases().equal_range(event.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
-      const Phase &phase  = it->second;
-      TimeWindow tw       = xcorrTimeWindowLong(phase);
-      const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
+      const Phase &phase = it->second;
+      TimeWindow tw      = xcorrTimeWindowLong(phase);
 
-      for (const string &component : xcorrCfg.components)
+      for (const string &component : xcorrComponents(phase))
       {
         // getAuxProcessor() -> we don't really want to keep the waveforms in
         // memory
@@ -1799,7 +1812,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
   {
     const Phase &refPhase  = itRef->second;
     const Station &station = catalog.getStations().at(refPhase.stationId);
-    const auto xcorrCfg    = _cfg.xcorr.at(refPhase.procInfo.type);
+    const auto components  = xcorrComponents(refPhase);
 
     // We deal only with real-time event data
     if (refPhase.procInfo.source == Phase::Source::CATALOG) continue;
@@ -1832,7 +1845,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
         //
         TimeWindow tw = xcorrTimeWindowLong(refPhase);
 
-        for (const string &component : xcorrCfg.components)
+        for (const string &component : components)
         {
           // This doesn't really load the trace but force the request to reach
           // the loader, which will load all the traces later
@@ -2052,14 +2065,12 @@ bool DD::xcorrPhases(const Event &event1,
     }
   }
 
-  auto xcorrCfg  = _cfg.xcorr.at(phase1.procInfo.type);
-  bool performed = false;
-
   //
   // Try all registered components until we are able to perform
   // the cross-correlation
   //
-  for (const string &component : xcorrCfg.components)
+  bool performed = false;
+  for (const string &component : xcorrComponents(phase1))
   {
     performed =
         xcorrPhasesOneComponent(event1, phase1, ph1Cache, event2, phase2,
@@ -2239,7 +2250,11 @@ shared_ptr<const Trace> DD::getWaveform(Waveform::Processor &wfProc,
 
   Catalog::Phase phCopy(ph);
   Transform trans;
-  if (component == "T")
+  if (component.empty())
+  {
+    return nullptr;
+  }
+  else if (component == "T")
   {
     trans = Transform::TRANSVERSAL;
   }
