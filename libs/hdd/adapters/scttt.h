@@ -23,7 +23,8 @@
 
 #include <unordered_map>
 
-namespace HDDSCAdapter {
+namespace HDD {
+namespace SCAdapter {
 
 class TravelTimeTable : public HDD::TravelTimeTable
 {
@@ -67,6 +68,6 @@ private:
   Seiscomp::TravelTimeTableInterfacePtr _ttt;
 };
 
-} // namespace HDDSCAdapter
-
+} // namespace SCAdapter
+} // namespace HDD
 #endif

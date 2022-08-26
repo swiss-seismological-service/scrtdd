@@ -23,7 +23,8 @@
 #include <string>
 #include <unordered_map>
 
-namespace HDDSCAdapter {
+namespace HDD {
+namespace SCAdapter {
 
 class WaveformProxy : public HDD::Waveform::Proxy
 {
@@ -64,6 +65,6 @@ private:
   static constexpr double minAvailability = 0.95;
 };
 
-} // namespace HDDSCAdapter
-
+} // namespace SCAdapter
+} // namespace HDD
 #endif

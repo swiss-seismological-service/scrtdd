@@ -15,9 +15,8 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#include "hddutils.h"
+#include "scutils.h"
 
-#include "hdd/adapters/scconversion.h"
 #include "hdd/csvreader.h"
 #include "hdd/log.h"
 
@@ -42,8 +41,6 @@ using namespace std;
 using namespace Seiscomp;
 using PhaseSrc       = HDD::Catalog::Phase::Source;
 using XCorrEvalStats = HDD::DD::XCorrEvalStats;
-using HDDSCAdapter::fromSC;
-using HDDSCAdapter::toSC;
 using Seiscomp::Core::stringify;
 
 namespace {
@@ -131,7 +128,8 @@ DataModel::SensorLocation *findSensorLocation(const std::string &networkCode,
 
 } // namespace
 
-namespace HDDUtils {
+namespace HDD {
+namespace SCAdapter {
 
 DataSource::DataSource(DataModel::DatabaseQuery *query,
                        DataModel::PublicObjectTimeSpanBuffer *cache)
@@ -782,5 +780,5 @@ void printEvalXcorrStats(
 
   std::cout << log;
 }
-
-} // namespace HDDUtils
+} // namespace SCAdapter
+} // namespace HDD

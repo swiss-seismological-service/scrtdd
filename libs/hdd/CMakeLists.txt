@@ -50,25 +50,10 @@ SET(HDD_HEADERS
 )
 
 SC_ADD_LIBRARY(HDD hdd)
-SC_LIB_INSTALL_HEADERS(HDD)
+#SC_LIB_INSTALL_HEADERS(HDD)
 
-SET(HDDSC_DIR ${SC3_PACKAGE_SOURCE_DIR}/libs/hdd/adapters)
+SUBDIRS(adapters)
 
-SET(HDDSC_SOURCES
-	${HDDSC_DIR}/scttt.cpp
-	${HDDSC_DIR}/sclog.cpp
-	${HDDSC_DIR}/scwaveform.cpp
-)
-
-SET(HDDSC_HEADERS
-	${HDDSC_DIR}/scttt.h
-	${HDDSC_DIR}/sclog.h
-	${HDDSC_DIR}/scwaveform.h
-	${HDDSC_DIR}/scconversion.h
-)
-SC_ADD_LIBRARY(HDDSC hddsc)
-SC_LIB_INSTALL_HEADERS(HDDSC)
- 
 # Add test directory
 IF (SC_GLOBAL_UNITTESTS)
 	SUBDIRS(test)

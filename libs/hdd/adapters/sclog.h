@@ -18,10 +18,12 @@
 #ifndef __HDD_SCLOG_H__
 #define __HDD_SCLOG_H__
 
-namespace HDDSCAdapter {
+namespace HDD {
+namespace SCAdapter {
 
 void initLogger();
 
 }
+} // namespace HDD
 
 #endif

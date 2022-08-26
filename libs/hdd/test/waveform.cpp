@@ -26,12 +26,12 @@ namespace {
 
 void writeTrace(const Trace &trace, const std::string &filename)
 {
-  HDDSCAdapter::WaveformProxy().writeTrace(trace, filename);
+  HDD::SCAdapter::WaveformProxy().writeTrace(trace, filename);
 }
 
 Trace readTrace(const std::string &filename)
 {
-  return *HDDSCAdapter::WaveformProxy().readTrace(filename);
+  return *HDD::SCAdapter::WaveformProxy().readTrace(filename);
 }
 
 void filter(Trace &trace,
@@ -40,7 +40,7 @@ void filter(Trace &trace,
               double resampleFreq)
 {
   Waveform::BasicProcessor(shared_ptr<Waveform::Proxy>(
-        new HDDSCAdapter::WaveformProxy()), nullptr,  0)
+        new HDD::SCAdapter::WaveformProxy()), nullptr,  0)
     .filter(trace, demeaning, filterStr, resampleFreq);
 }
 

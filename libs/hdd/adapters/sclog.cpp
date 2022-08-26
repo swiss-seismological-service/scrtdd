@@ -27,7 +27,8 @@ using namespace Seiscomp;
 
 using namespace HDD;
 
-namespace HDDSCAdapter {
+namespace HDD {
+namespace SCAdapter {
 
 void initLogger()
 {
@@ -63,5 +64,5 @@ void initLogger()
   HDD::Logger::registerLoggers(error, warning, info, debug, createFileLogger,
                                destroyFileLogger);
 }
-
-} // namespace HDDSCAdapter
+} // namespace SCAdapter
+} // namespace HDD

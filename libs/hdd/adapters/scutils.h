@@ -15,18 +15,25 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#ifndef __RTDD_APPLICATIONS_HDDUTILS_H__
-#define __RTDD_APPLICATIONS_HDDUTILS_H__
+#ifndef __HDD_SCUTILS_H__
+#define __HDD_SCUTILS_H__
 
 #include "hdd/catalog.h"
 #include "hdd/dd.h"
+#include "hdd/timewindow.h"
+#include "hdd/utctime.h"
 
 #include <seiscomp/client/inventory.h>
+#include <seiscomp/core/datetime.h>
+#include <seiscomp/core/genericrecord.h>
+#include <seiscomp/core/timewindow.h>
+#include <seiscomp/core/typedarray.h>
 #include <seiscomp/datamodel/databasequery.h>
 #include <seiscomp/datamodel/eventparameters.h>
 #include <seiscomp/datamodel/publicobjectcache.h>
 
-namespace HDDUtils {
+namespace HDD {
+namespace SCAdapter {
 
 class DataSource
 {
@@ -103,6 +110,26 @@ void printEvalXcorrStats(
     double staDistStep,
     double completionPercent);
 
-} // namespace HDDUtils
+inline Seiscomp::Core::Time toSC(const HDD::UTCTime &t)
+{
+  return Seiscomp::Core::Time(HDD::durToSec(t.time_since_epoch()));
+}
 
+inline HDD::UTCTime fromSC(const Seiscomp::Core::Time &t)
+{
+  return HDD::UTCTime() + HDD::secToDur(t.length());
+}
+
+inline Seiscomp::Core::TimeWindow toSC(const HDD::TimeWindow &tw)
+{
+  return Seiscomp::Core::TimeWindow(toSC(tw.startTime()), toSC(tw.endTime()));
+}
+
+inline HDD::TimeWindow fromSC(const Seiscomp::Core::TimeWindow &tw)
+{
+  return HDD::TimeWindow(fromSC(tw.startTime()), fromSC(tw.endTime()));
+}
+
+} // namespace SCAdapter
+} // namespace HDD
 #endif

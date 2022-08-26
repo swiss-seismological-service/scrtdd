@@ -21,7 +21,8 @@
 using namespace std;
 using namespace HDD;
 
-namespace HDDSCAdapter {
+namespace HDD {
+namespace SCAdapter {
 
 TravelTimeTable::TravelTimeTable(const std::string &type,
                                  const std::string &model,
@@ -148,5 +149,5 @@ double TravelTimeTable::velocityAtSource(double eventLat,
 
   return binVelocity;
 }
-
-} // namespace HDDSCAdapter
+} // namespace SCAdapter
+} // namespace HDD

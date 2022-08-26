@@ -15,14 +15,14 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#include "rtdd.h"
+#include "rtddtool.h"
 #include "hdd/adapters/sclog.h"
 #include "hdd/adapters/scttt.h"
+#include "hdd/adapters/scutils.h"
 #include "hdd/adapters/scwaveform.h"
 #include "hdd/csvreader.h"
 #include "hdd/cvttt.h"
 #include "hdd/nllttt.h"
-#include "hddutils.h"
 #include "msg.h"
 
 #define SEISCOMP_COMPONENT RTDD
@@ -53,11 +53,14 @@
 
 using namespace std;
 using namespace Seiscomp::DataModel;
-using namespace HDDUtils;
+using HDD::SCAdapter::addToCatalog;
+using HDD::SCAdapter::convertOrigin;
+using HDD::SCAdapter::printEvalXcorrStats;
 using Seiscomp::Core::fromString;
 using Seiscomp::Core::stringify;
-using PhaseType = HDD::Catalog::Phase::Type;
-using AQ_ACTION = HDD::SolverOptions::AQ_ACTION;
+using PhaseType  = HDD::Catalog::Phase::Type;
+using AQ_ACTION  = HDD::SolverOptions::AQ_ACTION;
+using DataSource = HDD::SCAdapter::DataSource;
 
 namespace {
 
@@ -1100,7 +1103,7 @@ bool RTDD::init()
   // Check each N seconds if a new job needs to be started
   _cronCounter = _config.wakeupInterval;
 
-  HDDSCAdapter::initLogger();
+  HDD::SCAdapter::initLogger();
 
   return true;
 }
@@ -2199,11 +2202,11 @@ void RTDD::Profile::load(DatabaseQuery *query,
     }
     else
     {
-      ttt.reset(new HDDSCAdapter::TravelTimeTable(tttType, tttModel));
+      ttt.reset(new HDD::SCAdapter::TravelTimeTable(tttType, tttModel));
     }
 
     std::unique_ptr<HDD::Waveform::Proxy> wf(
-        new HDDSCAdapter::WaveformProxy(recordStreamURL));
+        new HDD::SCAdapter::WaveformProxy(recordStreamURL));
 
     dd.reset(new HDD::DD(ddbgc, ddCfg, std::move(ttt), std::move(wf)));
 

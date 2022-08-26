@@ -136,7 +136,7 @@ std::unique_ptr<HDD::TravelTimeTable> createTTT(const TTTParams &prms)
   else
   {
     return std::unique_ptr<HDD::TravelTimeTable>(
-        new HDDSCAdapter::TravelTimeTable(prms.type, prms.model));
+        new HDD::SCAdapter::TravelTimeTable(prms.type, prms.model));
   }
   return nullptr;
 }

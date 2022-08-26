@@ -17,7 +17,7 @@
 #include "scwaveform.h"
 #include "hdd/log.h"
 #include "hdd/utils.h"
-#include "scconversion.h"
+#include "scutils.h"
 
 #include <fstream>
 #include <iostream>
@@ -40,8 +40,8 @@ using SC3Comps  = Seiscomp::DataModel::ThreeComponents;
 
 namespace {
 
-using HDDSCAdapter::fromSC;
-using HDDSCAdapter::toSC;
+using HDD::SCAdapter::fromSC;
+using HDD::SCAdapter::toSC;
 
 unique_ptr<HDD::Trace> contiguousRecord(const RecordSequence &seq,
                                         const HDD::TimeWindow &tw,
@@ -104,7 +104,8 @@ template <class T> T nextPowerOf2(T a, T min = 1, T max = 1 << 31)
 
 } // namespace
 
-namespace HDDSCAdapter {
+namespace HDD {
+namespace SCAdapter {
 
 unique_ptr<HDD::Trace> WaveformProxy::loadTrace(const HDD::TimeWindow &tw,
                                                 const string &networkCode,
@@ -398,5 +399,5 @@ unique_ptr<HDD::Trace> WaveformProxy::readTrace(const string &file)
       msRec.channelCode(), fromSC(msRec.startTime()), msRec.samplingFrequency(),
       data->typedData(), data->size()));
 }
-
-} // namespace HDDSCAdapter
+} // namespace SCAdapter
+} // namespace HDD

@@ -15,7 +15,7 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#include "rtdd.h"
+#include "rtddtool.h"
 
 #define SEISCOMP_COMPONENT RTDD
 #include <seiscomp/logging/log.h>
