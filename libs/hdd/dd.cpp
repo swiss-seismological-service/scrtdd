@@ -1889,70 +1889,87 @@ void DD::fixPhases(Catalog &catalog,
   vector<Phase> phasesToBeRemoved;
   vector<Phase> newPhases;
 
+  // loop through catalog phases
   auto eqlrng = catalog.getPhases().equal_range(refEv.id);
   for (auto it = eqlrng.first; it != eqlrng.second; it++)
   {
     const Phase &phase  = it->second;
     const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
 
-    // Check if we have at least one food xcorr result for this phase
-    bool goodXcorr = false;
+    if (phase.procInfo.type == Phase::Type::P) totP++;
+    if (phase.procInfo.type == Phase::Type::S) totS++;
+
+    // nothing to do if the phase is manual or from catalog
+    if (phase.isManual || phase.procInfo.source == Phase::Source::CATALOG)
+    {
+      continue;
+    }
+
+    //
+    // Load all good xcorr result for this automatic phase
+    //
+    map<double, std::pair<std::reference_wrapper<const Phase>,
+                          std::reference_wrapper<const XCorrCache::Entry>>>
+        goodXcorr; // this is sorted
     if (xcorr.has(refEv.id, phase.stationId, phase.procInfo.type))
     {
       for (const auto &kv :
            xcorr.get(refEv.id, phase.stationId, phase.procInfo.type))
       {
+        unsigned neighbourId       = kv.first;
         const XCorrCache::Entry &e = kv.second;
         if (e.valid && e.coeff >= xcorrCfg.minCoef)
         {
-          goodXcorr = true;
-          break;
+          const Phase &neighbourPhase =
+              _bgCat
+                  .searchPhase(neighbourId, phase.stationId,
+                               phase.procInfo.type)
+                  ->second;
+
+          goodXcorr.insert({e.lag, {neighbourPhase, e}});
         }
       }
     }
 
-    if (phase.procInfo.type == Phase::Type::P) totP++;
-    if (phase.procInfo.type == Phase::Type::S) totS++;
-
-    // nothing to do if we dont't have good xcorr results of if the phase is
-    // manual or from catalog
-    if (!goodXcorr || phase.isManual ||
-        (phase.procInfo.source == Phase::Source::CATALOG))
+    //
+    // Nothing to do if we dont't have at least 3 good xcorr results
+    // (3 is kind of arbitrary, I know)
+    //
+    if (goodXcorr.size() < 3)
     {
-      // remove thoretical phases without good cross-correlation results
+      // remove thoretical phases without enough good cross-correlations
       if (phase.procInfo.source == Phase::Source::THEORETICAL)
         phasesToBeRemoved.push_back(phase);
       continue;
     }
 
     //
-    // Compute new phase time and uncertainty
+    // Use median-1, median, median+1 values to update phase time and
+    // uncertainty
     //
     double mean_lag  = 0;
     double min_lag   = 0;
     double max_lag   = 0;
-    unsigned ccCount = 0;
+    double totWeight = 0;
     string component;
-    for (const auto &kv :
-         xcorr.get(refEv.id, phase.stationId, phase.procInfo.type))
+
+    size_t median = goodXcorr.size() / 2;
+    auto kv       = goodXcorr.begin();
+    std::advance(kv, median - 1);
+    for (int i = 0; i < 3; i++, kv++)
     {
-      unsigned neighbourId       = kv.first;
-      const XCorrCache::Entry &e = kv.second;
-      const Phase &neighbourPhase =
-          _bgCat.searchPhase(neighbourId, phase.stationId, phase.procInfo.type)
-              ->second;
-      if (e.valid && e.coeff >= xcorrCfg.minCoef)
-      {
-        mean_lag += e.lag;
-        min_lag += e.lag - neighbourPhase.lowerUncertainty;
-        max_lag += e.lag + neighbourPhase.upperUncertainty;
-        component = e.component; // this is a little ugly
-        ccCount++;
-      }
+      const Phase &neighbourPhase = kv->second.first;
+      const XCorrCache::Entry &e  = kv->second.second;
+      double weight               = e.coeff * neighbourPhase.procInfo.weight;
+      mean_lag += e.lag * weight;
+      min_lag += (e.lag - neighbourPhase.lowerUncertainty) * weight;
+      max_lag += (e.lag + neighbourPhase.upperUncertainty) * weight;
+      totWeight += weight;
+      component = e.component; // this is a little ugly
     }
-    mean_lag /= ccCount;
-    min_lag /= ccCount;
-    max_lag /= ccCount;
+    mean_lag /= totWeight;
+    min_lag /= totWeight;
+    max_lag /= totWeight;
 
     //
     // set new phase time and uncertainty
