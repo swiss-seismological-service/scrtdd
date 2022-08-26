@@ -693,22 +693,22 @@ Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
  */
 double Catalog::computePickWeight(double uncertainty /* secs */)
 {
-  double weight = 0;
+  unsigned uncertaintyClass;
 
   if (uncertainty >= 0.000 && uncertainty <= 0.025)
-    weight = 1.00;
+    uncertaintyClass = 0;
   else if (uncertainty > 0.025 && uncertainty <= 0.050)
-    weight = 0.80;
+    uncertaintyClass = 1;
   else if (uncertainty > 0.050 && uncertainty <= 0.100)
-    weight = 0.60;
+    uncertaintyClass = 2;
   else if (uncertainty > 0.100 && uncertainty <= 0.200)
-    weight = 0.40;
+    uncertaintyClass = 3;
   else if (uncertainty > 0.200 && uncertainty <= 0.400)
-    weight = 0.20;
+    uncertaintyClass = 4;
   else
-    weight = 0.10;
+    uncertaintyClass = 5;
 
-  return weight;
+  return 1 / std::pow(2, uncertaintyClass);
 }
 
 double Catalog::computePickWeight(const Phase &phase)
