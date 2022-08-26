@@ -54,13 +54,6 @@ double normalizeAz(double az)
   return az;
 }
 
-double normalizeLon(double lon)
-{
-  while (lon < -180.0) lon += 360.0;
-  while (lon > 180.0) lon -= 360.0;
-  return lon;
-}
-
 std::pair<double, double> getPickUncertainty(DataModel::Pick *pick)
 {
   pair<double, double> uncertainty(-1, -1); // secs
