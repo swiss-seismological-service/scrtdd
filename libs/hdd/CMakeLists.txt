@@ -66,7 +66,10 @@ SET(HDD_HEADERS_3RDPARTY
 #	DESTINATION ${SC3_PACKAGE_INCLUDE_DIR}/hdd/3rd-party
 #)
 
-SUBDIRS(adapters)
+SET(COMPILE_ADAPTERS ON CACHE BOOL "Compile the subdirectory 'adapters'.")
+IF (COMPILE_ADAPTERS)
+	SUBDIRS(adapters)
+ENDIF()
 
 # Add test directory
 IF (SC_GLOBAL_UNITTESTS)
