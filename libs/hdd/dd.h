@@ -148,12 +148,12 @@ class DD
 public:
   DD(const Catalog &catalog,
      const Config &cfg,
-     std::unique_ptr<TravelTimeTable> ttt,
-     std::unique_ptr<Waveform::Proxy> wf =
-         std::unique_ptr<Waveform::Proxy>(new Waveform::NoWaveformProxy()));
+     const std::shared_ptr<TravelTimeTable>& ttt,
+     const std::shared_ptr<Waveform::Proxy>& wf =
+         std::shared_ptr<Waveform::Proxy>(new Waveform::NoWaveformProxy()));
   ~DD() = default;
 
-  DD(const DD &other) = delete;
+  DD(const DD &other)            = delete;
   DD &operator=(const DD &other) = delete;
 
   const Catalog &getCatalog() const { return _srcCat; }
@@ -458,7 +458,7 @@ private:
   const Catalog _srcCat;
   const Catalog _bgCat;
 
-  std::unique_ptr<TravelTimeTable> _ttt;
+  std::shared_ptr<TravelTimeTable> _ttt;
   std::shared_ptr<Waveform::Proxy> _wf;
 
   bool _saveProcessing = true;

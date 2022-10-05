@@ -87,7 +87,7 @@ public:
   void setNetworkCode(const std::string &net) { _net = net; }
 
   std::string stationCode() const { return _sta; }
-  void setStationCode(const std::string &sta) const { _sta = sta; }
+  void setStationCode(const std::string &sta) { _sta = sta; }
 
   std::string locationCode() const { return _loc; }
   void setLocationCode(const std::string &loc) { _loc = loc; }

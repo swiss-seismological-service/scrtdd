@@ -80,8 +80,8 @@ namespace HDD {
 
 DD::DD(const Catalog &catalog,
        const Config &cfg,
-       std::unique_ptr<HDD::TravelTimeTable> ttt,
-       std::unique_ptr<HDD::Waveform::Proxy> wf)
+       const std::shared_ptr<HDD::TravelTimeTable>& ttt,
+       const std::shared_ptr<HDD::Waveform::Proxy>& wf)
     : _cfg(cfg), _srcCat(catalog),
       _bgCat(Catalog::filterPhasesAndSetWeights(_srcCat,
                                                 Phase::Source::CATALOG,
@@ -812,7 +812,7 @@ unique_ptr<Catalog> DD::relocate(
         interpolate(solverOpt.downWeightingByResidualStart,
                     solverOpt.downWeightingByResidualEnd);
     double absLocConstraint   = interpolate(solverOpt.absLocConstraintStart,
-                                          solverOpt.absLocConstraintEnd);
+                                            solverOpt.absLocConstraintEnd);
     double absTTDiffObsWeight = interpolate(1.0, solverOpt.absTTDiffObsWeight);
     double xcorrObsWeight     = interpolate(1.0, solverOpt.xcorrObsWeight);
 
