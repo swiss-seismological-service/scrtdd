@@ -148,8 +148,8 @@ class DD
 public:
   DD(const Catalog &catalog,
      const Config &cfg,
-     std::shared_ptr<TravelTimeTable> ttt,
-     std::shared_ptr<Waveform::Proxy> wf =
+     const std::shared_ptr<TravelTimeTable>& ttt,
+     const std::shared_ptr<Waveform::Proxy>& wf =
          std::shared_ptr<Waveform::Proxy>(new Waveform::NoWaveformProxy()));
   ~DD() = default;
 

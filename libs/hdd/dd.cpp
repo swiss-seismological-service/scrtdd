@@ -80,8 +80,8 @@ namespace HDD {
 
 DD::DD(const Catalog &catalog,
        const Config &cfg,
-       std::shared_ptr<HDD::TravelTimeTable> ttt,
-       std::shared_ptr<HDD::Waveform::Proxy> wf)
+       const std::shared_ptr<HDD::TravelTimeTable>& ttt,
+       const std::shared_ptr<HDD::Waveform::Proxy>& wf)
     : _cfg(cfg), _srcCat(catalog),
       _bgCat(Catalog::filterPhasesAndSetWeights(_srcCat,
                                                 Phase::Source::CATALOG,
