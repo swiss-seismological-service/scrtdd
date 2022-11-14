@@ -26,12 +26,6 @@ rtDD is a [SeisComP](<https://github.com/SeisComP>) extension module that implem
 
 rtDD contains a C++ library for double-difference inversion which doesn't depend on SeisComP and can be used in other systems. See for example [pyrtdd](https://github.com/swiss-seismological-service/pyrtdd).
 
-The actual methods are based on the paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser and "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Waldhauser & Ellsworth.
-
-The double-difference equation system solver uses [LSQR by Chris Paige, Michael Saunders](<https://web.stanford.edu/group/SOL/software/lsqr/>) and [LSMR by David Fong, Michael Saunders](<https://web.stanford.edu/group/SOL/software/lsmr/>) algorithms from [this](<https://github.com/tvercaut/LSQR-cpp/>) Apache Licensed beautiful implementation by Tom Vercautereen.
-
-rtDD also supports [NonLinLoc by Anthony Lomax](<http://alomax.free.fr/nlloc/>) grid file format alongside the travel time formats natively supported by SeisComP (LOCSAT and libtau). A feature that enables 3D velocity models within the tool.
-
 rtDD acknowledges support from [Geothermica](http://www.geothermica.eu/)
 
 ## Documentation
