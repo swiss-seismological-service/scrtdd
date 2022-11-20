@@ -42,6 +42,8 @@ if LooseVersion(sphinx.__version__) < LooseVersion('1.4'):
 else:
     extensions.append('sphinx.ext.imgmath')
 
+imgmath_embed = True
+
 # bibliography
 bibtex_bibfiles = ['base/references.bib']
 bibtex_default_style = 'plain'

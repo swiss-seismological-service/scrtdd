@@ -10,30 +10,28 @@ Single-event relocation is used to relocate events in real-time and it requires 
    
    Test with synthetic data from the unit testing folder. Events from 4 clusters have their locations and times altered - using several normal distributions with non-zero mean - to simulate location/time errors. The single-event double-difference inversion is then applied on those altered events, one at a time against the background catalog and their original locations and times are properly recovered. It is interesting to note that the backgroud catalog is not part of the 4 clusters, but the double-differene inversion is still able to perfectly recover the event locations of those close-by clusters.
 
-------
-Summay
-------
+
+-------
+Summary
+-------
 
 * Use the multi-event relocation feature to prepare a background catalog
-* Create a rtDD profile or use the same profile used for generating the background catalog, then set the profile background catalog and add the profile to the list of active real-time profiles (``activeProfiles`` parameter). The default profile parameter values are meant to be a good starting choice, so there is no need to tweak them heavily. However, it is a good choice to configure a custom velocity model (``solver.travelTimeTable``)
+* Create a rtDD profile or use the same profile used for generating the background catalog
+* Set the background catalog in the profile and add the profile to the list of active real-time profiles (``activeProfiles`` parameter). The default profile parameter values are meant to be a good starting choice, so there is no need to tweak them heavily. However, it is a good choice to configure a custom velocity model (``solver.travelTimeTable``)
 * Make sure to read :ref:`avoid-loop-label` paragraph to avoid a potential issue
 * Enable and start rtDD (``seiscomp enable scrtdd``, ``seiscomp start scrtdd``)
 
---------------
-The long story
---------------
 
-To enable the real-time processing a profile should be created and enabled by including it in ``scrtdd.activeProfiles`` option.
- 
-In real-time processing rtDD relocates new origins, one a time as they occur, against a background catalog of high quality events. Those high quality events can be generated via multi-event relocation, which has already been covered in the previous sections.
+---------------
+Getting started
+---------------
 
-Real time relocation uses the same configuration we have seen in full catalog relocation, but real time relocation is done in two steps:
+In single-event mode, rtDD relocates new seismic events in real-time, one a time, against a background catalog of high quality events. This reference catalog consists in the historic seismicity of a certain area that have been relocated with the double-difference inversion. That can be done with rtDD itself in Multi-Event mode or by means of other tools.
 
-**Step 1**: location refinement. In this step rtDD performs a preliminary relocation of the origin where the differential travel times in the double-difference system are derived from the pick times.
+The real-time relocation is performed in two steps. The first step refines the location of a newly occurred event by building and solving a double-difference system, where the observed differential travel times are derived from the pick times. The cross-correlation is not used in this first step. The second step starts from the location refined at step 1, then a new double-difference system is built and solved. This time the observed differential times are refined via cross-correlation. If step1 fails, step2 is attempted anyway. If step2 completes successfully the relocated origin is sent to the messaging system.
 
-**Step 2**: the refined location computed in the previous step is used as starting location to perform a more precise relocation using cross-correlation to refine the differential travel times. If step1 fails, step2 is attempted anyway.
+At each step a selection of neighbouring events from the background catalog takes place. The selected events are paired with the real-time event to form the double-difference system.  In the simplest form the selection can be nearest neighbour based, where the closest events are chosen within a configurable maximum search distance. However, to handle initial location errors in which the real-time event would be paired with events that are not close to its true location, the neighbour selection is performed using the ellipsoid method explained in Waldhauser's paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California". In this variant concentric elliptic volumes are created and subsequently divided in their eight quadrants. The neighbours are finally selected from each of these cells in a round robin fashion until the configured maximum number of neighbours is reached. This approach spreads the selection of event pairs over a larger area, that should cover the initial location uncertainty.
 
-If step2 completes successfully the relocated origin is sent to the messaging system. 
 
 --------------------------------
 Configuring a background catalog
@@ -49,9 +47,9 @@ However, if the catalog is generated in XML format, it can be imported in the Se
 .. image:: media/catalog-selection1.png
    :width: 800
 
-While it is neat to have the background catalog in the SeisComP database, this approach has few limitations. First it may take a lot of time for rtDD to load a big catalog from the database comparing to loading it from files. Also, since the background catalog should be periodically updated, old events are continuously updated with new origins, which can lead to a not optimal database performance-wise.
+While it is neat to have the background catalog in the SeisComP database, this approach has few limitations. Firstly it may take a lot of time for rtDD to load a big catalog from the database; loading a catalog from files is much faster. Secondly, the background catalog should be periodically updated and this update produces not only new events, but also new locations for old events. In turn this leads to a continuous addition of origins belonging to old events to the database.
 
-Once the background catalog is configured rtDD can be enabled and started as any other SeisComP module.  New origins will be relocated as soon as they arrive in the messaging system.
+Once the background catalog is configured, rtDD can be enabled and started as any other SeisComP module.  New origins will be relocated as soon as they arrive in the messaging system.
 
 -------
 Testing
@@ -199,13 +197,13 @@ They can be both visualized in ``scolv`` as additional columns adding the follow
 
 .. _phase-update-label:
 
-------------
-Phase update
-------------
+-----------------------------------------------------
+Pick update and Phase detection via cross-correlation
+-----------------------------------------------------
 
-rtDD uses cross-correlation to fix the pick time and uncertainty of automatic picks. The pick time is updated according to the average lag detected by all the good (above configured threshold) cross-correlation results. Since the real-time events are cross-correlated against catalog events, which have good manual picks, the updated pick time is expected to improve. The pick uncertainty is derived from the uncertainties of catalog-events. If no cross-correlation result is above the configured threshold, the automatic pick is kept untouched.
- 
-rtDD can also use cross-correlation to detect phases at stations with no associated picks (see ``crossCorrelation.detectMissingPhasesAutoOrigin`` and ``crossCorrelation.detectMissingPhasesManualOrigin``). It firstly computes the theoretical pick time and then cross-correlates it against the catalog event phases. Every theoretical pick that has at least one good cross-correlation result is added to the relocated origin, with pick time and uncertainties derived from catalog phases (similarly to what is done for automatic picks). Those detected picks are thus used in the double-difference system inversion. Theoretical picks that have no good cross-correlation results are simply discarded.
+rtDD uses cross-correlation to fix the pick time and uncertainty of automatic picks. The pick time is updated according to the average lag detected by all the good (above configured threshold) cross-correlation results. Since the real-time events are cross-correlated against catalog events, which have good manual picks, the updated pick time is expected to improve. The pick uncertainty is derived from the uncertainties of catalog events. If no cross-correlation result is above the configured threshold, the automatic pick is kept untouched.
+
+rtDD can also make use of cross-correlation to detect phases at stations where an origin has no associated picks (see ``crossCorrelation.detectMissingPhasesAutoOrigin`` and ``crossCorrelation.detectMissingPhasesManualOrigin``). During the differential times computation step, every origin phase is cross-correlated against the neighbouring event phases. When a neighbour has a phase at a station for which the real-time origin does not, rtDD computes the theoretical pick time for the station and cross-correlates it against the reference event phases. If the correlation coefficient is above the configured threshold a new phase is created and used in the inversion. Theoretical picks that have no good cross-correlation results are simply discarded.
 
 Picks that have been updated or created by rtDD are identifiable by a ``x`` suffix (Px, Sx).
 
@@ -231,4 +229,17 @@ rtDD listens and sends messages to the LOCATION group. In a default installation
     scevent       LOCATION,RELOCATION, ...             ...
     scamp         LOCATION,RELOCATION, ...             ...
     scmag         LOCATION,RELOCATION, ...             ...
+
+
+------------------
+Relocation Process
+------------------
+
+In Single-Event mode the double-difference system is slightly modified compared to the :ref:`Multi-Event version <multi-event-relocation-process-label>`. The reason is that we are only interested in computing the changes of the real-time event with respect to the background catalog and not so much in the changes of the reference events. The reason is the difficulty in avoiding the introduction of possible errors in the background catalog that an automatic update could cause. For this reason the background catalog is never changed during the Single-Event relocation and the double-difference equation used to build the double-difference system becomes:
+
+.. math:: \frac{\partial t_k^i}{\partial m} \Delta m^i = dr_k^{ij}
+
+which computes the changes (lat, lon, depth, time) of the real-time event i with respect to the background catalog event j. Because of this formulation of the equation, the real-time event relocation becomes the relative change of a new event to a set of fixed reference events, which dismiss the problem of a possible shift in absolute location during the inversion, problem :ref:`that exists in the multi-event mode <shift-cluster-centroid-label>`. As a result the damping factor can be set to a very low value or even 0. 
+
+On the other hand, it becomes clear the importance of having a precise background catalog since its quality directly transfers to real-time relocations. Moreover, because the background catalog events are not updated by the Single-Event inversion, a periodic update of the reference catalog that include the contribution of the new events is required. This contribution might be negligible for well established clusters, but it is of a crucial importance for regions where the historic seismicity is not known and so susceptible to considerable changes. Thanks to its integration in SeisComP, rtDD allows for easy and automatic periodic background catalog updates, which should be taken into consideration when applying the tool in real-time. See :ref:`continuous-label`.
 

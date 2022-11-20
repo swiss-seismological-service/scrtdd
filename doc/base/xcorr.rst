@@ -3,7 +3,9 @@
 Cross-correlation
 =================
 
-Good cross-correlation results are needed to achieve high quality double-difference observations, which in turn results in high resolution relocations. The purpose of the cross-correlation is to find the exact time difference between two picks of an event pair at a common station. The cross-correlation is automatically performed by rtDD before the double-difference inversion when ``RecordStream`` is configured, otherwise it is simply skipped, The cross-correlation step can also be disabled setting the configuration parametters ``crossCorrelation.maxStationDistance`` and/or ``crossCorrelation.maxInterEventDistance`` to 0.
+The purpose of the cross-correlation is to refine the exact time difference between two picks at a common station of an event pair, which allows for higher resolution event (re)locations. This time difference becomes the observed differential time part of a double-difference (see :ref:`multi-event-relocation-process-label`). When the cross-correlation is disabled or the correlation coefficient is below the configured threshold then the observed differential times are derived from the phase times (difference of their absolute travel times). 
+
+The cross-correlation step is optional and due to the expensive computation time it can be enabled only after the other parameters of rtDD have been optimized. The cross-correlation can be disabled by setting the ``crossCorrelation.maxStationDistance`` and/or ``crossCorrelation.maxInterEventDistance`` to 0. The cross-correlation is also skipped if the ``RecordStream`` parameter is not properly configured, because the waveform data will not be available.
 
 ------------------
 Eval-xcorr command
@@ -102,13 +104,13 @@ The SNR is particularly important to reject bad automatic picks or picks detecte
 Reusing cross-correlation results
 ---------------------------------
 
-When cross-correlation settings are not changed, it might be useful to reuse the cross-correlation results to save processing time. Both the ``--eval-xcorr`` and ``--reloc-catalog`` options save a ``xcorr.csv`` file after finishing their execution (thay overwrite it if already present!). That file contains the computed cross-correlation results and can be given back to rtDD via the command line option ``--xcorr-cache``. It is safe to change the value of ``crossCorrelation.x-phase.minCCCoef`` and reuse the cross-correlation results to see how performance change at varying correlation-coefficient threshold.
+When cross-correlation settings are not changed, it might be useful to reuse the cross-correlation results to save processing time. Both the ``--eval-xcorr`` and ``--reloc-catalog`` options save a ``xcorr.csv`` file after finishing their execution (thay overwrite it if already present!). That file contains the computed cross-correlation results and can be given back to rtDD via the command line option ``--xcorr-cache``. It is safe to change the value of ``crossCorrelation.x-phase.minCCCoef`` and reuse the cross-correlation results to see how performance change at varying correlation coefficient threshold.
 
 --------------------
 Waveforms inspection
 --------------------
 
-The ``--dump-wf`` option will make rtDD dump to disk the waveforms of the catalog passed as argument. Those files are in miniseed format and can be viewed with an external tool (e.g. ``scrttv waveform.mseed``) or obspy). The waveforms are written to disk after the filterting and resampling have been applied::
+The ``--dump-wf`` option will make rtDD dump to disk the waveforms of the catalog passed as argument. Those files are in miniseed format and can be viewed with an external tool (e.g. ``scrttv waveform.mseed``) or obspy). The waveforms are written to disk after the filtering and resampling have been applied::
 
     scrtdd --help
       --dump-wf arg                         Dump processed waveforms of the catalog
