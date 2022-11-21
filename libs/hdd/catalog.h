@@ -240,9 +240,9 @@ public:
               const std::string &stationId,
               const Phase::Type &type) const;
 
-  void writeToFile(std::string eventFile,
-                   std::string phaseFile,
-                   std::string stationFile) const;
+  void writeToFile(const std::string& eventFile,
+                   const std::string& phaseFile,
+                   const std::string& stationFile) const;
 
   //
   //  static
