@@ -268,7 +268,7 @@ rtDD relocates each cluster by building and solving a double-difference system t
 .. math:: WGm = Wd
    :label: dd-system-label
 
-where **G** defines a matrix of size M x 4N (M, number of double-difference equations; N, number of events) containing the partial derivatives, **d** is the data vector containing the double-differences, **m** is a vector of length 4N, :math:`[\Delta x, \Delta y, \Delta z, \Delta \tau]^T`, containing the changes in hypocentral parameters we wish to determine, and *W* is a diagonal matrix to weight each equation.
+where **G** defines a matrix of size M x 4N (M, number of double-difference equations; N, number of events) containing the partial derivatives, **d** is the data vector of size M containing the double-differences, **m** is a vector of length 4N, :math:`[\Delta x, \Delta y, \Delta z, \Delta \tau]^T`, containing the changes in hypocentral parameters we wish to determine, and *W* is a diagonal matrix of size M x M to weight each equation.
 
 To build the system, rtDD creates an equation for each phase k a pair of events i and j have at a common station. This is done for every event pair in a cluster. The equation is defined as:
 
@@ -282,7 +282,7 @@ The double-difference is defined as:
 .. math:: dr_k^{ij} = (t_k^i - t_k^j)^{observed} - (t_k^i - t_k^j)^{calculated}
    :label: dd-label
 
-and t is the travel time for the phase k for the events i and j. The observed differential time can then be computed from the pick times or it can be the cross-correlation lag between the phase waveforms. The calculated travel time is the difference of the phase travel times computed using a velocity model.
+and t is the travel time for the phase k for the events i and j. The observed differential time can then be computed as the difference in phase travel times using the observed picks or it can be the cross-correlation lag between the phase waveforms. The calculated travel time is the difference of the theoretical phase travel times computed using a velocity model.
 
 The partial derivatives and hypocenter changes part of the equation :eq:`dd-equation-label` can be written in full as:
 
@@ -307,10 +307,14 @@ Shift of Cluster Centroid
 
 The solution of a double-difference system as defined in :eq:`dd-system-label` is the set of hypocenters changes (latitude, longitude, depth and time) that minimizes the difference between the observed and the calculated differential times. Since the system does not take into consideration absolute locations, the inversion is susceptible to shifts in the events true locations.
 
-To compensate for this effect Waldhauser & Ellsworth offer two solutions. The first is to add four additional equations to the double-difference system - one for each coordinate direction and one for the origin time - that constrain to zero the mean shift of all the hypocenters during the inversion. Since this method is computationally efficient is also well suited for a SVD solver. However for a least-square approach, such as the one used by rtDD, Waldhauser & Ellsworth make use of regularization, that is a damped least-squares approach. The damping factor forces the solver to find the solution that not only minimizes the double-difference residuals, but also the changes to the hypocenters, preventing huge shifts in absolute locations. The damping factor also has the benefit of working on ill-conditioned systems.
+To compensate for this effect Waldhauser & Ellsworth offer two solutions. The first is to add four additional equations to the double-difference system - one for each coordinate direction and one for the origin time - that constrain to zero the mean shift of all the hypocenters during the inversion. Since this method is computationally efficient is also well suited for a SVD solver. However for a least-square approach, such as the one used by rtDD, Waldhauser & Ellsworth make use of regularization, that is a damped least-squares approach. The damping factor forces the solver to find the solution that not only minimizes the double-difference residuals, but also the changes to the hypocenters, preventing huge shifts in absolute locations. The damping factor also has the benefit of working on ill-conditioned systems. The double-difference system :eq:`dd-system-label` with the inclusion of the damping factor :math:`\lambda` and the identity matrix I, of size 4N x 4N - with N being the number of events, then becomes:
 
-rtDD uses the damped least-squares approach and it proved to be effective in our tests. An empirical approach to find the optimal damping factor value is to start with a very low value to observe the pure relative locations of the cluster(s) and then increase the value until the overlall RMS (travel time table RMS) is equal or better than what it was before the inversion. The process is usually not a trade-off and the final solution improves both the residuals of the double-difference system (relative location/cluster shape) and the travel time RMS (absolute location of the clusters).
+.. math:: \begin{vmatrix} W G \\ \lambda I \\ \end{vmatrix} m  = \begin{vmatrix} W d \\ 0 \\ \end{vmatrix}
+   :label: dd-damped-system-label
 
+rtDD uses the damped least-squares approach, which is supported by both LSQR and LSMR and it proved to be effective in our tests. An empirical approach to find the optimal damping factor value is to start with a very low value to observe the pure relative locations of the cluster(s) and then increase the value until the overlall RMS (travel time table RMS) is equal or better than what it was before the inversion. The process is usually not a trade-off and the final solution improves both the residuals of the double-difference system (relative location/cluster shape) and the travel time RMS (absolute location of the clusters).
+
+.. _inclusion-tt-residual-label:
 
 Inclusion of absolute travel time residuals in the double-difference system
 ---------------------------------------------------------------------------
@@ -318,10 +322,17 @@ Inclusion of absolute travel time residuals in the double-difference system
 rtDD includes an interesting option where both absolute and relative locations are taken into consideration during the inversion. This variation of the double-difference system comes from the observation that the changes in absolute travel time residuals are known during the inversions and hence they can be constrained to be zero. The equation :eq:`dd-equation-label` contains the travel time change for the phase k, :math:`\frac{\partial t_k}{\partial m} \Delta m`. We can then include an equation in the double-difference system for every phase k of every event i that forces that travel time change to be equal to the travel time residual:
 
 
-.. math:: \frac{\partial t_k^i}{\partial m} \Delta m^i = (t_k^i)^{observed} - (t_k^i)^{calculated}
+.. math::  \frac{\partial t_k^i}{\partial m} \Delta m^i = (t_k^i)^{observed} - (t_k^i)^{calculated} = r_k^i
    :label: rms-equation-label
 
-This definition of the double-difference system forces the solver to find the event locations that both minimize the double-difference and the absolute travel time residuals.
+The double-difference system :eq:`dd-damped-system-label` then becomes:
+
+.. math:: \begin{vmatrix} W G \\ \omega K \\ \lambda I \\ \end{vmatrix} m  = \begin{vmatrix} W d \\ \omega r \\ 0 \\ \end{vmatrix} 
+   :label: dd-damped-rms-system-label
+
+Where K is a diagonal matrix containing the partial derivatives, r is the vector containing the absolute travel time residuals and :math:`\omega` is a scalar difining the weight we want to give to these new equations to balance their importance w.r.t. the double-difference residuals. If the sum of all the phases of all events in the system is Z, then K size is Z x Z and r size is Z. It is worth noting that in such a system, the damping factor :math:`\lambda` loses its importance and it can be set to 0 or a very low value.
+
+This definition of such a double-difference system forces the solver to find the changes in event locations that both minimize the double-difference and the absolute travel time residuals. 
 
 ----------------------
 Evaluating the results
