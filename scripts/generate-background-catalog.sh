@@ -88,6 +88,11 @@ if [ $? -ne 0 ] || [ ! -f reloc-event.csv ] || [ ! -f reloc-phase.csv ] || [ ! -
   exit 1
 fi
 
+if [ "$( wc -w < reloc-event.csv )" -lt 2 ]; then
+  echo "Relocated catalog contains no events: stop here"
+  exit 1
+fi
+
 echo "Done: created files $XMLRELOC_FILE and reloc-event.csv,reloc-phase.csv,reloc-station.csv"
 
 #
