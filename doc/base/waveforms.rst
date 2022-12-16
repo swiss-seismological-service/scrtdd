@@ -14,7 +14,7 @@ A hypothetical RecordStream configuration might look like this::
 
 This configuration is a combination of seedlink and sds archive, which allows rtDD to retrieve catalog waveforms via sds and real-time event data via seedlink.
 
-Please note that depending on the responsiveness of the seedlink server the real-time relocations may incur in delays. A couple of configuration options allow to control those delays: *timeout* and *retries*. The example below forces a timeout of 5 seconds (default is 5 minutes) and to not reconnect. In case of a timeout, rtDD will proceed with the available data, without further delays::
+Depending on the responsiveness of the seedlink server the real-time relocations may incur in delays. It is also possible that some data is not available causing SeisComP to reconnect indefinitely to the seedlink server. A couple of configuration options allow to avoid long or infinite delays in these scenarios: *timeout* and *retries*. The example below forces a timeout of 5 seconds (default is 5 minutes) and to not reconnect in case of missing data. In case of a timeout, rtDD will proceed with the available data, without further delays::
 
     recordstream = combined://slink/localhost:18000?timeout=5&retries=0;sdsarchive//path/to/miniseed
  

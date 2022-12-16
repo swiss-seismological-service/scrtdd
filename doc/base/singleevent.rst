@@ -19,6 +19,7 @@ Summary
 * Create a rtDD profile or use the same profile used for generating the background catalog
 * Set the background catalog in the profile and add the profile to the list of active real-time profiles (``activeProfiles`` parameter). The default profile parameter values are meant to be a good starting choice, so there is no need to tweak them heavily. However, it is a good choice to configure a custom velocity model (``solver.travelTimeTable``)
 * Make sure to read :ref:`avoid-loop-label` paragraph to avoid a potential issue
+* Make sure to read :ref:`waveform-label` paragraph to avoid delays when fetching data from seedlink
 * Enable and start rtDD (``seiscomp enable scrtdd``, ``seiscomp start scrtdd``)
 
 
