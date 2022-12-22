@@ -83,4 +83,20 @@ git checkout master
 git rebase origin/master
 </pre>
 
+## Tests
+
+If tests were enabled during the compilation of SeiComP then `scrtdd` can be tested
+running the following command in the build folder:
+.
+<pre>
+seiscomp/build$ ctest -R test_hdd
+</pre>
+
+Alternatively `scrtdd` can be tested together with the whole SeisComP test suite with:
+
+<pre>
+seiscomp/build$ make test
+</pre>
+
+See SeisComP's [unit testing guide](https://docs.gempa.de/seiscomp/current/base/tests.html).
 
