@@ -22,9 +22,12 @@
 
 # Description
 
-rtDD is a [SeisComP](<https://github.com/SeisComP>) extension module that implements Double-Difference event relocation both in Real-Time, one event at the time, and classic offline mode, where an earthquake catalog is relocated as a whole.
+rtDD is a [SeisComP](<https://github.com/SeisComP>) extension module that implements
+Double-Difference event relocation both in Real-Time, one event at the time, and classic
+offline mode, where an earthquake catalog is relocated as a whole.
 
-rtDD contains a C++ library for double-difference inversion which doesn't depend on SeisComP and can be used in other systems. See for example [pyrtdd](https://github.com/swiss-seismological-service/pyrtdd).
+rtDD contains a C++ library for double-difference inversion which doesn't depend on
+SeisComP and can be used in other systems. See for example [pyrtdd](https://github.com/swiss-seismological-service/pyrtdd).
 
 rtDD acknowledges support from [Geothermica](http://www.geothermica.eu/)
 
@@ -34,11 +37,15 @@ You can find the online documentation at https://docs.gempa.de/scrtdd/current/
 
 ## Installation from binaries
 
-You can find compiled version of this module at https://data.gempa.de/packages/Public/. The installation file is a compressed tar archive containing the binary distribution of this module, which can be extracted in your SeisComP installation folder.
+You can find compiled version of this module at https://data.gempa.de/packages/Public/.
+The installation file is a compressed tar archive containing the binary distribution of
+this module, which can be extracted in your SeisComP installation folder.
 
 ## Installation from source code
 
-In order to use this module the sources have to be merged into the *SeisComP* sources, then *SeisComP* can be compiled and installed as usual. Follow the up-to-date procedure at https://github.com/SeisComP/seiscomp
+In order to use this module the sources have to be merged into the *SeisComP* sources,
+then *SeisComP* can be compiled and installed as usual. Follow the up-to-date procedure
+at https://github.com/SeisComP/seiscomp
 
 <pre>
 #
@@ -100,3 +107,6 @@ seiscomp/build$ make test
 
 See SeisComP's [unit testing guide](https://docs.gempa.de/seiscomp/current/base/tests.html).
 
+Please note that due to the size of the NonLinLoc grids, not all the transformation are
+tested. To let the tests cover all the implemented transformations the script 
+`libs/hdd/test/data/nll/generate.ch` should be run, which will generate the missing grids.
