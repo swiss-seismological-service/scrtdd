@@ -8,16 +8,19 @@ seiscomp_exec="/usr/local/bin/seiscomp exec"
 #   sqlite3:///home/sysop/database.sqlite
 CATALOG_DB="dbtype://user:password@host/database"
 
-# Database to which import the relocated catalog (if empty -> no import)
+# Database to which import the relocated catalog
+# (empty string -> do nothing)
 DESTINATION_DB=""
 
-# The real-time rtDD configuration folder to which copy the relocated catalog, 
-# the real-time rtDD profile should point to this catalog (if empty -> no copy)
+# The real-time rtDD configuration folder to which copy the relocated catalog
+# The real-time rtDD profile should point to this catalog to get automatic updates
+# (empty string -> do nothing)
 RTDD_BGCAT_DIR=""
 
-# Folder to which copy the data for the web page intereactive map (empty -> no copy) 
-# You need a web server to visualize the page on a browser unless you run a browser
-# on the same machine
+# Folder to which copy the data for the web page interactive map
+# You need a web server to visualize the page on a different machine or you
+# can run a browser on the same machine and open the relocation-map.html file
+# (empty string -> do nothing)
 WEB_DIR=""
 
 RTDD_PROFILE="myProfile"
@@ -50,7 +53,7 @@ cd $WORKINGDIR
 #
 # Downloads the events (configure sclistorg options as you please)
 #
-echo "Downloading events from $CATALOG_DB)..."
+echo "Downloading events from $CATALOG_DB..."
 
 ID_FILE=catalog-ids.csv
 
@@ -73,14 +76,12 @@ echo "Done: created file $ID_FILE"
 #
 echo "Relocating events with profile $RTDD_PROFILE..."
 
-#depending on the size of the logs, many files will be generated in the form scrtdd.log scrtdd.log.1 scrtdd.log.2 ...
-RTDDLOG_FILE=scrtdd.log
 XMLRELOC_FILE=relocated.xml
 
 $seiscomp_exec scrtdd -d $CATALOG_DB \
        --reloc-catalog $ID_FILE \
        --profile $RTDD_PROFILE \
-       --verbosity=3 --log-file $RTDDLOG_FILE \
+       --verbosity=3 --log-file scrtdd.log \
        --xmlout > $XMLRELOC_FILE
 
 if [ $? -ne 0 ] || [ ! -f reloc-event.csv ] || [ ! -f reloc-phase.csv ] || [ ! -f reloc-station.csv ]; then
@@ -143,7 +144,9 @@ if [ -n "${DESTINATION_DB}" ]; then
 
   echo "Importing $XMLRELOC_FILE into $DESTINATION_DB ..."
 
-  $seiscomp_exec scdb -i $XMLRELOC_FILE -d $DESTINATION_DB $LOGFLAG
+  $seiscomp_exec scdb -i $XMLRELOC_FILE \
+                      -d $DESTINATION_DB \
+                      --verbosity=3 --log-file scdb.log
 
   if [ $? -ne 0 ]; then
     echo "Errors while importing the relocated catalog into database"
