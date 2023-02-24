@@ -30,12 +30,11 @@ public:
 
   void freeResources() override;
 
-  void compute(double eventLat,
-               double eventLon,
-               double eventDepth,
-               const Catalog::Station &station,
-               const std::string &phaseType,
-               double &travelTime) override;
+  double compute(double eventLat,
+                 double eventLon,
+                 double eventDepth,
+                 const Catalog::Station &station,
+                 const std::string &phaseType) override;
 
   void compute(double eventLat,
                double eventLon,
@@ -43,8 +42,8 @@ public:
                const Catalog::Station &station,
                const std::string &phaseType,
                double &travelTime,
-               double &takeOffAngleAzim,
-               double &takeOffAngleDip,
+               double &azimuth,
+               double &takeOffAngle,
                double &velocityAtSrc) override;
 
 private:

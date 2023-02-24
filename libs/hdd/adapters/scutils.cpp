@@ -387,6 +387,10 @@ addToCatalog(HDD::Catalog &cat, const std::string &idFile, DataSource &dataSrc)
     throw std::runtime_error(msg);
   }
 
+  SEISCOMP_INFO("Reading file %s which must contain at least the column "
+                "'seiscompId' with the origin ids",
+                idFile.c_str());
+
   vector<string> ids;
   vector<unordered_map<string, string>> rows = HDD::CSV::readWithHeader(idFile);
 

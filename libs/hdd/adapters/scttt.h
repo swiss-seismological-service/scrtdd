@@ -39,19 +39,18 @@ public:
   void compute(double eventLat,
                double eventLon,
                double eventDepth,
-               const HDD::Catalog::Station &station,
+               const Catalog::Station &station,
                const std::string &phaseType,
                double &travelTime,
-               double &takeOfAngleAzim,
-               double &takeOfAngleDip,
+               double &azimuth,
+               double &takeOffAngle,
                double &velocityAtSrc) override;
 
-  void compute(double eventLat,
-               double eventLon,
-               double eventDepth,
-               const HDD::Catalog::Station &station,
-               const std::string &phaseType,
-               double &travelTime) override;
+  double compute(double eventLat,
+                 double eventLon,
+                 double eventDepth,
+                 const Catalog::Station &station,
+                 const std::string &phaseType) override;
 
 private:
   void load();

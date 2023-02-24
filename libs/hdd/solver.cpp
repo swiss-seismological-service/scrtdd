@@ -444,7 +444,9 @@ void Solver::computePartialDerivatives()
 
       // dip angle:  0(down):180(up) -> -90(down):+90(up)
       const double dip = obprm.takeOffAngleDip - degToRad(90);
-      // azimuth angle to backazimuth
+      // Make azimuth relative to the station(this is not the back
+      // azimuth, even though they are identical for a short event-station
+      // distance)
       const double azi      = obprm.takeOffAngleAzim - degToRad(180);
       const double slowness = 1. / obprm.velocityAtSrc;
 

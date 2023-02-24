@@ -24,34 +24,35 @@ using namespace std;
 
 namespace HDD {
 
-void TravelTimeTable::computeApproximatedTakeOfAngles(
+void TravelTimeTable::computeApproximatedTakeOffAngles(
     double eventLat,
     double eventLon,
     double eventDepth,
     const Catalog::Station &station,
     const std::string &phaseType,
-    double *takeOffAngleAzim,
-    double *takeOffAngleDip)
+    double *azimuth,
+    double *takeOffAngle)
 {
 
-  if (takeOffAngleAzim || takeOffAngleDip)
+  if (!azimuth && !takeOffAngle)
   {
-    double azimuth;
-    double distance = computeDistance(
-        eventLat, eventLon, eventDepth, station.latitude, station.longitude,
-        -(station.elevation / 1000.), &azimuth, nullptr);
+    return;
+  }
 
-    if (takeOffAngleDip)
-    {
-      double VertDist  = eventDepth + station.elevation / 1000.;
-      *takeOffAngleDip = std::asin(VertDist / distance);
-      *takeOffAngleDip += degToRad(90); // -90(down):+90(up) -> 0(down):180(up)
-    }
+  double distance = computeDistance(
+      eventLat, eventLon, eventDepth, station.latitude, station.longitude,
+      -(station.elevation / 1000.), azimuth, nullptr);
 
-    if (takeOffAngleAzim)
-    {
-      *takeOffAngleAzim = degToRad(azimuth);
-    }
+  if (takeOffAngle)
+  {
+    double VertDist = eventDepth + station.elevation / 1000.;
+    *takeOffAngle   = std::asin(VertDist / distance);
+    *takeOffAngle += degToRad(90); // -90(down):+90(up) -> 0(down):180(up)
+  }
+
+  if (azimuth)
+  {
+    *azimuth = degToRad(*azimuth);
   }
 }
 

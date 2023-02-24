@@ -96,13 +96,12 @@ void addEventToCatalog(HDD::Catalog &cat,
     ph.channelCode      = "";
     ph.isManual         = true;
 
-    double travelTime;
-    ttt.compute(ev, sta, "P", travelTime);
+    double travelTime = ttt.compute(ev, sta, "P");
     ph.time = ev.time + secToDur(travelTime);
     ph.type = "P";
     cat.addPhase(ph);
 
-    ttt.compute(ev, sta, "S", travelTime);
+    travelTime = ttt.compute(ev, sta, "S");
     ph.time = ev.time + secToDur(travelTime);
     ph.type = "S";
     cat.addPhase(ph);

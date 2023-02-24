@@ -34,9 +34,10 @@ public:
 
   /*
    * The implementation of this interface MUST compute:
-   * - travelTime [seconds]
-   * - takeOffAngleAzim [degree]
-   * - takeOffAngleDip [degree]
+   * - travelTime    [seconds]
+   * - azimuth       [rad]
+   * - backAzimuth   [rad]
+   * - takeOffAngle  [rad] 0(down):180(up)
    * - velocityAtSrc [km/sec]
    */
   virtual void compute(double eventLat,
@@ -45,42 +46,45 @@ public:
                        const Catalog::Station &station,
                        const std::string &phaseType,
                        double &travelTime,
-                       double &takeOffAngleAzim,
-                       double &takeOffAngleDip,
+                       double &azimuth,
+                       double &takeOffAngle,
                        double &velocityAtSrc) = 0;
 
   void compute(const Catalog::Event &event,
                const Catalog::Station &station,
                const std::string &phaseType,
                double &travelTime,
-               double &takeOffAngleAzim,
-               double &takeOffAngleDip,
+               double &azimuth,
+               double &takeOffAngle,
                double &velocityAtSrc)
   {
     return compute(event.latitude, event.longitude, event.depth, station,
-                   phaseType, travelTime, takeOffAngleAzim, takeOffAngleDip,
-                   velocityAtSrc);
+                   phaseType, travelTime, azimuth, takeOffAngle, velocityAtSrc);
   }
 
   /*
-   * The implementation of this interface MUST compute:
+   * The implementation of this interface MUST return:
    * - travelTime [seconds]
-   * Many times  only travel time is required (save computation)
+   * This method is provided for the common case where only the travel time is
+   * required (no angles and no velocity).
+   * Depending on the specific TTT implementation this method might be faster
+   * since less information is required and we want to take adavantage of that.
+   * If that is not the case, this method can be implemented as a call to the
+   * similar method with additional information and returning only the
+   * travelTime value
    */
-  virtual void compute(double eventLat,
-                       double eventLon,
-                       double eventDepth,
-                       const Catalog::Station &station,
-                       const std::string &phaseType,
-                       double &travelTime) = 0;
+  virtual double compute(double eventLat,
+                         double eventLon,
+                         double eventDepth,
+                         const Catalog::Station &station,
+                         const std::string &phaseType) = 0;
 
-  void compute(const Catalog::Event &event,
-               const Catalog::Station &station,
-               const std::string &phaseType,
-               double &travelTime)
+  double compute(const Catalog::Event &event,
+                 const Catalog::Station &station,
+                 const std::string &phaseType)
   {
     return compute(event.latitude, event.longitude, event.depth, station,
-                   phaseType, travelTime);
+                   phaseType);
   }
 
 protected:
@@ -89,14 +93,13 @@ protected:
    * for takeOffAngles angles when those are not available in the
    * travel time tables
    */
-  static void
-  computeApproximatedTakeOfAngles(double eventLat,
-                                  double eventLon,
-                                  double eventDepth,
-                                  const Catalog::Station &station,
-                                  const std::string &phaseType,
-                                  double *takeOffAngleAzim = nullptr,
-                                  double *takeOffAngleDip  = nullptr);
+  static void computeApproximatedTakeOffAngles(double eventLat,
+                                               double eventLon,
+                                               double eventDepth,
+                                               const Catalog::Station &station,
+                                               const std::string &phaseType,
+                                               double *azimuth      = nullptr,
+                                               double *takeOffAngle = nullptr);
 };
 
 } // namespace HDD

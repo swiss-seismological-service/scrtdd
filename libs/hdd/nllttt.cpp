@@ -40,15 +40,15 @@ void TravelTimeTable::freeResources()
   _angleGrids.clear();
 }
 
-void TravelTimeTable::compute(double eventLat,
-                              double eventLon,
-                              double eventDepth,
-                              const Catalog::Station &station,
-                              const std::string &phaseType,
-                              double &travelTime)
+double TravelTimeTable::compute(double eventLat,
+                                double eventLon,
+                                double eventDepth,
+                                const Catalog::Station &station,
+                                const std::string &phaseType)
 {
   string timeGId =
       "timeGrid:" + Grid::filePath(_timeGridPath, station, phaseType);
+  double travelTime;
   try
   {
     travelTime =
@@ -79,6 +79,7 @@ void TravelTimeTable::compute(double eventLat,
     travelTime =
         _timeGrids.get(timeGId)->getTime(eventLat, eventLon, eventDepth);
   }
+  return travelTime;
 }
 
 void TravelTimeTable::compute(double eventLat,
@@ -87,12 +88,12 @@ void TravelTimeTable::compute(double eventLat,
                               const Catalog::Station &station,
                               const std::string &phaseType,
                               double &travelTime,
-                              double &takeOffAngleAzim,
-                              double &takeOffAngleDip,
+                              double &azimuth,
+                              double &takeOffAngle,
                               double &velocityAtSrc)
 {
   // get travelTime
-  compute(eventLat, eventLon, eventDepth, station, phaseType, travelTime);
+  travelTime = compute(eventLat, eventLon, eventDepth, station, phaseType);
 
   // Get velocityAtSrc
   string velGId = "velGrid:" + Grid::filePath(_velGridPath, station, phaseType);
@@ -128,8 +129,8 @@ void TravelTimeTable::compute(double eventLat,
   }
 
   // Get takeOffAngles
-  takeOffAngleAzim = std::numeric_limits<double>::quiet_NaN();
-  takeOffAngleDip  = std::numeric_limits<double>::quiet_NaN();
+  azimuth      = std::numeric_limits<double>::quiet_NaN();
+  takeOffAngle = std::numeric_limits<double>::quiet_NaN();
 
   string angleGId =
       "angleGrid:" + Grid::filePath(_angleGridPath, station, phaseType);
@@ -137,7 +138,7 @@ void TravelTimeTable::compute(double eventLat,
   try
   {
     _angleGrids.get(angleGId)->getAngles(eventLat, eventLon, eventDepth,
-                                         takeOffAngleAzim, takeOffAngleDip);
+                                         azimuth, takeOffAngle);
   }
   catch (std::range_error &e)
   {
@@ -161,14 +162,14 @@ void TravelTimeTable::compute(double eventLat,
       throw Exception(e.what());
     }
     _angleGrids.get(angleGId)->getAngles(eventLat, eventLon, eventDepth,
-                                         takeOffAngleAzim, takeOffAngleDip);
+                                         azimuth, takeOffAngle);
   }
 
   // approximate angles if not already provided by the grid
-  computeApproximatedTakeOfAngles(
+  computeApproximatedTakeOffAngles(
       eventLat, eventLon, eventDepth, station, phaseType,
-      std::isfinite(takeOffAngleAzim) ? nullptr : &takeOffAngleAzim,
-      std::isfinite(takeOffAngleDip) ? nullptr : &takeOffAngleDip);
+      std::isfinite(azimuth) ? nullptr : &azimuth,
+      std::isfinite(takeOffAngle) ? nullptr : &takeOffAngle);
 }
 
 } // namespace NLL

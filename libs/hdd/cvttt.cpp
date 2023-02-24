@@ -25,12 +25,11 @@ ConstantVelocity::ConstantVelocity(double pVel, double sVel)
 
 void ConstantVelocity::freeResources() {}
 
-void ConstantVelocity::compute(double eventLat,
-                               double eventLon,
-                               double eventDepth,
-                               const Catalog::Station &station,
-                               const std::string &phaseType,
-                               double &travelTime)
+double ConstantVelocity::compute(double eventLat,
+                                 double eventLon,
+                                 double eventDepth,
+                                 const Catalog::Station &station,
+                                 const std::string &phaseType)
 {
   double velocity; // [km/s]
   if (phaseType == "P")
@@ -44,7 +43,7 @@ void ConstantVelocity::compute(double eventLat,
   double distance = computeDistance(eventLat, eventLon, eventDepth,
                                     station.latitude, station.longitude,
                                     -(station.elevation / 1000.)); // [km]
-  travelTime      = distance / velocity;                           // [sec]
+  return distance / velocity;                                      // [sec]
 }
 
 void ConstantVelocity::compute(double eventLat,
@@ -53,14 +52,13 @@ void ConstantVelocity::compute(double eventLat,
                                const Catalog::Station &station,
                                const std::string &phaseType,
                                double &travelTime,
-                               double &takeOffAngleAzim,
-                               double &takeOffAngleDip,
+                               double &azimuth,
+                               double &takeOffAngle,
                                double &velocityAtSrc)
 {
-  compute(eventLat, eventLon, eventDepth, station, phaseType, travelTime);
-  computeApproximatedTakeOfAngles(eventLat, eventLon, eventDepth, station,
-                                  phaseType, &takeOffAngleAzim,
-                                  &takeOffAngleDip);
+  travelTime = compute(eventLat, eventLon, eventDepth, station, phaseType);
+  computeApproximatedTakeOffAngles(eventLat, eventLon, eventDepth, station,
+                                   phaseType, &azimuth, &takeOffAngle);
   if (phaseType == "P")
     velocityAtSrc = _pVel;
   else if (phaseType == "S")

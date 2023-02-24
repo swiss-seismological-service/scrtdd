@@ -1020,13 +1020,13 @@ bool DD::ObservationParams::add(HDD::TravelTimeTable &ttt,
   {
     try
     {
-      double travelTime, takeOfAngleAzim, takeOfAngleDip, velocityAtSrc;
-      ttt.compute(event, station, string(1, phaseType), travelTime,
-                  takeOfAngleAzim, takeOfAngleDip, velocityAtSrc);
+      double travelTime, azimuth, takeOffAngle, velocityAtSrc;
+      ttt.compute(event, station, string(1, phaseType), travelTime, azimuth,
+                  takeOffAngle, velocityAtSrc);
       double ttResidual = travelTime - durToSec(phase.time - event.time);
-      _entries[key]     = Entry{event,          station,       phaseType,
-                            travelTime,     ttResidual,    takeOfAngleAzim,
-                            takeOfAngleDip, velocityAtSrc, computeEvChanges};
+      _entries[key]     = Entry{event,        station,       phaseType,
+                            travelTime,   ttResidual,    azimuth,
+                            takeOffAngle, velocityAtSrc, computeEvChanges};
     }
     catch (exception &e)
     {
@@ -1297,10 +1297,9 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
       const Station &station = tmpCat->getStations().at(finalPhase.stationId);
       try
       {
-        double travelTime;
-        _ttt->compute(startEvent, station,
-                      string(1, static_cast<char>(finalPhase.procInfo.type)),
-                      travelTime);
+        double travelTime = _ttt->compute(
+            startEvent, station,
+            string(1, static_cast<char>(finalPhase.procInfo.type)));
         double residual =
             travelTime - durToSec(finalPhase.time - startEvent.time);
         finalPhase.relocInfo.startTTResidual = residual;
