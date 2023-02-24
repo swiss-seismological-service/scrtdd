@@ -44,44 +44,56 @@ using HDD::SCAdapter::fromSC;
 using HDD::SCAdapter::toSC;
 
 unique_ptr<HDD::Trace> contiguousRecord(const RecordSequence &seq,
-                                        const HDD::TimeWindow &tw,
-                                        double minAvailability)
+                                        const HDD::TimeWindow *tw = nullptr,
+                                        double minAvailability    = 0)
 {
-  const Core::TimeWindow sctw = toSC(tw);
-  if (seq.availability(sctw) < minAvailability)
+  if (seq.empty())
   {
-    string msg =
-        HDD::strf("Data availability too low %.2f%%", seq.availability(sctw));
-    throw HDD::Exception(msg);
+    throw HDD::Exception("No data");
   }
 
-  Seiscomp::GenericRecordPtr rec = seq.contiguousRecord<double>(&sctw, false);
+  Seiscomp::RecordPtr rec;
+  if (tw)
+  {
+    const Core::TimeWindow sctw = toSC(*tw);
+    if (minAvailability > 0 && seq.availability(sctw) < minAvailability)
+    {
+      throw HDD::Exception(HDD::strf("Data availability too low %.2f%%",
+                                     seq.availability(sctw)));
+    }
+    rec = seq.contiguousRecord<double>(&sctw, false);
+  }
+  else
+  {
+    rec = seq.contiguousRecord<double>(nullptr, false);
+  }
 
   if (!rec)
   {
-    throw HDD::Exception("Internal logic error: cannot create HDD::Trace from "
-                         "Seiscomp::Core::GenericRecord");
+    throw HDD::Exception(
+        "Failed to merge records into a single contiguous one");
   }
 
   const Seiscomp::DoubleArray *data =
       Seiscomp::DoubleArray::ConstCast(rec->data());
   if (!data)
   {
-    throw HDD::Exception("Internal logic error: cannot create HDD::Trace from "
-                         "Seiscomp::Core::GenericRecord");
+    throw HDD::Exception("Internal logic error: failed to merge records into a "
+                         "single contiguous one");
   }
 
   unique_ptr<HDD::Trace> trace(new HDD::Trace(
       rec->networkCode(), rec->stationCode(), rec->locationCode(),
       rec->channelCode(), fromSC(rec->startTime()), rec->samplingFrequency(),
       data->typedData(), data->size()));
-  if (!trace->slice(tw))
+
+  if (tw && !trace->slice(*tw))
   {
     string msg =
         HDD::strf("Cannot slice trace from %s length %.2f sec. Trace "
                   "data from %s length %.2f sec, samples %zu sampfreq %f",
-                  HDD::UTCClock::toString(tw.startTime()).c_str(),
-                  HDD::durToSec(tw.length()),
+                  HDD::UTCClock::toString(tw->startTime()).c_str(),
+                  HDD::durToSec(tw->length()),
                   HDD::UTCClock::toString(trace->startTime()).c_str(),
                   HDD::durToSec(trace->timeWindow().length()),
                   trace->sampleCount(), trace->samplingFrequency());
@@ -89,17 +101,6 @@ unique_ptr<HDD::Trace> contiguousRecord(const RecordSequence &seq,
   }
 
   return trace;
-}
-
-template <class T> T nextPowerOf2(T a, T min = 1, T max = 1 << 31)
-{
-  int b = min;
-  while (b < a)
-  {
-    b <<= 1;
-    if (b > max) return -1;
-  }
-  return b;
 }
 
 } // namespace
@@ -134,7 +135,7 @@ unique_ptr<HDD::Trace> WaveformProxy::loadTrace(const HDD::TimeWindow &tw,
   }
   rs->close();
 
-  return contiguousRecord(seq, tw, minAvailability);
+  return contiguousRecord(seq, &tw, minAvailability);
 }
 
 void WaveformProxy::loadTraces(
@@ -265,7 +266,8 @@ void WaveformProxy::loadTraces(
 
     try
     {
-      unique_ptr<HDD::Trace> trace = contiguousRecord(seq, tw, minAvailability);
+      unique_ptr<HDD::Trace> trace =
+          contiguousRecord(seq, &tw, minAvailability);
       onTraceLoaded(streamID, tw, std::move(trace));
     }
     catch (exception &e)
@@ -371,33 +373,41 @@ void WaveformProxy::writeTrace(const HDD::Trace &trace, const string &file)
   gr.setData(trace.sampleCount(), trace.data(), Array::DOUBLE);
 
   IO::MSeedRecord msRec(gr);
-  int reclen = msRec.data()->size() * msRec.data()->elementSize() + 64;
-  reclen =
-      ::nextPowerOf2<int>(reclen, 128 /*MINRECLEN*/, 1048576 /*MAXRECLEN*/);
-  if (reclen > 0)
-  {
-    msRec.setOutputRecordLength(reclen);
-    msRec.write(ofs);
-  }
+  msRec.write(ofs);
 }
 
 unique_ptr<HDD::Trace> WaveformProxy::readTrace(const string &file)
 {
   ifstream ifs(file);
-  IO::MSeedRecord msRec(Array::DOUBLE, Record::Hint::DATA_ONLY);
-  msRec.read(ifs);
-
-  const Seiscomp::DoubleArray *data =
-      Seiscomp::DoubleArray::ConstCast(msRec.data());
-  if (!data)
+  std::vector<RecordPtr> records;
+  for (;;)
   {
-    throw HDD::Exception("Internal logic error: cannot create HDD::Trace from "
-                         "Seiscomp::Core::GenericRecord");
+    RecordPtr rec(new IO::MSeedRecord(Array::DOUBLE, Record::DATA_ONLY));
+    try
+    {
+      rec->read(ifs);
+      records.push_back(rec);
+    }
+    catch (Core::EndOfStreamException &)
+    {
+      break;
+    }
+    catch (std::exception &e)
+    {
+      throw HDD::Exception(
+          HDD::strf("Failed reading file %s: %s", file.c_str(), e.what()));
+    }
   }
-  return unique_ptr<HDD::Trace>(new HDD::Trace(
-      msRec.networkCode(), msRec.stationCode(), msRec.locationCode(),
-      msRec.channelCode(), fromSC(msRec.startTime()), msRec.samplingFrequency(),
-      data->typedData(), data->size()));
+
+  int numRecords = records.size();
+  RingBuffer seq{numRecords};
+  for (RecordPtr rec : records)
+  {
+    seq.feed(rec.get());
+  }
+
+  return contiguousRecord(seq);
 }
+
 } // namespace SCAdapter
 } // namespace HDD
