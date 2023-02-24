@@ -62,7 +62,6 @@ git clone https://github.com/SeisComP/main.git
 #
 cd seiscomp/src/extras
 git clone https://github.com/swiss-seismological-service/scrtdd.git
-cd scrtdd
 
 #
 # Compile code as per SeisComP official documentation
