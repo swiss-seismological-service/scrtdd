@@ -526,7 +526,7 @@ unique_ptr<Transform> Transform::parse(const std::vector<string> &tokens)
       double sdc_xltkm = r * del;
       //  conversion factor for longitude
       del              = std::acos(1.0 -
-                      (1.0 - std::cos(degToRad(1))) * square(std::cos(dlt1)));
+                                   (1.0 - std::cos(degToRad(1))) * square(std::cos(dlt1)));
       double bc        = r * del;
       double sdc_xlnkm = bc / std::cos(dlt1);
 

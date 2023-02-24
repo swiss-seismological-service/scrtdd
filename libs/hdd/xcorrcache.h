@@ -38,10 +38,10 @@ public:
   XCorrCache()  = default;
   ~XCorrCache() = default;
 
-  XCorrCache(const XCorrCache &other) = default;
+  XCorrCache(const XCorrCache &other)            = default;
   XCorrCache &operator=(const XCorrCache &other) = default;
 
-  XCorrCache(XCorrCache &&other) = default;
+  XCorrCache(XCorrCache &&other)            = default;
   XCorrCache &operator=(XCorrCache &&other) = default;
 
   void add(unsigned evId1,

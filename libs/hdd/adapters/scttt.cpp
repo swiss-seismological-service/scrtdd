@@ -33,13 +33,13 @@ TravelTimeTable::TravelTimeTable(const std::string &type,
   /*
   for (int i = -10; i < 50; i++)
   {
-    double vel = velocityAtSource(0, 0, i * _depthVelResolution, "P");
+    double vel = computeVelocityAtSource(0, 0, i * _depthVelResolution, "P");
     logInfo("Velocity model phase P depth %.2f [km] vel %.2f [m/sec]",
             (i * _depthVelResolution), vel);
   }
   for (int i = -10; i < 50; i++)
   {
-    double vel = velocityAtSource(0, 0, i * _depthVelResolution, "S");
+    double vel = computeVelocityAtSource(0, 0, i * _depthVelResolution, "S");
     logInfo("Velocity model phase S depth %.2f [km] vel %.2f [m/sec]",
             (i * _depthVelResolution), vel);
   }
@@ -101,12 +101,11 @@ void TravelTimeTable::compute(double eventLat,
   velocityAtSrc = velocityAtSource(eventLat, eventLon, eventDepth, phaseType);
 }
 
-// Since the seiscomp travel time API doesn't offer the velocity at source we
-// need to reverse-engineer that information.
-double TravelTimeTable::velocityAtSource(double eventLat,
-                                         double eventLon,
-                                         double eventDepth,
-                                         const std::string &phaseType)
+// reverse-engineer the velocity at source
+double TravelTimeTable::computeVelocityAtSource(double eventLat,
+                                                double eventLon,
+                                                double eventDepth,
+                                                const std::string &phaseType)
 {
   const int bin              = std::floor(eventDepth / _depthVelResolution);
   const double binStartDepth = bin * _depthVelResolution;
@@ -149,5 +148,6 @@ double TravelTimeTable::velocityAtSource(double eventLat,
 
   return binVelocity;
 }
+
 } // namespace SCAdapter
 } // namespace HDD

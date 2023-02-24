@@ -69,10 +69,10 @@ class HddEllipsoid
 {
 
 public:
-  HddEllipsoid(const HddEllipsoid &other) = default;
+  HddEllipsoid(const HddEllipsoid &other)            = default;
   HddEllipsoid &operator=(const HddEllipsoid &other) = default;
 
-  HddEllipsoid(HddEllipsoid &&other) = default;
+  HddEllipsoid(HddEllipsoid &&other)            = default;
   HddEllipsoid &operator=(HddEllipsoid &&other) = default;
 
   ~HddEllipsoid() = default;

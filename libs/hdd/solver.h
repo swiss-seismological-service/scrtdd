@@ -35,7 +35,8 @@ namespace HDD {
  *      W G m = d W;
  *
  * Where G contains the partial derivatives of the travel times with respect to
- * event location and origin times.
+ * event/station location and 1 in the column  corresponding to the origin
+ * time correction term
  * m is a vector containing the changes in hypocentral parameters we wish to
  * determine for each event (delta x, delta y, delta z and delta travel time)
  * d is the data vector containing the double-differences
@@ -108,7 +109,7 @@ struct DDSystem
     delete[] W;
   }
 
-  DDSystem(const DDSystem &other) = delete;
+  DDSystem(const DDSystem &other)           = delete;
   DDSystem operator=(const DDSystem &other) = delete;
 };
 
@@ -124,7 +125,7 @@ public:
   Solver(std::string type) : _type(type) {}
   ~Solver() = default;
 
-  Solver(const Solver &other) = delete;
+  Solver(const Solver &other)           = delete;
   Solver operator=(const Solver &other) = delete;
 
   void addObservation(unsigned evId1,

@@ -180,10 +180,10 @@ public:
   Catalog()  = default;
   ~Catalog() = default;
 
-  Catalog(const Catalog &other) = default;
+  Catalog(const Catalog &other)            = default;
   Catalog &operator=(const Catalog &other) = default;
 
-  Catalog(Catalog &&other) = default;
+  Catalog(Catalog &&other)            = default;
   Catalog &operator=(Catalog &&other) = default;
 
   Catalog(std::unordered_map<std::string, Station> &&stations,
@@ -240,9 +240,9 @@ public:
               const std::string &stationId,
               const Phase::Type &type) const;
 
-  void writeToFile(const std::string& eventFile,
-                   const std::string& phaseFile,
-                   const std::string& stationFile) const;
+  void writeToFile(const std::string &eventFile,
+                   const std::string &phaseFile,
+                   const std::string &stationFile) const;
 
   //
   //  static

@@ -492,7 +492,7 @@ TimeWindow SnrFilterPrc::snrTimeWindow(const UTCTime &pickTime) const
   UTCTime winStart = std::min({pickTime + secToDur(_snr.noiseStart),
                                pickTime + secToDur(_snr.signalStart)});
   UTCTime winEnd   = std::max({pickTime + secToDur(_snr.noiseEnd),
-                             pickTime + secToDur(_snr.signalEnd)});
+                               pickTime + secToDur(_snr.signalEnd)});
   return TimeWindow(winStart, winEnd);
 }
 

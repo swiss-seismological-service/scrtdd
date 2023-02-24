@@ -77,10 +77,10 @@ public:
 
   ~GenericTrace() = default;
 
-  GenericTrace(const GenericTrace &other) = default;
+  GenericTrace(const GenericTrace &other)            = default;
   GenericTrace &operator=(const GenericTrace &other) = default;
 
-  GenericTrace(GenericTrace &&other) = default;
+  GenericTrace(GenericTrace &&other)            = default;
   GenericTrace &operator=(GenericTrace &&other) = default;
 
   std::string networkCode() const { return _net; }

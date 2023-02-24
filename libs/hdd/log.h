@@ -37,8 +37,8 @@ public:
     error,
   };
 
-  Logger()               = delete;
-  Logger(const Logger &) = delete;
+  Logger()                       = delete;
+  Logger(const Logger &)         = delete;
   void operator=(const Logger &) = delete;
 
   static void registerLoggers(
@@ -80,7 +80,7 @@ public:
   public:
     File(const std::function<void(void)> &cleanup) : _cleanup(cleanup) {}
     ~File() { _cleanup(); }
-    File(const File &) = delete;
+    File(const File &)           = delete;
     void operator=(const File &) = delete;
 
   private:
@@ -112,7 +112,7 @@ inline void log(const Logger::Level l, const std::string &s)
 }
 inline void log(const Logger::Level l, std::string &&s) { Logger::log(l, s); }
 
-template <typename... Args> void log(const Logger::Level l, Args &&... args)
+template <typename... Args> void log(const Logger::Level l, Args &&...args)
 {
   Logger::log(l, strf(std::forward<Args>(args)...));
 }
@@ -121,7 +121,7 @@ inline void logDebug(const char *s) { Logger::logDebug(s); }
 inline void logDebug(const std::string &s) { Logger::logDebug(s); }
 inline void logDebug(std::string &&s) { Logger::logDebug(s); }
 
-template <typename... Args> void logDebug(Args &&... args)
+template <typename... Args> void logDebug(Args &&...args)
 {
   Logger::logDebug(strf(std::forward<Args>(args)...));
 }
@@ -130,7 +130,7 @@ inline void logInfo(const char *s) { Logger::logInfo(s); }
 inline void logInfo(const std::string &s) { Logger::logInfo(s); }
 inline void logInfo(std::string &&s) { Logger::logInfo(s); }
 
-template <typename... Args> void logInfo(Args &&... args)
+template <typename... Args> void logInfo(Args &&...args)
 {
   Logger::logInfo(strf(std::forward<Args>(args)...));
 }
@@ -139,7 +139,7 @@ inline void logWarning(const char *s) { Logger::logWarning(s); }
 inline void logWarning(const std::string &s) { Logger::logWarning(s); }
 inline void logWarning(std::string &&s) { Logger::logWarning(s); }
 
-template <typename... Args> void logWarning(Args &&... args)
+template <typename... Args> void logWarning(Args &&...args)
 {
   Logger::logWarning(strf(std::forward<Args>(args)...));
 }
@@ -148,7 +148,7 @@ inline void logError(const char *s) { Logger::logError(s); }
 inline void logError(const std::string &s) { Logger::logError(s); }
 inline void logError(std::string &&s) { Logger::logError(s); }
 
-template <typename... Args> void logError(Args &&... args)
+template <typename... Args> void logError(Args &&...args)
 {
   Logger::logError(strf(std::forward<Args>(args)...));
 }

@@ -41,7 +41,7 @@ public:
             double rot);
   virtual ~Transform() = default;
 
-  Transform(const Transform &other) = delete;
+  Transform(const Transform &other)            = delete;
   Transform &operator=(const Transform &other) = delete;
 
   virtual void

@@ -48,7 +48,7 @@ public:
   Proxy()          = default;
   virtual ~Proxy() = default;
 
-  Proxy(const Proxy &other) = delete;
+  Proxy(const Proxy &other)            = delete;
   Proxy &operator=(const Proxy &other) = delete;
 
   // load one trace at the requested time window for a specific station
@@ -151,7 +151,7 @@ public:
   Loader()          = default;
   virtual ~Loader() = default;
 
-  Loader(const Loader &other) = delete;
+  Loader(const Loader &other)            = delete;
   Loader &operator=(const Loader &other) = delete;
 
   // shared_ptr allows internal caching (unique_ptr would not) and
@@ -303,7 +303,7 @@ public:
   Processor()          = default;
   virtual ~Processor() = default;
 
-  Processor(const Processor &other) = delete;
+  Processor(const Processor &other)            = delete;
   Processor &operator=(const Processor &other) = delete;
 
   // shared_ptr allows internal caching (unique_ptr would not) and

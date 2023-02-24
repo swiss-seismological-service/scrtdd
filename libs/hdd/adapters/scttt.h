@@ -19,7 +19,7 @@
 
 #include "hdd/ttt.h"
 
-#include <seiscomp3/seismology/ttt.h>
+#include <seiscomp/seismology/ttt.h>
 
 #include <unordered_map>
 
@@ -55,10 +55,10 @@ public:
 
 private:
   void load();
-  double velocityAtSource(double eventLat,
-                          double eventLon,
-                          double eventDepth,
-                          const std::string &phaseType);
+  double computeVelocityAtSource(double eventLat,
+                                 double eventLon,
+                                 double eventDepth,
+                                 const std::string &phaseType);
 
   const std::string _type;
   const std::string _model;

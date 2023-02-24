@@ -217,7 +217,7 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
       // now find corresponding phase in reference event phases
       bool peer_found = false;
       auto itRef      = refEvCatalog.searchPhase(refEv.id, phase.stationId,
-                                            phase.procInfo.type);
+                                                 phase.procInfo.type);
       if (itRef != refEvCatalog.getPhases().end())
       {
         const Phase &refPhase = itRef->second;

@@ -27,7 +27,7 @@ public:
   TravelTimeTable()          = default;
   virtual ~TravelTimeTable() = default;
 
-  TravelTimeTable(const TravelTimeTable &other) = delete;
+  TravelTimeTable(const TravelTimeTable &other)            = delete;
   TravelTimeTable &operator=(const TravelTimeTable &other) = delete;
 
   virtual void freeResources() = 0;

@@ -377,7 +377,7 @@ void Solver::loadSolutions()
     const unsigned evIds = it->first;
     EventDeltas &evDelta = it->second;
     it                   = computeEventDelta(evIds, evDelta) ? std::next(it)
-                                           : _eventDeltas.erase(it);
+                                                             : _eventDeltas.erase(it);
   }
 
   // free some memory
