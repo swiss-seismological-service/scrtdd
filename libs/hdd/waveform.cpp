@@ -420,14 +420,14 @@ void BasicProcessor::filter(Trace &trace,
     for (size_t i = 0; i < data_size; i++) data[i] -= mean;
   }
 
-  if (!filterStr.empty())
-  {
-    _wf->filter(trace, filterStr);
-  }
-
   if (resampleFreq > 0)
   {
     resample(trace, resampleFreq);
+  }
+
+  if (!filterStr.empty())
+  {
+    _wf->filter(trace, filterStr);
   }
 }
 
@@ -812,71 +812,79 @@ unique_ptr<Trace> transformRT(const TimeWindow &tw,
                 trH1.startTime(), trH1.samplingFrequency(), std::move(rtvec)));
 }
 
+/*
+ * Perform either downsampling or upsampling
+ *
+ * Downsampling is perfromed in 2 steps:
+ * 1 - Remove high-frequency signal components with a digital lowpass filter.
+ * 2 - Decimate the filtered signal by M; that is, keep only every Mth sample.
+ *
+ * Upsampling is perfromed in 2 steps:
+ * 1 - Expansion: extend the original data by filling the new samples with zeros
+ * 2 - Interpolation: Smooth out the discontinuities with a lowpass filter,
+ * which replaces the zeros.
+ *
+ * The lowpass filter is implemented using Windowed-Sinc Filters (sinc +
+ * Von Hann Window)
+ */
 void resample(Trace &trace, double new_sf)
 {
   if (new_sf <= 0 || trace.samplingFrequency() == new_sf) return;
 
-  const double data_sf       = trace.samplingFrequency();
-  const double resamp_factor = new_sf / data_sf;
-  const double nyquist       = std::min(new_sf, data_sf) / 2.;
-
   const double *data     = trace.data();
   const size_t data_size = trace.sampleCount();
-
-  vector<double> resampled(data_size * resamp_factor);
+  const double data_sf   = trace.samplingFrequency();
 
   /*
    * Compute one sample of the resampled data:
    *
    * x: new sample point location (relative to old indexes)
    *    (e.g. every other integer for 0.5x decimation)
-   * fmax: low pass filter cutoff frequency. Fmax should be less
+   * fmax: low pass filter cutoff frequency [hz]. Fmax should be less
    *       than half of data_freq, and less than half of the
-   *       new sample frequency (the reciprocal of the x step size).
+   *       new sample frequency (the reciprocal of the x step size)
    * win_len: width of windowed Sinc used as the low pass filter
    *          Filter quality increases with a larger window width.
    *          The wider the window, the closer fmax can approach half of
    *          data_freq or the new sample frequency
-   *
-   * If the x step size is rational the same Window and Sinc values
-   * will be recalculated repeatedly. Therefore these values can either
-   * be cached, or pre-calculated and stored in a table (polyphase
-   * interpolation); or interpolated from a smaller pre-calculated table;
-   * or computed from a set of low-order polynomials fitted to each
-   * section or lobe between  zero-crossings of the windowed Sinc (Farrow)
-   *
-   * Credits: Ronald Nicholson, "Ron's Digital Signal Processing Page"
    */
   auto new_sample = [&data, &data_size, &data_sf](double x, double fmax,
                                                   int win_len) -> double {
     const double gain = 2 * fmax / data_sf; // Calc gain correction factor
-    double newSmp     = 0;
 
-    // For 1 window width
-    for (int win_i = -(win_len / 2.); win_i < (win_len / 2.); win_i++)
+    // For 1 window width compute the new sample value
+    double newSmp = 0;
+    for (int win_i = -(win_len / 2.); win_i < win_len - (win_len / 2.); win_i++)
     {
-      const int j        = int(x + win_i); // input sample index
-      const double win_x = j - x;
-      if (j >= 0 && size_t(j) < data_size)
+      const int data_i   = int(x + win_i); // input sample index
+      const double win_x = data_i - x;
+      if (data_i >= 0 && size_t(data_i) < data_size)
       {
         // calculate von Hann Window | hann(x) = sin^2(pi*x/N)
         const double hannWin = square(std::sin(M_PI * (0.5 + win_x / win_len)));
 
         // Scale and calculate Sinc | sinc(x) = sin(pi*x)/(pi*x); sinc(0)=1
-        const double a    = M_PI * win_x * gain;
+        const double a    = 2 * M_PI * win_x * fmax / data_sf;
         const double sinc = (a == 0) ? 1 : std::sin(a) / a;
 
-        newSmp += gain * hannWin * sinc * data[j];
+        // PERF: cache the [gain * hannWin * sinc] value
+        newSmp += gain * hannWin * sinc * data[data_i];
       }
     }
     return newSmp;
   };
 
-  double *resampled_data = resampled.data();
+  const double resamp_factor  = new_sf / data_sf;
+  const double nyquist        = std::min(new_sf, data_sf) / 2.;
+  const double transition_feq = nyquist * 0.10; // 10% of signal freq
+  // low pass FIR filter design guidelines in [Van de Vegte, 2002]
+  const int win_len = std::ceil(5.98 * data_sf / transition_feq);
+
+  vector<double> resampled(data_size * resamp_factor);
   for (size_t i = 0; i < resampled.size(); i++)
   {
-    double x          = i / resamp_factor;
-    resampled_data[i] = new_sample(x, nyquist, 21);
+    const double x = i / resamp_factor;
+    resampled[i]   = new_sample(x, nyquist, win_len);
   }
 
   trace.setData(std::move(resampled));
