@@ -65,7 +65,8 @@ protected:
   void addObject(const std::string &, DataModel::Object *object) override;
   void updateObject(const std::string &, DataModel::Object *object) override;
   void handleRecord(Record *rec) override
-  { /* we don't really need this */
+  { /* we don't really need this and this is never called */
+    RecordPtr tmp(rec); // avoid memory leak
   }
 
   void handleTimeout() override;
