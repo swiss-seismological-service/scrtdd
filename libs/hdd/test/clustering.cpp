@@ -24,16 +24,16 @@ void addStationsToCatalog(HDD::Catalog &cat,
   Station sta;
   double staLat, staLon;
 
-  computeCoordinates(distance, 0, lat, lon, staLat, staLon);
+  computeCoordinates(distance, degToRad(0), lat, lon, staLat, staLon);
   sta = {"NET.ST01", staLat, staLon, 250, "NET", "ST01", ""};
   cat.addStation(sta);
-  computeCoordinates(distance, 90, lat, lon, staLat, staLon);
+  computeCoordinates(distance, degToRad(90), lat, lon, staLat, staLon);
   sta = {"NET.ST02", staLat, staLon, 295, "NET", "ST02", ""};
   cat.addStation(sta);
-  computeCoordinates(distance, 180, lat, lon, staLat, staLon);
+  computeCoordinates(distance, degToRad(180), lat, lon, staLat, staLon);
   sta = {"NET.ST03", staLat, staLon, 301, "NET", "ST03", ""};
   cat.addStation(sta);
-  computeCoordinates(distance, 270, lat, lon, staLat, staLon);
+  computeCoordinates(distance, degToRad(270), lat, lon, staLat, staLon);
   sta = {"NET.ST04", staLat, staLon, 395, "NET", "ST04", ""};
   cat.addStation(sta);
 }
@@ -77,17 +77,17 @@ void addNeighboursToCatalog(HDD::Catalog &cat,
     double depth = event.depth;
 
     double neighbourLat, neighbourLon;
-    computeCoordinates(distance, 45, event.latitude, event.longitude,
-                       neighbourLat, neighbourLon);
+    computeCoordinates(distance, degToRad(45), event.latitude, event.longitude,
+                       neighbourLat, neighbourLon, depth);
     addEventToCatalog(cat, neighbourLat, neighbourLon, depth);
-    computeCoordinates(distance, 135, event.latitude, event.longitude,
-                       neighbourLat, neighbourLon);
+    computeCoordinates(distance, degToRad(135), event.latitude, event.longitude,
+                       neighbourLat, neighbourLon, depth);
     addEventToCatalog(cat, neighbourLat, neighbourLon, depth);
-    computeCoordinates(distance, 225, event.latitude, event.longitude,
-                       neighbourLat, neighbourLon);
+    computeCoordinates(distance, degToRad(225), event.latitude, event.longitude,
+                       neighbourLat, neighbourLon, depth);
     addEventToCatalog(cat, neighbourLat, neighbourLon, depth);
-    computeCoordinates(distance, 315, event.latitude, event.longitude,
-                       neighbourLat, neighbourLon);
+    computeCoordinates(distance, degToRad(315), event.latitude, event.longitude,
+                       neighbourLat, neighbourLon, depth);
     addEventToCatalog(cat, neighbourLat, neighbourLon, depth);
   }
 }

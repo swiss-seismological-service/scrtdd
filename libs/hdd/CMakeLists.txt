@@ -14,7 +14,6 @@ ADD_LIBRARY(hdd ${LIB_TYPE}
 	${LSMR_LSQR_DIR}/lsmr.cpp
 	${LSMR_LSQR_DIR}/lsqr.cpp
 	${GMT_DIR}/map_project.cpp
-	${3RDPARTY_DIR}/geo.cpp
 	log.cpp
 	utils.cpp
 	csvreader.cpp
@@ -62,7 +61,6 @@ SET(HDD_HEADERS
 
 SET(HDD_HEADERS_3RDPARTY
 	${3RDPARTY_DIR}/lrucache.h
-	${3RDPARTY_DIR}/geo.h
 )
 
 SET(HDD_INSTALL_HEADERS OFF CACHE BOOL "Install HDD header files.")

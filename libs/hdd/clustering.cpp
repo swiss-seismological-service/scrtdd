@@ -74,9 +74,8 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
                                                 double maxEllipsoidSize,
                                                 bool keepUnmatched)
 {
-  logDebug(
-      "Selecting Neighbouring Events for event %s lat %.6f lon %.6f depth %.4f",
-      string(refEv).c_str(), refEv.latitude, refEv.longitude, refEv.depth);
+  logDebug("Selecting Neighbouring Events for event %s lat %g lon %g depth %g",
+           string(refEv).c_str(), refEv.latitude, refEv.longitude, refEv.depth);
 
   // Optimization: make code faster but the result will be the same.
   if (maxNumNeigh <= 0)
@@ -111,7 +110,6 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
   //
   multimap<double, unsigned> eventByDistance;      // distance, eventid
   unordered_map<unsigned, double> distanceByEvent; // eventid, distance
-  unordered_map<unsigned, double> azimuthByEvent;  // eventid, azimuth
 
   for (const auto &kv : catalog.getEvents())
   {
@@ -126,13 +124,11 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
       continue;
 
     // compute distance between current event and reference origin
-    double azimuth;
-    double distance = computeDistance(refEv, event, &azimuth);
+    double distance = computeDistance(refEv, event);
 
     // keep a list of events in range sorted by distance
     eventByDistance.emplace(distance, event.id);
     distanceByEvent.emplace(event.id, distance);
-    azimuthByEvent.emplace(event.id, azimuth);
   }
 
   //
@@ -306,11 +302,9 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
       neighbours->ids.insert(ev.id);
       neighbours->phases.emplace(ev.id, evSelEntry.phases);
 
-      logDebug("Neighbour: #phases %2d distance %5.2f azimuth %3.f "
-               "depth-diff %6.3f event %s",
+      logDebug("Neighbour: #phases %2d distance %g depth-diff %g event %s",
                dtCountByEvent[ev.id], distanceByEvent[ev.id],
-               azimuthByEvent[ev.id], refEv.depth - ev.depth,
-               string(ev).c_str());
+               refEv.depth - ev.depth, string(ev).c_str());
     }
   }
   else
@@ -352,10 +346,10 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
               neighbours->phases.emplace(ev.id, evSelEntry.phases);
 
               logDebug("Neighbour: ellipsoid %2d quadrant %d #phases %2d "
-                       "distance %5.2f azimuth %3.f depth-diff %6.3f event %s",
+                       "distance %5.2f depth-diff %6.3f event %s",
                        elpsNum, quadrant, dtCountByEvent[ev.id],
-                       distanceByEvent[ev.id], azimuthByEvent[ev.id],
-                       refEv.depth - ev.depth, string(ev).c_str());
+                       distanceByEvent[ev.id], refEv.depth - ev.depth,
+                       string(ev).c_str());
 
               selectedEvents.erase(it);
               break;

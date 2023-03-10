@@ -695,7 +695,7 @@ unique_ptr<Trace> transformRT(const TimeWindow &tw,
   double backAzimuth;
   computeDistance(ev.latitude, ev.longitude, sta.latitude, sta.longitude,
                   nullptr, &backAzimuth);
-  backAzimuth += 180.0;
+  backAzimuth += degToRad(180.0);
   Matrix3d orientationZRT = {
       cos(backAzimuth),
       -sin(backAzimuth),

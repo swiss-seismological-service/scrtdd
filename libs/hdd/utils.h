@@ -46,6 +46,33 @@ inline double degToRad(double d) { return M_PI * d / 180.0; }
 
 template <typename T> T square(T x) { return x * x; }
 
+static const double EARTH_MEAN_RADIUS_METER = 6371008.77141506;
+
+inline double kmOfDegree(double kmDepth = 0)
+{
+  return ((EARTH_MEAN_RADIUS_METER / 1000.) - kmDepth) * M_PI / 180;
+}
+
+inline double deg2km(double deg, double kmDepth = 0)
+{
+  return deg * kmOfDegree(kmDepth);
+}
+
+inline double km2deg(double km, double kmDepth = 0)
+{
+  return km / kmOfDegree(kmDepth);
+}
+
+inline double rad2km(double rad, double kmDepth = 0)
+{
+  return rad * ((EARTH_MEAN_RADIUS_METER / 1000.) - kmDepth);
+}
+
+inline double km2rad(double km, double kmDepth = 0)
+{
+  return km / ((EARTH_MEAN_RADIUS_METER / 1000.) - kmDepth);
+}
+
 inline double normalizeLon(double lon)
 {
   while (lon < -180.0) lon += 360.0;
@@ -53,26 +80,35 @@ inline double normalizeLon(double lon)
   return lon;
 }
 
+inline double normalizeAzimuth(double az)
+{
+  while (az < 0) az += 360.0;
+  while (az > 360) az -= 360.0;
+  return az;
+}
+
 void computeCoordinates(double distance,
                         double azimuth,
                         double clat,
                         double clon,
                         double &lat,
-                        double &lon);
+                        double &lon,
+                        double atKmDepth = 0);
 
 double computeDistance(double lat1,
                        double lon1,
-                       double depth1,
                        double lat2,
                        double lon2,
-                       double depth2,
                        double *azimuth     = nullptr,
-                       double *backAzimuth = nullptr);
+                       double *backAzimuth = nullptr,
+                       double atKmDepth    = 0);
 
 double computeDistance(double lat1,
                        double lon1,
+                       double kmDepth1,
                        double lat2,
                        double lon2,
+                       double kmDepth2,
                        double *azimuth     = nullptr,
                        double *backAzimuth = nullptr);
 

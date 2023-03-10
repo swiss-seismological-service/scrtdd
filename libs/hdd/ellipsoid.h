@@ -32,9 +32,9 @@ struct Ellipsoid
 {
   bool isInside(double lat, double lon, double depth) const
   {
-    double distance, az;
-    distance = computeDistance(lat, lon, 0, this->lat, this->lon, 0, &az);
-    az       = degToRad(az);
+    double az;
+    double distance = computeDistance(lat, lon, this->lat, this->lon, &az,
+                                      nullptr, this->depth);
 
     double dist_x = distance * std::sin(az);
     double dist_y = distance * std::cos(az);

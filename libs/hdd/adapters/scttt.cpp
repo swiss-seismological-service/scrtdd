@@ -128,9 +128,10 @@ void TravelTimeTable::compute(double eventLat,
   }
   else
   {
-    velocityAtSrc =
-        1.0 / std::sqrt(square(tt.dtdh) +
-                        square(Seiscomp::Math::Geo::km2deg(tt.dtdd)));
+    // We want dtdd and dtdh to use the same units:
+    // - transform dtdd [sec/rad] -> [sec/km]
+    double dtdd2  = tt.dtdd / kmOfDegree(eventDepth);
+    velocityAtSrc = 1.0 / std::sqrt(square(tt.dtdh) + square(dtdd2));
   }
 
   if (_type != "LOCSAT")

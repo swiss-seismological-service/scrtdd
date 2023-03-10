@@ -39,20 +39,15 @@ void TravelTimeTable::computeApproximatedTakeOffAngles(
     return;
   }
 
-  double distance = computeDistance(
-      eventLat, eventLon, eventDepth, station.latitude, station.longitude,
-      -(station.elevation / 1000.), azimuth, nullptr);
+  double distance =
+      computeDistance(eventLat, eventLon, eventDepth, station.latitude,
+                      station.longitude, -(station.elevation / 1000.), azimuth);
 
   if (takeOffAngle)
   {
     double VertDist = eventDepth + station.elevation / 1000.;
     *takeOffAngle   = std::asin(VertDist / distance);
     *takeOffAngle += degToRad(90); // -90(down):+90(up) -> 0(down):180(up)
-  }
-
-  if (azimuth)
-  {
-    *azimuth = degToRad(*azimuth);
   }
 }
 

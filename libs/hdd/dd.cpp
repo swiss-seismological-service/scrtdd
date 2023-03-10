@@ -1117,15 +1117,17 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
       }
     }
 
-    // compute distance and azimuth of the event to the new location
-    double distance = std::sqrt(square(deltaLon) + square(deltaLat)); // km
-    double azimuth  = radToDeg(std::atan2(deltaLon, deltaLat));
+    //
+    // converte delta lat lon [ km -> degree ]
+    //
+    double distance = std::sqrt(square(deltaLat) + square(deltaLon));
+    double azimuth  = std::atan2(deltaLon, deltaLat);
 
-    // Computes the coordinates (lat, lon) of the point which is at a degree
-    // azimuth and km distance as seen from the original event location
+    // Computes the coordinates (lat, lon) of the point which is at
+    // azimuth [rad] and distance [km] as seen from the original event location
     double newLat, newLon;
     computeCoordinates(distance, azimuth, event.latitude, event.longitude,
-                       newLat, newLon);
+                       newLat, newLon, event.depth);
 
     unique_ptr<Neighbours> finalNeighbours(new Neighbours());
     finalNeighbours->refEvId = event.id;

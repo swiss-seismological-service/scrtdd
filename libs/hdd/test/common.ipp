@@ -27,6 +27,7 @@ std::vector<TTTParams> __getTTTList__()
   static const std::vector<TTTParams> tttList = {
       {"LOCSAT", "iasp91"},
       {"libtau", "iasp91"},
+      {"homogeneous", "iasp91"},
       {"ConstVel", "5.8;3.36"},
       {"NonLinLoc",
        "./data/nll/iasp91_2D_simple/model/iasp91.PHASE.mod;"

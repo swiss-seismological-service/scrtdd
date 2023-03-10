@@ -243,12 +243,11 @@ void Solver::addObservationParams(unsigned evId,
                                   double takeOffAngleDip,
                                   double velocityAtSrc)
 {
-  string phStaId      = string(1, phase) + "@" + staId;
-  int evIdx           = _eventIdConverter.convert(evId);
-  unsigned phStaIdx   = _phStaIdConverter.convert(phStaId);
-  _eventParams[evIdx] = EventParams{evLat, evLon, evDepth};
-  _stationParams[phStaIdx] =
-      StationParams{staLat, staLon, staElevation};
+  string phStaId              = string(1, phase) + "@" + staId;
+  int evIdx                   = _eventIdConverter.convert(evId);
+  unsigned phStaIdx           = _phStaIdConverter.convert(phStaId);
+  _eventParams[evIdx]         = EventParams{evLat, evLon, evDepth};
+  _stationParams[phStaIdx]    = StationParams{staLat, staLon, staElevation};
   _obsParams[evIdx][phStaIdx] = ObservationParams{computeEvChanges,
                                                   travelTime,
                                                   travelTimeResidual,
@@ -332,9 +331,9 @@ void Solver::loadSolutions()
     const unsigned evOffset = evIdx * 4;
 
     evDelta.kmLon = _dd->m[evOffset + 0];
-    evDelta.kmLat  = _dd->m[evOffset + 1];
-    evDelta.depth     = _dd->m[evOffset + 2];
-    evDelta.time      = _dd->m[evOffset + 3];
+    evDelta.kmLat = _dd->m[evOffset + 1];
+    evDelta.depth = _dd->m[evOffset + 2];
+    evDelta.time  = _dd->m[evOffset + 3];
 
     if (!std::isfinite(evDelta.kmLon) || !std::isfinite(evDelta.kmLat) ||
         !std::isfinite(evDelta.depth) || !std::isfinite(evDelta.time))
