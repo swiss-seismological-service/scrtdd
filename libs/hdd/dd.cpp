@@ -1119,7 +1119,7 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
 
     // compute distance and azimuth of the event to the new location
     double distance = std::sqrt(square(deltaLon) + square(deltaLat)); // km
-    double azimuth  = radToDeg(std::atan2(deltaLat, deltaLon));
+    double azimuth  = radToDeg(std::atan2(deltaLon, deltaLat));
 
     // Computes the coordinates (lat, lon) of the point which is at a degree
     // azimuth and km distance as seen from the original event location

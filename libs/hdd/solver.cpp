@@ -415,8 +415,8 @@ void Solver::computePartialDerivatives()
     distance = computeDistance(this->_centroid.lat, this->_centroid.lon, 0, lat,
                                lon, 0, &az);
     az       = degToRad(az);
-    x        = distance * std::cos(az);
-    y        = distance * std::sin(az);
+    x        = distance * std::sin(az);
+    y        = distance * std::cos(az);
     z        = depth - _centroid.depth;
   };
 
@@ -450,8 +450,8 @@ void Solver::computePartialDerivatives()
       const double azi      = obprm.takeOffAngleAzim - degToRad(180);
       const double slowness = 1. / obprm.velocityAtSrc;
 
-      obprm.dx = slowness * std::cos(dip) * std::cos(azi);
-      obprm.dy = slowness * std::cos(dip) * std::sin(azi);
+      obprm.dx = slowness * std::cos(dip) * std::sin(azi);
+      obprm.dy = slowness * std::cos(dip) * std::cos(azi);
       obprm.dz = slowness * std::sin(dip);
     }
   }
