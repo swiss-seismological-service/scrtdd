@@ -216,14 +216,12 @@ private:
   struct EventParams
   {
     double lat, lon, depth;
-    double x, y, z; // km
   };
   std::unordered_map<unsigned, EventParams> _eventParams; // key = evIdx
 
   struct StationParams
   {
     double lat, lon, elevation;
-    double x, y, z; // km
   };
   std::unordered_map<unsigned, StationParams> _stationParams; // key = phStaIdx
 
@@ -257,17 +255,12 @@ private:
   std::unordered_map<unsigned, std::unordered_map<unsigned, ParamStats>>
       _paramStats;
 
-  struct
-  {
-    double lat, lon, depth;
-  } _centroid;
-
   struct EventDeltas
   {
     double time;      // sec
     double depth;     // km
-    double latitude;  // km
-    double longitude; // km
+    double kmLat;  // km
+    double kmLon; // km
   };
   std::unordered_map<unsigned, EventDeltas> _eventDeltas; // key = evIdx
 
