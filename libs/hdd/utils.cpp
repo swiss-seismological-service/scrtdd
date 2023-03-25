@@ -94,6 +94,25 @@ std::vector<std::string> splitString(const std::string &str,
           std::sregex_token_iterator()};
 }
 
+double computeAzimuth(double lat1, double lon1, double lat2, double lon2)
+{
+  const double deltaLon = degToRad(lon2 - lon1);
+  const double Fi1      = degToRad(lat1);
+  const double Fi2      = degToRad(lat2);
+  const double cosLat2  = cos(Fi2);
+
+  const double y = sin(deltaLon) * cosLat2;
+  const double x = cos(Fi1) * sin(Fi2) - sin(Fi1) * cosLat2 * cos(deltaLon);
+
+  const double azimuth = atan2(y, x);
+  if (!std::isfinite(azimuth))
+  {
+    throw Exception("Internal logic error: computeAzimuth failed");
+  }
+
+  return azimuth;
+}
+
 /*
  * Computes the coordinates (lat, lon) of the point which is at the
  * passed azimuth [radiant] and distance [km] as seen from the

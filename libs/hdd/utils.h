@@ -87,6 +87,8 @@ inline double normalizeAzimuth(double az)
   return az;
 }
 
+double computeAzimuth(double lat1, double lon1, double lat2, double lon2);
+
 void computeCoordinates(double distance,
                         double azimuth,
                         double clat,

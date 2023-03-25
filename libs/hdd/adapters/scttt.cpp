@@ -31,34 +31,6 @@ TravelTimeTable::TravelTimeTable(const std::string &type,
     : _type(type), _model(model), _depthVelResolution(depthVelResolution)
 {
   load();
-
-  //
-  // Test for computeVelocityAtSource()
-  //
-  // logInfo("TravelTimeTable %s %s", type.c_str(), model.c_str());
-  //
-  // for (int i = -10; i < 50; i++)
-  //{
-  //  try
-  //  {
-  //    double vel = computeVelocityAtSource(0, 0, i * _depthVelResolution,
-  //    "P"); logInfo("Velocity model phase P depth %.2f [km] vel %.2f [m/sec]",
-  //            (i * _depthVelResolution), vel);
-  //  }
-  //  catch (...)
-  //  {}
-  //}
-  // for (int i = -10; i < 50; i++)
-  //{
-  //  try
-  //  {
-  //    double vel = computeVelocityAtSource(0, 0, i * _depthVelResolution,
-  //    "S"); logInfo("Velocity model phase S depth %.2f [km] vel %.2f [m/sec]",
-  //            (i * _depthVelResolution), vel);
-  //  }
-  //  catch (...)
-  //  {}
-  //}
 }
 
 void TravelTimeTable::load()
@@ -114,30 +86,30 @@ void TravelTimeTable::compute(double eventLat,
 
   travelTime = tt.time;
 
-  computeApproximatedTakeOffAngles(eventLat, eventLon, eventDepth, station,
-                                   phaseType, &azimuth, &takeOffAngle);
+#if SC_API_VERSION < SC_API_VERSION_CHECK(15, 4, 0)
   //
   // Check for not fully implemented Travel Time Tables
-  // i.e. LOCSAT doesn't compute tt.takeoff, tt.dtdh
-  // and tt.dtdd is very different from other models
+  // by LOCSAT: it doesn't compute tt.takeoff and tt.dtdh
   //
   if (_type == "LOCSAT")
   {
     velocityAtSrc =
         computeVelocityAtSource(eventLat, eventLon, eventDepth, phaseType);
+    computeApproximatedTakeOffAngles(eventLat, eventLon, eventDepth, station,
+                                     phaseType, &azimuth, &takeOffAngle);
+    return;
   }
-  else
-  {
-    // We want dtdd and dtdh to use the same units:
-    // - transform dtdd [sec/rad] -> [sec/km]
-    double dtdd2  = tt.dtdd / kmOfDegree(eventDepth);
-    velocityAtSrc = 1.0 / std::sqrt(square(tt.dtdh) + square(dtdd2));
-  }
+#endif
 
-  if (_type != "LOCSAT")
-  {
-    takeOffAngle = degToRad(tt.takeoff);
-  }
+  // We want dtdd and dtdh to use the same units:
+  // - transform dtdd [sec/rad] -> [sec/km]
+  double dtdd2  = tt.dtdd / kmOfDegree(eventDepth);
+  velocityAtSrc = 1.0 / std::sqrt(square(tt.dtdh) + square(dtdd2));
+
+  azimuth =
+      computeAzimuth(eventLat, eventLon, station.latitude, station.longitude);
+
+  takeOffAngle = degToRad(tt.takeoff);
 }
 
 // reverse-engineer the velocity at source
