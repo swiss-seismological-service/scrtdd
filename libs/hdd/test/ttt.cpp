@@ -3,10 +3,10 @@
 #include <boost/test/data/monomorphic.hpp>
 #include <boost/test/data/test_case.hpp>
 
+#include "common.ipp"
 #include "hdd/catalog.h"
 #include "hdd/ttt.h"
 #include "hdd/utils.h"
-#include "common.ipp"
 
 using namespace std;
 using namespace HDD;
@@ -148,6 +148,11 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
       BOOST_CHECK_NO_THROW(ttt->compute(
           lat, lon, depth, station, "S", travelTimeS[i], takeOffAngleAzimS[i],
           takeOffAngleDipS[i], velocityAtSrcS[i]));
+
+      BOOST_CHECK_EQUAL(travelTimeP[i],
+                        ttt->compute(lat, lon, depth, station, "P"));
+      BOOST_CHECK_EQUAL(travelTimeS[i],
+                        ttt->compute(lat, lon, depth, station, "S"));
     }
 
     for (size_t i = 0; i < tttList.size(); i++)
