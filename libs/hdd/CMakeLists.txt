@@ -3,7 +3,7 @@ SET(LSMR_LSQR_DIR ${3RDPARTY_DIR}/lsqr-lsmr)
 SET(GMT_DIR ${3RDPARTY_DIR}/gmt)
 INCLUDE_DIRECTORIES(${3RDPARTY_DIR} ${LSMR_LSQR_DIR} ${GMT_DIR})
 
-SET(HDD_SHARED_LIB ON CACHE BOOL "Build HDD as a shared library instead of static")
+SET(HDD_SHARED_LIB ON CACHE BOOL "Build libhdd as a shared library instead of static")
 IF (${HDD_SHARED_LIB})
   SET(LIB_TYPE SHARED)
 ELSE()
@@ -63,7 +63,7 @@ SET(HDD_HEADERS_3RDPARTY
 	${3RDPARTY_DIR}/lrucache.h
 )
 
-SET(HDD_INSTALL_HEADERS OFF CACHE BOOL "Install HDD header files.")
+SET(HDD_INSTALL_HEADERS OFF CACHE BOOL "Install libhdd header files.")
 IF (HDD_INSTALL_HEADERS)
 INSTALL(
 	FILES ${HDD_HEADERS}

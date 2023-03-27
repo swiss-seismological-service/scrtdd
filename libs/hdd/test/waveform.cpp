@@ -1,5 +1,5 @@
-#define SEISCOMP_TEST_MODULE hdd
-#include <seiscomp/unittest/unittests.h>
+#define BOOST_TEST_MODULE libhdd
+#include <boost/test/included/unit_test.hpp>
 #include <boost/test/data/monomorphic.hpp>
 #include <boost/test/data/test_case.hpp>
 
