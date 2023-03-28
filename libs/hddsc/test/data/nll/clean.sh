@@ -1,0 +1,1 @@
+rm -f {iasp91_2D_global,iasp91_2D_sdc,iasp91_2D_simple,iasp91_2D_azimuthal_equidist,iasp91_2D_lambert,iasp91_2D_merc,iasp91_3D_sdc,iasp91_3D_simple,iasp91_3D_azimuthal_equidist,iasp91_3D_lambert,iasp91_3D_merc}/{model,time}/*{hdr,buf}

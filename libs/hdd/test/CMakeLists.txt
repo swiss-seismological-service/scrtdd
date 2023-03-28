@@ -13,9 +13,11 @@ FOREACH(testSrc ${TESTS})
 	GET_FILENAME_COMPONENT(testName ${testSrc} NAME_WE)
 	SET(testName test_hdd_${testName})
 	ADD_EXECUTABLE(${testName} ${testSrc})
-	TARGET_LINK_LIBRARIES(${testName} hdd)
-	SC_LINK_LIBRARIES_INTERNAL(${testName} unittest hddsc client)
-	SC_LINK_LIBRARIES(${testName})
+	TARGET_LINK_LIBRARIES(${testName}
+		hdd
+		${Boost_filesystem_LIBRARY}
+		${Boost_system_LIBRARY}
+  )
 
 	ADD_TEST(
 		NAME ${testName}

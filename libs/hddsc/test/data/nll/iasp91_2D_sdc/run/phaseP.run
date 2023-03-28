@@ -1,0 +1,18 @@
+# =============================================================================
+# Vel2Grid control file statements
+# =============================================================================
+# wave type
+# (VGTYPE wave_type (P, S))
+VGTYPE P
+
+# =============================================================================
+# Grid2Time control file statements
+# =============================================================================
+# input, output filename root
+# (GTFILES <input file root> <output file root> wave_type (P, S))
+#
+GTFILES  ./model/iasp91  ./time/iasp91 P
+
+INCLUDE run/general.in
+INCLUDE run/Vel2Grid.in
+INCLUDE run/Grid2Time.in

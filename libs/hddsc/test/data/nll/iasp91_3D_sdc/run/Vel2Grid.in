@@ -1,0 +1,55 @@
+# =============================================================================
+# =============================================================================
+# Vel2Grid control file statements
+# =============================================================================
+#
+#
+
+# output filename root
+# (VGOUT <output file root>)
+# Layer 2DGrid
+VGOUT  ./model/iasp91
+
+# grid description
+# (GRID  num_grid_x  num_grid_y  num_grid_z
+#	orig_grid_x  orig_grid_y  orig_grid_z
+#	d_grid_x d_grid_y d_grid_z
+#       type
+#    (float) num_grid_x/y/z : number of nodes along x/y/z axis
+#    (float)    orig_grid_x : x location of grid origin (0,0,0) in km pos east
+#    (float)    orig_grid_y : y location of grid origin (0,0,0) in km pos north
+#    (float)    orig_grid_z : z location of grid origin (0,0,0) in km pos down
+#    (float)   d_grid_x/y/x : grid spacing along  x/y/z axis
+#    (char[])  type : (VELOCITY = km/s, VELOCITY_METERS = m/s,
+#		SLOWNESS = s/km,
+#		VEL2 = vel**2,
+#		SLOW2 = slow**2, SLOW_2_METERS = slow**2 ((s/m)**2),
+#		SLOW_LEN = slow*d_grid)
+#
+#
+# Layer 2DGrid (NOTE: num_grid_x must be = 2 for 2D grids)
+# 3D grid
+VGGRID 701 701 62 -300 -300 -1.0 0.7 0.7 0.7 SLOW_LEN
+
+# -----------------------------------------------------------------------------
+# velocity model description
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+#
+# model layers (LAYER depth, Vp_top, Vp_grad, Vs_top, Vs_grad, p_top, p_grad)
+LAYER   -1.0  5.7900 0.0     3.3500 0.0     2.7100 0.0
+LAYER    0.0  5.8000 0.0     3.3600 0.0     2.7200 0.0
+LAYER   20.0  6.5000 0.0     3.7500 0.0     2.9200 0.0
+LAYER   35.0  8.0400 0.0     4.4700 0.0     3.3198 0.0
+LAYER   77.5  8.0450 0.0     4.4850 0.0     3.3455 0.0
+LAYER  120.0  8.0500 0.0     4.5000 0.0     3.3713 0.0
+
+# -----------------------------------------------------------------------------
+
+#
+#
+# =============================================================================
+# END of Vel2Grid control file statements
+# =============================================================================
+# =============================================================================

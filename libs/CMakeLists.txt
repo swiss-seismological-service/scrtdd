@@ -1,1 +1,1 @@
-SUBDIRS(hdd)
+SUBDIRS(hdd hddsc)

@@ -3,7 +3,6 @@
 #include "hdd/nllttt.h"
 #include "hdd/cvttt.h"
 #include "hdd/utils.h"
-#include "hdd/adapters/scttt.h"
 
 #include <vector>
 
@@ -25,9 +24,6 @@ struct TTTParams
 std::vector<TTTParams> __getTTTList__()
 {
   static const std::vector<TTTParams> tttList = {
-      {"LOCSAT", "iasp91"},
-      {"libtau", "iasp91"},
-      {"homogeneous", "iasp91"},
       {"ConstVel", "5.8;3.36"},
       {"NonLinLoc",
        "./data/nll/iasp91_2D_simple/model/iasp91.PHASE.mod;"
@@ -133,11 +129,6 @@ std::unique_ptr<HDD::TravelTimeTable> createTTT(const TTTParams &prms)
     double sVel = std::stod(tokens.at(1));
     return std::unique_ptr<HDD::TravelTimeTable>(
         new HDD::ConstantVelocity(pVel, sVel));
-  }
-  else
-  {
-    return std::unique_ptr<HDD::TravelTimeTable>(
-        new HDD::SCAdapter::TravelTimeTable(prms.type, prms.model));
   }
   return nullptr;
 }

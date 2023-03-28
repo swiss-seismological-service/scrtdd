@@ -4,7 +4,6 @@
 #include <boost/test/data/test_case.hpp>
 
 #include "hdd/dd.h"
-#include "hdd/adapters/scwaveform.h"
 #include <cstring>
 #include <ostream>
 
@@ -23,26 +22,6 @@ std::ostream &operator<<(std::ostream &os, const HDD::Trace &tr)
 } // namespace std
 
 namespace {
-
-void writeTrace(const Trace &trace, const std::string &filename)
-{
-  HDD::SCAdapter::WaveformProxy().writeTrace(trace, filename);
-}
-
-Trace readTrace(const std::string &filename)
-{
-  return *HDD::SCAdapter::WaveformProxy().readTrace(filename);
-}
-
-void filter(Trace &trace,
-              bool demeaning,
-              const std::string &filterStr,
-              double resampleFreq)
-{
-  Waveform::BasicProcessor(shared_ptr<Waveform::Proxy>(
-        new HDD::SCAdapter::WaveformProxy()), nullptr,  0)
-    .filter(trace, demeaning, filterStr, resampleFreq);
-}
 
 Trace buildSyntheticTrace1(double samplingFrequency)
 {
@@ -119,31 +98,6 @@ Trace alterTrace(const Trace &tr,
   if (trimStart > 0 || trimEnd > 0) trimTrace(newTr, trimStart, trimEnd);
   if (constant != 0 || scaler != 1) scaleTrace(newTr, constant, scaler);
   return newTr;
-}
-
-void testTracesEqual(const Trace &tr1, const Trace &tr2)
-{
-  BOOST_CHECK_EQUAL(tr1.streamID(), tr2.streamID());
-  BOOST_CHECK(tr1.startTime() == tr2.startTime());
-  BOOST_CHECK(tr1.endTime() == tr2.endTime());
-  BOOST_CHECK_EQUAL(tr1.samplingFrequency(), tr2.samplingFrequency());
-  BOOST_CHECK_EQUAL(tr1.sampleCount(), tr2.sampleCount());
-  BOOST_CHECK(tr1.elementSize() == tr2.elementSize());
-  BOOST_CHECK(
-      std::memcmp(tr1.data(), tr2.data(),
-                  std::min(tr1.sampleCount() * tr1.elementSize(),
-                           tr2.sampleCount() * tr2.elementSize())) == 0);
-}
-
-void testReadWriteTrace(const Trace &tr)
-{
-  const string filename = "test_read_write.mseed";
-  if (pathExists(filename)) removePath(filename);
-  BOOST_REQUIRE(!pathExists(filename));
-  writeTrace(tr, filename);
-  Trace cmpTr = readTrace(filename);
-  testTracesEqual(tr, cmpTr);
-  removePath(filename);
 }
 
 void testXCorrTraces(const Trace &tr1, const Trace &tr2, double expectedLag)
@@ -243,48 +197,6 @@ void testReampling(const vector<Trace> &traces)
   }
 }
 
-void testFiltering(const vector<Trace> &traces)
-{
-  const string filterStr = "ITAPER(1)>>BW_HLP(1,1,20)";
-
-  // traces vector contains identical traces, but different sampling rates
-  for (size_t i = 0; i < traces.size() - 1; i++)
-  {
-    for (size_t j = i + 1; j < traces.size(); j++)
-    {
-      Trace tr1 = alterTrace(traces[i], 0, 0, 10, 1);
-      Trace tr2 = alterTrace(traces[j], 0, 0, -10, 1);
-      filter(tr1, true, filterStr, 500);
-      filter(tr2, true, filterStr, 500);
-      testXCorrTraces(tr1, tr2, 0);
-
-      // writeTrace(tr1,strf("testFilteringTr1_%s_%.f-%.fHz.mseed",
-      //            tr1.networkCode().c_str(),
-      //            traces[i].samplingFrequency(),
-      //            tr1.samplingFrequency()));
-      // writeTrace(tr2, strf("testFilteringTr2_%s_%.f-%.fHz.mseed",
-      //            tr2.networkCode().c_str(),
-      //            traces[j].samplingFrequency(),
-      //            tr2.samplingFrequency()));
-
-      tr1 = alterTrace(traces[i], 0, 0, 10, 1);
-      tr2 = alterTrace(traces[j], 0, 0, -10, 1);
-      filter(tr1, true, filterStr, 50);
-      filter(tr2, true, filterStr, 50);
-      testXCorrTraces(tr1, tr2, 0);
-
-      // writeTrace(tr1, strf("testFilteringTr1_%s_%.f-%.fHz.mseed",
-      //            tr1.networkCode().c_str(),
-      //            traces[i].samplingFrequency(),
-      //            tr1.samplingFrequency()));
-      // writeTrace(tr2, strf("testFilteringTr2_%s_%.f-%.fHz.mseed",
-      //            tr2.networkCode().c_str(),
-      //            traces[j].samplingFrequency(),
-      //            tr2.samplingFrequency()));
-    }
-  }
-}
-
 void testSnrSynthetic(const Trace &trace)
 {
   double snr = Waveform::computeSnr(
@@ -297,23 +209,6 @@ void testSnrSynthetic(const Trace &trace)
       1);
   BOOST_CHECK(snr < 2);
 }
-
-const vector<Trace> realTraces = {
-    readTrace("./data/waveform/xcorr1.mseed"),
-    readTrace("./data/waveform/xcorr2.mseed"),
-    readTrace("./data/waveform/xcorr3.mseed"),
-    readTrace("./data/waveform/xcorr4.mseed"),
-    readTrace("./data/waveform/xcorr5.mseed"),
-    readTrace("./data/waveform/xcorr6.mseed")};
-
-const vector<Trace> badSnrTraces = {
-    readTrace("./data/waveform/snr1.mseed"),
-    readTrace("./data/waveform/snr2.mseed"),
-    readTrace("./data/waveform/snr3.mseed"),
-    readTrace("./data/waveform/snr4.mseed"),
-    readTrace("./data/waveform/snr5.mseed"),
-    readTrace("./data/waveform/snr6.mseed"),
-    readTrace("./data/waveform/snr7.mseed")};
 
 const vector<Trace> synthetic1Traces = {
     buildSyntheticTrace1(160), buildSyntheticTrace1(158),
@@ -328,39 +223,6 @@ const vector<Trace> synthetic3Traces = {
     buildSyntheticTrace3(60), buildSyntheticTrace3(67)};
 
 } // namespace
-
-BOOST_DATA_TEST_CASE(test_read_write1, bdata::make(realTraces), trace)
-{
-  testReadWriteTrace(trace);
-}
-
-BOOST_DATA_TEST_CASE(test_read_write2, bdata::make(badSnrTraces), trace)
-{
-  testReadWriteTrace(trace);
-}
-
-BOOST_DATA_TEST_CASE(test_read_write3, bdata::make(synthetic1Traces), trace)
-{
-  testReadWriteTrace(trace);
-}
-
-BOOST_DATA_TEST_CASE(test_read_write4, bdata::make(synthetic2Traces), trace)
-{
-  testReadWriteTrace(trace);
-}
-
-BOOST_DATA_TEST_CASE(test_read_write5, bdata::make(synthetic3Traces), trace)
-{
-  testReadWriteTrace(trace);
-}
-
-BOOST_DATA_TEST_CASE(test_xcorr1,
-                     bdata::xrange(realTraces.size()) ^ bdata::make(realTraces),
-                     i,
-                     trace)
-{
-  testXCorr(trace, i + 1);
-}
 
 BOOST_DATA_TEST_CASE(test_xcorr2,
                      bdata::xrange(synthetic1Traces.size()) ^
@@ -399,32 +261,6 @@ BOOST_AUTO_TEST_CASE(test_resampling2)
 BOOST_AUTO_TEST_CASE(test_resampling3)
 {
   testReampling(synthetic3Traces);
-}
-
-BOOST_AUTO_TEST_CASE(test_filtering1)
-{
-  testFiltering(synthetic1Traces);
-}
-
-BOOST_AUTO_TEST_CASE(test_filtering2)
-{
-  testFiltering(synthetic2Traces);
-}
-
-BOOST_DATA_TEST_CASE(test_snr_bad, bdata::make(badSnrTraces), trace)
-{
-  double snr = Waveform::computeSnr(
-      trace, trace.startTime() + (trace.timeWindow().length() / 2), -3, -0.350,
-      -0.350, 0.350);
-  BOOST_CHECK(snr < 2);
-}
-
-BOOST_DATA_TEST_CASE(test_snr_ok, bdata::make(realTraces), trace)
-{
-  double snr = Waveform::computeSnr(
-      trace, trace.startTime() + (trace.timeWindow().length() / 2), -0.7, -0.1,
-      -0.1, 0.5);
-  BOOST_CHECK(snr >= 2);
 }
 
 BOOST_DATA_TEST_CASE(test_snr_synthetic1, bdata::make(synthetic1Traces), trace)

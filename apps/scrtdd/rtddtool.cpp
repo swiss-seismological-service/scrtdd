@@ -16,13 +16,13 @@
  ***************************************************************************/
 
 #include "rtddtool.h"
-#include "hdd/adapters/sclog.h"
-#include "hdd/adapters/scttt.h"
-#include "hdd/adapters/scutils.h"
-#include "hdd/adapters/scwaveform.h"
 #include "hdd/csvreader.h"
 #include "hdd/cvttt.h"
 #include "hdd/nllttt.h"
+#include "hddsc/sclog.h"
+#include "hddsc/scttt.h"
+#include "hddsc/scutils.h"
+#include "hddsc/scwaveform.h"
 #include "msg.h"
 
 #define SEISCOMP_COMPONENT RTDD
