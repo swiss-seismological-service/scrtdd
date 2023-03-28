@@ -10,6 +10,7 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/../../base/common/libs)
 
 OPTION(HDD_INSTALL_HEADERS "Install libhdd header files." OFF)
 OPTION(HDD_SHARED_LIB "Build libhdd as a shared library instead of static" ON)
+OPTION(HDD_USE_BOOST_FS "Build libhdd using boost::filesystem instead of std::filesystem" ON)
 
 # Add test directory
 IF (SC_GLOBAL_UNITTESTS)

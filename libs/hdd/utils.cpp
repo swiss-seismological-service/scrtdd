@@ -17,13 +17,18 @@
 #include "utils.h"
 #include "csvreader.h"
 #include "log.h"
-#include <boost/filesystem.hpp>
 #include <fstream>
 #include <stdarg.h>
 
-using namespace std;
-
+#ifdef USE_BOOST_FS
+#include <boost/filesystem.hpp>
 namespace fs = boost::filesystem;
+#else
+#include <filesystem>
+namespace fs = std::filesystem;
+#endif
+
+using namespace std;
 
 namespace HDD {
 
@@ -273,8 +278,7 @@ bool directoryEmpty(const std::string &path)
 {
   try
   {
-    return !boost::filesystem::exists(path) ||
-           (fs::is_directory(path) && fs::is_empty(path));
+    return !fs::exists(path) || (fs::is_directory(path) && fs::is_empty(path));
   }
   catch (exception &e)
   {
