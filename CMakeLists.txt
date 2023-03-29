@@ -8,14 +8,18 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/libs)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../../base/common/libs)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/../../base/common/libs) 
 
-OPTION(HDD_INSTALL_HEADERS "Install libhdd header files." OFF)
+SET(HDD_LIB_INSTALL_DIR ${SC3_PACKAGE_LIB_DIR})
+SET(HDD_HEADERS_INSTALL_DIR ${SC3_PACKAGE_INCLUDE_DIR})
+
 OPTION(HDD_SHARED_LIB "Build libhdd as a shared library instead of static" ON)
 OPTION(HDD_USE_BOOST_FS "Build libhdd using boost::filesystem instead of std::filesystem" ON)
+OPTION(HDD_INSTALL_HEADERS "Install libhdd header files." OFF)
 
 # Add test directory
 IF (SC_GLOBAL_UNITTESTS)
   SET(HDD_TESTS ON)
 ENDIF (SC_GLOBAL_UNITTESTS)
 OPTION(HDD_TESTS "Build libhdd tests. This will be enabled also when SC_GLOBAL_UNITTESTS is ON" OFF)
+
 
 SUBDIRS(libs apps doc)
