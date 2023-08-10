@@ -100,7 +100,7 @@ void addEventToCatalog(HDD::Catalog &cat,
                        double lon,
                        double depth)
 {
-  Event ev{0};
+  Event ev{};
   ev.time                = time;
   ev.latitude            = lat;
   ev.longitude           = normalizeLon(lon);

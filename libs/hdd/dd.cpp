@@ -286,7 +286,7 @@ void DD::preloadWaveforms()
       };
 
   unsigned numPhases = 0, numSPhases = 0, numEvents = 0;
-  WfCounters wfcount{0};
+  WfCounters wfcount{};
 
   for (const auto &kv : _bgCat.getEvents())
   {
@@ -1155,7 +1155,7 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     event.relocInfo.finalRms      = 0;
     event.relocInfo.isRelocated   = true;
     event.relocInfo.numNeighbours = 0;
-    event.relocInfo.phases        = {0};
+    event.relocInfo.phases        = {};
     event.relocInfo.dd.numTTp     = 0;
     event.relocInfo.dd.numTTs     = 0;
     event.relocInfo.dd.numCCp     = 0;
@@ -1622,7 +1622,7 @@ XCorrCache DD::buildXCorrCache(
     }
   }
 
-  WfCounters wfcount{0};
+  WfCounters wfcount{};
   wfcount.update(_wfAccess.loader.get());
   wfcount.update(_wfAccess.diskCache.get());
 
@@ -1876,7 +1876,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
   batchLoader->load();
 
   // print counters
-  WfCounters wfcount{0};
+  WfCounters wfcount{};
   wfcount.update(batchLoader.get());
   wfcount.update(diskLoader.get());
   logInfo("Event %s: waveforms downloaded %u, not available %u, loaded from "
@@ -2316,7 +2316,7 @@ void DD::logXCorrSummary(const XCorrCache &xcorr)
     unsigned good_cc;
     unsigned good_cc_s;
     unsigned good_cc_p;
-  } counters{0};
+  } counters{};
 
   auto callback = [&counters, this](unsigned ev1, unsigned ev2,
                                     const std::string &stationId,
@@ -2595,7 +2595,7 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
      pStatsByStaDistance, sStatsByStaDistance, pStatsByInterEvDistance,
      sStatsByInterEvDistance, interEvDistStep, staDistStep, 1.0);
 
-  WfCounters wfcount{0};
+  WfCounters wfcount{};
   wfcount.update(_wfAccess.loader.get());
   wfcount.update(_wfAccess.diskCache.get());
   logInfo("Catalog waveforms downloaded %u, not available "

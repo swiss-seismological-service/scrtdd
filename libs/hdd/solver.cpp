@@ -375,7 +375,7 @@ void Solver::loadSolutions()
       }
     }
 
-    if (!allZero) _eventDeltas[evIdx] = {0};
+    if (!allZero) _eventDeltas[evIdx] = {};
   }
 
   //

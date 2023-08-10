@@ -63,7 +63,7 @@ UTCClock::time_point UTCClock::now()
 UTCClock::time_point UTCClock::fromDate(
     int year, int month, int day, int hour, int min, int sec, int usec)
 {
-  std::tm tm     = {0};
+  std::tm tm     = {};
   tm.tm_year     = year - 1900;
   tm.tm_mon      = month - 1;
   tm.tm_mday     = day;

@@ -67,7 +67,7 @@ void addStationsToCatalog(HDD::Catalog &cat,
 
 void addEventToCatalog(HDD::Catalog &cat, double lat, double lon, double depth)
 {
-  Event ev{0};
+  Event ev{};
   ev.latitude            = lat;
   ev.longitude           = lon;
   ev.depth               = depth;
