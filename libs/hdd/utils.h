@@ -61,7 +61,7 @@ static const double EARTH_MEAN_RADIUS_METER = 6371008.77141506;
 
 inline double kmOfDegree(double kmDepth = 0)
 {
-  return ((EARTH_MEAN_RADIUS_METER / 1000.) - kmDepth) * M_PI / 180;
+  return ((EARTH_MEAN_RADIUS_METER / 1000.) - kmDepth) * M_PI / 180.0;
 }
 
 inline double deg2km(double deg, double kmDepth = 0)
@@ -106,15 +106,17 @@ void computeCoordinates(double distance,
                         double clon,
                         double &lat,
                         double &lon,
-                        double atKmDepth = 0);
+                        double atKmDepth     = 0,
+                        bool angularDistance = false);
 
 double computeDistance(double lat1,
                        double lon1,
                        double lat2,
                        double lon2,
-                       double *azimuth     = nullptr,
-                       double *backAzimuth = nullptr,
-                       double atKmDepth    = 0);
+                       double *azimuth      = nullptr,
+                       double *backAzimuth  = nullptr,
+                       double atKmDepth     = 0,
+                       bool angularDistance = false);
 
 double computeDistance(double lat1,
                        double lon1,

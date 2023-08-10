@@ -110,12 +110,25 @@ std::vector<std::string> splitString(const std::string &str,
           std::sregex_token_iterator()};
 }
 
+/*
+ * Computes the azimuth [radiant] of the point lat2,lon2 as seen from
+ * lat1,lon1
+ *
+ * All these formulas are for calculations on the basis of a spherical
+ * earth (ignoring ellipsoidal effects)
+ *
+ */
 double computeAzimuth(double lat1, double lon1, double lat2, double lon2)
 {
   const double deltaLon = degToRad(lon2 - lon1);
   const double Fi1      = degToRad(lat1);
   const double Fi2      = degToRad(lat2);
   const double cosLat2  = cos(Fi2);
+
+  if (lat1 == lat2 && (lat1 == 90 || lat1 == -90 || deltaLon == 0))
+  {
+    return 0.;
+  }
 
   const double y = sin(deltaLon) * cosLat2;
   const double x = cos(Fi1) * sin(Fi2) - sin(Fi1) * cosLat2 * cos(deltaLon);
@@ -131,8 +144,9 @@ double computeAzimuth(double lat1, double lon1, double lat2, double lon2)
 
 /*
  * Computes the coordinates (lat, lon) of the point which is at the
- * passed azimuth [radiant] and distance [km] as seen from the
- * pint at latitude, longitude [clat, clon]
+ * passed azimuth [radiant] and distance [radiant] (angularDistance true)
+ * or [km] (angularDistance false and set `atKmDepth` approprieatly) as seen
+ * from the point at latitude, longitude [clat, clon]
  *
  * All these formulas are for calculations on the basis of a spherical
  * earth (ignoring ellipsoidal effects)
@@ -144,11 +158,22 @@ void computeCoordinates(double distance,
                         double clon,
                         double &lat,
                         double &lon,
-                        double atKmDepth)
+                        double atKmDepth,
+                        bool angularDistance)
 {
-  distance = km2rad(distance, atKmDepth);
-  clat     = degToRad(clat);
-  clon     = degToRad(clon);
+  if (distance == 0)
+  {
+    lat = clat;
+    lon = clon;
+    return;
+  }
+
+  if (!angularDistance)
+  {
+    distance = km2rad(distance, atKmDepth);
+  }
+  clat = degToRad(clat);
+  clon = degToRad(clon);
 
   const double cosCLat = cos(clat);
   const double sinCLat = sin(clat);
@@ -169,8 +194,9 @@ void computeCoordinates(double distance,
 }
 
 /*
- * Compute distance [km] between two points and optionally
- * `azimuth` and `backazimuth` [radiants]
+ * Compute distance [radiant] (`angularDistance` true) or [km]
+ * (`angularDistance` false and set `atKmDepth` approprieatly) between two
+ * points and optionally `azimuth` and `backazimuth` [radiants]
  *
  * All these formulas are for calculations on the basis of a spherical
  * earth (ignoring ellipsoidal effects)
@@ -182,7 +208,8 @@ double computeDistance(double lat1,
                        double lon2,
                        double *azimuth,
                        double *backAzimuth,
-                       double atKmDepth)
+                       double atKmDepth,
+                       bool angularDistance)
 {
   const double deltaLat = degToRad(lat2 - lat1);
   const double deltaLon = degToRad(lon2 - lon1);
@@ -192,6 +219,13 @@ double computeDistance(double lat1,
   const double cosLat2  = cos(Fi2);
   const double sinLat1  = sin(Fi1);
   const double sinLat2  = sin(Fi2);
+
+  if (lat1 == lat2 && (lat1 == 90 || lat1 == -90 || deltaLon == 0))
+  {
+    *azimuth     = 0;
+    *backAzimuth = 0.;
+    return 0.;
+  }
 
   double a = square(sin(deltaLat / 2.)) +
              cosLat1 * cosLat2 * square(sin(deltaLon / 2.));
@@ -228,7 +262,7 @@ double computeDistance(double lat1,
     }
   }
 
-  return rad2km(distance, atKmDepth);
+  return angularDistance ? distance : rad2km(distance, atKmDepth);
 }
 
 double computeDistance(double lat1,
