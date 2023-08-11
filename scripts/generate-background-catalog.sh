@@ -89,7 +89,7 @@ if [ $? -ne 0 ] || [ ! -f reloc-event.csv ] || [ ! -f reloc-phase.csv ] || [ ! -
   exit 1
 fi
 
-if [ "$( wc -w < reloc-event.csv )" -lt 2 ]; then
+if [ "$( wc --lines < reloc-event.csv )" -lt 2 ]; then
   echo "Relocated catalog contains no events: stop here"
   exit 1
 fi
