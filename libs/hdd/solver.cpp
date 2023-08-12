@@ -51,7 +51,26 @@ private:
   HDD::DDSystem &_dd; // doesn't own the DDSystem
 
 public:
-  Adapter(HDD::DDSystem &dd) : _dd(dd) {}
+  Adapter(HDD::DDSystem &dd) : _dd(dd)
+  {
+
+    std::fill_n(_dd.m, _dd.numColsG, 0);
+
+    std::fill_n(_dd.L2NScaler, _dd.numColsG, 1.);
+
+    for (unsigned int ob = 0; ob < _dd.numRowsG; ob++)
+    {
+      if (_dd.W[ob] != 0)
+      {
+        _dd.d[ob] *= _dd.W[ob];
+      }
+      else
+      {
+        _dd.d[ob] = 0;
+      }
+    }
+  }
+
   virtual ~Adapter() = default;
 
   /*
@@ -520,10 +539,6 @@ void Solver::prepareDDSystem(double ttConstraint,
   _dd.reset(new DDSystem(_observations.size(), _eventIdConverter.size(),
                          _phStaIdConverter.size(), ttconstraintNum));
 
-  // initialize `m` and `L2NScaler`
-  std::fill_n(_dd->m, _dd->numColsG, 0);
-  std::fill_n(_dd->L2NScaler, _dd->numColsG, 1.);
-
   // initialize `G`
   for (const auto &kv1 : _obsParams)
   {
@@ -539,7 +554,7 @@ void Solver::prepareDDSystem(double ttConstraint,
     }
   }
 
-  // initialize: `W`, `d`, `evByObsi`, `phStaByObs` (`m` is zero initialized)
+  // initialize: `W`, `d`, `evByObsi`, `phStaByObs`
   for (auto &kw : _observations)
   {
     unsigned obIdx                  = kw.first;
@@ -554,9 +569,6 @@ void Solver::prepareDDSystem(double ttConstraint,
     // compute double difference
     _dd->d[obIdx] =
         ob.observedDiffTime - (obprm1.travelTime - obprm2.travelTime);
-
-    // apply weights to d
-    _dd->d[obIdx] *= _dd->W[obIdx];
 
     // (bookkeeping) Keep track of the weights of observation parameters.
     if (obprm1.computeEvChanges)
@@ -591,7 +603,6 @@ void Solver::prepareDDSystem(double ttConstraint,
     for (unsigned obIdx = 0; obIdx < _dd->nObs; obIdx++)
     {
       _dd->W[obIdx] *= resWeights[obIdx];
-      _dd->d[obIdx] *= resWeights[obIdx];
     }
   }
 
@@ -662,8 +673,7 @@ void Solver::prepareDDSystem(double ttConstraint,
             (prmSts.finalTotalObs != 0
                  ? (prmSts.totalFinalWeight / prmSts.finalTotalObs)
                  : 0);
-        _dd->d[ttconstraintIdx] =
-            -obprm.travelTimeResidual * _dd->W[ttconstraintIdx];
+        _dd->d[ttconstraintIdx]          = -obprm.travelTimeResidual;
         _dd->evByObs[0][ttconstraintIdx] = evIdx;
         _dd->evByObs[1][ttconstraintIdx] = -1;
         _dd->phStaByObs[ttconstraintIdx] = phStaIdx;
