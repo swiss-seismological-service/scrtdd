@@ -66,6 +66,10 @@ public:
                  const Catalog::Station &station,
                  const std::string &phaseType) override;
 
+  static std::string filePath(const std::string &basePath,
+                              const Catalog::Station &station,
+                              const std::string &phaseType);
+
 private:
   std::string _velGridPath;
   std::string _timeGridPath;
