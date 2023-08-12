@@ -691,27 +691,8 @@ double Transform::distance(double xLoc1,
                    square(zLoc2 - zLoc1));
 }
 
-std::string Grid::filePath(const std::string &basePath,
-                           const Catalog::Station &station,
-                           const std::string &phaseType)
-{
-  static const std::regex reNet("NETWORK", std::regex::optimize);
-  static const std::regex reSta("STATION", std::regex::optimize);
-  static const std::regex reLoc("LOCATION", std::regex::optimize);
-  static const std::regex rePha("PHASE", std::regex::optimize);
-
-  string out = std::regex_replace(basePath, reNet, station.networkCode);
-  out        = std::regex_replace(out, reSta, station.stationCode);
-  out        = std::regex_replace(out, reLoc, station.locationCode);
-  return std::regex_replace(out, rePha, phaseType);
-}
-
-Grid::Grid(Type gridType,
-           const std::string &basePath,
-           const Catalog::Station &station,
-           const std::string &phaseType,
-           bool swapBytes)
-    : info(parse(filePath(basePath, station, phaseType), gridType, swapBytes))
+Grid::Grid(Type gridType, const std::string &filePath, bool swapBytes)
+    : info(parse(filePath, gridType, swapBytes))
 {
 
   if (!pathExists(info.bufFilePath))
@@ -806,25 +787,6 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
   return info;
 }
 
-bool Grid::isLocationInside(double xloc, double yloc, double zloc) const
-{
-  if (xloc < info.origx || xloc > info.origx + (info.numx - 1) * info.dx)
-    return false;
-  if (yloc < info.origy || yloc > info.origy + (info.numy - 1) * info.dy)
-    return false;
-  if (zloc < info.origz || zloc > info.origz + (info.numz - 1) * info.dz)
-    return false;
-  return true;
-}
-
-bool Grid::isIndexInside(unsigned long long ix,
-                         unsigned long long iy,
-                         unsigned long long iz) const
-{
-  return !(ix < 0 || ix >= info.numx || iy < 0 || iy >= info.numy || iz < 0 ||
-           iz >= info.numz);
-}
-
 /*
  * This is the function that reads the data from the grid files
  * Since the grid files can vary between hundres of MB to hundreds
@@ -846,7 +808,7 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
                                       unsigned long long iy,
                                       unsigned long long iz)
 {
-  if (!isIndexInside(ix, iy, iz))
+  if (!info.isIndexInside(ix, iy, iz))
   {
     throw Exception("Requested index is out of grid boundaries");
   }
@@ -903,7 +865,7 @@ void Grid::getValuesAt3DLocation(double xloc,
                                  GRID_FLOAT_TYPE &vval110,
                                  GRID_FLOAT_TYPE &vval111)
 {
-  if (!isLocationInside(xloc, yloc, zloc))
+  if (!info.isLocationInside(xloc, yloc, zloc))
   {
     string msg = strf("Requested location is out of grid boundaries "
                       "(xloc %.2f yloc %.2f zloc %.2f - grid %s "
@@ -963,7 +925,7 @@ void Grid::getValuesAt2DLocation(double yloc,
 {
   double xloc = info.origx;
 
-  if (!isLocationInside(xloc, yloc, zloc))
+  if (!info.isLocationInside(xloc, yloc, zloc))
   {
     string msg = strf("Requested location is out of grid boundaries "
                       "(xloc %.2f yloc %.2f zloc %.2f - grid %s "
@@ -1058,17 +1020,28 @@ GRID_FLOAT_TYPE Grid::getValue2D(
   return interpolateValues2D(ydiff, zdiff, vval00, vval01, vval10, vval11);
 }
 
-TimeGrid::TimeGrid(const std::string &basePath,
-                   const Catalog::Station &station,
-                   const std::string &phaseType,
-                   bool swapBytes)
-    : _grid(Grid::Type::time, basePath, station, phaseType, swapBytes)
+TimeGrid::TimeGrid(const std::string &filePath, bool swapBytes)
+    : _grid(Grid::Type::time, filePath, swapBytes)
 {
   if (_grid.info.type != "TIME" && _grid.info.type != "TIME2D")
   {
     string msg = strf("Unrecognized time grid type %s (%s)",
                       _grid.info.type.c_str(), _grid.info.hdrFilePath.c_str());
     throw Exception(msg.c_str());
+  }
+}
+
+double TimeGrid::getTimeAtIndex(unsigned long long ix,
+                                unsigned long long iy,
+                                unsigned long long iz)
+{
+  if (_grid.info.useDouble)
+  {
+    return _grid.getValueAtIndex<double>(ix, iy, iz);
+  }
+  else
+  {
+    return _grid.getValueAtIndex<float>(ix, iy, iz);
   }
 }
 
@@ -1141,11 +1114,8 @@ GRID_FLOAT_TYPE TimeGrid::interpolateValues2D(double xdiff,
                                    vval11);
 }
 
-AngleGrid::AngleGrid(const std::string &basePath,
-                     const Catalog::Station &station,
-                     const std::string &phaseType,
-                     bool swapBytes)
-    : _grid(Grid::Type::angle, basePath, station, phaseType, swapBytes)
+AngleGrid::AngleGrid(const std::string &filePath, bool swapBytes)
+    : _grid(Grid::Type::angle, filePath, swapBytes)
 {
   if (_grid.info.type != "ANGLE" && _grid.info.type != "ANGLE2D")
   {
@@ -1193,6 +1163,16 @@ AngleGrid::AngleGrid(const std::string &basePath,
   }
 }
 
+void AngleGrid::getAnglesAtIndex(unsigned long long ix,
+                                 unsigned long long iy,
+                                 unsigned long long iz,
+                                 double &azim,
+                                 double &dip)
+{
+  TakeOffAngles angles = _grid.getValueAtIndex<TakeOffAngles>(ix, iy, iz);
+  convertAngles(angles, azim, dip);
+}
+
 void AngleGrid::getAngles(
     double lat, double lon, double depth, double &azim, double &dip)
 {
@@ -1208,10 +1188,15 @@ void AngleGrid::getAngles(
     angles = _grid.getValue2D<TakeOffAngles>(
         lat, lon, depth, interpolateValues2D<TakeOffAngles>);
   }
+  convertAngles(angles, azim, dip);
+}
 
+void AngleGrid::convertAngles(const TakeOffAngles &angles,
+                              double &azim,
+                              double &dip)
+{
   if (angles.quality < QUALITY_CUTOFF)
   {
-    // this is not an error, the code handles nans
     azim = std::numeric_limits<double>::quiet_NaN();
     dip  = std::numeric_limits<double>::quiet_NaN();
     return;
@@ -1261,11 +1246,8 @@ GRID_FLOAT_TYPE AngleGrid::interpolateValues2D(double xdiff,
                                vval00, vval01, vval10, vval11, QUALITY_CUTOFF);
 }
 
-VelGrid::VelGrid(const std::string &basePath,
-                 const Catalog::Station &station,
-                 const std::string &phaseType,
-                 bool swapBytes)
-    : _grid(Grid::Type::velocity, basePath, station, phaseType, swapBytes)
+VelGrid::VelGrid(const std::string &filePath, bool swapBytes)
+    : _grid(Grid::Type::velocity, filePath, swapBytes)
 {
   if (_grid.info.numx < 2)
   {
@@ -1301,6 +1283,23 @@ VelGrid::VelGrid(const std::string &basePath,
         strf("Unrecognized velocity grid type %s", _grid.info.type.c_str());
     throw Exception(msg.c_str());
   }
+}
+
+double VelGrid::getVelAtIndex(unsigned long long ix,
+                              unsigned long long iy,
+                              unsigned long long iz)
+{
+  double velAtSrc;
+  if (_grid.info.useDouble)
+  {
+    velAtSrc = _grid.getValueAtIndex<double>(ix, iy, iz);
+  }
+  else
+  {
+    velAtSrc = _grid.getValueAtIndex<float>(ix, iy, iz);
+  }
+  // velocity -> [km/sec]
+  return convertUnits(velAtSrc);
 }
 
 double VelGrid::getVel(double lat, double lon, double depth)
