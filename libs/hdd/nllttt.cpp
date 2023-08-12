@@ -51,14 +51,29 @@ void TravelTimeTable::freeResources()
   _angleGrids.clear();
 }
 
+std::string TravelTimeTable::filePath(const std::string &basePath,
+                                      const Catalog::Station &station,
+                                      const std::string &phaseType)
+{
+  static const std::regex reNet("@NETWORK@", std::regex::optimize);
+  static const std::regex reSta("@STATION@", std::regex::optimize);
+  static const std::regex reLoc("@LOCATION@", std::regex::optimize);
+  static const std::regex rePha("@PHASE@", std::regex::optimize);
+
+  string out = std::regex_replace(basePath, reNet, station.networkCode);
+  out        = std::regex_replace(out, reSta, station.stationCode);
+  out        = std::regex_replace(out, reLoc, station.locationCode);
+  return std::regex_replace(out, rePha, phaseType);
+}
+
 double TravelTimeTable::compute(double eventLat,
                                 double eventLon,
                                 double eventDepth,
                                 const Catalog::Station &station,
                                 const std::string &phaseType)
 {
-  string timeGId =
-      "timeGrid:" + Grid::filePath(_timeGridPath, station, phaseType);
+  string timeGridFile = filePath(_timeGridPath, station, phaseType);
+  string timeGId      = "timeGrid:" + timeGridFile;
   double travelTime;
   try
   {
@@ -77,9 +92,8 @@ double TravelTimeTable::compute(double eventLat,
     // Load the grid
     try
     {
-      _timeGrids.put(timeGId,
-                     shared_ptr<TimeGrid>(new TimeGrid(_timeGridPath, station,
-                                                       phaseType, _swapBytes)));
+      _timeGrids.put(timeGId, shared_ptr<TimeGrid>(
+                                  new TimeGrid(timeGridFile, _swapBytes)));
     }
     catch (exception &e)
     {
@@ -107,7 +121,8 @@ void TravelTimeTable::compute(double eventLat,
   travelTime = compute(eventLat, eventLon, eventDepth, station, phaseType);
 
   // Get velocityAtSrc
-  string velGId = "velGrid:" + Grid::filePath(_velGridPath, station, phaseType);
+  string velGridFile = filePath(_velGridPath, station, phaseType);
+  string velGId      = "velGrid:" + velGridFile;
   try
   {
     velocityAtSrc =
@@ -125,8 +140,8 @@ void TravelTimeTable::compute(double eventLat,
     // Load the grid
     try
     {
-      _velGrids.put(velGId, shared_ptr<VelGrid>(new VelGrid(
-                                _velGridPath, station, phaseType, _swapBytes)));
+      _velGrids.put(velGId,
+                    shared_ptr<VelGrid>(new VelGrid(velGridFile, _swapBytes)));
     }
     catch (exception &e)
     {
@@ -143,8 +158,8 @@ void TravelTimeTable::compute(double eventLat,
   azimuth      = std::numeric_limits<double>::quiet_NaN();
   takeOffAngle = std::numeric_limits<double>::quiet_NaN();
 
-  string angleGId =
-      "angleGrid:" + Grid::filePath(_angleGridPath, station, phaseType);
+  string angleGridFile = filePath(_angleGridPath, station, phaseType);
+  string angleGId      = "angleGrid:" + angleGridFile;
 
   try
   {
@@ -163,9 +178,8 @@ void TravelTimeTable::compute(double eventLat,
     // Load the grid
     try
     {
-      _angleGrids.put(angleGId,
-                      shared_ptr<AngleGrid>(new AngleGrid(
-                          _angleGridPath, station, phaseType, _swapBytes)));
+      _angleGrids.put(angleGId, shared_ptr<AngleGrid>(
+                                    new AngleGrid(angleGridFile, _swapBytes)));
     }
     catch (exception &e)
     {
