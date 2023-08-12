@@ -100,21 +100,9 @@ public:
     velocity
   };
 
-  static std::string filePath(const std::string &basePath,
-                              const Catalog::Station &station,
-                              const std::string &phaseType);
-  Grid(Type gridType,
-       const std::string &basePath,
-       const Catalog::Station &station,
-       const std::string &phaseType,
-       bool swapBytes);
+  Grid(Type gridType, const std::string &filePath, bool swapBytes);
 
   ~Grid() = default;
-
-  bool isLocationInside(double xloc, double yloc, double zloc) const;
-  bool isIndexInside(unsigned long long ix,
-                     unsigned long long iy,
-                     unsigned long long iz) const;
 
   template <typename GRID_FLOAT_TYPE> struct Interpolate2D
   {
@@ -203,6 +191,25 @@ public:
     std::string label;
     double srcex, srcey, srcez;
     std::unique_ptr<Transform> transform;
+
+    double minX() const { return origx; }
+    double maxX() const { return origx + (numx - 1) * dx; }
+    double minY() const { return origy; }
+    double maxY() const { return origy + (numy - 1) * dy; }
+    double minZ() const { return origz; }
+    double maxZ() const { return origz + (numz - 1) * dz; }
+    bool isLocationInside(double xloc, double yloc, double zloc) const
+    {
+      return !(xloc < minX() || xloc > maxX() || yloc < minY() ||
+               yloc > maxY() || zloc < minZ() || zloc > maxZ());
+    }
+    bool isIndexInside(unsigned long long ix,
+                       unsigned long long iy,
+                       unsigned long long iz) const
+    {
+      return !(ix < 0 || ix >= numx || iy < 0 || iy >= numy || iz < 0 ||
+               iz >= numz);
+    }
   };
   const Info info;
 
@@ -216,15 +223,18 @@ private:
 class TimeGrid
 {
 public:
-  TimeGrid(const std::string &basePath,
-           const Catalog::Station &station,
-           const std::string &phaseType,
-           bool swapBytes);
+  TimeGrid(const std::string &filePath, bool swapBytes);
   ~TimeGrid() = default;
 
   double getTime(double lat, double lon, double depth);
 
+  double getTimeAtIndex(unsigned long long ix,
+                        unsigned long long iy,
+                        unsigned long long iz);
+
   bool is3D() const { return _grid.info.numx > 1; }
+
+  const Grid::Info &getInfo() const { return _grid.info; }
 
 private:
   template <typename GRID_FLOAT_TYPE>
@@ -252,16 +262,21 @@ private:
 class AngleGrid
 {
 public:
-  AngleGrid(const std::string &basePath,
-            const Catalog::Station &station,
-            const std::string &phaseType,
-            bool swapBytes);
+  AngleGrid(const std::string &filePath, bool swapBytes);
   ~AngleGrid() = default;
 
   void
   getAngles(double lat, double lon, double depth, double &azim, double &dip);
 
+  void getAnglesAtIndex(unsigned long long ix,
+                        unsigned long long iy,
+                        unsigned long long iz,
+                        double &azim,
+                        double &dip);
+
   bool is3D() const { return _grid.info.numx > 1; }
+
+  const Grid::Info &getInfo() const { return _grid.info; }
 
   struct TakeOffAngles
   {
@@ -292,22 +307,28 @@ private:
                                              GRID_FLOAT_TYPE vval101,
                                              GRID_FLOAT_TYPE vval110,
                                              GRID_FLOAT_TYPE vval111);
+
+  void convertAngles(const TakeOffAngles &in, double &azim, double &dip);
+
   Grid _grid;
 };
 
 class VelGrid
 {
 public:
-  VelGrid(const std::string &basePath,
-          const Catalog::Station &station,
-          const std::string &phaseType,
-          bool swapBytes);
+  VelGrid(const std::string &filePath, bool swapBytes);
 
   ~VelGrid() = default;
 
   double getVel(double lat, double lon, double depth);
 
+  double getVelAtIndex(unsigned long long ix,
+                       unsigned long long iy,
+                       unsigned long long iz);
+
   bool is3D() const { return _grid.info.numx > 2; }
+
+  const Grid::Info &getInfo() const { return _grid.info; }
 
 private:
   template <typename GRID_FLOAT_TYPE>
