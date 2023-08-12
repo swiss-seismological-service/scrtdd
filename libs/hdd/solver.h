@@ -60,19 +60,10 @@ namespace HDD {
  */
 struct DDSystem
 {
-
-  // number of observations
-  const unsigned nObs;
-  // number of events
-  const unsigned nEvts;
-  // number of stations
-  const unsigned nPhStas;
-  // number of obtional travel time constraints
-  const unsigned nTTconstraints;
   // weight of each row of G matrix
   double *W;
-  // The G matrix stores data in a dense format since it is a sparse matrix:
-  // 3 partial derivatives for each event/station pair + tt (dx,dy,dz,1)
+  // The G matrix stores data in a compressed format since it is a sparse
+  // matrix: 3 partial derivatives for each event/station pair + tt (dx,dy,dz,1)
   double (*G)[4];
   // changes for each event hypocentral parameters we wish to determine
   // (x,y,z,t)
@@ -87,8 +78,19 @@ struct DDSystem
   // map of station identifiers for each observation
   unsigned *phStaByObs;
 
+  // number of observations
+  const unsigned nObs;
+  // number of events
+  const unsigned nEvts;
+  // number of stations
+  const unsigned nPhStas;
+  // number of obtional travel time constraints
+  const unsigned nTTconstraints;
+
   const unsigned numColsG;
   const unsigned numRowsG;
+  const unsigned numCompressedColsG;
+  const unsigned numCompressedRowsG;
 
   DDSystem(unsigned _nObs,
            unsigned _nEvts,
@@ -96,10 +98,11 @@ struct DDSystem
            unsigned _nTTconstraints = 0)
       : nObs(_nObs), nEvts(_nEvts), nPhStas(_nPhStas),
         nTTconstraints(_nTTconstraints), numColsG(nEvts * 4),
-        numRowsG(_nObs + _nTTconstraints)
+        numRowsG(nObs + nTTconstraints), numCompressedColsG(4),
+        numCompressedRowsG(nEvts * nPhStas)
   {
     W          = new double[numRowsG];
-    G          = new double[nEvts * nPhStas][4];
+    G          = new double[numCompressedRowsG][4];
     m          = new double[numColsG];
     d          = new double[numRowsG];
     L2NScaler  = new double[numColsG];
