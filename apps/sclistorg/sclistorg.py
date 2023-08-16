@@ -15,10 +15,10 @@
 ############################################################################
 
 import sys
-import seiscomp.core      as sc_core
-import seiscomp.client    as sc_client
+import seiscomp.core as sc_core
+import seiscomp.client as sc_client
 import seiscomp.datamodel as sc_datamodel
-import seiscomp.logging   as sc_logging
+import seiscomp.logging as sc_logging
 from collections import namedtuple
 
 
@@ -49,36 +49,36 @@ class EventList(sc_client.Application):
     def createCommandLineDescription(self):
         self.commandline().addGroup("Events")
         self.commandline().addStringOption("Events", "begin",
-             "specify the lower bound of the time interval")
+                                           "specify the lower bound of the time interval")
         self.commandline().addStringOption(
             "Events", "end", "specify the upper bound of the time interval")
         self.commandline().addStringOption("Events", "modified-after",
-             "select events modified after the specified time")
+                                           "select events modified after the specified time")
         self.commandline().addStringOption("Events", "ev-type",
-             "include only events whose type is one of the values provided (comma separated list)")
+                                           "include only events whose type is one of the values provided (comma separated list)")
         self.commandline().addOption(
-             "Events", "simple", "Print only origin ids")
+            "Events", "simple", "Print only origin ids")
         self.commandline().addGroup("Origins")
         self.commandline().addStringOption(
-            "Origins", "org-type", "preferred, last or first (default is preferred)")
+            "Origins", "org-type", "preferred, last, first, maxPhases, minPhases, maxRMS, minRMS (default is preferred)")
         self.commandline().addOption(
-             "Origins", "manual-only", "Include only manual origins")
+            "Origins", "manual-only", "Include only manual origins")
         self.commandline().addOption(
-             "Origins", "auto-only", "Inlude only automatic origins")
+            "Origins", "auto-only", "Inlude only automatic origins")
         self.commandline().addStringOption("Origins", "inc-author",
-             "include only origins whose author is one of the values provided (comma separated list)")
+                                           "include only origins whose author is one of the values provided (comma separated list)")
         self.commandline().addStringOption("Origins", "excl-author",
-             "exclude origins whose author is one of the values provided (comma separated list)")
+                                           "exclude origins whose author is one of the values provided (comma separated list)")
         self.commandline().addStringOption("Origins", "inc-method",
-             "include only origins whose methodID is one of the values provided (comma separated list)")
+                                           "include only origins whose methodID is one of the values provided (comma separated list)")
         self.commandline().addStringOption("Origins", "excl-method",
-             "exclue origins whose methodID is one of the values provided (comma separated list)")
+                                           "exclue origins whose methodID is one of the values provided (comma separated list)")
         self.commandline().addStringOption("Origins", "inc-agency",
-             "include only origins whose agencyID is one of the values provided (comma separated list)")
+                                           "include only origins whose agencyID is one of the values provided (comma separated list)")
         self.commandline().addStringOption("Origins", "excl-agency",
-             "exclude origins whose agencyID is one of the values provided (comma separated list)")
+                                           "exclude origins whose agencyID is one of the values provided (comma separated list)")
         self.commandline().addStringOption("Origins", "area",
-             "Include only origins in the rectangular area provided: MinLat,MinLon,MaxLat,MaxLon")
+                                           "Include only origins in the rectangular area provided: MinLat,MinLon,MaxLat,MaxLon")
         return True
 
     def init(self):
@@ -94,7 +94,7 @@ class EventList(sc_client.Application):
             sc_logging.error("Wrong 'begin' format '%s'" % start)
             return False
         sc_logging.debug("Setting start to %s" %
-                               self._startTime.toString("%FT%TZ"))
+                         self._startTime.toString("%FT%TZ"))
 
         try:
             end = self.commandline().optionString("end")
@@ -105,7 +105,7 @@ class EventList(sc_client.Application):
             sc_logging.error("Wrong 'end' format '%s'" % end)
             return False
         sc_logging.debug("Setting end to %s" %
-                               self._endTime.toString("%FT%TZ"))
+                         self._endTime.toString("%FT%TZ"))
 
         try:
             modifiedAfter = self.commandline().optionString("modified-after")
@@ -164,7 +164,7 @@ class EventList(sc_client.Application):
             tokens = self.commandline().optionString("area").split(',')
             Area = namedtuple('Area', 'minLat minLon maxLat maxLon')
             self.area = Area(float(tokens[0]), float(tokens[1]),
-                        float(tokens[2]), float(tokens[3]))
+                             float(tokens[2]), float(tokens[3]))
         except BaseException:
             self.area = None
 
@@ -173,7 +173,8 @@ class EventList(sc_client.Application):
     def run(self):
 
         if not self.simple:
-            sys.stdout.write("seiscompId,event,eventType,evalMode,agencyID,author,methodID,latitude,longitude,time,creationTime,modificationTime\n")
+            sys.stdout.write(
+                "seiscompId,event,eventType,evalMode,agencyID,author,methodID,RMS,numPhases,latitude,longitude,depth,time,creationTime,modificationTime\n")
 
         events = []
         for obj in self.query().getEvents(self._startTime, self._endTime):
@@ -193,22 +194,25 @@ class EventList(sc_client.Application):
             except ValueError:
                 evtype = None
             if (self.evtypes is not None) and \
-                (evtype is None or evtype not in self.evtypes):
+                    (evtype is None or evtype not in self.evtypes):
                 continue
 
-            events.append( (evt.publicID(), evt.preferredOriginID(),evtype) )
+            events.append((evt.publicID(), evt.preferredOriginID(), evtype))
 
-        for (evId,preferredOrgId,evtype) in events:
+        for (evId, preferredOrgId, evtype) in events:
             orgInfo = self.findOrigin(evId, preferredOrgId)
             if orgInfo is None:
                 continue
             if self.simple:
                 sys.stdout.write("%s\n" % orgInfo.id)
             else:
-                sys.stdout.write("%s,%s,%s,%s,%s,%s,%s,%f,%f,%s,%s,%s\n" % (orgInfo.id, evId, evtype,
-                    orgInfo.evalMode, orgInfo.agencyID, orgInfo.author, orgInfo.methodID,
-                    orgInfo.latitude, orgInfo.longitude, orgInfo.time, orgInfo.creationTime,
-                    orgInfo.modificationTime))
+                sys.stdout.write(
+                    f"{orgInfo.id},{evId},{evtype},{orgInfo.evalMode},{orgInfo.agencyID},{orgInfo.author},{orgInfo.methodID},"
+                    f"{'' if orgInfo.rms is None else orgInfo.rms},"
+                    f"{'' if orgInfo.phases is None else orgInfo.phases},"
+                    f"{orgInfo.latitude},{orgInfo.longitude},{orgInfo.depth},{orgInfo.time},"
+                    f"{'' if orgInfo.creationTime is None else orgInfo.creationTime},"
+                    f"{'' if orgInfo.modificationTime is None else orgInfo.modificationTime}\n")
 
         return True
 
@@ -217,7 +221,7 @@ class EventList(sc_client.Application):
         if self.orgType == "preferred":
             obj = self.query().getObject(sc_datamodel.Origin.TypeInfo(), preferredOrgId)
             org = sc_datamodel.Origin.Cast(obj)
-            if org is not None: 
+            if org is not None:
                 origins.append(org)
         else:
             for obj in self.query().getOrigins(evId):
@@ -225,9 +229,15 @@ class EventList(sc_client.Application):
                 if org is not None:
                     origins.append(org)
 
-        OrgInfo = namedtuple('OrgInfo', 'id evalMode creationTime modificationTime agencyID author methodID latitude longitude time')
+        OrgInfo = namedtuple(
+            'OrgInfo', 'id evalMode creationTime modificationTime agencyID author methodID rms phases latitude longitude depth time sourceOrigin')
         orgInfo = None
         for currOrg in origins:
+
+            try:
+                quality = currOrg.quality()
+            except ValueError:
+                quality = None
 
             try:
                 evalMode = currOrg.evaluationMode()
@@ -260,16 +270,27 @@ class EventList(sc_client.Application):
                 methodID = None
 
             try:
-                latitude  = currOrg.latitude().value()
+                latitude = currOrg.latitude().value()
                 longitude = currOrg.longitude().value()
+                depth = currOrg.depth().value()
             except ValueError:
                 latitude = None
                 longitude = None
+                depth = None
 
             try:
-                time  = currOrg.time().value() 
+                time = currOrg.time().value()
             except ValueError:
                 time = None
+
+            try:
+                time = currOrg.time().value()
+            except ValueError:
+                time = None
+
+            phases = quality.usedPhaseCount() if quality is not None else None
+
+            rms = quality.standardError() if quality is not None else None
 
             if self.automaticOnly and evalMode != sc_datamodel.AUTOMATIC:
                 continue
@@ -285,6 +306,22 @@ class EventList(sc_client.Application):
                (creationTime > orgInfo.creationTime):
                 continue
 
+            if self.orgType == "maxPhases" and (phases is None or
+               (orgInfo is not None and phases < orgInfo.phases)):
+                continue
+
+            if self.orgType == "minPhases" and (phases is None or
+               (orgInfo is not None and phases > orgInfo.phases)):
+                continue
+
+            if self.orgType == "maxRMS" and (rms is None or
+               (orgInfo is not None and rms < orgInfo.rms)):
+                continue
+
+            if self.orgType == "minRMS" and (rms is None or
+               (orgInfo is not None and rms > orgInfo.rms)):
+                continue
+
             if (self.incAuthor is not None) and (author is None or
                author not in self.incAuthor):
                 continue
@@ -298,7 +335,7 @@ class EventList(sc_client.Application):
                 continue
 
             if (self.exclAgencyID is not None) and (agencyID is not None) and \
-                (agencyID in self.exclAgencyID):
+                    (agencyID in self.exclAgencyID):
                 continue
 
             if (self.incMethodID is not None) and (methodID is None or
@@ -306,7 +343,7 @@ class EventList(sc_client.Application):
                 continue
 
             if (self.exclMethodID is not None) and (methodID is not None) and \
-                (methodID in self.exclMethodID):
+               (methodID in self.exclMethodID):
                 continue
 
             if self.area is not None:
@@ -315,18 +352,32 @@ class EventList(sc_client.Application):
                     continue
 
                 lonRange = self.area.maxLon - self.area.minLon
-                if lonRange < 0: lonRange += 360.0
+                if lonRange < 0:
+                    lonRange += 360.0
                 lonDelta = longitude - self.area.minLon
-                if lonDelta < 0: lonDelta += 360.0
+                if lonDelta < 0:
+                    lonDelta += 360.0
                 if lonDelta > lonRange:
                     continue
 
             evalModeStr = ""
             if evalMode is not None:
                 evalModeStr = sc_datamodel.EEvaluationModeNames.name(evalMode)
-            orgInfo = OrgInfo(currOrg.publicID(), evalModeStr, creationTime, 
-                    modificationTime, agencyID, author, methodID, latitude, longitude,
-                    time)
+
+            sourceOrigin = ""
+            # self.query().loadComments(currOrg)
+            # for i in range(currOrg.commentCount()):
+            #    comment = sc_datamodel.Comment.Cast(currOrg.comment(i))
+            #    if comment is None:
+            #        continue
+            #    if comment.id() == "relocation::sourceOrigin":
+            #        sourceOrigin = comment.text()
+            #        break
+
+            orgInfo = OrgInfo(currOrg.publicID(), evalModeStr, creationTime,
+                              modificationTime, agencyID, author, methodID,
+                              rms, phases, latitude, longitude,  depth, time,
+                              sourceOrigin)
 
         return orgInfo
 
