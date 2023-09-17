@@ -608,8 +608,8 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->singleEventClustering.minEStoIEratio = 0;
-      prof->multiEventClustering.minEStoIEratio  = 0;
+      prof->singleEventClustering.minEStoIEratio = 5;
+      prof->multiEventClustering.minEStoIEratio  = 5;
     }
 
     prefix = string("profile.") + prof->name +
