@@ -185,8 +185,7 @@ struct CircularRegion : public Seiscomp::RTDD::Region
   {
     if (isEmpty) return true;
 
-    double distance, az, baz;
-    Math::Geo::delazi(this->lat, this->lon, lat, lon, &distance, &az, &baz);
+    double distance = Math::Geo::delta(this->lat, this->lon, lat, lon);
     double distKm = Math::Geo::deg2km(distance);
     return distKm <= radius;
   }
