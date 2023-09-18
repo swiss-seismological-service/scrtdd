@@ -398,85 +398,110 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
                                 double maxEllipsoidSize,
                                 bool keepUnmatched)
 {
-  logInfo("Selecting Catalog Neighbouring Events ");
+  logInfo("Selecting Catalog Neighbouring Events");
 
-  // neighbours for each event
+  // output: neighbours for each event in the catalog
   unordered_map<unsigned, unique_ptr<Neighbours>> neighboursList;
 
-  // for each event find the neighbours
+  // validCatalog contains events not discarded by user criteria
   Catalog validCatalog(catalog);
-  list<unsigned> todoEvents;
-  for (const auto &kv : validCatalog.getEvents())
-    todoEvents.push_back(kv.first);
 
-  while (!todoEvents.empty())
+  // events discarded by user criteria
+  unordered_set<unsigned> removedEvents;
+
+  // for each event find its neighbours
+  for (const auto &kv : catalog.getEvents())
   {
-    unordered_set<unsigned> removedEvents;
+    const Catalog::Event& event = kv.second;
 
-    // for each event find its neighbours
-    for (auto it = todoEvents.begin(); it != todoEvents.end();)
+    unique_ptr<Neighbours> neighbours;
+    try
     {
-      Catalog::Event event = validCatalog.getEvents().find(*it)->second;
-      it                   = todoEvents.erase(it);
+      neighbours = selectNeighbouringEvents(
+          validCatalog, event, validCatalog, minPhaseWeight, minESdist,
+          maxESdist, minEStoIEratio, minDTperEvt, maxDTperEvt, minNumNeigh,
+          maxNumNeigh, numEllipsoids, maxEllipsoidSize, keepUnmatched);
+    }
+    catch (...)
+    {}
 
-      unique_ptr<Neighbours> neighbours;
-      try
-      {
-        neighbours = selectNeighbouringEvents(
-            validCatalog, event, validCatalog, minPhaseWeight, minESdist,
-            maxESdist, minEStoIEratio, minDTperEvt, maxDTperEvt, minNumNeigh,
-            maxNumNeigh, numEllipsoids, maxEllipsoidSize, keepUnmatched);
-      }
-      catch (...)
-      {}
-
-      if (!neighbours)
-      {
-        // event discarded because it doesn't satisfy requirements
-        removedEvents.insert(event.id);
-        // we don't want other events to pick this as neighbour
-        validCatalog.removeEvent(event.id);
-        continue;
-      }
-      // add newly computed neighbors catalogs to previous ones
-      neighboursList.emplace(neighbours->refEvId, std::move(neighbours));
+    if (!neighbours)
+    {
+      // event discarded because it doesn't satisfy requirements
+      removedEvents.insert(event.id);
+      // we don't want other events to pick this as neighbour
+      validCatalog.removeEvent(event.id);
+      continue;
     }
 
-    // check if the removed events were used as neighbour of any other event;
-    // if so rebuild neighbours for those events
-    bool redo;
-    do
+    neighboursList.emplace(neighbours->refEvId, std::move(neighbours));
+  }
+
+  // if the removed events were used as neighbours of any other valid event
+  // then try to rebuild their neighbours
+  bool redo;
+  do
+  {
+    logDebug("Found neighbours for %zu events (%zu events don't satisfy the constraints)",
+            neighboursList.size(), removedEvents.size());
+
+    logDebug("Fix events whose neighbours are the events not satisfying the constraints");
+
+    redo = false;
+    unordered_map<unsigned, unique_ptr<Neighbours>> validNeighbours;
+
+    for (auto &kv : neighboursList)
     {
-      redo = false;
-      unordered_map<unsigned, unique_ptr<Neighbours>> validNeighbours;
+      unique_ptr<Neighbours> &neighbours = kv.second;
+      bool invalid                       = false;
 
-      for (auto &kv : neighboursList)
+      // check if the neighbours are in the removed event list
+      for (unsigned nbId : neighbours->ids)
       {
-        unique_ptr<Neighbours> &neighbours = kv.second;
-        bool invalid                       = false;
-        for (unsigned nbId : neighbours->ids)
+        if (removedEvents.count(nbId) != 0)
         {
-          if (removedEvents.count(nbId) != 0)
-          {
-            invalid = true;
-            break;
-          }
+          invalid = true;
+          break;
         }
-
-        if (invalid)
-        {
-          removedEvents.insert(neighbours->refEvId);
-          todoEvents.push_back(neighbours->refEvId);
-          redo = true;
-          continue;
-        }
-        validNeighbours.emplace(neighbours->refEvId, std::move(neighbours));
       }
 
-      neighboursList = std::move(validNeighbours);
+      // if the current event uses at least a removed event, then rebuild
+      // its neighbours
+      if (invalid)
+      {
+        const Catalog::Event& event = validCatalog.getEvents().find(neighbours->refEvId)->second;
 
-    } while (redo);
-  }
+        try
+        {
+          neighbours = selectNeighbouringEvents(
+              validCatalog, event, validCatalog, minPhaseWeight, minESdist,
+              maxESdist, minEStoIEratio, minDTperEvt, maxDTperEvt, minNumNeigh,
+              maxNumNeigh, numEllipsoids, maxEllipsoidSize, keepUnmatched);
+        }
+        catch (...)
+        {}
+
+        if (neighbours)
+        {
+          invalid = false;
+        }
+      }
+
+      // failed to rebuild its neighbours: remove this event too
+      if (invalid)
+      {
+        removedEvents.insert(neighbours->refEvId);
+        validCatalog.removeEvent(neighbours->refEvId);
+        redo = true;
+        continue;
+      }
+
+      validNeighbours.emplace(neighbours->refEvId, std::move(neighbours));
+    }
+
+    neighboursList = std::move(validNeighbours);
+
+  } while (redo);
 
   return neighboursList;
 }
