@@ -25,10 +25,10 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#include "nllgrid.h"
-#include "log.h"
+#include "grid.h"
+#include "../log.h"
+#include "../utils.h"
 #include "map_project.h"
-#include "utils.h"
 
 #include <array>
 #include <cstring>
