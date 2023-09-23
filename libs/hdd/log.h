@@ -30,6 +30,7 @@
 
 #include "utils.h"
 
+#include <cstdarg>
 #include <functional>
 #include <initializer_list>
 #include <string>
@@ -123,62 +124,65 @@ inline void log(const Logger::Level l, const std::string &s)
 }
 inline void log(const Logger::Level l, std::string &&s) { Logger::log(l, s); }
 
-template <typename... Args> void log(const Logger::Level l, Args &&...args)
+__attribute__((format(printf, 2, 3))) inline void
+logF(const Logger::Level l, const char *fmt, ...)
 {
-  Logger::log(l, strf(std::forward<Args>(args)...));
+  va_list ap;
+  va_start(ap, fmt);
+  Logger::log(l, strf(fmt, ap));
+  va_end(ap);
 }
 
 inline void logDebug(const char *s) { Logger::logDebug(s); }
 inline void logDebug(const std::string &s) { Logger::logDebug(s); }
 inline void logDebug(std::string &&s) { Logger::logDebug(s); }
 
-template <typename... Args> void logDebug(Args &&...args)
+__attribute__((format(printf, 1, 2))) inline void logDebugF(const char *fmt,
+                                                            ...)
 {
-  Logger::logDebug(strf(std::forward<Args>(args)...));
+  va_list ap;
+  va_start(ap, fmt);
+  Logger::logDebug(strf(fmt, ap));
+  va_end(ap);
 }
 
 inline void logInfo(const char *s) { Logger::logInfo(s); }
 inline void logInfo(const std::string &s) { Logger::logInfo(s); }
 inline void logInfo(std::string &&s) { Logger::logInfo(s); }
 
-template <typename... Args> void logInfo(Args &&...args)
+__attribute__((format(printf, 1, 2))) inline void logInfoF(const char *fmt, ...)
 {
-  Logger::logInfo(strf(std::forward<Args>(args)...));
+  va_list ap;
+  va_start(ap, fmt);
+  Logger::logInfo(strf(fmt, ap));
+  va_end(ap);
 }
 
 inline void logWarning(const char *s) { Logger::logWarning(s); }
 inline void logWarning(const std::string &s) { Logger::logWarning(s); }
 inline void logWarning(std::string &&s) { Logger::logWarning(s); }
 
-template <typename... Args> void logWarning(Args &&...args)
+__attribute__((format(printf, 1, 2))) inline void logWarningF(const char *fmt,
+                                                              ...)
 {
-  Logger::logWarning(strf(std::forward<Args>(args)...));
+  va_list ap;
+  va_start(ap, fmt);
+  Logger::logWarning(strf(fmt, ap));
+  va_end(ap);
 }
 
 inline void logError(const char *s) { Logger::logError(s); }
 inline void logError(const std::string &s) { Logger::logError(s); }
 inline void logError(std::string &&s) { Logger::logError(s); }
 
-template <typename... Args> void logError(Args &&...args)
+__attribute__((format(printf, 1, 2))) inline void logErrorF(const char *fmt,
+                                                            ...)
 {
-  Logger::logError(strf(std::forward<Args>(args)...));
+  va_list ap;
+  va_start(ap, fmt);
+  Logger::logError(strf(fmt, ap));
+  va_end(ap);
 }
-
-/*
- * Use these macros to let the compiler checks the correctness of
- * the arguments with respect to the format specifiers
-
-#define logLevel(level, fmt, ...)   Logger::log(level, strf(fmt,##__VA_ARGS__))
-
-#define logDebug(fmt, ...)   Logger::logDebug(strf(fmt,##__VA_ARGS__))
-
-#define logInfo(fmt, ...)    Logger::logInfo(strf(fmt,##__VA_ARGS__))
-
-#define logWarning(fmt, ...) Logger::logWarning(strf(fmt,##__VA_ARGS__))
-
-#define logError(fmt, ...)   Logger::logError(strf(fmt,##__VA_ARGS__))
-
-*/
 
 } // namespace HDD
 
