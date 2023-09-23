@@ -31,17 +31,15 @@
 namespace HDD {
 namespace TTT {
 
-Homogeneous::Homogeneous(double pVel, double sVel)
-    : _pVel(pVel), _sVel(sVel)
-{}
+Homogeneous::Homogeneous(double pVel, double sVel) : _pVel(pVel), _sVel(sVel) {}
 
 void Homogeneous::freeResources() {}
 
 double Homogeneous::compute(double eventLat,
-                                 double eventLon,
-                                 double eventDepth,
-                                 const Catalog::Station &station,
-                                 const std::string &phaseType)
+                            double eventLon,
+                            double eventDepth,
+                            const Catalog::Station &station,
+                            const std::string &phaseType)
 {
   double velocity; // [km/s]
   if (phaseType == "P")
@@ -59,23 +57,23 @@ double Homogeneous::compute(double eventLat,
 }
 
 void Homogeneous::compute(double eventLat,
-                               double eventLon,
-                               double eventDepth,
-                               const Catalog::Station &station,
-                               const std::string &phaseType,
-                               double &travelTime,
-                               double &azimuth,
-                               double &takeOffAngle,
-                               double &velocityAtSrc)
+                          double eventLon,
+                          double eventDepth,
+                          const Catalog::Station &station,
+                          const std::string &phaseType,
+                          double &travelTime,
+                          double &azimuth,
+                          double &takeOffAngle,
+                          double &velocityAtSrc)
 {
   travelTime = compute(eventLat, eventLon, eventDepth, station, phaseType);
 
-  double hDist =
-      computeDistance(eventLat, eventLon, eventDepth, station.latitude,
-                      station.longitude, -(station.elevation / 1000.), &azimuth);
+  double hDist = computeDistance(eventLat, eventLon, eventDepth,
+                                 station.latitude, station.longitude,
+                                 -(station.elevation / 1000.), &azimuth);
 
   double vDist = eventDepth + station.elevation / 1000.;
-  takeOffAngle   = std::asin(vDist / hDist);
+  takeOffAngle = std::asin(vDist / hDist);
   takeOffAngle += degToRad(90); // -90(down):+90(up) -> 0(down):180(up)
 
   if (phaseType == "P")
