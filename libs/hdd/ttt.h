@@ -98,19 +98,6 @@ public:
                    phaseType);
   }
 
-protected:
-  /*
-   * Utility function to compute straight ray path approximation
-   * for takeOffAngles angles when those are not available in the
-   * travel time tables
-   */
-  static void computeApproximatedTakeOffAngles(double eventLat,
-                                               double eventLon,
-                                               double eventDepth,
-                                               const Catalog::Station &station,
-                                               const std::string &phaseType,
-                                               double *azimuth      = nullptr,
-                                               double *takeOffAngle = nullptr);
 };
 
 } // namespace HDD
