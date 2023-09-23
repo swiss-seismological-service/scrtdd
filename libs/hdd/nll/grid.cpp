@@ -1114,8 +1114,11 @@ GRID_FLOAT_TYPE TimeGrid::interpolateValues2D(double xdiff,
                                    vval11);
 }
 
-AngleGrid::AngleGrid(const std::string &filePath, bool swapBytes, unsigned quality_cutoff)
-    : _grid(Grid::Type::angle, filePath, swapBytes), _quality_cutoff(quality_cutoff)
+AngleGrid::AngleGrid(const std::string &filePath,
+                     bool swapBytes,
+                     unsigned quality_cutoff)
+    : _grid(Grid::Type::angle, filePath, swapBytes),
+      _quality_cutoff(quality_cutoff)
 {
   if (_grid.info.type != "ANGLE" && _grid.info.type != "ANGLE2D")
   {
@@ -1181,33 +1184,22 @@ void AngleGrid::getAngles(
   if (is3D())
   {
     angles = _grid.getValue3D<TakeOffAngles>(
-        lat, lon, depth, 
-        std::bind(&AngleGrid::interpolateValues3D<TakeOffAngles>, this,
-                 std::placeholders::_1,
-                 std::placeholders::_2,
-                 std::placeholders::_3,
-                 std::placeholders::_4,
-                 std::placeholders::_5,
-                 std::placeholders::_6,
-                 std::placeholders::_7,
-                 std::placeholders::_8,
-                 std::placeholders::_9,
-                 std::placeholders::_10,
-                 std::placeholders::_11)
-        );
+        lat, lon, depth,
+        std::bind(
+            &AngleGrid::interpolateValues3D<TakeOffAngles>, this,
+            std::placeholders::_1, std::placeholders::_2, std::placeholders::_3,
+            std::placeholders::_4, std::placeholders::_5, std::placeholders::_6,
+            std::placeholders::_7, std::placeholders::_8, std::placeholders::_9,
+            std::placeholders::_10, std::placeholders::_11));
   }
   else
   {
     angles = _grid.getValue2D<TakeOffAngles>(
         lat, lon, depth,
         std::bind(&AngleGrid::interpolateValues2D<TakeOffAngles>, this,
-                  std::placeholders::_1,
-                  std::placeholders::_2,
-                  std::placeholders::_3,
-                  std::placeholders::_4,
-                  std::placeholders::_5,
-                  std::placeholders::_6)
-        );
+                  std::placeholders::_1, std::placeholders::_2,
+                  std::placeholders::_3, std::placeholders::_4,
+                  std::placeholders::_5, std::placeholders::_6));
   }
   convertAngles(angles, azim, dip);
 }
@@ -1218,7 +1210,8 @@ void AngleGrid::convertAngles(const TakeOffAngles &angles,
 {
   if (angles.quality < _quality_cutoff)
   {
-    string msg = strf("Angle quality too low (%u) for selected cut off (%u)", angles.quality, _quality_cutoff);
+    string msg = strf("Angle quality too low (%u) for selected cut off (%u)",
+                      angles.quality, _quality_cutoff);
     throw Exception(msg.c_str());
   }
 

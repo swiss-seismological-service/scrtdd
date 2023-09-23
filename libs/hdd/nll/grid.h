@@ -262,7 +262,9 @@ private:
 class AngleGrid
 {
 public:
-  AngleGrid(const std::string &filePath, bool swapBytes, unsigned quality_cutoff = 5);
+  AngleGrid(const std::string &filePath,
+            bool swapBytes,
+            unsigned quality_cutoff = 5);
   ~AngleGrid() = default;
 
   void

@@ -37,10 +37,10 @@ namespace HDD {
 namespace TTT {
 
 NLLGrid::NLLGrid(const std::string &velGridPath,
-                                 const std::string &timeGridPath,
-                                 const std::string &angleGridPath,
-                                 bool swapBytes,
-                                 unsigned cacheSize)
+                 const std::string &timeGridPath,
+                 const std::string &angleGridPath,
+                 bool swapBytes,
+                 unsigned cacheSize)
     : _velGridPath(velGridPath), _timeGridPath(timeGridPath),
       _angleGridPath(angleGridPath), _swapBytes(swapBytes),
       _velGrids(cacheSize), _timeGrids(cacheSize), _angleGrids(cacheSize)
@@ -54,8 +54,8 @@ void NLLGrid::freeResources()
 }
 
 std::string NLLGrid::filePath(const std::string &basePath,
-                                      const Catalog::Station &station,
-                                      const std::string &phaseType)
+                              const Catalog::Station &station,
+                              const std::string &phaseType)
 {
   static const std::regex reNet("@NETWORK@", std::regex::optimize);
   static const std::regex reSta("@STATION@", std::regex::optimize);
@@ -69,10 +69,10 @@ std::string NLLGrid::filePath(const std::string &basePath,
 }
 
 double NLLGrid::compute(double eventLat,
-                                double eventLon,
-                                double eventDepth,
-                                const Catalog::Station &station,
-                                const std::string &phaseType)
+                        double eventLon,
+                        double eventDepth,
+                        const Catalog::Station &station,
+                        const std::string &phaseType)
 {
   string timeGridFile = filePath(_timeGridPath, station, phaseType);
   string timeGId      = "timeGrid:" + timeGridFile;
@@ -110,14 +110,14 @@ double NLLGrid::compute(double eventLat,
 }
 
 void NLLGrid::compute(double eventLat,
-                              double eventLon,
-                              double eventDepth,
-                              const Catalog::Station &station,
-                              const std::string &phaseType,
-                              double &travelTime,
-                              double &azimuth,
-                              double &takeOffAngle,
-                              double &velocityAtSrc)
+                      double eventLon,
+                      double eventDepth,
+                      const Catalog::Station &station,
+                      const std::string &phaseType,
+                      double &travelTime,
+                      double &azimuth,
+                      double &takeOffAngle,
+                      double &velocityAtSrc)
 {
   // get travelTime
   travelTime = compute(eventLat, eventLon, eventDepth, station, phaseType);
@@ -192,8 +192,10 @@ void NLLGrid::compute(double eventLat,
                                          azimuth, takeOffAngle);
   }
 
-  if ( ! std::isfinite(azimuth) ) { // Not 3D model
-    azimuth = computeAzimuth(eventLat, eventLon, station.latitude, station.longitude);
+  if (!std::isfinite(azimuth)) // if not 3D model compute azimuth
+  {
+    azimuth =
+        computeAzimuth(eventLat, eventLon, station.latitude, station.longitude);
   }
 }
 } // namespace TTT

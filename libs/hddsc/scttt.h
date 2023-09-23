@@ -29,8 +29,7 @@ namespace SCAdapter {
 class TravelTimeTable : public HDD::TravelTimeTable
 {
 public:
-  TravelTimeTable(const std::string &type,
-                  const std::string &model);
+  TravelTimeTable(const std::string &type, const std::string &model);
   virtual ~TravelTimeTable() = default;
 
   void freeResources() override;

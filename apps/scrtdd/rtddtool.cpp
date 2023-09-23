@@ -186,7 +186,7 @@ struct CircularRegion : public Seiscomp::RTDD::Region
     if (isEmpty) return true;
 
     double distance = Math::Geo::delta(this->lat, this->lon, lat, lon);
-    double distKm = Math::Geo::deg2km(distance);
+    double distKm   = Math::Geo::deg2km(distance);
     return distKm <= radius;
   }
 
@@ -2191,8 +2191,8 @@ void RTDD::Profile::load(DatabaseQuery *query,
       {
         swapBytes = true;
       }
-      ttt.reset(new HDD::TTT::NLLGrid(velGridPath, timeGridPath,
-                                              angleGridPath, swapBytes));
+      ttt.reset(new HDD::TTT::NLLGrid(velGridPath, timeGridPath, angleGridPath,
+                                      swapBytes));
     }
     else if (tttType == "ConstVel")
     {

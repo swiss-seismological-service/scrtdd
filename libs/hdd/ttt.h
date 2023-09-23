@@ -97,7 +97,6 @@ public:
     return compute(event.latitude, event.longitude, event.depth, station,
                    phaseType);
   }
-
 };
 
 } // namespace HDD

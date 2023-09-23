@@ -28,9 +28,9 @@
 #ifndef __HDD_TTT_NLLGRID_H__
 #define __HDD_TTT_NLLGRID_H__
 
-#include "../ttt.h"
-#include "../nll/grid.h"
 #include "../3rd-party/lrucache.h"
+#include "../nll/grid.h"
+#include "../ttt.h"
 
 #include <unordered_set>
 
@@ -42,10 +42,10 @@ class NLLGrid : public HDD::TravelTimeTable
 {
 public:
   NLLGrid(const std::string &velGridPath,
-                  const std::string &timeGridPath,
-                  const std::string &angleGridPath,
-                  bool swapBytes,
-                  unsigned cacheSize = 255);
+          const std::string &timeGridPath,
+          const std::string &angleGridPath,
+          bool swapBytes,
+          unsigned cacheSize = 255);
 
   virtual ~NLLGrid() = default;
 
