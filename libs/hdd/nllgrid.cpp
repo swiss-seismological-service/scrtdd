@@ -1114,8 +1114,8 @@ GRID_FLOAT_TYPE TimeGrid::interpolateValues2D(double xdiff,
                                    vval11);
 }
 
-AngleGrid::AngleGrid(const std::string &filePath, bool swapBytes)
-    : _grid(Grid::Type::angle, filePath, swapBytes)
+AngleGrid::AngleGrid(const std::string &filePath, bool swapBytes, unsigned quality_cutoff)
+    : _grid(Grid::Type::angle, filePath, swapBytes), _quality_cutoff(quality_cutoff)
 {
   if (_grid.info.type != "ANGLE" && _grid.info.type != "ANGLE2D")
   {
@@ -1181,12 +1181,33 @@ void AngleGrid::getAngles(
   if (is3D())
   {
     angles = _grid.getValue3D<TakeOffAngles>(
-        lat, lon, depth, interpolateValues3D<TakeOffAngles>);
+        lat, lon, depth, 
+        std::bind(&AngleGrid::interpolateValues3D<TakeOffAngles>, this,
+                 std::placeholders::_1,
+                 std::placeholders::_2,
+                 std::placeholders::_3,
+                 std::placeholders::_4,
+                 std::placeholders::_5,
+                 std::placeholders::_6,
+                 std::placeholders::_7,
+                 std::placeholders::_8,
+                 std::placeholders::_9,
+                 std::placeholders::_10,
+                 std::placeholders::_11)
+        );
   }
   else
   {
     angles = _grid.getValue2D<TakeOffAngles>(
-        lat, lon, depth, interpolateValues2D<TakeOffAngles>);
+        lat, lon, depth,
+        std::bind(&AngleGrid::interpolateValues2D<TakeOffAngles>, this,
+                  std::placeholders::_1,
+                  std::placeholders::_2,
+                  std::placeholders::_3,
+                  std::placeholders::_4,
+                  std::placeholders::_5,
+                  std::placeholders::_6)
+        );
   }
   convertAngles(angles, azim, dip);
 }
@@ -1195,11 +1216,10 @@ void AngleGrid::convertAngles(const TakeOffAngles &angles,
                               double &azim,
                               double &dip)
 {
-  if (angles.quality < QUALITY_CUTOFF)
+  if (angles.quality < _quality_cutoff)
   {
-    azim = std::numeric_limits<double>::quiet_NaN();
-    dip  = std::numeric_limits<double>::quiet_NaN();
-    return;
+    string msg = strf("Angle quality too low (%u) for selected cut off (%u)", angles.quality, _quality_cutoff);
+    throw Exception(msg.c_str());
   }
 
   if (is3D())
@@ -1231,7 +1251,7 @@ GRID_FLOAT_TYPE AngleGrid::interpolateValues3D(double xdiff,
 {
   return interpolateCubeAngles(xdiff, ydiff, zdiff, vval000, vval001, vval010,
                                vval011, vval100, vval101, vval110, vval111,
-                               QUALITY_CUTOFF);
+                               _quality_cutoff);
 }
 
 template <typename GRID_FLOAT_TYPE>
@@ -1243,7 +1263,7 @@ GRID_FLOAT_TYPE AngleGrid::interpolateValues2D(double xdiff,
                                                GRID_FLOAT_TYPE vval11)
 {
   return interpolateCubeAngles(0, xdiff, zdiff, vval00, vval01, vval10, vval11,
-                               vval00, vval01, vval10, vval11, QUALITY_CUTOFF);
+                               vval00, vval01, vval10, vval11, _quality_cutoff);
 }
 
 VelGrid::VelGrid(const std::string &filePath, bool swapBytes)
