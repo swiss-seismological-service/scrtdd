@@ -52,9 +52,9 @@ double TravelTimeTable::compute(double eventLat,
 {
   if (!_ttt) load();
 
-  double ttime =
-      _ttt->computeTravelTime(phaseType.c_str(), eventLat, eventLon, eventDepth,
-                    station.latitude, station.longitude, station.elevation);
+  double ttime = _ttt->computeTravelTime(phaseType.c_str(), eventLat, eventLon,
+                                         eventDepth, station.latitude,
+                                         station.longitude, station.elevation);
   if (ttime < 0)
   {
     throw Exception("No travel time data available");
@@ -90,10 +90,14 @@ void TravelTimeTable::compute(double eventLat,
   double dtdd2  = tt.dtdd / kmOfDegree(eventDepth);
   velocityAtSrc = 1.0 / std::sqrt(square(tt.dtdh) + square(dtdd2));
 
-  if ( tt.azi ) { // 3D model
+  if (tt.azi) // 3D model
+  {
     azimuth = *tt.azi;
-  } else {
-    azimuth = computeAzimuth(eventLat, eventLon, station.latitude, station.longitude);
+  }
+  else
+  {
+    azimuth =
+        computeAzimuth(eventLat, eventLon, station.latitude, station.longitude);
   }
 
   takeOffAngle = degToRad(tt.takeoff);
