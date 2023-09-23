@@ -601,7 +601,8 @@ Catalog
 Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
                                    const Phase::Source &source,
                                    const std::vector<std::string> &PphaseToKeep,
-                                   const std::vector<std::string> &SphaseToKeep)
+                                   const std::vector<std::string> &SphaseToKeep,
+                                   const vector<double> &uncertaintyClasses)
 {
   unordered_multimap<unsigned, Phase> filteredS;
   unordered_multimap<unsigned, Phase> filteredP;
@@ -690,7 +691,7 @@ Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
   for (auto &it : filteredP)
   {
     Phase &phase          = it.second;
-    phase.procInfo.weight = computePickWeight(phase);
+    phase.procInfo.weight = computePickWeight(phase, uncertaintyClasses);
     phase.procInfo.type   = Phase::Type::P;
     phase.procInfo.source = source;
 
@@ -699,7 +700,7 @@ Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
   for (auto &it : filteredS)
   {
     Phase &phase          = it.second;
-    phase.procInfo.weight = computePickWeight(phase);
+    phase.procInfo.weight = computePickWeight(phase, uncertaintyClasses);
     phase.procInfo.type   = Phase::Type::S;
     phase.procInfo.source = source;
 
@@ -709,40 +710,37 @@ Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
   return Catalog(catalog.getStations(), catalog.getEvents(), filteredPhases);
 }
 
-/*
- * Fixed weighting scheme based on pick time uncertainties
- * Class 0: 0     - 0.025  sec
- *       1: 0.025 - 0.050  sec
- *       2: 0.050 - 0.100  sec
- *       3: 0.100 - 0.200  sec
- *       4: 0.200 - 0.400  sec
- *       5: 0.400 -        sec
- *  weight = 1 / 2^class
- */
-double Catalog::computePickWeight(double uncertainty /* secs */)
+double Catalog::computePickWeight(const Phase &phase,
+                                  const vector<double> &uncertaintyClasses)
 {
-  unsigned uncertaintyClass;
+  if (uncertaintyClasses.size() < 2)
+  {
+    return 1.;
+  }
 
-  if (uncertainty >= 0.000 && uncertainty <= 0.025)
-    uncertaintyClass = 0;
-  else if (uncertainty > 0.025 && uncertainty <= 0.050)
-    uncertaintyClass = 1;
-  else if (uncertainty > 0.050 && uncertainty <= 0.100)
-    uncertaintyClass = 2;
-  else if (uncertainty > 0.100 && uncertainty <= 0.200)
-    uncertaintyClass = 3;
-  else if (uncertainty > 0.200 && uncertainty <= 0.400)
-    uncertaintyClass = 4;
-  else
-    uncertaintyClass = 5;
+  double uncertainty =
+      (phase.lowerUncertainty + phase.upperUncertainty) / 2.; // secs
+                                                              //
+  // set lowest class as default
+  unsigned uncertaintyClass = uncertaintyClasses.size() - 1;
 
-  return 1 / std::pow(2, uncertaintyClass);
-}
+  if (uncertainty >= 0 && std::isfinite(uncertainty) &&
+      uncertaintyClasses.size() > 1 && uncertainty < uncertaintyClasses.back())
+  {
 
-double Catalog::computePickWeight(const Phase &phase)
-{
-  return computePickWeight((phase.lowerUncertainty + phase.upperUncertainty) /
-                           2.);
+    for (unsigned curr = 0, next = 1; next < uncertaintyClasses.size();
+         curr++, next++)
+    {
+      if (uncertainty >= uncertaintyClasses.at(curr) &&
+          uncertainty <= uncertaintyClasses.at(next))
+      {
+        uncertaintyClass = curr;
+        break;
+      }
+    }
+  }
+
+  return 1. / pow(2, uncertaintyClass);
 }
 
 } // namespace HDD

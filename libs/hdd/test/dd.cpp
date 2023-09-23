@@ -232,7 +232,7 @@ HDD::Catalog buildCatalog(HDD::TravelTimeTable &ttt,
                       depth, numEvents / 6, extent);
 
   return Catalog::filterPhasesAndSetWeights(cat, Phase::Source::CATALOG, 
-                                            {"P"}, {"S"});
+                                            {"P"}, {"S"}, {});
 }
 
 HDD::Catalog buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
@@ -257,7 +257,7 @@ HDD::Catalog buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
                       numEvents / 3, extent);
 
   return Catalog::filterPhasesAndSetWeights(cat, Phase::Source::CATALOG, 
-                                            {"P"}, {"S"});
+                                            {"P"}, {"S"}, {});
 }
 
 void randomPerturbation(HDD::Catalog &cat)

@@ -45,8 +45,10 @@ namespace HDD {
 
 struct Config
 {
-  std::vector<std::string> validPphases = {"Pg", "P", "Px"};
-  std::vector<std::string> validSphases = {"Sg", "S", "Sx"};
+  std::vector<std::string> validPphases      = {"Pg", "P", "Px"};
+  std::vector<std::string> validSphases      = {"Sg", "S", "Sx"};
+  std::vector<double> pickUncertaintyClasses = {0.000, 0.025, 0.050,
+                                                0.100, 0.200, 0.400};
 
   std::vector<std::pair<std::string, std::string>> compatibleChannels;
 
@@ -133,9 +135,7 @@ struct SolverOptions
   double dampingFactorEnd      = 0.3;        // 0 -> disable damping factor
   double downWeightingByResidualStart = 10.; // 0 -> disbale downweighting
   double downWeightingByResidualEnd   = 3.;  // 0 -> disbale downweighting
-  bool usePickUncertainty             = false;
-  double absTTDiffObsWeight           = 0.5;
-  double xcorrObsWeight               = 1.0;
+  bool usePickUncertainties           = false;
 
   // Air-quakes are events whose depth shift above the range of the velocity
   // model (typically 0) during the inversion
@@ -345,8 +345,6 @@ private:
   };
 
   void addObservations(Solver &solver,
-                       double absTTDiffObsWeight,
-                       double xcorrObsWeight,
                        const Catalog &catalog,
                        const Neighbours &neighbours,
                        bool keepNeighboursFixed,
@@ -361,7 +359,6 @@ private:
       const std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
           &neighCluster,
       ObservationParams &obsparams,
-      double pickWeightScaler,
       std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
           &finalNeighCluster) const;
 
