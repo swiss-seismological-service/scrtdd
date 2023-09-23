@@ -97,7 +97,8 @@ DD::DD(const Catalog &catalog,
       _bgCat(Catalog::filterPhasesAndSetWeights(_srcCat,
                                                 Phase::Source::CATALOG,
                                                 _cfg.validPphases,
-                                                _cfg.validSphases)),
+                                                _cfg.validSphases,
+                                                _cfg.pickUncertaintyClasses)),
       _ttt(std::move(ttt)), _wf(std::move(wf))
 {
   disableSaveProcessing();
@@ -625,9 +626,9 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
 
   string eventWorkingDir = joinPath(baseWorkingDir, "step1");
 
-  Catalog evToRelocateCat =
-      Catalog::filterPhasesAndSetWeights(singleEvent, Phase::Source::RT_EVENT,
-                                         _cfg.validPphases, _cfg.validSphases);
+  Catalog evToRelocateCat = Catalog::filterPhasesAndSetWeights(
+      singleEvent, Phase::Source::RT_EVENT, _cfg.validPphases,
+      _cfg.validSphases, _cfg.pickUncertaintyClasses);
 
   unique_ptr<Catalog> relocatedEvCat = relocateEventSingleStep(
       bgCat, evToRelocateCat, eventWorkingDir, clustOpt1, solverOpt, false);
@@ -823,16 +824,14 @@ unique_ptr<Catalog> DD::relocate(
     double downWeightingByResidual =
         interpolate(solverOpt.downWeightingByResidualStart,
                     solverOpt.downWeightingByResidualEnd);
-    double absLocConstraint   = interpolate(solverOpt.absLocConstraintStart,
-                                            solverOpt.absLocConstraintEnd);
-    double absTTDiffObsWeight = interpolate(1.0, solverOpt.absTTDiffObsWeight);
-    double xcorrObsWeight     = interpolate(1.0, solverOpt.xcorrObsWeight);
+    double absLocConstraint = interpolate(solverOpt.absLocConstraintStart,
+                                          solverOpt.absLocConstraintEnd);
 
-    logInfoF("Solving iteration %u num events %zu. Parameters: "
-             "observWeight TT/CC=%.2f/%.2f dampingFactor=%.2f "
-             "downWeightingByResidual=%.2f absLocConstraint=%.2f",
-             iteration, neighCluster.size(), absTTDiffObsWeight, xcorrObsWeight,
-             dampingFactor, downWeightingByResidual, absLocConstraint);
+    logInfoF(
+        "Solving iteration %u num events %zu. Parameters: dampingFactor=%.2f "
+        "downWeightingByResidual=%.2f absLocConstraint=%.2f",
+        iteration, neighCluster.size(), dampingFactor, downWeightingByResidual,
+        absLocConstraint);
 
     // create a solver and then add observations
     Solver solver(solverOpt.type);
@@ -843,9 +842,8 @@ unique_ptr<Catalog> DD::relocate(
     //
     for (const auto &kv : neighCluster)
     {
-      addObservations(solver, absTTDiffObsWeight, xcorrObsWeight, *finalCatalog,
-                      *kv.second, keepNeighboursFixed,
-                      solverOpt.usePickUncertainty, xcorr, obsparams);
+      addObservations(solver, *finalCatalog, *kv.second, keepNeighboursFixed,
+                      solverOpt.usePickUncertainties, xcorr, obsparams);
     }
     obsparams.addToSolver(solver);
 
@@ -868,9 +866,9 @@ unique_ptr<Catalog> DD::relocate(
     obsparams = ObservationParams();
 
     // update event parameters
-    finalCatalog = updateRelocatedEvents(
-        solver, *finalCatalog, solverOpt, neighCluster, obsparams,
-        std::max(absTTDiffObsWeight, xcorrObsWeight), finalNeighCluster);
+    finalCatalog =
+        updateRelocatedEvents(solver, *finalCatalog, solverOpt, neighCluster,
+                              obsparams, finalNeighCluster);
   }
 
   // compute last bit of statistics for the relocated events
@@ -914,8 +912,6 @@ string DD::relocationReport(const Catalog &relocatedEv)
  * solver.
  */
 void DD::addObservations(Solver &solver,
-                         double absTTDiffObsWeight,
-                         double xcorrObsWeight,
                          const Catalog &catalog,
                          const Neighbours &neighbours,
                          bool keepNeighboursFixed,
@@ -1004,13 +1000,7 @@ void DD::addObservations(Solver &solver,
         {
           isXcorr = true;
           diffTime -= duration<double>(e.lag);
-          weight *= xcorrObsWeight;
         }
-      }
-
-      if (!isXcorr)
-      {
-        weight *= absTTDiffObsWeight;
       }
 
       solver.addObservation(refEv.id, event.id, refPhase.stationId,
@@ -1081,7 +1071,6 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     const SolverOptions &solverOpt,
     const unordered_map<unsigned, unique_ptr<Neighbours>> &neighCluster,
     ObservationParams &obsparams,
-    double pickWeightScaler,
     unordered_map<unsigned, unique_ptr<Neighbours>> &finalNeighCluster // output
 ) const
 {
@@ -1188,10 +1177,9 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
       if (finalTotalObs == 0) continue;
 
       phase.relocInfo.isRelocated = true;
-      phase.relocInfo.finalWeight =
-          meanFinalWeight / pickWeightScaler; // range 0-1
-      phase.relocInfo.numTTObs = startTTObs;
-      phase.relocInfo.numCCObs = startCCObs;
+      phase.relocInfo.finalWeight = meanFinalWeight; // range 0-1
+      phase.relocInfo.numTTObs    = startTTObs;
+      phase.relocInfo.numCCObs    = startCCObs;
       if (isFirstIteration)
         phase.relocInfo.startMeanDDResidual = meanDDResidual;
       phase.relocInfo.finalMeanDDResidual = meanDDResidual;
@@ -1574,9 +1562,10 @@ Phase DD::createThoreticalPhase(const Station &station,
 
   refEvNewPhase.lowerUncertainty = Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
   refEvNewPhase.upperUncertainty = Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
-  refEvNewPhase.procInfo.weight  = Catalog::computePickWeight(refEvNewPhase);
-  refEvNewPhase.procInfo.source  = Phase::Source::THEORETICAL;
-  refEvNewPhase.type             = strf("%ct", static_cast<char>(phaseType));
+  refEvNewPhase.procInfo.weight =
+      Catalog::computePickWeight(refEvNewPhase, _cfg.pickUncertaintyClasses);
+  refEvNewPhase.procInfo.source = Phase::Source::THEORETICAL;
+  refEvNewPhase.type            = strf("%ct", static_cast<char>(phaseType));
 
   return refEvNewPhase;
 }
@@ -1992,8 +1981,9 @@ void DD::fixPhases(Catalog &catalog,
     newPhase.time -= secToDur(mean_lag);
     newPhase.lowerUncertainty = mean_lag - min_lag;
     newPhase.upperUncertainty = max_lag - mean_lag;
-    newPhase.procInfo.weight  = Catalog::computePickWeight(newPhase);
-    newPhase.procInfo.source  = Phase::Source::XCORR;
+    newPhase.procInfo.weight =
+        Catalog::computePickWeight(newPhase, _cfg.pickUncertaintyClasses);
+    newPhase.procInfo.source = Phase::Source::XCORR;
     newPhase.type = strf("%cx", static_cast<char>(newPhase.procInfo.type));
 
     if (phase.procInfo.source == Phase::Source::THEORETICAL)

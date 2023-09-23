@@ -134,7 +134,7 @@ buildCatalog(double lat,
   const Event &event = cat.getEvents().begin()->second;
   addNeighboursToCatalog(cat, event, neighDist);
   return HDD::Catalog::filterPhasesAndSetWeights(cat, Phase::Source::CATALOG,
-                                                 PphaseToKeep, SphaseToKeep);
+                                                 PphaseToKeep, SphaseToKeep, {});
 }
 
 void checkNeighbours(const HDD::Neighbours &neighbours,

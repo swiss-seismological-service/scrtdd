@@ -248,17 +248,14 @@
               <parameter name="finalValue" type="double" default="0.0">
                 <description>Value for the last iteration of the solver.</description>
               </parameter>
-            </group> 
+            </group>
             <group name="aPrioriWeights">
               <description>Those options allow the double-difference equations to have different starting weights. By default they are equally weighted and the residual itselfs drive the re-weighting (see downWeightingByResidual option). So these settings shouldn't be strictly necessary but it could be interesting to experiment with them</description>
               <parameter name="usePickUncertainties" type="boolean" default="false">
-                <description>Observation weights are scaled based on pick uncertainties. This should be enabled only if uncertainties are used for manual picks otherwise there is no way to properly access pick quality and consequently the observation weight.</description>
+                <description>Whether to use pick time uncertainties to scale their weight. If true, then the uncertainties are retrieved from each individual picks and a weight associated accordingly to 'pickUncertaintyClasses' parameter.</description>
               </parameter>
-              <parameter name="absoluteTTObsWeight" type="double" default="1.0">
-                <description>Starting weight for observations coming from difference in absolute travel times. Useful to give more weight to xcorr observations than absolute travel time ones.</description>
-              </parameter>
-              <parameter name="xcorrObsWeight" type="double" default="1.0">
-                <description>Starting weight for observations coming from lag measured via cross-correlation. Useful to give more weight to cross-correlation observations than absolute travel time ones.</description>
+              <parameter name="pickUncertaintyClasses" type="list:string" unit="s" default="0.000,0.025,0.050,0.100,0.200,0.400" >
+                <description>Define the pick time uncertainty classes from which the pick weight is computed. This parameter defines a list of uncertainty time intervals: the interval in which a pick time uncertainty falls defines the pick class e.g. a pick wich uncertainty of 0.150 falls in the 4th interval and the pick class is then 4. if pick uncertainties are absent, the lowest class will be used. The pick weight then is computed as: 1 / 2^(class-1) </description>
               </parameter>
             </group>
             <group name="travelTimeTable">

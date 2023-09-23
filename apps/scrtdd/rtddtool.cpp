@@ -1024,30 +1024,35 @@ bool RTDD::validateParameters()
     }
     try
     {
-      prof->solverCfg.usePickUncertainty =
+      prof->solverCfg.usePickUncertainties =
           configGetBool(prefix + "aPrioriWeights.usePickUncertainties");
     }
     catch (...)
     {
-      prof->solverCfg.usePickUncertainty = false;
+      prof->solverCfg.usePickUncertainties = false;
     }
     try
     {
-      prof->solverCfg.absTTDiffObsWeight =
-          configGetDouble(prefix + "aPrioriWeights.absoluteTTObsWeight");
+      vector<string> tokens =
+          configGetStrings(prefix + "aPrioriWeights.pickUncertaintyClasses");
+      prof->ddCfg.pickUncertaintyClasses.clear();
+      for (const string &tok : tokens)
+      {
+        double time;
+        if (!Core::fromString(time, tok))
+        {
+          SEISCOMP_ERROR("Profile %s: pickUncertaintyClasses is invalid",
+                         prof->name.c_str());
+          profilesOK = false;
+          break;
+        }
+        prof->ddCfg.pickUncertaintyClasses.push_back(time);
+      }
     }
     catch (...)
     {
-      prof->solverCfg.absTTDiffObsWeight = 1.0;
-    }
-    try
-    {
-      prof->solverCfg.xcorrObsWeight =
-          configGetDouble(prefix + "aPrioriWeights.xcorrObsWeight");
-    }
-    catch (...)
-    {
-      prof->solverCfg.xcorrObsWeight = 1.0;
+      prof->ddCfg.pickUncertaintyClasses = {0.000, 0.025, 0.050,
+                                            0.100, 0.200, 0.400};
     }
 
     prof->ddCfg.diskTraceMinLen =

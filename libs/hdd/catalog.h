@@ -258,13 +258,15 @@ public:
   //
   //  static
   //
-  static double computePickWeight(double uncertainty);
-  static double computePickWeight(const Catalog::Phase &phase);
+  static double
+  computePickWeight(const Catalog::Phase &phase,
+                    const std::vector<double> &uncertaintyClasses);
   static Catalog
   filterPhasesAndSetWeights(const Catalog &catalog,
                             const Catalog::Phase::Source &source,
                             const std::vector<std::string> &PphaseToKeep,
-                            const std::vector<std::string> &SphaseToKeep);
+                            const std::vector<std::string> &SphaseToKeep,
+                            const std::vector<double> &uncertaintyClasses);
 
   static constexpr double DEFAULT_MANUAL_PICK_UNCERTAINTY    = 0.030;
   static constexpr double DEFAULT_AUTOMATIC_PICK_UNCERTAINTY = 0.100;
