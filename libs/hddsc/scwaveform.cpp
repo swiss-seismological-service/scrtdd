@@ -178,7 +178,7 @@ void WaveformProxy::loadTraces(
     rs = IO::RecordStream::Open(_recordStreamURL.c_str());
     if (rs == nullptr)
     {
-      HDD::logError("Cannot open RecordStream: %s", _recordStreamURL.c_str());
+      HDD::logErrorF("Cannot open RecordStream: %s", _recordStreamURL.c_str());
       break;
     }
 

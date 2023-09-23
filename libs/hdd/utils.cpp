@@ -314,7 +314,7 @@ bool pathExists(const std::string &path)
   }
   catch (exception &e)
   {
-    logError("%s", e.what());
+    logErrorF("%s", e.what());
     return false;
   }
 }
@@ -327,7 +327,7 @@ bool directoryEmpty(const std::string &path)
   }
   catch (exception &e)
   {
-    logError("%s", e.what());
+    logErrorF("%s", e.what());
     return false;
   }
 }
@@ -341,7 +341,7 @@ bool createDirectories(const std::string &path)
   }
   catch (exception &e)
   {
-    logError("%s", e.what());
+    logErrorF("%s", e.what());
     return false;
   }
 }
@@ -355,7 +355,7 @@ bool removePath(const std::string &path)
   }
   catch (exception &e)
   {
-    logError("%s", e.what());
+    logErrorF("%s", e.what());
     return false;
   }
 }

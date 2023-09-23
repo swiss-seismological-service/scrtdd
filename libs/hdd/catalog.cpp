@@ -252,7 +252,7 @@ void Catalog::add(const Catalog &other, bool keepEvId)
     const Catalog::Event &event = kv.second;
     if (keepEvId && _events.find(event.id) != _events.end())
     {
-      logDebug("Skipping duplicated event id %u", event.id);
+      logDebugF("Skipping duplicated event id %u", event.id);
       continue;
     }
     this->add(event.id, other, keepEvId);
@@ -679,8 +679,8 @@ Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
         continue;
       }
 
-      logDebug("Discard phase (%s), the type is not among the selected ones",
-               string(phase).c_str());
+      logDebugF("Discard phase (%s), the type is not among the selected ones",
+                string(phase).c_str());
     }
   }
 
