@@ -85,8 +85,9 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
                                                 double maxEllipsoidSize,
                                                 bool keepUnmatched)
 {
-  logDebug("Selecting Neighbouring Events for event %s lat %g lon %g depth %g",
-           string(refEv).c_str(), refEv.latitude, refEv.longitude, refEv.depth);
+  logDebugF("Selecting Neighbouring Events for event %s lat %g lon %g depth %g",
+            string(refEv).c_str(), refEv.latitude, refEv.longitude,
+            refEv.depth);
 
   // Optimization: make code faster but the result will be the same.
   if (maxNumNeigh <= 0)
@@ -313,9 +314,9 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
       neighbours->ids.insert(ev.id);
       neighbours->phases.emplace(ev.id, evSelEntry.phases);
 
-      logDebug("Neighbour: #phases %2d distance %g depth-diff %g event %s",
-               dtCountByEvent[ev.id], distanceByEvent[ev.id],
-               refEv.depth - ev.depth, string(ev).c_str());
+      logDebugF("Neighbour: #phases %2d distance %g depth-diff %g event %s",
+                dtCountByEvent[ev.id], distanceByEvent[ev.id],
+                refEv.depth - ev.depth, string(ev).c_str());
     }
   }
   else
@@ -356,11 +357,11 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
               neighbours->ids.insert(ev.id);
               neighbours->phases.emplace(ev.id, evSelEntry.phases);
 
-              logDebug("Neighbour: ellipsoid %2d quadrant %d #phases %2d "
-                       "distance %5.2f depth-diff %6.3f event %s",
-                       elpsNum, quadrant, dtCountByEvent[ev.id],
-                       distanceByEvent[ev.id], refEv.depth - ev.depth,
-                       string(ev).c_str());
+              logDebugF("Neighbour: ellipsoid %2d quadrant %d #phases %2d "
+                        "distance %5.2f depth-diff %6.3f event %s",
+                        elpsNum, quadrant, dtCountByEvent[ev.id],
+                        distanceByEvent[ev.id], refEv.depth - ev.depth,
+                        string(ev).c_str());
 
               selectedEvents.erase(it);
               break;
@@ -377,7 +378,7 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
     string msg =
         strf("Skipping event %s, insufficient number of neighbors (%zu)",
              string(refEv).c_str(), neighbours->ids.size());
-    logDebug("%s", msg.c_str());
+    logDebugF("%s", msg.c_str());
     throw Exception(msg);
   }
 
@@ -442,9 +443,9 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
   bool redo;
   do
   {
-    logDebug("Found neighbours for %zu events (%zu events don't satisfy the "
-             "constraints)",
-             neighboursList.size(), removedEvents.size());
+    logDebugF("Found neighbours for %zu events (%zu events don't satisfy the "
+              "constraints)",
+              neighboursList.size(), removedEvents.size());
 
     logDebug("Fix events whose neighbours are the events not satisfying the "
              "constraints");

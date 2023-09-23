@@ -73,7 +73,7 @@ shared_ptr<const Trace> BasicLoader::get(const TimeWindow &tw,
   }
   catch (exception &e)
   {
-    logDebug(
+    logDebugF(
         "Cannnot load trace (stream %s.%s.%s.%s from %s length %.2f sec): %s",
         ph.networkCode.c_str(), ph.stationCode.c_str(), ph.locationCode.c_str(),
         ph.channelCode.c_str(), UTCClock::toString(tw.startTime()).c_str(),
@@ -139,17 +139,17 @@ void BatchLoader::load()
                                     const TimeWindow &tw,
                                     const std::string &error) {
     _counters_wf_no_avail++;
-    logDebug("Cannnot load trace (stream %s from %s length %.2f sec): %s",
-             streamID.c_str(), UTCClock::toString(tw.startTime()).c_str(),
-             durToSec(tw.length()), error.c_str());
+    logDebugF("Cannnot load trace (stream %s from %s length %.2f sec): %s",
+              streamID.c_str(), UTCClock::toString(tw.startTime()).c_str(),
+              durToSec(tw.length()), error.c_str());
   };
 
   if (_requests.size() > 0)
   {
     _wf->loadTraces(_requests, onTraceLoaded, onTraceFailed);
 
-    logInfo("Fetched %u/%lu waveforms, not available %u",
-            _counters_wf_downloaded, _requests.size(), _counters_wf_no_avail);
+    logInfoF("Fetched %u/%zu waveforms, not available %u",
+             _counters_wf_downloaded, _requests.size(), _counters_wf_no_avail);
 
     _requests.clear();
   }
@@ -196,15 +196,15 @@ shared_ptr<const Trace> ExtraLenLoader::get(const TimeWindow &tw,
     shared_ptr<Trace> nonConstTrace(new Trace(*trace));
     if (!nonConstTrace->slice(tw))
     {
-      logDebug("Error while loading phase '%s': cannot slice trace "
-               "from %s length %.2f sec. Trace "
-               "data from %s length %.2f sec, samples %zu sampfreq %f",
-               string(ph).c_str(),
-               HDD::UTCClock::toString(tw.startTime()).c_str(),
-               HDD::durToSec(tw.length()),
-               HDD::UTCClock::toString(trace->startTime()).c_str(),
-               HDD::durToSec(trace->timeWindow().length()),
-               trace->sampleCount(), trace->samplingFrequency());
+      logDebugF("Error while loading phase '%s': cannot slice trace "
+                "from %s length %.2f sec. Trace "
+                "data from %s length %.2f sec, samples %zu sampfreq %f",
+                string(ph).c_str(),
+                HDD::UTCClock::toString(tw.startTime()).c_str(),
+                HDD::durToSec(tw.length()),
+                HDD::UTCClock::toString(trace->startTime()).c_str(),
+                HDD::durToSec(trace->timeWindow().length()),
+                trace->sampleCount(), trace->samplingFrequency());
       return nullptr;
     }
     trace = nonConstTrace;
@@ -264,7 +264,7 @@ unique_ptr<Trace> DiskCachedLoader::getFromCache(const TimeWindow &tw,
   }
   catch (exception &e)
   {
-    logWarning("Couldn't load waveform %s: %s", cacheFile.c_str(), e.what());
+    logWarningF("Couldn't load waveform %s: %s", cacheFile.c_str(), e.what());
     return nullptr;
   }
 }
@@ -284,8 +284,8 @@ void DiskCachedLoader::storeInCache(const TimeWindow &tw,
   }
   catch (exception &e)
   {
-    logWarning("Couldn't write waveform to disk %s: %s", cacheFile.c_str(),
-               e.what());
+    logWarningF("Couldn't write waveform to disk %s: %s", cacheFile.c_str(),
+                e.what());
   }
 }
 
@@ -325,13 +325,13 @@ shared_ptr<const Trace> BasicProcessor::get(const TimeWindow &tw,
   }
   catch (exception &e)
   {
-    logDebug("Cannot compute RT/L2 transformation of stream %s.%s.%s.%s "
-             "from %s length %.2f sec: %s",
-             ph.networkCode.c_str(), ph.stationCode.c_str(),
-             ph.locationCode.c_str(),
-             getBandAndInstrumentCodes(ph.channelCode).c_str(),
-             UTCClock::toString(tw.startTime()).c_str(), durToSec(tw.length()),
-             e.what());
+    logDebugF("Cannot compute RT/L2 transformation of stream %s.%s.%s.%s "
+              "from %s length %.2f sec: %s",
+              ph.networkCode.c_str(), ph.stationCode.c_str(),
+              ph.locationCode.c_str(),
+              getBandAndInstrumentCodes(ph.channelCode).c_str(),
+              UTCClock::toString(tw.startTime()).c_str(), durToSec(tw.length()),
+              e.what());
     return nullptr;
   }
 
@@ -364,12 +364,12 @@ shared_ptr<const Trace> BasicProcessor::get(const TimeWindow &tw,
 
   if (!trace)
   {
-    logDebug("Cannot compute RT/L2 transformation of stream %s.%s.%s.%s "
-             "from %s length %.2f sec",
-             ph.networkCode.c_str(), ph.stationCode.c_str(),
-             ph.locationCode.c_str(),
-             getBandAndInstrumentCodes(ph.channelCode).c_str(),
-             UTCClock::toString(tw.startTime()).c_str(), durToSec(tw.length()));
+    logDebugF(
+        "Cannot compute RT/L2 transformation of stream %s.%s.%s.%s "
+        "from %s length %.2f sec",
+        ph.networkCode.c_str(), ph.stationCode.c_str(), ph.locationCode.c_str(),
+        getBandAndInstrumentCodes(ph.channelCode).c_str(),
+        UTCClock::toString(tw.startTime()).c_str(), durToSec(tw.length()));
   }
 
   return trace;
@@ -397,21 +397,21 @@ BasicProcessor::loadAndProcess(const TimeWindow &tw,
   }
   catch (exception &e)
   {
-    logDebug("Errow while filtering waveform: %s", e.what());
+    logDebugF("Errow while filtering waveform: %s", e.what());
     return nullptr;
   }
 
   if (!copy->slice(tw))
   {
-    logDebug("Error while processing phase data '%s': cannot slice trace from "
-             "%s length %.2f sec. Trace data from %s length %.2f sec, samples "
-             "%zu sampfreq %f",
-             string(ph).c_str(),
-             HDD::UTCClock::toString(tw.startTime()).c_str(),
-             HDD::durToSec(tw.length()),
-             HDD::UTCClock::toString(copy->startTime()).c_str(),
-             HDD::durToSec(copy->timeWindow().length()), copy->sampleCount(),
-             copy->samplingFrequency());
+    logDebugF("Error while processing phase data '%s': cannot slice trace from "
+              "%s length %.2f sec. Trace data from %s length %.2f sec, samples "
+              "%zu sampfreq %f",
+              string(ph).c_str(),
+              HDD::UTCClock::toString(tw.startTime()).c_str(),
+              HDD::durToSec(tw.length()),
+              HDD::UTCClock::toString(copy->startTime()).c_str(),
+              HDD::durToSec(copy->timeWindow().length()), copy->sampleCount(),
+              copy->samplingFrequency());
     return nullptr;
   }
   return copy;
@@ -532,7 +532,7 @@ shared_ptr<const Trace> SnrFilterPrc::get(const TimeWindow &tw,
 
   if (_enabled && !goodSnr(*trace, ph.time))
   {
-    logDebug("Trace has too low SNR (%s)", string(ph).c_str());
+    logDebugF("Trace has too low SNR (%s)", string(ph).c_str());
     _counters_wf_snr_low++;
     return nullptr;
   }
@@ -542,15 +542,15 @@ shared_ptr<const Trace> SnrFilterPrc::get(const TimeWindow &tw,
     shared_ptr<Trace> nonConstTrace(new Trace(*trace));
     if (!nonConstTrace->slice(tw))
     {
-      logDebug("Error while checking SNR for phase '%s': cannot slice trace "
-               "from %s length %.2f sec. Trace "
-               "data from %s length %.2f sec, samples %zu sampfreq %f",
-               string(ph).c_str(),
-               HDD::UTCClock::toString(tw.startTime()).c_str(),
-               HDD::durToSec(tw.length()),
-               HDD::UTCClock::toString(trace->startTime()).c_str(),
-               HDD::durToSec(trace->timeWindow().length()),
-               trace->sampleCount(), trace->samplingFrequency());
+      logDebugF("Error while checking SNR for phase '%s': cannot slice trace "
+                "from %s length %.2f sec. Trace "
+                "data from %s length %.2f sec, samples %zu sampfreq %f",
+                string(ph).c_str(),
+                HDD::UTCClock::toString(tw.startTime()).c_str(),
+                HDD::durToSec(tw.length()),
+                HDD::UTCClock::toString(trace->startTime()).c_str(),
+                HDD::durToSec(trace->timeWindow().length()),
+                trace->sampleCount(), trace->samplingFrequency());
       return nullptr;
     }
     trace = nonConstTrace;
