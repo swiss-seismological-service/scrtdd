@@ -412,7 +412,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
   // for each event find its neighbours
   for (const auto &kv : catalog.getEvents())
   {
-    const Catalog::Event& event = kv.second;
+    const Catalog::Event &event = kv.second;
 
     unique_ptr<Neighbours> neighbours;
     try
@@ -442,10 +442,12 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
   bool redo;
   do
   {
-    logDebug("Found neighbours for %zu events (%zu events don't satisfy the constraints)",
-            neighboursList.size(), removedEvents.size());
+    logDebug("Found neighbours for %zu events (%zu events don't satisfy the "
+             "constraints)",
+             neighboursList.size(), removedEvents.size());
 
-    logDebug("Fix events whose neighbours are the events not satisfying the constraints");
+    logDebug("Fix events whose neighbours are the events not satisfying the "
+             "constraints");
 
     redo = false;
     unordered_map<unsigned, unique_ptr<Neighbours>> validNeighbours;
@@ -469,7 +471,8 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
       // its neighbours
       if (invalid)
       {
-        const Catalog::Event& event = validCatalog.getEvents().find(neighbours->refEvId)->second;
+        const Catalog::Event &event =
+            validCatalog.getEvents().find(neighbours->refEvId)->second;
 
         try
         {
