@@ -1,7 +1,7 @@
 
 #include "hdd/catalog.h"
-#include "hdd/nllttt.h"
-#include "hdd/cvttt.h"
+#include "hdd/ttt/nllgrid.h"
+#include "hdd/ttt/homogeneous.h"
 #include "hdd/utils.h"
 #include "scttt.h"
 
@@ -119,7 +119,7 @@ std::unique_ptr<HDD::TravelTimeTable> createTTT(const TTTParams &prms)
         !HDD::directoryEmpty(angleGridPath.parent_path().string()))
     {
       return std::unique_ptr<HDD::TravelTimeTable>(
-          new HDD::NLL::TravelTimeTable(velGridPath.string(),
+          new HDD::TTT::NLLGrid(velGridPath.string(),
                                         timeGridPath.string(),
                                         angleGridPath.string(), false));
     }
@@ -132,7 +132,7 @@ std::unique_ptr<HDD::TravelTimeTable> createTTT(const TTTParams &prms)
     double pVel = std::stod(tokens.at(0));
     double sVel = std::stod(tokens.at(1));
     return std::unique_ptr<HDD::TravelTimeTable>(
-        new HDD::ConstantVelocity(pVel, sVel));
+        new HDD::TTT::Homogeneous(pVel, sVel));
   }
   else
   {

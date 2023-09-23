@@ -25,51 +25,19 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#include "cvttt.h"
-#include "utils.h"
-
-namespace {
-
-using namespace HDD;
-
-void computeTakeOffAngles(
-    double eventLat,
-    double eventLon,
-    double eventDepth,
-    const Catalog::Station &station,
-    const std::string &phaseType,
-    double *azimuth,
-    double *takeOffAngle)
-{
-
-  if (!azimuth && !takeOffAngle)
-  {
-    return;
-  }
-
-  double distance =
-      computeDistance(eventLat, eventLon, eventDepth, station.latitude,
-                      station.longitude, -(station.elevation / 1000.), azimuth);
-
-  if (takeOffAngle)
-  {
-    double VertDist = eventDepth + station.elevation / 1000.;
-    *takeOffAngle   = std::asin(VertDist / distance);
-    *takeOffAngle += degToRad(90); // -90(down):+90(up) -> 0(down):180(up)
-  }
-}
-
-}
+#include "homogeneous.h"
+#include "../utils.h"
 
 namespace HDD {
+namespace TTT {
 
-ConstantVelocity::ConstantVelocity(double pVel, double sVel)
+Homogeneous::Homogeneous(double pVel, double sVel)
     : _pVel(pVel), _sVel(sVel)
 {}
 
-void ConstantVelocity::freeResources() {}
+void Homogeneous::freeResources() {}
 
-double ConstantVelocity::compute(double eventLat,
+double Homogeneous::compute(double eventLat,
                                  double eventLon,
                                  double eventDepth,
                                  const Catalog::Station &station,
@@ -90,7 +58,7 @@ double ConstantVelocity::compute(double eventLat,
   return distance / velocity;                                      // [sec]
 }
 
-void ConstantVelocity::compute(double eventLat,
+void Homogeneous::compute(double eventLat,
                                double eventLon,
                                double eventDepth,
                                const Catalog::Station &station,
@@ -101,8 +69,15 @@ void ConstantVelocity::compute(double eventLat,
                                double &velocityAtSrc)
 {
   travelTime = compute(eventLat, eventLon, eventDepth, station, phaseType);
-  computeTakeOffAngles(eventLat, eventLon, eventDepth, station,
-                                   phaseType, &azimuth, &takeOffAngle);
+
+  double hDist =
+      computeDistance(eventLat, eventLon, eventDepth, station.latitude,
+                      station.longitude, -(station.elevation / 1000.), &azimuth);
+
+  double vDist = eventDepth + station.elevation / 1000.;
+  takeOffAngle   = std::asin(vDist / hDist);
+  takeOffAngle += degToRad(90); // -90(down):+90(up) -> 0(down):180(up)
+
   if (phaseType == "P")
     velocityAtSrc = _pVel;
   else if (phaseType == "S")
@@ -110,5 +85,6 @@ void ConstantVelocity::compute(double eventLat,
   else
     throw Exception("Unknown phase type: " + phaseType);
 }
+} // namespace TTT
 
 } // namespace HDD

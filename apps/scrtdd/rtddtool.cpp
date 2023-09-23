@@ -17,8 +17,8 @@
 
 #include "rtddtool.h"
 #include "hdd/csvreader.h"
-#include "hdd/cvttt.h"
-#include "hdd/nllttt.h"
+#include "hdd/ttt/homogeneous.h"
+#include "hdd/ttt/nllgrid.h"
 #include "hddsc/sclog.h"
 #include "hddsc/scttt.h"
 #include "hddsc/scutils.h"
@@ -2191,7 +2191,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
       {
         swapBytes = true;
       }
-      ttt.reset(new HDD::NLL::TravelTimeTable(velGridPath, timeGridPath,
+      ttt.reset(new HDD::TTT::NLLGrid(velGridPath, timeGridPath,
                                               angleGridPath, swapBytes));
     }
     else if (tttType == "ConstVel")
@@ -2206,7 +2206,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
       }
       double pVel = std::stod(tokens.at(0));
       double sVel = std::stod(tokens.at(1));
-      ttt.reset(new HDD::ConstantVelocity(pVel, sVel));
+      ttt.reset(new HDD::TTT::Homogeneous(pVel, sVel));
     }
     else
     {

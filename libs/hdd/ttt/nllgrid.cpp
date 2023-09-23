@@ -25,16 +25,18 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#include "nllttt.h"
-#include "log.h"
-#include "utils.h"
+#include "nllgrid.h"
+#include "../log.h"
+#include "../utils.h"
 
 using namespace std;
+using namespace HDD::NLL;
 
 namespace HDD {
-namespace NLL {
 
-TravelTimeTable::TravelTimeTable(const std::string &velGridPath,
+namespace TTT {
+
+NLLGrid::NLLGrid(const std::string &velGridPath,
                                  const std::string &timeGridPath,
                                  const std::string &angleGridPath,
                                  bool swapBytes,
@@ -44,14 +46,14 @@ TravelTimeTable::TravelTimeTable(const std::string &velGridPath,
       _velGrids(cacheSize), _timeGrids(cacheSize), _angleGrids(cacheSize)
 {}
 
-void TravelTimeTable::freeResources()
+void NLLGrid::freeResources()
 {
   _velGrids.clear();
   _timeGrids.clear();
   _angleGrids.clear();
 }
 
-std::string TravelTimeTable::filePath(const std::string &basePath,
+std::string NLLGrid::filePath(const std::string &basePath,
                                       const Catalog::Station &station,
                                       const std::string &phaseType)
 {
@@ -66,7 +68,7 @@ std::string TravelTimeTable::filePath(const std::string &basePath,
   return std::regex_replace(out, rePha, phaseType);
 }
 
-double TravelTimeTable::compute(double eventLat,
+double NLLGrid::compute(double eventLat,
                                 double eventLon,
                                 double eventDepth,
                                 const Catalog::Station &station,
@@ -107,7 +109,7 @@ double TravelTimeTable::compute(double eventLat,
   return travelTime;
 }
 
-void TravelTimeTable::compute(double eventLat,
+void NLLGrid::compute(double eventLat,
                               double eventLon,
                               double eventDepth,
                               const Catalog::Station &station,
@@ -194,6 +196,6 @@ void TravelTimeTable::compute(double eventLat,
     azimuth = computeAzimuth(eventLat, eventLon, station.latitude, station.longitude);
   }
 }
+} // namespace TTT
 
-} // namespace NLL
 } // namespace HDD

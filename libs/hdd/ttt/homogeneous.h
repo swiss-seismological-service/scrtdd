@@ -25,30 +25,29 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#ifndef __HDD_NLLTTT_H__
-#define __HDD_NLLTTT_H__
+#ifndef __HDD_TTT_HOMOGENEOUS_H__
+#define __HDD_TTT_HOMOGENEOUS_H__
 
-#include "3rd-party/lrucache.h"
-#include "nllgrid.h"
-#include "ttt.h"
-
-#include <unordered_set>
+#include "../ttt.h"
 
 namespace HDD {
-namespace NLL {
 
-class TravelTimeTable : public HDD::TravelTimeTable
+namespace TTT {
+
+class Homogeneous : public HDD::TravelTimeTable
 {
 public:
-  TravelTimeTable(const std::string &velGridPath,
-                  const std::string &timeGridPath,
-                  const std::string &angleGridPath,
-                  bool swapBytes,
-                  unsigned cacheSize = 255);
+  Homogeneous(double pVel, double sVel);
 
-  virtual ~TravelTimeTable() = default;
+  virtual ~Homogeneous() = default;
 
   void freeResources() override;
+
+  double compute(double eventLat,
+                 double eventLon,
+                 double eventDepth,
+                 const Catalog::Station &station,
+                 const std::string &phaseType) override;
 
   void compute(double eventLat,
                double eventLon,
@@ -60,28 +59,11 @@ public:
                double &takeOffAngle,
                double &velocityAtSrc) override;
 
-  double compute(double eventLat,
-                 double eventLon,
-                 double eventDepth,
-                 const Catalog::Station &station,
-                 const std::string &phaseType) override;
-
-  static std::string filePath(const std::string &basePath,
-                              const Catalog::Station &station,
-                              const std::string &phaseType);
-
 private:
-  std::string _velGridPath;
-  std::string _timeGridPath;
-  std::string _angleGridPath;
-  bool _swapBytes;
-  lru_cache<std::string, std::shared_ptr<VelGrid>> _velGrids;
-  lru_cache<std::string, std::shared_ptr<TimeGrid>> _timeGrids;
-  lru_cache<std::string, std::shared_ptr<AngleGrid>> _angleGrids;
-  std::unordered_set<std::string> _unloadableGrids;
+  const double _pVel, _sVel; // [km/sec]
 };
 
-} // namespace NLL
+} // namespace TTT
 } // namespace HDD
 
 #endif
