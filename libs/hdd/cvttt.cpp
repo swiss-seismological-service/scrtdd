@@ -28,6 +28,39 @@
 #include "cvttt.h"
 #include "utils.h"
 
+namespace {
+
+using namespace HDD;
+
+void computeTakeOffAngles(
+    double eventLat,
+    double eventLon,
+    double eventDepth,
+    const Catalog::Station &station,
+    const std::string &phaseType,
+    double *azimuth,
+    double *takeOffAngle)
+{
+
+  if (!azimuth && !takeOffAngle)
+  {
+    return;
+  }
+
+  double distance =
+      computeDistance(eventLat, eventLon, eventDepth, station.latitude,
+                      station.longitude, -(station.elevation / 1000.), azimuth);
+
+  if (takeOffAngle)
+  {
+    double VertDist = eventDepth + station.elevation / 1000.;
+    *takeOffAngle   = std::asin(VertDist / distance);
+    *takeOffAngle += degToRad(90); // -90(down):+90(up) -> 0(down):180(up)
+  }
+}
+
+}
+
 namespace HDD {
 
 ConstantVelocity::ConstantVelocity(double pVel, double sVel)
@@ -68,7 +101,7 @@ void ConstantVelocity::compute(double eventLat,
                                double &velocityAtSrc)
 {
   travelTime = compute(eventLat, eventLon, eventDepth, station, phaseType);
-  computeApproximatedTakeOffAngles(eventLat, eventLon, eventDepth, station,
+  computeTakeOffAngles(eventLat, eventLon, eventDepth, station,
                                    phaseType, &azimuth, &takeOffAngle);
   if (phaseType == "P")
     velocityAtSrc = _pVel;
