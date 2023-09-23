@@ -190,11 +190,9 @@ void TravelTimeTable::compute(double eventLat,
                                          azimuth, takeOffAngle);
   }
 
-  // approximate angles if not already provided by the grid
-  computeApproximatedTakeOffAngles(
-      eventLat, eventLon, eventDepth, station, phaseType,
-      std::isfinite(azimuth) ? nullptr : &azimuth,
-      std::isfinite(takeOffAngle) ? nullptr : &takeOffAngle);
+  if ( ! std::isfinite(azimuth) ) { // Not 3D model
+    azimuth = computeAzimuth(eventLat, eventLon, station.latitude, station.longitude);
+  }
 }
 
 } // namespace NLL

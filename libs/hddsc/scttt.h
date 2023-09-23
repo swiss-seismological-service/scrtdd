@@ -30,8 +30,7 @@ class TravelTimeTable : public HDD::TravelTimeTable
 {
 public:
   TravelTimeTable(const std::string &type,
-                  const std::string &model,
-                  double depthVelResolution = 0.1);
+                  const std::string &model);
   virtual ~TravelTimeTable() = default;
 
   void freeResources() override;
@@ -54,16 +53,9 @@ public:
 
 private:
   void load();
-  double computeVelocityAtSource(double eventLat,
-                                 double eventLon,
-                                 double eventDepth,
-                                 const std::string &phaseType);
 
   const std::string _type;
   const std::string _model;
-  const double _depthVelResolution; // km
-  // key 1 = phase type. key 2 = depth bin
-  std::unordered_map<std::string, std::unordered_map<int, double>> _depthVel;
   Seiscomp::TravelTimeTableInterfacePtr _ttt;
 };
 

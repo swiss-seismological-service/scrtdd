@@ -19,7 +19,6 @@ ADD_LIBRARY(hdd ${LIB_TYPE}
 	utctime.cpp
 	catalog.cpp
 	clustering.cpp
-	ttt.cpp
 	nllgrid.cpp
 	nllttt.cpp
 	cvttt.cpp
