@@ -262,7 +262,7 @@ private:
 class AngleGrid
 {
 public:
-  AngleGrid(const std::string &filePath, bool swapBytes);
+  AngleGrid(const std::string &filePath, bool swapBytes, unsigned quality_cutoff = 5);
   ~AngleGrid() = default;
 
   void
@@ -285,32 +285,31 @@ public:
     unsigned short azimuth : 16; // 0 to 3600 in tenths deg
   };
 
-  static const unsigned QUALITY_CUTOFF = 5;
-
 private:
   template <typename GRID_FLOAT_TYPE>
-  static GRID_FLOAT_TYPE interpolateValues2D(double xdiff,
-                                             double zdiff,
-                                             GRID_FLOAT_TYPE vval00,
-                                             GRID_FLOAT_TYPE vval01,
-                                             GRID_FLOAT_TYPE vval10,
-                                             GRID_FLOAT_TYPE vval11);
+  GRID_FLOAT_TYPE interpolateValues2D(double xdiff,
+                                      double zdiff,
+                                      GRID_FLOAT_TYPE vval00,
+                                      GRID_FLOAT_TYPE vval01,
+                                      GRID_FLOAT_TYPE vval10,
+                                      GRID_FLOAT_TYPE vval11);
   template <typename GRID_FLOAT_TYPE>
-  static GRID_FLOAT_TYPE interpolateValues3D(double xdiff,
-                                             double ydiff,
-                                             double zdiff,
-                                             GRID_FLOAT_TYPE vval000,
-                                             GRID_FLOAT_TYPE vval001,
-                                             GRID_FLOAT_TYPE vval010,
-                                             GRID_FLOAT_TYPE vval011,
-                                             GRID_FLOAT_TYPE vval100,
-                                             GRID_FLOAT_TYPE vval101,
-                                             GRID_FLOAT_TYPE vval110,
-                                             GRID_FLOAT_TYPE vval111);
+  GRID_FLOAT_TYPE interpolateValues3D(double xdiff,
+                                      double ydiff,
+                                      double zdiff,
+                                      GRID_FLOAT_TYPE vval000,
+                                      GRID_FLOAT_TYPE vval001,
+                                      GRID_FLOAT_TYPE vval010,
+                                      GRID_FLOAT_TYPE vval011,
+                                      GRID_FLOAT_TYPE vval100,
+                                      GRID_FLOAT_TYPE vval101,
+                                      GRID_FLOAT_TYPE vval110,
+                                      GRID_FLOAT_TYPE vval111);
 
   void convertAngles(const TakeOffAngles &in, double &azim, double &dip);
 
   Grid _grid;
+  const unsigned _quality_cutoff;
 };
 
 class VelGrid
