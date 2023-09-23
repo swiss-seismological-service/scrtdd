@@ -25,10 +25,10 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#ifndef __HDD_NLLGRID_H__
-#define __HDD_NLLGRID_H__
+#ifndef __HDD_NLL_GRID_H__
+#define __HDD_NLL_GRID_H__
 
-#include "catalog.h"
+#include "../catalog.h"
 
 #include <cmath>
 #include <fstream>
