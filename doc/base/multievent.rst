@@ -301,13 +301,13 @@ This solution is achieved through an iterative process. An initial double-differ
 The actual solution of the double-difference system at each iteration is achieved via a least square approach. rtDD can use both LSQR (by Chris Paige, Michael Saunders) or LSMR (by David Fong, Michael Saunders) algorithms, which both can solve sparse and dense linear equations and linear least-squares problems. rtDD doesn't offer an option to solve the system via Singular Value Decomposition, mainly due to the computational constraints of this method, which prevent it from being applied to large datasets.
 
 
-.. _shift-cluster-centroid-label:
+.. _absolute-plus-relative-label:
 
--------------------------
-Shift of Cluster Centroid
--------------------------
+------------------------------------------------
+Solving for both absolute and relative locations
+------------------------------------------------
 
-Since a double-difference system as defined in :eq:`dd-system-label` does not take into consideration absolute location residuals, the inversion is susceptible to a possible shift of an event cluster: the locations of the events relative to each others improve (the cluster shape), but the centroid of the cluster might shift with respect to its true location.
+If an absolute location method searches for the location that better explains a set of arrival times, then a double-difference location method searches for the event locations that better explains the difference in arrival times between pair of events. Since this latter method does not take into consideration absolute arrival times, but only their difference, the inversion is susceptible to a possible shift of the event cluster: the locations of the events relative to each others improve (the cluster shape), but the centroid of the cluster might shift with respect to its true location.
 
 To compensate for this effect Waldhauser & Ellsworth offer two solutions. The first is to add four additional equations to the double-difference system - one for each coordinate direction and one for the origin time - that constrain to zero the mean shift of all the hypocenters during the inversion. Since this method is computationally efficient is also well suited for a SVD solver. However for a least-square approach, such as the one used by rtDD, Waldhauser & Ellsworth make use of regularization, that is a damped least-squares approach. The damping factor forces the solver to find the solution that not only minimizes the double-difference residuals, but also the changes to the hypocenters, preventing huge shifts in absolute locations. The damping factor also has the benefit of working on ill-conditioned systems. The effect of both techniques is that the relocated cluster centroid is placed more or less in what was the average location of the cluster events before the inversion.
 
