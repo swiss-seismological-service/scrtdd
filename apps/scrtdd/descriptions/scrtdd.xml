@@ -75,6 +75,10 @@
             <parameter name="S-Phases" type="list:string" default="Sg,S">
               <description>Defines a priority list of accepted S phases. Phases not in this list will be discarded. If multiple phases exist for the same event/station pair, the first one in the list will be used.</description>
             </parameter>
+            <parameter name="pickUncertaintyClasses" type="list:string" unit="s" default="0.000,0.025,0.050,0.100,0.200,0.400" >
+              <description>Define the pick time uncertainty classes from which the pick weight is computed. This parameter defines a list of uncertainty time intervals: the interval in which a pick time uncertainty falls defines the pick class e.g. a pick wich uncertainty of 0.150 falls in the 4th interval and the pick class is then 4. if pick uncertainties are absent, the lowest class will be used. The pick weight then is computed as: 1 / 2^(class-1) </description>
+            </parameter>
+
           </group>
           <group name="doubleDifferenceSystem">
             <description>These options control the creation of the double-difference equation system, that is which events and phases are used in the system. Among the selected events all possible event pairs are considered and for each pair, when a phase exists for both paired events at a common station, an equation is added to the system.</description> 
@@ -222,6 +226,9 @@
             <parameter name="algoIterations" type="int" default="20">
               <description>This parameter control how many iterations the solver performs</description>
             </parameter>
+            <parameter name="usePickUncertainties" type="boolean" default="false">
+              <description>Whether to use pick time uncertainties to scale their weight. If true, then the uncertainties are retrieved from each individual picks and a weight associated accordingly to 'pickUncertaintyClasses' parameter. Each double-difference equation weight will be the average of its pick weights.</description>
+            </parameter>
             <group name="downWeightingByResidual">
               <description>At each iteration the solver down-weighs the system equations accordingly to their residuals of the previous iteration, which scales differential time accordingly to their quality. This option value expresses the standard deviations of the double-difference residuals beyond which the observations are dropped. For residuals below this value, the weighing scheme follows the Waldhauser/Ellsworth paper. A value of 0 disables downweighting.</description>
               <parameter name="startingValue" type="double" default="10">
@@ -247,15 +254,6 @@
               </parameter>
               <parameter name="finalValue" type="double" default="0.0">
                 <description>Value for the last iteration of the solver.</description>
-              </parameter>
-            </group>
-            <group name="aPrioriWeights">
-              <description>Those options allow the double-difference equations to have different starting weights. By default they are equally weighted and the residual itselfs drive the re-weighting (see downWeightingByResidual option).</description>
-              <parameter name="usePickUncertainties" type="boolean" default="false">
-                <description>Whether to use pick time uncertainties to scale their weight. If true, then the uncertainties are retrieved from each individual picks and a weight associated accordingly to 'pickUncertaintyClasses' parameter. Each double-difference equation weight will be the average of its pick weights.</description>
-              </parameter>
-              <parameter name="pickUncertaintyClasses" type="list:string" unit="s" default="0.000,0.025,0.050,0.100,0.200,0.400" >
-                <description>Define the pick time uncertainty classes from which the pick weight is computed. This parameter defines a list of uncertainty time intervals: the interval in which a pick time uncertainty falls defines the pick class e.g. a pick wich uncertainty of 0.150 falls in the 4th interval and the pick class is then 4. if pick uncertainties are absent, the lowest class will be used. The pick weight then is computed as: 1 / 2^(class-1) </description>
               </parameter>
             </group>
             <group name="travelTimeTable">

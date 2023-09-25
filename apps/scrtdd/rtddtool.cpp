@@ -535,6 +535,29 @@ bool RTDD::validateParameters()
     {
       prof->ddCfg.validSphases = {"Sg", "S"};
     }
+    try
+    {
+      vector<string> tokens =
+          configGetStrings(prefix + "pickUncertaintyClasses");
+      prof->ddCfg.pickUncertaintyClasses.clear();
+      for (const string &tok : tokens)
+      {
+        double time;
+        if (!Core::fromString(time, tok))
+        {
+          SEISCOMP_ERROR("Profile %s: pickUncertaintyClasses is invalid",
+                         prof->name.c_str());
+          profilesOK = false;
+          break;
+        }
+        prof->ddCfg.pickUncertaintyClasses.push_back(time);
+      }
+    }
+    catch (...)
+    {
+      prof->ddCfg.pickUncertaintyClasses = {0.000, 0.025, 0.050,
+                                            0.100, 0.200, 0.400};
+    }
 
     prefix = string("profile.") + prof->name +
              ".doubleDifferenceSystem.eventFiltering.";
@@ -943,6 +966,16 @@ bool RTDD::validateParameters()
     }
     try
     {
+      prof->solverCfg.usePickUncertainties =
+          configGetBool(prefix + "aPrioriWeights.usePickUncertainties");
+    }
+    catch (...)
+    {
+      prof->solverCfg.usePickUncertainties = false;
+    }
+
+    try
+    {
       prof->solverCfg.absLocConstraintStart =
           configGetDouble(prefix + "absoluteLocationConstraint.startingValue");
     }
@@ -995,38 +1028,6 @@ bool RTDD::validateParameters()
     catch (...)
     {
       prof->solverCfg.downWeightingByResidualEnd = 3.;
-    }
-    try
-    {
-      prof->solverCfg.usePickUncertainties =
-          configGetBool(prefix + "aPrioriWeights.usePickUncertainties");
-    }
-    catch (...)
-    {
-      prof->solverCfg.usePickUncertainties = false;
-    }
-    try
-    {
-      vector<string> tokens =
-          configGetStrings(prefix + "aPrioriWeights.pickUncertaintyClasses");
-      prof->ddCfg.pickUncertaintyClasses.clear();
-      for (const string &tok : tokens)
-      {
-        double time;
-        if (!Core::fromString(time, tok))
-        {
-          SEISCOMP_ERROR("Profile %s: pickUncertaintyClasses is invalid",
-                         prof->name.c_str());
-          profilesOK = false;
-          break;
-        }
-        prof->ddCfg.pickUncertaintyClasses.push_back(time);
-      }
-    }
-    catch (...)
-    {
-      prof->ddCfg.pickUncertaintyClasses = {0.000, 0.025, 0.050,
-                                            0.100, 0.200, 0.400};
     }
 
     prof->ddCfg.diskTraceMinLen =
