@@ -98,8 +98,8 @@
               <parameter name="maxStationDistance" type="double" unit="km">
                 <description>Max distance (km) between event and station allowed for a phase to be used. Phases belonging to stations not satisfying this condition will not be used. A value of 0 or less disables this limit.</description>
               </parameter>
-              <parameter name="maxNumPhases" type="int">
-                <description>Maximum number of phases per event pair. If this value is set, closer stations will have higher precedence over further ones. A value of 0 disables this limit.</description>
+              <parameter name="minPhaseWeight" type="int">
+                <description>Minitum accepted phase weight, accordingly to 'pickUncertaintyClasses' parameter. If this value is set, phases with lower weight will not be used.</description>
               </parameter>
             </group>
             <group name="eventPairSelection">
