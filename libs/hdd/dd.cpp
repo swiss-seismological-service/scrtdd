@@ -38,7 +38,6 @@ using Event     = HDD::Catalog::Event;
 using Phase     = HDD::Catalog::Phase;
 using Station   = HDD::Catalog::Station;
 using Transform = HDD::Waveform::Processor::Transform;
-using AQ_ACTION = HDD::SolverOptions::AQ_ACTION;
 using HDD::Waveform::getBandAndInstrumentCodes;
 using HDD::Waveform::getOrientationCode;
 
@@ -1082,24 +1081,8 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
       continue;
     }
 
-    // check for airquakes
-    if (solverOpt.airQuakes.action != AQ_ACTION::NONE &&
-        (event.depth + deltaDepth) <
-            -(solverOpt.airQuakes.elevationThreshold / 1000.))
-    {
-      if (solverOpt.airQuakes.action == AQ_ACTION::RESET)
-      {
-        logDebugF("Revert airquake event %s to previous location",
-                  string(event).c_str());
-        continue;
-      }
-      else if (solverOpt.airQuakes.action == AQ_ACTION::RESET_DEPTH)
-      {
-        logDebugF("Revert airquake event %s to previous depth",
-                  string(event).c_str());
-        deltaDepth = 0;
-      }
-    }
+    double newDepth = event.depth + deltaDepth;
+    UTCTime newTime = event.time + secToDur(deltaTime);
 
     //
     // converte delta lat lon [ km -> degree ]
@@ -1120,11 +1103,10 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     //
     // update event location/time and compute statistics
     //
-    relocatedEvs++;
-    event.latitude  = newLat;
-    event.longitude = newLon;
-    event.depth += deltaDepth;
-    event.time += secToDur(deltaTime);
+    event.latitude                = newLat;
+    event.longitude               = newLon;
+    event.depth                   = newDepth;
+    event.time                    = newTime;
     event.relocInfo.finalRms      = 0;
     event.relocInfo.isRelocated   = true;
     event.relocInfo.numNeighbours = 0;
@@ -1137,6 +1119,7 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     vector<double> obsResiduals;
     double sumSquaredResiduals = 0.0;
     double sumSquaredWeights   = 0.0;
+    bool nottt                 = true;
     auto eqlrng                = phases.equal_range(event.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
@@ -1176,6 +1159,7 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
         phase.relocInfo.residual = residual;
         sumSquaredResiduals += (residual * weight) * (residual * weight);
         sumSquaredWeights += weight * weight;
+        nottt = false; // at least one travel time table information is returned
       }
       else
       {
@@ -1199,6 +1183,27 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
       }
     }
 
+    // no trave time information: the event was reloacated but it
+    // looks like the new location is outside the travel time table
+    // boundaries (e.g. air-quake). Restore the previous location
+    if (nottt)
+    {
+      logDebugF("Event %u relocated, but it is now outside the travel time "
+                "table boundaries. Revert it to the previous location.",
+                event.id);
+      event = catalog.getEvents().at(event.id);
+      //  eqlrng is already populated
+      for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+      {
+        Phase &phase = it->second;
+        phase        = catalog
+                    .searchPhase(phase.eventId, phase.stationId,
+                                 phase.procInfo.type)
+                    ->second;
+      }
+      continue;
+    }
+
     if (sumSquaredWeights > 0)
     {
       event.relocInfo.finalRms =
@@ -1219,6 +1224,8 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
 
     event.relocInfo.numNeighbours               = finalNeighbours->ids.size();
     finalNeighCluster[finalNeighbours->refEvId] = std::move(finalNeighbours);
+
+    relocatedEvs++;
   }
 
   const double allRmsMedian = computeMedian(allRms);

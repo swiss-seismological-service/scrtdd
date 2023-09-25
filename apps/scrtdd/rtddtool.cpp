@@ -64,7 +64,6 @@ using HDD::SCAdapter::printEvalXcorrStats;
 using Seiscomp::Core::fromString;
 using Seiscomp::Core::stringify;
 using PhaseType  = HDD::Catalog::Phase::Type;
-using AQ_ACTION  = HDD::SolverOptions::AQ_ACTION;
 using DataSource = HDD::SCAdapter::DataSource;
 
 namespace {
@@ -924,31 +923,6 @@ bool RTDD::validateParameters()
     catch (...)
     {
       prof->tttModel = "iasp91";
-    }
-
-    try
-    {
-      prof->solverCfg.airQuakes.elevationThreshold =
-          configGetDouble(prefix + "airQuakes.elevationThreshold");
-    }
-    catch (...)
-    {
-      prof->solverCfg.airQuakes.elevationThreshold = 0;
-    }
-
-    try
-    {
-      string action = makeUpper(configGetString(prefix + "airQuakes.action"));
-      if (action == "RESET")
-        prof->solverCfg.airQuakes.action = AQ_ACTION::RESET;
-      else if (action == "RESET_DEPTH")
-        prof->solverCfg.airQuakes.action = AQ_ACTION::RESET_DEPTH;
-      else
-        prof->solverCfg.airQuakes.action = AQ_ACTION::NONE;
-    }
-    catch (...)
-    {
-      prof->solverCfg.airQuakes.action = AQ_ACTION::NONE;
     }
 
     try
