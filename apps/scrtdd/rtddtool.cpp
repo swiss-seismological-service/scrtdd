@@ -569,15 +569,15 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->singleEventClustering.maxDTperEvt =
-          configGetInt(prefix + "maxNumPhases");
-      prof->multiEventClustering.maxDTperEvt =
-          configGetInt(prefix + "maxNumPhases");
+      prof->singleEventClustering.minWeight =
+          configGetInt(prefix + "minPhaseWeight");
+      prof->multiEventClustering.minWeight =
+          configGetInt(prefix + "minPhaseWeight");
     }
     catch (...)
     {
-      prof->singleEventClustering.maxDTperEvt = 0;
-      prof->multiEventClustering.maxDTperEvt  = 0;
+      prof->singleEventClustering.minWeight = 0;
+      prof->multiEventClustering.minWeight  = 0;
     }
 
     try
