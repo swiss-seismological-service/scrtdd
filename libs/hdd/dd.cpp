@@ -674,20 +674,10 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
       const Event &prevRelocEv = relocatedEvCat->getEvents().begin()->second;
       if (prevRelocEv.relocInfo.isRelocated)
       {
-        ev.relocInfo.locChange += prevRelocEv.relocInfo.locChange;
-        ev.relocInfo.depthChange += prevRelocEv.relocInfo.depthChange;
-        ev.relocInfo.timeChange += prevRelocEv.relocInfo.timeChange;
         ev.relocInfo.startRms = prevRelocEv.relocInfo.startRms;
         relocatedEvWithXcorr->updateEvent(ev);
       }
     }
-
-    logInfoF("Total Changes: location=%.3f[km] depth=%.3f[km] "
-             "time=%.4f[sec] Rms=%.4f[sec] (before/after %.4f/%.4f)",
-             ev.relocInfo.locChange, ev.relocInfo.depthChange,
-             ev.relocInfo.timeChange,
-             (ev.relocInfo.finalRms - ev.relocInfo.startRms),
-             ev.relocInfo.startRms, ev.relocInfo.finalRms);
   }
   else
   {
@@ -881,21 +871,13 @@ string DD::relocationReport(const Catalog &relocatedEv)
   const Event &event = relocatedEv.getEvents().begin()->second;
   if (!event.relocInfo.isRelocated) return "Event not relocated";
 
-  return strf("Origin changes: location=%.3f[km] depth=%.3f[km] time=%.4f[sec] "
-              "Rms change [sec]: %.4f (before/after %.4f/%.4f) "
-              "Neighbours=%u Used Phases: P=%u S=%u "
-              "Stations distance [km]: min=%.1f median=%.1f max=%.1f "
+  return strf("Rms change [sec]: %.4f (before/after %.4f/%.4f) "
+              "Neighbours=%u "
               "DD observations: %u (CC P/S %u/%u TT P/S %u/%u) "
               "DD residuals [msec]: before=%.f+/-%.1f after=%.f+/-%.1f",
-              event.relocInfo.locChange, event.relocInfo.depthChange,
-              event.relocInfo.timeChange,
               (event.relocInfo.finalRms - event.relocInfo.startRms),
               event.relocInfo.startRms, event.relocInfo.finalRms,
-              event.relocInfo.numNeighbours, event.relocInfo.phases.usedP,
-              event.relocInfo.phases.usedS,
-              event.relocInfo.phases.stationDistMin,
-              event.relocInfo.phases.stationDistMedian,
-              event.relocInfo.phases.stationDistMax,
+              event.relocInfo.numNeighbours,
               (event.relocInfo.dd.numCCp + event.relocInfo.dd.numCCs +
                event.relocInfo.dd.numTTp + event.relocInfo.dd.numTTs),
               event.relocInfo.dd.numCCp, event.relocInfo.dd.numCCs,
@@ -981,7 +963,8 @@ void DD::addObservations(Solver &solver,
       duration<double> diffTime = ref_travel_time - travel_time;
       double weight =
           usePickUncertainty
-              ? (refPhase.procInfo.weight + phase.procInfo.weight) / 2.0
+              ? (refPhase.procInfo.classWeight + phase.procInfo.classWeight) /
+                    2.0
               : 1.0;
       //
       // Check if we have cross-correlation results for the current
@@ -1145,7 +1128,6 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     event.relocInfo.finalRms      = 0;
     event.relocInfo.isRelocated   = true;
     event.relocInfo.numNeighbours = 0;
-    event.relocInfo.phases        = {};
     event.relocInfo.dd.numTTp     = 0;
     event.relocInfo.dd.numTTs     = 0;
     event.relocInfo.dd.numCCp     = 0;
@@ -1153,8 +1135,9 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
 
     set<unsigned> neighbourIds;
     vector<double> obsResiduals;
-    unsigned rmsCount = 0;
-    auto eqlrng       = phases.equal_range(event.id);
+    double sumSquaredResiduals = 0.0;
+    double sumSquaredWeights   = 0.0;
+    auto eqlrng                = phases.equal_range(event.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
       Phase &phase           = it->second;
@@ -1174,42 +1157,40 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
         continue;
       }
 
-      if (finalTotalObs == 0) continue;
+      if (finalTotalObs == 0)
+      {
+        continue;
+      }
 
       phase.relocInfo.isRelocated = true;
-      phase.relocInfo.finalWeight = meanFinalWeight; // range 0-1
-      phase.relocInfo.numTTObs    = startTTObs;
-      phase.relocInfo.numCCObs    = startCCObs;
-      if (isFirstIteration)
-        phase.relocInfo.startMeanDDResidual = meanDDResidual;
-      phase.relocInfo.finalMeanDDResidual = meanDDResidual;
+      phase.relocInfo.weight =
+          solverOpt.usePickUncertainties ? phase.procInfo.classWeight : 1;
       obsResiduals.push_back(meanDDResidual);
 
       if (obsparams.add(*_ttt, event, station, phase, true))
       {
         double travelTime =
             obsparams.get(event.id, station.id, phaseTypeAsChar).travelTime;
-        phase.relocInfo.finalTTResidual =
-            travelTime - durToSec(phase.time - event.time);
-        rmsCount++;
+        double residual = travelTime - durToSec(phase.time - event.time);
+        double weight   = phase.relocInfo.weight;
+        phase.relocInfo.residual = residual;
+        sumSquaredResiduals += (residual * weight) * (residual * weight);
+        sumSquaredWeights += weight * weight;
       }
       else
       {
-        phase.relocInfo.finalTTResidual = 0;
+        phase.relocInfo.residual = 0;
       }
 
-      event.relocInfo.finalRms += square(phase.relocInfo.finalTTResidual);
       if (phase.procInfo.type == Phase::Type::P)
       {
-        event.relocInfo.phases.usedP++;
-        event.relocInfo.dd.numCCp += phase.relocInfo.numCCObs;
-        event.relocInfo.dd.numTTp += phase.relocInfo.numTTObs;
+        event.relocInfo.dd.numCCp += startCCObs;
+        event.relocInfo.dd.numTTp += startTTObs;
       }
       if (phase.procInfo.type == Phase::Type::S)
       {
-        event.relocInfo.phases.usedS++;
-        event.relocInfo.dd.numCCs += phase.relocInfo.numCCObs;
-        event.relocInfo.dd.numTTs += phase.relocInfo.numTTObs;
+        event.relocInfo.dd.numCCs += startCCObs;
+        event.relocInfo.dd.numTTs += startTTObs;
       }
 
       for (unsigned nId : neighbourIds)
@@ -1218,9 +1199,10 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
       }
     }
 
-    if (rmsCount > 0)
+    if (sumSquaredWeights > 0)
     {
-      event.relocInfo.finalRms = std::sqrt(event.relocInfo.finalRms / rmsCount);
+      event.relocInfo.finalRms =
+          std::sqrt(sumSquaredResiduals / sumSquaredWeights);
       allRms.push_back(event.relocInfo.finalRms);
     }
 
@@ -1277,37 +1259,27 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
     Event finalEvent        = tmpCat->getEvents().at(neighbours->refEvId);
 
     //
-    // Compute location/time change of start/final origin.
-    //
-    finalEvent.relocInfo.locChange =
-        computeDistance(finalEvent.latitude, finalEvent.longitude,
-                        startEvent.latitude, startEvent.longitude);
-    finalEvent.relocInfo.depthChange = finalEvent.depth - startEvent.depth;
-    finalEvent.relocInfo.timeChange =
-        durToSec(finalEvent.time - startEvent.time);
-
-    //
     // Compute starting event rms considering only the phases in the final
     // catalog.
     //
-    unsigned rmsCount             = 0;
+    double sumSquaredResiduals    = 0.0;
+    double sumSquaredWeights      = 0.0;
     finalEvent.relocInfo.startRms = 0;
-    auto eqlrng = tmpCat->getPhases().equal_range(finalEvent.id);
+    const auto &eqlrng = tmpCat->getPhases().equal_range(finalEvent.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
-      Phase finalPhase       = it->second;
-      const Station &station = tmpCat->getStations().at(finalPhase.stationId);
+      const Phase &finalEvPhase = it->second;
+      const Station &station = tmpCat->getStations().at(finalEvPhase.stationId);
       try
       {
         double travelTime = _ttt->compute(
             startEvent, station,
-            string(1, static_cast<char>(finalPhase.procInfo.type)));
+            string(1, static_cast<char>(finalEvPhase.procInfo.type)));
         double residual =
-            travelTime - durToSec(finalPhase.time - startEvent.time);
-        finalPhase.relocInfo.startTTResidual = residual;
-        tmpCat->updatePhase(finalPhase, false);
-        finalEvent.relocInfo.startRms += residual * residual;
-        rmsCount++;
+            travelTime - durToSec(finalEvPhase.time - startEvent.time);
+        double weight = finalEvPhase.relocInfo.weight;
+        sumSquaredResiduals += (residual * weight) * (residual * weight);
+        sumSquaredWeights += weight * weight;
       }
       catch (exception &e)
       {
@@ -1320,40 +1292,12 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
       }
     }
 
-    if (rmsCount > 0)
+    if (sumSquaredWeights > 0)
     {
       finalEvent.relocInfo.startRms =
-          std::sqrt(finalEvent.relocInfo.startRms / rmsCount);
+          std::sqrt(sumSquaredResiduals / sumSquaredWeights);
       allRms.push_back(finalEvent.relocInfo.startRms);
     }
-
-    //
-    // compute station distances to final event
-    //
-    stationDist.clear();
-    for (const auto &kv : neighbours->allPhases())
-    {
-      const string &stationId = kv.first;
-      for (Phase::Type phaseType : kv.second)
-      {
-        // Check if this station is actually part of the event phases
-        // (remember keepUnmatchedPhases option during clustering). Make sure
-        // that the phase was used for relocation.
-        auto it = tmpCat->searchPhase(finalEvent.id, stationId, phaseType);
-        if (it != tmpCat->getPhases().end() && it->second.relocInfo.isRelocated)
-        {
-          const Station &station =
-              tmpCat->getStations().at(it->second.stationId);
-          stationDist.push_back(computeDistance(finalEvent, station));
-          break;
-        }
-      }
-    }
-
-    finalEvent.relocInfo.phases.stationDistMedian = computeMedian(stationDist);
-    auto min_max = std::minmax_element(stationDist.begin(), stationDist.end());
-    finalEvent.relocInfo.phases.stationDistMin = *min_max.first;
-    finalEvent.relocInfo.phases.stationDistMax = *min_max.second;
 
     tmpCat->updateEvent(finalEvent, false);
     catalogToReturn->add(finalEvent.id, *tmpCat, true);
@@ -1562,7 +1506,7 @@ Phase DD::createThoreticalPhase(const Station &station,
 
   refEvNewPhase.lowerUncertainty = Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
   refEvNewPhase.upperUncertainty = Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
-  refEvNewPhase.procInfo.weight =
+  refEvNewPhase.procInfo.classWeight =
       Catalog::computePickWeight(refEvNewPhase, _cfg.pickUncertaintyClasses);
   refEvNewPhase.procInfo.source = Phase::Source::THEORETICAL;
   refEvNewPhase.type            = strf("%ct", static_cast<char>(phaseType));
@@ -1963,7 +1907,7 @@ void DD::fixPhases(Catalog &catalog,
     {
       const Phase &neighbourPhase = kv->second.first;
       const XCorrCache::Entry &e  = kv->second.second;
-      double weight               = e.coeff * neighbourPhase.procInfo.weight;
+      double weight = e.coeff * neighbourPhase.procInfo.classWeight;
       mean_lag += e.lag * weight;
       min_lag += (e.lag - neighbourPhase.lowerUncertainty) * weight;
       max_lag += (e.lag + neighbourPhase.upperUncertainty) * weight;
@@ -1981,7 +1925,7 @@ void DD::fixPhases(Catalog &catalog,
     newPhase.time -= secToDur(mean_lag);
     newPhase.lowerUncertainty = mean_lag - min_lag;
     newPhase.upperUncertainty = max_lag - mean_lag;
-    newPhase.procInfo.weight =
+    newPhase.procInfo.classWeight =
         Catalog::computePickWeight(newPhase, _cfg.pickUncertaintyClasses);
     newPhase.procInfo.source = Phase::Source::XCORR;
     newPhase.type = strf("%cx", static_cast<char>(newPhase.procInfo.type));

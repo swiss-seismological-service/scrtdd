@@ -152,22 +152,11 @@ Catalog::Catalog(const string &stationFile,
         ev.relocInfo.isRelocated   = true;
         ev.relocInfo.startRms      = std::stod(row.at("startRms"));
         ev.relocInfo.finalRms      = std::stod(row.at("finalRms"));
-        ev.relocInfo.locChange     = std::stod(row.at("locChange"));
-        ev.relocInfo.depthChange   = std::stod(row.at("depthChange"));
-        ev.relocInfo.timeChange    = std::stod(row.at("timeChange"));
         ev.relocInfo.numNeighbours = std::stoul(row.at("numNeighbours"));
-        ev.relocInfo.phases.usedP  = std::stoul(row.at("ph_usedP"));
-        ev.relocInfo.phases.usedS  = std::stoul(row.at("ph_usedS"));
-        ev.relocInfo.phases.stationDistMin =
-            std::stod(row.at("ph_stationDistMin"));
-        ev.relocInfo.phases.stationDistMedian =
-            std::stod(row.at("ph_stationDistMedian"));
-        ev.relocInfo.phases.stationDistMax =
-            std::stod(row.at("ph_stationDistMax"));
-        ev.relocInfo.dd.numTTp = std::stoul(row.at("dd_numTTp"));
-        ev.relocInfo.dd.numTTs = std::stoul(row.at("dd_numTTs"));
-        ev.relocInfo.dd.numCCp = std::stoul(row.at("dd_numCCp"));
-        ev.relocInfo.dd.numCCs = std::stoul(row.at("dd_numCCs"));
+        ev.relocInfo.dd.numTTp     = std::stoul(row.at("dd_numTTp"));
+        ev.relocInfo.dd.numTTs     = std::stoul(row.at("dd_numTTs"));
+        ev.relocInfo.dd.numCCp     = std::stoul(row.at("dd_numCCp"));
+        ev.relocInfo.dd.numCCs     = std::stoul(row.at("dd_numCCs"));
         ev.relocInfo.dd.startResidualMedian =
             std::stod(row.at("dd_startResidualMedian"));
         ev.relocInfo.dd.startResidualMAD =
@@ -211,17 +200,9 @@ Catalog::Catalog(const string &stationFile,
       if (loadRelocationInfo && (row.count("usedInReloc") != 0) &&
           strToBool(row.at("usedInReloc")))
       {
-        ph.relocInfo.isRelocated     = true;
-        ph.procInfo.weight           = std::stod(row.at("startWeight"));
-        ph.relocInfo.finalWeight     = std::stod(row.at("finalWeight"));
-        ph.relocInfo.startTTResidual = std::stod(row.at("startTTResidual"));
-        ph.relocInfo.finalTTResidual = std::stod(row.at("finalTTResidual"));
-        ph.relocInfo.numTTObs        = std::stoul(row.at("numTTObs"));
-        ph.relocInfo.numCCObs        = std::stoul(row.at("numCCObs"));
-        ph.relocInfo.startMeanDDResidual =
-            std::stod(row.at("startMeanDDResidual"));
-        ph.relocInfo.finalMeanDDResidual =
-            std::stod(row.at("finalMeanDDResidual"));
+        ph.relocInfo.isRelocated = true;
+        ph.relocInfo.residual    = std::stod(row.at("residual"));
+        ph.relocInfo.weight      = std::stod(row.at("weight"));
       }
 
       if (_events.find(ph.eventId) == _events.end())
@@ -476,10 +457,7 @@ void Catalog::writeToFile(const string &eventFile,
 
   evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude";
   evStreamReloc << evStreamNoReloc.str()
-                << ",relocated,startRms,finalRms,locChange,depthChange,"
-                   "timeChange,numNeighbours,"
-                   "ph_usedP,ph_usedS,ph_stationDistMin,ph_stationDistMedian,"
-                   "ph_stationDistMax,"
+                << ",relocated,startRms,finalRms,numNeighbours,"
                    "dd_numTTp,dd_numTTs,dd_numCCp,dd_numCCs,"
                    "dd_startResidualMedian,dd_startResidualMAD,"
                    "dd_finalResidualMedian,dd_finalResidualMAD"
@@ -492,7 +470,7 @@ void Catalog::writeToFile(const string &eventFile,
     const Catalog::Event &ev = kv.second;
 
     stringstream evStream;
-    evStream << strf("%u,%s,%.12f,%.12f,%.10f,%.2f", ev.id,
+    evStream << strf("%u,%s,%.12f,%.12f,%g,%.2f", ev.id,
                      UTCClock::toString(ev.time).c_str(), ev.latitude,
                      ev.longitude, ev.depth, ev.magnitude);
 
@@ -501,23 +479,18 @@ void Catalog::writeToFile(const string &eventFile,
 
     if (!ev.relocInfo.isRelocated)
     {
-      evStreamReloc << ",false,,,,,,,,,,,,,,,,,,,";
+      evStreamReloc << ",false,,,,,,,,,,,";
     }
     else
     {
       relocInfo = true;
       evStreamReloc << strf(
-          ",true,%.3f,%.3f,%.3f,%.3f,%.3f,%u,%u,%u,%.3f,%.3f,%.3f,%u,%u,%u,%u,%"
-          ".4f,%.4f,%.4f,%.4f",
-          ev.relocInfo.startRms, ev.relocInfo.finalRms, ev.relocInfo.locChange,
-          ev.relocInfo.depthChange, ev.relocInfo.timeChange,
-          ev.relocInfo.numNeighbours, ev.relocInfo.phases.usedP,
-          ev.relocInfo.phases.usedS, ev.relocInfo.phases.stationDistMin,
-          ev.relocInfo.phases.stationDistMedian,
-          ev.relocInfo.phases.stationDistMax, ev.relocInfo.dd.numTTp,
-          ev.relocInfo.dd.numTTs, ev.relocInfo.dd.numCCp,
-          ev.relocInfo.dd.numCCs, ev.relocInfo.dd.startResidualMedian,
-          ev.relocInfo.dd.startResidualMAD, ev.relocInfo.dd.finalResidualMedian,
+          ",true,%g,%g,%u,%u,%u,%u,%u,%g,%g,%g,%g", ev.relocInfo.startRms,
+          ev.relocInfo.finalRms, ev.relocInfo.numNeighbours,
+          ev.relocInfo.dd.numTTp, ev.relocInfo.dd.numTTs,
+          ev.relocInfo.dd.numCCp, ev.relocInfo.dd.numCCs,
+          ev.relocInfo.dd.startResidualMedian, ev.relocInfo.dd.startResidualMAD,
+          ev.relocInfo.dd.finalResidualMedian,
           ev.relocInfo.dd.finalResidualMAD);
     }
     evStreamReloc << endl;
@@ -535,9 +508,7 @@ void Catalog::writeToFile(const string &eventFile,
               "type,networkCode,stationCode,locationCode,channelCode,evalMode";
   if (relocInfo)
   {
-    phStream << ",usedInReloc,startTTResidual,finalTTResidual,"
-                "startWeight,finalWeight,numTTObs,numCCObs,"
-                "startMeanDDResidual,finalMeanDDResidual";
+    phStream << ",usedInReloc,residual,weight";
   }
   phStream << endl;
 
@@ -546,7 +517,7 @@ void Catalog::writeToFile(const string &eventFile,
   for (const auto &kv : orderedPhases)
   {
     const Catalog::Phase &ph = kv.second;
-    phStream << strf("%u,%s,%.3f,%.3f,%s,%s,%s,%s,%s,%s", ph.eventId,
+    phStream << strf("%u,%s,%g,%g,%s,%s,%s,%s,%s,%s", ph.eventId,
                      UTCClock::toString(ph.time).c_str(), ph.lowerUncertainty,
                      ph.upperUncertainty, ph.type.c_str(),
                      ph.networkCode.c_str(), ph.stationCode.c_str(),
@@ -557,16 +528,12 @@ void Catalog::writeToFile(const string &eventFile,
     {
       if (!ph.relocInfo.isRelocated)
       {
-        phStream << ",false,,,,,,,,";
+        phStream << ",false,,";
       }
       else
       {
-        phStream << strf(
-            ",true,%.3f,%.3f,%.2f,%.2f,%u,%u,%.4f,%.4f",
-            ph.relocInfo.startTTResidual, ph.relocInfo.finalTTResidual,
-            ph.procInfo.weight, ph.relocInfo.finalWeight, ph.relocInfo.numTTObs,
-            ph.relocInfo.numCCObs, ph.relocInfo.startMeanDDResidual,
-            ph.relocInfo.finalMeanDDResidual);
+        phStream << strf(",true,%g,%g", ph.relocInfo.residual,
+                         ph.relocInfo.weight);
       }
     }
     phStream << endl;
@@ -585,7 +552,7 @@ void Catalog::writeToFile(const string &eventFile,
   for (const auto &kv : orderedStations)
   {
     const Catalog::Station &sta = kv.second;
-    staStream << strf("%.12f,%.12f,%.7f,%s,%s,%s", sta.latitude, sta.longitude,
+    staStream << strf("%.12f,%.12f,%g,%s,%s,%s", sta.latitude, sta.longitude,
                       sta.elevation, sta.networkCode.c_str(),
                       sta.stationCode.c_str(), sta.locationCode.c_str())
               << endl;
@@ -690,19 +657,19 @@ Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
   unordered_multimap<unsigned, Phase> filteredPhases;
   for (auto &it : filteredP)
   {
-    Phase &phase          = it.second;
-    phase.procInfo.weight = computePickWeight(phase, uncertaintyClasses);
-    phase.procInfo.type   = Phase::Type::P;
-    phase.procInfo.source = source;
+    Phase &phase               = it.second;
+    phase.procInfo.classWeight = computePickWeight(phase, uncertaintyClasses);
+    phase.procInfo.type        = Phase::Type::P;
+    phase.procInfo.source      = source;
 
     filteredPhases.emplace(phase.eventId, phase);
   }
   for (auto &it : filteredS)
   {
-    Phase &phase          = it.second;
-    phase.procInfo.weight = computePickWeight(phase, uncertaintyClasses);
-    phase.procInfo.type   = Phase::Type::S;
-    phase.procInfo.source = source;
+    Phase &phase               = it.second;
+    phase.procInfo.classWeight = computePickWeight(phase, uncertaintyClasses);
+    phase.procInfo.type        = Phase::Type::S;
+    phase.procInfo.source      = source;
 
     filteredPhases.emplace(phase.eventId, phase);
   }

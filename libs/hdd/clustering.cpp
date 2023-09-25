@@ -194,7 +194,7 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
       const Station &station = catalog.getStations().at(phase.stationId);
 
       // check pick weight
-      if (phase.procInfo.weight < minPhaseWeight) continue;
+      if (phase.procInfo.classWeight < minPhaseWeight) continue;
 
       // check this station distance to reference event is ok
       const auto &staRefEvDistanceIt =
@@ -229,7 +229,7 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
       if (itRef != refEvCatalog.getPhases().end())
       {
         const Phase &refPhase = itRef->second;
-        if (refPhase.procInfo.weight >= minPhaseWeight) peer_found = true;
+        if (refPhase.procInfo.classWeight >= minPhaseWeight) peer_found = true;
       }
 
       if (!peer_found)
