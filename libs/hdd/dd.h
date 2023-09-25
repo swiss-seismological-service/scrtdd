@@ -136,21 +136,6 @@ struct SolverOptions
   double downWeightingByResidualStart = 10.; // 0 -> disbale downweighting
   double downWeightingByResidualEnd   = 3.;  // 0 -> disbale downweighting
   bool usePickUncertainties           = false;
-
-  // Air-quakes are events whose depth shift above the range of the velocity
-  // model (typically 0) during the inversion
-  enum class AQ_ACTION
-  {
-    NONE,
-    RESET,
-    RESET_DEPTH
-  };
-  struct
-  {
-    // meters, threshold above which an event is considered an air-quake
-    double elevationThreshold = 0;
-    AQ_ACTION action          = AQ_ACTION::NONE;
-  } airQuakes;
 };
 
 class DD

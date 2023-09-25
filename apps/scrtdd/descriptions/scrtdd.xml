@@ -267,15 +267,6 @@
                 <description>The model to be used. The format depends on tableType.</description>
               </parameter>
             </group>
-            <group name="airQuakes">
-              <description>Air-quakes are origins whose depth shift above the range of the velocity model (typically 0) during the inversion. These options define how the air-quakes are handled. `elevationThreshold` defines the elevation above which an origin is considered an air-quake. `action` control how the air-quakes are handled; "NONE": no special action is performed. "RESET": reset air-quake location and time to the previous solver iteration, before it became an air-quake. "RESET_DEPTH" similar to RESET but only the depth is restored"</description>
-              <parameter name="elevationThreshold" type="double" default="0" unit="meter">
-                <description>Elevation above which origins are considered air-quakes</description>
-              </parameter>  
-              <parameter name="action" type="string" default="NONE">
-                <description>Possible values are NONE, RESET, RESET_DEPTH. </description>
-              </parameter>
-            </group>
           </group>
         </struct>
       </group>
