@@ -543,8 +543,7 @@ void convertOrigin(DataSource &dataSrc,
   for (auto it = evPhases.first; it != evPhases.second; ++it)
   {
     const HDD::Catalog::Phase &phase = it->second;
-    bool phaseUsed =
-        phase.relocInfo.isRelocated && phase.relocInfo.finalWeight != 0;
+    bool phaseUsed                   = phase.relocInfo.isRelocated;
 
     // drop phases discovered via cross-correlation if those phases were not
     // used for the relocations
@@ -605,11 +604,11 @@ void convertOrigin(DataSource &dataSrc,
       newOrg->add(newArr);
     }
 
-    newArr->setWeight(phase.relocInfo.isRelocated ? phase.relocInfo.finalWeight
+    newArr->setWeight(phase.relocInfo.isRelocated ? phase.relocInfo.weight
                                                   : 0.);
     newArr->setTimeUsed(phaseUsed);
     newArr->setTimeResidual(
-        phase.relocInfo.isRelocated ? phase.relocInfo.finalTTResidual : 0.);
+        phase.relocInfo.isRelocated ? phase.relocInfo.residual : 0.);
 
     auto search = relocatedOrg.getStations().find(phase.stationId);
     if (search == relocatedOrg.getStations().end())
