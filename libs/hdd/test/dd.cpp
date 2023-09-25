@@ -322,7 +322,6 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
   solverCfg.dampingFactorEnd             = 0.01;
   solverCfg.downWeightingByResidualStart = 0;
   solverCfg.downWeightingByResidualEnd   = 0;
-  solverCfg.airQuakes.action = HDD::SolverOptions::AQ_ACTION::RESET_DEPTH;
 
   std::unique_ptr<HDD::Catalog> relocCat =
       dd.relocateMultiEvents(clusterCfg, solverCfg);
@@ -357,7 +356,6 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
   solverCfg.absLocConstraintEnd   = 0.3;
   solverCfg.dampingFactorStart    = 0.01;
   solverCfg.dampingFactorEnd      = 0.01;
-  solverCfg.airQuakes.action = HDD::SolverOptions::AQ_ACTION::RESET_DEPTH;
 
   HDD::Catalog relocCat;
   for (const auto &kv : realTimeCat.getEvents())
