@@ -80,19 +80,7 @@ public:
       bool isRelocated = false;
       double startRms;
       double finalRms;
-      double locChange;
-      double depthChange;
-      double timeChange;
       unsigned numNeighbours;
-
-      struct
-      {
-        unsigned usedP;
-        unsigned usedS;
-        double stationDistMedian;
-        double stationDistMin;
-        double stationDistMax;
-      } phases;
 
       struct
       {
@@ -151,20 +139,15 @@ public:
     struct
     {
       Type type;
-      double weight; // 0-1 interval
+      double classWeight; // 0-1 interval
       Source source;
     } procInfo;
 
     struct
     {
       bool isRelocated = false;
-      double startTTResidual;
-      double finalTTResidual;
-      double finalWeight;
-      unsigned numTTObs;
-      unsigned numCCObs;
-      double startMeanDDResidual;
-      double finalMeanDDResidual;
+      double weight;
+      double residual;
     } relocInfo;
 
     // Compare attributes when the id is not known (works between multiple
