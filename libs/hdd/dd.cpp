@@ -431,10 +431,10 @@ std::list<Catalog> DD::findClusters(const ClusteringOptions &clustOpt)
   // find Neighbours for each event in the catalog
   unordered_map<unsigned, unique_ptr<Neighbours>> neighboursByEvent =
       selectNeighbouringEventsCatalog(
-          _bgCat, clustOpt.minWeight, clustOpt.minESdist, clustOpt.maxESdist,
-          clustOpt.minEStoIEratio, clustOpt.minDTperEvt, clustOpt.maxDTperEvt,
-          clustOpt.minNumNeigh, clustOpt.maxNumNeigh, clustOpt.numEllipsoids,
-          clustOpt.maxEllipsoidSize, true);
+          _bgCat, clustOpt.minPhaseWeight, clustOpt.minESdist,
+          clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
+          clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
+          clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, true);
 
   // Organize the neighbours by not connected clusters
   list<unordered_map<unsigned, unique_ptr<Neighbours>>> clusters =
@@ -492,7 +492,7 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   // find Neighbours for each event in the catalog
   unordered_map<unsigned, unique_ptr<Neighbours>> neighboursByEvent =
       selectNeighbouringEventsCatalog(
-          catToReloc, clustOpt.minWeight, clustOpt.minESdist,
+          catToReloc, clustOpt.minPhaseWeight, clustOpt.minESdist,
           clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
           clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
           clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, true);
@@ -726,7 +726,7 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
     bool keepUnmatchedPhases = doXcorr; // useful for detecting missed picks
 
     unique_ptr<Neighbours> neighbours = selectNeighbouringEvents(
-        bgCat, evToRelocate, evToRelocateCat, clustOpt.minWeight,
+        bgCat, evToRelocate, evToRelocateCat, clustOpt.minPhaseWeight,
         clustOpt.minESdist, clustOpt.maxESdist, clustOpt.minEStoIEratio,
         clustOpt.minDTperEvt, clustOpt.maxDTperEvt, clustOpt.minNumNeigh,
         clustOpt.maxNumNeigh, clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize,
@@ -2389,7 +2389,7 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
     try
     {
       neighbours = selectNeighbouringEvents(
-          _bgCat, event, _bgCat, clustOpt.minWeight, clustOpt.minESdist,
+          _bgCat, event, _bgCat, clustOpt.minPhaseWeight, clustOpt.minESdist,
           clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
           clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
           clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, false);

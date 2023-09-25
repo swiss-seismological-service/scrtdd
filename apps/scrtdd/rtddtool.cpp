@@ -591,15 +591,15 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->singleEventClustering.minWeight =
+      prof->singleEventClustering.minPhaseWeight =
           configGetInt(prefix + "minPhaseWeight");
-      prof->multiEventClustering.minWeight =
+      prof->multiEventClustering.minPhaseWeight =
           configGetInt(prefix + "minPhaseWeight");
     }
     catch (...)
     {
-      prof->singleEventClustering.minWeight = 0;
-      prof->multiEventClustering.minWeight  = 0;
+      prof->singleEventClustering.minPhaseWeight = 0;
+      prof->multiEventClustering.minPhaseWeight  = 0;
     }
 
     try
@@ -1034,11 +1034,11 @@ bool RTDD::validateParameters()
         configGetDouble("performance.cachedWaveformLength");
 
     // no reason to make those configurable
-    prof->recordStreamURL                 = recordStreamURL();
-    prof->singleEventClustering.minWeight = 0;
-    prof->multiEventClustering.minWeight  = 0;
-    prof->solverCfg.L2normalization       = true;
-    prof->solverCfg.solverIterations      = 0;
+    prof->recordStreamURL                   = recordStreamURL();
+    prof->singleEventClustering.maxDTperEvt = 0;
+    prof->multiEventClustering.maxDTperEvt  = 0;
+    prof->solverCfg.L2normalization         = true;
+    prof->solverCfg.solverIterations        = 0;
 
     _profiles.push_back(prof);
   }

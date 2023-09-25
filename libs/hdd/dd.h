@@ -93,7 +93,7 @@ struct Config
 struct ClusteringOptions
 {
   // min weight of phases required (0-1)
-  double minWeight = 0;
+  double minPhaseWeight = 0;
   // min hypocenter-station to interevent distance ratio required
   double minEStoIEratio = 5;
   // min hypocenter-station distance required
@@ -101,11 +101,11 @@ struct ClusteringOptions
   // max hypocenter-station distance allowed
   double maxESdist = -1; // -1 -> disable
   // min neighbors required
-  unsigned minNumNeigh = 1;
+  unsigned minNumNeigh = 8;
   // max neighbors allowed (furthest events are discarded)
   unsigned maxNumNeigh = 0; // 0 -> disable
   // min differential times per event pair required (Including P+S)
-  unsigned minDTperEvt = 1;
+  unsigned minDTperEvt = 4;
   // max differential times per event pair required (Including P+S)
   unsigned maxDTperEvt = 0; // 0 -> disable
   // From Waldhauser 2009: to assure a spatially homogeneous subsampling,
