@@ -241,7 +241,7 @@
               </parameter>
             </group>
             <group name="absoluteLocationConstraint">
-              <description>When a value greater than 0 is used, then additional equations are included in the double-difference system (one equation for each event phase) whose purpose is to constrain the absolute travel time residuals of the events being relocated. This forces the solver to find a solution that improves the events relative locations while positioning the cluster(s) in the absolute location that minimize the events RMS. However this is a trade-off and giving too much weight to the absolute location constraint prevents the solver from improving the relative locations. When using this feature the damping factor value can be decreased. The value specified in here is the weight to be given to the equations that constrain the absolute travel time residuals. A good starting point for testing the optimal values, is to set it to 0.3 and the damping factor to 0.03</description>
+              <description>When a value greater than 0 is used, the double-difference system is modified to solve for both absolute and relative locations. Additional equations are added, which constrain the absolute travel time residuals. Here you can set the weight to be given to these equations. When using this feature the dampingFactor should be decreased. A good starting point for testing the optimal values, is absoluteLocationConstraint=0.3 and dampingFactor=0.01</description>
               <parameter name="startingValue" type="double" default="0.0">
                 <description>Value for the first iteration of the solver.</description>
               </parameter>
