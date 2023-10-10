@@ -52,9 +52,16 @@ double TravelTimeTable::compute(double eventLat,
 {
   if (!_ttt) load();
 
-  double ttime = _ttt->computeTravelTime(phaseType.c_str(), eventLat, eventLon,
-                                         eventDepth, station.latitude,
-                                         station.longitude, station.elevation);
+#if SC_API_VERSION < SC_API_VERSION_CHECK(16, 0, 0)
+  double ttime = _ttt->compute(phaseType.c_str(), eventLat, eventLon,
+                               eventDepth, station.latitude,
+                               station.longitude, station.elevation).time;
+#else
+  double ttime = _ttt->computeTime(phaseType.c_str(), eventLat, eventLon,
+                                   eventDepth, station.latitude,
+                                   station.longitude, station.elevation);
+#endif
+
   if (ttime < 0)
   {
     throw Exception("No travel time data available");
@@ -90,11 +97,13 @@ void TravelTimeTable::compute(double eventLat,
   double dtdd2  = tt.dtdd / kmOfDegree(eventDepth);
   velocityAtSrc = 1.0 / std::sqrt(square(tt.dtdh) + square(dtdd2));
 
+#if SC_API_VERSION >= SC_API_VERSION_CHECK(16, 0, 0)
   if (tt.azi) // 3D model
   {
     azimuth = *tt.azi;
   }
   else
+#endif
   {
     azimuth =
         computeAzimuth(eventLat, eventLon, station.latitude, station.longitude);
