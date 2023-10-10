@@ -620,10 +620,15 @@ void convertOrigin(DataSource &dataSrc,
     }
     const HDD::Catalog::Station &station = search->second;
 
+#if SC_API_VERSION < SC_API_VERSION_CHECK(16, 0, 0)
+    double distance, az, baz;
+    Math::Geo::delazi(event.latitude, event.longitude, station.latitude,
+                      station.longitude, &distance, &az, &baz);
+#else
     double distance, az;
     Math::Geo::delazi(event.latitude, event.longitude, station.latitude,
                       station.longitude, &distance, &az);
-
+#endif
     newArr->setAzimuth(normalizeAz(az));
     newArr->setDistance(distance);
 
