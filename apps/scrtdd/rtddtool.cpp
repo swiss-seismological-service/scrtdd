@@ -184,8 +184,13 @@ struct CircularRegion : public Seiscomp::RTDD::Region
   {
     if (isEmpty) return true;
 
+#if SC_API_VERSION < SC_API_VERSION_CHECK(16, 0, 0)
+    double distance, az, baz;
+    Math::Geo::delazi(this->lat, this->lon, lat, lon, &distance, &az, &baz);
+#else
     double distance = Math::Geo::delta(this->lat, this->lon, lat, lon);
-    double distKm   = Math::Geo::deg2km(distance);
+#endif
+    double distKm = Math::Geo::deg2km(distance);
     return distKm <= radius;
   }
 
