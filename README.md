@@ -22,7 +22,7 @@
 
 Plese cite the code as:
 
-"Luca Scarabello & Tobias Diehl. (2021). swiss-seismological-service/scrtdd. Zenodo. doi: 10.5281/zenodo.5337361"
+"Luca Scarabello & Tobias Diehl (2021). swiss-seismological-service/scrtdd. Zenodo doi: 10.5281/zenodo.5337361"
 
 # Description
 
