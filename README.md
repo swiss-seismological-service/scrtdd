@@ -20,6 +20,10 @@
 
 [![DOI](https://zenodo.org/badge/246001157.svg)](https://zenodo.org/badge/latestdoi/246001157)
 
+Plese cite the code as:
+
+"Luca Scarabello & Tobias Diehl. (2021). swiss-seismological-service/scrtdd. Zenodo. doi: 10.5281/zenodo.5337361"
+
 # Description
 
 rtDD is a [SeisComP](<https://github.com/SeisComP>) extension module that implements
