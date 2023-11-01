@@ -452,13 +452,10 @@ void convertOrigin(DataSource &dataSrc,
     newOrg->add(comment.get());
   }
 
-  auto evPhases = relocatedOrg.getPhases().equal_range(
-      event.id); // phases of relocated event
+  auto evPhases      = relocatedOrg.getPhases().equal_range(event.id);
   int usedPhaseCount = 0;
-  double meanDist    = 0;
-  double minDist     = std::numeric_limits<double>::max();
-  double maxDist     = 0;
   vector<double> azi;
+  vector<double> staDistances;
   set<string> associatedStations;
   set<string> usedStations;
 
@@ -636,7 +633,7 @@ void convertOrigin(DataSource &dataSrc,
                       station.longitude, &distance, &az, &baz);
     double Hdist = Math::Geo::deg2km(distance);
     double Vdist = abs(event.depth + station.elevation / 1000);
-    distance = Math::Geo::km2deg(sqrt(Hdist * Hdist + Vdist * Vdist));
+    distance     = Math::Geo::km2deg(sqrt(Hdist * Hdist + Vdist * Vdist));
 
     newArr->setAzimuth(normalizeAz(az));
     newArr->setDistance(distance);
@@ -645,17 +642,13 @@ void convertOrigin(DataSource &dataSrc,
     if (newArr->timeUsed())
     {
       usedPhaseCount++;
-      meanDist += distance;
-      minDist = distance < minDist ? distance : minDist;
-      maxDist = distance > maxDist ? distance : maxDist;
+      staDistances.push_back(distance);
       azi.push_back(az);
       usedStations.insert(phase.stationId);
     }
   }
 
   // finish computing stats
-  meanDist /= usedPhaseCount;
-
   double primaryAz = 360., secondaryAz = 360.;
   if (azi.size() >= 2)
   {
@@ -681,9 +674,9 @@ void convertOrigin(DataSource &dataSrc,
   oq.setUsedStationCount(usedStations.size());
   oq.setStandardError(event.relocInfo.isRelocated ? event.relocInfo.finalRms
                                                   : 0);
-  oq.setMedianDistance(meanDist);
-  oq.setMinimumDistance(minDist);
-  oq.setMaximumDistance(maxDist);
+  oq.setMedianDistance(computeMedian(staDistances));
+  oq.setMinimumDistance(*min_element(staDistances.begin(), staDistances.end()));
+  oq.setMaximumDistance(*max_element(staDistances.begin(), staDistances.end()));
   oq.setAzimuthalGap(primaryAz);
   oq.setSecondaryAzimuthalGap(secondaryAz);
   newOrg->setQuality(oq);
