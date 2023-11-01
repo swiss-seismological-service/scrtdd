@@ -57,9 +57,9 @@ Event Catalog: list of origin IDs
 
 One of the compatible formats is a text file containing the origin IDs. rtDD will use the origin IDs in the file to fetch all necessary information from the SeisComP database.
 
-E.g. *file myCatalog.csv* (a mandatory column named ``seiscompId`` is required, but other column might be present too).::
+E.g. *file myCatalog.csv* (a mandatory column named ``origin`` is required, but other column might be present too).::
 
-    seiscompId
+    origin
     Origin/20181214107387.056851.253104
     Origin/20180053105627.031726.697885
     Origin/20190121103332.075405.6234534
@@ -187,7 +187,7 @@ Relocating a file containing a list of origin ids
 
 E.g. *file myCatalog.csv*::
 
-    seiscompId
+    origin
     Origin/20181214107387.056851.253104
     Origin/20180053105627.031726.697885
     [...]

@@ -387,8 +387,8 @@ addToCatalog(HDD::Catalog &cat, const std::string &idFile, DataSource &dataSrc)
     throw std::runtime_error(msg);
   }
 
-  SEISCOMP_INFO("Reading file %s which must contain at least the column "
-                "'seiscompId' with the origin ids",
+  SEISCOMP_INFO("Reading file %s which must contain at least a column "
+                "with header 'origin' and an origin id per line",
                 idFile.c_str());
 
   vector<string> ids;
@@ -396,7 +396,7 @@ addToCatalog(HDD::Catalog &cat, const std::string &idFile, DataSource &dataSrc)
 
   for (const auto &row : rows)
   {
-    const string &id = row.at("seiscompId");
+    const string &id = row.at("origin");
     ids.push_back(id);
   }
 

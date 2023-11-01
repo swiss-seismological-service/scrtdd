@@ -2026,7 +2026,7 @@ std::vector<DataModel::OriginPtr> RTDD::fetchOrigins(const std::string &idFile,
 
   for (const auto &row : HDD::CSV::readWithHeader(idFile))
   {
-    const string &id = row.at("seiscompId");
+    const string &id = row.at("origin");
 
     DataModel::OriginPtr org = _cache.get<DataModel::Origin>(id);
 

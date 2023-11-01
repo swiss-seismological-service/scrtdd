@@ -174,7 +174,7 @@ class EventList(sc_client.Application):
 
         if not self.simple:
             sys.stdout.write(
-                "seiscompId,event,eventType,evalMode,agencyID,author,methodID,RMS,numPhases,latitude,longitude,depth,time,creationTime,modificationTime\n")
+                "origin,event,eventType,evalMode,agencyID,author,methodID,RMS,numPhases,latitude,longitude,depth,time,creationTime,modificationTime\n")
 
         events = []
         for obj in self.query().getEvents(self._startTime, self._endTime):
