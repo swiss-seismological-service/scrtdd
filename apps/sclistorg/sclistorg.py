@@ -288,9 +288,15 @@ class EventList(sc_client.Application):
             except ValueError:
                 time = None
 
-            phases = quality.usedPhaseCount() if quality is not None else None
+            try:
+              phases = quality.usedPhaseCount()
+            except:
+              phases = None
 
-            rms = quality.standardError() if quality is not None else None
+            try:
+              rms = quality.standardError()
+            except:
+              rms = None
 
             if self.automaticOnly and evalMode != sc_datamodel.AUTOMATIC:
                 continue
