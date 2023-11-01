@@ -222,8 +222,8 @@ double computeDistance(double lat1,
 
   if (lat1 == lat2 && (lat1 == 90 || lat1 == -90 || deltaLon == 0))
   {
-    *azimuth     = 0;
-    *backAzimuth = 0.;
+    if (azimuth) *azimuth = 0.;
+    if (backAzimuth) *backAzimuth = 0.;
     return 0.;
   }
 
