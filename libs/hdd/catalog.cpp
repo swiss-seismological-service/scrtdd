@@ -104,12 +104,14 @@ Catalog::Catalog(const string &stationFile,
     throw Exception(msg);
   }
 
-  vector<unordered_map<string, string>> stations =
-      CSV::readWithHeader(stationFile);
+  unsigned row_count = 0;
   try
   {
+    vector<unordered_map<string, string>> stations =
+        CSV::readWithHeader(stationFile);
     for (const auto &row : stations)
     {
+      row_count++;
       Station sta;
       sta.latitude     = std::stod(row.at("latitude"));
       sta.longitude    = std::stod(row.at("longitude"));
@@ -121,19 +123,21 @@ Catalog::Catalog(const string &stationFile,
       _stations[sta.id] = sta;
     }
   }
-  catch (std::out_of_range &e)
+  catch (std::exception &e)
   {
-    string msg =
-        strf("Error while parsing station file '%s': check column names",
-             stationFile.c_str());
+    string msg = strf("Error while parsing file '%s' at row %d (%s)",
+                      stationFile.c_str(), row_count, e.what());
     throw Exception(msg);
   }
 
-  vector<unordered_map<string, string>> events = CSV::readWithHeader(eventFile);
+  row_count = 0;
   try
   {
+    vector<unordered_map<string, string>> events =
+        CSV::readWithHeader(eventFile);
     for (const auto &row : events)
     {
+      row_count++;
       Event ev;
       ev.id                    = std::stoul(row.at("id"));
       ev.time                  = UTCClock::fromString(row.at("isotime"));
@@ -176,18 +180,20 @@ Catalog::Catalog(const string &stationFile,
       _events[ev.id] = ev;
     }
   }
-  catch (std::out_of_range &e)
+  catch (std::exception &e)
   {
-    string msg = strf("Error while parsing event file '%s': check column names",
-                      eventFile.c_str());
+    string msg = strf("Error while parsing file '%s' at row %d (%s)",
+                      eventFile.c_str(), row_count, e.what());
     throw Exception(msg);
   }
 
-  vector<unordered_map<string, string>> phases = CSV::readWithHeader(phaFile);
+  row_count = 0;
   try
   {
+    vector<unordered_map<string, string>> phases = CSV::readWithHeader(phaFile);
     for (const auto &row : phases)
     {
+      row_count++;
       Phase ph;
       ph.eventId          = std::stoul(row.at("eventId"));
       ph.time             = UTCClock::fromString(row.at("isotime"));
@@ -220,10 +226,10 @@ Catalog::Catalog(const string &stationFile,
       _phases.emplace(ph.eventId, ph);
     }
   }
-  catch (std::out_of_range &e)
+  catch (std::exception &e)
   {
-    string msg = strf("Error while parsing phase file '%s': check column names",
-                      phaFile.c_str());
+    string msg = strf("Error while parsing file '%s' at row %d (%s)",
+                      phaFile.c_str(), row_count, e.what());
     throw Exception(msg);
   }
 }
