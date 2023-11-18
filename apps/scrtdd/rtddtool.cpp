@@ -2266,15 +2266,22 @@ RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
       unordered_multimap<unsigned, HDD::Catalog::Phase>());
   addToCatalog(orgToRelocate, {org}, dataSrc);
 
+  bool isManual;
+  bool xcorrDetectMissingPhases;
   if (org->evaluationMode() == DataModel::MANUAL)
-    singleEventClustering.xcorrDetectMissingPhases =
-        this->detectMissingPhasesManual;
+  {
+    isManual                 = true;
+    xcorrDetectMissingPhases = this->detectMissingPhasesManual;
+  }
   else
-    singleEventClustering.xcorrDetectMissingPhases =
-        this->detectMissingPhasesAuto;
+  {
+    isManual                 = false;
+    xcorrDetectMissingPhases = this->detectMissingPhasesAuto;
+  }
 
   unique_ptr<HDD::Catalog> rel = dd->relocateSingleEvent(
-      orgToRelocate, singleEventClustering, singleEventClustering, solverCfg);
+      orgToRelocate, isManual, xcorrDetectMissingPhases, singleEventClustering,
+      singleEventClustering, solverCfg);
 
   return rel;
 }
@@ -2293,8 +2300,6 @@ RTDD::Profile::relocateCatalog(const std::string &xcorrFile)
   HDD::XCorrCache xcorr;
   if (!xcorrFile.empty())
     xcorr = HDD::readXCorrFromFile(dd->getCatalog(), xcorrFile);
-
-  multiEventClustering.xcorrDetectMissingPhases = false;
 
   unique_ptr<HDD::Catalog> relocatedCat =
       dd->relocateMultiEvents(multiEventClustering, solverCfg, xcorr);
