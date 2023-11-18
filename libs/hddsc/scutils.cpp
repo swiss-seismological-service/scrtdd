@@ -627,9 +627,9 @@ void convertOrigin(DataSource &dataSrc,
     }
     const HDD::Catalog::Station &station = search->second;
 
-    double distance, az;
+    double distance, az, baz;
     Math::Geo::delazi(event.latitude, event.longitude, station.latitude,
-                      station.longitude, &distance, &az);
+                      station.longitude, &distance, &az, &baz);
     double Hdist = Math::Geo::deg2km(distance);
     double Vdist = abs(event.depth + station.elevation / 1000);
     distance     = Math::Geo::km2deg(sqrt(Hdist * Hdist + Vdist * Vdist));
