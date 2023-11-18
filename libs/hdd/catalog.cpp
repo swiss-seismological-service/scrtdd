@@ -195,7 +195,6 @@ Catalog::Catalog(const string &stationFile,
       ph.channelCode      = row.at("channelCode");
       ph.stationId =
           ph.networkCode + "." + ph.stationCode + "." + ph.locationCode;
-      ph.isManual              = row.at("evalMode") == "manual";
       ph.relocInfo.isRelocated = false;
       if (loadRelocationInfo && (row.count("usedInReloc") != 0) &&
           strToBool(row.at("usedInReloc")))
@@ -505,7 +504,7 @@ void Catalog::writeToFile(const string &eventFile,
   ofstream phStream(phaseFile);
 
   phStream << "eventId,isotime,lowerUncertainty,upperUncertainty,"
-              "type,networkCode,stationCode,locationCode,channelCode,evalMode";
+              "type,networkCode,stationCode,locationCode,channelCode";
   if (relocInfo)
   {
     phStream << ",usedInReloc,residual,weight";
@@ -517,12 +516,11 @@ void Catalog::writeToFile(const string &eventFile,
   for (const auto &kv : orderedPhases)
   {
     const Catalog::Phase &ph = kv.second;
-    phStream << strf("%u,%s,%g,%g,%s,%s,%s,%s,%s,%s", ph.eventId,
+    phStream << strf("%u,%s,%g,%g,%s,%s,%s,%s,%s", ph.eventId,
                      UTCClock::toString(ph.time).c_str(), ph.lowerUncertainty,
                      ph.upperUncertainty, ph.type.c_str(),
                      ph.networkCode.c_str(), ph.stationCode.c_str(),
-                     ph.locationCode.c_str(), ph.channelCode.c_str(),
-                     (ph.isManual ? "manual" : "automatic"));
+                     ph.locationCode.c_str(), ph.channelCode.c_str());
 
     if (relocInfo)
     {

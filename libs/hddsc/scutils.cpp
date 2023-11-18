@@ -351,7 +351,6 @@ addToCatalog(HDD::Catalog &cat,
       ph.stationCode      = pick->waveformID().stationCode();
       ph.locationCode     = pick->waveformID().locationCode();
       ph.channelCode      = pick->waveformID().channelCode();
-      ph.isManual         = (pick->evaluationMode() == DataModel::MANUAL);
       cat.addPhase(ph);
     }
     idmap[newEventId] = org;
@@ -583,8 +582,7 @@ void convertOrigin(DataSource &dataSrc,
       newPick->setCreationInfo(ci);
       newPick->setMethodID(methodID);
       newPick->setEvaluationMode(
-          phase.isManual ? DataModel::EvaluationMode(DataModel::MANUAL)
-                         : DataModel::EvaluationMode(DataModel::AUTOMATIC));
+          DataModel::EvaluationMode(DataModel::AUTOMATIC));
       DataModel::TimeQuantity pickTime(toSC(phase.time));
       pickTime.setLowerUncertainty(phase.lowerUncertainty);
       pickTime.setUpperUncertainty(phase.upperUncertainty);

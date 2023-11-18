@@ -120,7 +120,6 @@ public:
     std::string stationCode;
     std::string locationCode;
     std::string channelCode;
-    bool isManual;
 
     enum class Type : char
     {
@@ -131,7 +130,8 @@ public:
     enum class Source
     {
       CATALOG,
-      RT_EVENT,
+      RT_EVENT_AUTOMATIC,
+      RT_EVENT_MANUAL,
       THEORETICAL,
       XCORR
     };
@@ -150,6 +150,12 @@ public:
       double residual;
     } relocInfo;
 
+    bool trusted() const
+    {
+      return procInfo.source == Source::CATALOG ||
+             procInfo.source == Source::RT_EVENT_MANUAL;
+    }
+
     // Compare attributes when the id is not known (works between multiple
     // catalogs).
     bool operator==(const Phase &other) const
@@ -160,7 +166,7 @@ public:
              (type == other.type) && (networkCode == other.networkCode) &&
              (stationCode == other.stationCode) &&
              (locationCode == other.locationCode) &&
-             (channelCode == other.channelCode) && (isManual == other.isManual);
+             (channelCode == other.channelCode);
     }
     bool operator!=(const Phase &other) const { return !operator==(other); }
     operator std::string() const

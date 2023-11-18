@@ -401,10 +401,8 @@ void DD::dumpWaveforms(const string &basePath)
 
         string channelCode =
             getBandAndInstrumentCodes(phase.channelCode) + component;
-        string ext =
-            (phase.procInfo.source == Catalog::Phase::Source::THEORETICAL)
-                ? "xcorrDetected"
-                : (phase.isManual ? "manual" : "automatic");
+
+        string ext;
         if (lowSNR) ext += ".lowSNR";
 
         const string wfPath =
@@ -574,6 +572,8 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
 }
 
 unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
+                                            bool isManual,
+                                            bool xcorrDetectMissingPhases,
                                             const ClusteringOptions &clustOpt1,
                                             const ClusteringOptions &clustOpt2,
                                             const SolverOptions &solverOpt)
@@ -626,11 +626,14 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   string eventWorkingDir = joinPath(baseWorkingDir, "step1");
 
   Catalog evToRelocateCat = Catalog::filterPhasesAndSetWeights(
-      singleEvent, Phase::Source::RT_EVENT, _cfg.validPphases,
-      _cfg.validSphases, _cfg.pickUncertaintyClasses);
+      singleEvent,
+      (isManual ? Phase::Source::RT_EVENT_MANUAL
+                : Phase::Source::RT_EVENT_AUTOMATIC),
+      _cfg.validPphases, _cfg.validSphases, _cfg.pickUncertaintyClasses);
 
-  unique_ptr<Catalog> relocatedEvCat = relocateEventSingleStep(
-      bgCat, evToRelocateCat, eventWorkingDir, clustOpt1, solverOpt, false);
+  unique_ptr<Catalog> relocatedEvCat =
+      relocateEventSingleStep(bgCat, evToRelocateCat, eventWorkingDir,
+                              clustOpt1, solverOpt, false, false);
 
   if (relocatedEvCat)
   {
@@ -654,7 +657,8 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   eventWorkingDir = joinPath(baseWorkingDir, "step2");
 
   unique_ptr<Catalog> relocatedEvWithXcorr = relocateEventSingleStep(
-      bgCat, evToRelocateCat, eventWorkingDir, clustOpt2, solverOpt, true);
+      bgCat, evToRelocateCat, eventWorkingDir, clustOpt2, solverOpt, true,
+      xcorrDetectMissingPhases);
 
   if (relocatedEvWithXcorr)
   {
@@ -696,7 +700,8 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
                             const string &workingDir,
                             const ClusteringOptions &clustOpt,
                             const SolverOptions &solverOpt,
-                            bool doXcorr)
+                            bool doXcorr,
+                            bool xcorrDetectMissingPhases)
 {
   if (_saveProcessing)
   {
@@ -758,9 +763,9 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
       // Perform cross-correlation, which also detects picks around
       // theoretical arrival times. The catalog will be updated with the
       // corresponding phases.
-      xcorr = buildXCorrCache(
-          *catalog, neighCluster, clustOpt.xcorrDetectMissingPhases,
-          clustOpt.xcorrMaxEvStaDist, clustOpt.xcorrMaxInterEvDist);
+      xcorr = buildXCorrCache(*catalog, neighCluster, xcorrDetectMissingPhases,
+                              clustOpt.xcorrMaxEvStaDist,
+                              clustOpt.xcorrMaxInterEvDist);
     }
 
     // the actual relocation
@@ -1457,7 +1462,7 @@ vector<DD::PhasePeer> DD::findPhasePeers(const Station &station,
           station.locationCode == phase.locationCode &&
           phaseType == phase.procInfo.type)
       {
-        if (phase.isManual)
+        if (phase.trusted())
         {
           phasePeers.push_back(PhasePeer(event, phase));
         }
@@ -1504,7 +1509,6 @@ Phase DD::createThoreticalPhase(const Station &station,
   refEvNewPhase.locationCode = station.locationCode;
   refEvNewPhase.channelCode =
       getBandAndInstrumentCodes(streamInfo.channelCode) + "X";
-  refEvNewPhase.isManual      = false;
   refEvNewPhase.procInfo.type = phaseType;
 
   // use phase velocity to compute phase time
@@ -1636,7 +1640,7 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
     shared_ptr<Waveform::Processor> refPrc;
     if (refPhase.procInfo.source == Phase::Source::CATALOG)
       refPrc = _wfAccess.memCache;
-    else if (refPhase.isManual)
+    else if (refPhase.procInfo.source == Phase::Source::RT_EVENT_MANUAL)
       refPrc = seWfLdr;
     else // not from catalog, not manual
     {
@@ -1686,8 +1690,7 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
           // cross-correlation lag) of those phases, where the check hadn't
           // been performed yet.
           if (valid && coeff >= xcorrCfg.minCoef && _cfg.snr.minSnr > 0 &&
-              !refPhase.isManual &&
-              refPhase.procInfo.source != Phase::Source::CATALOG)
+              !refPhase.trusted())
           {
             UTCTime adjustedPickTime = refPhase.time - secToDur(lag);
             TimeWindow snrWin =
@@ -1854,7 +1857,7 @@ void DD::fixPhases(Catalog &catalog,
     if (phase.procInfo.type == Phase::Type::S) totS++;
 
     // nothing to do if the phase is manual or from catalog
-    if (phase.isManual || phase.procInfo.source == Phase::Source::CATALOG)
+    if (phase.trusted())
     {
       continue;
     }
@@ -2111,7 +2114,7 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
   // it with the larger `tr1` window.
   double xcorr_coeff = numeric_limits<double>::quiet_NaN(), xcorr_lag = 0;
 
-  if (phase2.isManual || (!phase1.isManual && !phase2.isManual))
+  if (phase2.trusted() || (!phase1.trusted() && !phase2.trusted()))
   {
     // Trim `tr2` to shorter length; we want to cross-correlate the short one
     // with the long one.
@@ -2132,7 +2135,7 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
   // it with a larger `tr2` window.
   double xcorr_coeff2 = numeric_limits<double>::quiet_NaN(), xcorr_lag2 = 0;
 
-  if (phase1.isManual || (!phase1.isManual && !phase2.isManual))
+  if (phase1.trusted() || (!phase1.trusted() && !phase2.trusted()))
   {
     // Trim `tr1` to shorter length; we want to cross-correlate the short with
     // the long one.

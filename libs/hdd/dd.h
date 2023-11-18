@@ -118,9 +118,6 @@ struct ClusteringOptions
   // cross-correlation observations specific
   double xcorrMaxEvStaDist = -1; // max event to station distance -1 -> disable
   double xcorrMaxInterEvDist = -1; // max inter-event distance -1 -> disable
-  // use cross-correlation to detect phase for stations without one
-  // (single-event only)
-  bool xcorrDetectMissingPhases = false;
 };
 
 struct SolverOptions
@@ -213,6 +210,8 @@ public:
   // Single-event relocation against background catalog
   std::unique_ptr<Catalog>
   relocateSingleEvent(const Catalog &singleEvent,
+                      bool isManual,
+                      bool xcorrDetectMissingPhases,
                       const ClusteringOptions &clustOpt1,
                       const ClusteringOptions &clustOpt2,
                       const SolverOptions &solverOpt);
@@ -292,7 +291,8 @@ private:
                           const std::string &workingDir,
                           const ClusteringOptions &clustOpt,
                           const SolverOptions &solverOpt,
-                          bool doXcorr);
+                          bool doXcorr,
+                          bool xcorrDetectMissingPhases);
 
   std::unique_ptr<Catalog>
   relocate(const Catalog &catalog,

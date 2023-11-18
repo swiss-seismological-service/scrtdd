@@ -128,7 +128,7 @@ E.g. *file event.csv* ::
     4,2019-11-05T01:12:25.753816Z,46.325012,7.353627,3.7090,0.39
 
 Notes:
-* ``magnitude`` column is currently not used
+* ``magnitude`` column is currently not used and can be filled with a placeholder value
 * ``depth`` is in km
 
 
@@ -145,24 +145,24 @@ E.g. *file station.csv*::
 
 E.g. *file phase.csv* ::
 
-    eventId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode,evalMode
-    1,2019-11-05T00:54:22.64478Z,0.025,0.025,Pg,8D,RAW2,,HHZ,automatic
-    1,2019-11-05T00:54:23.58254Z,0.100,0.100,Sg,8D,RAW2,,HHT,manual
-    1,2019-11-05T00:54:22.7681Z,0.025,0.025,Pg,CH,SAYF2,,HGZ,manual
-    1,2019-11-05T00:54:24.007619Z,0.050,0.050,Sg,CH,STSW2,,HGT,manual
-    2,2019-11-05T01:03:08.867835Z,0.050,0.050,S,8D,RAW2,,HHT,manual
-    2,2019-11-05T01:03:07.977432Z,0.025,0.025,P,CH,SAYF2,,HGZ,manual
-    2,2019-11-05T01:03:08.9947Z,0.050,0.050,Sg,CH,SAYF2,,HGT,automatic
-    2,2019-11-05T01:03:09.12808Z,0.050,0.050,P,CH,STSW2,,HG1,manual
-    2,2019-11-05T01:03:09.409276Z,0.025,0.025,Sg,CH,SENIN,,HHT,automatic
+    eventId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode
+    1,2019-11-05T00:54:22.64478Z,0.025,0.025,Pg,8D,RAW2,,HHZ
+    1,2019-11-05T00:54:23.58254Z,0.100,0.100,Sg,8D,RAW2,,HHT
+    1,2019-11-05T00:54:22.7681Z,0.025,0.025,Pg,CH,SAYF2,,HGZ
+    1,2019-11-05T00:54:24.007619Z,0.050,0.050,Sg,CH,STSW2,,HGT
+    2,2019-11-05T01:03:08.867835Z,0.050,0.050,S,8D,RAW2,,HHT
+    2,2019-11-05T01:03:07.977432Z,0.025,0.025,P,CH,SAYF2,,HGZ
+    2,2019-11-05T01:03:08.9947Z,0.050,0.050,Sg,CH,SAYF2,,HGT
+    2,2019-11-05T01:03:09.12808Z,0.050,0.050,P,CH,STSW2,,HG1
+    2,2019-11-05T01:03:09.409276Z,0.025,0.025,Sg,CH,SENIN,,HHT
 
 Notes:
 
-* ``type``: mutiple picks are allowed for the same event-station (P,Pn,P1,Pg,S,Sn,S1,Sg), but they must have a different ``type``. However only one P and one S will be used per each event-station (see ``profile.myProfile.catalog.P|S-Phases``).
+* ``type``: mutiple picks are allowed for the same event-station (P,Pn,P1,Pg,S,Sn,S1,Sg,etc), but they must have a different ``type``. However only one P and one S will be used per each event-station (see ``profile.myProfile.catalog.P|S-Phases``).
 * ``channelCode``: used only for crossCorrelation, it specifies the channel code to use for fetching the waveform. The Orientation Code of the ``channelCode`` (e.g. ``Z`` in ``HHZ``) can be overridden by the parameter ``profile.myProfile.crossCorrelation.p|s-phase.components``.
-* ``lowerUncertainty`` and ``upperUncertainty`` are used only when ``profile.myProfile.solver.aPrioriWeights.usePickUncertainties`` is set to ``true``
+* ``lowerUncertainty`` and ``upperUncertainty`` are used only when ``profile.myProfile.solver.usePickUncertainties`` is enabled. 
 
-With this format it is possible to relocate events that are not stored in any SeisComP database, since all the origins information are contained in those files.
+With this format it is possible to relocate events not stored in a SeisComP database, since all the required information is contained in those files.
 
 Finally, the events to be relocated can also be stored in SeisComP XML format. Please refer to the official SeisComP  documentation of ``scxmldump``, a very convenient tool for dumping events to XML file.
 

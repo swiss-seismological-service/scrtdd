@@ -121,7 +121,6 @@ void addEventToCatalog(HDD::Catalog &cat,
     ph.stationCode      = sta.stationCode;
     ph.locationCode     = sta.locationCode;
     ph.channelCode      = "";
-    ph.isManual         = true;
 
     double travelTime = ttt.compute(ev, sta, "P");
     ph.time = ev.time + secToDur(travelTime);
@@ -312,7 +311,6 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
   // disable cross-correlation
   clusterCfg.xcorrMaxEvStaDist   = 0;
   clusterCfg.xcorrMaxInterEvDist = 0;
-  clusterCfg.xcorrDetectMissingPhases = false;
 
   HDD::SolverOptions solverCfg;
   solverCfg.algoIterations               = 20;
@@ -348,7 +346,6 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
   // disable cross-correlation
   clusterCfg.xcorrMaxEvStaDist   = 0;
   clusterCfg.xcorrMaxInterEvDist = 0;
-  clusterCfg.xcorrDetectMissingPhases = false;
 
   HDD::SolverOptions solverCfg;
   solverCfg.algoIterations        = 20;
@@ -364,7 +361,7 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
     unique_ptr<HDD::Catalog> orgToRelocate =
         realTimeCat.extractEvent(ev.id, false);
     unique_ptr<HDD::Catalog> relocatedEvent = dd.relocateSingleEvent(
-        *orgToRelocate, clusterCfg, clusterCfg, solverCfg);
+        *orgToRelocate, true, false, clusterCfg, clusterCfg, solverCfg);
     relocCat.add(*relocatedEvent, false);
   }
 
