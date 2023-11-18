@@ -87,7 +87,6 @@ void addEventToCatalog(HDD::Catalog &cat, double lat, double lon, double depth)
     ph.stationCode      = sta.stationCode;
     ph.locationCode     = sta.locationCode;
     ph.channelCode      = "";
-    ph.isManual         = true;
     cat.addPhase(ph);
 
     ph.type = "S";
