@@ -755,7 +755,7 @@ bool RTDD::validateParameters()
     try
     {
       prof->detectMissingPhasesAuto =
-          configGetBool(prefix + "detectMissingPhasesAutoOrigin");
+          configGetBool(prefix + "singleEventPhaseDetect.automaticOrigin");
     }
     catch (...)
     {
@@ -764,7 +764,7 @@ bool RTDD::validateParameters()
     try
     {
       prof->detectMissingPhasesManual =
-          configGetBool(prefix + "detectMissingPhasesManualOrigin");
+          configGetBool(prefix + "singleEventPhaseDetect.manualOrigin");
     }
     catch (...)
     {
