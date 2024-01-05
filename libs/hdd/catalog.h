@@ -81,6 +81,8 @@ public:
       double startRms;
       double finalRms;
       unsigned numNeighbours;
+      unsigned usedP;
+      unsigned usedS;
 
       struct
       {

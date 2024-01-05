@@ -153,6 +153,8 @@ Catalog::Catalog(const string &stationFile,
         ev.relocInfo.startRms      = std::stod(row.at("startRms"));
         ev.relocInfo.finalRms      = std::stod(row.at("finalRms"));
         ev.relocInfo.numNeighbours = std::stoul(row.at("numNeighbours"));
+        ev.relocInfo.usedP         = std::stoul(row.at("ph_usedP"));
+        ev.relocInfo.usedS         = std::stoul(row.at("ph_usedS"));
         ev.relocInfo.dd.numTTp     = std::stoul(row.at("dd_numTTp"));
         ev.relocInfo.dd.numTTs     = std::stoul(row.at("dd_numTTs"));
         ev.relocInfo.dd.numCCp     = std::stoul(row.at("dd_numCCp"));
@@ -456,7 +458,8 @@ void Catalog::writeToFile(const string &eventFile,
 
   evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude";
   evStreamReloc << evStreamNoReloc.str()
-                << ",relocated,startRms,finalRms,numNeighbours,"
+                << ",relocated,startRms,finalRms,"
+                   "numNeighbours,ph_usedP,ph_usedS,"
                    "dd_numTTp,dd_numTTs,dd_numCCp,dd_numCCs,"
                    "dd_startResidualMedian,dd_startResidualMAD,"
                    "dd_finalResidualMedian,dd_finalResidualMAD"
@@ -478,15 +481,15 @@ void Catalog::writeToFile(const string &eventFile,
 
     if (!ev.relocInfo.isRelocated)
     {
-      evStreamReloc << ",false,,,,,,,,,,,";
+      evStreamReloc << ",false,,,,,,,,,,,,,";
     }
     else
     {
       relocInfo = true;
       evStreamReloc << strf(
-          ",true,%g,%g,%u,%u,%u,%u,%u,%g,%g,%g,%g", ev.relocInfo.startRms,
-          ev.relocInfo.finalRms, ev.relocInfo.numNeighbours,
-          ev.relocInfo.dd.numTTp, ev.relocInfo.dd.numTTs,
+          ",true,%g,%g,%u,%u,%u,%u,%u,%u,%u,%g,%g,%g,%g", ev.relocInfo.startRms,
+          ev.relocInfo.finalRms, ev.relocInfo.numNeighbours, ev.relocInfo.usedP,
+          ev.relocInfo.usedS, ev.relocInfo.dd.numTTp, ev.relocInfo.dd.numTTs,
           ev.relocInfo.dd.numCCp, ev.relocInfo.dd.numCCs,
           ev.relocInfo.dd.startResidualMedian, ev.relocInfo.dd.startResidualMAD,
           ev.relocInfo.dd.finalResidualMedian,
