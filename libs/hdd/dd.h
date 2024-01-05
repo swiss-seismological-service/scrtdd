@@ -79,15 +79,6 @@ struct Config
     // artifacts at the beginning and end of trace
     double extraTraceLen = 1; // seconds
   } wfFilter;
-
-  struct
-  {
-    double minSnr      = 2; // 0 -> no SNR check
-    double noiseStart  = -3.0;
-    double noiseEnd    = -0.350;
-    double signalStart = -0.350;
-    double signalEnd   = 1;
-  } snr;
 };
 
 struct ClusteringOptions
@@ -279,8 +270,7 @@ public:
 
 private:
   void createWaveformCache();
-  void
-  replaceWaveformCacheLoader(const std::shared_ptr<Waveform::Loader> &baseLdr);
+  void replaceWaveformLoader(const std::shared_ptr<Waveform::Loader> &baseLdr);
 
   std::string generateWorkingSubDir(const std::string &prefix) const;
   std::string generateWorkingSubDir(const Catalog::Event &ev) const;
@@ -466,8 +456,6 @@ private:
   {
     std::shared_ptr<Waveform::Loader> loader;
     std::shared_ptr<Waveform::DiskCachedLoader> diskCache;
-    std::shared_ptr<Waveform::ExtraLenLoader> extraLen;
-    std::shared_ptr<Waveform::SnrFilterPrc> snrFilter;
     std::shared_ptr<Waveform::MemCachedProc> memCache;
   } _wfAccess;
 };

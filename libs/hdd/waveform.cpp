@@ -498,67 +498,6 @@ void MemCachedProc::storeInCache(const string &wfId,
   _traces[wfId] = trace;
 }
 
-TimeWindow SnrFilterPrc::snrTimeWindow(const UTCTime &pickTime) const
-{
-  UTCTime winStart = std::min({pickTime + secToDur(_snr.noiseStart),
-                               pickTime + secToDur(_snr.signalStart)});
-  UTCTime winEnd   = std::max({pickTime + secToDur(_snr.noiseEnd),
-                               pickTime + secToDur(_snr.signalEnd)});
-  return TimeWindow(winStart, winEnd);
-}
-
-bool SnrFilterPrc::goodSnr(const Trace &trace, const UTCTime &pickTime) const
-{
-  double snr = computeSnr(trace, pickTime, _snr.noiseStart, _snr.noiseEnd,
-                          _snr.signalStart, _snr.signalEnd);
-  return snr >= _snr.minSnr;
-}
-
-shared_ptr<const Trace> SnrFilterPrc::get(const TimeWindow &tw,
-                                          const Catalog::Phase &ph,
-                                          const Catalog::Event &ev,
-                                          const Catalog::Station &sta,
-                                          const std::string &filterStr,
-                                          double resampleFreq,
-                                          Transform trans)
-{
-  const string wfId = waveformId(tw, ph);
-
-  const TimeWindow twToLoad = snrTimeWindow(ph.time).merge(tw);
-  shared_ptr<const Trace> trace =
-      _auxPrc->get(twToLoad, ph, ev, sta, filterStr, resampleFreq, trans);
-
-  if (!trace) return nullptr;
-
-  if (_enabled && !goodSnr(*trace, ph.time))
-  {
-    logDebugF("Trace has too low SNR (%s)", string(ph).c_str());
-    _counters_wf_snr_low++;
-    return nullptr;
-  }
-
-  if (twToLoad != tw)
-  {
-    shared_ptr<Trace> nonConstTrace(new Trace(*trace));
-    if (!nonConstTrace->slice(tw))
-    {
-      logDebugF("Error while checking SNR for phase '%s': cannot slice trace "
-                "from %s length %.2f sec. Trace "
-                "data from %s length %.2f sec, samples %zu sampfreq %f",
-                string(ph).c_str(),
-                HDD::UTCClock::toString(tw.startTime()).c_str(),
-                HDD::durToSec(tw.length()),
-                HDD::UTCClock::toString(trace->startTime()).c_str(),
-                HDD::durToSec(trace->timeWindow().length()),
-                trace->sampleCount(), trace->samplingFrequency());
-      return nullptr;
-    }
-    trace = nonConstTrace;
-  }
-
-  return trace;
-}
-
 unique_ptr<Trace> transformL2(const TimeWindow &tw,
                               const Catalog::Phase &ph,
                               const ThreeComponents &tc,
