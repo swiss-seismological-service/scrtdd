@@ -399,7 +399,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
                                 double maxEllipsoidSize,
                                 bool keepUnmatched)
 {
-  logInfo("Selecting Catalog Neighbouring Events");
+  logInfo("Searching for event clusters in the event catalog");
 
   // output: neighbours for each event in the catalog
   unordered_map<unsigned, unique_ptr<Neighbours>> neighboursList;

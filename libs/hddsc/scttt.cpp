@@ -53,13 +53,14 @@ double TravelTimeTable::compute(double eventLat,
   if (!_ttt) load();
 
 #if SC_API_VERSION < SC_API_VERSION_CHECK(16, 0, 0)
-  double ttime = _ttt->compute(phaseType.c_str(), eventLat, eventLon,
-                               eventDepth, station.latitude,
-                               station.longitude, station.elevation).time;
+  double ttime =
+      _ttt->compute(phaseType.c_str(), eventLat, eventLon, eventDepth,
+                    station.latitude, station.longitude, station.elevation)
+          .time;
 #else
-  double ttime = _ttt->computeTime(phaseType.c_str(), eventLat, eventLon,
-                                   eventDepth, station.latitude,
-                                   station.longitude, station.elevation);
+  double ttime =
+      _ttt->computeTime(phaseType.c_str(), eventLat, eventLon, eventDepth,
+                        station.latitude, station.longitude, station.elevation);
 #endif
 
   if (ttime < 0)
