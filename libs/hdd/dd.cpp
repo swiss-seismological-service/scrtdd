@@ -876,12 +876,13 @@ string DD::relocationReport(const Catalog &relocatedEv)
   if (!event.relocInfo.isRelocated) return "Event not relocated";
 
   return strf("Rms change [sec]: %.4f (before/after %.4f/%.4f) "
-              "Neighbours=%u "
+              "Neighbours=%u Phases: P=%u S=%u "
               "DD observations: %u (CC P/S %u/%u TT P/S %u/%u) "
               "DD residuals [msec]: before=%.f+/-%.1f after=%.f+/-%.1f",
               (event.relocInfo.finalRms - event.relocInfo.startRms),
               event.relocInfo.startRms, event.relocInfo.finalRms,
-              event.relocInfo.numNeighbours,
+              event.relocInfo.numNeighbours, event.relocInfo.usedP,
+              event.relocInfo.usedS,
               (event.relocInfo.dd.numCCp + event.relocInfo.dd.numCCs +
                event.relocInfo.dd.numTTp + event.relocInfo.dd.numTTs),
               event.relocInfo.dd.numCCp, event.relocInfo.dd.numCCs,
@@ -1115,6 +1116,8 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     event.relocInfo.finalRms      = 0;
     event.relocInfo.isRelocated   = true;
     event.relocInfo.numNeighbours = 0;
+    event.relocInfo.usedP         = 0;
+    event.relocInfo.usedS         = 0;
     event.relocInfo.dd.numTTp     = 0;
     event.relocInfo.dd.numTTs     = 0;
     event.relocInfo.dd.numCCp     = 0;
@@ -1173,11 +1176,13 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
 
       if (phase.procInfo.type == Phase::Type::P)
       {
+        event.relocInfo.usedP++;
         event.relocInfo.dd.numCCp += startCCObs;
         event.relocInfo.dd.numTTp += startTTObs;
       }
       if (phase.procInfo.type == Phase::Type::S)
       {
+        event.relocInfo.usedS++;
         event.relocInfo.dd.numCCs += startCCObs;
         event.relocInfo.dd.numTTs += startTTObs;
       }
