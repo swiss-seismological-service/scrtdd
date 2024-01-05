@@ -430,6 +430,8 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
 
   Catalog catToReloc(_bgCat);
 
+  logInfoF("The catalog contains %zu events", catToReloc.getEvents().size());
+
   // prepare a folder for debug files
   string catalogWorkingDir;
   do
@@ -473,7 +475,12 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   list<unordered_map<unsigned, unique_ptr<Neighbours>>> clusters =
       clusterizeNeighbouringEvents(neighboursByEvent);
 
-  logInfoF("Found %zu event clusters", clusters.size());
+  logInfoF("Found %zu event clusters with the following number of events:",
+           clusters.size());
+  for (const auto &c : clusters)
+  {
+    logInfoF(" %zu events", c.size());
+  }
 
   if (_saveProcessing)
   {
