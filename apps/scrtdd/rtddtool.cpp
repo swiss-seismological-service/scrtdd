@@ -806,7 +806,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::P].minCoef = 0.50;
+      prof->ddCfg.xcorr[PhaseType::P].minCoef = 0.70;
     }
     try
     {
@@ -853,7 +853,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::S].minCoef = 0.50;
+      prof->ddCfg.xcorr[PhaseType::S].minCoef = 0.70;
     }
     try
     {
@@ -891,48 +891,6 @@ bool RTDD::validateParameters()
     catch (...)
     {
       prof->ddCfg.wfFilter.resampleFreq = 0;
-    }
-
-    prefix = string("profile.") + prof->name + ".crossCorrelation.snr.";
-    try
-    {
-      prof->ddCfg.snr.minSnr = configGetDouble(prefix + "minSnr");
-    }
-    catch (...)
-    {
-      prof->ddCfg.snr.minSnr = 2.;
-    }
-    try
-    {
-      prof->ddCfg.snr.noiseStart = configGetDouble(prefix + "noiseStart");
-    }
-    catch (...)
-    {
-      prof->ddCfg.snr.noiseStart = -3.0;
-    }
-    try
-    {
-      prof->ddCfg.snr.noiseEnd = configGetDouble(prefix + "noiseEnd");
-    }
-    catch (...)
-    {
-      prof->ddCfg.snr.noiseEnd = -0.350;
-    }
-    try
-    {
-      prof->ddCfg.snr.signalStart = configGetDouble(prefix + "signalStart");
-    }
-    catch (...)
-    {
-      prof->ddCfg.snr.signalStart = -0.350;
-    }
-    try
-    {
-      prof->ddCfg.snr.signalEnd = configGetDouble(prefix + "signalEnd");
-    }
-    catch (...)
-    {
-      prof->ddCfg.snr.signalEnd = 1;
     }
 
     prefix = string("profile.") + prof->name + ".solver.";

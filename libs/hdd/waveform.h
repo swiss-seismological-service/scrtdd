@@ -402,58 +402,6 @@ private:
   std::unordered_set<std::string> _unloadables;
 };
 
-class SnrFilterPrc : public Processor
-{
-
-public:
-  SnrFilterPrc(const std::shared_ptr<Processor> &auxPrc,
-               double minSnr,
-               double noiseStart,
-               double noiseEnd,
-               double signalStart,
-               double signalEnd)
-      : _auxPrc(auxPrc), _snr{minSnr, noiseStart, noiseEnd, signalStart,
-                              signalEnd}
-  {}
-
-  virtual ~SnrFilterPrc() = default;
-
-  void setAuxProcessor(const std::shared_ptr<Processor> &auxPrc)
-  {
-    _auxPrc = auxPrc;
-  }
-  std::shared_ptr<Processor> getAuxProcessor() const { return _auxPrc; }
-
-  std::shared_ptr<const Trace> get(const TimeWindow &tw,
-                                   const Catalog::Phase &ph,
-                                   const Catalog::Event &ev,
-                                   const Catalog::Station &sta,
-                                   const std::string &filterStr,
-                                   double resampleFreq,
-                                   Transform trans) override;
-
-  bool enabled() { return _enabled; }
-  void setEnabled(bool enabled) { _enabled = enabled; }
-
-  TimeWindow snrTimeWindow(const UTCTime &pickTime) const;
-
-  bool goodSnr(const Trace &trace, const UTCTime &pickTime) const;
-
-  unsigned _counters_wf_snr_low = 0;
-
-private:
-  std::shared_ptr<Processor> _auxPrc;
-  struct
-  {
-    double minSnr;
-    double noiseStart;  // secs relative to pick time
-    double noiseEnd;    // secs relative to pick time
-    double signalStart; // secs relative to pick time
-    double signalEnd;   // secs relative to pick time
-  } _snr;
-  bool _enabled = true;
-};
-
 inline std::string getBandAndInstrumentCodes(const std::string &channelCode)
 {
   if (channelCode.size() >= 2) return channelCode.substr(0, 2);

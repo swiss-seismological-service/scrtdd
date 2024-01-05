@@ -163,8 +163,6 @@ void DD::createWaveformCache()
 {
   _wfAccess.loader.reset(new Waveform::BasicLoader(_wf));
   _wfAccess.diskCache = nullptr;
-  _wfAccess.extraLen  = nullptr;
-  _wfAccess.snrFilter = nullptr;
   _wfAccess.memCache  = nullptr;
 
   shared_ptr<Waveform::Loader> currLdr = _wfAccess.loader;
@@ -173,36 +171,27 @@ void DD::createWaveformCache()
   {
     _wfAccess.diskCache.reset(
         new Waveform::DiskCachedLoader(_wf, currLdr, _cacheDir));
-    _wfAccess.extraLen.reset(new Waveform::ExtraLenLoader(
-        _wfAccess.diskCache, _cfg.diskTraceMinLen));
-    currLdr = _wfAccess.extraLen;
+    currLdr.reset(
+        new Waveform::ExtraLenLoader(_wfAccess.diskCache,
+                                     _cfg.diskTraceMinLen));
   }
 
   shared_ptr<Waveform::Processor> currProc(
       new Waveform::BasicProcessor(_wf, currLdr, _cfg.wfFilter.extraTraceLen));
 
-  if (_cfg.snr.minSnr > 0)
-  {
-    _wfAccess.snrFilter.reset(new Waveform::SnrFilterPrc(
-        currProc, _cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
-        _cfg.snr.signalStart, _cfg.snr.signalEnd));
-    currProc = _wfAccess.snrFilter;
-  }
+  // Using the MemCachedProc mechanism of wrapping Waveform::Processor it is
+  // possible to add additional Waveform::Processor(S) with specialized
+  // operations between currProc and memCache. For example there use to be a SNR
+  // filter there
 
   _wfAccess.memCache.reset(new Waveform::MemCachedProc(currProc));
 }
 
-void DD::replaceWaveformCacheLoader(const shared_ptr<Waveform::Loader> &baseLdr)
+void DD::replaceWaveformLoader(const shared_ptr<Waveform::Loader> &baseLdr)
 {
   if (_useCatalogWaveformDiskCache)
   {
     _wfAccess.diskCache->setAuxLoader(baseLdr);
-  }
-  else if (_cfg.snr.minSnr > 0)
-  {
-    _wfAccess.snrFilter->setAuxProcessor(
-        shared_ptr<Waveform::Processor>(new Waveform::BasicProcessor(
-            _wf, baseLdr, _cfg.wfFilter.extraTraceLen)));
   }
   else
   {
@@ -294,13 +283,14 @@ void DD::preloadWaveforms()
 
     logDebugF("Loading event %u waveforms...", event.id);
 
+    // Use a BatchLoader for the current event
     shared_ptr<Waveform::BatchLoader> batchLoader(
         new Waveform::BatchLoader(_wf));
-    replaceWaveformCacheLoader(batchLoader);
+    replaceWaveformLoader(batchLoader);
 
-    // the following doesn't load anything unless the waveform is not alreday on
-    // the disk cache, instead it records in BatchLoader the waveforms we want
-    // to download
+    // The following call won't try to load the waveforms. Instead it will
+    // records in BatchLoader the required waveforms that will be loaded
+    // in batch later
     auto requestWaveform = [this](const TimeWindow &tw, const Event &ev,
                                   const Phase &ph, const string &component) {
       getWaveform(*_wfAccess.memCache, tw, ev, ph, component);
@@ -309,7 +299,7 @@ void DD::preloadWaveforms()
 
     forEventWaveforms(event, numPhases, numSPhases, requestWaveform);
 
-    // This will actually dowanload the waveworms
+    // This will actually download the waveworms
     batchLoader->load();
 
     // now process and store the waveforms into memory
@@ -318,8 +308,8 @@ void DD::preloadWaveforms()
       return getWaveform(*_wfAccess.memCache, tw, ev, ph, component) != nullptr;
     };
 
-    unsigned discard;
-    forEventWaveforms(event, discard, discard, cacheWaveform);
+    unsigned dummy;
+    forEventWaveforms(event, dummy, dummy, cacheWaveform);
 
     wfcount.update(batchLoader.get());
 
@@ -332,8 +322,8 @@ void DD::preloadWaveforms()
     }
   }
 
-  // restore proper loader
-  replaceWaveformCacheLoader(
+  // Restore original loader
+  replaceWaveformLoader(
       shared_ptr<Waveform::Loader>(new Waveform::BasicLoader(_wf)));
 
   wfcount.update(_wfAccess.loader.get());
@@ -359,12 +349,12 @@ void DD::dumpWaveforms(const string &basePath)
   }
 
   auto waveformPath = [](const string &wfDebugDir, const Catalog::Event &ev,
-                         const Catalog::Phase &ph, const string &channelCode,
-                         const string &ext) -> string {
+                         const Catalog::Phase &ph,
+                         const string &channelCode) -> string {
     string debugFile =
-        HDD::strf("ev%u.%s.%s.%s.%s.%s.%s.mseed", ev.id, ph.networkCode.c_str(),
+        HDD::strf("ev%u.%s.%s.%s.%s.%s.mseed", ev.id, ph.networkCode.c_str(),
                   ph.stationCode.c_str(), ph.locationCode.c_str(),
-                  channelCode.c_str(), ph.type.c_str(), ext.c_str());
+                  channelCode.c_str(), ph.type.c_str());
     return HDD::joinPath(wfDebugDir, debugFile);
   };
 
@@ -379,34 +369,18 @@ void DD::dumpWaveforms(const string &basePath)
 
       for (const string &component : xcorrComponents(phase))
       {
-        // getAuxProcessor() -> we don't really want to keep the waveforms in
-        // memory
+        // memCache->getAuxProcessor() -> we don't want to cache the
+        // whole catalog waveforms into memory
         shared_ptr<const Trace> tr =
             getWaveform(*_wfAccess.memCache->getAuxProcessor(), tw, event,
                         phase, component);
-
-        // check low SNR
-        bool lowSNR = false;
-        if (!tr && _wfAccess.snrFilter)
-        {
-          _wfAccess.snrFilter->setEnabled(false);
-          tr = getWaveform(*_wfAccess.memCache->getAuxProcessor(), tw, event,
-                           phase, component);
-
-          if (tr) lowSNR = true;
-          _wfAccess.snrFilter->setEnabled(true);
-        }
 
         if (!tr) continue;
 
         string channelCode =
             getBandAndInstrumentCodes(phase.channelCode) + component;
 
-        string ext;
-        if (lowSNR) ext += ".lowSNR";
-
-        const string wfPath =
-            waveformPath(basePath, event, phase, channelCode, ext);
+        const string wfPath = waveformPath(basePath, event, phase, channelCode);
 
         logInfoF("Writing %s", wfPath.c_str());
         try
@@ -1600,28 +1574,13 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
       "Computing cross-correlation differential travel times for event %s",
       string(refEv).c_str());
   //
-  // Prepare the waveform loaders for single-event. Since they are
-  // temporary and discarded after the relocation we don't want to
-  // make use of the background catalog caching and keep them in
-  // memory forever
+  // Prepare the waveform loaders for single-event. Since its waveforms are
+  // temporary and discarded after the relocation, we don't want to
+  // make use of the background catalog cache (_wfAccess.memCache) to
+  // load them
   //
-  shared_ptr<Waveform::Processor> preloaded(preloadNonCatalogWaveforms(
+  shared_ptr<Waveform::Processor> tmpMemCache(preloadNonCatalogWaveforms(
       catalog, neighbours, refEv, xcorrMaxEvStaDist, xcorrMaxInterEvDist));
-  shared_ptr<Waveform::Processor> seWfLdrNoSnr; // loader with not SNR check
-  shared_ptr<Waveform::Processor> seWfLdr; // same loader but with SNR check
-
-  if (preloaded)
-  {
-    seWfLdrNoSnr.reset(new Waveform::MemCachedProc(preloaded));
-    seWfLdr = seWfLdrNoSnr;
-    if (_cfg.snr.minSnr > 0)
-    {
-      shared_ptr<Waveform::SnrFilterPrc> snrLdr(new Waveform::SnrFilterPrc(
-          seWfLdrNoSnr, _cfg.snr.minSnr, _cfg.snr.noiseStart, _cfg.snr.noiseEnd,
-          _cfg.snr.signalStart, _cfg.snr.signalEnd));
-      seWfLdr.reset(new Waveform::MemCachedProc(snrLdr));
-    }
-  }
 
   //
   // loop through reference event phases
@@ -1644,15 +1603,12 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
     //
     shared_ptr<Waveform::Processor> refPrc;
     if (refPhase.procInfo.source == Phase::Source::CATALOG)
-      refPrc = _wfAccess.memCache;
-    else if (refPhase.procInfo.source == Phase::Source::RT_EVENT_MANUAL)
-      refPrc = seWfLdr;
-    else // not from catalog, not manual
     {
-      // For "untrusted" phases the SNR is checked AFTER the cross-correlation
-      // once the pick time has been adjusted using the lag computed by the
-      // cross-corr against a "trusted" phase (manual or catalog).
-      refPrc = seWfLdrNoSnr;
+      refPrc = _wfAccess.memCache;
+    }
+    else if (refPhase.procInfo.source == Phase::Source::RT_EVENT_MANUAL)
+    {
+      refPrc = tmpMemCache;
     }
 
     //
@@ -1691,26 +1647,6 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
           bool valid = xcorrPhases(refEv, refPhase, *refPrc, event, phase,
                                    *_wfAccess.memCache, coeff, lag, component);
 
-          // Check the SNR (using the pick time adjusted with the
-          // cross-correlation lag) of those phases, where the check hadn't
-          // been performed yet.
-          if (valid && coeff >= xcorrCfg.minCoef && _cfg.snr.minSnr > 0 &&
-              !refPhase.trusted())
-          {
-            UTCTime adjustedPickTime = refPhase.time - secToDur(lag);
-            TimeWindow snrWin =
-                _wfAccess.snrFilter->snrTimeWindow(adjustedPickTime);
-
-            shared_ptr<const Trace> trace =
-                getWaveform(*seWfLdrNoSnr, snrWin, refEv, refPhase, component);
-
-            if (!trace ||
-                !_wfAccess.snrFilter->goodSnr(*trace, adjustedPickTime))
-            {
-              valid = false;
-            }
-          }
-
           // cache cross-correlation results
           xcorr.add(refEv.id, event.id, refPhase.stationId,
                     refPhase.procInfo.type, valid, coeff, lag, component);
@@ -1743,23 +1679,6 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
         new Waveform::DiskCachedLoader(_wf, batchLoader, _tmpCacheDir));
     loader.reset(
         new Waveform::ExtraLenLoader(diskLoader, _cfg.diskTraceMinLen));
-  }
-
-  // Load a large enough waveform to be able to check the SNR after
-  // the updating of the pick time
-  if (_cfg.snr.minSnr > 0)
-  {
-    double maxDelay = std::max({_cfg.xcorr.at(Phase::Type::P).maxDelay,
-                                _cfg.xcorr.at(Phase::Type::S).maxDelay});
-    double extraBefore =
-        std::min({_cfg.snr.noiseStart, _cfg.snr.signalStart}) - maxDelay;
-    extraBefore = extraBefore > 0 ? 0 : std::abs(extraBefore);
-    extraBefore += _cfg.wfFilter.extraTraceLen;
-    double extraAfter =
-        std::max({_cfg.snr.noiseEnd, _cfg.snr.signalEnd}) + maxDelay;
-    extraAfter = extraAfter < 0 ? 0 : extraAfter;
-    extraAfter += _cfg.wfFilter.extraTraceLen;
-    loader.reset(new Waveform::ExtraLenLoader(loader, extraBefore, extraAfter));
   }
 
   shared_ptr<Waveform::Processor> proc(
@@ -1833,7 +1752,8 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
            "disk cache %u",
            string(refEv).c_str(), wfcount.downloaded, wfcount.no_avail,
            wfcount.disk_cached);
-  return proc;
+
+  return shared_ptr<Waveform::Processor>(new Waveform::MemCachedProc(proc));
 }
 
 /*
@@ -2087,9 +2007,8 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
       getWaveform(ph1Cache, tw1, event1, phase1, component);
   if (!tr1)
   {
-    logDebugF(
-        "Skipping cross-correlation: no waveform or no good SNR for phase %s",
-        string(phase1).c_str());
+    logDebugF("Skipping cross-correlation: no waveform SNR for phase %s",
+              string(phase1).c_str());
     return false;
   }
 
@@ -2099,9 +2018,8 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
       getWaveform(ph2Cache, tw2, event2, phase2, component);
   if (!tr2)
   {
-    logDebugF(
-        "Skipping cross-correlation: no waveform or no good SNR for phase %s",
-        string(phase2).c_str());
+    logDebugF("Skipping cross-correlation: no waveform for phase %s",
+              string(phase2).c_str());
     return false;
   }
 
