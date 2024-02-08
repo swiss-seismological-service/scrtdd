@@ -121,7 +121,7 @@ class EventList(sc_client.Application):
             pass
 
         try:
-            self.evtypes = self.commandline().optionString("ev-type")
+            self.evtypes = self.commandline().optionString("ev-type").split(',')
         except BaseException:
             self.evtypes = None
         try:
