@@ -363,6 +363,9 @@ void RTDD::createCommandLineDescription()
   commandline().addOption("ModeOptions", "xmlout",
                           "Enable XML output when combined with "
                           "--reloc-catalog or --oring-id options");
+  commandline().addOption("ModeOptions", "inherit-mag",
+                          "Origins inherit the source origin magnitudes "
+                          "when combined with --xmlout option");
 }
 
 bool RTDD::validateParameters()
@@ -1287,9 +1290,10 @@ bool RTDD::run()
 
         DataModel::OriginPtr newOrg;
         std::vector<DataModel::PickPtr> newOrgPicks;
+        bool includeMagnitude = commandline().hasOption("inherit-mag");
         convertOrigin(dataSrc, *ev, srcOrg.get(), author(), agencyID(),
-                      profile->methodID, profile->earthModelID, true, false,
-                      true, newOrg, newOrgPicks);
+                      profile->methodID, profile->earthModelID,
+                      includeMagnitude, true, newOrg, newOrgPicks);
 
         evParam->add(newOrg.get());
         for (DataModel::PickPtr p : newOrgPicks) evParam->add(p.get());
@@ -1858,7 +1862,7 @@ void RTDD::relocateOrigin(DataModel::Origin *org,
   DataSource dataSrc(query(), &_cache, _eventParameters.get());
   convertOrigin(dataSrc, *relocatedOrg, org, author(), agencyID(),
                 profile->methodID, profile->earthModelID, includeMagnitude,
-                true, false, newOrg, newOrgPicks);
+                false, newOrg, newOrgPicks);
 }
 
 std::unique_ptr<HDD::Catalog>

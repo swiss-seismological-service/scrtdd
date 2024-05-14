@@ -92,7 +92,6 @@ void convertOrigin(DataSource &dataSrc,
                    const std::string &methodID,
                    const std::string &earthModelID,
                    bool includeMagnitude,
-                   bool fullMagnitude,
                    bool includeExistingPicks,
                    Seiscomp::DataModel::OriginPtr &newOrg,
                    std::vector<Seiscomp::DataModel::PickPtr> &newOrgPicks);

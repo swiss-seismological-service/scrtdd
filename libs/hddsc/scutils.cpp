@@ -411,7 +411,6 @@ void convertOrigin(DataSource &dataSrc,
                    const string &methodID,
                    const string &earthModelID,
                    bool includeMagnitude,
-                   bool fullMagnitude,
                    bool includeExistingPicks,
                    DataModel::OriginPtr &newOrg,                 // return value
                    std::vector<DataModel::PickPtr> &newOrgPicks) // return value
@@ -475,20 +474,17 @@ void convertOrigin(DataSource &dataSrc,
     //
     if (includeMagnitude)
     {
-      dataSrc.loadMagnitudes(org, fullMagnitude, fullMagnitude);
+      dataSrc.loadMagnitudes(org, true, true);
 
       unordered_map<string, string> staMagIdMap;
-      if (fullMagnitude)
+      for (size_t i = 0; i < org->stationMagnitudeCount(); i++)
       {
-        for (size_t i = 0; i < org->stationMagnitudeCount(); i++)
-        {
-          DataModel::StationMagnitude *staMag = org->stationMagnitude(i);
-          DataModel::StationMagnitude *newStaMag =
-              DataModel::StationMagnitude::Create();
-          *newStaMag = *staMag;
-          newOrg->add(newStaMag);
-          staMagIdMap[staMag->publicID()] = newStaMag->publicID();
-        }
+        DataModel::StationMagnitude *staMag = org->stationMagnitude(i);
+        DataModel::StationMagnitude *newStaMag =
+            DataModel::StationMagnitude::Create();
+        *newStaMag = *staMag;
+        newOrg->add(newStaMag);
+        staMagIdMap[staMag->publicID()] = newStaMag->publicID();
       }
 
       for (size_t i = 0; i < org->magnitudeCount(); i++)
@@ -497,23 +493,20 @@ void convertOrigin(DataSource &dataSrc,
         DataModel::Magnitude *newMag = DataModel::Magnitude::Create();
         *newMag                      = *mag;
 
-        if (fullMagnitude)
+        for (size_t j = 0; j < mag->stationMagnitudeContributionCount(); j++)
         {
-          for (size_t j = 0; j < mag->stationMagnitudeContributionCount(); j++)
+          DataModel::StationMagnitudeContribution *contrib =
+              mag->stationMagnitudeContribution(j);
+          DataModel::StationMagnitudeContributionPtr newContrib =
+              new DataModel::StationMagnitudeContribution(*contrib);
+          try
           {
-            DataModel::StationMagnitudeContribution *contrib =
-                mag->stationMagnitudeContribution(j);
-            DataModel::StationMagnitudeContributionPtr newContrib =
-                new DataModel::StationMagnitudeContribution(*contrib);
-            try
-            {
-              newContrib->setStationMagnitudeID(
-                  staMagIdMap.at(contrib->stationMagnitudeID()));
-            }
-            catch (...)
-            {}
-            newMag->add(newContrib.get());
+            newContrib->setStationMagnitudeID(
+                staMagIdMap.at(contrib->stationMagnitudeID()));
           }
+          catch (...)
+          {}
+          newMag->add(newContrib.get());
         }
         newOrg->add(newMag);
       }
