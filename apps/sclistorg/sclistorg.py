@@ -49,15 +49,17 @@ class EventList(sc_client.Application):
     def createCommandLineDescription(self):
         self.commandline().addGroup("Events")
         self.commandline().addStringOption("Events", "begin",
-                                           "specify the lower bound of the time interval")
+                                           "specify the lower bound of the time interval e.g. 2000-01-01 00:00:00")
         self.commandline().addStringOption(
-            "Events", "end", "specify the upper bound of the time interval")
+            "Events", "end", "specify the upper bound of the time interval e.g. 2000-01-01 00:00:00")
         self.commandline().addStringOption("Events", "modified-after",
-                                           "select events modified after the specified time")
+                                           "select events modified after the specified time e.g. 2000-01-01 00:00:00")
         self.commandline().addStringOption("Events", "ev-type",
-                                           "include only events whose type is one of the values provided (comma separated list)")
+                                           "include only events whose type is one of the values provided (comma separated list) "
+                                           'e.g. --ev-type "earthquake,induced earthquake. An empty string matches events with '
+                                           'no type e.g --ev-type "" or --ev-type "earthquake,"')
         self.commandline().addOption(
-            "Events", "simple", "Print only origin ids")
+            "Events", "simple", "Simple output. Print only origin ids")
         self.commandline().addGroup("Origins")
         self.commandline().addStringOption(
             "Origins", "org-type", "preferred, last, first, maxPhases, minPhases, maxRMS, minRMS (default is preferred)")
@@ -193,8 +195,9 @@ class EventList(sc_client.Application):
                 evtype = sc_datamodel.EEventTypeNames.name(evt.type())
             except ValueError:
                 evtype = None
-            if (self.evtypes is not None) and \
-                    (evtype is None or evtype not in self.evtypes):
+            if evtype is None:
+              evtype = "" # this allows the user to match the empty event type
+            if (self.evtypes is not None) and (evtype not in self.evtypes):
                 continue
 
             events.append((evt.publicID(), evt.preferredOriginID(), evtype))
