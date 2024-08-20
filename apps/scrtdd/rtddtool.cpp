@@ -2116,40 +2116,49 @@ void RTDD::Profile::load(DatabaseQuery *query,
     // Load the travel time table
     unique_ptr<HDD::TravelTimeTable> ttt;
 
-    if (tttType == "NonLinLoc")
+    if ( startsWith(tttType, "Native:") )
     {
-      std::vector<std::string> tokens(::splitString(tttModel, ";"));
-      if (tokens.size() != 3 && tokens.size() != 4)
+      if (tttType == "Native:NonLinLoc")
       {
-        string msg = stringify(
-            "Error while initialzing NLL grids: invalid table model (%s)",
-            tttModel.c_str());
+        std::vector<std::string> tokens(::splitString(tttModel, ";"));
+        if (tokens.size() != 3 && tokens.size() != 4)
+        {
+          string msg = stringify(
+              "Error while initialzing NLL grids: invalid table model (%s)",
+              tttModel.c_str());
+          throw runtime_error(msg.c_str());
+        }
+        string velGridPath   = tokens.at(0);
+        string timeGridPath  = tokens.at(1);
+        string angleGridPath = tokens.at(2);
+        bool swapBytes       = false;
+        if (tokens.size() > 3 && tokens.at(3) == "swapBytes")
+        {
+          swapBytes = true;
+        }
+        ttt.reset(new HDD::TTT::NLLGrid(velGridPath, timeGridPath, angleGridPath,
+                                        swapBytes));
+      }
+      else if (tttType == "Native:homogeneous")
+      {
+        std::vector<std::string> tokens(::splitString(tttModel, ";"));
+        if (tokens.size() != 2)
+        {
+          string msg = stringify("Error while initialzing ConstVel travel time "
+                                 "table. Invalid model (%s)",
+                                 tttModel.c_str());
+          throw runtime_error(msg.c_str());
+        }
+        double pVel = std::stod(tokens.at(0));
+        double sVel = std::stod(tokens.at(1));
+        ttt.reset(new HDD::TTT::Homogeneous(pVel, sVel));
+      }
+      else
+      {
+        string msg = stringify("Invalid travel time table type (%s)",
+                               tttType.c_str());
         throw runtime_error(msg.c_str());
       }
-      string velGridPath   = tokens.at(0);
-      string timeGridPath  = tokens.at(1);
-      string angleGridPath = tokens.at(2);
-      bool swapBytes       = false;
-      if (tokens.size() > 3 && tokens.at(3) == "swapBytes")
-      {
-        swapBytes = true;
-      }
-      ttt.reset(new HDD::TTT::NLLGrid(velGridPath, timeGridPath, angleGridPath,
-                                      swapBytes));
-    }
-    else if (tttType == "ConstVel")
-    {
-      std::vector<std::string> tokens(::splitString(tttModel, ";"));
-      if (tokens.size() != 2)
-      {
-        string msg = stringify("Error while initialzing ConstVel travel time "
-                               "table. Invalid model (%s)",
-                               tttModel.c_str());
-        throw runtime_error(msg.c_str());
-      }
-      double pVel = std::stod(tokens.at(0));
-      double sVel = std::stod(tokens.at(1));
-      ttt.reset(new HDD::TTT::Homogeneous(pVel, sVel));
     }
     else
     {
