@@ -146,7 +146,6 @@ private:
 
     // cron
     int wakeupInterval = 1; // sec
-    bool logCrontab    = true;
     std::vector<int> delayTimes;
   };
 
