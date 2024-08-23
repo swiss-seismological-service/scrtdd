@@ -215,19 +215,19 @@
             </group>
             <group name="dampingFactor">
               <description>Setting a value different than 0 enables the solver to use a damped (regularized) least squares system. A too high value prevents the solver from changing the events locations, while a too low value allows the event cluster(s) to shift away from their initial absolute location, which might result in a larger events RMS.</description>
-              <parameter name="startingValue" type="double" default="0.3">
+              <parameter name="startingValue" type="double" default="0.01">
                 <description>Value for the first iteration of the solver.</description>
               </parameter>
-              <parameter name="finalValue" type="double" default="0.3">
+              <parameter name="finalValue" type="double" default="0.01">
                 <description>Value for the last iteration of the solver.</description>
               </parameter>
             </group>
             <group name="absoluteLocationConstraint">
               <description>When a value greater than 0 is used, the double-difference system is modified to solve for both absolute and relative locations. Additional equations are added, which constrain the absolute travel time residuals. Here you can set the weight to be given to these equations. When using this feature the dampingFactor should be decreased. A good starting point for testing the optimal values, is absoluteLocationConstraint=0.3 and dampingFactor=0.01</description>
-              <parameter name="startingValue" type="double" default="0.0">
+              <parameter name="startingValue" type="double" default="0.3">
                 <description>Value for the first iteration of the solver.</description>
               </parameter>
-              <parameter name="finalValue" type="double" default="0.0">
+              <parameter name="finalValue" type="double" default="0.3">
                 <description>Value for the last iteration of the solver.</description>
               </parameter>
             </group>
