@@ -5,14 +5,14 @@
       Double-Difference location module for real-time and event catalogs.
     </description>
     <configuration>
-      <parameter name="onlyPreferredOrigins" type="boolean" default="true">
-        <description>Relocate only preferred origins. When disabled scrtdd listens to LOCATION group and tries to relocate any origin. When enabled scrtdd listens to EVENT group and tries to relocate the preferred origin of an event.</description>
-      </parameter>
       <parameter name="automaticOrigins" type="boolean" default="true">
         <description>Allow relocation of automatic origins</description>
       </parameter>
       <parameter name="manualOrigins" type="boolean" default="true">
         <description>Allow relocation of manual origins</description>
+      </parameter>
+      <parameter name="onlyPreferredOrigins" type="boolean" default="true">
+        <description>Relocate only preferred origins. When disabled scrtdd listens to LOCATION group and tries to relocate any origin. When enabled scrtdd listens to EVENT group and tries to relocate the preferred origin of an event.</description>
       </parameter>
       <parameter name="workingDirectory" type="path" default="@ROOTDIR@/var/lib/rtdd">
         <description>Defines the directory used for storing processing files (waveforms cache and debugging files).</description>
@@ -21,9 +21,12 @@
         <description>Store logs and processing files in the working directory (useful for debugging/troubleshooting or further analysis).</description>
       </parameter>
       <parameter name="activeProfiles" type="list:string" default="">
-        <description>Defines a list of active profiles for real-time/single-event processing.</description>
+        <description>Defines a list of active profiles for single-event processing.</description>
       </parameter>
       <group name="performance">
+        <parameter name="delayTime" type="int" default="10" unit="sec">
+          <description>Specifies a delay time in seconds after an origin is created or updated to trigger the single-event relocation.</description>
+        </parameter>
         <parameter name="profileTimeAlive" type="int" default="3600" unit="sec">
           <description>Defines how long the real-time profile data should be kept in memory (in seconds). This is useful to release memory (catalog waveform data) after a period of inactivity, at the cost of having to reload the catalog (load and process waveforms) when a new origin arrives. A negative value force the profiles to stay always in memory.</description>
         </parameter>
@@ -34,14 +37,6 @@
           <description>The waveform length to store in the disk cache (centered around pick time). Although the minimum required waveform length is inferred from the cross-correlation settings (the max between cross-correlation and SNR windows), this option allows to cache to disk a longer window, which become useful to skip the data re-downloading if the cross-correlation settings are changed in the future.
           </description>
         </parameter> 
-      </group>
-      <group name="cron">
-        <parameter name="delayTimes" type="list:int" default="10" unit="sec">
-          <description>Specifies a delay time in seconds, relative to origin time, to trigger the processing. This can be a single value or a list of delay times. The list case can be useful when a quick solution is wanted but more waveforms data becomes available at a later time. In this scenario multiple times are configured, so that a first solution is attempted early and a more refined one is computed later. Example: "60, 120, 300, 3600"</description>
-        </parameter>
-        <parameter name="logging" type="boolean" default="true">
-          <description>Enables/disables updating of a cron log file. This file will be created at ~/.seiscomp3/log/[appname].sched and contains information about the scheduled events and the processing queue.</description>
-        </parameter>
       </group>
       <group name="profile">
         <description>Each profile is a configuration set for a specific region. To enable a profile for real-time processing the profile name must be added to 'activeProfile' option. Origins within a profile region are relocated using that profile configuration. If an origin falls in multiple profile regions, the profile defined first in activeProfile option will be used. This allows for hierarchical regions, where special regions are defined first and a broader region is defined last.</description>

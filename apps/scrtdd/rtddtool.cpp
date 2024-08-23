@@ -390,8 +390,7 @@ bool RTDD::validateParameters()
   _config.allowAutomaticOrigin = configGetBool("automaticOrigins");
   _config.allowManualOrigin    = configGetBool("manualOrigins");
   _config.activeProfiles       = configGetStrings("activeProfiles");
-  _config.logCrontab           = configGetBool("cron.logging");
-  _config.delayTimes           = configGetInts("cron.delayTimes");
+  _config.delayTimes           = {configGetInt("performance.delayTime")};
   _config.profileTimeAlive     = configGetInt("performance.profileTimeAlive");
   _config.cacheWaveforms       = configGetBool("performance.cacheWaveforms");
   _config.testMode             = commandline().hasOption("test");
@@ -1420,13 +1419,14 @@ void RTDD::handleTimeout()
 /*
  * Periodically clean up profiles unused for some time as they
  * might use lots of memory (waveform data)
- * OR, if the profiles are configured to near expire, make sure
+ * OR, if the profiles are configured to never expire, make sure
  * they are loaded
  */
 void RTDD::checkProfileStatus()
 {
   for (ProfilePtr currProfile : _profiles)
   {
+    // load profile
     if (!currProfile->isLoaded())
     {
       loadProfile(currProfile);
@@ -1513,36 +1513,6 @@ void RTDD::runNewJobs()
       }
       proc->runCount++;
     }
-
-    // Dump crontab if activated
-    if (_config.logCrontab)
-    {
-      ofstream of((Environment::Instance()->logDir() + "/" + name() + ".sched")
-                      .c_str());
-      of << "Now: " << now.toString("%F %T") << endl;
-      of << "------------------------" << endl;
-      of << "[Schedule]" << endl;
-      for (it = _processes.begin(); it != _processes.end(); it++)
-      {
-        ProcessPtr proc    = it->second;
-        CronjobPtr cronjob = proc->cronjob;
-        if (!cronjob->runTimes.empty())
-          of << cronjob->runTimes.front().toString("%F %T") << "\t" << it->first
-             << "\t" << (cronjob->runTimes.front() - now).seconds() << endl;
-        else
-          of << "STOPPED            \t" << it->first << endl;
-      }
-
-      // Dump process queue if not empty
-      if (!_processQueue.empty())
-      {
-        of << endl << "[Queue]" << endl;
-
-        ProcessQueue::iterator it;
-        for (it = _processQueue.begin(); it != _processQueue.end(); ++it)
-          of << "WAITING            \t" << (*it)->obj->publicID() << endl;
-      }
-    }
   }
 }
 
@@ -1577,8 +1547,10 @@ bool RTDD::addProcess(DataModel::PublicObject *obj)
   // populate cronjob
   proc->cronjob->runTimes.clear();
   for (size_t i = 0; i < _config.delayTimes.size(); ++i)
+  {
     proc->cronjob->runTimes.push_back(now +
                                       Core::TimeSpan(_config.delayTimes[i], 0));
+  }
 
   SEISCOMP_DEBUG("Update runTimes for [%s]", proc->obj->publicID().c_str());
 
