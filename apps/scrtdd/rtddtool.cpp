@@ -453,12 +453,6 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->earthModelID = configGetString(prefix + "earthModelID");
-    }
-    catch (...)
-    {}
-    try
-    {
       prof->methodID = configGetString(prefix + "methodID");
     }
     catch (...)
@@ -1233,7 +1227,7 @@ bool RTDD::run()
         std::vector<DataModel::PickPtr> newOrgPicks;
         bool includeMagnitude = commandline().hasOption("inherit-mag");
         convertOrigin(dataSrc, *ev, srcOrg.get(), author(), agencyID(),
-                      profile->methodID, profile->earthModelID,
+                      profile->methodID, (profile->tttType + ":" + profile->tttModel),
                       includeMagnitude, true, newOrg, newOrgPicks);
 
         evParam->add(newOrg.get());
@@ -1775,8 +1769,8 @@ void RTDD::relocateOrigin(DataModel::Origin *org,
   bool includeMagnitude = org->evaluationMode() == DataModel::MANUAL;
   DataSource dataSrc(query(), &_cache, _eventParameters.get());
   convertOrigin(dataSrc, *relocatedOrg, org, author(), agencyID(),
-                profile->methodID, profile->earthModelID, includeMagnitude,
-                false, newOrg, newOrgPicks);
+                profile->methodID, (profile->tttType + ":" + profile->tttModel),
+                includeMagnitude, false, newOrg, newOrgPicks);
 }
 
 std::unique_ptr<HDD::Catalog>

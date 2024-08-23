@@ -174,7 +174,6 @@ private:
     void dumpClusters();
 
     std::string name;
-    std::string earthModelID;
     std::string methodID;
     std::string eventIDFile;
     std::string stationFile;
