@@ -47,9 +47,6 @@
           <parameter name="region" type="list:double">
             <description>If regionType is RECTANGULAR then 4 comma separated values are expected: min_lat, min_lon, max_lat, max_lon. If regionType is CIRCULAR then 3 comma separated values are expected: lat, lon, radius in km. If left empty it represents a limitless region.</description>
           </parameter>
-          <parameter name="earthModelID" type="string">
-            <description>This is the earthModelID label that is stored in the created origin e.g. the velocity model name of the profile</description>
-          </parameter>
           <parameter name="methodID" type="string" default="RTDD">
             <description>This is the methodID label that is stored in the created origin.</description>
           </parameter>
