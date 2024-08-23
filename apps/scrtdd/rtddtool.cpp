@@ -937,7 +937,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->solverCfg.absLocConstraintStart = 0;
+      prof->solverCfg.absLocConstraintStart = 0.3;
     }
     try
     {
@@ -946,7 +946,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->solverCfg.absLocConstraintEnd = 0;
+      prof->solverCfg.absLocConstraintEnd = 0.3;
     }
     try
     {
@@ -955,7 +955,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->solverCfg.dampingFactorStart = 0.3;
+      prof->solverCfg.dampingFactorStart = 0.01;
     }
     try
     {
@@ -964,7 +964,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->solverCfg.dampingFactorEnd = 0.3;
+      prof->solverCfg.dampingFactorEnd = 0.01;
     }
 
     try

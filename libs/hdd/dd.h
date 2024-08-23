@@ -115,14 +115,14 @@ struct SolverOptions
 {
   std::string type             = "LSMR"; // LSMR or LSQR
   bool L2normalization         = true;
-  unsigned solverIterations    = 0; // 0 -> auto
+  unsigned solverIterations    = 0;      // 0 -> auto
   unsigned algoIterations      = 20;
-  double absLocConstraintStart = 0; // 0 -> disable absolute location constraint
-  double absLocConstraintEnd   = 0; // 0 -> disable absolute location constraint
-  double dampingFactorStart    = 0.3;        // 0 -> disable damping factor
-  double dampingFactorEnd      = 0.3;        // 0 -> disable damping factor
-  double downWeightingByResidualStart = 10.; // 0 -> disbale downweighting
-  double downWeightingByResidualEnd   = 3.;  // 0 -> disbale downweighting
+  double absLocConstraintStart = 0.3; // 0 -> disable
+  double absLocConstraintEnd   = 0.3; // 0 -> disable
+  double dampingFactorStart    = 0.01; // 0 -> disable
+  double dampingFactorEnd      = 0.01; // 0 -> disable
+  double downWeightingByResidualStart = 10.; // 0 -> disable
+  double downWeightingByResidualEnd   = 3.;  // 0 -> disable
   bool usePickUncertainties           = false;
 };
 
