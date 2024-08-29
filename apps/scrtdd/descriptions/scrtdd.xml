@@ -85,7 +85,7 @@
             </group>
             <group name="phaseFiltering">
               <description>Exclude not optimal phases from the DD system.</description>
-              <parameter name="minStationToEventPairDistRatio" type="double" default="5">
+              <parameter name="minStationToEventPairDistRatio" type="double" default="1">
                 <description>Minimum ratio between event-station to inter-event distance allowed. Phases belonging to stations not satisfying this condition will not be used.</description>
               </parameter>
               <parameter name="minStationDistance" type="double" unit="km">
