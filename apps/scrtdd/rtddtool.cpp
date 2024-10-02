@@ -461,10 +461,8 @@ bool RTDD::validateParameters()
       prof->methodID = configGetString(prefix + "methodID");
     }
     catch (...)
-    {}
-    if (!startsWith(prof->methodID, "RTDD", false))
     {
-      prof->methodID = "RTDD" + prof->methodID;
+      prof->methodID = "RTDD";
     }
     string regionType;
     try
