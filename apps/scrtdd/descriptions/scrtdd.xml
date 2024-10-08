@@ -34,26 +34,44 @@
           <description>Save catalog waveforms to local disk after they have been loaded the first time. This avoids re-reading them from the configured recordStream in the future since this operation is dramatically slow (unless the recordStream points to a local disk source, in which case there is no advantage over caching the waveforms). Note: It is safe to delete the cache folder, in which case the waveforms will be loaded and saved again on disk the next time the profile is loaded (they will be read again from the configured recordStream).</description>
         </parameter>
         <parameter name="cachedWaveformLength" type="double" default="10" unit="sec">
-          <description>The waveform length to store in the disk cache (centered around pick time). Although the minimum required waveform length is inferred from the cross-correlation settings (the max between cross-correlation and SNR windows), this option allows to cache to disk a longer window, which become useful to skip the data re-downloading if the cross-correlation settings are changed in the future.
+          <description>The waveform length to store in the disk cache (centered around pick time). Although the minimum required waveform length is inferred from the cross-correlation settings, this option allows to increase the disk cache to a longer window, which become useful to skip the data re-downloading if the cross-correlation settings are changed.
           </description>
         </parameter> 
       </group>
       <group name="profile">
-        <description>Each profile is a configuration set for a specific region. To enable a profile for real-time processing the profile name must be added to 'activeProfile' option. Origins within a profile region are relocated using that profile configuration. If an origin falls in multiple profile regions, the profile defined first in activeProfile option will be used. This allows for hierarchical regions, where special regions are defined first and a broader region is defined last.</description>
+        <description>Each profile is a configuration set with an optional region. The region is used only in real-time processing to select a profile for an origin. If an origin falls in multiple profile regions, the profile defined first in 'activeProfile' option will be used. This allows for hierarchical regions, where special regions are defined first and a broader region is defined last. A profile is enabled in real-time processing only when added to 'activeProfile' option.</description>
         <struct type="rtdd profile" link="rtdd.activeProfiles">
           <parameter name="regionType" type="string" default="CIRCULAR">
-            <description>Type of region: RECTANGULAR or CIRCULAR</description>
+            <description>Type of region: RECTANGULAR or CIRCULAR.</description>
           </parameter>
           <parameter name="region" type="list:double">
-            <description>If regionType is RECTANGULAR then 4 comma separated values are expected: min_lat, min_lon, max_lat, max_lon. If regionType is CIRCULAR then 3 comma separated values are expected: lat, lon, radius in km. If left empty it represents a limitless region.</description>
+            <description>Optional. If regionType is RECTANGULAR then 4 comma separated values are expected: min_lat, min_lon, max_lat, max_lon. If regionType is CIRCULAR then 3 comma separated values are expected: lat, lon, radius in km. If left empty it represents a limitless region.</description>
           </parameter>
           <parameter name="methodID" type="string" default="RTDD">
             <description>This is the methodID label that is stored in the created origin.</description>
           </parameter>
+          <parameter name="tableType" type="string" default="LOCSAT">
+            <description>Travel time table format type (e.g. LOCSAT, libtau, homogeneous).</description>
+          </parameter>
+          <parameter name="tableModel" type="string" default="iasp91">
+            <description>The model to be used. The format depends on tableType.</description>
+          </parameter>
+          <parameter name="P-Phases" type="list:string" default="Pg,P">
+            <description>Defines a priority list of accepted P phases. Phases not in the list will be ignored. If multiple phases exist for a station, the first one in the list will be used.</description>
+          </parameter>
+          <parameter name="S-Phases" type="list:string" default="Sg,S">
+            <description>Defines a priority list of accepted S phases. Phases not in the list will be ignored. If multiple phases exist for a station, the first one in the list will be used.</description>
+          </parameter>
+          <parameter name="usePickUncertainties" type="boolean" default="false">
+            <description>Whether to use pick time uncertainty to weigh each pick accordingly to 'pickUncertaintyClasses'. Each double-difference equation weight will be the average of its pick weights.</description>
+          </parameter>
+          <parameter name="pickUncertaintyClasses" type="list:string" unit="s" default="0.000,0.025,0.050,0.100,0.200,0.400" >
+            <description>Define the pick time uncertainty classes from which the pick weight is computed. This parameter defines a list of uncertainty time intervals: the interval in which a pick time uncertainty falls defines the pick class e.g. a pick with uncertainty of 0.150 falls in the 4th interval and the pick class is then 4. if pick uncertainties are absent, the lowest class will be used. The pick weight then is computed as: 1 / 2^(class-1) </description>
+          </parameter>
           <group name="catalog">
-            <description>Define a catalog for this profile. This is used in real-time (single-event mode) as the reference catalog to relocate new origins. There are two ways to define a catalog file: one is providing a single eventFile containing origin ids; the second way consists in providing three csv files eventFile, phaFile and stationFile.</description>
+            <description>Define the reference catalog for single-event mode.</description>
             <parameter name="eventFile" type="path">
-              <description>Path to event file to be used for this profile. If this file contains just one column called "origin", then each line must be an existing origin id. In this case neither phase.csv nor station.csv files are required. Alternatively the event file must be in the format generated by --dump-catalog and phase.csv and station.csv files should be configured too</description>
+              <description>Path to event file to be used for this profile. If this file contains just one column called "origin", then each line must be an existing origin id and neither phase.csv nor station.csv files are required. Alternatively the extended format requires all of event.csv, phase.csv and station.csv files to be provided</description>
             </parameter>
             <parameter name="phaFile" type="path">
               <description>Path to catalog picks file to be used for this profile</description>
@@ -61,19 +79,9 @@
             <parameter name="stationFile" type="path">
               <description>Path to the stations file to be used for this profile</description>
             </parameter>
-            <parameter name="P-Phases" type="list:string" default="Pg,P">
-              <description>Defines a priority list of accepted P phases. Phases not in the list will be discarded. If multiple phases exist for the same event/station pair, the first one in the list will be used.</description>
-            </parameter>
-            <parameter name="S-Phases" type="list:string" default="Sg,S">
-              <description>Defines a priority list of accepted S phases. Phases not in this list will be discarded. If multiple phases exist for the same event/station pair, the first one in the list will be used.</description>
-            </parameter>
-            <parameter name="pickUncertaintyClasses" type="list:string" unit="s" default="0.000,0.025,0.050,0.100,0.200,0.400" >
-              <description>Define the pick time uncertainty classes from which the pick weight is computed. This parameter defines a list of uncertainty time intervals: the interval in which a pick time uncertainty falls defines the pick class e.g. a pick wich uncertainty of 0.150 falls in the 4th interval and the pick class is then 4. if pick uncertainties are absent, the lowest class will be used. The pick weight then is computed as: 1 / 2^(class-1) </description>
-            </parameter>
-
           </group>
           <group name="doubleDifferenceSystem">
-            <description>These options control the creation of the double-difference equation system, that is which events and phases are used in the system. Among the selected events all possible event pairs are considered and for each pair, when a phase exists for both paired events at a common station, an equation is added to the system.</description> 
+            <description>These options control the creation of the double-difference equation system, that is which events and phases are used to build the system</description> 
             <group name="eventFiltering">
               <description>Exclude poorly connected events from the DD system: not enough phases and/or neighbours</description>
               <parameter name="minNumPhases" type="int" default="4">
@@ -95,11 +103,11 @@
                 <description>Max distance (km) between event and station allowed for a phase to be used. Phases belonging to stations not satisfying this condition will not be used. A value of 0 or less disables this limit.</description>
               </parameter>
               <parameter name="minPhaseWeight" type="int">
-                <description>Minitum accepted phase weight, accordingly to 'pickUncertaintyClasses' parameter. If this value is set, phases with lower weight will not be used.</description>
+                <description>Minimum accepted phase weight, accordingly to 'pickUncertaintyClasses' parameter. If this value is set, phases with lower weight will not be used.</description>
               </parameter>
             </group>
             <group name="eventPairSelection">
-              <description>This option controls how neighbouring events are selected. In the simpliest form 'numEllipsoids' is set to 0 and the neighbours are selected on the nearest neighbour basis within a search distance of 'maxEllipsoidSize'. This is the preferred choice for multi-event mode. When 'numEllipsoids' is not 0, the ellipsoid selection algorithm is used. From Waldhauser 2009: "to assure a spatially homogeneous subsampling, reference events are selected within each of five concentric, vertically elongated ellipsoidal layers of increasing thickness. The dimension of the ellipsoid is based on the assumed error in the routine locations and the maximum interevent distance over which model errors can still be effectively minimized (see Waldhauser, 2001). The layers are twice as thick at the poles than they are at the equator to accommodate the generally larger error in the depth of the routine location of a new event. Each layer is split up into its eight quadrants (or cells), and the neighboring events are selected from each of the 40 cells." Neighbours are selected for each ellipsoid/quadrant combination in a round robin fashion until 'maxNumNeigh' is reached.</description>
+              <description>Control how neighbouring events are selected. In the simpliest form 'numEllipsoids' is set to 0 and the neighbours are selected on the nearest neighbour basis within a search distance of 'maxEllipsoidSize'. When 'numEllipsoids' is not 0, the ellipsoid selection algorithm is used. From Waldhauser 2009: "to assure a spatially homogeneous subsampling, reference events are selected within each of five concentric, vertically elongated ellipsoidal layers of increasing thickness. The dimension of the ellipsoid is based on the assumed error in the routine locations and the maximum interevent distance over which model errors can still be effectively minimized (see Waldhauser, 2001). The layers are twice as thick at the poles than they are at the equator to accommodate the generally larger error in the depth of the routine location of a new event. Each layer is split up into its eight quadrants (or cells), and the neighboring events are selected from each of the 40 cells.". Thus the neighbours are selected for each ellipsoid/quadrant combination in a round robin fashion until 'maxNumNeigh' is reached.</description>
               <group name="singleEvent">
                 <description>Configuration for single-event relocation</description>
                 <parameter name="maxNumNeighbours" type="int" default="80">
@@ -199,47 +207,17 @@
               <description>Solver algorithm to use: either LSMR or LSQR</description>
             </parameter>
             <parameter name="algoIterations" type="int" default="20">
-              <description>This parameter control how many iterations the solver performs</description>
+              <description>This parameter control how many iterations the solver performs.</description>
             </parameter>
-            <parameter name="usePickUncertainties" type="boolean" default="false">
-              <description>Whether to use pick time uncertainties to scale their weight. If true, then the uncertainties are retrieved from each individual picks and a weight associated accordingly to 'pickUncertaintyClasses' parameter. Each double-difference equation weight will be the average of its pick weights.</description>
+            <parameter name="downWeightingByResidual" type="list:double" default="10,3" >
+              <description>At each iteration the solver down-weighs the double-difference equations accordingly to their residuals. The value of this option indicates the standard deviation of the residuals beyond which an equation weight becomes 0 (dropped). A value of 0 disables downweighting. One or two values can be given; when two values are given the first value is used in the first iteration, the second value in the last iteration and the iterations in between use interpolated values.</description>
             </parameter>
-            <group name="downWeightingByResidual">
-              <description>At each iteration the solver down-weighs the system equations accordingly to their residuals of the previous iteration, which scales differential time accordingly to their quality. This option value expresses the standard deviations of the double-difference residuals beyond which the observations are dropped. For residuals below this value, the weighing scheme follows the Waldhauser/Ellsworth paper. A value of 0 disables downweighting.</description>
-              <parameter name="startingValue" type="double" default="10">
-                <description>Value for the first iteration of the solver.</description>
-              </parameter>
-              <parameter name="finalValue" type="double" default="3">
-                <description>Value for the last iteration of the solver.</description>
-              </parameter>
-            </group>
-            <group name="dampingFactor">
-              <description>Setting a value different than 0 enables the solver to use a damped (regularized) least squares system. A too high value prevents the solver from changing the events locations, while a too low value allows the event cluster(s) to shift away from their initial absolute location, which might result in a larger events RMS.</description>
-              <parameter name="startingValue" type="double" default="0.01">
-                <description>Value for the first iteration of the solver.</description>
-              </parameter>
-              <parameter name="finalValue" type="double" default="0.01">
-                <description>Value for the last iteration of the solver.</description>
-              </parameter>
-            </group>
-            <group name="absoluteLocationConstraint">
-              <description>When a value greater than 0 is used, the double-difference system is modified to solve for both absolute and relative locations. Additional equations are added, which constrain the absolute travel time residuals. Here you can set the weight to be given to these equations. When using this feature the dampingFactor should be decreased. A good starting point for testing the optimal values, is absoluteLocationConstraint=0.3 and dampingFactor=0.01</description>
-              <parameter name="startingValue" type="double" default="0.3">
-                <description>Value for the first iteration of the solver.</description>
-              </parameter>
-              <parameter name="finalValue" type="double" default="0.3">
-                <description>Value for the last iteration of the solver.</description>
-              </parameter>
-            </group>
-            <group name="travelTimeTable">
-              <description>Travel time table used by the solver. 'tableType' specifies the format and it can be any format available in SeisComP (e.g. 'LOCSAT', 'libtau') or 'ConstVel' or 'NonLinLoc'. 'ConstVel' is a simple constant velocity model while 'NonLinLoc' allows to use NonLinLoc grid files. When 'ConstVel' is selected, then 'tableModel' specifies P;S velocity in Km/s e.g. "5.8;3.6" for P=5.8[Km/s] and S=3.6[Km/s]. When 'NonLinLoc' is selected, then 'tableModel' is the path to velocity, time and angle grid files. The path format is "path_to_velocity_grids;path_to_time_grids;path_to_angle_grids;" E.g. "/path/name.PHASE.mod;/path/name.PHASE.STATION.time;/path/name.PHASE.STATION.angle". PHASE and STATION are placeholders and they will be replaced with actual values when looking for the grid file of a specific phase and station. Valid placeholders are NETWORK,STATION,LOCATION,PHASE </description>
-              <parameter name="tableType" type="string" default="libtau">
-                <description>Travel time table format type (e.g. LOCSAT, libtau, ConstVel, NonLinLoc).</description>
-              </parameter>
-              <parameter name="tableModel" type="string" default="iasp91">
-                <description>The model to be used. The format depends on tableType.</description>
-              </parameter>
-            </group>
+            <parameter name="dampingFactor" type="list:double" default="0.01" >
+              <description>Setting a value different than 0 enables the solver to use a damped (regularized) least squares system. A too high value prevents the solver from changing the events locations, while a too low value allows the event cluster(s) to shift away from their absolute location (unless `absoluteLocationConstraint` is used). One or two values can be given; when two values are given the first value is used in the first iteration, the second value in the last iteration and the iterations in between use interpolated values.</description>
+            </parameter>
+            <parameter name="absoluteLocationConstraint" type="list:double" default="0.3" >
+              <description>When a value greater than 0 is used, the double-difference system is modified to solve for both absolute and relative locations. Additional equations are added, which constrain the absolute travel time residuals. This option selects the weight to be given to these equations. One or two values can be given; when two values are given the first value is used in the first iteration, the second value in the last iteration and the iterations in between use interpolated values.</description>
+            </parameter>
           </group>
         </struct>
       </group>
