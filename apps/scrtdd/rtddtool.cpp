@@ -451,14 +451,6 @@ bool RTDD::validateParameters()
     prof->name      = profileName;
     string prefix   = string("profile.") + prof->name + ".";
 
-    try
-    {
-      prof->methodID = configGetString(prefix + "methodID");
-    }
-    catch (...)
-    {
-      prof->methodID = "RTDD";
-    }
     string regionType;
     try
     {
@@ -487,27 +479,31 @@ bool RTDD::validateParameters()
       continue;
     }
 
-    prefix = string("profile.") + prof->name + ".catalog.";
-
-    // For the catalog we can have either a single file (origin ids) or three
-    // files ( event, station, phase ). They can also be left empty
     try
     {
-      prof->stationFile =
-          env->absolutePath(configGetPath(prefix + "stationFile"));
-      prof->phaFile   = env->absolutePath(configGetPath(prefix + "phaFile"));
-      prof->eventFile = env->absolutePath(configGetPath(prefix + "eventFile"));
+      prof->methodID = configGetString(prefix + "methodID");
     }
     catch (...)
     {
-      try
-      {
-        prof->eventIDFile =
-            env->absolutePath(configGetPath(prefix + "eventFile"));
-        profileRequireDB = true;
-      }
-      catch (...)
-      {}
+      prof->methodID = "RTDD";
+    }
+
+    try
+    {
+      prof->tttType = configGetString(prefix + "tableType");
+    }
+    catch (...)
+    {
+      prof->tttType = "LOCSAT";
+    }
+
+    try
+    {
+      prof->tttModel = configGetString(prefix + "tableModel");
+    }
+    catch (...)
+    {
+      prof->tttModel = "iasp91";
     }
 
     try
@@ -518,6 +514,7 @@ bool RTDD::validateParameters()
     {
       prof->ddCfg.validPphases = {"Pg", "P"};
     }
+
     try
     {
       prof->ddCfg.validSphases = configGetStrings(prefix + "S-Phases");
@@ -526,6 +523,17 @@ bool RTDD::validateParameters()
     {
       prof->ddCfg.validSphases = {"Sg", "S"};
     }
+
+    try
+    {
+      prof->solverCfg.usePickUncertainties =
+          configGetBool(prefix + "usePickUncertainties");
+    }
+    catch (...)
+    {
+      prof->solverCfg.usePickUncertainties = false;
+    }
+
     try
     {
       vector<string> tokens =
@@ -550,6 +558,29 @@ bool RTDD::validateParameters()
                                             0.100, 0.200, 0.400};
     }
 
+    prefix = string("profile.") + prof->name + ".catalog.";
+
+    // For the catalog we can have either a single file (origin ids) or three
+    // files ( event, station, phase ). They can also be left empty
+    try
+    {
+      prof->stationFile =
+          env->absolutePath(configGetPath(prefix + "stationFile"));
+      prof->phaFile   = env->absolutePath(configGetPath(prefix + "phaFile"));
+      prof->eventFile = env->absolutePath(configGetPath(prefix + "eventFile"));
+    }
+    catch (...)
+    {
+      try
+      {
+        prof->eventIDFile =
+            env->absolutePath(configGetPath(prefix + "eventFile"));
+        profileRequireDB = true;
+      }
+      catch (...)
+      {}
+    }
+
     prefix = string("profile.") + prof->name +
              ".doubleDifferenceSystem.eventFiltering.";
     try
@@ -564,6 +595,7 @@ bool RTDD::validateParameters()
       prof->singleEventClustering.minDTperEvt = 4;
       prof->multiEventClustering.minDTperEvt  = 4;
     }
+
     try
     {
       prof->singleEventClustering.minNumNeigh =
@@ -654,6 +686,7 @@ bool RTDD::validateParameters()
     {
       prof->singleEventClustering.numEllipsoids = 5;
     }
+
     try
     {
       prof->singleEventClustering.maxEllipsoidSize =
@@ -685,6 +718,7 @@ bool RTDD::validateParameters()
     {
       prof->multiEventClustering.numEllipsoids = 0;
     }
+
     try
     {
       prof->multiEventClustering.maxEllipsoidSize =
@@ -694,6 +728,7 @@ bool RTDD::validateParameters()
     {
       prof->multiEventClustering.maxEllipsoidSize = 5;
     }
+
     prefix = string("profile.") + prof->name + ".crossCorrelation.";
     try
     {
@@ -707,6 +742,7 @@ bool RTDD::validateParameters()
       prof->singleEventClustering.xcorrMaxEvStaDist = 0;
       prof->multiEventClustering.xcorrMaxEvStaDist  = 0;
     }
+
     try
     {
       prof->singleEventClustering.xcorrMaxInterEvDist =
@@ -747,6 +783,7 @@ bool RTDD::validateParameters()
     {
       prof->detectMissingPhasesAuto = true;
     }
+
     try
     {
       prof->detectMissingPhasesManual =
@@ -767,6 +804,7 @@ bool RTDD::validateParameters()
     {
       prof->ddCfg.xcorr[PhaseType::P].startOffset = -0.50;
     }
+
     try
     {
       prof->ddCfg.xcorr[PhaseType::P].endOffset =
@@ -776,6 +814,7 @@ bool RTDD::validateParameters()
     {
       prof->ddCfg.xcorr[PhaseType::P].endOffset = 0.50;
     }
+
     try
     {
       prof->ddCfg.xcorr[PhaseType::P].maxDelay =
@@ -785,6 +824,7 @@ bool RTDD::validateParameters()
     {
       prof->ddCfg.xcorr[PhaseType::P].maxDelay = 0.50;
     }
+
     try
     {
       prof->ddCfg.xcorr[PhaseType::P].minCoef =
@@ -814,6 +854,7 @@ bool RTDD::validateParameters()
     {
       prof->ddCfg.xcorr[PhaseType::S].startOffset = -0.50;
     }
+
     try
     {
       prof->ddCfg.xcorr[PhaseType::S].endOffset =
@@ -823,6 +864,7 @@ bool RTDD::validateParameters()
     {
       prof->ddCfg.xcorr[PhaseType::S].endOffset = 0.75;
     }
+
     try
     {
       prof->ddCfg.xcorr[PhaseType::S].maxDelay =
@@ -832,6 +874,7 @@ bool RTDD::validateParameters()
     {
       prof->ddCfg.xcorr[PhaseType::S].maxDelay = 0.50;
     }
+
     try
     {
       prof->ddCfg.xcorr[PhaseType::S].minCoef =
@@ -841,6 +884,7 @@ bool RTDD::validateParameters()
     {
       prof->ddCfg.xcorr[PhaseType::S].minCoef = 0.70;
     }
+
     try
     {
       prof->ddCfg.xcorr[PhaseType::S].components =
@@ -861,6 +905,7 @@ bool RTDD::validateParameters()
     {
       prof->ddCfg.wfFilter.filterStr = "ITAPER(1)>>BW_HLP(2,1,20)";
     }
+
     try
     {
       prof->ddCfg.wfFilter.extraTraceLen = configGetDouble(prefix + "margin");
@@ -869,6 +914,7 @@ bool RTDD::validateParameters()
     {
       prof->ddCfg.wfFilter.extraTraceLen = 1.0;
     }
+
     try
     {
       prof->ddCfg.wfFilter.resampleFreq =
@@ -880,22 +926,6 @@ bool RTDD::validateParameters()
     }
 
     prefix = string("profile.") + prof->name + ".solver.";
-    try
-    {
-      prof->tttType = configGetString(prefix + "travelTimeTable.tableType");
-    }
-    catch (...)
-    {
-      prof->tttType = "libtau";
-    }
-    try
-    {
-      prof->tttModel = configGetString(prefix + "travelTimeTable.tableModel");
-    }
-    catch (...)
-    {
-      prof->tttModel = "iasp91";
-    }
 
     try
     {
@@ -905,6 +935,7 @@ bool RTDD::validateParameters()
     {
       prof->solverCfg.type = "LSMR";
     }
+
     try
     {
       prof->solverCfg.algoIterations = configGetInt(prefix + "algoIterations");
@@ -913,71 +944,90 @@ bool RTDD::validateParameters()
     {
       prof->solverCfg.algoIterations = 20;
     }
-    try
-    {
-      prof->solverCfg.usePickUncertainties =
-          configGetBool(prefix + "aPrioriWeights.usePickUncertainties");
-    }
-    catch (...)
-    {
-      prof->solverCfg.usePickUncertainties = false;
-    }
 
     try
-    {
-      prof->solverCfg.absLocConstraintStart =
-          configGetDouble(prefix + "absoluteLocationConstraint.startingValue");
-    }
-    catch (...)
-    {
-      prof->solverCfg.absLocConstraintStart = 0.3;
-    }
-    try
-    {
-      prof->solverCfg.absLocConstraintEnd =
-          configGetDouble(prefix + "absoluteLocationConstraint.finalValue");
-    }
-    catch (...)
-    {
-      prof->solverCfg.absLocConstraintEnd = 0.3;
-    }
-    try
-    {
-      prof->solverCfg.dampingFactorStart =
-          configGetDouble(prefix + "dampingFactor.startingValue");
-    }
-    catch (...)
-    {
-      prof->solverCfg.dampingFactorStart = 0.01;
-    }
-    try
-    {
-      prof->solverCfg.dampingFactorEnd =
-          configGetDouble(prefix + "dampingFactor.finalValue");
-    }
-    catch (...)
-    {
-      prof->solverCfg.dampingFactorEnd = 0.01;
-    }
-
-    try
-    {
-      prof->solverCfg.downWeightingByResidualStart =
-          configGetDouble(prefix + "downWeightingByResidual.startingValue");
-    }
-    catch (...)
     {
       prof->solverCfg.downWeightingByResidualStart = 10.;
+      prof->solverCfg.downWeightingByResidualEnd = 3.;
+
+      vector<double> values = 
+          configGetDoubles(prefix + "downWeightingByResidual");
+
+      if ( values.size() == 1 )
+      {
+        prof->solverCfg.downWeightingByResidualStart = values[0];
+        prof->solverCfg.downWeightingByResidualEnd = values[0];
+      }
+      else if ( values.size() == 2 )
+      {
+        prof->solverCfg.downWeightingByResidualStart = values[0];
+        prof->solverCfg.downWeightingByResidualEnd = values[1];
+      }
+      else
+      {
+          SEISCOMP_ERROR("Profile %s: downWeightingByResidual is invalid",
+                         prof->name.c_str());
+          profilesOK = false;
+          break;
+      }
     }
+    catch (...) { }
+
     try
     {
-      prof->solverCfg.downWeightingByResidualEnd =
-          configGetDouble(prefix + "downWeightingByResidual.finalValue");
+      prof->solverCfg.dampingFactorStart = 0.01;
+      prof->solverCfg.dampingFactorEnd = 0.01;
+
+      vector<double> values = 
+          configGetDoubles(prefix + "dampingFactor");
+
+      if ( values.size() == 1 )
+      {
+        prof->solverCfg.dampingFactorStart = values[0];
+        prof->solverCfg.dampingFactorEnd = values[0];
+      }
+      else if ( values.size() == 2 )
+      {
+        prof->solverCfg.dampingFactorStart = values[0];
+        prof->solverCfg.dampingFactorEnd = values[1];
+      }
+      else
+      {
+          SEISCOMP_ERROR("Profile %s: dampingFactor is invalid",
+                         prof->name.c_str());
+          profilesOK = false;
+          break;
+      }
     }
-    catch (...)
+    catch (...) { }
+
+    try
     {
-      prof->solverCfg.downWeightingByResidualEnd = 3.;
+      prof->solverCfg.absLocConstraintStart = 0.3;
+      prof->solverCfg.absLocConstraintEnd = 0.3;
+
+      vector<double> values = 
+          configGetDoubles(prefix + "absoluteLocationConstraint");
+
+      if ( values.size() == 1 )
+      {
+        prof->solverCfg.absLocConstraintStart = values[0];
+        prof->solverCfg.absLocConstraintEnd = values[0];
+      }
+      else if ( values.size() == 2 )
+      {
+        prof->solverCfg.absLocConstraintStart = values[0];
+        prof->solverCfg.absLocConstraintEnd = values[1];
+      }
+      else
+      {
+          SEISCOMP_ERROR("Profile %s: absoluteLocationConstraint is invalid",
+                         prof->name.c_str());
+          profilesOK = false;
+          break;
+      }
     }
+    catch (...) { }
 
     prof->ddCfg.diskTraceMinLen =
         configGetDouble("performance.cachedWaveformLength");
