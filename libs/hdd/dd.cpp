@@ -171,9 +171,8 @@ void DD::createWaveformCache()
   {
     _wfAccess.diskCache.reset(
         new Waveform::DiskCachedLoader(_wf, currLdr, _cacheDir));
-    currLdr.reset(
-        new Waveform::ExtraLenLoader(_wfAccess.diskCache,
-                                     _cfg.diskTraceMinLen));
+    currLdr.reset(new Waveform::ExtraLenLoader(_wfAccess.diskCache,
+                                               _cfg.diskTraceMinLen));
   }
 
   shared_ptr<Waveform::Processor> currProc(
@@ -471,7 +470,7 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
           clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
           clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, true);
 
-  // Organize the neighbours by not connected clusters
+  // Organize the neighbours by non-connected clusters
   list<unordered_map<unsigned, unique_ptr<Neighbours>>> clusters =
       clusterizeNeighbouringEvents(neighboursByEvent);
 
@@ -512,12 +511,10 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
           joinPath(catalogWorkingDir, (prefix + "-station.csv")));
     }
 
-    // Perform cross-correlation which also detects picks around theoretical
-    // arrival times. The catalog will be updated with the corresponding
-    // theoretical phases.
-    const XCorrCache xcorr = buildXCorrCache(
-        catToReloc, neighCluster, false, clustOpt.xcorrMaxEvStaDist,
-        clustOpt.xcorrMaxInterEvDist, precomputed);
+    // Perform cross-correlation
+    const XCorrCache xcorr =
+        buildXCorrCache(catToReloc, neighCluster, clustOpt.xcorrMaxEvStaDist,
+                        clustOpt.xcorrMaxInterEvDist, precomputed);
 
     // the actual relocation
     unique_ptr<Catalog> relocatedCluster =
@@ -554,7 +551,6 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
 
 unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
                                             bool isManual,
-                                            bool xcorrDetectMissingPhases,
                                             const ClusteringOptions &clustOpt1,
                                             const ClusteringOptions &clustOpt2,
                                             const SolverOptions &solverOpt)
@@ -612,9 +608,8 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
                 : Phase::Source::RT_EVENT_AUTOMATIC),
       _cfg.validPphases, _cfg.validSphases, _cfg.pickUncertaintyClasses);
 
-  unique_ptr<Catalog> relocatedEvCat =
-      relocateEventSingleStep(bgCat, evToRelocateCat, eventWorkingDir,
-                              clustOpt1, solverOpt, false, false);
+  unique_ptr<Catalog> relocatedEvCat = relocateEventSingleStep(
+      bgCat, evToRelocateCat, eventWorkingDir, clustOpt1, solverOpt, false);
 
   if (relocatedEvCat)
   {
@@ -638,8 +633,7 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   eventWorkingDir = joinPath(baseWorkingDir, "step2");
 
   unique_ptr<Catalog> relocatedEvWithXcorr = relocateEventSingleStep(
-      bgCat, evToRelocateCat, eventWorkingDir, clustOpt2, solverOpt, true,
-      xcorrDetectMissingPhases);
+      bgCat, evToRelocateCat, eventWorkingDir, clustOpt2, solverOpt, true);
 
   if (relocatedEvWithXcorr)
   {
@@ -681,8 +675,7 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
                             const string &workingDir,
                             const ClusteringOptions &clustOpt,
                             const SolverOptions &solverOpt,
-                            bool doXcorr,
-                            bool xcorrDetectMissingPhases)
+                            bool doXcorr)
 {
   if (_saveProcessing)
   {
@@ -741,12 +734,10 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
     XCorrCache xcorr;
     if (doXcorr)
     {
-      // Perform cross-correlation, which also detects picks around
-      // theoretical arrival times. The catalog will be updated with the
-      // corresponding phases.
-      xcorr = buildXCorrCache(*catalog, neighCluster, xcorrDetectMissingPhases,
-                              clustOpt.xcorrMaxEvStaDist,
-                              clustOpt.xcorrMaxInterEvDist);
+      // Perform cross-correlation
+      xcorr =
+          buildXCorrCache(*catalog, neighCluster, clustOpt.xcorrMaxEvStaDist,
+                          clustOpt.xcorrMaxInterEvDist);
     }
 
     // the actual relocation
@@ -1312,210 +1303,9 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
   return catalogToReturn;
 }
 
-void DD::addMissingEventPhases(const Event &refEv,
-                               Catalog &refEvCatalog,
-                               const Catalog &searchCatalog,
-                               const Neighbours &neighbours)
-{
-  vector<Phase> newPhases =
-      findMissingEventPhases(refEv, refEvCatalog, searchCatalog, neighbours);
-
-  for (Phase &ph : newPhases)
-  {
-    refEvCatalog.updatePhase(ph, true);
-    const Station &station = searchCatalog.getStations().at(ph.stationId);
-    refEvCatalog.addStation(station);
-  }
-}
-
-vector<Phase> DD::findMissingEventPhases(const Event &refEv,
-                                         Catalog &refEvCatalog,
-                                         const Catalog &searchCatalog,
-                                         const Neighbours &neighbours)
-{
-  //
-  // find stations for which the `refEv` doesn't have phases
-  //
-  vector<MissingStationPhase> missingPhases =
-      getMissingPhases(refEv, refEvCatalog, searchCatalog);
-
-  //
-  // for each missed phase try to detect it
-  //
-  vector<Phase> newPhases;
-  for (const MissingStationPhase &pair : missingPhases)
-  {
-    const Station &station      = searchCatalog.getStations().at(pair.first);
-    const Phase::Type phaseType = pair.second;
-
-    //
-    // Loop through every other event and select the ones who have a manually
-    // picked phase for the missing station.
-    //
-    vector<DD::PhasePeer> peers =
-        findPhasePeers(station, phaseType, searchCatalog, neighbours);
-    if (peers.size() <= 0)
-    {
-      continue;
-    }
-
-    // compute velocity using existing background catalog phases
-    double phaseVelocity = 0;
-    for (const PhasePeer &peer : peers)
-    {
-      const Event &event     = peer.first;
-      const Phase &phase     = peer.second;
-      double travelTime      = durToSec(phase.time - event.time);
-      double stationDistance = computeDistance(event, station);
-      double vel             = stationDistance / travelTime;
-      phaseVelocity += vel;
-    }
-    phaseVelocity /= peers.size();
-
-    Phase refEvNewPhase =
-        createThoreticalPhase(station, phaseType, refEv, peers, phaseVelocity);
-
-    newPhases.push_back(refEvNewPhase);
-  }
-
-  return newPhases;
-}
-
-vector<DD::MissingStationPhase>
-DD::getMissingPhases(const Event &refEv,
-                     Catalog &refEvCatalog,
-                     const Catalog &searchCatalog) const
-{
-  const auto &refEvPhases = refEvCatalog.getPhases().equal_range(refEv.id);
-
-  //
-  // Loop through stations and find those for which the `refEv` doesn't have
-  // phases.
-  //
-  vector<MissingStationPhase> missingPhases;
-  for (const auto &kv : searchCatalog.getStations())
-  {
-    const Station &station = kv.second;
-
-    bool foundP = false, foundS = false;
-    for (auto it = refEvPhases.first; it != refEvPhases.second; ++it)
-    {
-      const Phase &phase = it->second;
-      if (station.networkCode == phase.networkCode &&
-          station.stationCode == phase.stationCode &&
-          station.locationCode == phase.locationCode)
-      {
-        if (phase.procInfo.type == Phase::Type::P) foundP = true;
-        if (phase.procInfo.type == Phase::Type::S) foundS = true;
-      }
-      if (foundP and foundS) break;
-    }
-    if (!foundP || !foundS)
-    {
-      if (!foundP)
-        missingPhases.push_back(
-            MissingStationPhase(station.id, Phase::Type::P));
-      if (!foundS)
-        missingPhases.push_back(
-            MissingStationPhase(station.id, Phase::Type::S));
-    }
-  }
-
-  return missingPhases;
-}
-
-vector<DD::PhasePeer> DD::findPhasePeers(const Station &station,
-                                         const Phase::Type &phaseType,
-                                         const Catalog &searchCatalog,
-                                         const Neighbours &neighbours) const
-{
-  //
-  // Loop through every other event and select those manual phases of the
-  // `station` we are interested in.
-  //
-  vector<PhasePeer> phasePeers;
-
-  for (unsigned neighEvId : neighbours.ids)
-  {
-    const Event &event = searchCatalog.getEvents().at(neighEvId);
-
-    if (neighbours.has(neighEvId, station.id, phaseType))
-    {
-      const Phase &phase =
-          searchCatalog.searchPhase(neighEvId, station.id, phaseType)->second;
-
-      if (station.networkCode == phase.networkCode &&
-          station.stationCode == phase.stationCode &&
-          station.locationCode == phase.locationCode &&
-          phaseType == phase.procInfo.type)
-      {
-        if (phase.trusted())
-        {
-          phasePeers.push_back(PhasePeer(event, phase));
-        }
-        break;
-      }
-    }
-  }
-
-  return phasePeers;
-}
-
-Phase DD::createThoreticalPhase(const Station &station,
-                                const Phase::Type &phaseType,
-                                const Event &refEv,
-                                const vector<DD::PhasePeer> &peers,
-                                double phaseVelocity)
-{
-  const auto xcorrCfg = _cfg.xcorr.at(phaseType);
-
-  // store most recent `channelCode` used
-  struct
-  {
-    string channelCode;
-    UTCTime time;
-  } streamInfo = {"", UTCTime()};
-
-  for (const PhasePeer &peer : peers)
-  {
-    // const Event& event = peer.first;
-    const Phase &phase = peer.second;
-    // get the closest stream to the `refEv` (w.r.t. time)
-    if (std::abs((refEv.time - phase.time).count()) <
-        std::abs((refEv.time - streamInfo.time).count()))
-      streamInfo = {phase.channelCode, phase.time};
-  }
-
-  // initialize the new phase
-  Phase refEvNewPhase;
-
-  refEvNewPhase.eventId      = refEv.id;
-  refEvNewPhase.stationId    = station.id;
-  refEvNewPhase.networkCode  = station.networkCode;
-  refEvNewPhase.stationCode  = station.stationCode;
-  refEvNewPhase.locationCode = station.locationCode;
-  refEvNewPhase.channelCode =
-      getBandAndInstrumentCodes(streamInfo.channelCode) + "X";
-  refEvNewPhase.procInfo.type = phaseType;
-
-  // use phase velocity to compute phase time
-  double stationDistance = computeDistance(refEv, station);
-  refEvNewPhase.time = refEv.time + secToDur(stationDistance / phaseVelocity);
-
-  refEvNewPhase.lowerUncertainty = Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
-  refEvNewPhase.upperUncertainty = Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
-  refEvNewPhase.procInfo.classWeight =
-      Catalog::computePickWeight(refEvNewPhase, _cfg.pickUncertaintyClasses);
-  refEvNewPhase.procInfo.source = Phase::Source::THEORETICAL;
-  refEvNewPhase.type            = strf("%ct", static_cast<char>(phaseType));
-
-  return refEvNewPhase;
-}
-
 XCorrCache DD::buildXCorrCache(
     Catalog &catalog,
     const unordered_map<unsigned, unique_ptr<Neighbours>> &neighCluster,
-    bool computeTheoreticalPhases,
     double xcorrMaxEvStaDist,
     double xcorrMaxInterEvDist,
     const XCorrCache &precomputed)
@@ -1530,20 +1320,8 @@ XCorrCache DD::buildXCorrCache(
     const unique_ptr<Neighbours> &neighbours = kv.second;
     const Event &refEv = catalog.getEvents().at(neighbours->refEvId);
 
-    // Compute theoretical phases for stations that have no picks. The
-    // cross-correlation will be used to detect and fix the pick time.
-    if (computeTheoreticalPhases)
-    {
-      addMissingEventPhases(refEv, catalog, catalog, *neighbours);
-    }
-
     buildXcorrDiffTTimePairs(catalog, *neighbours, refEv, xcorrMaxEvStaDist,
                              xcorrMaxInterEvDist, xcorr);
-
-    // Update theoretical and automatic phase pick time and uncertainties
-    // based on cross-correlation results. Also, drop theoretical phases
-    // wihout any good cross-correlation result.
-    fixPhases(catalog, refEv, xcorr);
 
     const unsigned onePerThousand =
         neighCluster.size() < 1000 ? 1 : (neighCluster.size() / 1000);
@@ -1604,7 +1382,10 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
     // skip stations too far away
     //
     double stationDistance = computeDistance(refEv, station);
-    if (stationDistance > xcorrMaxEvStaDist && xcorrMaxEvStaDist >= 0) continue;
+    if (stationDistance > xcorrMaxEvStaDist && xcorrMaxEvStaDist >= 0)
+    {
+      continue;
+    }
 
     //
     // select appropriate waveform loader for refPhase
@@ -1631,7 +1412,9 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
       //
       double interEventDistance = computeDistance(refEv, event);
       if (interEventDistance > xcorrMaxInterEvDist && xcorrMaxInterEvDist >= 0)
+      {
         continue;
+      }
 
       if (neighbours.has(neighEvId, refPhase.stationId, refPhase.procInfo.type))
       {
@@ -1643,9 +1426,11 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
         // In single-event mode `refPhase` is real-time and `phase` is from
         // the catalog. In multi-event mode both are from the catalog.
         if (phase.procInfo.source != Phase::Source::CATALOG)
+        {
           throw Exception("Internal logic error: phase is not from catalog");
+        }
 
-        // skipp cross-correlation if we already have the result in cache
+        // skip cross-correlation if we already have the result in cache
         if (!xcorr.has(refEv.id, event.id, refPhase.stationId,
                        refPhase.procInfo.type))
         {
@@ -1704,14 +1489,20 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
     const auto components  = xcorrComponents(refPhase);
 
     // We deal only with real-time event data
-    if (refPhase.procInfo.source == Phase::Source::CATALOG) continue;
+    if (refPhase.procInfo.source == Phase::Source::CATALOG)
+    {
+      continue;
+    }
     onlyCatalogPhases = false;
 
     //
     // skip stations too far away
     //
     double stationDistance = computeDistance(refEv, station);
-    if (stationDistance > xcorrMaxEvStaDist && xcorrMaxEvStaDist >= 0) continue;
+    if (stationDistance > xcorrMaxEvStaDist && xcorrMaxEvStaDist >= 0)
+    {
+      continue;
+    }
 
     //
     // loop through neighbouring events and cross-correlate with `refPhase`
@@ -1762,150 +1553,6 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
            wfcount.disk_cached);
 
   return shared_ptr<Waveform::Processor>(new Waveform::MemCachedProc(proc));
-}
-
-/*
- * Update theoretical and automatic phase pick times and uncertainties based
- * on cross-correlation results. Drop theoretical phases not passing the
- * cross-correlation verification.
- */
-void DD::fixPhases(Catalog &catalog,
-                   const Event &refEv,
-                   XCorrCache &xcorr) const
-{
-  unsigned totP = 0, totS = 0;
-  unsigned newP = 0, newS = 0;
-
-  vector<Phase> phasesToBeRemoved;
-  vector<Phase> newPhases;
-
-  // loop through catalog phases
-  auto eqlrng = catalog.getPhases().equal_range(refEv.id);
-  for (auto it = eqlrng.first; it != eqlrng.second; it++)
-  {
-    const Phase &phase  = it->second;
-    const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
-
-    if (phase.procInfo.type == Phase::Type::P) totP++;
-    if (phase.procInfo.type == Phase::Type::S) totS++;
-
-    // nothing to do if the phase is manual or from catalog
-    if (phase.trusted())
-    {
-      continue;
-    }
-
-    //
-    // Load all good xcorr result for this automatic phase
-    //
-    map<double, std::pair<std::reference_wrapper<const Phase>,
-                          std::reference_wrapper<const XCorrCache::Entry>>>
-        goodXcorr; // this is sorted
-    if (xcorr.has(refEv.id, phase.stationId, phase.procInfo.type))
-    {
-      for (const auto &kv :
-           xcorr.get(refEv.id, phase.stationId, phase.procInfo.type))
-      {
-        unsigned neighbourId       = kv.first;
-        const XCorrCache::Entry &e = kv.second;
-        if (e.valid && e.coeff >= xcorrCfg.minCoef)
-        {
-          const Phase &neighbourPhase =
-              _bgCat
-                  .searchPhase(neighbourId, phase.stationId,
-                               phase.procInfo.type)
-                  ->second;
-
-          goodXcorr.insert({e.lag, {neighbourPhase, e}});
-        }
-      }
-    }
-
-    //
-    // Nothing to do if we dont't have at least 3 good xcorr results
-    // (3 is kind of arbitrary, I know)
-    //
-    if (goodXcorr.size() < 3)
-    {
-      // remove thoretical phases without enough good cross-correlations
-      if (phase.procInfo.source == Phase::Source::THEORETICAL)
-        phasesToBeRemoved.push_back(phase);
-      continue;
-    }
-
-    //
-    // Use median-1, median, median+1 values to update phase time and
-    // uncertainty
-    //
-    double mean_lag  = 0;
-    double min_lag   = 0;
-    double max_lag   = 0;
-    double totWeight = 0;
-    string component;
-
-    size_t median = goodXcorr.size() / 2;
-    auto kv       = goodXcorr.begin();
-    std::advance(kv, median - 1);
-    for (int i = 0; i < 3; i++, kv++)
-    {
-      const Phase &neighbourPhase = kv->second.first;
-      const XCorrCache::Entry &e  = kv->second.second;
-      double weight = e.coeff * neighbourPhase.procInfo.classWeight;
-      mean_lag += e.lag * weight;
-      min_lag += (e.lag - neighbourPhase.lowerUncertainty) * weight;
-      max_lag += (e.lag + neighbourPhase.upperUncertainty) * weight;
-      totWeight += weight;
-      component = e.component; // this is a little ugly
-    }
-    mean_lag /= totWeight;
-    min_lag /= totWeight;
-    max_lag /= totWeight;
-
-    //
-    // set new phase time and uncertainty
-    //
-    Phase newPhase(phase);
-    newPhase.time -= secToDur(mean_lag);
-    newPhase.lowerUncertainty = mean_lag - min_lag;
-    newPhase.upperUncertainty = max_lag - mean_lag;
-    newPhase.procInfo.classWeight =
-        Catalog::computePickWeight(newPhase, _cfg.pickUncertaintyClasses);
-    newPhase.procInfo.source = Phase::Source::XCORR;
-    newPhase.type = strf("%cx", static_cast<char>(newPhase.procInfo.type));
-
-    if (phase.procInfo.source == Phase::Source::THEORETICAL)
-    {
-      newPhase.channelCode =
-          getBandAndInstrumentCodes(newPhase.channelCode) + component;
-
-      if (newPhase.procInfo.type == Phase::Type::P) newP++;
-      if (newPhase.procInfo.type == Phase::Type::S) newS++;
-    }
-
-    newPhases.push_back(newPhase);
-  }
-
-  //
-  // replace automatic/theoretical phases with those detected by means of
-  // cross-correlation
-  //
-  for (const Phase &ph : phasesToBeRemoved)
-  {
-    if (ph.procInfo.type == Phase::Type::P) totP--;
-    if (ph.procInfo.type == Phase::Type::S) totS--;
-    catalog.removePhase(ph.eventId, ph.stationId, ph.procInfo.type);
-    xcorr.remove(ph.eventId, ph.stationId, ph.procInfo.type);
-  }
-
-  for (Phase &ph : newPhases)
-  {
-    catalog.updatePhase(ph, true);
-  }
-
-  logDebugF("Event %s total phases %u (%u P and %u S): created %u (%u P "
-            "and %u S) from theoretical picks",
-            string(refEv).c_str(), (totP + totS), totP, totS, (newP + newS),
-            newP, newS);
 }
 
 TimeWindow DD::xcorrTimeWindowLong(const Phase &phase) const
@@ -2301,8 +1948,7 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
                    const evalXcorrCallback &cb,
                    XCorrCache &xcorr,
                    const double interEvDistStep,
-                   const double staDistStep,
-                   bool theoretical)
+                   const double staDistStep)
 {
   XCorrEvalStats pTotStats, sTotStats;
   map<string, XCorrEvalStats> pStatsByStation;           // key station id
@@ -2333,34 +1979,12 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
       continue;
     }
 
-    unique_ptr<Catalog> catalog;
+    unique_ptr<Catalog> catalog = neighbours->toCatalog(_bgCat, true);
 
-    if (theoretical)
-    {
-      // create theoretical phases for this event instead of fetching its
-      // phases from the catalog
-      catalog = neighbours->toCatalog(_bgCat, false);
-      addMissingEventPhases(event, *catalog, _bgCat, *neighbours);
-    }
-    else
-    {
-      catalog = neighbours->toCatalog(_bgCat, true);
-    }
-
-    // Cross-correlate every neighbour phase with its corresponding event
-    // theoretical phase.
+    // Cross-correlate phase waveforms
     buildXcorrDiffTTimePairs(*catalog, *neighbours, event,
                              clustOpt.xcorrMaxEvStaDist,
                              clustOpt.xcorrMaxInterEvDist, xcorr);
-
-    // Update theoretical and automatic phase pick time and uncertainties
-    // based on cross-correlation results. Drop theoretical phases wihout any
-    // good cross-correlation result.
-    if (theoretical)
-    {
-      fixPhases(*catalog, event, xcorr);
-    }
-
     //
     // Collect Stats From the XcorrCache
     //
