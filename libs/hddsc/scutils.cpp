@@ -526,15 +526,6 @@ void convertOrigin(DataSource &dataSrc,
     const HDD::Catalog::Phase &phase = it->second;
     bool phaseUsed                   = phase.relocInfo.isRelocated;
 
-    // drop phases discovered via cross-correlation if those phases were not
-    // used for the relocations
-    if ((phase.procInfo.source == PhaseSrc::THEORETICAL ||
-         phase.procInfo.source == PhaseSrc::XCORR) &&
-        !phaseUsed)
-    {
-      continue;
-    }
-
     associatedStations.insert(phase.networkCode + "." + phase.stationCode);
 
     // check if this phase has been already added

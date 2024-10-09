@@ -196,20 +196,6 @@ They can be both visualized in ``scolv`` as additional columns adding the follow
     eventedit.customColumn = scrtd
 
 
-.. _phase-update-label:
-
------------------------------------------------------
-Pick update and Phase detection via cross-correlation
------------------------------------------------------
-
-rtDD uses cross-correlation to fix the pick time and uncertainty of automatic picks. The pick time is updated according to the average lag detected by all the good (above configured threshold) cross-correlation results. Since the real-time events are cross-correlated against catalog events, which have good manual picks, the updated pick time is expected to improve. The pick uncertainty is derived from the uncertainties of catalog events. If no cross-correlation result is above the configured threshold, the automatic pick is kept untouched.
-
-rtDD can also make use of cross-correlation to detect phases at stations where an origin has no associated picks (see ``crossCorrelation.singleEventPhaseDetect``). During the differential times computation step, every origin phase is cross-correlated against the neighbouring event phases. When a neighbour has a phase at a station for which the real-time origin does not, rtDD computes the theoretical pick time for the station and cross-correlates it against the reference event phases. If the correlation coefficient is above the configured threshold a new phase is created and used in the inversion. Theoretical picks that have no good cross-correlation results are simply discarded.
-
-Picks that have been updated or created by rtDD are identifiable by a ``x`` suffix (Px, Sx).
-
-Manual picks are never modified.
-
 .. _avoid-loop-label:
 
 -------------------------

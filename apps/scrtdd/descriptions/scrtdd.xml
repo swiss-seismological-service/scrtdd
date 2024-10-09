@@ -137,20 +137,13 @@
           </group>
 
           <group name="crossCorrelation">
-           <description>cross-correlation is used to improve the differential travel times used in the double-difference system. The differential travel times are computed as difference between the phase absolute travel time of two events' phases and consequently rely on the accuracy and consistency across pick times. The cross-correlation is used to improve those differential times by cross-correlating the phases waveforms and using the detected lag as differential time for every phase pair whose correlation coefficient exceeds the configured threshold. This lag then replaces the absolute travel time difference value in the double-difference system. The phase pairs with low correlation coefficient maintain the differential time derived from the absolute travel time difference. The cross-correlation step is not mandatory and can be disabled using either 'maxStationDistance' or 'maxInterEventDistance'</description> 
+           <description>Cross-correlation is used to improve the differential travel times used in the double-difference system. This step is not mandatory and can be disabled using either 'maxStationDistance' or 'maxInterEventDistance'</description> 
             <parameter name="maxStationDistance" type="double" default="0" unit="km">
               <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between event and station for a cross-correlation to happen. Phases belonging to further stations will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 disables the cross-correlations.</description> 
             </parameter>
             <parameter name="maxInterEventDistance" type="double" default="-1" unit="km">
               <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between events for a cross-correlation to happen. Phases of event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 disables the cross-correlations.</description>
             </parameter>
-            <group name="singleEventPhaseDetect">
-              <description>Whether cross-correlation is used to detect phases at stations with no associated picks (single-event mode only).</description>
-             <parameter name="automaticOrigin" type="boolean" default="true">
-             </parameter>
-             <parameter name="manualOrigin" type="boolean" default="false">
-             </parameter>
-            </group>
             <parameter name="compatibleChannels" type="string" default="">
               <description>Cross-correlation is computed on phases with the same channel code (e.g. HH. EH, HG, etc), however here it is possible to force the cross-correlation between different channel codes. The value is a list separated by ';' and each element is a list (again) of compatible channels separated by ',' for example: "HH,EH;HG,HN"</description>
             </parameter>

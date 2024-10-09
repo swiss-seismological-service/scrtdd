@@ -132,10 +132,8 @@ public:
     enum class Source
     {
       CATALOG,
-      RT_EVENT_AUTOMATIC,
       RT_EVENT_MANUAL,
-      THEORETICAL,
-      XCORR
+      RT_EVENT_AUTOMATIC,
     };
 
     struct

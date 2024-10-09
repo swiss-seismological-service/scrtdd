@@ -187,8 +187,6 @@ private:
     HDD::ClusteringOptions singleEventClustering;
     HDD::ClusteringOptions multiEventClustering;
     HDD::SolverOptions solverCfg;
-    bool detectMissingPhasesAuto;
-    bool detectMissingPhasesManual;
 
   private:
     bool loaded;

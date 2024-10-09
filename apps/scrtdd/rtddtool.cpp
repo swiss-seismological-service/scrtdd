@@ -779,26 +779,6 @@ bool RTDD::validateParameters()
     catch (...)
     {}
 
-    try
-    {
-      prof->detectMissingPhasesAuto =
-          configGetBool(prefix + "singleEventPhaseDetect.automaticOrigin");
-    }
-    catch (...)
-    {
-      prof->detectMissingPhasesAuto = true;
-    }
-
-    try
-    {
-      prof->detectMissingPhasesManual =
-          configGetBool(prefix + "singleEventPhaseDetect.manualOrigin");
-    }
-    catch (...)
-    {
-      prof->detectMissingPhasesManual = false;
-    }
-
     prefix = string("profile.") + prof->name + ".crossCorrelation.p-phase.";
     try
     {
@@ -953,86 +933,88 @@ bool RTDD::validateParameters()
     try
     {
       prof->solverCfg.downWeightingByResidualStart = 10.;
-      prof->solverCfg.downWeightingByResidualEnd = 3.;
+      prof->solverCfg.downWeightingByResidualEnd   = 3.;
 
-      vector<double> values = 
+      vector<double> values =
           configGetDoubles(prefix + "downWeightingByResidual");
 
-      if ( values.size() == 1 )
+      if (values.size() == 1)
       {
         prof->solverCfg.downWeightingByResidualStart = values[0];
-        prof->solverCfg.downWeightingByResidualEnd = values[0];
+        prof->solverCfg.downWeightingByResidualEnd   = values[0];
       }
-      else if ( values.size() == 2 )
+      else if (values.size() == 2)
       {
         prof->solverCfg.downWeightingByResidualStart = values[0];
-        prof->solverCfg.downWeightingByResidualEnd = values[1];
+        prof->solverCfg.downWeightingByResidualEnd   = values[1];
       }
       else
       {
-          SEISCOMP_ERROR("Profile %s: downWeightingByResidual is invalid",
-                         prof->name.c_str());
-          profilesOK = false;
-          break;
+        SEISCOMP_ERROR("Profile %s: downWeightingByResidual is invalid",
+                       prof->name.c_str());
+        profilesOK = false;
+        break;
       }
     }
-    catch (...) { }
+    catch (...)
+    {}
 
     try
     {
       prof->solverCfg.dampingFactorStart = 0.01;
-      prof->solverCfg.dampingFactorEnd = 0.01;
+      prof->solverCfg.dampingFactorEnd   = 0.01;
 
-      vector<double> values = 
-          configGetDoubles(prefix + "dampingFactor");
+      vector<double> values = configGetDoubles(prefix + "dampingFactor");
 
-      if ( values.size() == 1 )
+      if (values.size() == 1)
       {
         prof->solverCfg.dampingFactorStart = values[0];
-        prof->solverCfg.dampingFactorEnd = values[0];
+        prof->solverCfg.dampingFactorEnd   = values[0];
       }
-      else if ( values.size() == 2 )
+      else if (values.size() == 2)
       {
         prof->solverCfg.dampingFactorStart = values[0];
-        prof->solverCfg.dampingFactorEnd = values[1];
+        prof->solverCfg.dampingFactorEnd   = values[1];
       }
       else
       {
-          SEISCOMP_ERROR("Profile %s: dampingFactor is invalid",
-                         prof->name.c_str());
-          profilesOK = false;
-          break;
+        SEISCOMP_ERROR("Profile %s: dampingFactor is invalid",
+                       prof->name.c_str());
+        profilesOK = false;
+        break;
       }
     }
-    catch (...) { }
+    catch (...)
+    {}
 
     try
     {
       prof->solverCfg.absLocConstraintStart = 0.3;
-      prof->solverCfg.absLocConstraintEnd = 0.3;
+      prof->solverCfg.absLocConstraintEnd   = 0.3;
 
-      vector<double> values = 
+      vector<double> values =
           configGetDoubles(prefix + "absoluteLocationConstraint");
 
-      if ( values.size() == 1 )
+      if (values.size() == 1)
       {
         prof->solverCfg.absLocConstraintStart = values[0];
-        prof->solverCfg.absLocConstraintEnd = values[0];
+        prof->solverCfg.absLocConstraintEnd   = values[0];
       }
-      else if ( values.size() == 2 )
+      else if (values.size() == 2)
       {
         prof->solverCfg.absLocConstraintStart = values[0];
-        prof->solverCfg.absLocConstraintEnd = values[1];
+        prof->solverCfg.absLocConstraintEnd   = values[1];
       }
       else
       {
-          SEISCOMP_ERROR("Profile %s: absoluteLocationConstraint is invalid",
-                         prof->name.c_str());
-          profilesOK = false;
-          break;
+        SEISCOMP_ERROR("Profile %s: absoluteLocationConstraint is invalid",
+                       prof->name.c_str());
+        profilesOK = false;
+        break;
       }
     }
-    catch (...) { }
+    catch (...)
+    {}
 
     prof->ddCfg.diskTraceMinLen =
         configGetDouble("performance.cachedWaveformLength");
@@ -1280,7 +1262,8 @@ bool RTDD::run()
         std::vector<DataModel::PickPtr> newOrgPicks;
         bool includeMagnitude = commandline().hasOption("inherit-mag");
         convertOrigin(dataSrc, *ev, srcOrg.get(), author(), agencyID(),
-                      profile->methodID, (profile->tttType + ":" + profile->tttModel),
+                      profile->methodID,
+                      (profile->tttType + ":" + profile->tttModel),
                       includeMagnitude, true, newOrg, newOrgPicks);
 
         evParam->add(newOrg.get());
@@ -2130,7 +2113,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
     // Load the travel time table
     unique_ptr<HDD::TravelTimeTable> ttt;
 
-    if ( startsWith(tttType, "Native:") )
+    if (startsWith(tttType, "Native:"))
     {
       if (tttType == "Native:NonLinLoc")
       {
@@ -2150,8 +2133,8 @@ void RTDD::Profile::load(DatabaseQuery *query,
         {
           swapBytes = true;
         }
-        ttt.reset(new HDD::TTT::NLLGrid(velGridPath, timeGridPath, angleGridPath,
-                                        swapBytes));
+        ttt.reset(new HDD::TTT::NLLGrid(velGridPath, timeGridPath,
+                                        angleGridPath, swapBytes));
       }
       else if (tttType == "Native:homogeneous")
       {
@@ -2169,8 +2152,8 @@ void RTDD::Profile::load(DatabaseQuery *query,
       }
       else
       {
-        string msg = stringify("Invalid travel time table type (%s)",
-                               tttType.c_str());
+        string msg =
+            stringify("Invalid travel time table type (%s)", tttType.c_str());
         throw runtime_error(msg.c_str());
       }
     }
@@ -2260,22 +2243,11 @@ RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
       unordered_multimap<unsigned, HDD::Catalog::Phase>());
   addToCatalog(orgToRelocate, {org}, dataSrc);
 
-  bool isManual;
-  bool xcorrDetectMissingPhases;
-  if (org->evaluationMode() == DataModel::MANUAL)
-  {
-    isManual                 = true;
-    xcorrDetectMissingPhases = this->detectMissingPhasesManual;
-  }
-  else
-  {
-    isManual                 = false;
-    xcorrDetectMissingPhases = this->detectMissingPhasesAuto;
-  }
+  bool isManual = org->evaluationMode() == DataModel::MANUAL;
 
-  unique_ptr<HDD::Catalog> rel = dd->relocateSingleEvent(
-      orgToRelocate, isManual, xcorrDetectMissingPhases, singleEventClustering,
-      singleEventClustering, solverCfg);
+  unique_ptr<HDD::Catalog> rel =
+      dd->relocateSingleEvent(orgToRelocate, isManual, singleEventClustering,
+                              singleEventClustering, solverCfg);
 
   return rel;
 }

@@ -3,9 +3,9 @@
 Cross-correlation
 =================
 
-The purpose of the cross-correlation is to refine the exact time difference between two picks at a common station of an event pair, which allows for higher resolution event (re)locations. This time difference becomes the observed differential time part of a double-difference (see :ref:`multi-event-relocation-process-label`). When the cross-correlation is disabled or the correlation coefficient is below the configured threshold then the observed differential times are derived from the phase times (difference of their absolute travel times). 
+The purpose of the cross-correlation is to refine the time difference between two picks at a common station of an event pair. The cross-correlation lag becomes the observed differential time part of a double-difference (see :ref:`multi-event-relocation-process-label`) if the correlation coefficient is above the configured threshold. The phase pairs with low correlation coefficient maintain the differential time derived from the absolute travel time difference.
 
-The cross-correlation step is optional due to the expensive computation time. The improvement in hypocenter solution quality doesn't always improve drammatically, so we suggest to enable it only after the other parameters of rtDD have been optimized. The cross-correlation can be disabled by setting the ``crossCorrelation.maxStationDistance`` and/or ``crossCorrelation.maxInterEventDistance`` to 0. The cross-correlation is also skipped if the ``RecordStream`` parameter is not properly configured, because the waveform data will not be available.
+The cross-correlation step is optional due to the expensive computation time. The improvement in hypocenter solution quality doesn't always improve dramatically, so we suggest to enable it only after the other parameters of rtDD have been optimized. The cross-correlation can be disabled by setting the ``crossCorrelation.maxStationDistance`` and/or ``crossCorrelation.maxInterEventDistance`` to 0. The cross-correlation is also skipped if the ``RecordStream`` parameter is not properly configured, because the waveform data will not be available.
 
 ------------------
 Eval-xcorr command
@@ -93,9 +93,7 @@ Example output::
 * ``coeff``: correlation coefficient between phase waveforms 
 * ``lag``: cross-correlation lag between phase waveforms in milliseconds
 
-There could be several reasons why the cross-correlation between 2 phase waveforms is not considered for computing the statistics: the correlation coefficient is below the configured threshold (see ``crossCorrelation.x-phase.minCCCoef``), the SNR of one or both the waveforms is below the configured threshold (see ``crossCorrelation.snr.minSnr``), the waveform data for one or both the phases is not available and in general when the it is not possible to perform the cross-correlation. It is possible to know the exact reason by looking at the logs at debug level (--verbosity=4).
-
-The SNR is particularly important to reject bad automatic picks or picks detected via cross-correlation (see :ref:`phase-update-label`), but but it is not so relevant when relocating manually reviewed origins since the picks are checked already and bad ones discarded.
+There could be several reasons why the cross-correlation between 2 phase waveforms is not considered for computing the statistics: the correlation coefficient is below the configured threshold (see ``crossCorrelation.x-phase.minCCCoef``), the waveform data for one or both the phases is not available and in general when the it is not possible to perform the cross-correlation. It is possible to know the exact reason by looking at the logs at debug level (--verbosity=4).
 
 
 .. _reusing-xcorr-label:
