@@ -323,7 +323,7 @@ private:
                        const Catalog &catalog,
                        const Neighbours &neighbours,
                        bool keepNeighboursFixed,
-                       bool usePickUncertainty,
+                       bool usePickUncertainties,
                        const XCorrCache &xcorr,
                        ObservationParams &obsparams) const;
 

@@ -883,7 +883,7 @@ void DD::addObservations(Solver &solver,
                          const Catalog &catalog,
                          const Neighbours &neighbours,
                          bool keepNeighboursFixed,
-                         bool usePickUncertainty,
+                         bool usePickUncertainties,
                          const XCorrCache &xcorr,
                          ObservationParams &obsparams) const
 {
@@ -948,10 +948,11 @@ void DD::addObservations(Solver &solver,
       //
       duration<double> diffTime = ref_travel_time - travel_time;
       double weight =
-          usePickUncertainty
-              ? (refPhase.procInfo.classWeight + phase.procInfo.classWeight) /
-                    2.0
+          usePickUncertainties
+              ? ((refPhase.procInfo.classWeight + phase.procInfo.classWeight) /
+                 2.0)
               : 1.0;
+
       //
       // Check if we have cross-correlation results for the current
       // event/refEv pair at station/phase and refine the differential
