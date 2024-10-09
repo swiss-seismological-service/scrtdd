@@ -56,7 +56,8 @@ double normalizeAz(double az)
 
 std::pair<double, double> getPickUncertainty(DataModel::Pick *pick)
 {
-  pair<double, double> uncertainty(-1, -1); // secs
+  pair<double, double> uncertainty(numeric_limits<double>::quiet_NaN(),
+                                   numeric_limits<double>::quiet_NaN()); // secs
   try
   {
     // symmetric uncertainty
@@ -64,7 +65,7 @@ std::pair<double, double> getPickUncertainty(DataModel::Pick *pick)
   }
   catch (Core::ValueException &)
   {
-    // unsymmetric uncertainty
+    // non-symmetric uncertainty
     try
     {
       uncertainty.first  = pick->time().lowerUncertainty();
@@ -72,22 +73,6 @@ std::pair<double, double> getPickUncertainty(DataModel::Pick *pick)
     }
     catch (Core::ValueException &)
     {}
-  }
-
-  if (uncertainty.first < 0 && uncertainty.second < 0)
-  {
-    try
-    {
-      uncertainty.first = uncertainty.second =
-          (pick->evaluationMode() == Seiscomp::DataModel::MANUAL)
-              ? HDD::Catalog::DEFAULT_MANUAL_PICK_UNCERTAINTY
-              : HDD::Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
-    }
-    catch (Core::ValueException &)
-    {
-      uncertainty.first = uncertainty.second =
-          HDD::Catalog::DEFAULT_AUTOMATIC_PICK_UNCERTAINTY;
-    }
   }
 
   return uncertainty;
@@ -261,10 +246,7 @@ addToCatalog(HDD::Catalog &cat,
     }
     else
     {
-      SEISCOMP_DEBUG("Origin %s: cannot load preferred magnitude from parent "
-                     "event, set it to 0",
-                     org->publicID().c_str());
-      ev.magnitude = 0.;
+      ev.magnitude = numeric_limits<double>::quiet_NaN();
     }
 
     SEISCOMP_DEBUG("Adding origin '%s' to the Catalog",
@@ -469,7 +451,7 @@ void convertOrigin(DataSource &dataSrc,
     comment->setCreationInfo(ci);
     newOrg->add(comment.get());
     //
-    // Copy magnitude from org if that is Manual
+    // Copy magnitude from org
     //
     if (includeMagnitude)
     {
@@ -557,7 +539,7 @@ void convertOrigin(DataSource &dataSrc,
 
     // check if this phase has been already added
     bool alreadyAdded = false;
-    DataModel::Arrival *newArr;
+    DataModel::ArrivalPtr newArr;
 
     for (size_t i = 0; i < newOrg->arrivalCount(); i++)
     {
@@ -599,7 +581,7 @@ void convertOrigin(DataSource &dataSrc,
       newArr->setPickID(newPick->publicID());
       newArr->setPhase(phase.type);
 
-      newOrg->add(newArr);
+      newOrg->add(newArr.get());
     }
 
     newArr->setWeight(phase.relocInfo.isRelocated ? phase.relocInfo.weight

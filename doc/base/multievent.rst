@@ -128,8 +128,9 @@ E.g. *file event.csv* ::
     4,2019-11-05T01:12:25.753816Z,46.325012,7.353627,3.7090,0.39
 
 Notes:
-* ``magnitude`` column is currently not used and can be filled with a placeholder value
-* ``depth`` is in km
+
+* ``depth`` is in km.
+* ``magnitude`` column is currently not used, omit the column if the values are unknown.
 
 
 E.g. *file station.csv*::
@@ -158,9 +159,9 @@ E.g. *file phase.csv* ::
 
 Notes:
 
-* ``type``: mutiple picks are allowed for the same event-station (P,Pn,P1,Pg,S,Sn,S1,Sg,etc), but they must have a different ``type``. However only one P and one S will be used per each event-station (see ``profile.myProfile.catalog.P|S-Phases``).
+* ``type``: mutiple picks are allowed for the same event-station (P,Pn,P1,Pg,S,Sn,S1,Sg,etc), but they must have a different ``type``. However only one P and one S will be used per each event-station (see ``profile.myProfile.P|S-Phases``).
+* ``lowerUncertainty`` and ``upperUncertainty`` are in seconds and optional. Omit these columns if the uncertainties are unknown.
 * ``channelCode``: used only for crossCorrelation, it specifies the channel code to use for fetching the waveform. The Orientation Code of the ``channelCode`` (e.g. ``Z`` in ``HHZ``) can be overridden by the parameter ``profile.myProfile.crossCorrelation.p|s-phase.components``.
-* ``lowerUncertainty`` and ``upperUncertainty`` are used only when ``profile.myProfile.solver.usePickUncertainties`` is enabled. 
 
 With this format it is possible to relocate events not stored in a SeisComP database, since all the required information is contained in those files.
 

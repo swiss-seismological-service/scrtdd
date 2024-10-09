@@ -139,12 +139,19 @@ Catalog::Catalog(const string &stationFile,
     {
       row_count++;
       Event ev;
-      ev.id                    = std::stoul(row.at("id"));
-      ev.time                  = UTCClock::fromString(row.at("isotime"));
-      ev.latitude              = std::stod(row.at("latitude"));
-      ev.longitude             = std::stod(row.at("longitude"));
-      ev.depth                 = std::stod(row.at("depth"));
-      ev.magnitude             = std::stod(row.at("magnitude"));
+      ev.id        = std::stoul(row.at("id"));
+      ev.time      = UTCClock::fromString(row.at("isotime"));
+      ev.latitude  = std::stod(row.at("latitude"));
+      ev.longitude = std::stod(row.at("longitude"));
+      ev.depth     = std::stod(row.at("depth"));
+      try
+      {
+        ev.magnitude = std::stod(row.at("magnitude"));
+      }
+      catch (std::exception &e)
+      {
+        ev.magnitude = numeric_limits<double>::quiet_NaN();
+      }
       ev.relocInfo.isRelocated = false;
       if (loadRelocationInfo && (row.count("relocated") != 0) &&
           strToBool(row.at("relocated")))
@@ -186,15 +193,23 @@ Catalog::Catalog(const string &stationFile,
     {
       row_count++;
       Phase ph;
-      ph.eventId          = std::stoul(row.at("eventId"));
-      ph.time             = UTCClock::fromString(row.at("isotime"));
-      ph.lowerUncertainty = std::stod(row.at("lowerUncertainty"));
-      ph.upperUncertainty = std::stod(row.at("upperUncertainty"));
-      ph.type             = row.at("type");
-      ph.networkCode      = row.at("networkCode");
-      ph.stationCode      = row.at("stationCode");
-      ph.locationCode     = row.at("locationCode");
-      ph.channelCode      = row.at("channelCode");
+      ph.eventId = std::stoul(row.at("eventId"));
+      ph.time    = UTCClock::fromString(row.at("isotime"));
+      try
+      {
+        ph.lowerUncertainty = std::stod(row.at("lowerUncertainty"));
+        ph.upperUncertainty = std::stod(row.at("upperUncertainty"));
+      }
+      catch (std::exception &e)
+      {
+        ph.lowerUncertainty = numeric_limits<double>::quiet_NaN();
+        ph.upperUncertainty = numeric_limits<double>::quiet_NaN();
+      }
+      ph.type         = row.at("type");
+      ph.networkCode  = row.at("networkCode");
+      ph.stationCode  = row.at("stationCode");
+      ph.locationCode = row.at("locationCode");
+      ph.channelCode  = row.at("channelCode");
       ph.stationId =
           ph.networkCode + "." + ph.stationCode + "." + ph.locationCode;
       ph.relocInfo.isRelocated = false;
@@ -688,7 +703,7 @@ double Catalog::computePickWeight(const Phase &phase,
 
   double uncertainty =
       (phase.lowerUncertainty + phase.upperUncertainty) / 2.; // secs
-                                                              //
+
   // set lowest class as default
   unsigned uncertaintyClass = uncertaintyClasses.size() - 1;
 
