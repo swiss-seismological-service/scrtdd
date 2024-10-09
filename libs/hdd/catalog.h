@@ -259,9 +259,6 @@ public:
                             const std::vector<std::string> &SphaseToKeep,
                             const std::vector<double> &uncertaintyClasses);
 
-  static constexpr double DEFAULT_MANUAL_PICK_UNCERTAINTY    = 0.030;
-  static constexpr double DEFAULT_AUTOMATIC_PICK_UNCERTAINTY = 0.100;
-
 private:
   std::unordered_map<std::string, Station> _stations; // indexed by station id
   std::map<unsigned, Event> _events;                  // indexed by event id
