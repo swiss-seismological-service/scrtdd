@@ -757,8 +757,8 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->singleEventClustering.xcorrMaxInterEvDist = -1;
-      prof->multiEventClustering.xcorrMaxInterEvDist  = -1;
+      prof->singleEventClustering.xcorrMaxInterEvDist = 0;
+      prof->multiEventClustering.xcorrMaxInterEvDist  = 0;
     }
 
     try

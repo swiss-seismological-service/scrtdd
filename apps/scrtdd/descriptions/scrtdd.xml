@@ -63,7 +63,7 @@
             <description>Defines a priority list of accepted S phases. Phases not in the list will be ignored. If multiple phases exist for a station, the first one in the list will be used.</description>
           </parameter>
           <parameter name="usePickUncertainties" type="boolean" default="false">
-            <description>Whether to use pick time uncertainty to weigh each pick accordingly to 'pickUncertaintyClasses'. Each double-difference equation weight will be the average of its pick weights.</description>
+            <description>Whether to use pick time uncertainty to weigh each pick accordingly to 'pickUncertaintyClasses'. If enabled, each double-difference equation weight will be the average of its pick weights.</description>
           </parameter>
           <parameter name="pickUncertaintyClasses" type="list:string" unit="s" default="0.000,0.025,0.050,0.100,0.200,0.400" >
             <description>Define the pick time uncertainty classes from which the pick weight is computed. This parameter defines a list of uncertainty time intervals: the interval in which a pick time uncertainty falls defines the pick class e.g. a pick with uncertainty of 0.150 falls in the 4th interval and the pick class is then 4. if pick uncertainties are absent, the lowest class will be used. The pick weight then is computed as: 1 / 2^(class-1) </description>
@@ -133,19 +133,17 @@
                 </parameter>
               </group>
             </group>
-
           </group>
-
           <group name="crossCorrelation">
-           <description>Cross-correlation is used to improve the differential travel times used in the double-difference system. This step is not mandatory and can be disabled using either 'maxStationDistance' or 'maxInterEventDistance'</description> 
+           <description>Cross-correlation is used to improve the differential travel times used in the double-difference system. This step is optional and can be disabled by setting to 0 either 'maxStationDistance' or 'maxInterEventDistance'</description> 
             <parameter name="maxStationDistance" type="double" default="0" unit="km">
               <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between event and station for a cross-correlation to happen. Phases belonging to further stations will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 disables the cross-correlations.</description> 
             </parameter>
-            <parameter name="maxInterEventDistance" type="double" default="-1" unit="km">
+            <parameter name="maxInterEventDistance" type="double" default="0" unit="km">
               <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between events for a cross-correlation to happen. Phases of event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 disables the cross-correlations.</description>
             </parameter>
             <parameter name="compatibleChannels" type="string" default="">
-              <description>Cross-correlation is computed on phases with the same channel code (e.g. HH. EH, HG, etc), however here it is possible to force the cross-correlation between different channel codes. The value is a list separated by ';' and each element is a list (again) of compatible channels separated by ',' for example: "HH,EH;HG,HN"</description>
+              <description>The cross-correlation is computed only on phases picked on the same channel code (e.g. HH. EH, HG, etc). However here it is possible to force the cross-correlation between different channel codes on the same station. The value is a list separated by ';' and each element is a list (again) of compatible channels separated by ',' for example: "HH,EH;HG,HN"</description>
             </parameter>
             <group name="p-phase">
               <parameter name="minCCCoef" type="double" default="0.70">
@@ -161,7 +159,7 @@
                 <description>Maximum data windows lag accepted (secs)..</description>
               </parameter>
               <parameter name="components" type="list:string" default="Z">
-                <description>Priority list of components to be used in cross-correlation (e.g. Z, N, E, 1, 2, 3). If the component exists for a pair of phases it is used for the cross-correlation, otherwise the next component in the list is tried. Special values are 'H', which computes the L2 norm of the 2 horizontal components and 'T' (and 'R'), which computes the transversal (and radial) component with respect with the event location to which the phase belongs to. If empty the component where the phase was picked is used.</description>
+                <description>Priority list of components to be used in the cross-correlation (e.g. Z, N, E, 1, 2, 3). If the component exists for both the phases to be cross-correlated then it is used, otherwise the next component in the list is tried. Special values are 'H', which computes the L2 norm of the 2 horizontal components and 'T' (and 'R'), which computes the transversal (and radial) component with respect with the event location to which the phase belongs to. If the value is left empty, the component where the phases were picked is used (if identical).</description>
               </parameter>
             </group>
             <group name="s-phase">
@@ -178,7 +176,7 @@
                 <description>Maximum data windows lag accepted (secs).</description>
               </parameter>
               <parameter name="components" type="list:string" default="H">
-                <description>Priority list of components to be used in cross-correlation (e.g. Z, N, E, 1, 2, 3). If the component exists for a pair of phases it is used for the cross-correlation, otherwise the next component in the list is tried. Special values are 'H', which computes the L2 norm of the 2 horizontal components and 'T' (and 'R'), which computes the transversal (and radial) component with respect with the event location to which the phase belongs to. If empty the component where the phase was picked is used.</description>
+                <description>Priority list of components to be used in the cross-correlation (e.g. Z, N, E, 1, 2, 3). If the component exists for both the phases to be cross-correlated then it is used, otherwise the next component in the list is tried. Special values are 'H', which computes the L2 norm of the 2 horizontal components and 'T' (and 'R'), which computes the transversal (and radial) component with respect with the event location to which the phase belongs to. If the value is left empty, the component where the phases were picked is used (if identical).</description>
               </parameter>
             </group>
             <group name="waveformFiltering">
