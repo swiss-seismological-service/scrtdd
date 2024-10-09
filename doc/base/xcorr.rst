@@ -3,7 +3,7 @@
 Cross-correlation
 =================
 
-The purpose of the cross-correlation is to refine the time difference between two picks at a common station of an event pair. The cross-correlation lag becomes the observed differential time part of a double-difference (see :ref:`multi-event-relocation-process-label`) if the correlation coefficient is above the configured threshold. The phase pairs with low correlation coefficient maintain the differential time derived from the absolute travel time difference.
+The purpose of the cross-correlation is to refine the time difference between two picks at a common station of an event pair. The cross-correlation lag becomes the observed differential time part of a double-difference (see :ref:`multi-event-relocation-process-label`) if the correlation coefficient is above the configured threshold. The phase pairs with lower correlation coefficient maintain the differential time derived from the absolute travel time difference.
 
 The cross-correlation step is optional due to the expensive computation time. The improvement in hypocenter solution quality doesn't always improve dramatically, so we suggest to enable it only after the other parameters of rtDD have been optimized. The cross-correlation can be disabled by setting the ``crossCorrelation.maxStationDistance`` and/or ``crossCorrelation.maxInterEventDistance`` to 0. The cross-correlation is also skipped if the ``RecordStream`` parameter is not properly configured, because the waveform data will not be available.
 
