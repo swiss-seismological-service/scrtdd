@@ -113,16 +113,16 @@ struct ClusteringOptions
 
 struct SolverOptions
 {
-  std::string type             = "LSMR"; // LSMR or LSQR
-  bool L2normalization         = true;
-  unsigned solverIterations    = 0;      // 0 -> auto
-  unsigned algoIterations      = 20;
-  double absLocConstraintStart = 0.3; // 0 -> disable
-  double absLocConstraintEnd   = 0.3; // 0 -> disable
-  double dampingFactorStart    = 0.01; // 0 -> disable
-  double dampingFactorEnd      = 0.01; // 0 -> disable
-  double downWeightingByResidualStart = 10.; // 0 -> disable
-  double downWeightingByResidualEnd   = 3.;  // 0 -> disable
+  std::string type                    = "LSMR"; // LSMR or LSQR
+  bool L2normalization                = true;
+  unsigned solverIterations           = 0; // 0 -> auto
+  unsigned algoIterations             = 20;
+  double absLocConstraintStart        = 0.3;  // 0 -> disable
+  double absLocConstraintEnd          = 0.3;  // 0 -> disable
+  double dampingFactorStart           = 0.01; // 0 -> disable
+  double dampingFactorEnd             = 0.01; // 0 -> disable
+  double downWeightingByResidualStart = 10.;  // 0 -> disable
+  double downWeightingByResidualEnd   = 3.;   // 0 -> disable
   bool usePickUncertainties           = false;
 };
 
@@ -202,7 +202,6 @@ public:
   std::unique_ptr<Catalog>
   relocateSingleEvent(const Catalog &singleEvent,
                       bool isManual,
-                      bool xcorrDetectMissingPhases,
                       const ClusteringOptions &clustOpt1,
                       const ClusteringOptions &clustOpt2,
                       const SolverOptions &solverOpt);
@@ -243,18 +242,16 @@ public:
                  const evalXcorrCallback &cb,
                  XCorrCache &precomputed,
                  const double interEvDistStep = 0.1, // km
-                 const double staDistStep     = 3,   // km
-                 bool theoretical             = false);
+                 const double staDistStep     = 3);      // km
 
   // Compute statistics on cross-correlatio results
   void evalXCorr(const ClusteringOptions &clustOpt,
                  const evalXcorrCallback &cb,
                  const double interEvDistStep = 0.1, // km
-                 const double staDistStep     = 3,   // km
-                 bool theoretical             = false)
+                 const double staDistStep     = 3)       // km
   {
     XCorrCache empty;
-    evalXCorr(clustOpt, cb, empty, interEvDistStep, staDistStep, theoretical);
+    evalXCorr(clustOpt, cb, empty, interEvDistStep, staDistStep);
   }
 
   //
@@ -281,8 +278,7 @@ private:
                           const std::string &workingDir,
                           const ClusteringOptions &clustOpt,
                           const SolverOptions &solverOpt,
-                          bool doXcorr,
-                          bool xcorrDetectMissingPhases);
+                          bool doXcorr);
 
   std::unique_ptr<Catalog>
   relocate(const Catalog &catalog,
@@ -343,41 +339,10 @@ private:
       const std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
           &neighCluster) const;
 
-  void addMissingEventPhases(const Catalog::Event &refEv,
-                             Catalog &refEvCatalog,
-                             const Catalog &searchCatalog,
-                             const Neighbours &neighbours);
-
-  std::vector<Catalog::Phase>
-  findMissingEventPhases(const Catalog::Event &refEv,
-                         Catalog &refEvCatalog,
-                         const Catalog &searchCatalog,
-                         const Neighbours &neighbours);
-
-  typedef std::pair<std::string, Catalog::Phase::Type> MissingStationPhase;
-
-  std::vector<MissingStationPhase>
-  getMissingPhases(const Catalog::Event &refEv,
-                   Catalog &refEvCatalog,
-                   const Catalog &searchCatalog) const;
-
-  typedef std::pair<Catalog::Event, Catalog::Phase> PhasePeer;
-  std::vector<PhasePeer> findPhasePeers(const Catalog::Station &station,
-                                        const Catalog::Phase::Type &phaseType,
-                                        const Catalog &searchCatalog,
-                                        const Neighbours &neighbours) const;
-
-  Catalog::Phase createThoreticalPhase(const Catalog::Station &station,
-                                       const Catalog::Phase::Type &phaseType,
-                                       const Catalog::Event &refEv,
-                                       const std::vector<DD::PhasePeer> &peers,
-                                       double phaseVelocity);
-
   XCorrCache buildXCorrCache(
       Catalog &catalog,
       const std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
           &neighCluster,
-      bool computeTheoreticalPhases,
       double xcorrMaxEvStaDist      = -1,
       double xcorrMaxInterEvDist    = -1,
       const XCorrCache &precomputed = XCorrCache());
@@ -388,10 +353,6 @@ private:
                                 double xcorrMaxEvStaDist,   // -1 to disable
                                 double xcorrMaxInterEvDist, // -1 to disable
                                 XCorrCache &xcorr);
-
-  void fixPhases(Catalog &catalog,
-                 const Catalog::Event &refEv,
-                 XCorrCache &xcorr) const;
 
   bool xcorrPhases(const Catalog::Event &event1,
                    const Catalog::Phase &phase1,
