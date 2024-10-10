@@ -43,7 +43,6 @@ public:
   {
     bool valid;
     double coeff, lag;
-    std::string component;
   };
 
   XCorrCache()  = default;
@@ -61,12 +60,10 @@ public:
            const Catalog::Phase::Type &type,
            bool valid,
            double coeff,
-           double lag,
-           const std::string component)
+           double lag)
   {
     Entry e;
     e.valid                                 = valid;
-    e.component                             = component;
     e.coeff                                 = coeff;
     e.lag                                   = lag;
     _entries[evId1][stationId][type][evId2] = e;
