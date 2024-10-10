@@ -228,6 +228,8 @@ string DD::generateWorkingSubDir(const Event &ev) const
 
 void DD::unloadWaveforms() { createWaveformCache(); }
 
+void DD::unloadTravelTimeTable() { _ttt->freeResources(); }
+
 const std::vector<std::string> DD::xcorrComponents(const Phase &phase) const
 {
   const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
@@ -544,8 +546,6 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
                      joinPath(catalogWorkingDir, "xcorr.csv"));
   }
 
-  _ttt->freeResources();
-
   return relocatedCatalog;
 }
 
@@ -661,8 +661,6 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   {
     logError("Failed to perform step 2 origin relocation");
   }
-
-  _ttt->freeResources();
 
   if (!relocatedEvWithXcorr) throw Exception("Failed origin relocation");
 

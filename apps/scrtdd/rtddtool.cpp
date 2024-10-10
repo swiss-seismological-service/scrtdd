@@ -2215,6 +2215,7 @@ void RTDD::Profile::freeResources()
 {
   if (!loaded) return;
   dd->unloadWaveforms();
+  dd->unloadTravelTimeTable();
   lastUsage = Core::Time::GMT();
 }
 

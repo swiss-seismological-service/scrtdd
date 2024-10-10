@@ -181,6 +181,9 @@ public:
   // resampled and filtered (for debugging)
   void dumpWaveforms(const std::string &basePath = "");
 
+  // free ttt memory and resources
+  void unloadTravelTimeTable();
+
   // Find clusters in the background catalogs and return them
   std::list<Catalog> findClusters(const ClusteringOptions &clustOpt);
 
