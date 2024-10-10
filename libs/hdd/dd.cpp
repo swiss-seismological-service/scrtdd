@@ -1440,7 +1440,7 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
 
           // cache cross-correlation results
           xcorr.add(refEv.id, event.id, refPhase.stationId,
-                    refPhase.procInfo.type, valid, coeff, lag, component);
+                    refPhase.procInfo.type, valid, coeff, lag);
         }
       }
     }
