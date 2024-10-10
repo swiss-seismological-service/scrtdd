@@ -420,7 +420,7 @@ void writeXCorrToFile(const XCorrCache &xcorr,
                       const std::string &file)
 {
   ofstream os(file);
-  os << "eventId1,eventId2,networkCode,stationCode,locationCode,component,"
+  os << "eventId1,eventId2,networkCode,stationCode,locationCode,"
         "phaseType,valid,coefficient,lag"
      << endl;
 
@@ -430,9 +430,8 @@ void writeXCorrToFile(const XCorrCache &xcorr,
                               const XCorrCache::Entry &e) {
     const Catalog::Station &sta = cat.getStations().at(stationId);
 
-    os << strf("%u,%u,%s,%s,%s,%s,%c,%s,%f,%f", ev1, ev2,
-               sta.networkCode.c_str(), sta.stationCode.c_str(),
-               sta.locationCode.c_str(), e.component.c_str(),
+    os << strf("%u,%u,%s,%s,%s,%c,%s,%f,%f", ev1, ev2, sta.networkCode.c_str(),
+               sta.stationCode.c_str(), sta.locationCode.c_str(),
                static_cast<char>(type), e.valid ? "true" : "false", e.coeff,
                e.lag)
        << endl;
@@ -459,7 +458,6 @@ XCorrCache readXCorrFromFile(const Catalog &cat, const std::string &file)
     string networkCode        = row.at("networkCode");
     string stationCode        = row.at("stationCode");
     string locationCode       = row.at("locationCode");
-    string component          = row.at("component");
     Catalog::Phase::Type type = strToPhaseType(row.at("phaseType"));
     bool valid                = strToBool(row.at("valid"));
     double coeff              = std::stod(row.at("coefficient"));
@@ -469,7 +467,9 @@ XCorrCache readXCorrFromFile(const Catalog &cat, const std::string &file)
         cat.searchStation(networkCode, stationCode, locationCode)->second.id;
 
     if (!xcorr.has(ev1, ev2, stationId, type))
-      xcorr.add(ev1, ev2, stationId, type, valid, coeff, lag, component);
+    {
+      xcorr.add(ev1, ev2, stationId, type, valid, coeff, lag);
+    }
   }
   return xcorr;
 }
