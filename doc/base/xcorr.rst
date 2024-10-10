@@ -102,7 +102,7 @@ There could be several reasons why the cross-correlation between 2 phase wavefor
 Reusing cross-correlation results
 ---------------------------------
 
-When cross-correlation settings are not changed, it might be useful to reuse the cross-correlation results to save processing time. Both the ``--eval-xcorr`` and ``--reloc-catalog`` options save a ``xcorr.csv`` file after finishing their execution (thay overwrite it if already present!). That file contains the computed cross-correlation results and can be given back to rtDD via the command line option ``--xcorr-cache``. It is safe to change the value of ``crossCorrelation.x-phase.minCCCoef`` and reuse the cross-correlation results to see how performance change at varying correlation coefficient threshold.
+It is possible to reuse the cross-correlation results to saves processing time. This of course makes sense if the cross-correlation settings are kept unchanged and we are interested in experimenting with other settings. Both the ``--eval-xcorr`` and ``--reloc-catalog`` options produce a ``xcorr.csv`` file at the end of their execution. The file contains the computed cross-correlation results and can be given back to rtDD via the command line option ``--xcorr-cache``. With that option a cross-correlation is skipped if a result is found in the file. The ``xcorr.csv`` file in output will always contain all the results given in input via ``--xcorr-cache`` option and eventually additional results (for example if the new settings consider different event/phase pairs). A typical use case is to evaluate the relocation results at varying correlation coefficient threshold.
 
 --------------------
 Waveforms inspection
