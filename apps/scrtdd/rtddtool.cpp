@@ -2266,7 +2266,9 @@ RTDD::Profile::relocateCatalog(const std::string &xcorrFile)
 
   HDD::XCorrCache xcorr;
   if (!xcorrFile.empty())
+  {
     xcorr = HDD::readXCorrFromFile(dd->getCatalog(), xcorrFile);
+  }
 
   unique_ptr<HDD::Catalog> relocatedCat =
       dd->relocateMultiEvents(multiEventClustering, solverCfg, xcorr);
@@ -2274,7 +2276,10 @@ RTDD::Profile::relocateCatalog(const std::string &xcorrFile)
   relocatedCat->writeToFile("reloc-event.csv", "reloc-phase.csv",
                             "reloc-station.csv");
 
-  HDD::writeXCorrToFile(xcorr, dd->getCatalog(), "xcorr.csv");
+  if (!xcorr.empty())
+  {
+    HDD::writeXCorrToFile(xcorr, dd->getCatalog(), "xcorr.csv");
+  }
 
   SEISCOMP_INFO(
       "Wrote relocated catalog files reloc-event.csv, reloc-phase.csv, "
@@ -2295,11 +2300,16 @@ void RTDD::Profile::evalXCorr(const std::string &xcorrFile)
 
   HDD::XCorrCache xcorr;
   if (!xcorrFile.empty())
+  {
     xcorr = HDD::readXCorrFromFile(dd->getCatalog(), xcorrFile);
+  }
 
   dd->evalXCorr(multiEventClustering, printEvalXcorrStats, xcorr);
 
-  HDD::writeXCorrToFile(xcorr, dd->getCatalog(), "xcorr.csv");
+  if (!xcorr.empty())
+  {
+    HDD::writeXCorrToFile(xcorr, dd->getCatalog(), "xcorr.csv");
+  }
 
   SEISCOMP_INFO("Wrote cross-correlation results xcorr.csv");
 }

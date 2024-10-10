@@ -945,20 +945,30 @@ void DD::addObservations(Solver &solver,
       //
       // Check if we have cross-correlation results for the current
       // event/refEv pair at station/phase and refine the differential
-      // time
+      // time and update the weight
       //
       bool isXcorr = false;
 
-      if (xcorr.has(refEv.id, event.id, refPhase.stationId,
-                    refPhase.procInfo.type))
-      {
-        const auto &e = xcorr.get(refEv.id, event.id, refPhase.stationId,
-                                  refPhase.procInfo.type);
+      if (!xcorr.empty())
+      { // xcorr is enabled
 
-        if (e.valid && e.coeff >= xcorrCfg.minCoef)
+        if (xcorr.has(refEv.id, event.id, refPhase.stationId,
+                      refPhase.procInfo.type))
         {
-          isXcorr = true;
-          diffTime -= duration<double>(e.lag);
+          const auto &e = xcorr.get(refEv.id, event.id, refPhase.stationId,
+                                    refPhase.procInfo.type);
+
+          if (e.valid && e.coeff >= xcorrCfg.minCoef)
+          {
+            isXcorr = true;
+            diffTime -= duration<double>(e.lag);
+            weight *= e.coeff;
+          }
+        }
+
+        if (!isXcorr)
+        {
+          weight *= xcorrCfg.minCoef;
         }
       }
 
@@ -1308,6 +1318,14 @@ XCorrCache DD::buildXCorrCache(
     double xcorrMaxInterEvDist,
     const XCorrCache &precomputed)
 {
+  if (xcorrMaxEvStaDist == 0 || xcorrMaxInterEvDist == 0)
+  {
+    logInfoF("Cross-correlation is disabled (maxStationDistance %g, "
+             "maxInterEventDistance %g)",
+             xcorrMaxEvStaDist, xcorrMaxInterEvDist);
+    return XCorrCache();
+  }
+
   logInfo("Computing differential times via cross-correlation...");
 
   XCorrCache xcorr(precomputed);
@@ -1753,17 +1771,17 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
 
 /*
  * Compute cross-correlation between two traces centered around their
- * respective picks. The cross-correlation will be performed with the short
- * trace against the longest trace starting from the longest trace middle
- * point minus 'maxDelay' until middle point pluse 'maxDelay'. `delayOut` will
- * store the shift in seconds (positive or negative) from the longest trace
- * middle point at which there is the highest (absolute value) correlation
- * coefficient, stored in 'coeffOut'
+ * respective picks. The cross-correlation will be performed between the
+ * short trace against the longest trace, in the interval longest trace
+ * middle point -/+ 'maxDelay' seconds.
+ * `lagOut` will store the correction (seconds) to be applied to the pick time
+ * difference (tr1 - tr2) to obtain the highest correlation coefficient (in
+ * absolute value), stored in 'coeffOut'
  */
 void DD::xcorr(const Trace &tr1,
                const Trace &tr2,
                double maxDelay,
-               double &delayOut,
+               double &lagOut,
                double &coeffOut)
 {
   const double freq = tr1.samplingFrequency();
@@ -1784,11 +1802,12 @@ void DD::xcorr(const Trace &tr1,
   if (maxDelaySmps > availableData) maxDelaySmps = availableData;
 
   crossCorrelation(dataS, sizeS, (dataL + availableData - maxDelaySmps),
-                   (sizeS + maxDelaySmps * 2), delayOut, coeffOut);
+                   (sizeS + maxDelaySmps * 2), lagOut, coeffOut);
 
-  delayOut -= maxDelaySmps; // the reference is the middle of the long trace
-  delayOut /= freq;         // samples to secs
-  if (swap) delayOut = -delayOut;
+  lagOut -= maxDelaySmps; // the reference is the middle of the long trace
+  lagOut /= freq;         // samples to secs
+
+  if (swap) lagOut = -lagOut;
 }
 
 shared_ptr<const Trace> DD::getWaveform(Waveform::Processor &wfProc,
