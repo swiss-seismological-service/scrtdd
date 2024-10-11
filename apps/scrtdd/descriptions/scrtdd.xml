@@ -142,6 +142,9 @@
             <parameter name="maxInterEventDistance" type="double" default="0" unit="km">
               <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between events for a cross-correlation to happen. Phases of event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 disables the cross-correlations.</description>
             </parameter>
+            <parameter name="weightScaler" type="double" default="1.5">
+              <description>How to scale the weight of the equations that use cross-correlation differential times. </description>
+            </parameter>
             <parameter name="compatibleChannels" type="string" default="">
               <description>The cross-correlation is computed only on phases picked on the same channel code (e.g. HH. EH, HG, etc). However here it is possible to force the cross-correlation between different channel codes on the same station. The value is a list separated by ';' and each element is a list (again) of compatible channels separated by ',' for example: "HH,EH;HG,HN"</description>
             </parameter>
