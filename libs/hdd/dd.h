@@ -355,6 +355,7 @@ private:
                                 const Catalog::Event &refEv,
                                 double xcorrMaxEvStaDist,   // -1 to disable
                                 double xcorrMaxInterEvDist, // -1 to disable
+                                const XCorrCache &precomputed,
                                 XCorrCache &xcorr);
 
   bool xcorrPhases(const Catalog::Event &event1,
