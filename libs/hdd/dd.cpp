@@ -533,7 +533,9 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
           joinPath(catalogWorkingDir, (prefix + "-station.csv")));
     }
     clusterId++;
-    precomputed = std::move(xcorr);
+
+    // make sure precomputed stores all the cross-correlation results
+    precomputed.add(xcorr);
   }
 
   if (_saveProcessing)
@@ -729,7 +731,7 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
     unordered_map<unsigned, unique_ptr<Neighbours>> neighCluster;
     neighCluster.emplace(neighbours->refEvId, std::move(neighbours));
 
-    XCorrCache xcorr;
+    XCorrCache xcorr{};
     if (doXcorr)
     {
       // Perform cross-correlation
@@ -949,8 +951,8 @@ void DD::addObservations(Solver &solver,
       //
       bool isXcorr = false;
 
-      if (!xcorr.empty())
-      { // xcorr is enabled
+      if (!xcorr.empty()) // xcorr is enabled
+      { 
 
         if (xcorr.has(refEv.id, event.id, refPhase.stationId,
                       refPhase.procInfo.type))
@@ -1318,17 +1320,18 @@ XCorrCache DD::buildXCorrCache(
     double xcorrMaxInterEvDist,
     const XCorrCache &precomputed)
 {
+  XCorrCache xcorr{};
+
   if (xcorrMaxEvStaDist == 0 || xcorrMaxInterEvDist == 0)
   {
     logInfoF("Cross-correlation is disabled (maxStationDistance %g, "
              "maxInterEventDistance %g)",
              xcorrMaxEvStaDist, xcorrMaxInterEvDist);
-    return XCorrCache();
+    return xcorr;
   }
 
   logInfo("Computing differential times via cross-correlation...");
 
-  XCorrCache xcorr(precomputed);
   unsigned long performed = 0;
 
   for (const auto &kv : neighCluster)
@@ -1337,7 +1340,7 @@ XCorrCache DD::buildXCorrCache(
     const Event &refEv = catalog.getEvents().at(neighbours->refEvId);
 
     buildXcorrDiffTTimePairs(catalog, *neighbours, refEv, xcorrMaxEvStaDist,
-                             xcorrMaxInterEvDist, xcorr);
+                             xcorrMaxInterEvDist, precomputed, xcorr);
 
     const unsigned onePerThousand =
         neighCluster.size() < 1000 ? 1 : (neighCluster.size() / 1000);
@@ -1370,6 +1373,7 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
                                   const Event &refEv,
                                   double xcorrMaxEvStaDist,
                                   double xcorrMaxInterEvDist,
+                                  const XCorrCache &precomputed,
                                   XCorrCache &xcorr)
 {
   logDebugF(
@@ -1450,15 +1454,27 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
         if (!xcorr.has(refEv.id, event.id, refPhase.stationId,
                        refPhase.procInfo.type))
         {
-          // Do the actual cross-correlation
-          double coeff, lag;
-          string component;
-          bool valid = xcorrPhases(refEv, refPhase, *refPrc, event, phase,
-                                   *_wfAccess.memCache, coeff, lag, component);
+          try
+          {
+            // fetch the cross-correlation results from the precomputed values
+            const XCorrCache::Entry &e = precomputed.get(
+                refEv.id, event.id, refPhase.stationId, refPhase.procInfo.type);
+            xcorr.add(refEv.id, event.id, refPhase.stationId,
+                      refPhase.procInfo.type, e.valid, e.coeff, e.lag);
+          }
+          catch (...)
+          {
+            // Do the actual cross-correlation
+            double coeff, lag;
+            string component;
+            bool valid =
+                xcorrPhases(refEv, refPhase, *refPrc, event, phase,
+                            *_wfAccess.memCache, coeff, lag, component);
 
-          // cache cross-correlation results
-          xcorr.add(refEv.id, event.id, refPhase.stationId,
-                    refPhase.procInfo.type, valid, coeff, lag);
+            // cache cross-correlation results
+            xcorr.add(refEv.id, event.id, refPhase.stationId,
+                      refPhase.procInfo.type, valid, coeff, lag);
+          }
         }
       }
     }
@@ -1963,10 +1979,18 @@ void DD::XCorrEvalStats::summarize(unsigned &skipped,
 
 void DD::evalXCorr(const ClusteringOptions &clustOpt,
                    const evalXcorrCallback &cb,
-                   XCorrCache &xcorr,
+                   XCorrCache &precomputed,
                    const double interEvDistStep,
                    const double staDistStep)
 {
+  if (clustOpt.xcorrMaxEvStaDist == 0 || clustOpt.xcorrMaxInterEvDist == 0)
+  {
+    logInfoF("Cross-correlation is disabled (maxStationDistance %g, "
+             "maxInterEventDistance %g)",
+             clustOpt.xcorrMaxEvStaDist, clustOpt.xcorrMaxInterEvDist);
+    return;
+  }
+
   XCorrEvalStats pTotStats, sTotStats;
   map<string, XCorrEvalStats> pStatsByStation;           // key station id
   map<string, XCorrEvalStats> sStatsByStation;           // key station id
@@ -1999,9 +2023,10 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
     unique_ptr<Catalog> catalog = neighbours->toCatalog(_bgCat, true);
 
     // Cross-correlate phase waveforms
+    XCorrCache xcorr{};
     buildXcorrDiffTTimePairs(*catalog, *neighbours, event,
                              clustOpt.xcorrMaxEvStaDist,
-                             clustOpt.xcorrMaxInterEvDist, xcorr);
+                             clustOpt.xcorrMaxInterEvDist, precomputed, xcorr);
     //
     // Collect Stats From the XcorrCache
     //
@@ -2087,6 +2112,9 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
         }
       }
     }
+
+    // make sure precomputed stores all the cross-correlation results
+    precomputed.add(xcorr);
 
     //
     // User update
