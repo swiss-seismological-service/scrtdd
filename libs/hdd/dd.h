@@ -124,6 +124,7 @@ struct SolverOptions
   double downWeightingByResidualStart = 10.;  // 0 -> disable
   double downWeightingByResidualEnd   = 3.;   // 0 -> disable
   bool usePickUncertainties           = false;
+  double xcorrWeightScaler            = 1.5;
 };
 
 class DD
@@ -323,6 +324,7 @@ private:
                        const Neighbours &neighbours,
                        bool keepNeighboursFixed,
                        bool usePickUncertainties,
+                       double xcorrWeightScaler,
                        const XCorrCache &xcorr,
                        ObservationParams &obsparams) const;
 

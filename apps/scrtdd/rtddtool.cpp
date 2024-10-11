@@ -763,6 +763,16 @@ bool RTDD::validateParameters()
 
     try
     {
+      prof->solverCfg.xcorrWeightScaler =
+          configGetDouble(prefix + "weightScaler");
+    }
+    catch (...)
+    {
+      prof->solverCfg.xcorrWeightScaler = 1.5;
+    }
+
+    try
+    {
       string compatibleChannels =
           configGetString(prefix + "compatibleChannels");
       vector<string> compatibleSets = ::splitString(compatibleChannels, ";");

@@ -809,7 +809,8 @@ unique_ptr<Catalog> DD::relocate(
     for (const auto &kv : neighCluster)
     {
       addObservations(solver, *finalCatalog, *kv.second, keepNeighboursFixed,
-                      solverOpt.usePickUncertainties, xcorr, obsparams);
+                      solverOpt.usePickUncertainties,
+                      solverOpt.xcorrWeightScaler, xcorr, obsparams);
     }
     obsparams.addToSolver(solver);
 
@@ -875,6 +876,7 @@ void DD::addObservations(Solver &solver,
                          const Neighbours &neighbours,
                          bool keepNeighboursFixed,
                          bool usePickUncertainties,
+                         double xcorrWeightScaler,
                          const XCorrCache &xcorr,
                          ObservationParams &obsparams) const
 {
@@ -952,7 +954,7 @@ void DD::addObservations(Solver &solver,
       bool isXcorr = false;
 
       if (!xcorr.empty()) // xcorr is enabled
-      { 
+      {
 
         if (xcorr.has(refEv.id, event.id, refPhase.stationId,
                       refPhase.procInfo.type))
@@ -964,13 +966,8 @@ void DD::addObservations(Solver &solver,
           {
             isXcorr = true;
             diffTime -= duration<double>(e.lag);
-            weight *= e.coeff;
+            weight += ((weight * xcorrWeightScaler) - weight) * e.coeff;
           }
-        }
-
-        if (!isXcorr)
-        {
-          weight *= xcorrCfg.minCoef;
         }
       }
 
