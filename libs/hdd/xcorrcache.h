@@ -73,6 +73,16 @@ public:
     _entries[evId2][stationId][type][evId1] = e;
   }
 
+  void add(const XCorrCache &xcorr)
+  {
+    auto callback =
+        [this](unsigned ev1, unsigned ev2, const std::string &stationId,
+               const Catalog::Phase::Type &type, const XCorrCache::Entry &e) {
+          add(ev1, ev2, stationId, type, e.valid, e.coeff, e.lag);
+        };
+    forEach(callback);
+  }
+
   void remove(unsigned evId1,
               unsigned evId2,
               const std::string &stationId,
