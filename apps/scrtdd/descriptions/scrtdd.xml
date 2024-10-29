@@ -56,10 +56,10 @@
           <parameter name="tableModel" type="string" default="iasp91">
             <description>The model to be used. The format depends on tableType.</description>
           </parameter>
-          <parameter name="P-Phases" type="list:string" default="Pg,P">
+          <parameter name="P-Phases" type="list:string" default="P,Pn,Pg">
             <description>Defines a priority list of accepted P phases. Phases not in the list will be ignored. If multiple phases exist for a station, the first one in the list will be used.</description>
           </parameter>
-          <parameter name="S-Phases" type="list:string" default="Sg,S">
+          <parameter name="S-Phases" type="list:string" default="S,Sn,Sg">
             <description>Defines a priority list of accepted S phases. Phases not in the list will be ignored. If multiple phases exist for a station, the first one in the list will be used.</description>
           </parameter>
           <parameter name="usePickUncertainties" type="boolean" default="false">
@@ -137,13 +137,13 @@
           <group name="crossCorrelation">
            <description>Cross-correlation is used to improve the differential travel times used in the double-difference system. This step is optional and can be disabled by setting to 0 either 'maxStationDistance' or 'maxInterEventDistance'</description> 
             <parameter name="maxStationDistance" type="double" default="0" unit="km">
-              <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between event and station for a cross-correlation to happen. Phases belonging to further stations will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 disables the cross-correlations.</description> 
+              <description>Maximum allowed distance (km) between event and station for a cross-correlation to happen. Phases belonging to further stations will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 disables the cross-correlations.</description> 
             </parameter>
             <parameter name="maxInterEventDistance" type="double" default="0" unit="km">
-              <description>By default all phase pairs in the double-difference system are cross-correlated. However this parameter allows to set the maximum allowed distance (km) between events for a cross-correlation to happen. Phases of event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 disables the cross-correlations.</description>
+              <description>Maximum allowed distance (km) between events for a cross-correlation to happen. Phases of event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 disables the cross-correlations.</description>
             </parameter>
             <parameter name="weightScaler" type="double" default="1.5">
-              <description>How to scale the weight of the equations that use cross-correlation differential times. </description>
+              <description>Weight scaling of the equations that use cross-correlation differential times with respect to equations that use pick times only.</description>
             </parameter>
             <parameter name="compatibleChannels" type="string" default="">
               <description>The cross-correlation is computed only on phases picked on the same channel code (e.g. HH. EH, HG, etc). However here it is possible to force the cross-correlation between different channel codes on the same station. The value is a list separated by ';' and each element is a list (again) of compatible channels separated by ',' for example: "HH,EH;HG,HN"</description>
@@ -201,10 +201,10 @@
               <description>Solver algorithm to use: either LSMR or LSQR</description>
             </parameter>
             <parameter name="algoIterations" type="int" default="20">
-              <description>This parameter control how many iterations the solver performs.</description>
+              <description>Number of iterations for the solver to perform.</description>
             </parameter>
             <parameter name="downWeightingByResidual" type="list:double" default="10,3" >
-              <description>At each iteration the solver down-weighs the double-difference equations accordingly to their residuals. The value of this option indicates the standard deviation of the residuals beyond which an equation weight becomes 0 (dropped). A value of 0 disables downweighting. One or two values can be given; when two values are given the first value is used in the first iteration, the second value in the last iteration and the iterations in between use interpolated values.</description>
+              <description>At each iteration the solver down-weighs the double-difference equations accordingly to their residuals. This option indicates the standard deviation of the residuals beyond which an equation weight becomes 0. A value of 0 disables downweighting. One or two values can be given; when two values are given the first value is used in the first iteration, the second value in the last iteration and the iterations in between use interpolated values.</description>
             </parameter>
             <parameter name="dampingFactor" type="list:double" default="0.01" >
               <description>Setting a value different than 0 enables the solver to use a damped (regularized) least squares system. A too high value prevents the solver from changing the events locations, while a too low value allows the event cluster(s) to shift away from their absolute location (unless `absoluteLocationConstraint` is used). One or two values can be given; when two values are given the first value is used in the first iteration, the second value in the last iteration and the iterations in between use interpolated values.</description>
