@@ -447,10 +447,10 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
     unordered_map<unsigned, unique_ptr<Neighbours>> validNeighbours;
 
     logInfoF("Found the neighbours of %zu events (%zu events don't satisfy the "
-              "constraints)",
-              neighboursList.size(), removedEvents.size());
+             "constraints)",
+             neighboursList.size(), removedEvents.size());
     logInfo("Search and fix the events whose neighbours do not satisfy the "
-             "constraints...");
+            "constraints...");
 
     for (auto &kv : neighboursList)
     {
