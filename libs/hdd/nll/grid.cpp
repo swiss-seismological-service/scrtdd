@@ -808,28 +808,37 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
     throw Exception("Requested index is out of grid boundaries");
   }
 
-  if (!_bufReader.is_open())
+  bool retry = true;
+  do
   {
-    _bufReader.open(info.bufFilePath, std::ios::binary | std::ios::in);
-    _bufReader.exceptions(std::ios::badbit | std::ios::failbit);
-  }
+    if (!_bufReader.is_open())
+    {
+      _bufReader.open(info.bufFilePath, std::ios::binary | std::ios::in);
+      _bufReader.exceptions(std::ios::badbit | std::ios::failbit);
+      retry = false; // if just open not need to retry
+    }
 
-  unsigned long pos = sizeof(GRID_FLOAT_TYPE) *
-                      (ix * info.numy * info.numz + iy * info.numz + iz);
+    unsigned long pos = sizeof(GRID_FLOAT_TYPE) *
+                        (ix * info.numy * info.numz + iy * info.numz + iz);
 
-  GRID_FLOAT_TYPE value;
-  try
-  {
-    _bufReader.seekg(pos);
-    _bufReader.read(reinterpret_cast<char *>(&value), sizeof(value));
-  }
-  catch (exception &e)
-  {
-    _bufReader.close();
-    string msg = strf("Error while reading grid file %s (%s)",
-                      info.bufFilePath.c_str(), e.what());
-    throw Exception(msg.c_str());
-  }
+    GRID_FLOAT_TYPE value;
+    try
+    {
+      _bufReader.seekg(pos);
+      _bufReader.read(reinterpret_cast<char *>(&value), sizeof(value));
+      retry = false; // all went well, no retry
+    }
+    catch (exception &e)
+    {
+      _bufReader.close();
+      if (!retry)
+      {
+        string msg = strf("Error while reading grid file %s (%s)",
+                          info.bufFilePath.c_str(), e.what());
+        throw Exception(msg.c_str());
+      }
+    }
+  } while (retry);
 
   if (info.swapBytes && sizeof(GRID_FLOAT_TYPE) == 4)
   {
