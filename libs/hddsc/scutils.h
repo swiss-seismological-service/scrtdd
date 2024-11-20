@@ -28,6 +28,7 @@
 #include <seiscomp/core/genericrecord.h>
 #include <seiscomp/core/timewindow.h>
 #include <seiscomp/core/typedarray.h>
+#include <seiscomp/core/version.h>
 #include <seiscomp/datamodel/databasequery.h>
 #include <seiscomp/datamodel/eventparameters.h>
 #include <seiscomp/datamodel/publicobjectcache.h>
@@ -116,7 +117,11 @@ inline Seiscomp::Core::Time toSC(const HDD::UTCTime &t)
 
 inline HDD::UTCTime fromSC(const Seiscomp::Core::Time &t)
 {
-  return HDD::UTCTime() + HDD::secToDur(t.length());
+#if SC_API_VERSION < SC_API_VERSION_CHECK(17,0,0)
+	return HDD::UTCTime() + HDD::secToDur(t.length());
+#else
+	return HDD::UTCTime() + HDD::secToDur(t.epoch());
+#endif
 }
 
 inline Seiscomp::Core::TimeWindow toSC(const HDD::TimeWindow &tw)

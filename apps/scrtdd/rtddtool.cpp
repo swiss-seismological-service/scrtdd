@@ -1489,7 +1489,7 @@ void RTDD::checkProfileStatus()
     // periodic clean up of profiles
     if (_config.profileTimeAlive >= 0)
     {
-      Core::TimeSpan expired = Core::TimeSpan(_config.profileTimeAlive);
+      Core::TimeSpan expired = Core::TimeSpan(_config.profileTimeAlive, 0);
       if (currProfile->isLoaded() && currProfile->inactiveTime() > expired)
       {
         SEISCOMP_INFO(
@@ -1631,7 +1631,7 @@ bool RTDD::addProcess(DataModel::PublicObject *obj)
   proc->cronjob->runTimes.clear();
   for (size_t i = 0; i < _config.delayTimes.size(); ++i)
     proc->cronjob->runTimes.push_back(now +
-                                      Core::TimeSpan(_config.delayTimes[i]));
+                                      Core::TimeSpan(_config.delayTimes[i], 0));
 
   SEISCOMP_DEBUG("Update runTimes for [%s]", proc->obj->publicID().c_str());
 
