@@ -214,13 +214,13 @@ void WaveformProxy::loadTraces(
             requested         = true;
           }
           else if (contiguousRequest.endTime() <= tw.startTime() &&
-                   contiguousRequest.contiguous(tw, 60))
+                   contiguousRequest.contiguous(tw, Core::TimeSpan(60,0)))
           {
             contiguousRequest = contiguousRequest.merge(tw);
             requested         = true;
           }
           else if (contiguousRequest.startTime() >= tw.endTime() &&
-                   tw.contiguous(contiguousRequest, 60))
+                   tw.contiguous(contiguousRequest, Core::TimeSpan(60,0)))
           {
             contiguousRequest = contiguousRequest.merge(tw);
             requested         = true;
