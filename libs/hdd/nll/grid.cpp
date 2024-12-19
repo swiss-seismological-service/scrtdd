@@ -197,7 +197,8 @@ double GlobalTransform::distance(double xLoc1,
                                  double xLoc2,
                                  double yLoc2) const
 {
-  return computeDistance(yLoc1, xLoc1, yLoc2, xLoc2);
+  return radToDeg(
+      computeDistance(yLoc1, xLoc1, yLoc2, xLoc2, nullptr, nullptr, 0, true));
 }
 
 double GlobalTransform::distance(double xLoc1,
@@ -207,7 +208,7 @@ double GlobalTransform::distance(double xLoc1,
                                  double yLoc2,
                                  double zLoc2) const
 {
-  return computeDistance(yLoc1, xLoc1, zLoc1, yLoc2, xLoc2, zLoc2);
+  throw Exception("GlobalTransform doesn't support 3D grids");
 }
 
 SimpleTransform::SimpleTransform(const std::string &type,
@@ -782,6 +783,12 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
   return info;
 }
 
+void Grid::close()
+{
+  logInfoF("Closing grid file %s", info.bufFilePath.c_str());
+  _bufReader.close();
+}
+
 /*
  * This is the function that reads the data from the grid files
  * Since the grid files can vary between hundres of MB to hundreds
@@ -808,6 +815,7 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
     throw Exception("Requested index is out of grid boundaries");
   }
 
+  GRID_FLOAT_TYPE value;
   bool retry = true;
   do
   {
@@ -815,13 +823,12 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
     {
       _bufReader.open(info.bufFilePath, std::ios::binary | std::ios::in);
       _bufReader.exceptions(std::ios::badbit | std::ios::failbit);
-      retry = false; // if just open not need to retry
+      retry = false; // just opened, no retry
     }
 
     unsigned long pos = sizeof(GRID_FLOAT_TYPE) *
                         (ix * info.numy * info.numz + iy * info.numz + iz);
 
-    GRID_FLOAT_TYPE value;
     try
     {
       _bufReader.seekg(pos);
@@ -837,6 +844,8 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
                           info.bufFilePath.c_str(), e.what());
         throw Exception(msg.c_str());
       }
+      logInfoF("File %s was open but the read failed, retrying...",
+               info.bufFilePath.c_str());
     }
   } while (retry);
 
@@ -1035,6 +1044,8 @@ TimeGrid::TimeGrid(const std::string &filePath, bool swapBytes)
   }
 }
 
+void TimeGrid::close() { _grid.close(); }
+
 double TimeGrid::getTimeAtIndex(unsigned long long ix,
                                 unsigned long long iy,
                                 unsigned long long iz)
@@ -1170,6 +1181,8 @@ AngleGrid::AngleGrid(const std::string &filePath,
   }
 }
 
+void AngleGrid::close() { _grid.close(); }
+
 void AngleGrid::getAnglesAtIndex(unsigned long long ix,
                                  unsigned long long iy,
                                  unsigned long long iz,
@@ -1301,6 +1314,8 @@ VelGrid::VelGrid(const std::string &filePath, bool swapBytes)
     throw Exception(msg.c_str());
   }
 }
+
+void VelGrid::close() { _grid.close(); }
 
 double VelGrid::getVelAtIndex(unsigned long long ix,
                               unsigned long long iy,

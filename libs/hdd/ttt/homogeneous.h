@@ -39,20 +39,20 @@ class Homogeneous : public HDD::TravelTimeTable
 public:
   Homogeneous(double pVel, double sVel);
 
-  virtual ~Homogeneous() = default;
-
-  void freeResources() override;
-
   double compute(double eventLat,
                  double eventLon,
                  double eventDepth,
-                 const Catalog::Station &station,
+                 double stationLat,
+                 double stationLon,
+                 double stationElevation,
                  const std::string &phaseType) override;
 
   void compute(double eventLat,
                double eventLon,
                double eventDepth,
-               const Catalog::Station &station,
+               double stationLat,
+               double stationLon,
+               double stationElevation,
                const std::string &phaseType,
                double &travelTime,
                double &azimuth,
