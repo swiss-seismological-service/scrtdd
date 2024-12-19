@@ -55,31 +55,31 @@ void addStationsToCatalog(HDD::Catalog &cat,
   double distance = 25;
 
   computeCoordinates(distance, degToRad(0), lat, lon, staLat, staLon);
-  sta = {"NET.ST01", staLat, staLon, 0, "NET", "ST01", ""};
+  sta = {"NT.ST01", staLat, staLon,  500, "NT", "STA01", ""};
   cat.addStation(sta);
   computeCoordinates(distance, degToRad(90), lat, lon, staLat, staLon);
-  sta = {"NET.ST02", staLat, staLon, 0, "NET", "ST02", ""};
+  sta = {"NT.ST02", staLat, staLon, 1000, "NT", "STA02", ""};
   cat.addStation(sta);
   computeCoordinates(distance, degToRad(180), lat, lon, staLat, staLon);
-  sta = {"NET.ST03", staLat, staLon, 0, "NET", "ST03", ""};
+  sta = {"NT.ST03", staLat, staLon, 1500, "NT", "STA03", ""};
   cat.addStation(sta);
   computeCoordinates(distance, degToRad(270), lat, lon, staLat, staLon);
-  sta = {"NET.ST04", staLat, staLon, 0, "NET", "ST04", ""};
+  sta = {"NT.ST04", staLat, staLon, 2000, "NT", "STA04", ""};
   cat.addStation(sta);
 
   distance = 15;
 
   computeCoordinates(distance, degToRad(45), lat, lon, staLat, staLon);
-  sta = {"NET.ST05", staLat, staLon, 0, "NET", "ST05", ""};
+  sta = {"NT.ST05", staLat, staLon, -2000, "NT", "STA05", ""};
   cat.addStation(sta);
   computeCoordinates(distance, degToRad(135), lat, lon, staLat, staLon);
-  sta = {"NET.ST06", staLat, staLon, 0, "NET", "ST06", ""};
+  sta = {"NT.ST06", staLat, staLon, -1500, "NT", "STA06", ""};
   cat.addStation(sta);
   computeCoordinates(distance, degToRad(225), lat, lon, staLat, staLon);
-  sta = {"NET.ST07", staLat, staLon, 0, "NET", "ST07", ""};
+  sta = {"NT.ST07", staLat, staLon, -1000, "NT", "STA07", ""};
   cat.addStation(sta);
   computeCoordinates(distance, degToRad(315), lat, lon, staLat, staLon);
-  sta = {"NET.ST08", staLat, staLon, 0, "NET", "ST08", ""};
+  sta = {"NT.ST08", staLat, staLon,  -500, "NT", "STA08", ""};
   cat.addStation(sta);
 }
 
@@ -377,11 +377,11 @@ void testCatalogEqual(const HDD::Catalog &cat1, const HDD::Catalog &cat2)
     BOOST_REQUIRE_EQUAL(cat2.getEvents().count(ev1.id), 1);
     const Event &ev2 = cat2.getEvents().at(ev1.id);
     BOOST_CHECK_SMALL(durToSec((ev1.time - ev2.time)),
-                      0.05); // tolerance 50 millisec
+                      0.01); // tolerance 10 millisec
     BOOST_CHECK_SMALL(computeDistance(ev1.latitude, ev1.longitude,
                                       ev2.latitude, ev2.longitude),
-                      0.05); // tolerance 50 meter
-    BOOST_CHECK_SMALL(ev1.depth-ev2.depth, 0.5); // tolerance 0.5 km
+                      0.01); // tolerance 10 meter
+    BOOST_CHECK_SMALL(ev1.depth-ev2.depth, 0.05); // tolerance 50 m
   }
 }
 
@@ -392,15 +392,17 @@ struct Centroid
   double depth;
 };
 
-// This centroid is in the middle of the generated nll grid files
-// Tests that runs with nll grids, should use this centroid, with
-// varying depths
-const Centroid nllCentroid{47.0, 8.5, 5};
 
 const vector<Centroid> centroidList{
-  nllCentroid, {0, 0, 2},
-  { 85, -90, 3},  {-85, 90, 10},
-  { 75, 170, 8},  { -60, -170, 2},
+  {nllGridCentroidLat, nllGridCentroidLon, 0},
+  {nllGridCentroidLat, nllGridCentroidLon, -1.5},
+  {nllGridCentroidLat, nllGridCentroidLon, 1.5},
+  {nllGridCentroidLat, nllGridCentroidLon, 8},
+  {0, 0, -1},
+  { 85, -90, 0},
+  {-85, 90, 3},
+  { 75, 170, 8},
+  { -60, -170, 2},
   { 0, 179.99, 4},
 };
 
@@ -416,7 +418,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event1,
   bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations && 
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+   (nllGridCentroidLat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
   {
     BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
     BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
@@ -427,7 +429,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event1,
 
   const HDD::Catalog baseCat =
       buildCatalog(*ttt, nllStations, UTCClock::fromDate(2001, 1, 2, 0, 0, 0, 0),
-                   centroid.lat, centroid.lon, centroid.depth, 42, 3.0);
+                   nllGridCentroidLat, centroid.lon, centroid.depth, 42, 3.0);
 
   // Test no event changes, the relocation should not move the events
   string workingDir =
@@ -447,7 +449,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event2,
   bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations && 
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+   (nllGridCentroidLat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
   {
     BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
     BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
@@ -458,7 +460,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event2,
 
   const HDD::Catalog baseCat =
       buildCatalog(*ttt, nllStations, UTCClock::fromDate(1914, 11, 23, 11, 34, 23, 1234),
-                   centroid.lat, centroid.lon, centroid.depth, 42, 1.5);
+                   nllGridCentroidLat, centroid.lon, centroid.depth, 42, 1.5);
 
   // Test 2: all events at centroid location, with random perturbation of time
   HDD::Catalog cat(baseCat);
@@ -467,7 +469,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event2,
   {
     Event ev = kv.second;
     ev.time += secToDur(timeDist.next());
-    ev.latitude  = centroid.lat;
+    ev.latitude  = nllGridCentroidLat;
     ev.longitude = centroid.lon;
     ev.depth     = centroid.depth;
     cat.updateEvent(ev);
@@ -490,7 +492,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event3,
   bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations && 
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+   (nllGridCentroidLat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
   {
     BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
     BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
@@ -501,7 +503,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event3,
 
   const HDD::Catalog baseCat =
       buildCatalog(*ttt, nllStations, UTCClock::fromDate(2041, 6, 14, 23, 46, 3, 65),
-                   centroid.lat, centroid.lon, centroid.depth, 42, 1.0);
+                   nllGridCentroidLat, centroid.lon, centroid.depth, 42, 1.0);
 
   // Test 3: random changes to all events (mean of all changes is != 0)
   HDD::Catalog cat(baseCat);
@@ -524,7 +526,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event1,
   bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations && 
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+   (nllGridCentroidLat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
   {
     BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
     BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
@@ -536,9 +538,9 @@ BOOST_DATA_TEST_CASE(test_dd_single_event1,
   const UTCTime clusterTime =
       UTCClock::fromDate(1973, 12, 4, 14, 53, 32, 69854);
   const HDD::Catalog backgroundCat = buildBackgroundCatalog(
-      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 2.0);
+      *ttt, nllStations, clusterTime, nllGridCentroidLat, centroid.lon, centroid.depth, 21, 2.0);
   const HDD::Catalog realTimeCat = buildCatalog(
-      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 2.0);
+      *ttt, nllStations, clusterTime, nllGridCentroidLat, centroid.lon, centroid.depth, 24, 2.0);
 
   // Test 1: no event changes
   string workingDir =
@@ -558,7 +560,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event2,
   bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations &&  
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+   (nllGridCentroidLat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
   {
     BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
     BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
@@ -570,9 +572,9 @@ BOOST_DATA_TEST_CASE(test_dd_single_event2,
   const UTCTime clusterTime =
       UTCClock::fromDate(1989, 7, 18, 23, 59, 59, 999999);
   const HDD::Catalog backgroundCat = buildBackgroundCatalog(
-      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 1.5);
+      *ttt, nllStations, clusterTime, nllGridCentroidLat, centroid.lon, centroid.depth, 21, 1.5);
   const HDD::Catalog realTimeCat = buildCatalog(
-      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.5);
+      *ttt, nllStations, clusterTime, nllGridCentroidLat, centroid.lon, centroid.depth, 24, 1.5);
 
   // Test 2: all events at centroid location, with random perturbation of time
   HDD::Catalog cat(realTimeCat);
@@ -581,7 +583,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event2,
   {
     Event ev = kv.second;
     ev.time += secToDur(timeDist.next());
-    ev.latitude  = centroid.lat;
+    ev.latitude  = nllGridCentroidLat;
     ev.longitude = centroid.lon;
     ev.depth     = centroid.depth;
     cat.updateEvent(ev);
@@ -604,7 +606,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event3,
   bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations &&
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+   (nllGridCentroidLat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
   {
     BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
     BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
@@ -615,9 +617,9 @@ BOOST_DATA_TEST_CASE(test_dd_single_event3,
 
   const UTCTime clusterTime  = UTCClock::fromDate(2034, 4, 8, 3, 24, 54, 2354);
   const HDD::Catalog backgroundCat = buildBackgroundCatalog(
-      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 1.0);
+      *ttt, nllStations, clusterTime, nllGridCentroidLat, centroid.lon, centroid.depth, 21, 1.0);
   const HDD::Catalog realTimeCat = buildCatalog(
-      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.0);
+      *ttt, nllStations, clusterTime, nllGridCentroidLat, centroid.lon, centroid.depth, 24, 1.0);
 
   // Test 3: random changes to all events (mean of all changes is != 0)
   HDD::Catalog cat(realTimeCat);

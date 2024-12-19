@@ -228,8 +228,6 @@ string DD::generateWorkingSubDir(const Event &ev) const
 
 void DD::unloadWaveforms() { createWaveformCache(); }
 
-void DD::unloadTravelTimeTable() { _ttt->freeResources(); }
-
 const std::vector<std::string> DD::xcorrComponents(const Phase &phase) const
 {
   const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);

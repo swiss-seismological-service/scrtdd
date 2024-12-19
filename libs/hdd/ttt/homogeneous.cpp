@@ -33,12 +33,12 @@ namespace TTT {
 
 Homogeneous::Homogeneous(double pVel, double sVel) : _pVel(pVel), _sVel(sVel) {}
 
-void Homogeneous::freeResources() {}
-
 double Homogeneous::compute(double eventLat,
                             double eventLon,
                             double eventDepth,
-                            const Catalog::Station &station,
+                            double stationLat,
+                            double stationLon,
+                            double stationElevation,
                             const std::string &phaseType)
 {
   double velocity; // [km/s]
@@ -50,29 +50,32 @@ double Homogeneous::compute(double eventLat,
     throw Exception("Unknown phase type: " + phaseType);
 
   // straight ray path since we are in a homogeneous media
-  double distance = computeDistance(eventLat, eventLon, eventDepth,
-                                    station.latitude, station.longitude,
-                                    -(station.elevation / 1000.)); // [km]
-  return distance / velocity;                                      // [sec]
+  double distance =
+      computeDistance(eventLat, eventLon, eventDepth, stationLat, stationLon,
+                      -(stationElevation / 1000.)); // [km]
+  return distance / velocity;                       // [sec]
 }
 
 void Homogeneous::compute(double eventLat,
                           double eventLon,
                           double eventDepth,
-                          const Catalog::Station &station,
+                          double stationLat,
+                          double stationLon,
+                          double stationElevation,
                           const std::string &phaseType,
                           double &travelTime,
                           double &azimuth,
                           double &takeOffAngle,
                           double &velocityAtSrc)
 {
-  travelTime = compute(eventLat, eventLon, eventDepth, station, phaseType);
+  travelTime = compute(eventLat, eventLon, eventDepth, stationLat, stationLon,
+                       stationElevation, phaseType);
 
-  double hDist = computeDistance(eventLat, eventLon, eventDepth,
-                                 station.latitude, station.longitude,
-                                 -(station.elevation / 1000.), &azimuth);
+  double hDist =
+      computeDistance(eventLat, eventLon, eventDepth, stationLat, stationLon,
+                      -(stationElevation / 1000.), &azimuth);
 
-  double vDist = eventDepth + station.elevation / 1000.;
+  double vDist = eventDepth + stationElevation / 1000.;
   takeOffAngle = std::asin(vDist / hDist);
   takeOffAngle += degToRad(90); // -90(down):+90(up) -> 0(down):180(up)
 
