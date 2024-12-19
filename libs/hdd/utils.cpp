@@ -252,18 +252,18 @@ double computeDistance(double lat1,
 
 double computeDistance(double lat1,
                        double lon1,
-                       double depth1,
+                       double kmDepth1,
                        double lat2,
                        double lon2,
-                       double depth2,
+                       double kmDepth2,
                        double *azimuth,
                        double *backAzimuth)
 {
-  double atKmDepth = (depth1 + depth2) / 2.;
+  double atKmDepth = (kmDepth1 + kmDepth2) / 2.;
   double Hdist =
       computeDistance(lat1, lon1, lat2, lon2, azimuth, backAzimuth, atKmDepth);
-  if (depth1 == depth2) return Hdist;
-  double Vdist = abs(depth1 - depth2);
+  if (kmDepth1 == kmDepth2) return Hdist;
+  double Vdist = abs(kmDepth1 - kmDepth2);
   return std::sqrt(square(Hdist) + square(Vdist));
 }
 

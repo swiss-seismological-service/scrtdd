@@ -165,9 +165,6 @@ public:
   void dumpWaveforms(const XcorrOptions &xcorrOpt,
                      const std::string &basePath = "");
 
-  // free ttt memory and resources
-  void unloadTravelTimeTable();
-
   // Find clusters in the background catalogs and return them
   std::list<std::unordered_map<unsigned, Neighbours>>
   findClusters(const ClusteringOptions &clustOpt);

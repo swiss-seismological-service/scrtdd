@@ -37,7 +37,7 @@ namespace HDD {
  *  a sequentially growing integer starting from 0
  *  (suitable for array index).
  */
-template <class T> class IdToIndex
+template <typename T> class IdToIndex
 {
 public:
   unsigned convert(const T &id)

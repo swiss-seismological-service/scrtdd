@@ -40,8 +40,8 @@ public:
 
   TravelTimeTable(const TravelTimeTable &other)            = delete;
   TravelTimeTable &operator=(const TravelTimeTable &other) = delete;
-
-  virtual void freeResources() = 0;
+  TravelTimeTable(TravelTimeTable &&other)                 = delete;
+  TravelTimeTable &operator=(TravelTimeTable &&other)      = delete;
 
   /*
    * The implementation of this interface MUST compute:
@@ -54,7 +54,9 @@ public:
   virtual void compute(double eventLat,
                        double eventLon,
                        double eventDepth,
-                       const Catalog::Station &station,
+                       double stationLat,
+                       double stationLon,
+                       double stationElevation,
                        const std::string &phaseType,
                        double &travelTime,
                        double &azimuth,
@@ -69,8 +71,39 @@ public:
                double &takeOffAngle,
                double &velocityAtSrc)
   {
-    return compute(event.latitude, event.longitude, event.depth, station,
-                   phaseType, travelTime, azimuth, takeOffAngle, velocityAtSrc);
+    compute(event.latitude, event.longitude, event.depth, station.latitude,
+            station.longitude, station.elevation, phaseType, travelTime,
+            azimuth, takeOffAngle, velocityAtSrc);
+  }
+
+  void compute(double eventLat,
+               double eventLon,
+               double eventDepth,
+               const Catalog::Station &station,
+               const std::string &phaseType,
+               double &travelTime,
+               double &azimuth,
+               double &takeOffAngle,
+               double &velocityAtSrc)
+  {
+    compute(eventLat, eventLon, eventDepth, station.latitude, station.longitude,
+            station.elevation, phaseType, travelTime, azimuth, takeOffAngle,
+            velocityAtSrc);
+  }
+
+  void compute(const Catalog::Event &event,
+               double stationLat,
+               double stationLon,
+               double stationElevation,
+               const std::string &phaseType,
+               double &travelTime,
+               double &azimuth,
+               double &takeOffAngle,
+               double &velocityAtSrc)
+  {
+    compute(event.latitude, event.longitude, event.depth, stationLat,
+            stationLon, stationElevation, phaseType, travelTime, azimuth,
+            takeOffAngle, velocityAtSrc);
   }
 
   /*
@@ -87,15 +120,38 @@ public:
   virtual double compute(double eventLat,
                          double eventLon,
                          double eventDepth,
-                         const Catalog::Station &station,
+                         double stationLat,
+                         double stationLon,
+                         double stationElevation,
                          const std::string &phaseType) = 0;
 
   double compute(const Catalog::Event &event,
                  const Catalog::Station &station,
                  const std::string &phaseType)
   {
-    return compute(event.latitude, event.longitude, event.depth, station,
+    return compute(event.latitude, event.longitude, event.depth,
+                   station.latitude, station.longitude, station.elevation,
                    phaseType);
+  }
+
+  double compute(double eventLat,
+                 double eventLon,
+                 double eventDepth,
+                 const Catalog::Station &station,
+                 const std::string &phaseType)
+  {
+    return compute(eventLat, eventLon, eventDepth, station.latitude,
+                   station.longitude, station.elevation, phaseType);
+  }
+
+  double compute(const Catalog::Event &event,
+                 double stationLat,
+                 double stationLon,
+                 double stationElevation,
+                 const std::string &phaseType)
+  {
+    return compute(event.latitude, event.longitude, event.depth, stationLat,
+                   stationLon, stationElevation, phaseType);
   }
 };
 

@@ -28,8 +28,6 @@
 #ifndef __HDD_NLL_GRID_H__
 #define __HDD_NLL_GRID_H__
 
-#include "../catalog.h"
-
 #include <cmath>
 #include <fstream>
 #include <functional>
@@ -52,8 +50,10 @@ public:
             double rot);
   virtual ~Transform() = default;
 
-  Transform(const Transform &other)            = delete;
-  Transform &operator=(const Transform &other) = delete;
+  Transform(const Transform &)            = delete;
+  Transform &operator=(const Transform &) = delete;
+  Transform(Transform &&)                 = delete;
+  Transform &operator=(Transform &&)      = delete;
 
   virtual void
   fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const = 0;
@@ -102,7 +102,7 @@ public:
 
   Grid(Type gridType, const std::string &filePath, bool swapBytes);
 
-  ~Grid() = default;
+  void close();
 
   template <typename GRID_FLOAT_TYPE> struct Interpolate2D
   {
@@ -181,7 +181,7 @@ public:
     std::string hdrFilePath;
     std::string bufFilePath;
     Type gridType;
-    bool swapBytes; // should disk values bytes be swapped?
+    bool swapBytes; // should disk values be byte swapped?
 
     unsigned long long numx, numy, numz;
     double origx, origy, origz; // km
@@ -224,7 +224,8 @@ class TimeGrid
 {
 public:
   TimeGrid(const std::string &filePath, bool swapBytes);
-  ~TimeGrid() = default;
+
+  void close();
 
   double getTime(double lat, double lon, double depth);
 
@@ -265,7 +266,8 @@ public:
   AngleGrid(const std::string &filePath,
             bool swapBytes,
             unsigned quality_cutoff = 5);
-  ~AngleGrid() = default;
+
+  void close();
 
   void
   getAngles(double lat, double lon, double depth, double &azim, double &dip);
@@ -319,7 +321,7 @@ class VelGrid
 public:
   VelGrid(const std::string &filePath, bool swapBytes);
 
-  ~VelGrid() = default;
+  void close();
 
   double getVel(double lat, double lon, double depth);
 

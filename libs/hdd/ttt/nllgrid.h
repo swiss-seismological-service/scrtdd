@@ -31,6 +31,7 @@
 #include "../3rd-party/lrucache.h"
 #include "../nll/grid.h"
 #include "../ttt.h"
+#include "kdtree.h"
 
 #include <unordered_set>
 
@@ -41,20 +42,18 @@ namespace TTT {
 class NLLGrid : public HDD::TravelTimeTable
 {
 public:
-  NLLGrid(const std::string &velGridPath,
-          const std::string &timeGridPath,
-          const std::string &angleGridPath,
-          bool swapBytes,
-          unsigned cacheSize = 255);
-
-  virtual ~NLLGrid() = default;
-
-  void freeResources() override;
+  NLLGrid(const std::string &gridPath,
+          const std::string &gridModel,
+          double maxSearchDistance = 0.1,
+          bool swapBytes           = false,
+          unsigned maxOpenFiles    = 512);
 
   void compute(double eventLat,
                double eventLon,
                double eventDepth,
-               const Catalog::Station &station,
+               double stationLat,
+               double stationLon,
+               double stationElevation,
                const std::string &phaseType,
                double &travelTime,
                double &azimuth,
@@ -64,22 +63,45 @@ public:
   double compute(double eventLat,
                  double eventLon,
                  double eventDepth,
-                 const Catalog::Station &station,
+                 double stationLat,
+                 double stationLon,
+                 double stationElevation,
                  const std::string &phaseType) override;
 
-  static std::string filePath(const std::string &basePath,
-                              const Catalog::Station &station,
-                              const std::string &phaseType);
+  void closeOpenFiles();
 
 private:
-  std::string _velGridPath;
-  std::string _timeGridPath;
-  std::string _angleGridPath;
+  std::string _gridPath;
+  std::string _gridModel;
   bool _swapBytes;
-  lru_cache<std::string, std::shared_ptr<NLL::VelGrid>> _velGrids;
-  lru_cache<std::string, std::shared_ptr<NLL::TimeGrid>> _timeGrids;
-  lru_cache<std::string, std::shared_ptr<NLL::AngleGrid>> _angleGrids;
-  std::unordered_set<std::string> _unloadableGrids;
+  double _maxSearchDistance; // meters
+
+  std::shared_ptr<NLL::VelGrid> _PVelGrid;
+  std::shared_ptr<NLL::VelGrid> _SVelGrid;
+
+  using TimeKDTree = KDTree<std::shared_ptr<NLL::TimeGrid>>;
+  TimeKDTree _PTimeKDTree;
+  TimeKDTree _STimeKDTree;
+
+  using AngleKDTree = KDTree<std::shared_ptr<NLL::AngleGrid>>;
+  AngleKDTree _PAngleKDTree;
+  AngleKDTree _SAngleKDTree;
+
+  struct GridCloser
+  {
+    GridCloser(const std::shared_ptr<NLL::VelGrid> &velGrid);
+    GridCloser(const std::shared_ptr<NLL::TimeGrid> &timeGrid);
+    GridCloser(const std::shared_ptr<NLL::AngleGrid> &angleGrid);
+    ~GridCloser();
+    GridCloser(const GridCloser &)            = default;
+    GridCloser &operator=(const GridCloser &) = default;
+    GridCloser(GridCloser &&)                 = default;
+    GridCloser &operator=(GridCloser &&)      = default;
+    std::shared_ptr<NLL::VelGrid> velGrid;
+    std::shared_ptr<NLL::TimeGrid> timeGrid;
+    std::shared_ptr<NLL::AngleGrid> angleGrid;
+  };
+  lru_cache<std::string, GridCloser> _openGrids;
 };
 
 } // namespace TTT

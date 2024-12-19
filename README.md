@@ -73,26 +73,6 @@ git clone https://github.com/swiss-seismological-service/scrtdd.git
 ...
 </pre>
 
-To update rtDD to a new version:
-
-<pre>
-#
-# go to rtDD folder
-#
-cd seiscomp/src/extras/scrtdd
-
-#
-# fetch the changes that happened on rtDD repository
-#
-git fetch origin -p --tags
-
-#
-# checkout the new version
-#
-git checkout master
-git rebase origin/master
-</pre>
-
 ## Tests
 
 If tests were enabled during the compilation of SeiComP then `scrtdd` can be tested
@@ -110,6 +90,13 @@ seiscomp/build$ make test
 
 See SeisComP's [unit testing guide](https://docs.gempa.de/seiscomp/current/base/tests.html).
 
-Please note that due to the size of the NonLinLoc grids, not all the transformation are
-tested. To let the tests cover all the implemented transformations the script 
-`libs/hdd/test/data/nll/generate.ch` should be run, which will generate the missing grids.
+Please note that, before running the tests, the NonLinLoc grids must be generated:
+
+<pre>
+# make sure NonLinLoc binaries are in PATH
+export PATH=/path/to/NonLinLoc/src/bin/:$PATH
+
+# generate the grid files
+cd libs/hdd/test/data/nll/
+./generate.ch
+</pre>

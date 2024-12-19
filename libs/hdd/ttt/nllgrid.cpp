@@ -29,6 +29,16 @@
 #include "../log.h"
 #include "../utils.h"
 
+#include <regex>
+
+#ifdef USE_BOOST_FS
+#include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
+#else
+#include <filesystem>
+namespace fs = std::filesystem;
+#endif
+
 using namespace std;
 using namespace HDD::NLL;
 using namespace HDD::Logger;
@@ -37,168 +47,299 @@ namespace HDD {
 
 namespace TTT {
 
-NLLGrid::NLLGrid(const std::string &velGridPath,
-                 const std::string &timeGridPath,
-                 const std::string &angleGridPath,
+NLLGrid::GridCloser::GridCloser(const shared_ptr<VelGrid> &grid)
+{
+  velGrid = grid;
+}
+
+NLLGrid::GridCloser::GridCloser(const shared_ptr<TimeGrid> &grid)
+{
+  timeGrid = grid;
+}
+
+NLLGrid::GridCloser::GridCloser(const shared_ptr<AngleGrid> &grid)
+{
+  angleGrid = grid;
+}
+
+NLLGrid::GridCloser::~GridCloser()
+{
+  if (velGrid) velGrid->close();
+  if (timeGrid) timeGrid->close();
+  if (angleGrid) angleGrid->close();
+}
+
+NLLGrid::NLLGrid(const std::string &gridPath,
+                 const std::string &gridModel,
+                 double maxSearchDistance,
                  bool swapBytes,
-                 unsigned cacheSize)
-    : _velGridPath(velGridPath), _timeGridPath(timeGridPath),
-      _angleGridPath(angleGridPath), _swapBytes(swapBytes),
-      _velGrids(cacheSize), _timeGrids(cacheSize), _angleGrids(cacheSize)
-{}
-
-void NLLGrid::freeResources()
+                 unsigned maxOpenFiles)
+    : _gridPath(gridPath), _gridModel(gridModel), _swapBytes(swapBytes),
+      _maxSearchDistance(maxSearchDistance), _openGrids(maxOpenFiles)
 {
-  _velGrids.clear();
-  _timeGrids.clear();
-  _angleGrids.clear();
+
+  static const std::regex rePModel(_gridModel + R"(\.P\.mod\.hdr)",
+                                   std::regex::optimize);
+  static const std::regex reSModel(_gridModel + R"(\.S\.mod\.hdr)",
+                                   std::regex::optimize);
+  static const std::regex rePTime(_gridModel + R"(\.P\..+\.time\.hdr)",
+                                  std::regex::optimize);
+  static const std::regex reSTime(_gridModel + R"(\.S\..+\.time\.hdr)",
+                                  std::regex::optimize);
+  static const std::regex rePAngle(_gridModel + R"(\.P\..+\.angle\.hdr)",
+                                   std::regex::optimize);
+  static const std::regex reSAngle(_gridModel + R"(\.S\..+\.angle\.hdr)",
+                                   std::regex::optimize);
+
+  logDebugF("Searching grids in %s model name %s", _gridPath.c_str(),
+            _gridModel.c_str());
+
+  vector<TimeKDTree::Point> PTimeGrids;
+  vector<TimeKDTree::Point> STimeGrids;
+  vector<AngleKDTree::Point> PAngleGrids;
+  vector<AngleKDTree::Point> SAngleGrids;
+
+  for (const auto &entry : fs::directory_iterator(_gridPath))
+  {
+
+    const string filename = entry.path().filename().string();
+    const string baseFilePath =
+        fs::path(entry.path()).replace_extension().string();
+    try
+    {
+      if (std::regex_match(filename, rePTime))
+      {
+        TimeKDTree::Point point;
+        auto grid  = make_shared<TimeGrid>(baseFilePath, _swapBytes);
+        point.data = grid;
+        const Grid::Info &ginfo = grid->getInfo();
+        ginfo.transform->toLatLon(ginfo.srcex, ginfo.srcey, point.latitude,
+                                  point.longitude);
+        point.elevation = -ginfo.srcez;
+        PTimeGrids.emplace_back(point);
+      }
+      else if (std::regex_match(filename, reSTime))
+      {
+        TimeKDTree::Point point;
+        auto grid  = make_shared<TimeGrid>(baseFilePath, _swapBytes);
+        point.data = grid;
+        const Grid::Info &ginfo = grid->getInfo();
+        ginfo.transform->toLatLon(ginfo.srcex, ginfo.srcey, point.latitude,
+                                  point.longitude);
+        point.elevation = -ginfo.srcez;
+        STimeGrids.emplace_back(point);
+      }
+      else if (std::regex_match(filename, rePAngle))
+      {
+        AngleKDTree::Point point;
+        auto grid  = make_shared<AngleGrid>(baseFilePath, _swapBytes);
+        point.data = grid;
+        const Grid::Info &ginfo = grid->getInfo();
+        ginfo.transform->toLatLon(ginfo.srcex, ginfo.srcey, point.latitude,
+                                  point.longitude);
+        point.elevation = -ginfo.srcez;
+        PAngleGrids.emplace_back(point);
+      }
+      else if (std::regex_match(filename, reSAngle))
+      {
+        AngleKDTree::Point point;
+        auto grid  = make_shared<AngleGrid>(baseFilePath, _swapBytes);
+        point.data = grid;
+        const Grid::Info &ginfo = grid->getInfo();
+        ginfo.transform->toLatLon(ginfo.srcex, ginfo.srcey, point.latitude,
+                                  point.longitude);
+        point.elevation = -ginfo.srcez;
+        SAngleGrids.emplace_back(point);
+      }
+      else if (std::regex_match(filename, rePModel))
+      {
+        _PVelGrid = make_shared<VelGrid>(baseFilePath, _swapBytes);
+      }
+      else if (std::regex_match(filename, reSModel))
+      {
+        _SVelGrid = make_shared<VelGrid>(baseFilePath, _swapBytes);
+      }
+    }
+    catch (exception &e)
+    {
+      logWarningF("Cannot load grid file: %s", e.what());
+    }
+  }
+
+  logDebugF("Grid files: %d/%d models, %zu/%zu P/S time, %zu/%zu P/S angle",
+            _PVelGrid ? 1 : 0, _SVelGrid ? 1 : 0, PTimeGrids.size(),
+            STimeGrids.size(), PAngleGrids.size(), SAngleGrids.size());
+
+  _PTimeKDTree  = KDTree<shared_ptr<TimeGrid>>(PTimeGrids);
+  _STimeKDTree  = KDTree<shared_ptr<TimeGrid>>(STimeGrids);
+  _PAngleKDTree = KDTree<shared_ptr<AngleGrid>>(PAngleGrids);
+  _SAngleKDTree = KDTree<shared_ptr<AngleGrid>>(SAngleGrids);
 }
 
-std::string NLLGrid::filePath(const std::string &basePath,
-                              const Catalog::Station &station,
-                              const std::string &phaseType)
-{
-  static const std::regex reNet("@NETWORK@", std::regex::optimize);
-  static const std::regex reSta("@STATION@", std::regex::optimize);
-  static const std::regex reLoc("@LOCATION@", std::regex::optimize);
-  static const std::regex rePha("@PHASE@", std::regex::optimize);
-
-  string out = std::regex_replace(basePath, reNet, station.networkCode);
-  out        = std::regex_replace(out, reSta, station.stationCode);
-  out        = std::regex_replace(out, reLoc, station.locationCode);
-  return std::regex_replace(out, rePha, phaseType);
-}
+void NLLGrid::closeOpenFiles() { _openGrids.clear(); }
 
 double NLLGrid::compute(double eventLat,
                         double eventLon,
                         double eventDepth,
-                        const Catalog::Station &station,
+                        double stationLat,
+                        double stationLon,
+                        double stationElevation,
                         const std::string &phaseType)
 {
-  string timeGridFile = filePath(_timeGridPath, station, phaseType);
-  string timeGId      = "timeGrid:" + timeGridFile;
-  double travelTime;
+  string key = "time:" + phaseType + ":" + to_string(stationLat) + ":" +
+               to_string(stationLon) + ":" + to_string(stationElevation);
+
+  shared_ptr<NLL::TimeGrid> timeGrid;
   try
   {
-    travelTime =
-        _timeGrids.get(timeGId)->getTime(eventLat, eventLon, eventDepth);
+    // try the cached grid first
+    timeGrid = _openGrids.get(key).timeGrid;
   }
   catch (std::range_error &e)
   {
-    // Check if we have already excluded the grid because we couldn't load it
-    if (_unloadableGrids.find(timeGId) != _unloadableGrids.end())
-    {
-      string msg = strf("Time grid (%s) not avaliable", timeGId.c_str());
-      throw Exception(msg.c_str());
-    }
-
-    // Load the grid
     try
     {
-      _timeGrids.put(timeGId, shared_ptr<TimeGrid>(
-                                  new TimeGrid(timeGridFile, _swapBytes)));
+      // Find the correct grid
+      if (phaseType == "P")
+      {
+        timeGrid = _PTimeKDTree
+                       .search(stationLat, stationLon, stationElevation / 1000.,
+                               _maxSearchDistance)
+                       .data;
+      }
+      else if (phaseType == "S")
+      {
+        timeGrid = _STimeKDTree
+                       .search(stationLat, stationLon, stationElevation / 1000.,
+                               _maxSearchDistance)
+                       .data;
+      }
     }
-    catch (exception &e)
+    catch (std::range_error &e)
     {
-      _unloadableGrids.insert(timeGId);
-      throw Exception(e.what());
+      string msg =
+          strf("Cannot find a suitable %s time grid (station lat %g lon "
+               "%g elevation %g)",
+               phaseType.c_str(), stationLat, stationLon, stationElevation);
+      throw Exception(msg);
     }
 
-    travelTime =
-        _timeGrids.get(timeGId)->getTime(eventLat, eventLon, eventDepth);
+    // cache the grid
+    _openGrids.put(key, GridCloser(timeGrid));
   }
-  return travelTime;
+  return timeGrid->getTime(eventLat, eventLon, eventDepth);
 }
 
 void NLLGrid::compute(double eventLat,
                       double eventLon,
                       double eventDepth,
-                      const Catalog::Station &station,
+                      double stationLat,
+                      double stationLon,
+                      double stationElevation,
                       const std::string &phaseType,
                       double &travelTime,
                       double &azimuth,
                       double &takeOffAngle,
                       double &velocityAtSrc)
 {
+  //
   // get travelTime
-  travelTime = compute(eventLat, eventLon, eventDepth, station, phaseType);
+  //
+  travelTime = compute(eventLat, eventLon, eventDepth, stationLat, stationLon,
+                       stationElevation, phaseType);
 
+  //
   // Get velocityAtSrc
-  string velGridFile = filePath(_velGridPath, station, phaseType);
-  string velGId      = "velGrid:" + velGridFile;
+  //
+  string key = "velocity:" + phaseType;
+
+  shared_ptr<NLL::VelGrid> velGrid;
   try
   {
-    velocityAtSrc =
-        _velGrids.get(velGId)->getVel(eventLat, eventLon, eventDepth);
+    // try the cached grid first (mostly to refresh the lru cache)
+    velGrid = _openGrids.get(key).velGrid;
   }
   catch (std::range_error &e)
   {
-    // Check if we have already excluded the grid because we couldn't load it
-    if (_unloadableGrids.find(velGId) != _unloadableGrids.end())
+    // Fetch the correct grid
+    if (phaseType == "P")
     {
-      string msg = strf("Vel grid (%s) not avaliable", velGId.c_str());
-      throw Exception(msg.c_str());
+      velGrid = _PVelGrid;
+    }
+    else if (phaseType == "S")
+    {
+      velGrid = _SVelGrid;
     }
 
-    // Load the grid
-    try
+    if (!velGrid)
     {
-      _velGrids.put(velGId,
-                    shared_ptr<VelGrid>(new VelGrid(velGridFile, _swapBytes)));
-    }
-    catch (exception &e)
-    {
-      _unloadableGrids.insert(velGId);
-      throw Exception(e.what());
+      string msg =
+          strf("Cannot find a suitable %s velocity grid (station lat %g "
+               "lon %g elevation %g)",
+               phaseType.c_str(), stationLat, stationLon, stationElevation);
+      throw Exception(msg);
     }
 
-    // Again, get the value from the grid now that it is loaded
-    velocityAtSrc =
-        _velGrids.get(velGId)->getVel(eventLat, eventLon, eventDepth);
+    // cache the grid (to keep track of open files)
+    _openGrids.put(key, GridCloser(velGrid));
   }
 
+  // get the value from the grid now that it is loaded
+  velocityAtSrc = velGrid->getVel(eventLat, eventLon, eventDepth);
+
+  //
   // Get takeOffAngles
-  azimuth      = std::numeric_limits<double>::quiet_NaN();
-  takeOffAngle = std::numeric_limits<double>::quiet_NaN();
+  //
+  key = "angle:" + phaseType + ":" + to_string(stationLat) + ":" +
+        to_string(stationLon) + ":" + to_string(stationElevation);
 
-  string angleGridFile = filePath(_angleGridPath, station, phaseType);
-  string angleGId      = "angleGrid:" + angleGridFile;
-
+  shared_ptr<NLL::AngleGrid> angleGrid;
   try
   {
-    _angleGrids.get(angleGId)->getAngles(eventLat, eventLon, eventDepth,
-                                         azimuth, takeOffAngle);
+    // try the cached grid first
+    angleGrid = _openGrids.get(key).angleGrid;
   }
   catch (std::range_error &e)
   {
-    // Check if we have already excluded the grid because we couldn't load it
-    if (_unloadableGrids.find(angleGId) != _unloadableGrids.end())
-    {
-      string msg = strf("Time grid (%s) not avaliable", angleGId.c_str());
-      throw Exception(msg.c_str());
-    }
-
-    // Load the grid
     try
     {
-      _angleGrids.put(angleGId, shared_ptr<AngleGrid>(
-                                    new AngleGrid(angleGridFile, _swapBytes)));
+      // Find the correct grid
+      if (phaseType == "P")
+      {
+        angleGrid = _PAngleKDTree
+                        .search(stationLat, stationLon,
+                                stationElevation / 1000., _maxSearchDistance)
+                        .data;
+      }
+      else if (phaseType == "S")
+      {
+        angleGrid = _SAngleKDTree
+                        .search(stationLat, stationLon,
+                                stationElevation / 1000., _maxSearchDistance)
+                        .data;
+      }
     }
-    catch (exception &e)
+    catch (std::range_error &e)
     {
-      _unloadableGrids.insert(angleGId);
-      throw Exception(e.what());
+      string msg =
+          strf("Cannot find a suitable %s angle grid (station lat %g "
+               "lon %g elevation %g)",
+               phaseType.c_str(), stationLat, stationLon, stationElevation);
+      throw Exception(msg);
     }
-    _angleGrids.get(angleGId)->getAngles(eventLat, eventLon, eventDepth,
-                                         azimuth, takeOffAngle);
+
+    // cache the grid
+    _openGrids.put(key, GridCloser(angleGrid));
   }
+
+  angleGrid->getAngles(eventLat, eventLon, eventDepth, azimuth, takeOffAngle);
 
   if (!std::isfinite(azimuth)) // if not 3D model compute azimuth
   {
-    azimuth =
-        computeAzimuth(eventLat, eventLon, station.latitude, station.longitude);
+    azimuth = computeAzimuth(eventLat, eventLon, stationLat, stationLon);
   }
 }
+
 } // namespace TTT
 
 } // namespace HDD

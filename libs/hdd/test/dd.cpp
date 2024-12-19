@@ -53,31 +53,31 @@ void addStationsToCatalog(HDD::Catalog &cat, double lat, double lon)
   double distance = 25;
 
   computeCoordinates(distance, degToRad(0), lat, lon, staLat, staLon);
-  sta = {"NET.ST01", staLat, staLon, 0, "NET", "ST01", ""};
+  sta = {"NT.ST01", staLat, staLon,  500, "NT", "STA01", ""};
   cat.addStation(sta);
   computeCoordinates(distance, degToRad(90), lat, lon, staLat, staLon);
-  sta = {"NET.ST02", staLat, staLon, 0, "NET", "ST02", ""};
+  sta = {"NT.ST02", staLat, staLon, 1000, "NT", "STA02", ""};
   cat.addStation(sta);
   computeCoordinates(distance, degToRad(180), lat, lon, staLat, staLon);
-  sta = {"NET.ST03", staLat, staLon, 0, "NET", "ST03", ""};
+  sta = {"NT.ST03", staLat, staLon, 1500, "NT", "STA03", ""};
   cat.addStation(sta);
   computeCoordinates(distance, degToRad(270), lat, lon, staLat, staLon);
-  sta = {"NET.ST04", staLat, staLon, 0, "NET", "ST04", ""};
+  sta = {"NT.ST04", staLat, staLon, 2000, "NT", "STA04", ""};
   cat.addStation(sta);
 
   distance = 15;
 
   computeCoordinates(distance, degToRad(45), lat, lon, staLat, staLon);
-  sta = {"NET.ST05", staLat, staLon, 0, "NET", "ST05", ""};
+  sta = {"NT.ST05", staLat, staLon, -2000, "NT", "STA05", ""};
   cat.addStation(sta);
   computeCoordinates(distance, degToRad(135), lat, lon, staLat, staLon);
-  sta = {"NET.ST06", staLat, staLon, 0, "NET", "ST06", ""};
+  sta = {"NT.ST06", staLat, staLon, -1500, "NT", "STA06", ""};
   cat.addStation(sta);
   computeCoordinates(distance, degToRad(225), lat, lon, staLat, staLon);
-  sta = {"NET.ST07", staLat, staLon, 0, "NET", "ST07", ""};
+  sta = {"NT.ST07", staLat, staLon, -1000, "NT", "STA07", ""};
   cat.addStation(sta);
   computeCoordinates(distance, degToRad(315), lat, lon, staLat, staLon);
-  sta = {"NET.ST08", staLat, staLon, 0, "NET", "ST08", ""};
+  sta = {"NT.ST08", staLat, staLon,  -500, "NT", "STA08", ""};
   cat.addStation(sta);
 }
 
@@ -383,11 +383,11 @@ void testCatalogEqual(const HDD::Catalog &cat1, const HDD::Catalog &cat2)
     BOOST_REQUIRE_EQUAL(cat2.getEvents().count(ev1.id), 1);
     const Event &ev2 = cat2.getEvents().at(ev1.id);
     BOOST_CHECK_SMALL(durToSec((ev1.time - ev2.time)),
-                      0.05); // tolerance 50 millisec
+                      0.01); // tolerance 10 millisec
     BOOST_CHECK_SMALL(computeDistance(ev1.latitude, ev1.longitude,
                                       ev2.latitude, ev2.longitude),
-                      0.05); // tolerance 50 meter
-    BOOST_CHECK_SMALL(ev1.depth-ev2.depth, 0.5); // tolerance 0.5 km
+                      0.01); // tolerance 10 meter
+    BOOST_CHECK_SMALL(ev1.depth-ev2.depth, 0.05); // tolerance 50 m
   }
 }
 
@@ -423,7 +423,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event1,
   bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations && 
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+   (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
   {
     BOOST_TEST_MESSAGE(
         "Skipping NonLinLoc test in a location without grid files");
@@ -456,7 +456,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event2,
   bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations && 
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+   (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
   {
     BOOST_TEST_MESSAGE(
         "Skipping NonLinLoc test in a location without grid files");
@@ -501,7 +501,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event3,
   bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations && 
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+   (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
   {
     BOOST_TEST_MESSAGE(
         "Skipping NonLinLoc test in a location without grid files");
@@ -537,7 +537,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event1,
   bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations && 
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+   (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
   {
     BOOST_TEST_MESSAGE(
         "Skipping NonLinLoc test in a location without grid files");
@@ -573,7 +573,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event2,
   bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations &&  
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+   (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
   {
     BOOST_TEST_MESSAGE(
         "Skipping NonLinLoc test in a location without grid files");
@@ -621,7 +621,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event3,
   bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations &&
-   (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
+   (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
   {
     BOOST_TEST_MESSAGE(
         "Skipping NonLinLoc test in a location without grid files");

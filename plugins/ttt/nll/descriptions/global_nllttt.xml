@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<seiscomp>
+	<plugin name="NLLGrid">
+		<extends>global</extends>
+		<description>
+		SeisComP Travel-times wrapper for NonLinLoc grid files
+		</description>
+		<configuration>
+			<extend-struct type="ttt profile" match-name="NLLGrid">
+				<struct type="table profile">
+					<description>
+					Parameters defining the settings for this profile. Once defined,
+					the profile can be registered in ttt.NLLGrid.tables
+					</description>
+					<parameter name="P-Phases" type="list:string" default="P,Pg,Pn">
+						<description>
+						Defines a list of accepted phases for the P grid files.
+						</description>
+					</parameter>
+					<parameter name="S-Phases" type="list:string" default="S,Sg,Sn">
+						<description>
+						Defines a list of accepted phases for the S grid files.
+						</description>
+					</parameter>
+					<parameter name="tablePath" type="path">
+						<description>
+						Path to travel time tables (grids).
+						</description>
+					</parameter>
+					<parameter name="maxSearchDistance" type="double" default="0.1" unit="m">
+						<description>
+							Define the maximum allowed station location difference between
+							the inventory and the grid files. If a grid file for a station 
+							location closer than this value cannot be found, no travel time
+							table can be provided for a station.
+						</description>
+					</parameter>
+					<parameter name="swapBytes" type="boolean" default="false">
+						<description>
+						Enable for grid files generated with different endianness.
+						</description>
+					</parameter>
+					<parameter name="maxOpenFiles" type="integer" default="512">
+						<description>
+						Allowing a high number of grid files to be kept open may help the
+						performance when the number of stations is high, but pay attention
+						to the maximum allowed open files per process on your system.
+						</description>
+					</parameter>
+				</struct>
+			</extend-struct>
+		</configuration>
+	</plugin>
+</seiscomp>

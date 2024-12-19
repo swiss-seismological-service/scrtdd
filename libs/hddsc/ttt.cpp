@@ -29,11 +29,6 @@ TravelTimeTable::TravelTimeTable(const std::string &type,
                                  const std::string &model)
     : _type(type), _model(model)
 {
-  load();
-}
-
-void TravelTimeTable::load()
-{
   _ttt = Seiscomp::TravelTimeTableInterface::Create(_type.c_str());
   if (!_ttt || !_ttt->setModel(_model.c_str()))
   {
@@ -42,25 +37,23 @@ void TravelTimeTable::load()
   }
 }
 
-void TravelTimeTable::freeResources() { _ttt = nullptr; }
-
 double TravelTimeTable::compute(double eventLat,
                                 double eventLon,
                                 double eventDepth,
-                                const Catalog::Station &station,
+                                double stationLat,
+                                double stationLon,
+                                double stationElevation,
                                 const std::string &phaseType)
 {
-  if (!_ttt) load();
-
-#if SC_API_VERSION < SC_API_VERSION_CHECK(16, 0, 0)
-  double ttime =
-      _ttt->compute(phaseType.c_str(), eventLat, eventLon, eventDepth,
-                    station.latitude, station.longitude, station.elevation)
-          .time;
-#else
+#if SC_API_VERSION >= SC_API_VERSION_CHECK(16, 0, 0)
   double ttime =
       _ttt->computeTime(phaseType.c_str(), eventLat, eventLon, eventDepth,
-                        station.latitude, station.longitude, station.elevation);
+                        stationLat, stationLon, stationElevation);
+#else
+  double ttime =
+      _ttt->compute(phaseType.c_str(), eventLat, eventLon, eventDepth,
+                    stationLat, stationLon, stationElevation)
+          .time;
 #endif
 
   if (ttime < 0)
@@ -74,18 +67,18 @@ double TravelTimeTable::compute(double eventLat,
 void TravelTimeTable::compute(double eventLat,
                               double eventLon,
                               double eventDepth,
-                              const Catalog::Station &station,
+                              double stationLat,
+                              double stationLon,
+                              double stationElevation,
                               const std::string &phaseType,
                               double &travelTime,
                               double &azimuth,
                               double &takeOffAngle,
                               double &velocityAtSrc)
 {
-  if (!_ttt) load();
-
   Seiscomp::TravelTime tt =
       _ttt->compute(phaseType.c_str(), eventLat, eventLon, eventDepth,
-                    station.latitude, station.longitude, station.elevation);
+                    stationLat, stationLon, stationElevation);
   if (tt.time < 0)
   {
     throw Exception("No travel time data available");
@@ -106,8 +99,7 @@ void TravelTimeTable::compute(double eventLat,
   else
 #endif
   {
-    azimuth =
-        computeAzimuth(eventLat, eventLon, station.latitude, station.longitude);
+    azimuth = computeAzimuth(eventLat, eventLon, stationLat, stationLon);
   }
 
   takeOffAngle = degToRad(tt.takeoff);
