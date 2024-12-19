@@ -31,7 +31,7 @@
 #include "hdd/ttt/homogeneous.h"
 
 #include <vector>
-
+#include <string>
 #include <boost/filesystem.hpp>
 
 namespace fs = boost::filesystem;
@@ -41,7 +41,7 @@ namespace {
 struct TTTParams
 {
   std::string type;
-  std::string model;
+  std::vector<std::string> args;
 };
 
 // Some nll grids are too big to be added to git repository and need to
@@ -50,67 +50,26 @@ struct TTTParams
 std::vector<TTTParams> __getTTTList__()
 {
   static const std::vector<TTTParams> tttList = {
-      {"ConstVel", "5.8;3.36"},
-      {"NonLinLoc",
-       "./data/nll/iasp91_2D_simple/model/iasp91.PHASE.mod;"
-       "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.time;"
-       "./data/nll/iasp91_2D_simple/time/iasp91.PHASE.STATION.angle"},
-      {"NonLinLoc",
-        "./data/nll/iasp91_2D_sdc/model/iasp91.PHASE.mod;"
-        "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.time;"
-        "./data/nll/iasp91_2D_sdc/time/iasp91.PHASE.STATION.angle"},
-      {"NonLinLoc",
-       "./data/nll/iasp91_2D_global/model/iasp91.PHASE.mod;"
-       "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.time;"
-       "./data/nll/iasp91_2D_global/time/iasp91.PHASE.STATION.angle"},
-      {"NonLinLoc",
-       "./data/nll/iasp91_2D_azimuthal_equidist/model/iasp91.PHASE.mod;"
-       "./data/nll/iasp91_2D_azimuthal_equidist/time/iasp91.PHASE.STATION.time;"
-       "./data/nll/iasp91_2D_azimuthal_equidist/time/iasp91.PHASE.STATION.angle"}, 
-      {"NonLinLoc",
-       "./data/nll/iasp91_2D_merc/model/iasp91.PHASE.mod;"
-       "./data/nll/iasp91_2D_merc/time/iasp91.PHASE.STATION.time;"
-       "./data/nll/iasp91_2D_merc/time/iasp91.PHASE.STATION.angle"},
-      {"NonLinLoc",
-       "./data/nll/iasp91_2D_lambert/model/iasp91.PHASE.mod;"
-       "./data/nll/iasp91_2D_lambert/time/iasp91.PHASE.STATION.time;"
-       "./data/nll/iasp91_2D_lambert/time/iasp91.PHASE.STATION.angle"}, 
-      {"NonLinLoc",
-       "./data/nll/iasp91_3D_simple/model/iasp91.PHASE.mod;"
-       "./data/nll/iasp91_3D_simple/time/iasp91.PHASE.STATION.time;"
-       "./data/nll/iasp91_3D_simple/time/iasp91.PHASE.STATION.angle"},
-      {"NonLinLoc",
-       "./data/nll/iasp91_3D_sdc/model/iasp91.PHASE.mod;"
-       "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.time;"
-       "./data/nll/iasp91_3D_sdc/time/iasp91.PHASE.STATION.angle"},
-      {"NonLinLoc",
-       "./data/nll/iasp91_3D_azimuthal_equidist/model/iasp91.PHASE.mod;"
-       "./data/nll/iasp91_3D_azimuthal_equidist/time/iasp91.PHASE.STATION.time;"
-       "./data/nll/iasp91_3D_azimuthal_equidist/time/iasp91.PHASE.STATION.angle"}, 
-      {"NonLinLoc",
-       "./data/nll/iasp91_3D_merc/model/iasp91.PHASE.mod;"
-       "./data/nll/iasp91_3D_merc/time/iasp91.PHASE.STATION.time;"
-       "./data/nll/iasp91_3D_merc/time/iasp91.PHASE.STATION.angle"},
-      {"NonLinLoc",
-       "./data/nll/iasp91_3D_lambert/model/iasp91.PHASE.mod;"
-       "./data/nll/iasp91_3D_lambert/time/iasp91.PHASE.STATION.time;"
-       "./data/nll/iasp91_3D_lambert/time/iasp91.PHASE.STATION.angle"}};
+      {"ConstVel",  {"5.8", "3.36"}},
+      {"NonLinLoc", {"./data/nll/iasp91_2D_simple/time", "iasp91"}},
+      {"NonLinLoc", {"./data/nll/iasp91_2D_sdc/time", "iasp91"}},
+      {"NonLinLoc", {"./data/nll/iasp91_2D_global/time", "iasp91"}},
+      {"NonLinLoc", {"./data/nll/iasp91_2D_azimuthal_equidist/time", "iasp91"}},
+      {"NonLinLoc", {"./data/nll/iasp91_2D_merc/time", "iasp91"}},
+      {"NonLinLoc", {"./data/nll/iasp91_2D_lambert/time", "iasp91"}},
+      {"NonLinLoc", {"./data/nll/iasp91_3D_simple/time", "iasp91"}},
+      {"NonLinLoc", {"./data/nll/iasp91_3D_sdc/time", "iasp91"}},
+      {"NonLinLoc", {"./data/nll/iasp91_3D_azimuthal_equidist/time", "iasp91"}},
+      {"NonLinLoc", {"./data/nll/iasp91_3D_merc/time", "iasp91"}},
+      {"NonLinLoc", {"./data/nll/iasp91_3D_lambert/time", "iasp91"}}
+  };
 
   std::vector<TTTParams> ttts;
   for (const auto &prms : tttList)
   {
     if (prms.type == "NonLinLoc")
     {
-      static const std::regex regex(";", std::regex::optimize);
-      std::vector<std::string> tokens(HDD::splitString(prms.model, regex));
-
-      const fs::path velGridPath   = tokens.at(0);
-      const fs::path timeGridPath  = tokens.at(1);
-      const fs::path angleGridPath = tokens.at(2);
-
-      if (!HDD::directoryEmpty(velGridPath.parent_path().string()) ||
-          !HDD::directoryEmpty(timeGridPath.parent_path().string()) ||
-          !HDD::directoryEmpty(angleGridPath.parent_path().string()))
+      if (!HDD::directoryEmpty(prms.args[0]))
       {
         ttts.push_back(prms);
       }
@@ -129,30 +88,16 @@ std::unique_ptr<HDD::TravelTimeTable> createTTT(const TTTParams &prms)
 {
   if (prms.type == "NonLinLoc")
   {
-    static const std::regex regex(";", std::regex::optimize);
-    std::vector<std::string> tokens(HDD::splitString(prms.model, regex));
-
-    const fs::path velGridPath   = tokens.at(0);
-    const fs::path timeGridPath  = tokens.at(1);
-    const fs::path angleGridPath = tokens.at(2);
-
-    if (!HDD::directoryEmpty(velGridPath.parent_path().string()) ||
-        !HDD::directoryEmpty(timeGridPath.parent_path().string()) ||
-        !HDD::directoryEmpty(angleGridPath.parent_path().string()))
+    if (!HDD::directoryEmpty(prms.args[0]))
     {
       return std::unique_ptr<HDD::TravelTimeTable>(
-          new HDD::TTT::NLLGrid(velGridPath.string(),
-                                        timeGridPath.string(),
-                                        angleGridPath.string(), false));
+          new HDD::TTT::NLLGrid(prms.args[0], prms.args[1]));
     }
   }
   else if (prms.type == "ConstVel")
   {
-    static const std::regex regex(";", std::regex::optimize);
-    std::vector<std::string> tokens(HDD::splitString(prms.model, regex));
-
-    double pVel = std::stod(tokens.at(0));
-    double sVel = std::stod(tokens.at(1));
+    double pVel = std::stod(prms.args[0]);
+    double sVel = std::stod(prms.args[1]);
     return std::unique_ptr<HDD::TravelTimeTable>(
         new HDD::TTT::Homogeneous(pVel, sVel));
   }
