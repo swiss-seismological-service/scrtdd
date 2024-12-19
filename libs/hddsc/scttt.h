@@ -30,14 +30,13 @@ class TravelTimeTable : public HDD::TravelTimeTable
 {
 public:
   TravelTimeTable(const std::string &type, const std::string &model);
-  virtual ~TravelTimeTable() = default;
-
-  void freeResources() override;
 
   void compute(double eventLat,
                double eventLon,
                double eventDepth,
-               const Catalog::Station &station,
+               double stationLat,
+               double stationLon,
+               double stationElevation,
                const std::string &phaseType,
                double &travelTime,
                double &azimuth,
@@ -47,12 +46,12 @@ public:
   double compute(double eventLat,
                  double eventLon,
                  double eventDepth,
-                 const Catalog::Station &station,
+                 double stationLat,
+                 double stationLon,
+                 double stationElevation,
                  const std::string &phaseType) override;
 
 private:
-  void load();
-
   const std::string _type;
   const std::string _model;
   Seiscomp::TravelTimeTableInterfacePtr _ttt;

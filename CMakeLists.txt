@@ -22,4 +22,4 @@ ENDIF (SC_GLOBAL_UNITTESTS)
 OPTION(HDD_TESTS "Build libhdd tests. This will be enabled also when SC_GLOBAL_UNITTESTS is ON" OFF)
 
 
-SUBDIRS(libs apps doc)
+SUBDIRS(libs apps plugins doc)
