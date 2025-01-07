@@ -49,9 +49,11 @@ public:
     error,
   };
 
-  Logger()                       = delete;
-  Logger(const Logger &)         = delete;
-  void operator=(const Logger &) = delete;
+  Logger()                           = delete;
+  Logger(const Logger &)             = delete;
+  Logger &operator=(const Logger &)  = delete;
+  Logger(const Logger &&)            = delete;
+  Logger &operator=(const Logger &&) = delete;
 
   static void registerLoggers(
       std::function<void(std::string)> error,
@@ -92,8 +94,10 @@ public:
   public:
     File(const std::function<void(void)> &cleanup) : _cleanup(cleanup) {}
     ~File() { _cleanup(); }
-    File(const File &)           = delete;
-    void operator=(const File &) = delete;
+    File(const File &)             = delete;
+    File &operator=(const File &)  = delete;
+    File(const File &&)            = delete;
+    File &operator=(const File &&) = delete;
 
   private:
     const std::function<void(void)> _cleanup;
