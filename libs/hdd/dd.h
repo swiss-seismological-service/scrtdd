@@ -136,10 +136,6 @@ public:
      std::unique_ptr<TravelTimeTable> ttt,
      std::unique_ptr<Waveform::Proxy> wf =
          std::unique_ptr<Waveform::Proxy>(new Waveform::NoWaveformProxy()));
-  ~DD() = default;
-
-  DD(const DD &other)            = delete;
-  DD &operator=(const DD &other) = delete;
 
   const Catalog &getCatalog() const { return _srcCat; }
 

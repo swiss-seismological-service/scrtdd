@@ -177,14 +177,7 @@ public:
     }
   };
 
-  Catalog()  = default;
-  ~Catalog() = default;
-
-  Catalog(const Catalog &other)            = default;
-  Catalog &operator=(const Catalog &other) = default;
-
-  Catalog(Catalog &&other)            = default;
-  Catalog &operator=(Catalog &&other) = default;
+  Catalog() = default;
 
   Catalog(std::unordered_map<std::string, Station> &&stations,
           std::map<unsigned, Event> &&events,

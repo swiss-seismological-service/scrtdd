@@ -49,14 +49,6 @@ public:
     setEndTime(endTime);
   }
 
-  ~GenericTimeWindow() = default;
-
-  GenericTimeWindow(const GenericTimeWindow &other)            = default;
-  GenericTimeWindow &operator=(const GenericTimeWindow &other) = default;
-
-  GenericTimeWindow(GenericTimeWindow &&other)            = default;
-  GenericTimeWindow &operator=(GenericTimeWindow &&other) = default;
-
   bool operator==(const GenericTimeWindow &other) const
   {
     return _startTime == other._startTime && _endTime == other._endTime;
