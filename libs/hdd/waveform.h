@@ -176,7 +176,6 @@ class BasicLoader : public Loader
 
 public:
   BasicLoader(const std::shared_ptr<Proxy> &wf) : _wf(wf) {}
-  virtual ~BasicLoader() = default;
 
   std::shared_ptr<const Trace> get(const TimeWindow &tw,
                                    const Catalog::Phase &ph) override;
@@ -193,8 +192,6 @@ class BatchLoader : public Loader
 {
 public:
   BatchLoader(const std::shared_ptr<Proxy> &wf) : _wf(wf), _dataLoaded(false) {}
-
-  virtual ~BatchLoader() = default;
 
   std::shared_ptr<const Trace> get(const TimeWindow &tw,
                                    const Catalog::Phase &ph) override;
@@ -230,8 +227,6 @@ public:
         _afterPickLen(afterPickLen)
   {}
 
-  virtual ~ExtraLenLoader() = default;
-
   void setAuxLoader(const std::shared_ptr<Loader> &auxLdr) { _auxLdr = auxLdr; }
   std::shared_ptr<Loader> getAuxLoader() const { return _auxLdr; }
 
@@ -255,8 +250,6 @@ public:
                    const std::string &cacheDir)
       : _wf(wf), _auxLdr(auxLdr), _cacheDir(cacheDir)
   {}
-
-  virtual ~DiskCachedLoader() = default;
 
   void setAuxLoader(const std::shared_ptr<Loader> &auxLdr) { _auxLdr = auxLdr; }
   std::shared_ptr<Loader> getAuxLoader() const { return _auxLdr; }
@@ -337,8 +330,6 @@ public:
       : _wf(wf), _auxLdr(auxLdr), _extraTraceLen(extraTraceLen)
   {}
 
-  virtual ~BasicProcessor() = default;
-
   void setAuxLoader(const std::shared_ptr<Loader> &auxLdr) { _auxLdr = auxLdr; }
   std::shared_ptr<Loader> getAuxLoader() const { return _auxLdr; }
 
@@ -370,8 +361,6 @@ class MemCachedProc : public Processor
 {
 public:
   MemCachedProc(const std::shared_ptr<Processor> &auxPrc) : _auxPrc(auxPrc) {}
-
-  virtual ~MemCachedProc() = default;
 
   void setAuxProcessor(const std::shared_ptr<Processor> &auxPrc)
   {

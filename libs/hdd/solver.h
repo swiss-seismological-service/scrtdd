@@ -61,36 +61,36 @@ namespace HDD {
 struct DDSystem
 {
   // weight of each row of G matrix
-  double *W;
+  double *W = nullptr;
   // The G matrix stores data in a compressed format since it is a sparse
   // matrix: 3 partial derivatives for each event/station pair + tt (dx,dy,dz,1)
-  double (*G)[4];
+  double (*G)[4] = nullptr;
   // changes for each event hypocentral parameters we wish to determine
   // (x,y,z,t)
-  double *m;
+  double *m = nullptr;
   // double differences + optional travel time constraints
-  double *d;
+  double *d = nullptr;
   // L2 norm scaler for each G column
-  double *L2NScaler;
+  double *L2NScaler = nullptr;
   // map of 2 event identifiers for each observation (index -1 means no
   // parameters)
-  int *evByObs[2];
+  int *evByObs[2] = {nullptr, nullptr};
   // map of station identifiers for each observation
-  unsigned *phStaByObs;
+  unsigned *phStaByObs = nullptr;
 
   // number of observations
-  const unsigned nObs;
+  unsigned nObs = 0;
   // number of events
-  const unsigned nEvts;
+  unsigned nEvts = 0;
   // number of stations
-  const unsigned nPhStas;
+  unsigned nPhStas = 0;
   // number of obtional travel time constraints
-  const unsigned nTTconstraints;
+  unsigned nTTconstraints = 0;
 
-  const unsigned numColsG;
-  const unsigned numRowsG;
-  const unsigned numCompressedColsG;
-  const unsigned numCompressedRowsG;
+  unsigned numColsG           = 0;
+  unsigned numRowsG           = 0;
+  unsigned numCompressedColsG = 0;
+  unsigned numCompressedRowsG = 0;
 
   DDSystem(unsigned _nObs,
            unsigned _nEvts,
@@ -101,30 +101,43 @@ struct DDSystem
         numRowsG(nObs + nTTconstraints), numCompressedColsG(4),
         numCompressedRowsG(nEvts * nPhStas)
   {
-    W          = new double[numRowsG];
-    G          = new double[numCompressedRowsG][4];
-    m          = new double[numColsG];
-    d          = new double[numRowsG];
-    L2NScaler  = new double[numColsG];
-    evByObs[0] = new int[numRowsG];
-    evByObs[1] = new int[numRowsG];
-    phStaByObs = new unsigned[numRowsG];
+    _W          = std::vector<double>(numRowsG);
+    _G          = std::vector<double[4]>(numCompressedRowsG);
+    _m          = std::vector<double>(numColsG);
+    _d          = std::vector<double>(numRowsG);
+    _L2NScaler  = std::vector<double>(numColsG);
+    _evByObs[0] = std::vector<int>(numRowsG);
+    _evByObs[1] = std::vector<int>(numRowsG);
+    _phStaByObs = std::vector<unsigned>(numRowsG);
+
+    W          = _W.data();
+    G          = _G.data();
+    m          = _m.data();
+    d          = _d.data();
+    L2NScaler  = _L2NScaler.data();
+    evByObs[0] = _evByObs[0].data();
+    evByObs[1] = _evByObs[1].data();
+    phStaByObs = _phStaByObs.data();
   }
 
-  ~DDSystem()
-  {
-    delete[] phStaByObs;
-    delete[] evByObs[0];
-    delete[] evByObs[1];
-    delete[] L2NScaler;
-    delete[] d;
-    delete[] m;
-    delete[] G;
-    delete[] W;
-  }
+  DDSystem() = default;
 
-  DDSystem(const DDSystem &other)           = delete;
-  DDSystem operator=(const DDSystem &other) = delete;
+  DDSystem(const DDSystem &other)            = default;
+  DDSystem &operator=(const DDSystem &other) = default;
+
+  DDSystem(DDSystem &&other)            = default;
+  DDSystem &operator=(DDSystem &&other) = default;
+
+  ~DDSystem() = default;
+
+private:
+  std::vector<double> _W;
+  std::vector<double[4]> _G;
+  std::vector<double> _m;
+  std::vector<double> _d;
+  std::vector<double> _L2NScaler;
+  std::vector<int> _evByObs[2];
+  std::vector<unsigned> _phStaByObs;
 };
 
 /*
@@ -279,7 +292,7 @@ private:
   std::unordered_map<unsigned, EventDeltas> _eventDeltas; // key = evIdx
 
   std::vector<double> _residuals;
-  std::unique_ptr<DDSystem> _dd;
+  DDSystem _dd;
   std::string _type;
 };
 

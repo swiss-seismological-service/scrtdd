@@ -77,7 +77,6 @@ public:
                   double orgLat,
                   double orgLong,
                   double rot);
-  virtual ~SimpleTransform() = default;
   void
   fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
   void
@@ -102,7 +101,6 @@ public:
                double rot,
                double xltkm,
                double xlnkm);
-  virtual ~SDCTransform() = default;
   void
   fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
   void
@@ -123,7 +121,6 @@ public:
                    const std::string &refEllip,
                    double pha,
                    double phb);
-  virtual ~LambertTransform() = default;
   void
   fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
   void
@@ -145,7 +142,6 @@ public:
                      bool useFalseEasting,
                      long falseEasting,
                      double mapScaleFactor);
-  virtual ~TransMercTransform() = default;
   void
   fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
   void
@@ -164,7 +160,6 @@ public:
                      double orgLong,
                      double rot,
                      const std::string &refEllip);
-  virtual ~AziEqdistTransform() = default;
   void
   fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const override;
   void
