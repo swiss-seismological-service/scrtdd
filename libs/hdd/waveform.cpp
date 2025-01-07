@@ -193,7 +193,7 @@ shared_ptr<const Trace> ExtraLenLoader::get(const TimeWindow &tw,
   shared_ptr<const Trace> trace = _auxLdr->get(twToLoad, ph);
   if (trace && twToLoad != tw)
   {
-    shared_ptr<Trace> nonConstTrace(new Trace(*trace));
+    shared_ptr<Trace> nonConstTrace = make_shared<Trace>(*trace);
     if (!nonConstTrace->slice(tw))
     {
       logDebugF("Error while loading phase '%s': cannot slice trace "
@@ -390,7 +390,7 @@ BasicProcessor::loadAndProcess(const TimeWindow &tw,
   shared_ptr<const Trace> trace = _auxLdr->get(twToLoad, ph);
   if (!trace) return nullptr;
 
-  shared_ptr<Trace> copy(new Trace(*trace));
+  shared_ptr<Trace> copy = make_shared<Trace>(*trace);
   try
   {
     filter(*copy, true, filterStr, resampleFreq);

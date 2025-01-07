@@ -161,7 +161,7 @@ void DD::enableAllWaveformDiskCache(const std::string &tmpCacheDir)
 
 void DD::createWaveformCache()
 {
-  _wfAccess.loader.reset(new Waveform::BasicLoader(_wf));
+  _wfAccess.loader    = make_shared<Waveform::BasicLoader>(_wf);
   _wfAccess.diskCache = nullptr;
   _wfAccess.memCache  = nullptr;
 
@@ -169,21 +169,22 @@ void DD::createWaveformCache()
 
   if (_useCatalogWaveformDiskCache)
   {
-    _wfAccess.diskCache.reset(
-        new Waveform::DiskCachedLoader(_wf, currLdr, _cacheDir));
-    currLdr.reset(new Waveform::ExtraLenLoader(_wfAccess.diskCache,
-                                               _cfg.diskTraceMinLen));
+    _wfAccess.diskCache =
+        make_shared<Waveform::DiskCachedLoader>(_wf, currLdr, _cacheDir);
+    currLdr = make_shared<Waveform::ExtraLenLoader>(_wfAccess.diskCache,
+                                                    _cfg.diskTraceMinLen);
   }
 
-  shared_ptr<Waveform::Processor> currProc(
-      new Waveform::BasicProcessor(_wf, currLdr, _cfg.wfFilter.extraTraceLen));
+  shared_ptr<Waveform::Processor> currProc =
+      make_shared<Waveform::BasicProcessor>(_wf, currLdr,
+                                            _cfg.wfFilter.extraTraceLen);
 
   // Using the MemCachedProc mechanism of wrapping Waveform::Processor it is
   // possible to add additional Waveform::Processor(S) with specialized
   // operations between currProc and memCache. For example there use to be a SNR
   // filter there
 
-  _wfAccess.memCache.reset(new Waveform::MemCachedProc(currProc));
+  _wfAccess.memCache = make_shared<Waveform::MemCachedProc>(currProc);
 }
 
 void DD::replaceWaveformLoader(const shared_ptr<Waveform::Loader> &baseLdr)
@@ -194,9 +195,8 @@ void DD::replaceWaveformLoader(const shared_ptr<Waveform::Loader> &baseLdr)
   }
   else
   {
-    _wfAccess.memCache->setAuxProcessor(
-        shared_ptr<Waveform::Processor>(new Waveform::BasicProcessor(
-            _wf, baseLdr, _cfg.wfFilter.extraTraceLen)));
+    _wfAccess.memCache->setAuxProcessor(make_shared<Waveform::BasicProcessor>(
+        _wf, baseLdr, _cfg.wfFilter.extraTraceLen));
   }
 }
 
@@ -285,8 +285,8 @@ void DD::preloadWaveforms()
     logDebugF("Loading event %u waveforms...", event.id);
 
     // Use a BatchLoader for the current event
-    shared_ptr<Waveform::BatchLoader> batchLoader(
-        new Waveform::BatchLoader(_wf));
+    shared_ptr<Waveform::BatchLoader> batchLoader =
+        make_shared<Waveform::BatchLoader>(_wf);
     replaceWaveformLoader(batchLoader);
 
     // The following call won't try to load the waveforms. Instead it will
@@ -324,8 +324,7 @@ void DD::preloadWaveforms()
   }
 
   // Restore original loader
-  replaceWaveformLoader(
-      shared_ptr<Waveform::Loader>(new Waveform::BasicLoader(_wf)));
+  replaceWaveformLoader(make_shared<Waveform::BasicLoader>(_wf));
 
   wfcount.update(_wfAccess.loader.get());
   wfcount.update(_wfAccess.diskCache.get());

@@ -86,14 +86,6 @@ public:
       : GenericTrace(net, sta, loc, cha, stime, smpfreq, std::vector<T_DATA>())
   {}
 
-  ~GenericTrace() = default;
-
-  GenericTrace(const GenericTrace &other)            = default;
-  GenericTrace &operator=(const GenericTrace &other) = default;
-
-  GenericTrace(GenericTrace &&other)            = default;
-  GenericTrace &operator=(GenericTrace &&other) = default;
-
   std::string networkCode() const { return _net; }
   void setNetworkCode(const std::string &net) { _net = net; }
 
