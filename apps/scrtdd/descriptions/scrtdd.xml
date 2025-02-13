@@ -203,7 +203,7 @@
             <parameter name="algoIterations" type="int" default="20">
               <description>Number of iterations for the solver to perform.</description>
             </parameter>
-            <parameter name="downWeightingByResidual" type="list:double" default="10,3" >
+            <parameter name="downWeightingByResidual" type="list:double" default="10,5" >
               <description>At each iteration the solver down-weighs the double-difference equations accordingly to their residuals. This option indicates the standard deviation of the residuals beyond which an equation weight becomes 0. A value of 0 disables downweighting. One or two values can be given; when two values are given the first value is used in the first iteration, the second value in the last iteration and the iterations in between use interpolated values.</description>
             </parameter>
             <parameter name="dampingFactor" type="list:double" default="0.01" >
