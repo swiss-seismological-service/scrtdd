@@ -220,7 +220,8 @@ private:
               double ttConstraint,
               double dampingFactor,
               double residualDownWeight,
-              bool normalizeG);
+              bool normalizeG,
+              std::set<unsigned> rejectStoppingReasons);
 
   void loadSolutions();
 
