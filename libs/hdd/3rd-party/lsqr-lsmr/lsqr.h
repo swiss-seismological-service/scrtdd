@@ -19,6 +19,7 @@
 #define LSQR_lsqr_h
 
 #include <iosfwd>
+#include <string>
 
 namespace HDD {
 
@@ -38,8 +39,8 @@ namespace HDD {
  *                                in the least-squares sense
  *
  *   where A is a matrix with m rows and n columns, b is an m-vector,
- *   and damp is a scalar. (All quantities are real.)
- *   The matrix A is treated as a linear operator. It is accessed
+ *   and damp is a scalar.  (All quantities are real.)
+ *   The matrix A is treated as a linear operator.  It is accessed
  *   by means of subroutine calls with the following purpose:
  *
  *   call Aprod1(m,n,x,y)  must compute y = y + A*x  without altering x.
@@ -57,23 +58,23 @@ namespace HDD {
  *   scaled up or down.
  *
  *   In problems 1 and 2, the solution x is easily recovered
- *   following column-scaling. Unless better information is known,
+ *   following column-scaling.  Unless better information is known,
  *   the nonzero columns of A should be scaled so that they all have
  *   the same Euclidean norm (e.g., 1.0).
  *
  *   In problem 3, there is no freedom to re-scale if damp is
- *   nonzero. However, the value of damp should be assigned only
+ *   nonzero.  However, the value of damp should be assigned only
  *   after attention has been paid to the scaling of A.
  *
  *   The parameter damp is intended to help regularize
  *   ill-conditioned systems, by preventing the true solution from
- *   being very large. Another aid to regularization is provided by
+ *   being very large.  Another aid to regularization is provided by
  *   the parameter Acond, which may be used to terminate iterations
  *   before the computed solution becomes very large.
  *
  *   This class is a direct C++ translation from the Fortran90 version
  *   of the solver that is available at
- *   https://web.stanford.edu/group/SOL/software.html
+ *   http://www.stanford.edu/group/SOL/software.html
  *   distributed under a BSD license.
  *
  *   This class is a replacement for the lsqr code taken from netlib.
@@ -84,6 +85,7 @@ namespace HDD {
 class lsqrBase
 {
 public:
+
   lsqrBase();
   virtual ~lsqrBase();
 
@@ -93,8 +95,7 @@ public:
    * The size of the vector x is n.
    * The size of the vector y is m.
    */
-  virtual void
-  Aprod1(unsigned int m, unsigned int n, const double *x, double *y) const = 0;
+  virtual void Aprod1(unsigned int m, unsigned int n, const double * x, double * y ) const = 0;
 
   /**
    * computes x = x + A'*y without altering y,
@@ -102,48 +103,47 @@ public:
    * The size of the vector x is n.
    * The size of the vector y is m.
    */
-  virtual void
-  Aprod2(unsigned int m, unsigned int n, double *x, const double *y) const = 0;
+  virtual void Aprod2(unsigned int m, unsigned int n, double * x, const double * y ) const = 0;
 
   /**
    * returns sqrt( a**2 + b**2 )
    * with precautions to avoid overflow.
    */
-  double D2Norm(double a, double b) const;
+  double D2Norm( double a, double b ) const;
 
   /**
    * returns sqrt( x' * x )
    * with precautions to avoid overflow.
    */
-  double Dnrm2(unsigned int n, const double *x) const;
+  double Dnrm2( unsigned int n, const double *x ) const;
 
   /**
    * Scale a vector by multiplying with a constant
    */
-  void Scale(unsigned int n, double factor, double *x) const;
+  void Scale( unsigned int n, double factor, double *x ) const;
 
   /**  A logical variable to say if the array se(*) of standard error estimates
-   * should be computed.  If m > n  or  damp > 0, the system is overdetermined
+   * should be computed.  If m > n  or  damp > 0,  the system is overdetermined
    * and the standard errors may be useful.  (See the first LSQR reference.)
    * Otherwise (m <= n  and  damp = 0) they do not mean much.  Some time and
    * storage can be saved by setting wantse = .false. and using any convenient
-   * array for se(*), which won't be touched. If you call this method with the
+   * array for se(*), which won't be touched.  If you call this method with the
    * flag ON, then you MUST provide a working memory array to store the standard
    * error estimates, via the method SetStandardErrorEstimates()
    */
-  void SetStandardErrorEstimatesFlag(bool);
+  void SetStandardErrorEstimatesFlag( bool );
 
   /** An estimate of the relative error in the data
-   *  defining the matrix A. For example, if A is
+   *  defining the matrix A.  For example, if A is
    *  accurate to about 6 digits, set atol = 1.0e-6.
    */
-  void SetToleranceA(double);
+  void SetToleranceA( double );
 
   /** An estimate of the relative error in the data
-   *  defining the rhs b. For example, if b is
+   *  defining the rhs b.  For example, if b is
    *  accurate to about 6 digits, set btol = 1.0e-6.
    */
-  void SetToleranceB(double);
+  void SetToleranceB( double );
 
   /** An upper limit on cond(Abar), the apparent
    *  condition number of the matrix Abar.
@@ -167,14 +167,14 @@ public:
    * The effect will be the same as the values eps, eps, 1/eps.
    *
    */
-  void SetUpperLimitOnConditional(double);
+  void SetUpperLimitOnConditional( double );
 
   /**  the relative precision of floating-point arithmetic.
    *   On most machines, eps is about 1.0e-7 and 1.0e-16
    *   in single and double precision respectively.
    *   We expect eps to be about 1e-16 always.
    */
-  void SetEpsilon(double);
+  void SetEpsilon( double );
 
   /**
    *   The damping parameter for problem 3 above.
@@ -190,7 +190,7 @@ public:
    *   by LSQR are the same for all values of damp.
    *
    */
-  void SetDamp(double);
+  void SetDamp( double );
 
   /**  An upper limit on the number of iterations.
    *   Suggested value:
@@ -198,20 +198,19 @@ public:
    *                  with clustered singular values,
    *   itnlim = 4*n   otherwise.
    */
-  void SetMaximumNumberOfIterations(unsigned int);
+  void SetMaximumNumberOfIterations( unsigned int );
 
   /**
    * If provided, a summary will be printed out to this stream during
    * the execution of the Solve function.
    */
-  void SetOutputStream(std::ostream &os);
+  void SetOutputStream( std::ostream & os );
 
   /** Provide the array where the standard error estimates will be stored.
    *  You MUST provide this working memory array if you turn on the computation
-   *  of standard error estimates with teh method
-   * SetStandardErrorEstimatesFlag().
+   *  of standard error estimates with teh method SetStandardErrorEstimatesFlag().
    */
-  void SetStandardErrorEstimates(double *array);
+  void SetStandardErrorEstimates( double * array );
 
   /**
    *   Returns an integer giving the reason for termination:
@@ -248,8 +247,10 @@ public:
    */
   std::string GetStoppingReasonMessage() const;
 
+
   /** Returns the actual number of iterations performed. */
   unsigned int GetNumberOfIterationsPerformed() const;
+
 
   /**
    *   An estimate of the Frobenius norm of Abar.
@@ -263,19 +264,22 @@ public:
    */
   double GetFrobeniusNormEstimateOfAbar() const;
 
+
   /**
    *   An estimate of cond(Abar), the condition
-   *   number of Abar. A very high value of Acond
+   *   number of Abar.  A very high value of Acond
    *   may again indicate an error in Aprod1 or Aprod2.
    */
   double GetConditionNumberEstimateOfAbar() const;
 
+
   /** An estimate of the final value of norm(rbar),
    *  the function being minimized (see notation
-   *  above). This will be small if A*x = b has
+   *  above).  This will be small if A*x = b has
    *  a solution.
    */
   double GetFinalEstimateOfNormRbar() const;
+
 
   /** An estimate of the final value of
    *  norm( Abar(transpose)*rbar ), the norm of
@@ -286,10 +290,12 @@ public:
    */
   double GetFinalEstimateOfNormOfResiduals() const;
 
+
   /**
    * An estimate of norm(x) for the final solution x.
    */
   double GetFinalEstimateOfNormOfX() const;
+
 
   /**
    *    Execute the solver
@@ -299,9 +305,10 @@ public:
    *    m is the size of the input  vector b
    *    n is the size of the output vector x
    */
-  void Solve(unsigned int m, unsigned int n, const double *b, double *x);
+  void Solve( unsigned int m, unsigned int n, const double * b, double * x );
 
 private:
+
   void TerminationPrintOut();
 
   double Anorm;
@@ -318,7 +325,7 @@ private:
 
   double eps;
   double damp;
-  bool damped;
+  bool   damped;
 
   unsigned int itnlim;
   unsigned int itn;
@@ -327,10 +334,10 @@ private:
 
   unsigned int maxdx;
 
-  std::ostream *nout;
+  std::ostream * nout;
 
-  bool wantse;
-  double *se;
+  bool   wantse;
+  double * se;
 };
 
 } // namespace HDD

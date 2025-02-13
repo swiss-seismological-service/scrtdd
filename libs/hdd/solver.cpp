@@ -750,12 +750,12 @@ void Solver::solve(unsigned numIterations,
   if (_type == "LSQR")
   {
     _solve<lsqrBase>(numIterations, ttConstraint, dampingFactor,
-                     residualDownWeight, normalizeG);
+                     residualDownWeight, normalizeG, std::set<unsigned>{4});
   }
   else if (_type == "LSMR")
   {
     _solve<lsmrBase>(numIterations, ttConstraint, dampingFactor,
-                     residualDownWeight, normalizeG);
+                     residualDownWeight, normalizeG, std::set<unsigned>{3, 6});
   }
   else
   {
@@ -769,7 +769,8 @@ void Solver::_solve(unsigned numIterations,
                     double ttConstraint,
                     double dampingFactor,
                     double residualDownWeight,
-                    bool normalizeG)
+                    bool normalizeG,
+                    std::set<unsigned> rejectStoppingReasons)
 {
   prepareDDSystem(ttConstraint, dampingFactor, residualDownWeight);
 
@@ -799,7 +800,7 @@ void Solver::_solve(unsigned numIterations,
            solver.GetStoppingReasonMessage().c_str(),
            solver.GetNumberOfIterationsPerformed());
 
-  if (solver.GetStoppingReason() == 4)
+  if (rejectStoppingReasons.count(solver.GetStoppingReason()) != 0)
   {
     _dd        = DDSystem(); // free memory
     string msg = strf("Solver: no solution found (%s)",
