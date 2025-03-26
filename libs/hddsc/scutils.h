@@ -49,7 +49,11 @@ public:
              Seiscomp::DataModel::EventParameters *eventParameters);
 
   template <typename T>
+#if SC_API_VERSION < SC_API_VERSION_CHECK(17,0,0)
   typename Seiscomp::Core::SmartPointer<T>::Impl
+#else
+  Seiscomp::Core::SmartPointer<T>
+#endif
   get(const std::string &publicID)
   {
     return T::Cast(getObject(T::TypeInfo(), publicID));
