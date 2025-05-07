@@ -137,6 +137,13 @@ double computeDistance(const Catalog::Event &event,
                        double *azimuth     = nullptr,
                        double *backAzimuth = nullptr);
 
+void compute5numberSummary(const std::vector<double> &values,
+                           double &min,
+                           double &max,
+                           double &q1,
+                           double &q2,
+                           double &q3);
+
 double computeMedian(const std::vector<double> &values);
 
 double computeMedianAbsoluteDeviation(const std::vector<double> &values,

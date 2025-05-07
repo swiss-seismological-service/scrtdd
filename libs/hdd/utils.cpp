@@ -360,6 +360,32 @@ bool removePath(const std::string &path)
   }
 }
 
+void compute5numberSummary(const std::vector<double> &values,
+                           double &min,
+                           double &max,
+                           double &q1,
+                           double &q2,
+                           double &q3)
+{
+  if (values.size() == 0)
+  {
+    min = max = q1 = q2 = q3 = 0;
+    return;
+  }
+  vector<double> tmp(values);
+  auto const Q1 = tmp.size() / 4;
+  auto const Q2 = tmp.size() / 2;
+  auto const Q3 = Q1 + Q2;
+  std::nth_element(tmp.begin(), tmp.begin() + Q1, tmp.end());
+  std::nth_element(tmp.begin() + Q1 + 1, tmp.begin() + Q2, tmp.end());
+  std::nth_element(tmp.begin() + Q2 + 1, tmp.begin() + Q3, tmp.end());
+  q1  = tmp[Q1];
+  q2  = tmp[Q2];
+  q3  = tmp[Q3];
+  min = *std::min_element(tmp.begin(), tmp.begin() + Q1);
+  max = *std::max_element(tmp.begin() + Q3, tmp.end());
+}
+
 double computeMedian(const std::vector<double> &values)
 {
   if (values.size() == 0) return 0;
