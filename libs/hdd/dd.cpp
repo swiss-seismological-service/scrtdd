@@ -1217,12 +1217,13 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     relocatedEvs++;
   }
 
-  const double allRmsMedian = computeMedian(allRms);
-  const double allRmsMAD = computeMedianAbsoluteDeviation(allRms, allRmsMedian);
+  logInfoF("Successfully relocated %u events", relocatedEvs);
 
-  logInfoF("Successfully relocated %u events, RMS median %.3f [msec] median "
-           "absolute deviation %.3f [msec]",
-           relocatedEvs, allRmsMedian * 1000, allRmsMAD * 1000);
+  double min, max, q1, q2, q3;
+  compute5numberSummary(allRms, min, max, q1, q2, q3);
+  logInfoF("Event RMS [msec]: min %.3f 1st quartile %.3f median %.3f 3rd "
+           "quartile %.3f max %.3f ",
+           min * 1000, q1 * 1000, q2 * 1000, q3 * 1000, max * 1000);
 
   return unique_ptr<Catalog>(new Catalog(stations, events, phases));
 }
@@ -1299,12 +1300,11 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
     catalogToReturn->add(finalEvent.id, *tmpCat, true);
   }
 
-  const double allRmsMedian = computeMedian(allRms);
-  const double allRmsMAD = computeMedianAbsoluteDeviation(allRms, allRmsMedian);
-
-  logInfoF("Events RMS before relocation: median %.3f [msec] median absolute "
-           "deviation %.3f [msec]",
-           allRmsMedian * 1000, allRmsMAD * 1000);
+  double min, max, q1, q2, q3;
+  compute5numberSummary(allRms, min, max, q1, q2, q3);
+  logInfoF("Event RMS before relocation [msec]: min %.3f 1st quartile %.3f "
+           "median %.3f 3rd quartile %.3f max %.3f ",
+           min * 1000, q1 * 1000, q2 * 1000, q3 * 1000, max * 1000);
 
   return catalogToReturn;
 }
