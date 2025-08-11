@@ -125,7 +125,7 @@ Catalog::Catalog(const string &stationFile,
   }
   catch (std::exception &e)
   {
-    string msg = strf("Error while parsing file '%s' at row %d (%s)",
+    string msg = strf("Error while parsing file '%s' at row %d: %s",
                       stationFile.c_str(), row_count, e.what());
     throw Exception(msg);
   }
@@ -182,7 +182,7 @@ Catalog::Catalog(const string &stationFile,
   }
   catch (std::exception &e)
   {
-    string msg = strf("Error while parsing file '%s' at row %d (%s)",
+    string msg = strf("Error while parsing file '%s' at row %d: %s",
                       eventFile.c_str(), row_count, e.what());
     throw Exception(msg);
   }
@@ -223,12 +223,23 @@ Catalog::Catalog(const string &stationFile,
         ph.relocInfo.finalMeanDDResidual =
             std::stod(row.at("finalMeanDDResidual"));
       }
+
+      if (_events.find(ph.eventId) == _events.end())
+      {
+        throw Exception( strf("unknown event %u", ph.eventId) );
+      }
+
+      if (_stations.find(ph.stationId) == _stations.end())
+      {
+        throw Exception( strf("unknown station %s", ph.stationId.c_str()) );
+      }
+
       _phases.emplace(ph.eventId, ph);
     }
   }
   catch (std::exception &e)
   {
-    string msg = strf("Error while parsing file '%s' at row %d (%s)",
+    string msg = strf("Error while parsing file '%s' at row %d: %s",
                       phaFile.c_str(), row_count, e.what());
     throw Exception(msg);
   }
