@@ -4,45 +4,64 @@
       <title>Multi-Event Double-Difference Relocation</title>
 
       <!-- Load Leaflet -->
-      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
-   integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==" crossorigin=""/>
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
       <!-- Make sure you put this AFTER Leaflet's CSS -->
-      <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA==" crossorigin=""></script>
+      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
       <!-- Load d3.js -->
-      <script src="https://d3js.org/d3.v6.js"></script>
+      <script src="https://d3js.org/d3.v7.min.js"></script>
    </head>
    <body onload="loadData();">
-      <center style="margin-bottom: 20px;margin-top: 40px;" >
-             <font size='+2' >Multi Event Double Difference</font>
+      <center style="margin-bottom: 10px;margin-top: 10px;" >
+             <font size='+2' >Multi-Event Double-Difference Relocation</font>
+             <font size='-5' >
+             <br>
+             <div id="last-update"></div>
+             </font>
       </center>
       <center>
       <div>
           <table>
             <tr><td>
+              From <input type="date" class="date" id="start-date">
+              to <input type="date" class="date" id="end-date">
               <input type="checkbox" class="checkbox" value="abs-events" checked><label>Catalog Events</label>
               <input type="checkbox" class="checkbox" value="medd-events" checked><label>ME-DD Events</label>
               <input type="checkbox" class="checkbox" value="event-links" ><label>Events links</label>
               <input type="checkbox" class="checkbox" value="stations" ><label>Stations</label>
-            </td><tr>
-            </tr><td>
-              From <input type="date" class="date" id="start-date">
-              to <input type="date" class="date" id="end-date">
+              <input type="checkbox" id="cross-section-checkbox" value="cross-sections"><label>Cross-sections</label>
             </td></tr>
           </table>
       </div>
-      <div id="mapid" style="height: 80%; width: 90%"></div>
+      <div id="mapid" style="height: 85%; width: 90%"></div>
+      <div id="plots" style="width: 90%; height: 25%; display: none; margin-top: 10px;">
+          <div id="plot-lon-depth" style="width: 50%; height: 100%;"></div>
+          <div id="plot-lat-depth" style="width: 50%; height: 100%;"></div>
+      </div>
       </center>
-      <table width='99%' cellpaddding='2' cellspacing='1' border='0'>
-      <tr>
-        <td align="left">Last update: <iframe style="border:none; width:300px; height: 50px; display:block; " src="LAST_RUN"></iframe></td>
-      </tr>
-      </table>
    </body>
 </html>
 
 
 <script>
+
+// update the last-update field with the content of LAST_RUN file
+
+fetch('LAST_RUN')
+ .then(response => {
+   if (!response.ok) {
+     throw new Error('Network response was not ok ' + response.statusText);
+   }
+   return response.text();
+ })
+ .then(data => {
+   document.getElementById('last-update').textContent = "Last update: " + data;
+ })
+ .catch(error => {
+   document.getElementById('last-update').textContent = "Last update: unknown";
+ });
+
 
 // mapid is the id of the div where the map will appear
 var map = L.map('mapid').setView([46.7, 8.3], 8);
@@ -53,6 +72,8 @@ L.tileLayer(
     }).addTo(map);
 
 L.control.scale().addTo(map);
+
+map.on('moveend', drawCrossSections);
 
 var markerSize = d3.scalePow()
   .exponent(2)
@@ -69,8 +90,23 @@ var markerLayer = d3.scaleOrdinal()
 
 d3.selectAll(".checkbox").on("change", updateVisibleLayers);
 
-function updateVisibleLayers() {
+d3.select("#cross-section-checkbox").on("change", function() {
+    const plotsDiv = d3.select("#plots");
+    const mapDiv = d3.select("#mapid");
 
+    if (d3.select(this).property("checked")) {
+        plotsDiv.style("display", "flex");
+        mapDiv.style("height", "60%");
+        map.invalidateSize();
+        drawCrossSections();
+    } else {
+        plotsDiv.style("display", "none");
+        mapDiv.style("height", "85%");
+        map.invalidateSize();
+    }
+});
+
+function updateVisibleLayers() {
   // For each check box:
   d3.selectAll(".checkbox").each(function(d){
     cb = d3.select(this);
@@ -82,6 +118,7 @@ function updateVisibleLayers() {
       markerLayer(grp).remove();
     }
   });
+  drawCrossSections();
 }
 
 var absEvents = null;
@@ -98,7 +135,8 @@ function updateVisibleEvents() {
       markerLayer("event-links").clearLayers();
       buildEventsLayer(absEvents);
       buildEventsLayer(meddEvents);
-      buildEventLinksLayer(absEvents, meddEvents)
+      buildEventLinksLayer(absEvents, meddEvents);
+      drawCrossSections();
     }
 }
 
@@ -161,58 +199,195 @@ function buildStationsLayer(stData) {
     });
 }
 
+function drawCrossSections() {
+    d3.select("#plot-lat-depth").selectAll("*").remove();
+    d3.select("#plot-lon-depth").selectAll("*").remove();
+
+    if (!d3.select("#cross-section-checkbox").property("checked")) {
+        return;
+    }
+
+    var events = [];
+    if (absEvents != null && meddEvents != null) {
+      if (d3.select(".checkbox[value='abs-events']").property("checked")) {
+          events = events.concat(absEvents);
+      }
+      if (d3.select(".checkbox[value='medd-events']").property("checked")) {
+          events = events.concat(meddEvents);
+      }
+    }
+
+    if (!events || events.length === 0) return;
+
+    const bounds = map.getBounds();
+    const mapBoundsFilter = function(ev) {
+        return ev.lat >= bounds.getSouth() && ev.lat <= bounds.getNorth() &&
+               ev.lon >= bounds.getWest() && ev.lon <= bounds.getEast();
+    }
+
+    const filteredEvents = events.filter(eventDateFilter()).filter(mapBoundsFilter);
+    if (filteredEvents.length === 0) return;
+
+    const latDepthPlot = d3.select("#plot-lat-depth");
+    const lonDepthPlot = d3.select("#plot-lon-depth");
+
+    if (latDepthPlot.node() === null || lonDepthPlot.node() === null) return;
+
+    const margin = {top: 30, right: 30, bottom: 40, left: 50};
+    const latDepthWidth = latDepthPlot.node().getBoundingClientRect().width - margin.left - margin.right;
+    const latDepthHeight = latDepthPlot.node().getBoundingClientRect().height - margin.top - margin.bottom;
+    const lonDepthWidth = lonDepthPlot.node().getBoundingClientRect().width - margin.left - margin.right;
+    const lonDepthHeight = lonDepthPlot.node().getBoundingClientRect().height - margin.top - margin.bottom;
+
+    const svgLatDepth = latDepthPlot.append("svg")
+        .attr("width", latDepthWidth + margin.left + margin.right)
+        .attr("height", latDepthHeight + margin.top + margin.bottom)
+      .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const svgLonDepth = lonDepthPlot.append("svg")
+        .attr("width", lonDepthWidth + margin.left + margin.right)
+        .attr("height", lonDepthHeight + margin.top + margin.bottom)
+      .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const latExtent = d3.extent(filteredEvents, d => d.lat);
+    const lonExtent = d3.extent(filteredEvents, d => d.lon);
+    const depthExtent = d3.extent(filteredEvents, d => d.depth);
+    if (depthExtent[0] === undefined) { // No data
+        depthExtent[0] = 0;
+        depthExtent[1] = 30;
+    } else if (depthExtent[0] === depthExtent[1]) {
+        // If all events have the same depth, add some padding
+        depthExtent[0] -= 5;
+        depthExtent[1] += 5;
+    }
+
+    const xLat = d3.scaleLinear().domain(latExtent).range([0, latDepthWidth]);
+    const yDepth = d3.scaleLinear().domain(depthExtent).range([0, latDepthHeight]);
+
+    const xLon = d3.scaleLinear().domain(lonExtent).range([0, lonDepthWidth]);
+
+    svgLatDepth.append("g")
+        .attr("transform", `translate(0,${latDepthHeight})`)
+        .call(d3.axisBottom(xLat).ticks(5));
+    svgLatDepth.append("g")
+        .call(d3.axisLeft(yDepth));
+
+    svgLonDepth.append("g")
+        .attr("transform", `translate(0,${lonDepthHeight})`)
+        .call(d3.axisBottom(xLon).ticks(5));
+    svgLonDepth.append("g")
+        .call(d3.axisLeft(yDepth));
+
+    svgLatDepth.append("text")
+        .attr("x", latDepthWidth / 2)
+        .attr("y", 0 - (margin.top / 2))
+        .attr("text-anchor", "middle")
+        .style("font-size", "12px")
+        .text("Depth vs. Latitude");
+
+    svgLonDepth.append("text")
+        .attr("x", lonDepthWidth / 2)
+        .attr("y", 0 - (margin.top / 2))
+        .attr("text-anchor", "middle")
+        .style("font-size", "12px")
+        .text("Depth vs. Longitude");
+
+    svgLatDepth.append("text")
+        .attr("text-anchor", "middle")
+        .attr("x", latDepthWidth / 2)
+        .attr("y", latDepthHeight + margin.bottom - 5)
+        .text("Latitude");
+    svgLatDepth.append("text")
+        .attr("text-anchor", "middle")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -margin.left + 15)
+        .attr("x", -latDepthHeight / 2)
+        .text("Depth (km)");
+
+    svgLonDepth.append("text")
+        .attr("text-anchor", "middle")
+        .attr("x", lonDepthWidth / 2)
+        .attr("y", lonDepthHeight + margin.bottom - 5)
+        .text("Longitude");
+    svgLonDepth.append("text")
+        .attr("text-anchor", "middle")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -margin.left + 15)
+        .attr("x", -lonDepthHeight / 2)
+        .text("Depth (km)");
+
+    svgLatDepth.selectAll("circle")
+        .data(filteredEvents)
+        .enter()
+        .append("circle")
+        .attr("cx", d => xLat(d.lat))
+        .attr("cy", d => yDepth(d.depth))
+        .attr("r", d => markerSize(d.magnitude))
+        .style("fill", d => markerColor(d.group))
+        .style("opacity", 0.5);
+
+    svgLonDepth.selectAll("circle")
+        .data(filteredEvents)
+        .enter()
+        .append("circle")
+        .attr("cx", d => xLon(d.lon))
+        .attr("cy", d => yDepth(d.depth))
+        .attr("r", d => markerSize(d.magnitude))
+        .style("fill", d => markerColor(d.group))
+        .style("opacity", 0.5);
+}
+
 function loadData() {
 
-  d3.csv("./event.csv", function(data) {
-    return {
-      id    : +data.id, 
-      time  : new Date(data.isotime),
-      lat   : +data.latitude,
-      lon   : +data.longitude,
-      magnitude  : +data.magnitude,
-      desc  : new Date(data.isotime).toUTCString()
-              + "<br>Mag " + data.magnitude 
-              + "<br>Depth km " + data.depth,
-      group : "abs-events"
-    };
-  }).then(function(data){
-     absEvents = data;
+  Promise.all([
+      d3.csv("./event.csv", function(data) {
+        return {
+          id    : +data.id, 
+          time  : new Date(data.isotime),
+          lat   : +data.latitude,
+          lon   : +data.longitude,
+          depth : +data.depth,
+          magnitude  : +data.magnitude,
+          desc  : new Date(data.isotime).toUTCString()
+                  + "<br>Mag " + data.magnitude 
+                  + "<br>Depth km " + data.depth,
+          group : "abs-events"
+        };
+      }),
+      d3.csv("./me-dd-event.csv", function(data) {
+        return {
+          id    : +data.id, 
+          time  : new Date(data.isotime),
+          lat   : +data.latitude,
+          lon   : +data.longitude,
+          depth : +data.depth,
+          magnitude  : +data.magnitude,
+          desc  : new Date(data.isotime).toUTCString()
+                  + "<br>Mag " + data.magnitude 
+                  + "<br>Depth km " + data.depth
+                  + "<br>Depth change km " + data.depthChange
+                  + "<br>Epicenter change km " + data.locChange
+                  + "<br>Rms change sec " + (parseFloat(data.finalRms) - parseFloat(data.startRms)).toFixed(3)
+                  + "<br>Used phases P " + data.ph_usedP + " S " + data.ph_usedS
+                  + "<br>Used neighbours " + data.numNeighbours, 
+          group : "medd-events"
+        };
+      }),
+      d3.csv("./station.csv", function(data) {
+        return {
+          lat   : +data.latitude,
+          lon   : +data.longitude,
+          desc  : data.networkCode + "." + data.stationCode + "." + data.locationCode,
+          group : "stations"
+        };
+      })
+  ]).then(function([absData, meddData, stationData]){
+     absEvents = absData;
+     meddEvents = meddData;
+     buildStationsLayer(stationData);
      updateVisibleEvents();
-     updateVisibleLayers();
-  });
-
-  d3.csv("./me-dd-event.csv", function(data) {
-    return {
-      id    : +data.id, 
-      time  : new Date(data.isotime),
-      lat   : +data.latitude,
-      lon   : +data.longitude,
-      magnitude  : +data.magnitude,
-      desc  : new Date(data.isotime).toUTCString()
-              + "<br>Mag " + data.magnitude 
-              + "<br>Depth km " + data.depth
-              + "<br>Depth change km " + data.depthChange
-              + "<br>Epicenter change km " + data.locChange
-              + "<br>Rms change sec " + (parseFloat(data.finalRms) - parseFloat(data.startRms)).toFixed(3)
-              + "<br>Used phases P " + data.ph_usedP + " S " + data.ph_usedS
-              + "<br>Used neighbours " + data.numNeighbours, 
-      group : "medd-events"
-    };
-  }).then(function(data){
-     meddEvents = data;
-     updateVisibleEvents();
-     updateVisibleLayers();
-  });
-
-  d3.csv("./station.csv", function(data) {
-    return {
-      lat   : +data.latitude,
-      lon   : +data.longitude,
-      desc  : data.networkCode + "." + data.stationCode + "." + data.locationCode,
-      group : "stations"
-    };
-  }).then(function(data){
-     buildStationsLayer(data);
      updateVisibleLayers();
   });
 }
