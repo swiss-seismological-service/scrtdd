@@ -1,6 +1,6 @@
 #!/bin/bash
 
-seiscomp_exec="/usr/local/bin/seiscomp exec"
+seiscomp_exec="seiscomp exec"
 
 # Database to read the events from, e.g.:
 #   mysql://user:password@host/database
