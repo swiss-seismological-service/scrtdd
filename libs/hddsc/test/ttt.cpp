@@ -255,7 +255,7 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
       tttPrms.push_back(prms);
     }
   }
-  test_ttt_internal(tttList, stationList, delta);
+  test_ttt_internal(tttPrms, stationList, delta);
 }
 
 BOOST_DATA_TEST_CASE(test_ttt_zero_elevation, bdata::xrange(deltaListZeroElevation.size()), deltaIdx)
@@ -272,6 +272,6 @@ BOOST_DATA_TEST_CASE(test_ttt_zero_elevation, bdata::xrange(deltaListZeroElevati
       tttPrms.push_back(prms);
     }
   }
-  test_ttt_internal(tttList, stationListZeroElevation, delta);
+  test_ttt_internal(tttPrms, stationListZeroElevation, delta);
 }
 

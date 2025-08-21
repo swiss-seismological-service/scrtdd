@@ -49,7 +49,7 @@ CONTROL 1 99991
 #    firstStdParal secondStdParal (float, min:-90.0, max:90.0) first and second standard parallels (meridians) in decimal degrees
 #    rotAngle (float, min:-360.0, max:360.0) rotation angle of geographic north in degrees clockwise relative to the rectangular coordinates system Y-axis
 #
-TRANS TRANS_MERC WGS-84 46.9 8.3 23.0
+TRANS TRANS_MERC WGS-84 47.0 8.5 23.0
 
 #
 #

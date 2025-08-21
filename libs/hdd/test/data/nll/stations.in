@@ -1,0 +1,55 @@
+# GTSRCE - Source Description
+#
+# required, repeatable
+#
+# Syntax 1: GTSRCE label XYZ xSrce ySrce zSrce elev
+#
+# Syntax 2: GTSRCE label LATLON latSrce longSrce zSrce elev
+#
+# Syntax 3: GTSRCE label LATLONDM latDegSrce latMinSrce latDir longDegSrce longMinSrce longDir zSrce elev
+#
+# Syntax 4: GTSRCE label LATLONDS latDegSrce latMinSrce latSecSrce latDir longDegSrce longMinSrce longSecSrce longDir zSrce elev
+#
+# Specifies a source location. One time grid and one angles grid (if requested) 
+# will be generated for each source. Four formats are supported: XYZ (rectangular
+# grid coordinates), LATLON (decimal degrees for latitude/longitude), LATLONDM
+# (degrees + decimal minutes for latitude/longitude) and LATLONDS (degrees + 
+# minutes + decimal seconds for latitude/longitude).
+#
+#   label (string) source label ( i.e. a station code: ABC )
+#
+#   xSrce ySrce (float) x and y grid positions relative to geographic origin in kilometers for source
+#
+#   zSrce (float) z grid position (depth, positive DOWN) in kilometers for source
+#
+#   elev (float) elevation above z grid position (positive UP) in kilometers for source
+#
+#   latSrce (float, min:-90.0, max:90.0) latitude in decimal degrees for source (pos = North)
+#
+#   longSrce (float, min:-180.0, max:180.0) longitude in decimal degrees for source (pos = East)
+#
+#   latDegSrce latMinSrce latSecSrce (float) latitude degrees, minutes and seconds for source
+#
+#   longDegSrce longMinSrce longSecSrce (float) longitude degrees, minutes and seconds for source
+#
+#   latDir (choice: N S) geographic direction
+#
+#   longDir (choice: W E) geographic direction 
+
+GTSRCE N1_ST01A LATLON  47.1  8.6  0.0    0.500
+GTSRCE N1_ST02A LATLON  47.1  8.4  0.0    1.000
+GTSRCE N1_ST03A LATLON  46.9  8.4  0.0    1.500
+GTSRCE N1_ST04A LATLON  46.9  8.6  0.0    2.000
+GTSRCE N1_ST01B LATLON  47.0  8.7  0.0   -2.000
+GTSRCE N1_ST02B LATLON  47.0  8.3  0.0   -1.500
+GTSRCE N1_ST03B LATLON  47.2  8.5  0.0   -1.000
+GTSRCE N1_ST04B LATLON  46.8  8.5  0.0   -0.500
+GTSRCE N2_ST01A LATLON  47.1  8.6  0.0      0.0
+GTSRCE N2_ST02A LATLON  47.1  8.4  0.0      0.0
+GTSRCE N2_ST03A LATLON  46.9  8.4  0.0      0.0
+GTSRCE N2_ST04A LATLON  46.9  8.6  0.0      0.0
+GTSRCE N2_ST01B LATLON  47.0  8.7  0.0      0.0
+GTSRCE N2_ST02B LATLON  47.0  8.3  0.0      0.0
+GTSRCE N2_ST03B LATLON  47.2  8.5  0.0      0.0
+GTSRCE N2_ST04B LATLON  46.8  8.5  0.0      0.0
+

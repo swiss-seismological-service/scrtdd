@@ -13,6 +13,7 @@ VGTYPE P
 #
 GTFILES  ./model/iasp91  ./time/iasp91 P
 
+INCLUDE ../stations.in
 INCLUDE run/general.in
 INCLUDE run/Vel2Grid.in
 INCLUDE run/Grid2Time.in
