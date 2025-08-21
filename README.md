@@ -62,7 +62,7 @@ git clone https://github.com/SeisComP/main.git
 [...etc...]
 
 #
-# Add rtdd into SeisComP
+# Add rtDD into SeisComP
 #
 cd seiscomp/src/extras
 git clone https://github.com/swiss-seismological-service/scrtdd.git
