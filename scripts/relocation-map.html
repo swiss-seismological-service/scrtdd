@@ -251,8 +251,8 @@ function drawCrossSections() {
       .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const latExtent = d3.extent(filteredEvents, d => d.lat);
-    const lonExtent = d3.extent(filteredEvents, d => d.lon);
+    const latExtent = [bounds.getSouth(), bounds.getNorth()];
+    const lonExtent = [bounds.getWest(), bounds.getEast()];
     const depthExtent = d3.extent(filteredEvents, d => d.depth);
     if (depthExtent[0] === undefined) { // No data
         depthExtent[0] = 0;
