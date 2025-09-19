@@ -32,6 +32,7 @@
 #include "timewindow.h"
 #include "xcorrcache.h"
 #include <cmath>
+#include <cstdarg>
 #include <initializer_list>
 #include <random>
 #include <regex>
@@ -47,6 +48,8 @@ public:
 };
 
 std::string strf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+
+std::string strf(const char *fmt, va_list args);
 
 std::vector<std::string> splitString(const std::string &str,
                                      const std::regex &regex);
