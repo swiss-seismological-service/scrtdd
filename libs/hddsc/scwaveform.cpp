@@ -178,7 +178,8 @@ void WaveformProxy::loadTraces(
     rs = IO::RecordStream::Open(_recordStreamURL.c_str());
     if (rs == nullptr)
     {
-      HDD::logErrorF("Cannot open RecordStream: %s", _recordStreamURL.c_str());
+      HDD::Logger::logErrorF("Cannot open RecordStream: %s",
+                             _recordStreamURL.c_str());
       break;
     }
 
@@ -214,13 +215,13 @@ void WaveformProxy::loadTraces(
             requested         = true;
           }
           else if (contiguousRequest.endTime() <= tw.startTime() &&
-                   contiguousRequest.contiguous(tw, Core::TimeSpan(60,0)))
+                   contiguousRequest.contiguous(tw, Core::TimeSpan(60, 0)))
           {
             contiguousRequest = contiguousRequest.merge(tw);
             requested         = true;
           }
           else if (contiguousRequest.startTime() >= tw.endTime() &&
-                   tw.contiguous(contiguousRequest, Core::TimeSpan(60,0)))
+                   tw.contiguous(contiguousRequest, Core::TimeSpan(60, 0)))
           {
             contiguousRequest = contiguousRequest.merge(tw);
             requested         = true;

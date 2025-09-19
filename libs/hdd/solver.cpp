@@ -34,6 +34,7 @@
 #include <sstream>
 
 using namespace std;
+using namespace HDD::Logger;
 using HDD::degToRad;
 using HDD::Exception;
 using HDD::radToDeg;

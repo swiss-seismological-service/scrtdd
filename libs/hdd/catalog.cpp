@@ -36,6 +36,7 @@
 #include <iostream>
 
 using namespace std;
+using namespace HDD::Logger;
 
 namespace {
 
@@ -223,12 +224,12 @@ Catalog::Catalog(const string &stationFile,
 
       if (_events.find(ph.eventId) == _events.end())
       {
-        throw Exception( strf("unknown event %u", ph.eventId) );
+        throw Exception(strf("unknown event %u", ph.eventId));
       }
 
       if (_stations.find(ph.stationId) == _stations.end())
       {
-        throw Exception( strf("unknown station %s", ph.stationId.c_str()) );
+        throw Exception(strf("unknown station %s", ph.stationId.c_str()));
       }
 
       _phases.emplace(ph.eventId, ph);

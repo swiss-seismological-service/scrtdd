@@ -3,14 +3,12 @@ INCLUDE_DIRECTORIES(.)
 SET(HDDSC_SOURCES
 	scutils.cpp
 	scttt.cpp
-	sclog.cpp
 	scwaveform.cpp
 )
 
 SET(HDDSC_HEADERS
 	scutils.h
 	scttt.h
-	sclog.h
 	scwaveform.h
 )
 

@@ -34,6 +34,7 @@
 #include <cstring>
 
 using namespace std;
+using namespace HDD::Logger;
 using TakeOffAngles = HDD::NLL::AngleGrid::TakeOffAngles;
 
 namespace {

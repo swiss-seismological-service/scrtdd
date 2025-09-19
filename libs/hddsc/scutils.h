@@ -49,7 +49,7 @@ public:
              Seiscomp::DataModel::EventParameters *eventParameters);
 
   template <typename T>
-#if SC_API_VERSION < SC_API_VERSION_CHECK(17,0,0)
+#if SC_API_VERSION < SC_API_VERSION_CHECK(17, 0, 0)
   typename Seiscomp::Core::SmartPointer<T>::Impl
 #else
   Seiscomp::Core::SmartPointer<T>
@@ -121,10 +121,10 @@ inline Seiscomp::Core::Time toSC(const HDD::UTCTime &t)
 
 inline HDD::UTCTime fromSC(const Seiscomp::Core::Time &t)
 {
-#if SC_API_VERSION < SC_API_VERSION_CHECK(17,0,0)
-	return HDD::UTCTime() + HDD::secToDur(t.length());
+#if SC_API_VERSION < SC_API_VERSION_CHECK(17, 0, 0)
+  return HDD::UTCTime() + HDD::secToDur(t.length());
 #else
-	return HDD::UTCTime() + HDD::secToDur(t.epoch());
+  return HDD::UTCTime() + HDD::secToDur(t.epoch());
 #endif
 }
 
