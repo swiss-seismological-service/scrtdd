@@ -382,10 +382,6 @@ bool RTDD::validateParameters()
 
   Environment *env = Environment::Instance();
 
-  _config.workingDirectory =
-      env->absolutePath(configGetPath("workingDirectory"));
-
-  _config.saveProcessingFiles  = configGetBool("saveProcessingFiles");
   _config.onlyPreferredOrigin  = configGetBool("onlyPreferredOrigins");
   _config.allowAutomaticOrigin = configGetBool("automaticOrigins");
   _config.allowManualOrigin    = configGetBool("manualOrigins");
@@ -393,9 +389,11 @@ bool RTDD::validateParameters()
   _config.delayTimes           = {configGetInt("performance.delayTime")};
   _config.profileTimeAlive     = configGetInt("performance.profileTimeAlive");
   _config.cacheWaveforms       = configGetBool("performance.cacheWaveforms");
-  _config.testMode             = commandline().hasOption("test");
-  _config.loadProfileWf        = commandline().hasOption("load-profile-wf");
-  _config.cacheAllWaveforms    = commandline().hasOption("cache-wf-all");
+  _config.cacheDirectory =
+      env->absolutePath(configGetPath("performance.cacheDirectory"));
+  _config.testMode          = commandline().hasOption("test");
+  _config.loadProfileWf     = commandline().hasOption("load-profile-wf");
+  _config.cacheAllWaveforms = commandline().hasOption("cache-wf-all");
 
   // disable messaging (offline mode) with certain command line options
   if (!_config.eventXML.empty() || !_config.dumpCatalog.empty() ||
@@ -1061,14 +1059,14 @@ bool RTDD::init()
 
   if (!Application::init()) return false;
 
-  _config.workingDirectory =
-      boost::filesystem::path(_config.workingDirectory).string();
-  if (!Util::pathExists(_config.workingDirectory))
+  _config.cacheDirectory =
+      boost::filesystem::path(_config.cacheDirectory).string();
+  if (!Util::pathExists(_config.cacheDirectory))
   {
-    if (!Util::createPath(_config.workingDirectory))
+    if (!Util::createPath(_config.cacheDirectory))
     {
-      SEISCOMP_ERROR("workingDirectory: failed to create path %s",
-                     _config.workingDirectory.c_str());
+      SEISCOMP_ERROR("cacheDirectory: failed to create path %s",
+                     _config.cacheDirectory.c_str());
       return false;
     }
   }
@@ -1237,14 +1235,6 @@ bool RTDD::run()
         getCatalog(_config.relocateCatalog, &idmap);
     ProfilePtr profile = getProfile(_config.forceProfile);
     if (!catalog || !profile) return false;
-
-    // if the input catalog is a list of origin ids, then dump its data
-    if (!idmap.empty())
-    {
-      catalog->writeToFile("event.csv", "phase.csv", "station.csv");
-      SEISCOMP_INFO(
-          "Wrote input catalog files event.csv, phase.csv, station.csv");
-    }
 
     loadProfile(profile, catalog.get());
 
@@ -1932,9 +1922,8 @@ void RTDD::loadProfile(ProfilePtr profile,
                        const HDD::Catalog *alternativeCatalog)
 {
   profile->load(query(), &_cache, _eventParameters.get(),
-                _config.workingDirectory, _config.saveProcessingFiles,
-                _config.cacheWaveforms, _config.cacheAllWaveforms,
-                alternativeCatalog);
+                _config.cacheDirectory, _config.cacheWaveforms,
+                _config.cacheAllWaveforms, alternativeCatalog);
 }
 
 std::vector<DataModel::OriginPtr> RTDD::fetchOrigins(const std::string &idFile,
@@ -2097,14 +2086,13 @@ void RTDD::Profile::load(DatabaseQuery *query,
                          PublicObjectTimeSpanBuffer *cache,
                          EventParameters *eventParameters,
                          const string &workingDir,
-                         bool saveProcessingFiles,
                          bool cacheWaveforms,
                          bool cacheAllWaveforms,
                          const HDD::Catalog *alternativeCatalog)
 {
   if (loaded) return;
 
-  string pWorkingDir = (boost::filesystem::path(workingDir) / name).string();
+  string profileDir = (boost::filesystem::path(workingDir) / name).string();
 
   this->query           = query;
   this->cache           = cache;
@@ -2187,18 +2175,13 @@ void RTDD::Profile::load(DatabaseQuery *query,
 
     dd.reset(new HDD::DD(ddbgc, ddCfg, std::move(ttt), std::move(wf)));
 
-    if (saveProcessingFiles)
-      dd->enableSaveProcessing(pWorkingDir);
-    else
-      dd->disableSaveProcessing();
-
     if (cacheWaveforms)
-      dd->enableCatalogWaveformDiskCache(HDD::joinPath(pWorkingDir, "wfcache"));
+      dd->enableCatalogWaveformDiskCache(HDD::joinPath(profileDir, "wfcache"));
     else
       dd->disableCatalogWaveformDiskCache();
 
     if (cacheAllWaveforms)
-      dd->enableAllWaveformDiskCache(HDD::joinPath(pWorkingDir, "tmpcache"));
+      dd->enableAllWaveformDiskCache(HDD::joinPath(profileDir, "tmpcache"));
     else
       dd->disableAllWaveformDiskCache();
   }
@@ -2291,15 +2274,10 @@ RTDD::Profile::relocateCatalog(const std::string &xcorrFile)
   }
 
   unique_ptr<HDD::Catalog> relocatedCat =
-      dd->relocateMultiEvents(multiEventClustering, solverCfg, xcorr);
+      dd->relocateMultiEvents(multiEventClustering, solverCfg, xcorr, true);
 
   relocatedCat->writeToFile("reloc-event.csv", "reloc-phase.csv",
                             "reloc-station.csv");
-
-  if (!xcorr.empty())
-  {
-    HDD::writeXCorrToFile(xcorr, dd->getCatalog(), "xcorr.csv");
-  }
 
   SEISCOMP_INFO(
       "Wrote relocated catalog files reloc-event.csv, reloc-phase.csv, "

@@ -143,13 +143,6 @@ public:
 
   const Catalog &getCatalog() const { return _srcCat; }
 
-  // Save relocation data into working directory: e.g. input catalog,
-  // output catalog, found clusters, logs
-  void disableSaveProcessing();
-  void enableSaveProcessing(const std::string &workingDir);
-  std::string saveProcessingDir() const { return _workingDir; }
-  bool saveProcessing() const { return _saveProcessing; }
-
   // Enable/disable the usage of disk cache for the background
   // catalog waveforms
   void disableCatalogWaveformDiskCache();
@@ -192,14 +185,19 @@ public:
   std::unique_ptr<Catalog>
   relocateMultiEvents(const ClusteringOptions &clustOpt,
                       const SolverOptions &solverOpt,
-                      XCorrCache &precomputed);
+                      XCorrCache &precomputed,
+                      bool saveProcessing           = false,
+                      std::string processingDataDir = "");
 
   std::unique_ptr<Catalog>
   relocateMultiEvents(const ClusteringOptions &clustOpt,
-                      const SolverOptions &solverOpt)
+                      const SolverOptions &solverOpt,
+                      bool saveProcessing           = false,
+                      std::string processingDataDir = "")
   {
     XCorrCache empty;
-    return relocateMultiEvents(clustOpt, solverOpt, empty);
+    return relocateMultiEvents(clustOpt, solverOpt, empty, saveProcessing,
+                               processingDataDir);
   }
 
   // Single-event relocation against background catalog
@@ -208,7 +206,9 @@ public:
                       bool isManual,
                       const ClusteringOptions &clustOpt1,
                       const ClusteringOptions &clustOpt2,
-                      const SolverOptions &solverOpt);
+                      const SolverOptions &solverOpt,
+                      bool saveProcessing           = false,
+                      std::string processingDataDir = "");
 
   struct XCorrEvalStats
   {
@@ -279,10 +279,11 @@ private:
   std::unique_ptr<Catalog>
   relocateEventSingleStep(const Catalog &bgCat,
                           const Catalog &evToRelocateCat,
-                          const std::string &workingDir,
                           const ClusteringOptions &clustOpt,
                           const SolverOptions &solverOpt,
-                          bool doXcorr);
+                          bool doXcorr,
+                          bool saveProcessing           = false,
+                          std::string processingDataDir = "");
 
   std::unique_ptr<Catalog>
   relocate(const Catalog &catalog,
@@ -411,9 +412,6 @@ private:
   std::unique_ptr<TravelTimeTable> _ttt;
   std::shared_ptr<Waveform::Proxy> _wf;
 
-  bool _saveProcessing = true;
-
-  std::string _workingDir;
   std::string _cacheDir;
   std::string _tmpCacheDir;
   bool _useCatalogWaveformDiskCache = true;

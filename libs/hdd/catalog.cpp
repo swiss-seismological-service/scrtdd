@@ -502,16 +502,14 @@ void Catalog::writeToFile(const string &eventFile,
     else
     {
       relocInfo = true;
-      evStreamReloc << strf(",true,%g,%g,%u,%u,%u,%u,%u,%u,%u,%g,%g,%g,%g",
-                            ev.relocInfo.startRms, ev.relocInfo.finalRms,
-                            ev.relocInfo.numNeighbours, ev.relocInfo.usedP,
-                            ev.relocInfo.usedS, ev.relocInfo.dd.numTTp,
-                            ev.relocInfo.dd.numTTs, ev.relocInfo.dd.numCCp,
-                            ev.relocInfo.dd.numCCs,
-                            ev.relocInfo.dd.startResidualMedian,
-                            ev.relocInfo.dd.startResidualMAD,
-                            ev.relocInfo.dd.finalResidualMedian,
-                            ev.relocInfo.dd.finalResidualMAD);
+      evStreamReloc << strf(
+          ",true,%g,%g,%u,%u,%u,%u,%u,%u,%u,%g,%g,%g,%g", ev.relocInfo.startRms,
+          ev.relocInfo.finalRms, ev.relocInfo.numNeighbours, ev.relocInfo.usedP,
+          ev.relocInfo.usedS, ev.relocInfo.dd.numTTp, ev.relocInfo.dd.numTTs,
+          ev.relocInfo.dd.numCCp, ev.relocInfo.dd.numCCs,
+          ev.relocInfo.dd.startResidualMedian, ev.relocInfo.dd.startResidualMAD,
+          ev.relocInfo.dd.finalResidualMedian,
+          ev.relocInfo.dd.finalResidualMAD);
     }
     evStreamReloc << endl;
   }
