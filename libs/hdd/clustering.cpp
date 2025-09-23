@@ -511,11 +511,12 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
 }
 
 /*
- * Arrange neighbours in not connected clusters.
+ * Organize the neighbours by not connected clusters.
  *
- * Also, we don't want to report the same pair multiple times
- * (e.g. ev1-ev2 and ev2-ev1) since we only want one observation
- * per pair
+ * In addition, don't report the same pair multiple times (e.g. ev1-ev2 and
+ * ev2-ev1) since we only need one observation per pair in the DD solver.
+ *
+ * The input will be moved to the return value!
  */
 list<unordered_map<unsigned, unique_ptr<Neighbours>>>
 clusterizeNeighbouringEvents(

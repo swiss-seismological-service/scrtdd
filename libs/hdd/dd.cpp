@@ -101,25 +101,8 @@ DD::DD(const Catalog &catalog,
                                                 _cfg.pickUncertaintyClasses)),
       _ttt(std::move(ttt)), _wf(std::move(wf))
 {
-  disableSaveProcessing();
   disableCatalogWaveformDiskCache();
   disableAllWaveformDiskCache();
-}
-
-void DD::disableSaveProcessing() { _saveProcessing = false; }
-
-void DD::enableSaveProcessing(const string &workingDir)
-{
-  _saveProcessing = true;
-  _workingDir     = workingDir;
-  if (!pathExists(_workingDir))
-  {
-    if (!createDirectories(_workingDir))
-    {
-      string msg = "Unable to create working directory: " + _workingDir;
-      throw Exception(msg);
-    }
-  }
 }
 
 void DD::disableCatalogWaveformDiskCache()
@@ -425,7 +408,9 @@ std::list<Catalog> DD::findClusters(const ClusteringOptions &clustOpt)
 
 unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
                                             const SolverOptions &solverOpt,
-                                            XCorrCache &precomputed)
+                                            XCorrCache &precomputed,
+                                            bool saveProcessing,
+                                            string processingDataDir)
 {
   logInfo("Starting DD relocator in multiple events mode");
 
@@ -433,30 +418,31 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
 
   logInfoF("The catalog contains %zu events", catToReloc.getEvents().size());
 
-  // prepare a folder for debug files
-  string catalogWorkingDir;
-  do
+  if (saveProcessing)
   {
-    catalogWorkingDir = generateWorkingSubDir("multievent");
-    catalogWorkingDir = joinPath(_workingDir, catalogWorkingDir);
-  } while (pathExists(catalogWorkingDir));
-
-  if (_saveProcessing)
-  {
-    if (!pathExists(catalogWorkingDir))
+    // prepare a folder for processing files
+    if (processingDataDir.empty())
     {
-      if (!createDirectories(catalogWorkingDir))
+      do
       {
-        string msg = "Unable to create working directory: " + catalogWorkingDir;
+        processingDataDir = generateWorkingSubDir("multievent");
+      } while (pathExists(processingDataDir));
+    }
+
+    if (!pathExists(processingDataDir))
+    {
+      if (!createDirectories(processingDataDir))
+      {
+        string msg = "Unable to create directory: " + processingDataDir;
         throw Exception(msg);
       }
     }
-    logInfoF("Working dir %s", catalogWorkingDir.c_str());
+    logInfoF("Processing data dir %s", processingDataDir.c_str());
   }
 
   // prepare file logger
-  string logFile = joinPath(catalogWorkingDir, "info.log");
-  if (_saveProcessing)
+  string logFile = joinPath(processingDataDir, "relocation.log");
+  if (saveProcessing)
   {
     addFileLogger(logFile, Level::info);
   }
@@ -475,20 +461,20 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
 
   logInfoF("Found %zu event clusters with the following number of events:",
            clusters.size());
-  for (const auto &c : clusters)
+  for (const auto &neighCluster : clusters)
   {
-    logInfoF(" %zu events", c.size());
+    logInfoF(" %zu events", neighCluster.size());
   }
 
-  if (_saveProcessing)
+  if (saveProcessing)
   {
-    catToReloc.writeToFile(joinPath(catalogWorkingDir, "starting-event.csv"),
-                           joinPath(catalogWorkingDir, "starting-phase.csv"),
-                           joinPath(catalogWorkingDir, "starting-station.csv"));
+    catToReloc.writeToFile(joinPath(processingDataDir, "input-event.csv"),
+                           joinPath(processingDataDir, "input-phase.csv"),
+                           joinPath(processingDataDir, "input-station.csv"));
   }
 
   //
-  // relocate one cluster a time
+  // relocate one cluster at the time
   //
   unique_ptr<Catalog> relocatedCatalog(new Catalog());
 
@@ -498,16 +484,17 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
     logInfoF("Relocating cluster %u (%zu events)", clusterId,
              neighCluster.size());
 
-    if (_saveProcessing)
+    if (saveProcessing)
     {
       Catalog catToDump;
       for (const auto &kv : neighCluster)
+      {
         catToDump.add(kv.first, catToReloc, true);
+      }
       string prefix = strf("cluster-%u", clusterId);
       catToDump.writeToFile(
-          joinPath(catalogWorkingDir, (prefix + "-event.csv")),
-          joinPath(catalogWorkingDir, (prefix + "-phase.csv")),
-          joinPath(catalogWorkingDir, (prefix + "-station.csv")));
+          joinPath(processingDataDir, (prefix + "-event.csv")),
+          joinPath(processingDataDir, (prefix + "-phase.csv")));
     }
 
     // Perform cross-correlation
@@ -521,13 +508,12 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
 
     relocatedCatalog->add(*relocatedCluster, true);
 
-    if (_saveProcessing)
+    if (saveProcessing)
     {
       string prefix = strf("relocated-cluster-%u", clusterId);
       relocatedCluster->writeToFile(
-          joinPath(catalogWorkingDir, (prefix + "-event.csv")),
-          joinPath(catalogWorkingDir, (prefix + "-phase.csv")),
-          joinPath(catalogWorkingDir, (prefix + "-station.csv")));
+          joinPath(processingDataDir, (prefix + "-event.csv")),
+          joinPath(processingDataDir, (prefix + "-phase.csv")));
     }
     clusterId++;
 
@@ -535,14 +521,13 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
     precomputed.add(xcorr);
   }
 
-  if (_saveProcessing)
+  if (saveProcessing)
   {
     relocatedCatalog->writeToFile(
-        joinPath(catalogWorkingDir, "relocated-event.csv"),
-        joinPath(catalogWorkingDir, "relocated-phase.csv"),
-        joinPath(catalogWorkingDir, "relocated-station.csv"));
+        joinPath(processingDataDir, "relocated-event.csv"),
+        joinPath(processingDataDir, "relocated-phase.csv"));
     writeXCorrToFile(precomputed, _bgCat,
-                     joinPath(catalogWorkingDir, "xcorr.csv"));
+                     joinPath(processingDataDir, "xcorr.csv"));
   }
 
   removeFileLogger(logFile);
@@ -554,7 +539,9 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
                                             bool isManual,
                                             const ClusteringOptions &clustOpt1,
                                             const ClusteringOptions &clustOpt2,
-                                            const SolverOptions &solverOpt)
+                                            const SolverOptions &solverOpt,
+                                            bool saveProcessing,
+                                            string processingDataDir)
 {
   const Catalog &bgCat = _bgCat;
 
@@ -570,27 +557,31 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
            UTCClock::toString(evToRelocate.time).c_str(),
            std::distance(evToRelocatePhases.first, evToRelocatePhases.second));
 
-  // prepare a folder for debug files
-  string baseWorkingDir;
-  if (_saveProcessing)
+  if (saveProcessing)
   {
-    do
+    // prepare a folder for processing files
+    if (processingDataDir.empty())
     {
-      baseWorkingDir = generateWorkingSubDir(evToRelocate);
-      baseWorkingDir = joinPath(_workingDir, baseWorkingDir);
-    } while (pathExists(baseWorkingDir));
-
-    if (!createDirectories(baseWorkingDir))
-    {
-      string msg = "Unable to create working directory: " + baseWorkingDir;
-      throw Exception(msg);
+      do
+      {
+        processingDataDir = generateWorkingSubDir("multievent");
+      } while (pathExists(processingDataDir));
     }
-    logInfoF("Working dir %s", baseWorkingDir.c_str());
+
+    if (!pathExists(processingDataDir))
+    {
+      if (!createDirectories(processingDataDir))
+      {
+        string msg = "Unable to create directory: " + processingDataDir;
+        throw Exception(msg);
+      }
+    }
+    logInfoF("Processing data dir %s", processingDataDir.c_str());
   }
 
   // prepare file logger
-  string logFile = joinPath(baseWorkingDir, "info.log");
-  if (_saveProcessing)
+  string logFile = joinPath(processingDataDir, "relocation.log");
+  if (saveProcessing)
   {
     addFileLogger(logFile, Level::info);
   }
@@ -598,7 +589,7 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   logInfo("Performing step 1: initial location refinement (no "
           "cross-correlation)");
 
-  string eventWorkingDir = joinPath(baseWorkingDir, "step1");
+  string eventWorkingDir = joinPath(processingDataDir, "step1");
 
   Catalog evToRelocateCat = Catalog::filterPhasesAndSetWeights(
       singleEvent,
@@ -606,8 +597,9 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
                 : Phase::Source::RT_EVENT_AUTOMATIC),
       _cfg.validPphases, _cfg.validSphases, _cfg.pickUncertaintyClasses);
 
-  unique_ptr<Catalog> relocatedEvCat = relocateEventSingleStep(
-      bgCat, evToRelocateCat, eventWorkingDir, clustOpt1, solverOpt, false);
+  unique_ptr<Catalog> relocatedEvCat =
+      relocateEventSingleStep(bgCat, evToRelocateCat, clustOpt1, solverOpt,
+                              false, saveProcessing, eventWorkingDir);
 
   if (relocatedEvCat)
   {
@@ -628,10 +620,11 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
 
   logInfo("Performing step 2: relocation with cross-correlation");
 
-  eventWorkingDir = joinPath(baseWorkingDir, "step2");
+  eventWorkingDir = joinPath(processingDataDir, "step2");
 
-  unique_ptr<Catalog> relocatedEvWithXcorr = relocateEventSingleStep(
-      bgCat, evToRelocateCat, eventWorkingDir, clustOpt2, solverOpt, true);
+  unique_ptr<Catalog> relocatedEvWithXcorr =
+      relocateEventSingleStep(bgCat, evToRelocateCat, clustOpt2, solverOpt,
+                              true, saveProcessing, eventWorkingDir);
 
   if (relocatedEvWithXcorr)
   {
@@ -670,24 +663,25 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
 unique_ptr<Catalog>
 DD::relocateEventSingleStep(const Catalog &bgCat,
                             const Catalog &evToRelocateCat,
-                            const string &workingDir,
                             const ClusteringOptions &clustOpt,
                             const SolverOptions &solverOpt,
-                            bool doXcorr)
+                            bool doXcorr,
+                            bool saveProcessing,
+                            string processingDataDir)
 {
-  if (_saveProcessing)
+  if (saveProcessing)
   {
-    if (!createDirectories(workingDir))
+    if (!createDirectories(processingDataDir))
     {
-      string msg = "Unable to create working directory: " + workingDir;
+      string msg = "Unable to create working directory: " + processingDataDir;
       throw Exception(msg);
     }
-    logInfoF("Working dir %s", workingDir.c_str());
+    logInfoF("Working dir %s", processingDataDir.c_str());
 
     evToRelocateCat.writeToFile(
-        joinPath(workingDir, "single-event.csv"),
-        joinPath(workingDir, "single-event-phase.csv"),
-        joinPath(workingDir, "single-event-station.csv"));
+        joinPath(processingDataDir, "single-event.csv"),
+        joinPath(processingDataDir, "single-event-phase.csv"),
+        joinPath(processingDataDir, "single-event-station.csv"));
   }
 
   unique_ptr<Catalog> relocatedEvCat;
@@ -719,11 +713,11 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
         catalog->add(evToRelocate.id, evToRelocateCat, false);
     neighbours->refEvId = evToRelocateNewId;
 
-    if (_saveProcessing)
+    if (saveProcessing)
     {
-      catalog->writeToFile(joinPath(workingDir, "starting-event.csv"),
-                           joinPath(workingDir, "starting-phase.csv"),
-                           joinPath(workingDir, "starting-station.csv"));
+      catalog->writeToFile(joinPath(processingDataDir, "input-event.csv"),
+                           joinPath(processingDataDir, "input-phase.csv"),
+                           joinPath(processingDataDir, "input-station.csv"));
     }
 
     unordered_map<unsigned, unique_ptr<Neighbours>> neighCluster;
@@ -741,12 +735,11 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
     // the actual relocation
     relocatedEvCat = relocate(*catalog, neighCluster, solverOpt, true, xcorr);
 
-    if (_saveProcessing)
+    if (saveProcessing)
     {
       relocatedEvCat->writeToFile(
-          joinPath(workingDir, "relocated-event.csv"),
-          joinPath(workingDir, "relocated-phase.csv"),
-          joinPath(workingDir, "relocated-station.csv"));
+          joinPath(processingDataDir, "relocated-event.csv"),
+          joinPath(processingDataDir, "relocated-phase.csv"));
     }
   }
   catch (exception &e)

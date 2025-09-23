@@ -116,15 +116,14 @@ private:
   struct Config
   {
     std::vector<std::string> activeProfiles;
-    std::string workingDirectory = "/tmp/rtdd";
-    bool saveProcessingFiles     = false;
-    bool onlyPreferredOrigin     = true;
-    bool allowAutomaticOrigin    = true;
-    bool allowManualOrigin       = true;
-    int profileTimeAlive         = -1; // seconds
-    bool cacheWaveforms          = false;
-    bool cacheAllWaveforms       = false;
-    bool debugWaveforms          = false;
+    bool onlyPreferredOrigin   = true;
+    bool allowAutomaticOrigin  = true;
+    bool allowManualOrigin     = true;
+    int profileTimeAlive       = -1; // seconds
+    bool cacheWaveforms        = false;
+    bool cacheAllWaveforms     = false;
+    std::string cacheDirectory = "/tmp/rtdd";
+    bool debugWaveforms        = false;
 
     // Mode
     bool forceProcessing = false;
@@ -158,7 +157,6 @@ private:
               DataModel::PublicObjectTimeSpanBuffer *cache,
               DataModel::EventParameters *eventParameters,
               const std::string &workingDir,
-              bool saveProcessingFiles,
               bool cacheWaveforms,
               bool cacheAllWaveforms,
               const HDD::Catalog *alternativeCatalog = nullptr);
