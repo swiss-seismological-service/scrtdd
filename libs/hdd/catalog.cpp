@@ -502,14 +502,16 @@ void Catalog::writeToFile(const string &eventFile,
     else
     {
       relocInfo = true;
-      evStreamReloc << strf(
-          ",true,%g,%g,%u,%u,%u,%u,%u,%u,%u,%g,%g,%g,%g", ev.relocInfo.startRms,
-          ev.relocInfo.finalRms, ev.relocInfo.numNeighbours, ev.relocInfo.usedP,
-          ev.relocInfo.usedS, ev.relocInfo.dd.numTTp, ev.relocInfo.dd.numTTs,
-          ev.relocInfo.dd.numCCp, ev.relocInfo.dd.numCCs,
-          ev.relocInfo.dd.startResidualMedian, ev.relocInfo.dd.startResidualMAD,
-          ev.relocInfo.dd.finalResidualMedian,
-          ev.relocInfo.dd.finalResidualMAD);
+      evStreamReloc << strf(",true,%g,%g,%u,%u,%u,%u,%u,%u,%u,%g,%g,%g,%g",
+                            ev.relocInfo.startRms, ev.relocInfo.finalRms,
+                            ev.relocInfo.numNeighbours, ev.relocInfo.usedP,
+                            ev.relocInfo.usedS, ev.relocInfo.dd.numTTp,
+                            ev.relocInfo.dd.numTTs, ev.relocInfo.dd.numCCp,
+                            ev.relocInfo.dd.numCCs,
+                            ev.relocInfo.dd.startResidualMedian,
+                            ev.relocInfo.dd.startResidualMAD,
+                            ev.relocInfo.dd.finalResidualMedian,
+                            ev.relocInfo.dd.finalResidualMAD);
     }
     evStreamReloc << endl;
   }
@@ -520,59 +522,65 @@ void Catalog::writeToFile(const string &eventFile,
   /*
    * write phases
    */
-  ofstream phStream(phaseFile);
-
-  phStream << "eventId,isotime,lowerUncertainty,upperUncertainty,"
-              "type,networkCode,stationCode,locationCode,channelCode";
-  if (relocInfo)
+  if (!phaseFile.empty())
   {
-    phStream << ",usedInReloc,residual,weight";
-  }
-  phStream << endl;
+    ofstream phStream(phaseFile);
 
-  const multimap<unsigned, Catalog::Phase> orderedPhases(_phases.begin(),
-                                                         _phases.end());
-  for (const auto &kv : orderedPhases)
-  {
-    const Catalog::Phase &ph = kv.second;
-    phStream << strf("%u,%s,%g,%g,%s,%s,%s,%s,%s", ph.eventId,
-                     UTCClock::toString(ph.time).c_str(), ph.lowerUncertainty,
-                     ph.upperUncertainty, ph.type.c_str(),
-                     ph.networkCode.c_str(), ph.stationCode.c_str(),
-                     ph.locationCode.c_str(), ph.channelCode.c_str());
-
+    phStream << "eventId,isotime,lowerUncertainty,upperUncertainty,"
+                "type,networkCode,stationCode,locationCode,channelCode";
     if (relocInfo)
     {
-      if (!ph.relocInfo.isRelocated)
-      {
-        phStream << ",false,,";
-      }
-      else
-      {
-        phStream << strf(",true,%g,%g", ph.relocInfo.residual,
-                         ph.relocInfo.weight);
-      }
+      phStream << ",usedInReloc,residual,weight";
     }
     phStream << endl;
+
+    const multimap<unsigned, Catalog::Phase> orderedPhases(_phases.begin(),
+                                                           _phases.end());
+    for (const auto &kv : orderedPhases)
+    {
+      const Catalog::Phase &ph = kv.second;
+      phStream << strf("%u,%s,%g,%g,%s,%s,%s,%s,%s", ph.eventId,
+                       UTCClock::toString(ph.time).c_str(), ph.lowerUncertainty,
+                       ph.upperUncertainty, ph.type.c_str(),
+                       ph.networkCode.c_str(), ph.stationCode.c_str(),
+                       ph.locationCode.c_str(), ph.channelCode.c_str());
+
+      if (relocInfo)
+      {
+        if (!ph.relocInfo.isRelocated)
+        {
+          phStream << ",false,,";
+        }
+        else
+        {
+          phStream << strf(",true,%g,%g", ph.relocInfo.residual,
+                           ph.relocInfo.weight);
+        }
+      }
+      phStream << endl;
+    }
   }
 
   /*
    * write stations
    */
-  ofstream staStream(stationFile);
-  staStream
-      << "latitude,longitude,elevation,networkCode,stationCode,locationCode"
-      << endl;
-
-  const map<string, Catalog::Station> orderedStations(_stations.begin(),
-                                                      _stations.end());
-  for (const auto &kv : orderedStations)
+  if (!stationFile.empty())
   {
-    const Catalog::Station &sta = kv.second;
-    staStream << strf("%.12f,%.12f,%g,%s,%s,%s", sta.latitude, sta.longitude,
-                      sta.elevation, sta.networkCode.c_str(),
-                      sta.stationCode.c_str(), sta.locationCode.c_str())
-              << endl;
+    ofstream staStream(stationFile);
+    staStream
+        << "latitude,longitude,elevation,networkCode,stationCode,locationCode"
+        << endl;
+
+    const map<string, Catalog::Station> orderedStations(_stations.begin(),
+                                                        _stations.end());
+    for (const auto &kv : orderedStations)
+    {
+      const Catalog::Station &sta = kv.second;
+      staStream << strf("%.12f,%.12f,%g,%s,%s,%s", sta.latitude, sta.longitude,
+                        sta.elevation, sta.networkCode.c_str(),
+                        sta.stationCode.c_str(), sta.locationCode.c_str())
+                << endl;
+    }
   }
 }
 
