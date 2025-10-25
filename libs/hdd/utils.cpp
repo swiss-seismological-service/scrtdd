@@ -28,7 +28,6 @@
 #include "utils.h"
 #include "csvreader.h"
 #include "log.h"
-#include <fstream>
 
 #ifdef USE_BOOST_FS
 #include <boost/filesystem.hpp>
@@ -425,65 +424,6 @@ double computeCircularMean(const std::vector<double> &angles)
     y += sin(angles[i]);
   }
   return atan2(y / angles.size(), x / angles.size());
-}
-
-void writeXCorrToFile(const XCorrCache &xcorr,
-                      const Catalog &cat,
-                      const std::string &file)
-{
-  ofstream os(file);
-  os << "eventId1,eventId2,networkCode,stationCode,locationCode,"
-        "phaseType,valid,coefficient,lag"
-     << endl;
-
-  auto callback = [&os, &cat](unsigned ev1, unsigned ev2,
-                              const std::string &stationId,
-                              const Catalog::Phase::Type &type,
-                              const XCorrCache::Entry &e) {
-    const Catalog::Station &sta = cat.getStations().at(stationId);
-
-    os << strf("%u,%u,%s,%s,%s,%c,%s,%f,%f", ev1, ev2, sta.networkCode.c_str(),
-               sta.stationCode.c_str(), sta.locationCode.c_str(),
-               static_cast<char>(type), e.valid ? "true" : "false", e.coeff,
-               e.lag)
-       << endl;
-  };
-
-  xcorr.forEach(callback);
-}
-
-XCorrCache readXCorrFromFile(const Catalog &cat, const std::string &file)
-{
-  auto strToBool = [](const std::string &s) -> bool {
-    return s == "1" || s == "true" || s == "True" || s == "TRUE";
-  };
-  auto strToPhaseType = [](const std::string &s) -> Catalog::Phase::Type {
-    return (s == "P" || s == "p") ? Catalog::Phase::Type::P
-                                  : Catalog::Phase::Type::S;
-  };
-  XCorrCache xcorr;
-  vector<unordered_map<string, string>> phases = CSV::readWithHeader(file);
-  for (const auto &row : phases)
-  {
-    unsigned ev1              = std::stoul(row.at("eventId1"));
-    unsigned ev2              = std::stoul(row.at("eventId2"));
-    string networkCode        = row.at("networkCode");
-    string stationCode        = row.at("stationCode");
-    string locationCode       = row.at("locationCode");
-    Catalog::Phase::Type type = strToPhaseType(row.at("phaseType"));
-    bool valid                = strToBool(row.at("valid"));
-    double coeff              = std::stod(row.at("coefficient"));
-    double lag                = std::stod(row.at("lag"));
-
-    std::string stationId =
-        cat.searchStation(networkCode, stationCode, locationCode)->second.id;
-
-    if (!xcorr.has(ev1, ev2, stationId, type))
-    {
-      xcorr.add(ev1, ev2, stationId, type, valid, coeff, lag);
-    }
-  }
-  return xcorr;
 }
 
 } // namespace HDD

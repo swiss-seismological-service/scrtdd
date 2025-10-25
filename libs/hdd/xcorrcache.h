@@ -227,6 +227,10 @@ public:
     {}
   }
 
+  void writeToFile(const Catalog &cat, const std::string &file) const;
+
+  static XCorrCache readFromFile(const Catalog &cat, const std::string &file);
+
 private:
   std::unordered_map<
       unsigned, // indexed by event id

@@ -526,8 +526,7 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
     relocatedCatalog->writeToFile(
         joinPath(processingDataDir, "relocated-event.csv"),
         joinPath(processingDataDir, "relocated-phase.csv"));
-    writeXCorrToFile(precomputed, _bgCat,
-                     joinPath(processingDataDir, "xcorr.csv"));
+    precomputed.writeToFile(_bgCat, joinPath(processingDataDir, "xcorr.csv"));
   }
 
   removeFileLogger(logFile);
