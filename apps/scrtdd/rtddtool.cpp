@@ -2265,7 +2265,7 @@ RTDD::Profile::relocateCatalog(const std::string &xcorrFile)
   HDD::XCorrCache xcorr;
   if (!xcorrFile.empty())
   {
-    xcorr = HDD::readXCorrFromFile(dd->getCatalog(), xcorrFile);
+    xcorr = HDD::XCorrCache::readFromFile(dd->getCatalog(), xcorrFile);
   }
 
   unique_ptr<HDD::Catalog> relocatedCat =
@@ -2294,14 +2294,14 @@ void RTDD::Profile::evalXCorr(const std::string &xcorrFile)
   HDD::XCorrCache xcorr;
   if (!xcorrFile.empty())
   {
-    xcorr = HDD::readXCorrFromFile(dd->getCatalog(), xcorrFile);
+    xcorr = HDD::XCorrCache::readFromFile(dd->getCatalog(), xcorrFile);
   }
 
   dd->evalXCorr(multiEventClustering, printEvalXcorrStats, xcorr);
 
   if (!xcorr.empty())
   {
-    HDD::writeXCorrToFile(xcorr, dd->getCatalog(), "xcorr.csv");
+    xcorr.writeToFile(dd->getCatalog(), "xcorr.csv");
   }
 
   SEISCOMP_INFO("Wrote cross-correlation results xcorr.csv");

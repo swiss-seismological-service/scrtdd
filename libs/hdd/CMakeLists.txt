@@ -24,6 +24,7 @@ ADD_LIBRARY(hdd ${LIB_TYPE}
 	solver.cpp
 	xcorr.cpp
 	waveform.cpp
+	xcorrcache.cpp
 	dd.cpp
 )
 
