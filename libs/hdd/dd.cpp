@@ -385,7 +385,7 @@ void DD::dumpWaveforms(const string &basePath)
 std::list<Catalog> DD::findClusters(const ClusteringOptions &clustOpt)
 {
   // find Neighbours for each event in the catalog
-  unordered_map<unsigned, unique_ptr<Neighbours>> neighboursByEvent =
+  unordered_map<unsigned, Neighbours> neighboursByEvent =
       selectNeighbouringEventsCatalog(
           _bgCat, clustOpt.minPhaseWeight, clustOpt.minESdist,
           clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
@@ -393,14 +393,17 @@ std::list<Catalog> DD::findClusters(const ClusteringOptions &clustOpt)
           clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, true);
 
   // Organize the neighbours by not connected clusters
-  list<unordered_map<unsigned, unique_ptr<Neighbours>>> clusters =
+  list<unordered_map<unsigned, Neighbours>> clusters =
       clusterizeNeighbouringEvents(neighboursByEvent);
 
   std::list<Catalog> catalogs;
   for (const auto &neighCluster : clusters)
   {
     Catalog cat;
-    for (const auto &kv : neighCluster) cat.add(kv.first, _bgCat, true);
+    for (const auto &kv : neighCluster)
+    {
+      cat.add(kv.first, _bgCat, true);
+    }
     catalogs.push_back(std::move(cat));
   }
   return catalogs;
@@ -448,7 +451,7 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   }
 
   // find Neighbours for each event in the catalog
-  unordered_map<unsigned, unique_ptr<Neighbours>> neighboursByEvent =
+  unordered_map<unsigned, Neighbours> neighboursByEvent =
       selectNeighbouringEventsCatalog(
           catToReloc, clustOpt.minPhaseWeight, clustOpt.minESdist,
           clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
@@ -456,7 +459,7 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
           clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, true);
 
   // Organize the neighbours by non-connected clusters
-  list<unordered_map<unsigned, unique_ptr<Neighbours>>> clusters =
+  list<unordered_map<unsigned, Neighbours>> clusters =
       clusterizeNeighbouringEvents(neighboursByEvent);
 
   logInfoF("Found %zu event clusters with the following number of events:",
@@ -695,44 +698,43 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
     //
     bool keepUnmatchedPhases = doXcorr; // useful for detecting missed picks
 
-    unique_ptr<Neighbours> neighbours = selectNeighbouringEvents(
+    Neighbours neighbours = selectNeighbouringEvents(
         bgCat, evToRelocate, evToRelocateCat, clustOpt.minPhaseWeight,
         clustOpt.minESdist, clustOpt.maxESdist, clustOpt.minEStoIEratio,
         clustOpt.minDTperEvt, clustOpt.maxDTperEvt, clustOpt.minNumNeigh,
         clustOpt.maxNumNeigh, clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize,
         keepUnmatchedPhases);
 
-    logInfoF("Found %zu neighbouring events", neighbours->ids().size());
+    logInfoF("Found %zu neighbouring events", neighbours.ids().size());
 
     //
     // prepare catalog to relocate
     //
-    unique_ptr<Catalog> catalog = neighbours->toCatalog(bgCat);
+    Catalog catalog = neighbours.toCatalog(bgCat);
     unsigned evToRelocateNewId =
-        catalog->add(evToRelocate.id, evToRelocateCat, false);
-    neighbours->setReferenceId(evToRelocateNewId);
+        catalog.add(evToRelocate.id, evToRelocateCat, false);
+    neighbours.setReferenceId(evToRelocateNewId);
 
     if (saveProcessing)
     {
-      catalog->writeToFile(joinPath(processingDataDir, "input-event.csv"),
-                           joinPath(processingDataDir, "input-phase.csv"),
-                           joinPath(processingDataDir, "input-station.csv"));
+      catalog.writeToFile(joinPath(processingDataDir, "input-event.csv"),
+                          joinPath(processingDataDir, "input-phase.csv"),
+                          joinPath(processingDataDir, "input-station.csv"));
     }
 
-    unordered_map<unsigned, unique_ptr<Neighbours>> neighCluster;
-    neighCluster.emplace(neighbours->referenceId(), std::move(neighbours));
+    unordered_map<unsigned, Neighbours> neighCluster;
+    neighCluster.emplace(neighbours.referenceId(), std::move(neighbours));
 
     XCorrCache xcorr{};
     if (doXcorr)
     {
       // Perform cross-correlation
-      xcorr =
-          buildXCorrCache(*catalog, neighCluster, clustOpt.xcorrMaxEvStaDist,
-                          clustOpt.xcorrMaxInterEvDist);
+      xcorr = buildXCorrCache(catalog, neighCluster, clustOpt.xcorrMaxEvStaDist,
+                              clustOpt.xcorrMaxInterEvDist);
     }
 
     // the actual relocation
-    relocatedEvCat = relocate(*catalog, neighCluster, solverOpt, true, xcorr);
+    relocatedEvCat = relocate(catalog, neighCluster, solverOpt, true, xcorr);
 
     if (saveProcessing)
     {
@@ -749,12 +751,12 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
   return relocatedEvCat;
 }
 
-unique_ptr<Catalog> DD::relocate(
-    const Catalog &catalog,
-    const unordered_map<unsigned, unique_ptr<Neighbours>> &neighCluster,
-    const SolverOptions &solverOpt,
-    bool keepNeighboursFixed,
-    const XCorrCache &xcorr) const
+unique_ptr<Catalog>
+DD::relocate(const Catalog &catalog,
+             const unordered_map<unsigned, Neighbours> &neighCluster,
+             const SolverOptions &solverOpt,
+             bool keepNeighboursFixed,
+             const XCorrCache &xcorr) const
 {
   logInfo("Building and solving double-difference system...");
 
@@ -762,7 +764,7 @@ unique_ptr<Catalog> DD::relocate(
   // iterate the solver computation multiple times
   //
   unique_ptr<const Catalog> finalCatalog(new Catalog(catalog));
-  unordered_map<unsigned, unique_ptr<Neighbours>> finalNeighCluster;
+  unordered_map<unsigned, Neighbours> finalNeighCluster;
   ObservationParams obsparams;
   for (unsigned iteration = 0; iteration < solverOpt.algoIterations;
        iteration++)
@@ -798,7 +800,7 @@ unique_ptr<Catalog> DD::relocate(
     //
     for (const auto &kv : neighCluster)
     {
-      addObservations(solver, *finalCatalog, *kv.second, keepNeighboursFixed,
+      addObservations(solver, *finalCatalog, kv.second, keepNeighboursFixed,
                       solverOpt.usePickUncertainties,
                       solverOpt.xcorrWeightScaler, xcorr, obsparams);
     }
@@ -1027,9 +1029,9 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     const Solver &solver,
     const Catalog &catalog,
     const SolverOptions &solverOpt,
-    const unordered_map<unsigned, unique_ptr<Neighbours>> &neighCluster,
+    const unordered_map<unsigned, Neighbours> &neighCluster,
     ObservationParams &obsparams,
-    unordered_map<unsigned, unique_ptr<Neighbours>> &finalNeighCluster // output
+    unordered_map<unsigned, Neighbours> &finalNeighCluster // output
 ) const
 {
   unordered_map<string, Station> stations    = catalog.getStations();
@@ -1043,7 +1045,7 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
   //
   for (const auto &kv : neighCluster)
   {
-    Event &event = events.at(kv.second->referenceId());
+    Event &event = events.at(kv.second.referenceId());
 
     //
     // get relocation changes (km and sec) computed by the solver for
@@ -1072,7 +1074,7 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     computeCoordinates(distance, azimuth, event.latitude, event.longitude,
                        newLat, newLon, event.depth);
 
-    unique_ptr<Neighbours> finalNeighbours(new Neighbours(event.id));
+    Neighbours finalNeighbours(event.id);
     bool isFirstIteration = !event.relocInfo.isRelocated;
 
     //
@@ -1158,7 +1160,7 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
 
       for (unsigned nId : neighbourIds)
       {
-        finalNeighbours->add(nId, station.id, phase.procInfo.type);
+        finalNeighbours.add(nId, station.id, phase.procInfo.type);
       }
     }
 
@@ -1201,9 +1203,20 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     event.relocInfo.dd.finalResidualMedian = residualMedian;
     event.relocInfo.dd.finalResidualMAD    = residualMAD;
 
-    event.relocInfo.numNeighbours = finalNeighbours->ids().size();
-    finalNeighCluster[finalNeighbours->referenceId()] =
-        std::move(finalNeighbours);
+    event.relocInfo.numNeighbours = finalNeighbours.ids().size();
+
+    auto it = finalNeighCluster.find(finalNeighbours.referenceId());
+    if (it != finalNeighCluster.end())
+    {
+      // Key exists — overwrite the value with a moved object
+      it->second = std::move(finalNeighbours);
+    }
+    else
+    {
+      // Key does not exist — insert by moving
+      finalNeighCluster.emplace(finalNeighbours.referenceId(),
+                                std::move(finalNeighbours));
+    }
 
     relocatedEvs++;
   }
@@ -1222,7 +1235,7 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
 unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
     const Catalog &startCatalog,
     const Catalog &finalCatalog,
-    const unordered_map<unsigned, unique_ptr<Neighbours>> &neighCluster) const
+    const unordered_map<unsigned, Neighbours> &neighCluster) const
 {
   unique_ptr<Catalog> catalogToReturn(new Catalog());
   vector<double> allRms;
@@ -1230,8 +1243,8 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
 
   for (const auto &kv : neighCluster)
   {
-    const unique_ptr<Neighbours> &neighbours = kv.second;
-    auto it = finalCatalog.getEvents().find(neighbours->referenceId());
+    const Neighbours &neighbours = kv.second;
+    auto it = finalCatalog.getEvents().find(neighbours.referenceId());
 
     // If the event hasn't been relocated, remove it from the final catalog.
     if (it == finalCatalog.getEvents().end() ||
@@ -1241,11 +1254,11 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
     }
 
     unique_ptr<Catalog> tmpCat =
-        finalCatalog.extractEvent(neighbours->referenceId(), true);
+        finalCatalog.extractEvent(neighbours.referenceId(), true);
 
     const Event &startEvent =
-        startCatalog.getEvents().at(neighbours->referenceId());
-    Event finalEvent = tmpCat->getEvents().at(neighbours->referenceId());
+        startCatalog.getEvents().at(neighbours.referenceId());
+    Event finalEvent = tmpCat->getEvents().at(neighbours.referenceId());
 
     //
     // Compute starting event rms considering only the phases in the final
@@ -1301,12 +1314,12 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
   return catalogToReturn;
 }
 
-XCorrCache DD::buildXCorrCache(
-    Catalog &catalog,
-    const unordered_map<unsigned, unique_ptr<Neighbours>> &neighCluster,
-    double xcorrMaxEvStaDist,
-    double xcorrMaxInterEvDist,
-    const XCorrCache &precomputed)
+XCorrCache
+DD::buildXCorrCache(Catalog &catalog,
+                    const unordered_map<unsigned, Neighbours> &neighCluster,
+                    double xcorrMaxEvStaDist,
+                    double xcorrMaxInterEvDist,
+                    const XCorrCache &precomputed)
 {
   XCorrCache xcorr{};
 
@@ -1324,10 +1337,10 @@ XCorrCache DD::buildXCorrCache(
 
   for (const auto &kv : neighCluster)
   {
-    const unique_ptr<Neighbours> &neighbours = kv.second;
-    const Event &refEv = catalog.getEvents().at(neighbours->referenceId());
+    const Neighbours &neighbours = kv.second;
+    const Event &refEv = catalog.getEvents().at(neighbours.referenceId());
 
-    buildXcorrDiffTTimePairs(catalog, *neighbours, refEv, xcorrMaxEvStaDist,
+    buildXcorrDiffTTimePairs(catalog, neighbours, refEv, xcorrMaxEvStaDist,
                              xcorrMaxInterEvDist, precomputed, xcorr);
 
     const unsigned onePerThousand =
@@ -1994,7 +2007,7 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
     const Event &event = kv.second;
 
     // find the neighbouring events
-    unique_ptr<Neighbours> neighbours;
+    Neighbours neighbours{0};
     try
     {
       neighbours = selectNeighbouringEvents(
@@ -2008,17 +2021,17 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
       continue;
     }
 
-    unique_ptr<Catalog> catalog = neighbours->toCatalog(_bgCat, true);
+    Catalog catalog = neighbours.toCatalog(_bgCat, true);
 
     // Cross-correlate phase waveforms
     XCorrCache xcorr{};
-    buildXcorrDiffTTimePairs(*catalog, *neighbours, event,
+    buildXcorrDiffTTimePairs(catalog, neighbours, event,
                              clustOpt.xcorrMaxEvStaDist,
                              clustOpt.xcorrMaxInterEvDist, precomputed, xcorr);
     //
     // Collect Stats From the XcorrCache
     //
-    for (const auto &kv : neighbours->allPhases())
+    for (const auto &kv : neighbours.allPhases())
     {
       for (Phase::Type phaseType : kv.second)
       {
@@ -2029,12 +2042,12 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
         // Collect stats for current station/phaseType
         //
         CallbackCounters counters;
-        auto callback = [&counters, &neighbours,
+        auto callback = [&counters, neighbours,
                          &xcorrCfg](unsigned ev1, unsigned ev2,
                                     const std::string &stationId,
                                     const Catalog::Phase::Type &type,
                                     const XCorrCache::Entry &e) {
-          if (neighbours->has(ev2, stationId, type))
+          if (neighbours.has(ev2, stationId, type))
           {
             if (e.valid && (e.coeff >= xcorrCfg.minCoef))
             {
@@ -2072,9 +2085,9 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
         //
         // group stats by inter-event distance
         //
-        for (unsigned neighEvId : neighbours->ids())
+        for (unsigned neighEvId : neighbours.ids())
         {
-          if (!neighbours->has(neighEvId, stationId, phaseType)) continue;
+          if (!neighbours.has(neighEvId, stationId, phaseType)) continue;
           if (!xcorr.has(event.id, neighEvId, stationId, phaseType)) continue;
 
           const auto &e = xcorr.get(event.id, neighEvId, stationId, phaseType);
@@ -2088,7 +2101,7 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
           else
             counters.skipped++;
 
-          const Event &neighbEv  = catalog->getEvents().at(neighEvId);
+          const Event &neighbEv  = catalog.getEvents().at(neighEvId);
           double interEvDistance = computeDistance(event, neighbEv);
           const unsigned interEvDistanceBucket =
               unsigned(interEvDistance / interEvDistStep);

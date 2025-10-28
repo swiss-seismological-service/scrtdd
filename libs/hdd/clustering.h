@@ -103,13 +103,12 @@ public:
   std::unordered_map<std::string, std::unordered_set<Catalog::Phase::Type>>
   allPhases(unsigned neighbourId) const;
 
-  std::unique_ptr<Catalog> toCatalog(const Catalog &catalog,
-                                     bool includeRefEv = false) const;
+  Catalog toCatalog(const Catalog &catalog, bool includeRefEv = false) const;
 
   void writeToFile(const Catalog &cat, const std::string &file) const;
   void writeToFile(const Catalog &cat, std::ostream &os) const;
 
-  static std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
+  static std::unordered_map<unsigned, Neighbours>
   readFromFile(const Catalog &cat, const std::string &file);
 
 private:
@@ -122,23 +121,22 @@ private:
       _phases;
 };
 
-std::unique_ptr<Neighbours>
-selectNeighbouringEvents(const Catalog &catalog,
-                         const Catalog::Event &refEv,
-                         const Catalog &refEvCatalog,
-                         double minPhaseWeight   = 0,
-                         double minESdis         = 0,
-                         double maxESdis         = -1, // -1 = no limits
-                         double minEStoIEratio   = 0,
-                         unsigned minDTperEvt    = 1,
-                         unsigned maxDTperEvt    = 0, // 0 = no limits
-                         unsigned minNumNeigh    = 1,
-                         unsigned maxNumNeigh    = 0, // 0 = no limits
-                         unsigned numEllipsoids  = 5,
-                         double maxEllipsoidSize = 10,
-                         bool keepUnmatched      = false);
+Neighbours selectNeighbouringEvents(const Catalog &catalog,
+                                    const Catalog::Event &refEv,
+                                    const Catalog &refEvCatalog,
+                                    double minPhaseWeight = 0,
+                                    double minESdis       = 0,
+                                    double maxESdis = -1, // -1 = no limits
+                                    double minEStoIEratio  = 0,
+                                    unsigned minDTperEvt   = 1,
+                                    unsigned maxDTperEvt   = 0, // 0 = no limits
+                                    unsigned minNumNeigh   = 1,
+                                    unsigned maxNumNeigh   = 0, // 0 = no limits
+                                    unsigned numEllipsoids = 5,
+                                    double maxEllipsoidSize = 10,
+                                    bool keepUnmatched      = false);
 
-std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
+std::unordered_map<unsigned, Neighbours>
 selectNeighbouringEventsCatalog(const Catalog &catalog,
                                 double minPhaseWeight,
                                 double minESdis,
@@ -152,10 +150,9 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
                                 double maxEllipsoidSize,
                                 bool keepUnmatched);
 
-std::list<std::unordered_map<unsigned, std::unique_ptr<Neighbours>>>
+std::list<std::unordered_map<unsigned, Neighbours>>
 clusterizeNeighbouringEvents(
-    std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
-        &neighboursByEvent);
+    std::unordered_map<unsigned, Neighbours> &neighboursByEvent);
 
 } // namespace HDD
 
