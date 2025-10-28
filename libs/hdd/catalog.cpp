@@ -243,6 +243,11 @@ Catalog::Catalog(const string &stationFile,
   }
 }
 
+bool Catalog::empty() const
+{
+  return _stations.empty() && _events.empty() && _phases.empty();
+}
+
 void Catalog::add(const Catalog &other, bool keepEvId)
 {
   for (const auto &kv : other.getEvents())
@@ -257,9 +262,9 @@ void Catalog::add(const Catalog &other, bool keepEvId)
   }
 }
 
-unique_ptr<Catalog> Catalog::extractEvent(unsigned eventId, bool keepEvId) const
+Catalog Catalog::extractEvent(unsigned eventId, bool keepEvId) const
 {
-  unique_ptr<Catalog> eventToExtract(new Catalog());
+  Catalog eventToExtract{};
 
   auto search = this->getEvents().find(eventId);
   if (search == this->getEvents().end())
@@ -273,12 +278,12 @@ unique_ptr<Catalog> Catalog::extractEvent(unsigned eventId, bool keepEvId) const
 
   if (keepEvId)
   {
-    eventToExtract->_events[event.id] = event;
-    newEventId                        = event.id;
+    eventToExtract._events[event.id] = event;
+    newEventId                       = event.id;
   }
   else
   {
-    newEventId = eventToExtract->addEvent(event);
+    newEventId = eventToExtract.addEvent(event);
   }
 
   auto eqlrng = this->getPhases().equal_range(event.id);
@@ -287,10 +292,10 @@ unique_ptr<Catalog> Catalog::extractEvent(unsigned eventId, bool keepEvId) const
     Catalog::Phase phase = it->second;
 
     const Catalog::Station &station = _stations.at(phase.stationId);
-    eventToExtract->addStation(station);
+    eventToExtract.addStation(station);
 
     phase.eventId = newEventId;
-    eventToExtract->addPhase(phase);
+    eventToExtract.addPhase(phase);
   }
 
   return eventToExtract;

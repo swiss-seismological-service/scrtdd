@@ -321,10 +321,7 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
   solverCfg.downWeightingByResidualStart = 0;
   solverCfg.downWeightingByResidualEnd   = 0;
 
-  std::unique_ptr<HDD::Catalog> relocCat =
-      dd.relocateMultiEvents(clusterCfg, solverCfg);
-
-  return *relocCat;
+  return  dd.relocateMultiEvents(clusterCfg, solverCfg);
 }
 
 HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
@@ -358,11 +355,10 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
   for (const auto &kv : realTimeCat.getEvents())
   {
     const Event &ev = kv.second;
-    unique_ptr<HDD::Catalog> orgToRelocate =
-        realTimeCat.extractEvent(ev.id, false);
-    unique_ptr<HDD::Catalog> relocatedEvent = dd.relocateSingleEvent(
-        *orgToRelocate, true, clusterCfg, clusterCfg, solverCfg);
-    relocCat.add(*relocatedEvent, false);
+    HDD::Catalog orgToRelocate = realTimeCat.extractEvent(ev.id, false);
+    HDD::Catalog relocatedEvent = dd.relocateSingleEvent(
+        orgToRelocate, true, clusterCfg, clusterCfg, solverCfg);
+    relocCat.add(relocatedEvent, false);
   }
 
   return relocCat;
