@@ -702,7 +702,7 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
         clustOpt.maxNumNeigh, clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize,
         keepUnmatchedPhases);
 
-    logInfoF("Found %zu neighbouring events", neighbours->ids.size());
+    logInfoF("Found %zu neighbouring events", neighbours->ids().size());
 
     //
     // prepare catalog to relocate
@@ -710,7 +710,7 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
     unique_ptr<Catalog> catalog = neighbours->toCatalog(bgCat);
     unsigned evToRelocateNewId =
         catalog->add(evToRelocate.id, evToRelocateCat, false);
-    neighbours->refEvId = evToRelocateNewId;
+    neighbours->setReferenceId(evToRelocateNewId);
 
     if (saveProcessing)
     {
@@ -720,7 +720,7 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
     }
 
     unordered_map<unsigned, unique_ptr<Neighbours>> neighCluster;
-    neighCluster.emplace(neighbours->refEvId, std::move(neighbours));
+    neighCluster.emplace(neighbours->referenceId(), std::move(neighbours));
 
     XCorrCache xcorr{};
     if (doXcorr)
@@ -871,7 +871,7 @@ void DD::addObservations(Solver &solver,
                          ObservationParams &obsparams) const
 {
   // copy event because we'll update it
-  const Event &refEv = catalog.getEvents().at(neighbours.refEvId);
+  const Event &refEv = catalog.getEvents().at(neighbours.referenceId());
 
   //
   // loop through reference event phases
@@ -887,7 +887,7 @@ void DD::addObservations(Solver &solver,
     //
     // loop through neighbouring events and look for the matching phase
     //
-    for (unsigned neighEvId : neighbours.ids)
+    for (unsigned neighEvId : neighbours.ids())
     {
       const Event &event = catalog.getEvents().at(neighEvId);
 
@@ -1043,7 +1043,7 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
   //
   for (const auto &kv : neighCluster)
   {
-    Event &event = events.at(kv.second->refEvId);
+    Event &event = events.at(kv.second->referenceId());
 
     //
     // get relocation changes (km and sec) computed by the solver for
@@ -1072,9 +1072,8 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     computeCoordinates(distance, azimuth, event.latitude, event.longitude,
                        newLat, newLon, event.depth);
 
-    unique_ptr<Neighbours> finalNeighbours(new Neighbours());
-    finalNeighbours->refEvId = event.id;
-    bool isFirstIteration    = !event.relocInfo.isRelocated;
+    unique_ptr<Neighbours> finalNeighbours(new Neighbours(event.id));
+    bool isFirstIteration = !event.relocInfo.isRelocated;
 
     //
     // update event location/time and compute statistics
@@ -1202,8 +1201,9 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
     event.relocInfo.dd.finalResidualMedian = residualMedian;
     event.relocInfo.dd.finalResidualMAD    = residualMAD;
 
-    event.relocInfo.numNeighbours               = finalNeighbours->ids.size();
-    finalNeighCluster[finalNeighbours->refEvId] = std::move(finalNeighbours);
+    event.relocInfo.numNeighbours = finalNeighbours->ids().size();
+    finalNeighCluster[finalNeighbours->referenceId()] =
+        std::move(finalNeighbours);
 
     relocatedEvs++;
   }
@@ -1231,7 +1231,7 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
   for (const auto &kv : neighCluster)
   {
     const unique_ptr<Neighbours> &neighbours = kv.second;
-    auto it = finalCatalog.getEvents().find(neighbours->refEvId);
+    auto it = finalCatalog.getEvents().find(neighbours->referenceId());
 
     // If the event hasn't been relocated, remove it from the final catalog.
     if (it == finalCatalog.getEvents().end() ||
@@ -1241,10 +1241,11 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
     }
 
     unique_ptr<Catalog> tmpCat =
-        finalCatalog.extractEvent(neighbours->refEvId, true);
+        finalCatalog.extractEvent(neighbours->referenceId(), true);
 
-    const Event &startEvent = startCatalog.getEvents().at(neighbours->refEvId);
-    Event finalEvent        = tmpCat->getEvents().at(neighbours->refEvId);
+    const Event &startEvent =
+        startCatalog.getEvents().at(neighbours->referenceId());
+    Event finalEvent = tmpCat->getEvents().at(neighbours->referenceId());
 
     //
     // Compute starting event rms considering only the phases in the final
@@ -1324,7 +1325,7 @@ XCorrCache DD::buildXCorrCache(
   for (const auto &kv : neighCluster)
   {
     const unique_ptr<Neighbours> &neighbours = kv.second;
-    const Event &refEv = catalog.getEvents().at(neighbours->refEvId);
+    const Event &refEv = catalog.getEvents().at(neighbours->referenceId());
 
     buildXcorrDiffTTimePairs(catalog, *neighbours, refEv, xcorrMaxEvStaDist,
                              xcorrMaxInterEvDist, precomputed, xcorr);
@@ -1410,7 +1411,7 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
     //
     // loop through neighbouring events and cross-correlate with `refPhase`
     //
-    for (unsigned neighEvId : neighbours.ids)
+    for (unsigned neighEvId : neighbours.ids())
     {
       const Event &event = catalog.getEvents().at(neighEvId);
 
@@ -1526,7 +1527,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
     //
     // loop through neighbouring events and cross-correlate with `refPhase`
     //
-    for (unsigned neighEvId : neighbours.ids)
+    for (unsigned neighEvId : neighbours.ids())
     {
       const Event &event = catalog.getEvents().at(neighEvId);
 
@@ -2071,7 +2072,7 @@ void DD::evalXCorr(const ClusteringOptions &clustOpt,
         //
         // group stats by inter-event distance
         //
-        for (unsigned neighEvId : neighbours->ids)
+        for (unsigned neighEvId : neighbours->ids())
         {
           if (!neighbours->has(neighEvId, stationId, phaseType)) continue;
           if (!xcorr.has(event.id, neighEvId, stationId, phaseType)) continue;

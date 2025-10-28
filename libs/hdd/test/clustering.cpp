@@ -294,8 +294,8 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     2,  //  double maxEllipsoidSize
                                     false); //  bool keepUnmatched
 
-  BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
-  BOOST_CHECK(neighbours->ids == neighbourIds);
+  BOOST_CHECK_EQUAL(neighbours->referenceId(), event.id);
+  BOOST_CHECK(neighbours->ids() == neighbourIds);
   checkNeighbours(*neighbours, neighbourIds,
                   {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
                   {Phase::Type::P});
@@ -315,8 +315,8 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     2,  //  double maxEllipsoidSize
                                     false); //  bool keepUnmatched
 
-  BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
-  BOOST_CHECK(neighbours->ids == neighbourIds);
+  BOOST_CHECK_EQUAL(neighbours->referenceId(), event.id);
+  BOOST_CHECK(neighbours->ids() == neighbourIds);
   checkNeighbours(*neighbours, neighbourIds,
                   {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
                   {Phase::Type::P});
@@ -336,8 +336,8 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     2,  //  double maxEllipsoidSize
                                     false); //  bool keepUnmatched
 
-  BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
-  BOOST_CHECK(neighbours->ids == neighbourIds);
+  BOOST_CHECK_EQUAL(neighbours->referenceId(), event.id);
+  BOOST_CHECK(neighbours->ids() == neighbourIds);
   checkNeighbours(*neighbours, neighbourIds,
                   {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
                   {Phase::Type::P});
@@ -357,8 +357,8 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     2,  //  double maxEllipsoidSize
                                     false); //  bool keepUnmatched
 
-  BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
-  BOOST_CHECK(neighbours->ids == neighbourIds);
+  BOOST_CHECK_EQUAL(neighbours->referenceId(), event.id);
+  BOOST_CHECK(neighbours->ids() == neighbourIds);
   checkNeighbours(*neighbours, neighbourIds,
                   {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
                   {Phase::Type::P});
@@ -378,8 +378,8 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     2,  //  double maxEllipsoidSize
                                     false); //  bool keepUnmatched
 
-  BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
-  BOOST_CHECK(neighbours->ids.size() == 2);
+  BOOST_CHECK_EQUAL(neighbours->referenceId(), event.id);
+  BOOST_CHECK(neighbours->ids().size() == 2);
 
   // maxNumNeigh
   neighbours =
@@ -396,8 +396,8 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     2,  //  double maxEllipsoidSize
                                     false); //  bool keepUnmatched
 
-  BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
-  BOOST_CHECK(neighbours->ids.size() == 3);
+  BOOST_CHECK_EQUAL(neighbours->referenceId(), event.id);
+  BOOST_CHECK(neighbours->ids().size() == 3);
 
   // minDTperEvt
   neighbours =
@@ -414,8 +414,8 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     2,  //  double maxEllipsoidSize
                                     false); //  bool keepUnmatched
 
-  BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
-  BOOST_CHECK(neighbours->ids == neighbourIds);
+  BOOST_CHECK_EQUAL(neighbours->referenceId(), event.id);
+  BOOST_CHECK(neighbours->ids() == neighbourIds);
   checkNeighbours(*neighbours, neighbourIds,
                   {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
                   {Phase::Type::P});
@@ -435,8 +435,8 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     2,  //  double maxEllipsoidSize
                                     false); //  bool keepUnmatched
 
-  BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
-  BOOST_CHECK(neighbours->ids == neighbourIds);
+  BOOST_CHECK_EQUAL(neighbours->referenceId(), event.id);
+  BOOST_CHECK(neighbours->ids() == neighbourIds);
   checkNeighbours(*neighbours, neighbourIds, {"NET.ST01."}, {Phase::Type::P});
 
   // maxDTperEvt
@@ -454,8 +454,8 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     2,  //  double maxEllipsoidSize
                                     false); //  bool keepUnmatched
 
-  BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
-  BOOST_CHECK(neighbours->ids == neighbourIds);
+  BOOST_CHECK_EQUAL(neighbours->referenceId(), event.id);
+  BOOST_CHECK(neighbours->ids() == neighbourIds);
   checkNeighbours(*neighbours, neighbourIds, {"NET.ST01.", "NET.ST02."},
                   {Phase::Type::P});
 }
@@ -493,8 +493,8 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
   neighbourIds = {2,  3,  4,  5,  6,  7,  8,  9,  14, 15, 16, 17,
                   18, 19, 20, 21, 26, 27, 28, 29, 30, 31, 32, 33};
 
-  BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
-  BOOST_CHECK(neighbours->ids == neighbourIds);
+  BOOST_CHECK_EQUAL(neighbours->referenceId(), event.id);
+  BOOST_CHECK(neighbours->ids() == neighbourIds);
   checkNeighbours(*neighbours, neighbourIds,
                   {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
                   {Phase::Type::S});
@@ -516,8 +516,8 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
 
   neighbourIds = {2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 18, 19, 20, 21};
 
-  BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
-  BOOST_CHECK(neighbours->ids == neighbourIds);
+  BOOST_CHECK_EQUAL(neighbours->referenceId(), event.id);
+  BOOST_CHECK(neighbours->ids() == neighbourIds);
   checkNeighbours(*neighbours, neighbourIds,
                   {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
                   {Phase::Type::S});
@@ -539,8 +539,8 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
 
   neighbourIds = {2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 18, 19, 20, 21};
 
-  BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
-  BOOST_CHECK(neighbours->ids == neighbourIds);
+  BOOST_CHECK_EQUAL(neighbours->referenceId(), event.id);
+  BOOST_CHECK(neighbours->ids() == neighbourIds);
   checkNeighbours(*neighbours, neighbourIds, {"NET.ST01.", "NET.ST02."},
                   {Phase::Type::S});
 
@@ -561,8 +561,8 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
 
   neighbourIds = {2, 3, 4, 5, 6, 7, 8, 9};
 
-  BOOST_CHECK_EQUAL(neighbours->refEvId, event.id);
-  BOOST_CHECK(neighbours->ids == neighbourIds);
+  BOOST_CHECK_EQUAL(neighbours->referenceId(), event.id);
+  BOOST_CHECK(neighbours->ids() == neighbourIds);
   checkNeighbours(*neighbours, neighbourIds,
                   {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
                   {Phase::Type::S});
@@ -603,11 +603,11 @@ BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
   for (const auto &kv : neighboursByEvent)
   {
     const unique_ptr<HDD::Neighbours> &neighbours = kv.second;
-    BOOST_REQUIRE(neighbours->refEvId == kv.first);
-    BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
+    BOOST_REQUIRE(neighbours->referenceId() == kv.first);
+    BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->referenceId()));
     const unordered_set<unsigned> &neighbourIds =
-        expectedNeighbours.at(neighbours->refEvId);
-    BOOST_REQUIRE(neighbours->ids == neighbourIds);
+        expectedNeighbours.at(neighbours->referenceId());
+    BOOST_REQUIRE(neighbours->ids() == neighbourIds);
     checkNeighbours(*neighbours, neighbourIds,
                     {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
                     {Phase::Type::P, Phase::Type::S});
@@ -622,13 +622,13 @@ BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
     for (const auto &kv : cluster)
     {
       const unique_ptr<HDD::Neighbours> &neighbours = kv.second;
-      BOOST_REQUIRE(neighbours->refEvId == kv.first);
-      BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
+      BOOST_REQUIRE(neighbours->referenceId() == kv.first);
+      BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->referenceId()));
       const unordered_set<unsigned> &neighbourIds =
-          expectedNeighbours.at(neighbours->refEvId);
+          expectedNeighbours.at(neighbours->referenceId());
       for (const unsigned neighId : neighbourIds)
       {
-        if (neighbours->ids.count(neighId) == 1) // is in our Neighbours
+        if (neighbours->ids().count(neighId) == 1) // is in our Neighbours
         {
           checkNeighbours(*neighbours, {neighId},
                           {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
@@ -638,7 +638,7 @@ BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
         {
           const unique_ptr<HDD::Neighbours> &otherNeighbours =
               cluster.at(neighId);
-          checkNeighbours(*otherNeighbours, {neighbours->refEvId},
+          checkNeighbours(*otherNeighbours, {neighbours->referenceId()},
                           {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
                           {Phase::Type::P, Phase::Type::S});
         }
@@ -681,11 +681,11 @@ BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
   for (const auto &kv : neighboursByEvent)
   {
     const unique_ptr<HDD::Neighbours> &neighbours = kv.second;
-    BOOST_REQUIRE(neighbours->refEvId == kv.first);
-    BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
+    BOOST_REQUIRE(neighbours->referenceId() == kv.first);
+    BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->referenceId()));
     const unordered_set<unsigned> &neighbourIds =
-        expectedNeighbours.at(neighbours->refEvId);
-    BOOST_REQUIRE(neighbours->ids == neighbourIds);
+        expectedNeighbours.at(neighbours->referenceId());
+    BOOST_REQUIRE(neighbours->ids() == neighbourIds);
     checkNeighbours(*neighbours, neighbourIds,
                     {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
                     {Phase::Type::S});
@@ -700,13 +700,13 @@ BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
     for (const auto &kv : cluster)
     {
       const unique_ptr<HDD::Neighbours> &neighbours = kv.second;
-      BOOST_REQUIRE(neighbours->refEvId == kv.first);
-      BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->refEvId));
+      BOOST_REQUIRE(neighbours->referenceId() == kv.first);
+      BOOST_REQUIRE_NO_THROW(expectedNeighbours.at(neighbours->referenceId()));
       const unordered_set<unsigned> &neighbourIds =
-          expectedNeighbours.at(neighbours->refEvId);
+          expectedNeighbours.at(neighbours->referenceId());
       for (const unsigned neighId : neighbourIds)
       {
-        if (neighbours->ids.count(neighId) == 1) // is in our Neighbours
+        if (neighbours->ids().count(neighId) == 1) // is in our Neighbours
         {
           checkNeighbours(*neighbours, {neighId},
                           {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
@@ -716,7 +716,7 @@ BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
         {
           const unique_ptr<HDD::Neighbours> &otherNeighbours =
               cluster.at(neighId);
-          checkNeighbours(*otherNeighbours, {neighbours->refEvId},
+          checkNeighbours(*otherNeighbours, {neighbours->referenceId()},
                           {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},
                           {Phase::Type::S});
         }
