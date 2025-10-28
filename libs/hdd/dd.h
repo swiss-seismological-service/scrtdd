@@ -182,18 +182,16 @@ public:
   std::list<Catalog> findClusters(const ClusteringOptions &clustOpt);
 
   // Multi-event relocation of the background catalog
-  std::unique_ptr<Catalog>
-  relocateMultiEvents(const ClusteringOptions &clustOpt,
-                      const SolverOptions &solverOpt,
-                      XCorrCache &precomputed,
-                      bool saveProcessing           = false,
-                      std::string processingDataDir = "");
+  Catalog relocateMultiEvents(const ClusteringOptions &clustOpt,
+                              const SolverOptions &solverOpt,
+                              XCorrCache &precomputed,
+                              bool saveProcessing           = false,
+                              std::string processingDataDir = "");
 
-  std::unique_ptr<Catalog>
-  relocateMultiEvents(const ClusteringOptions &clustOpt,
-                      const SolverOptions &solverOpt,
-                      bool saveProcessing           = false,
-                      std::string processingDataDir = "")
+  Catalog relocateMultiEvents(const ClusteringOptions &clustOpt,
+                              const SolverOptions &solverOpt,
+                              bool saveProcessing           = false,
+                              std::string processingDataDir = "")
   {
     XCorrCache empty;
     return relocateMultiEvents(clustOpt, solverOpt, empty, saveProcessing,
@@ -201,14 +199,13 @@ public:
   }
 
   // Single-event relocation against background catalog
-  std::unique_ptr<Catalog>
-  relocateSingleEvent(const Catalog &singleEvent,
-                      bool isManual,
-                      const ClusteringOptions &clustOpt1,
-                      const ClusteringOptions &clustOpt2,
-                      const SolverOptions &solverOpt,
-                      bool saveProcessing           = false,
-                      std::string processingDataDir = "");
+  Catalog relocateSingleEvent(const Catalog &singleEvent,
+                              bool isManual,
+                              const ClusteringOptions &clustOpt1,
+                              const ClusteringOptions &clustOpt2,
+                              const SolverOptions &solverOpt,
+                              bool saveProcessing           = false,
+                              std::string processingDataDir = "");
 
   struct XCorrEvalStats
   {
@@ -276,21 +273,19 @@ private:
   std::string generateWorkingSubDir(const std::string &prefix) const;
   std::string generateWorkingSubDir(const Catalog::Event &ev) const;
 
-  std::unique_ptr<Catalog>
-  relocateEventSingleStep(const Catalog &bgCat,
-                          const Catalog &evToRelocateCat,
-                          const ClusteringOptions &clustOpt,
-                          const SolverOptions &solverOpt,
-                          bool doXcorr,
-                          bool saveProcessing           = false,
-                          std::string processingDataDir = "");
+  Catalog relocateEventSingleStep(const Catalog &bgCat,
+                                  const Catalog &evToRelocateCat,
+                                  const ClusteringOptions &clustOpt,
+                                  const SolverOptions &solverOpt,
+                                  bool doXcorr,
+                                  bool saveProcessing           = false,
+                                  std::string processingDataDir = "");
 
-  std::unique_ptr<Catalog>
-  relocate(const Catalog &catalog,
-           const std::unordered_map<unsigned, Neighbours> &neighCluster,
-           const SolverOptions &solverOpt,
-           bool keepNeighboursFixed,
-           const XCorrCache &xcorr) const;
+  Catalog relocate(const Catalog &catalog,
+                   const std::unordered_map<unsigned, Neighbours> &neighCluster,
+                   const SolverOptions &solverOpt,
+                   bool keepNeighboursFixed,
+                   const XCorrCache &xcorr) const;
 
   struct ObservationParams
   {
@@ -328,7 +323,7 @@ private:
                        const XCorrCache &xcorr,
                        ObservationParams &obsparams) const;
 
-  std::unique_ptr<Catalog> updateRelocatedEvents(
+  Catalog updateRelocatedEvents(
       const Solver &solver,
       const Catalog &catalog,
       const SolverOptions &solverOpt,
@@ -336,7 +331,7 @@ private:
       ObservationParams &obsparams,
       std::unordered_map<unsigned, Neighbours> &finalNeighCluster) const;
 
-  std::unique_ptr<Catalog> updateRelocatedEventsFinalStats(
+  Catalog updateRelocatedEventsFinalStats(
       const Catalog &startingCatalog,
       const Catalog &finalCatalog,
       const std::unordered_map<unsigned, Neighbours> &neighCluster) const;

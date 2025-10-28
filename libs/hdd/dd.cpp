@@ -409,11 +409,11 @@ std::list<Catalog> DD::findClusters(const ClusteringOptions &clustOpt)
   return catalogs;
 }
 
-unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
-                                            const SolverOptions &solverOpt,
-                                            XCorrCache &precomputed,
-                                            bool saveProcessing,
-                                            string processingDataDir)
+Catalog DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
+                                const SolverOptions &solverOpt,
+                                XCorrCache &precomputed,
+                                bool saveProcessing,
+                                string processingDataDir)
 {
   logInfo("Starting DD relocator in multiple events mode");
 
@@ -479,7 +479,7 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   //
   // relocate one cluster at the time
   //
-  unique_ptr<Catalog> relocatedCatalog(new Catalog());
+  Catalog relocatedCatalog{};
 
   unsigned clusterId = 1;
   for (const auto &neighCluster : clusters)
@@ -506,15 +506,15 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
                         clustOpt.xcorrMaxInterEvDist, precomputed);
 
     // the actual relocation
-    unique_ptr<Catalog> relocatedCluster =
+    Catalog relocatedCluster =
         relocate(catToReloc, neighCluster, solverOpt, false, xcorr);
 
-    relocatedCatalog->add(*relocatedCluster, true);
+    relocatedCatalog.add(relocatedCluster, true);
 
     if (saveProcessing)
     {
       string prefix = strf("relocated-cluster-%u", clusterId);
-      relocatedCluster->writeToFile(
+      relocatedCluster.writeToFile(
           joinPath(processingDataDir, (prefix + "-event.csv")),
           joinPath(processingDataDir, (prefix + "-phase.csv")));
     }
@@ -526,7 +526,7 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
 
   if (saveProcessing)
   {
-    relocatedCatalog->writeToFile(
+    relocatedCatalog.writeToFile(
         joinPath(processingDataDir, "relocated-event.csv"),
         joinPath(processingDataDir, "relocated-phase.csv"));
     precomputed.writeToFile(_bgCat, joinPath(processingDataDir, "xcorr.csv"));
@@ -537,13 +537,13 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   return relocatedCatalog;
 }
 
-unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
-                                            bool isManual,
-                                            const ClusteringOptions &clustOpt1,
-                                            const ClusteringOptions &clustOpt2,
-                                            const SolverOptions &solverOpt,
-                                            bool saveProcessing,
-                                            string processingDataDir)
+Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
+                                bool isManual,
+                                const ClusteringOptions &clustOpt1,
+                                const ClusteringOptions &clustOpt2,
+                                const SolverOptions &solverOpt,
+                                bool saveProcessing,
+                                string processingDataDir)
 {
   const Catalog &bgCat = _bgCat;
 
@@ -599,21 +599,20 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
                 : Phase::Source::RT_EVENT_AUTOMATIC),
       _cfg.validPphases, _cfg.validSphases, _cfg.pickUncertaintyClasses);
 
-  unique_ptr<Catalog> relocatedEvCat =
+  Catalog relocatedEvCat =
       relocateEventSingleStep(bgCat, evToRelocateCat, clustOpt1, solverOpt,
                               false, saveProcessing, eventWorkingDir);
 
-  if (relocatedEvCat)
+  if (!relocatedEvCat.empty())
   {
-    const Event &ev = relocatedEvCat->getEvents().begin()->second;
+    const Event &ev = relocatedEvCat.getEvents().begin()->second;
     logInfoF("Step 1 relocation successful, new location: "
              "lat %.6f lon %.6f depth %.4f time %s",
              ev.latitude, ev.longitude, ev.depth,
              UTCClock::toString(ev.time).c_str());
-    logInfoF("Relocation report: %s",
-             relocationReport(*relocatedEvCat).c_str());
+    logInfoF("Relocation report: %s", relocationReport(relocatedEvCat).c_str());
 
-    evToRelocateCat = std::move(*relocatedEvCat);
+    evToRelocateCat = std::move(relocatedEvCat);
   }
   else
   {
@@ -624,29 +623,29 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
 
   eventWorkingDir = joinPath(processingDataDir, "step2");
 
-  unique_ptr<Catalog> relocatedEvWithXcorr =
+  Catalog relocatedEvWithXcorr =
       relocateEventSingleStep(bgCat, evToRelocateCat, clustOpt2, solverOpt,
                               true, saveProcessing, eventWorkingDir);
 
-  if (relocatedEvWithXcorr)
+  if (!relocatedEvWithXcorr.empty())
   {
-    Event ev = relocatedEvWithXcorr->getEvents().begin()->second;
+    Event ev = relocatedEvWithXcorr.getEvents().begin()->second;
     logInfoF("Step 2 relocation successful, new location: "
              "lat %.6f lon %.6f depth %.4f time %s",
              ev.latitude, ev.longitude, ev.depth,
              UTCClock::toString(ev.time).c_str());
     logInfoF("Relocation report: %s",
-             relocationReport(*relocatedEvWithXcorr).c_str());
+             relocationReport(relocatedEvWithXcorr).c_str());
 
     // update the "origin change information" taking into consideration
     // the first relocation step, too
-    if (relocatedEvCat)
+    if (!relocatedEvCat.empty())
     {
-      const Event &prevRelocEv = relocatedEvCat->getEvents().begin()->second;
+      const Event &prevRelocEv = relocatedEvCat.getEvents().begin()->second;
       if (prevRelocEv.relocInfo.isRelocated)
       {
         ev.relocInfo.startRms = prevRelocEv.relocInfo.startRms;
-        relocatedEvWithXcorr->updateEvent(ev);
+        relocatedEvWithXcorr.updateEvent(ev);
       }
     }
   }
@@ -655,21 +654,22 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
     logError("Failed to perform step 2 origin relocation");
   }
 
-  if (!relocatedEvWithXcorr) throw Exception("Failed origin relocation");
-
+  if (relocatedEvWithXcorr.empty())
+  {
+    throw Exception("Failed origin relocation");
+  }
   removeFileLogger(logFile);
 
   return relocatedEvWithXcorr;
 }
 
-unique_ptr<Catalog>
-DD::relocateEventSingleStep(const Catalog &bgCat,
-                            const Catalog &evToRelocateCat,
-                            const ClusteringOptions &clustOpt,
-                            const SolverOptions &solverOpt,
-                            bool doXcorr,
-                            bool saveProcessing,
-                            string processingDataDir)
+Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
+                                    const Catalog &evToRelocateCat,
+                                    const ClusteringOptions &clustOpt,
+                                    const SolverOptions &solverOpt,
+                                    bool doXcorr,
+                                    bool saveProcessing,
+                                    string processingDataDir)
 {
   if (saveProcessing)
   {
@@ -686,7 +686,7 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
         joinPath(processingDataDir, "single-event-station.csv"));
   }
 
-  unique_ptr<Catalog> relocatedEvCat;
+  Catalog relocatedEvCat;
 
   try
   {
@@ -738,7 +738,7 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
 
     if (saveProcessing)
     {
-      relocatedEvCat->writeToFile(
+      relocatedEvCat.writeToFile(
           joinPath(processingDataDir, "relocated-event.csv"),
           joinPath(processingDataDir, "relocated-phase.csv"));
     }
@@ -751,19 +751,18 @@ DD::relocateEventSingleStep(const Catalog &bgCat,
   return relocatedEvCat;
 }
 
-unique_ptr<Catalog>
-DD::relocate(const Catalog &catalog,
-             const unordered_map<unsigned, Neighbours> &neighCluster,
-             const SolverOptions &solverOpt,
-             bool keepNeighboursFixed,
-             const XCorrCache &xcorr) const
+Catalog DD::relocate(const Catalog &catalog,
+                     const unordered_map<unsigned, Neighbours> &neighCluster,
+                     const SolverOptions &solverOpt,
+                     bool keepNeighboursFixed,
+                     const XCorrCache &xcorr) const
 {
   logInfo("Building and solving double-difference system...");
 
   //
   // iterate the solver computation multiple times
   //
-  unique_ptr<const Catalog> finalCatalog(new Catalog(catalog));
+  Catalog finalCatalog(catalog);
   unordered_map<unsigned, Neighbours> finalNeighCluster;
   ObservationParams obsparams;
   for (unsigned iteration = 0; iteration < solverOpt.algoIterations;
@@ -800,7 +799,7 @@ DD::relocate(const Catalog &catalog,
     //
     for (const auto &kv : neighCluster)
     {
-      addObservations(solver, *finalCatalog, kv.second, keepNeighboursFixed,
+      addObservations(solver, finalCatalog, kv.second, keepNeighboursFixed,
                       solverOpt.usePickUncertainties,
                       solverOpt.xcorrWeightScaler, xcorr, obsparams);
     }
@@ -826,12 +825,12 @@ DD::relocate(const Catalog &catalog,
 
     // update event parameters
     finalCatalog =
-        updateRelocatedEvents(solver, *finalCatalog, solverOpt, neighCluster,
+        updateRelocatedEvents(solver, finalCatalog, solverOpt, neighCluster,
                               obsparams, finalNeighCluster);
   }
 
   // compute last bit of statistics for the relocated events
-  return updateRelocatedEventsFinalStats(catalog, *finalCatalog,
+  return updateRelocatedEventsFinalStats(catalog, finalCatalog,
                                          finalNeighCluster);
 }
 
@@ -1025,7 +1024,7 @@ void DD::ObservationParams::addToSolver(Solver &solver) const
   }
 }
 
-unique_ptr<Catalog> DD::updateRelocatedEvents(
+Catalog DD::updateRelocatedEvents(
     const Solver &solver,
     const Catalog &catalog,
     const SolverOptions &solverOpt,
@@ -1229,15 +1228,15 @@ unique_ptr<Catalog> DD::updateRelocatedEvents(
            "quartile %.3f max %.3f ",
            min * 1000, q1 * 1000, q2 * 1000, q3 * 1000, max * 1000);
 
-  return unique_ptr<Catalog>(new Catalog(stations, events, phases));
+  return Catalog(stations, events, phases);
 }
 
-unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
+Catalog DD::updateRelocatedEventsFinalStats(
     const Catalog &startCatalog,
     const Catalog &finalCatalog,
     const unordered_map<unsigned, Neighbours> &neighCluster) const
 {
-  unique_ptr<Catalog> catalogToReturn(new Catalog());
+  Catalog catalogToReturn{};
   vector<double> allRms;
   vector<double> stationDist;
 
@@ -1253,12 +1252,11 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
       continue;
     }
 
-    unique_ptr<Catalog> tmpCat =
-        finalCatalog.extractEvent(neighbours.referenceId(), true);
+    Catalog tmpCat = finalCatalog.extractEvent(neighbours.referenceId(), true);
 
     const Event &startEvent =
         startCatalog.getEvents().at(neighbours.referenceId());
-    Event finalEvent = tmpCat->getEvents().at(neighbours.referenceId());
+    Event finalEvent = tmpCat.getEvents().at(neighbours.referenceId());
 
     //
     // Compute starting event rms considering only the phases in the final
@@ -1267,11 +1265,11 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
     double sumSquaredResiduals    = 0.0;
     double sumSquaredWeights      = 0.0;
     finalEvent.relocInfo.startRms = 0;
-    const auto &eqlrng = tmpCat->getPhases().equal_range(finalEvent.id);
+    const auto &eqlrng = tmpCat.getPhases().equal_range(finalEvent.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
       const Phase &finalEvPhase = it->second;
-      const Station &station = tmpCat->getStations().at(finalEvPhase.stationId);
+      const Station &station = tmpCat.getStations().at(finalEvPhase.stationId);
       try
       {
         double travelTime = _ttt->compute(
@@ -1301,8 +1299,8 @@ unique_ptr<Catalog> DD::updateRelocatedEventsFinalStats(
       allRms.push_back(finalEvent.relocInfo.startRms);
     }
 
-    tmpCat->updateEvent(finalEvent, false);
-    catalogToReturn->add(finalEvent.id, *tmpCat, true);
+    tmpCat.updateEvent(finalEvent, false);
+    catalogToReturn.add(finalEvent.id, tmpCat, true);
   }
 
   double min, max, q1, q2, q3;

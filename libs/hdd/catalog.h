@@ -203,9 +203,11 @@ public:
           const std::string &phaseFile,
           bool loadRelocationInfo = false);
 
+  bool empty() const;
+
   void add(const Catalog &other, bool keepEvId);
   unsigned add(unsigned evId, const Catalog &eventCatalog, bool keepEvId);
-  std::unique_ptr<Catalog> extractEvent(unsigned eventId, bool keepEvId) const;
+  Catalog extractEvent(unsigned eventId, bool keepEvId) const;
 
   void removeEvent(unsigned eventId);
   void removePhase(unsigned eventId,

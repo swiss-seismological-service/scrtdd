@@ -98,7 +98,7 @@ private:
 
   void removedFromCache(DataModel::PublicObject *);
 
-  std::unique_ptr<HDD::Catalog> getCatalog(
+  HDD::Catalog getCatalog(
       const std::string &catalogPath,
       std::unordered_map<unsigned, DataModel::OriginPtr> *idmap = nullptr);
   ProfilePtr getProfile(const std::string &profile);
@@ -109,7 +109,7 @@ private:
                         const std::string &forceProfile = "");
 
   void loadProfile(ProfilePtr profile,
-                   const HDD::Catalog *alternativeCatalog = nullptr);
+                   const HDD::Catalog alternativeCatalog = HDD::Catalog());
 
   std::vector<DataModel::OriginPtr> fetchOrigins(const std::string &idFile,
                                                  std::string options);
@@ -159,14 +159,14 @@ private:
               const std::string &workingDir,
               bool cacheWaveforms,
               bool cacheAllWaveforms,
-              const HDD::Catalog *alternativeCatalog = nullptr);
+              const HDD::Catalog alternativeCatalog = HDD::Catalog());
     void unload();
     bool isLoaded() { return loaded; }
     void preloadWaveforms();
     void freeResources();
     Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
-    std::unique_ptr<HDD::Catalog> relocateSingleEvent(DataModel::Origin *org);
-    std::unique_ptr<HDD::Catalog> relocateCatalog(const std::string &xcorrFile);
+    HDD::Catalog relocateSingleEvent(DataModel::Origin *org);
+    HDD::Catalog relocateCatalog(const std::string &xcorrFile);
     void evalXCorr(const std::string &xcorrFile);
     void dumpWaveforms();
     void dumpClusters();
