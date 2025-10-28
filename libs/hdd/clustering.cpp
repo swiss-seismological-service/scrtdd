@@ -26,6 +26,7 @@
  ***************************************************************************/
 
 #include "clustering.h"
+#include "csvreader.h"
 #include "ellipsoid.h"
 #include "log.h"
 #include "utils.h"
@@ -42,7 +43,7 @@ unordered_map<string, unordered_set<Catalog::Phase::Type>>
 Neighbours::allPhases() const
 {
   unordered_map<string, unordered_set<Catalog::Phase::Type>> allPhases;
-  for (const auto &kv1 : phases)
+  for (const auto &kv1 : _phases)
     for (const auto &kv2 : kv1.second)
       allPhases[kv2.first].insert(kv2.second.begin(), kv2.second.end());
   return allPhases;
@@ -54,7 +55,7 @@ Neighbours::allPhases(unsigned neighbourId) const
   unordered_map<string, unordered_set<Catalog::Phase::Type>> allPhases;
   try
   {
-    for (const auto &kv : phases.at(neighbourId))
+    for (const auto &kv : _phases.at(neighbourId))
       allPhases[kv.first].insert(kv.second.begin(), kv.second.end());
   }
   catch (...)
@@ -66,9 +67,84 @@ unique_ptr<Catalog> Neighbours::toCatalog(const Catalog &catalog,
                                           bool includeRefEv) const
 {
   unique_ptr<Catalog> returnCat(new Catalog());
-  for (unsigned neighbourId : ids) returnCat->add(neighbourId, catalog, true);
-  if (includeRefEv) returnCat->add(refEvId, catalog, true);
+  for (unsigned neighbourId : _ids) returnCat->add(neighbourId, catalog, true);
+  if (includeRefEv) returnCat->add(_refEvId, catalog, true);
   return returnCat;
+}
+
+void Neighbours::writeToFile(const Catalog &cat, const std::string &file) const
+{
+  ofstream os(file);
+  os << "eventId1,eventId2,networkCode,stationCode,locationCode,phaseType"
+     << endl;
+  writeToFile(cat, os);
+}
+
+void Neighbours::writeToFile(const Catalog &cat, std::ostream &os) const
+{
+  for (const auto &kv1 : _phases)
+  {
+    unsigned neighbourId = kv1.first;
+    const auto &staPhs   = kv1.second;
+    for (const auto &kv2 : staPhs)
+    {
+      const string &stationId                                    = kv2.first;
+      const std::unordered_set<HDD::Catalog::Phase::Type> &types = kv2.second;
+      const Catalog::Station &sta = cat.getStations().at(stationId);
+      for (auto type : types)
+      {
+        os << strf("%u,%u,%s,%s,%s,%c", _refEvId, neighbourId,
+                   sta.networkCode.c_str(), sta.stationCode.c_str(),
+                   sta.locationCode.c_str(), static_cast<char>(type))
+           << endl;
+      }
+    }
+  }
+}
+
+unordered_map<unsigned, unique_ptr<Neighbours>>
+Neighbours::readFromFile(const Catalog &cat, const std::string &file)
+{
+  auto strToPhaseType = [](const std::string &s) -> Catalog::Phase::Type {
+    return (s == "P" || s == "p") ? Catalog::Phase::Type::P
+                                  : Catalog::Phase::Type::S;
+  };
+
+  unordered_map<unsigned, unique_ptr<Neighbours>> neighbours;
+
+  vector<unordered_map<string, string>> lines = CSV::readWithHeader(file);
+  int row_count                               = 0;
+  try
+  {
+    for (const auto &row : lines)
+    {
+      row_count++;
+      unsigned ev1              = std::stoul(row.at("eventId1"));
+      unsigned ev2              = std::stoul(row.at("eventId2"));
+      string networkCode        = row.at("networkCode");
+      string stationCode        = row.at("stationCode");
+      string locationCode       = row.at("locationCode");
+      Catalog::Phase::Type type = strToPhaseType(row.at("phaseType"));
+
+      std::string stationId =
+          cat.searchStation(networkCode, stationCode, locationCode)->second.id;
+
+      if (neighbours.count(ev1) <= 0)
+      {
+        neighbours.emplace(ev1, new Neighbours(ev1));
+      }
+
+      unique_ptr<Neighbours> &current = neighbours.find(ev1)->second;
+      current->add(ev2, stationId, type);
+    }
+  }
+  catch (std::exception &e)
+  {
+    string msg = strf("Error while parsing file '%s' at row %d: %s",
+                      file.c_str(), row_count, e.what());
+    throw Exception(msg);
+  }
+  return neighbours;
 }
 
 unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
@@ -298,8 +374,7 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
 
   // Finally, build the catalog of neighboring events using either the
   // ellipsoids algorithm or the nearest neighbour method.
-  unique_ptr<Neighbours> neighbours(new Neighbours());
-  neighbours->refEvId = refEv.id;
+  unique_ptr<Neighbours> neighbours(new Neighbours(refEv.id));
 
   if (numEllipsoids <= 0)
   {
@@ -312,9 +387,15 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
       const Event &ev                      = evSelEntry.event;
 
       // add this event to the catalog
-      neighbours->ids.insert(ev.id);
-      neighbours->phases.emplace(ev.id, evSelEntry.phases);
-
+      for (const auto &kv : evSelEntry.phases)
+      {
+        const string &stationId                                    = kv.first;
+        const std::unordered_set<HDD::Catalog::Phase::Type> &types = kv.second;
+        for (auto type : types)
+        {
+          neighbours->add(ev.id, stationId, type);
+        }
+      }
       logDebugF("Neighbour: #phases %2d distance %g depth-diff %g event %s",
                 dtCountByEvent[ev.id], distanceByEvent[ev.id],
                 refEv.depth - ev.depth, string(ev).c_str());
@@ -336,7 +417,7 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
           // if we either don't have events or we have already selected
           // `maxNumNeigh` neighbors, exit
           if (selectedEvents.empty() ||
-              (maxNumNeigh > 0 && neighbours->ids.size() >= maxNumNeigh))
+              (maxNumNeigh > 0 && neighbours->ids().size() >= maxNumNeigh))
           {
             workToDo = false;
             break;
@@ -355,9 +436,16 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
             if (found)
             {
               // add this event to the catalog
-              neighbours->ids.insert(ev.id);
-              neighbours->phases.emplace(ev.id, evSelEntry.phases);
-
+              for (const auto &kv : evSelEntry.phases)
+              {
+                const string &stationId = kv.first;
+                const std::unordered_set<HDD::Catalog::Phase::Type> &types =
+                    kv.second;
+                for (auto type : types)
+                {
+                  neighbours->add(ev.id, stationId, type);
+                }
+              }
               logDebugF("Neighbour: ellipsoid %2d quadrant %d #phases %2d "
                         "distance %5.2f depth-diff %6.3f event %s",
                         elpsNum, quadrant, dtCountByEvent[ev.id],
@@ -374,11 +462,11 @@ unique_ptr<Neighbours> selectNeighbouringEvents(const Catalog &catalog,
   }
 
   // check if enough neighbors were found
-  if (neighbours->ids.size() < minNumNeigh)
+  if (neighbours->ids().size() < minNumNeigh)
   {
     string msg =
         strf("Skipping event %s, insufficient number of neighbors (%zu)",
-             string(refEv).c_str(), neighbours->ids.size());
+             string(refEv).c_str(), neighbours->ids().size());
     logDebugF("%s", msg.c_str());
     throw Exception(msg);
   }
@@ -436,7 +524,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
       continue;
     }
 
-    neighboursList.emplace(neighbours->refEvId, std::move(neighbours));
+    neighboursList.emplace(neighbours->referenceId(), std::move(neighbours));
   }
 
   // if the removed events were used as neighbours of any other valid event
@@ -459,7 +547,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
       bool invalid                       = false;
 
       // check if the neighbours are in the removed event list
-      for (unsigned nbId : neighbours->ids)
+      for (unsigned nbId : neighbours->ids())
       {
         if (removedEvents.count(nbId) != 0)
         {
@@ -473,7 +561,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
       if (invalid)
       {
         const Catalog::Event &event =
-            validCatalog.getEvents().find(neighbours->refEvId)->second;
+            validCatalog.getEvents().find(neighbours->referenceId())->second;
 
         try
         {
@@ -494,13 +582,13 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
       // failed to rebuild its neighbours: remove this event too
       if (invalid)
       {
-        removedEvents.insert(neighbours->refEvId);
-        validCatalog.removeEvent(neighbours->refEvId);
+        removedEvents.insert(neighbours->referenceId());
+        validCatalog.removeEvent(neighbours->referenceId());
         redo = true;
         continue;
       }
 
-      validNeighbours.emplace(neighbours->refEvId, std::move(neighbours));
+      validNeighbours.emplace(neighbours->referenceId(), std::move(neighbours));
     }
 
     neighboursList = std::move(validNeighbours);
@@ -555,25 +643,24 @@ clusterizeNeighbouringEvents(
 
       unique_ptr<Neighbours> neighbours =
           std::move(neighboursByEventIt->second);
-      neighboursByEvent.erase(neighbours->refEvId);
+      neighboursByEvent.erase(neighbours->referenceId());
 
       // update the set for the traversal of this cluster
-      for (unsigned neighEvId : neighbours->ids) clusterEvs.insert(neighEvId);
+      for (unsigned neighEvId : neighbours->ids()) clusterEvs.insert(neighEvId);
 
       // remove from current neighbours the pairs that appeared previously
       // in this cluster
-      auto eqlrng = discoveredPairs.equal_range(neighbours->refEvId);
+      auto eqlrng = discoveredPairs.equal_range(neighbours->referenceId());
       for (auto existingPair = eqlrng.first; existingPair != eqlrng.second;
            existingPair++)
       {
-        neighbours->ids.erase(existingPair->second);
-        neighbours->phases.erase(existingPair->second);
+        neighbours->remove(existingPair->second);
       }
 
       // keep track of new event pairs for following iterations and
       // update the queue for the breadth-first traversal
-      for (unsigned neighEvId : neighbours->ids)
-        discoveredPairs.emplace(neighEvId, neighbours->refEvId);
+      for (unsigned neighEvId : neighbours->ids())
+        discoveredPairs.emplace(neighEvId, neighbours->referenceId());
 
       // populate current cluster
       currentCluster.push_back(std::move(neighbours));
@@ -596,7 +683,9 @@ clusterizeNeighbouringEvents(
     clusters.emplace(newClusterId, std::move(currentCluster));
 
     for (const unique_ptr<Neighbours> &n : clusters.at(newClusterId))
-      clusterIdByEvent[n->refEvId] = newClusterId;
+    {
+      clusterIdByEvent[n->referenceId()] = newClusterId;
+    }
   }
 
   list<unordered_map<unsigned, unique_ptr<Neighbours>>> returnClusters;
@@ -605,7 +694,9 @@ clusterizeNeighbouringEvents(
     vector<unique_ptr<Neighbours>> &currentCluster = kv.second;
     unordered_map<unsigned, unique_ptr<Neighbours>> convertedCluster;
     for (unique_ptr<Neighbours> &n : currentCluster)
-      convertedCluster.emplace(n->refEvId, std::move(n));
+    {
+      convertedCluster.emplace(n->referenceId(), std::move(n));
+    }
     returnClusters.push_back(std::move(convertedCluster));
   }
   return returnClusters;

@@ -29,6 +29,7 @@
 #define __HDD_CLUSTERING_H__
 
 #include "catalog.h"
+#include <fstream>
 #include <list>
 #include <set>
 #include <unordered_map>
@@ -36,34 +37,47 @@
 
 namespace HDD {
 
-// DD background catalog
-struct Neighbours
+class Neighbours
 {
-  unsigned refEvId;
-  std::unordered_set<unsigned> ids; // neighbouring event id
-  std::unordered_map<
-      unsigned,                       // indexed by event id
-      std::unordered_map<std::string, // indexed by station id
-                         std::unordered_set<Catalog::Phase::Type>>>
-      phases;
+public:
+  Neighbours(unsigned refEvId) : _refEvId(refEvId){};
+
+  Neighbours(const Neighbours &other)            = default;
+  Neighbours &operator=(const Neighbours &other) = default;
+
+  Neighbours(Neighbours &&other)            = default;
+  Neighbours &operator=(Neighbours &&other) = default;
+
+  ~Neighbours() = default;
+
+  unsigned referenceId() const { return _refEvId; }
+  void setReferenceId(unsigned refEvId) { _refEvId = refEvId; }
+
+  const std::unordered_set<unsigned> &ids() const { return _ids; }
 
   void add(unsigned neighbourId,
            const std::string &stationId,
            const Catalog::Phase::Type &phase)
   {
-    ids.insert(neighbourId);
-    phases[neighbourId][stationId].insert(phase);
+    _ids.insert(neighbourId);
+    _phases[neighbourId][stationId].insert(phase);
+  }
+
+  void remove(unsigned neighbourId)
+  {
+    _ids.erase(neighbourId);
+    _phases.erase(neighbourId);
   }
 
   bool has(unsigned neighbourId) const
   {
-    return ids.find(neighbourId) != ids.end();
+    return _ids.find(neighbourId) != _ids.end();
   }
 
   bool has(unsigned neighbourId, const std::string stationId) const
   {
-    const auto &neighPhases = phases.find(neighbourId);
-    if (neighPhases != phases.end())
+    const auto &neighPhases = _phases.find(neighbourId);
+    if (neighPhases != _phases.end())
       return neighPhases->second.find(stationId) != neighPhases->second.end();
     return false;
   }
@@ -72,8 +86,8 @@ struct Neighbours
            const std::string stationId,
            Catalog::Phase::Type type) const
   {
-    const auto &neighPhases = phases.find(neighbourId);
-    if (neighPhases != phases.end())
+    const auto &neighPhases = _phases.find(neighbourId);
+    if (neighPhases != _phases.end())
     {
       const auto &neighPhaseTypes = neighPhases->second.find(stationId);
       if (neighPhaseTypes != neighPhases->second.end())
@@ -91,6 +105,21 @@ struct Neighbours
 
   std::unique_ptr<Catalog> toCatalog(const Catalog &catalog,
                                      bool includeRefEv = false) const;
+
+  void writeToFile(const Catalog &cat, const std::string &file) const;
+  void writeToFile(const Catalog &cat, std::ostream &os) const;
+
+  static std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
+  readFromFile(const Catalog &cat, const std::string &file);
+
+private:
+  unsigned _refEvId;
+  std::unordered_set<unsigned> _ids; // neighbouring event id
+  std::unordered_map<
+      unsigned,                       // indexed by event id
+      std::unordered_map<std::string, // indexed by station id
+                         std::unordered_set<Catalog::Phase::Type>>>
+      _phases;
 };
 
 std::unique_ptr<Neighbours>
