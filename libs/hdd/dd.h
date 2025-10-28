@@ -287,8 +287,7 @@ private:
 
   std::unique_ptr<Catalog>
   relocate(const Catalog &catalog,
-           const std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
-               &neighCluster,
+           const std::unordered_map<unsigned, Neighbours> &neighCluster,
            const SolverOptions &solverOpt,
            bool keepNeighboursFixed,
            const XCorrCache &xcorr) const;
@@ -333,25 +332,21 @@ private:
       const Solver &solver,
       const Catalog &catalog,
       const SolverOptions &solverOpt,
-      const std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
-          &neighCluster,
+      const std::unordered_map<unsigned, Neighbours> &neighCluster,
       ObservationParams &obsparams,
-      std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
-          &finalNeighCluster) const;
+      std::unordered_map<unsigned, Neighbours> &finalNeighCluster) const;
 
   std::unique_ptr<Catalog> updateRelocatedEventsFinalStats(
       const Catalog &startingCatalog,
       const Catalog &finalCatalog,
-      const std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
-          &neighCluster) const;
+      const std::unordered_map<unsigned, Neighbours> &neighCluster) const;
 
-  XCorrCache buildXCorrCache(
-      Catalog &catalog,
-      const std::unordered_map<unsigned, std::unique_ptr<Neighbours>>
-          &neighCluster,
-      double xcorrMaxEvStaDist      = -1,
-      double xcorrMaxInterEvDist    = -1,
-      const XCorrCache &precomputed = XCorrCache());
+  XCorrCache
+  buildXCorrCache(Catalog &catalog,
+                  const std::unordered_map<unsigned, Neighbours> &neighCluster,
+                  double xcorrMaxEvStaDist      = -1,
+                  double xcorrMaxInterEvDist    = -1,
+                  const XCorrCache &precomputed = XCorrCache());
 
   void buildXcorrDiffTTimePairs(Catalog &catalog,
                                 const Neighbours &neighbours,
