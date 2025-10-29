@@ -2325,15 +2325,26 @@ void RTDD::Profile::dumpClusters()
         "Cannot dump clusters, profile %s not initialized", name.c_str());
     throw runtime_error(msg.c_str());
   }
-  lastUsage                   = Core::Time::GMT();
-  list<HDD::Catalog> clusters = dd->findClusters(multiEventClustering);
+  lastUsage = Core::Time::GMT();
+  list<unordered_map<unsigned, HDD::Neighbours>> clusters =
+      dd->findClusters(multiEventClustering);
   SEISCOMP_INFO("Found %zu clusters", clusters.size());
+
   unsigned clusterId = 1;
-  for (const HDD::Catalog &cat : clusters)
+  for (const auto &neighboursByEvent : clusters)
   {
-    SEISCOMP_INFO("Writing cluster %u (%zu events)", clusterId,
-                  cat.getEvents().size());
     string prefix = stringify("cluster-%u", clusterId++);
+    SEISCOMP_INFO("Writing cluster %u pair file...", clusterId);
+    HDD::Neighbours::writeToFile(neighboursByEvent, dd->getCatalog(),
+                                 prefix + "-pair.csv");
+
+    HDD::Catalog cat;
+    for (const auto &kv : neighboursByEvent)
+    {
+      cat.add(kv.first, dd->getCatalog(), true);
+    }
+    SEISCOMP_INFO("Writing cluster %u catalog (%zu events)...", clusterId,
+                  cat.getEvents().size());
     cat.writeToFile(prefix + "-event.csv", prefix + "-phase.csv",
                     prefix + "-station.csv");
   }
