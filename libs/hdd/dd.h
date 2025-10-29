@@ -179,7 +179,8 @@ public:
   void unloadTravelTimeTable();
 
   // Find clusters in the background catalogs and return them
-  std::list<Catalog> findClusters(const ClusteringOptions &clustOpt);
+  std::list<std::unordered_map<unsigned, Neighbours>>
+  findClusters(const ClusteringOptions &clustOpt);
 
   // Multi-event relocation of the background catalog
   Catalog relocateMultiEvents(const ClusteringOptions &clustOpt,

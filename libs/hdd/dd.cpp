@@ -382,7 +382,8 @@ void DD::dumpWaveforms(const string &basePath)
   }
 }
 
-std::list<Catalog> DD::findClusters(const ClusteringOptions &clustOpt)
+std::list<unordered_map<unsigned, Neighbours>>
+DD::findClusters(const ClusteringOptions &clustOpt)
 {
   // find Neighbours for each event in the catalog
   unordered_map<unsigned, Neighbours> neighboursByEvent =
@@ -393,20 +394,7 @@ std::list<Catalog> DD::findClusters(const ClusteringOptions &clustOpt)
           clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, true);
 
   // Organize the neighbours by not connected clusters
-  list<unordered_map<unsigned, Neighbours>> clusters =
-      clusterizeNeighbouringEvents(neighboursByEvent);
-
-  std::list<Catalog> catalogs;
-  for (const auto &neighCluster : clusters)
-  {
-    Catalog cat;
-    for (const auto &kv : neighCluster)
-    {
-      cat.add(kv.first, _bgCat, true);
-    }
-    catalogs.push_back(std::move(cat));
-  }
-  return catalogs;
+  return clusterizeNeighbouringEvents(neighboursByEvent);
 }
 
 Catalog DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
@@ -489,12 +477,13 @@ Catalog DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
 
     if (saveProcessing)
     {
+      string prefix = strf("cluster-%u", clusterId);
+      Neighbours::writeToFile(neighCluster, catToReloc, prefix + "-pair.csv");
       Catalog catToDump;
       for (const auto &kv : neighCluster)
       {
         catToDump.add(kv.first, catToReloc, true);
       }
-      string prefix = strf("cluster-%u", clusterId);
       catToDump.writeToFile(
           joinPath(processingDataDir, (prefix + "-event.csv")),
           joinPath(processingDataDir, (prefix + "-phase.csv")));
@@ -724,6 +713,11 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
 
     unordered_map<unsigned, Neighbours> neighCluster;
     neighCluster.emplace(neighbours.referenceId(), std::move(neighbours));
+
+    if (saveProcessing)
+    {
+      Neighbours::writeToFile(neighCluster, catalog, "pair.csv");
+    }
 
     XCorrCache xcorr{};
     if (doXcorr)

@@ -105,8 +105,13 @@ public:
 
   Catalog toCatalog(const Catalog &catalog, bool includeRefEv = false) const;
 
-  void writeToFile(const Catalog &cat, const std::string &file) const;
-  void writeToFile(const Catalog &cat, std::ostream &os) const;
+  std::ofstream writeToFile(const Catalog &cat, const std::string &file) const;
+  void appendToStream(const Catalog &cat, std::ostream &os) const;
+
+  static void
+  writeToFile(const std::unordered_map<unsigned, Neighbours> &neighboursByEvent,
+              const Catalog &cat,
+              const std::string &file);
 
   static std::unordered_map<unsigned, Neighbours>
   readFromFile(const Catalog &cat, const std::string &file);

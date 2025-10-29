@@ -77,15 +77,17 @@ Catalog Neighbours::toCatalog(const Catalog &catalog, bool includeRefEv) const
   return returnCat;
 }
 
-void Neighbours::writeToFile(const Catalog &cat, const std::string &file) const
+std::ofstream Neighbours::writeToFile(const Catalog &cat,
+                                      const std::string &file) const
 {
   ofstream os(file);
   os << "eventId1,eventId2,networkCode,stationCode,locationCode,phaseType"
      << endl;
-  writeToFile(cat, os);
+  appendToStream(cat, os);
+  return os;
 }
 
-void Neighbours::writeToFile(const Catalog &cat, std::ostream &os) const
+void Neighbours::appendToStream(const Catalog &cat, std::ostream &os) const
 {
   for (const auto &kv1 : _phases)
   {
@@ -103,6 +105,29 @@ void Neighbours::writeToFile(const Catalog &cat, std::ostream &os) const
                    sta.locationCode.c_str(), static_cast<char>(type))
            << endl;
       }
+    }
+  }
+}
+
+void Neighbours::writeToFile(
+    const std::unordered_map<unsigned, Neighbours> &neighboursByEvent,
+    const Catalog &cat,
+    const std::string &file)
+{
+  ofstream os;
+  bool first = true;
+
+  for (const auto &kv1 : neighboursByEvent)
+  {
+    const Neighbours &n = kv1.second;
+    if (first)
+    {
+      os    = n.writeToFile(cat, file);
+      first = false;
+    }
+    else
+    {
+      n.appendToStream(cat, os);
     }
   }
 }
@@ -137,6 +162,11 @@ Neighbours::readFromFile(const Catalog &cat, const std::string &file)
       if (neighbours.count(ev1) <= 0)
       {
         neighbours.emplace(ev1, Neighbours(ev1));
+      }
+
+      if (neighbours.count(ev2) <= 0)
+      {
+        neighbours.emplace(ev2, Neighbours(ev2));
       }
 
       Neighbours &current = neighbours.find(ev1)->second;
