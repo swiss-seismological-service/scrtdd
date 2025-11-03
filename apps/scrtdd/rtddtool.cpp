@@ -352,6 +352,10 @@ void RTDD::createCommandLineDescription()
       "profile configuration to use",
       &_config.forceProfile, true);
   commandline().addOption(
+      "ModeOptions", "clusters",
+      "Specify a list of files containing precomputed event pairs",
+      &_config.clusters, true);
+  commandline().addOption(
       "ModeOptions", "xcorr-cache",
       "Specify a file containing precomputed cross-correlation values",
       &_config.xcorrCache, true);
@@ -1240,7 +1244,8 @@ bool RTDD::run()
     HDD::Catalog relocatedCat;
     try
     {
-      relocatedCat = profile->relocateCatalog(_config.xcorrCache);
+      relocatedCat =
+          profile->relocateCatalog(_config.clusters, _config.xcorrCache);
     }
     catch (exception &e)
     {
@@ -2249,7 +2254,8 @@ HDD::Catalog RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
                                  singleEventClustering, solverCfg);
 }
 
-HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &xcorrFile)
+HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
+                                            const std::string &xcorrFile)
 {
   if (!loaded)
   {
@@ -2259,14 +2265,28 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &xcorrFile)
   }
   lastUsage = Core::Time::GMT();
 
+  std::list<unordered_map<unsigned, HDD::Neighbours>> clusters;
+  if (!clusterFiles.empty())
+  {
+    std::vector<std::string> tokens = ::splitString(clusterFiles, ",");
+    for (const string &file : tokens)
+    {
+      SEISCOMP_INFO("Loading cluster pair file %s...", file);
+      std::unordered_map<unsigned, HDD::Neighbours> cluster =
+          HDD::Neighbours::readFromFile(dd->getCatalog(), file);
+      clusters.push_back(std::move(cluster));
+    }
+  }
+
   HDD::XCorrCache xcorr;
   if (!xcorrFile.empty())
   {
+    SEISCOMP_INFO("Loading cross-correlation cache file %s...", xcorrFile);
     xcorr = HDD::XCorrCache::readFromFile(dd->getCatalog(), xcorrFile);
   }
 
-  HDD::Catalog relocatedCat =
-      dd->relocateMultiEvents(multiEventClustering, solverCfg, xcorr, true);
+  HDD::Catalog relocatedCat = dd->relocateMultiEvents(
+      clusters, xcorr, multiEventClustering, solverCfg, true);
 
   relocatedCat.writeToFile("reloc-event.csv", "reloc-phase.csv",
                            "reloc-station.csv");
