@@ -397,11 +397,13 @@ DD::findClusters(const ClusteringOptions &clustOpt)
   return clusterizeNeighbouringEvents(neighboursByEvent);
 }
 
-Catalog DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
-                                const SolverOptions &solverOpt,
-                                XCorrCache &precomputed,
-                                bool saveProcessing,
-                                string processingDataDir)
+Catalog DD::relocateMultiEvents(
+    std::list<unordered_map<unsigned, Neighbours>> &clusters,
+    XCorrCache &xcorrData,
+    const ClusteringOptions &clustOpt,
+    const SolverOptions &solverOpt,
+    bool saveProcessing,
+    string processingDataDir)
 {
   logInfo("Starting DD relocator in multiple events mode");
 
@@ -438,17 +440,19 @@ Catalog DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
     addFileLogger(logFile, Level::info);
   }
 
-  // find Neighbours for each event in the catalog
-  unordered_map<unsigned, Neighbours> neighboursByEvent =
-      selectNeighbouringEventsCatalog(
-          catToReloc, clustOpt.minPhaseWeight, clustOpt.minESdist,
-          clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
-          clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
-          clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, true);
+  if (clusters.empty())
+  {
+    // find Neighbours for each event in the catalog
+    unordered_map<unsigned, Neighbours> neighboursByEvent =
+        selectNeighbouringEventsCatalog(
+            catToReloc, clustOpt.minPhaseWeight, clustOpt.minESdist,
+            clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
+            clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
+            clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, true);
 
-  // Organize the neighbours by non-connected clusters
-  list<unordered_map<unsigned, Neighbours>> clusters =
-      clusterizeNeighbouringEvents(neighboursByEvent);
+    // Organize the neighbours by non-connected clusters
+    clusters = clusterizeNeighbouringEvents(neighboursByEvent);
+  }
 
   logInfoF("Found %zu event clusters with the following number of events:",
            clusters.size());
@@ -492,7 +496,7 @@ Catalog DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
     // Perform cross-correlation
     const XCorrCache xcorr =
         buildXCorrCache(catToReloc, neighCluster, clustOpt.xcorrMaxEvStaDist,
-                        clustOpt.xcorrMaxInterEvDist, precomputed);
+                        clustOpt.xcorrMaxInterEvDist, xcorrData);
 
     // the actual relocation
     Catalog relocatedCluster =
@@ -509,8 +513,8 @@ Catalog DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
     }
     clusterId++;
 
-    // make sure precomputed stores all the cross-correlation results
-    precomputed.add(xcorr);
+    // make sure xcorrData stores all the cross-correlation results
+    xcorrData.add(xcorr);
   }
 
   if (saveProcessing)
@@ -518,7 +522,7 @@ Catalog DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
     relocatedCatalog.writeToFile(
         joinPath(processingDataDir, "relocated-event.csv"),
         joinPath(processingDataDir, "relocated-phase.csv"));
-    precomputed.writeToFile(_bgCat, joinPath(processingDataDir, "xcorr.csv"));
+    xcorrData.writeToFile(_bgCat, joinPath(processingDataDir, "xcorr.csv"));
   }
 
   removeFileLogger(logFile);

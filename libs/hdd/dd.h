@@ -183,20 +183,23 @@ public:
   findClusters(const ClusteringOptions &clustOpt);
 
   // Multi-event relocation of the background catalog
-  Catalog relocateMultiEvents(const ClusteringOptions &clustOpt,
-                              const SolverOptions &solverOpt,
-                              XCorrCache &precomputed,
-                              bool saveProcessing           = false,
-                              std::string processingDataDir = "");
+  Catalog relocateMultiEvents(
+      std::list<std::unordered_map<unsigned, Neighbours>> &clusterData,
+      XCorrCache &xcorrData,
+      const ClusteringOptions &clustOpt,
+      const SolverOptions &solverOpt,
+      bool saveProcessing           = false,
+      std::string processingDataDir = "");
 
   Catalog relocateMultiEvents(const ClusteringOptions &clustOpt,
                               const SolverOptions &solverOpt,
                               bool saveProcessing           = false,
                               std::string processingDataDir = "")
   {
-    XCorrCache empty;
-    return relocateMultiEvents(clustOpt, solverOpt, empty, saveProcessing,
-                               processingDataDir);
+    std::list<std::unordered_map<unsigned, Neighbours>> emptyClusters;
+    XCorrCache emptyXcorr;
+    return relocateMultiEvents(emptyClusters, emptyXcorr, clustOpt, solverOpt,
+                               saveProcessing, processingDataDir);
   }
 
   // Single-event relocation against background catalog
