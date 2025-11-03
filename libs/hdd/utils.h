@@ -54,35 +54,35 @@ std::string strf(const char *fmt, va_list args);
 std::vector<std::string> splitString(const std::string &str,
                                      const std::regex &regex);
 
-inline double radToDeg(double r) { return 180.0 * r / M_PI; }
+inline constexpr double radToDeg(double r) { return 180.0 * r / M_PI; }
 
-inline double degToRad(double d) { return M_PI * d / 180.0; }
+inline constexpr double degToRad(double d) { return M_PI * d / 180.0; }
 
-template <typename T> T square(T x) { return x * x; }
+template <typename T> inline constexpr T square(T x) { return x * x; }
 
-static const double EARTH_MEAN_RADIUS_METER = 6371008.77141506;
+constexpr double EARTH_MEAN_RADIUS_METER = 6371008.77141506;
 
-inline double kmOfDegree(double kmDepth = 0)
+inline constexpr double kmOfDegree(double kmDepth = 0)
 {
   return ((EARTH_MEAN_RADIUS_METER / 1000.) - kmDepth) * M_PI / 180.0;
 }
 
-inline double deg2km(double deg, double kmDepth = 0)
+inline constexpr double deg2km(double deg, double kmDepth = 0)
 {
   return deg * kmOfDegree(kmDepth);
 }
 
-inline double km2deg(double km, double kmDepth = 0)
+inline constexpr double km2deg(double km, double kmDepth = 0)
 {
   return km / kmOfDegree(kmDepth);
 }
 
-inline double rad2km(double rad, double kmDepth = 0)
+inline constexpr double rad2km(double rad, double kmDepth = 0)
 {
   return rad * ((EARTH_MEAN_RADIUS_METER / 1000.) - kmDepth);
 }
 
-inline double km2rad(double km, double kmDepth = 0)
+inline constexpr double km2rad(double km, double kmDepth = 0)
 {
   return km / ((EARTH_MEAN_RADIUS_METER / 1000.) - kmDepth);
 }

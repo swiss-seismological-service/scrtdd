@@ -67,13 +67,13 @@ struct UTCClock
 
 using UTCTime = UTCClock::time_point;
 
-inline UTCTime::duration secToDur(double sec)
+inline constexpr UTCTime::duration secToDur(double sec)
 {
   return std::chrono::duration_cast<UTCTime::duration>(
       std::chrono::duration<double>(sec));
 }
 
-inline double durToSec(UTCTime::duration d)
+inline constexpr double durToSec(UTCTime::duration d)
 {
   return std::chrono::duration<double>(d).count();
 }
