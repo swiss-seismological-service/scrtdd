@@ -322,18 +322,6 @@ void RTDD::createCommandLineDescription()
       "a catalog file triplet (station.csv,event.csv,phase.csv).",
       &_config.dumpCatalog, true);
   commandline().addOption(
-      "Catalog", "dump-catalog-options",
-      "Allows the --dump-catalog option to accept event ids besides origin "
-      "ids. For each event id an origin will be selected following the "
-      "provided options whose format is: "
-      "'type,evalmode,includeCreator,excludeCreator,region', "
-      "where type=preferred|last|first  evalmode=any|onlyManual|onlyAutomatic  "
-      "includeCreator=any|author|methodID  excludeCreator=none|author|methodID "
-      "region=any|profileName e.g. to select preferred origins of the input"
-      "event ids that lie within the region defined for 'myProfile' use "
-      "'preferred,any,any,none,myProfile'",
-      &_config.dumpCatalogOptions, false);
-  commandline().addOption(
       "Catalog", "merge-catalogs",
       "Merge in a single catalog all the catalog file triplets "
       "(station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,"
@@ -1189,16 +1177,7 @@ bool RTDD::run()
   {
     HDD::Catalog cat;
     DataSource dataSrc(query(), &_cache, _eventParameters.get());
-    if (!_config.dumpCatalogOptions.empty())
-    {
-      vector<DataModel::OriginPtr> origins =
-          fetchOrigins(_config.dumpCatalog, _config.dumpCatalogOptions);
-      addToCatalog(cat, origins, dataSrc);
-    }
-    else
-    {
-      addToCatalog(cat, _config.dumpCatalog, dataSrc);
-    }
+    addToCatalog(cat, _config.dumpCatalog, dataSrc);
     cat.writeToFile("event.csv", "phase.csv", "station.csv");
     SEISCOMP_INFO("Wrote files event.csv, phase.csv, station.csv");
     return true;
@@ -1926,157 +1905,6 @@ void RTDD::loadProfile(ProfilePtr profile,
   profile->load(query(), &_cache, _eventParameters.get(),
                 _config.cacheDirectory, _config.cacheWaveforms,
                 _config.cacheAllWaveforms, alternativeCatalog);
-}
-
-std::vector<DataModel::OriginPtr> RTDD::fetchOrigins(const std::string &idFile,
-                                                     std::string options)
-{
-  if (!Util::fileExists(idFile))
-  {
-    throw runtime_error("File " + idFile + " does not exist");
-  }
-
-  std::vector<std::string> tokens = ::splitString(options, ",");
-  if ((tokens.size() % 5) != 0)
-  {
-    throw runtime_error("--dump-catalog-options format is: "
-                        "type,evalmode,includeCreator,excludeCreator,profile");
-  }
-  string type           = tokens[0]; // preferred, last, first
-  string evalmode       = tokens[1]; // any, onlyManual, onlyAutomatic
-  string includeCreator = tokens[2]; // any or a author/methodID
-  string excludeCreator = tokens[3]; // none  or a author/methodID
-  string profileName    = tokens[4]; // any or profile name
-
-  bool automaticOnly = (evalmode == "onlyAutomatic");
-  bool manualOnly    = (evalmode == "onlyManual");
-
-  ProfilePtr profile;
-  if (profileName != "any")
-  {
-    for (ProfilePtr p : _profiles)
-    {
-      if (p->name == profileName)
-      {
-        profile = p;
-        break;
-      }
-    }
-  }
-
-  SEISCOMP_INFO("Selecting origins with the following characteristics:");
-  if (type == "preferred") SEISCOMP_INFO("* PREFERRED only");
-  if (type == "first") SEISCOMP_INFO("* arrived FIRST");
-  if (type == "last") SEISCOMP_INFO("* arrived LAST");
-  if (automaticOnly) SEISCOMP_INFO("* AUTOMATIC only");
-  if (manualOnly) SEISCOMP_INFO("* MANUAL only");
-  if (includeCreator != "any")
-    SEISCOMP_INFO("* whose author or methodID starts with %s",
-                  includeCreator.c_str());
-  if (excludeCreator != "none")
-    SEISCOMP_INFO("* EXCLUDING origins whose author or methodID starts with %s",
-                  excludeCreator.c_str());
-  if (profile)
-    SEISCOMP_INFO("* only origins within %s profile region",
-                  profile->name.c_str());
-
-  // fetch origins
-  vector<DataModel::OriginPtr> origins;
-
-  for (const auto &row : HDD::CSV::readWithHeader(idFile))
-  {
-    const string &id = row.at("origin");
-
-    DataModel::OriginPtr org = _cache.get<DataModel::Origin>(id);
-
-    if (!org)
-    {
-      DataModel::EventPtr ev = _cache.get<DataModel::Event>(id);
-      if (ev)
-      {
-        vector<DataModel::OriginPtr> eventOrigins;
-
-        if (type == "preferred")
-        {
-          eventOrigins.push_back(
-              _cache.get<DataModel::Origin>(ev->preferredOriginID()));
-        }
-        else
-        {
-          query()->loadOriginReferences(ev.get());
-          for (size_t i = 0; i < ev->originReferenceCount(); i++)
-          {
-            DataModel::OriginReference *orgRef = ev->originReference(i);
-            eventOrigins.push_back(
-                _cache.get<DataModel::Origin>(orgRef->originID()));
-          }
-        }
-
-        Core::Time creationTime;
-        for (DataModel::OriginPtr tmpOrg : eventOrigins)
-        {
-          if (!tmpOrg) continue;
-
-          if (automaticOnly && tmpOrg->evaluationMode() != DataModel::AUTOMATIC)
-            continue;
-
-          if (manualOnly && tmpOrg->evaluationMode() != DataModel::MANUAL)
-            continue;
-
-          if (includeCreator != "any" &&
-              !startsWith(tmpOrg->methodID(), includeCreator, true) &&
-              !startsWith(tmpOrg->creationInfo().author(), includeCreator,
-                          true))
-            continue;
-
-          if (excludeCreator != "none" &&
-              (startsWith(tmpOrg->methodID(), excludeCreator, true) ||
-               startsWith(tmpOrg->creationInfo().author(), excludeCreator,
-                          true)))
-            continue;
-
-          if (type == "last" && org &&
-              (tmpOrg->creationInfo().creationTime() < creationTime))
-            continue;
-
-          if (type == "first" && org &&
-              (tmpOrg->creationInfo().creationTime() > creationTime))
-            continue;
-
-          if (profile)
-          {
-            double latitude, longitude;
-            try
-            {
-              latitude  = tmpOrg->latitude().value();
-              longitude = tmpOrg->longitude().value();
-            }
-            catch (...)
-            {
-              continue;
-            }
-
-            if (!profile->region->isInside(latitude, longitude)) continue;
-          }
-
-          org          = tmpOrg;
-          creationTime = org->creationInfo().creationTime();
-        }
-      }
-    }
-
-    if (!org)
-    {
-      SEISCOMP_INFO("Cannot find an origin for event %s", id.c_str());
-      continue;
-    }
-
-    SEISCOMP_INFO("Found origin %s for event %s", org->publicID().c_str(),
-                  id.c_str());
-    origins.push_back(org);
-  }
-
-  return origins;
 }
 
 // Profile class

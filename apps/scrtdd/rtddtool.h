@@ -111,8 +111,6 @@ private:
   void loadProfile(ProfilePtr profile,
                    const HDD::Catalog alternativeCatalog = HDD::Catalog());
 
-  std::vector<DataModel::OriginPtr> fetchOrigins(const std::string &idFile,
-                                                 std::string options);
   struct Config
   {
     std::vector<std::string> activeProfiles;
@@ -135,7 +133,6 @@ private:
     std::string relocateCatalog;
     std::string dumpClusters;
     std::string dumpCatalog;
-    std::string dumpCatalogOptions;
     std::string dumpWaveforms;
     std::string mergeCatalogs;
     std::string evalXCorr;
