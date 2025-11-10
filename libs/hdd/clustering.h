@@ -32,6 +32,7 @@
 #include <fstream>
 #include <list>
 #include <set>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -53,55 +54,31 @@ public:
   unsigned referenceId() const { return _refEvId; }
   void setReferenceId(unsigned refEvId) { _refEvId = refEvId; }
 
-  const std::unordered_set<unsigned> &ids() const { return _ids; }
+  std::unordered_set<unsigned> ids() const;
 
   void add(unsigned neighbourId,
            const std::string &stationId,
-           const Catalog::Phase::Type &phase)
-  {
-    _ids.insert(neighbourId);
-    _phases[neighbourId][stationId].insert(phase);
-  }
+           const Catalog::Phase::Type &phase);
 
-  void remove(unsigned neighbourId)
-  {
-    _ids.erase(neighbourId);
-    _phases.erase(neighbourId);
-  }
+  void remove(unsigned neighbourId);
 
-  bool has(unsigned neighbourId) const
-  {
-    return _ids.find(neighbourId) != _ids.end();
-  }
+  bool has(unsigned neighbourId) const;
 
-  bool has(unsigned neighbourId, const std::string stationId) const
-  {
-    const auto &neighPhases = _phases.find(neighbourId);
-    if (neighPhases != _phases.end())
-      return neighPhases->second.find(stationId) != neighPhases->second.end();
-    return false;
-  }
+  bool has(unsigned neighbourId, const std::string stationId) const;
 
   bool has(unsigned neighbourId,
            const std::string stationId,
-           Catalog::Phase::Type type) const
-  {
-    const auto &neighPhases = _phases.find(neighbourId);
-    if (neighPhases != _phases.end())
-    {
-      const auto &neighPhaseTypes = neighPhases->second.find(stationId);
-      if (neighPhaseTypes != neighPhases->second.end())
-        return neighPhaseTypes->second.find(type) !=
-               neighPhaseTypes->second.end();
-    }
-    return false;
-  }
+           Catalog::Phase::Type type) const;
 
-  std::unordered_map<std::string, std::unordered_set<Catalog::Phase::Type>>
-  allPhases() const;
+  std::unordered_set<std::string> stations() const;
 
-  std::unordered_map<std::string, std::unordered_set<Catalog::Phase::Type>>
-  allPhases(unsigned neighbourId) const;
+  std::unordered_set<std::string> stations(Catalog::Phase::Type type) const;
+
+  std::vector<std::tuple<std::string, Catalog::Phase::Type, unsigned>>
+  phases() const;
+
+  std::vector<std::tuple<std::string, Catalog::Phase::Type>>
+  phases(unsigned neighbourId) const;
 
   Catalog toCatalog(const Catalog &catalog, bool includeRefEv = false) const;
 
@@ -118,11 +95,10 @@ public:
 
 private:
   unsigned _refEvId;
-  std::unordered_set<unsigned> _ids; // neighbouring event id
   std::unordered_map<
-      unsigned,                       // indexed by event id
-      std::unordered_map<std::string, // indexed by station id
-                         std::unordered_set<Catalog::Phase::Type>>>
+      unsigned,                                // indexed by event id
+      std::unordered_map<Catalog::Phase::Type, // indexed by phase type
+                         std::unordered_set<std::string>>> // station id
       _phases;
 };
 
