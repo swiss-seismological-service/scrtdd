@@ -875,6 +875,7 @@ void DD::addObservations(Solver &solver,
 {
   // copy event because we'll update it
   const Event &refEv = catalog.getEvents().at(neighbours.referenceId());
+  const unordered_set<unsigned> neighboursIds = neighbours.ids();
 
   //
   // Loop through reference event phases
@@ -895,13 +896,13 @@ void DD::addObservations(Solver &solver,
     //
     // loop through neighbouring events and look for the matching phase
     //
-    for (unsigned neighEvId : neighbours.ids())
+    for (unsigned neighEvId : neighboursIds)
     {
-      const Event &event = catalog.getEvents().at(neighEvId);
-
       if (!neighbours.has(neighEvId, refPhase.stationId,
                           refPhase.procInfo.type))
         continue;
+
+      const Event &event = catalog.getEvents().at(neighEvId);
 
       const Phase &phase =
           catalog
