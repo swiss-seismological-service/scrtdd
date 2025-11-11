@@ -262,8 +262,6 @@ public:
   //
   // Static method
   //
-  static std::string relocationReport(const Catalog &relocatedEv);
-
   static void xcorr(const Trace &tr1,
                     const Trace &tr2,
                     double maxDelay,
@@ -327,18 +325,18 @@ private:
                        const XCorrCache &xcorr,
                        ObservationParams &obsparams) const;
 
-  Catalog updateRelocatedEvents(
-      const Solver &solver,
-      const Catalog &catalog,
-      const SolverOptions &solverOpt,
-      const std::unordered_map<unsigned, Neighbours> &neighCluster,
-      ObservationParams &obsparams,
-      std::unordered_map<unsigned, Neighbours> &finalNeighCluster) const;
-
-  Catalog updateRelocatedEventsFinalStats(
-      const Catalog &startingCatalog,
-      const Catalog &finalCatalog,
-      const std::unordered_map<unsigned, Neighbours> &neighCluster) const;
+  Catalog
+  computeEventResiduals(const ObservationParams &obsparams,
+                        const Catalog &catalog,
+                        const SolverOptions &solverOpt,
+                        const std::unordered_map<unsigned, Neighbours> &cluster,
+                        bool isFirstIteration) const;
+  Catalog
+  updateRelocatedEvents(const Solver &solver,
+                        const Catalog &catalog,
+                        const SolverOptions &solverOpt,
+                        const std::unordered_map<unsigned, Neighbours> &cluster,
+                        bool isFirstIteration) const;
 
   XCorrCache
   buildXCorrCache(Catalog &catalog,

@@ -157,24 +157,9 @@ Catalog::Catalog(const string &stationFile,
       if (loadRelocationInfo && (row.count("relocated") != 0) &&
           strToBool(row.at("relocated")))
       {
-        ev.relocInfo.isRelocated   = true;
-        ev.relocInfo.startRms      = std::stod(row.at("startRms"));
-        ev.relocInfo.finalRms      = std::stod(row.at("finalRms"));
-        ev.relocInfo.numNeighbours = std::stoul(row.at("numNeighbours"));
-        ev.relocInfo.usedP         = std::stoul(row.at("ph_usedP"));
-        ev.relocInfo.usedS         = std::stoul(row.at("ph_usedS"));
-        ev.relocInfo.dd.numTTp     = std::stoul(row.at("dd_numTTp"));
-        ev.relocInfo.dd.numTTs     = std::stoul(row.at("dd_numTTs"));
-        ev.relocInfo.dd.numCCp     = std::stoul(row.at("dd_numCCp"));
-        ev.relocInfo.dd.numCCs     = std::stoul(row.at("dd_numCCs"));
-        ev.relocInfo.dd.startResidualMedian =
-            std::stod(row.at("dd_startResidualMedian"));
-        ev.relocInfo.dd.startResidualMAD =
-            std::stod(row.at("dd_startResidualMAD"));
-        ev.relocInfo.dd.finalResidualMedian =
-            std::stod(row.at("dd_finalResidualMedian"));
-        ev.relocInfo.dd.finalResidualMAD =
-            std::stod(row.at("dd_finalResidualMAD"));
+        ev.relocInfo.isRelocated = true;
+        ev.relocInfo.startRms    = std::stod(row.at("startRms"));
+        ev.relocInfo.finalRms    = std::stod(row.at("finalRms"));
       }
       _events[ev.id] = ev;
     }
@@ -217,9 +202,10 @@ Catalog::Catalog(const string &stationFile,
       if (loadRelocationInfo && (row.count("usedInReloc") != 0) &&
           strToBool(row.at("usedInReloc")))
       {
-        ph.relocInfo.isRelocated = true;
-        ph.relocInfo.residual    = std::stod(row.at("residual"));
-        ph.relocInfo.weight      = std::stod(row.at("weight"));
+        ph.relocInfo.isRelocated   = true;
+        ph.relocInfo.startResidual = std::stod(row.at("startResidual"));
+        ph.relocInfo.finalResidual = std::stod(row.at("finalResidual"));
+        ph.relocInfo.weight        = std::stod(row.at("weight"));
       }
 
       if (_events.find(ph.eventId) == _events.end())
@@ -478,12 +464,7 @@ void Catalog::writeToFile(const string &eventFile,
   stringstream evStreamReloc;
 
   evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude";
-  evStreamReloc << evStreamNoReloc.str()
-                << ",relocated,startRms,finalRms,"
-                   "numNeighbours,ph_usedP,ph_usedS,"
-                   "dd_numTTp,dd_numTTs,dd_numCCp,dd_numCCs,"
-                   "dd_startResidualMedian,dd_startResidualMAD,"
-                   "dd_finalResidualMedian,dd_finalResidualMAD"
+  evStreamReloc << evStreamNoReloc.str() << ",relocated,startRms,finalRms"
                 << endl;
   evStreamNoReloc << endl;
 
@@ -502,19 +483,13 @@ void Catalog::writeToFile(const string &eventFile,
 
     if (!ev.relocInfo.isRelocated)
     {
-      evStreamReloc << ",false,,,,,,,,,,,,,";
+      evStreamReloc << ",false,,";
     }
     else
     {
       relocInfo = true;
-      evStreamReloc << strf(
-          ",true,%g,%g,%u,%u,%u,%u,%u,%u,%u,%g,%g,%g,%g", ev.relocInfo.startRms,
-          ev.relocInfo.finalRms, ev.relocInfo.numNeighbours, ev.relocInfo.usedP,
-          ev.relocInfo.usedS, ev.relocInfo.dd.numTTp, ev.relocInfo.dd.numTTs,
-          ev.relocInfo.dd.numCCp, ev.relocInfo.dd.numCCs,
-          ev.relocInfo.dd.startResidualMedian, ev.relocInfo.dd.startResidualMAD,
-          ev.relocInfo.dd.finalResidualMedian,
-          ev.relocInfo.dd.finalResidualMAD);
+      evStreamReloc << strf(",true,%g,%g", ev.relocInfo.startRms,
+                            ev.relocInfo.finalRms);
     }
     evStreamReloc << endl;
   }
@@ -533,7 +508,7 @@ void Catalog::writeToFile(const string &eventFile,
                 "type,networkCode,stationCode,locationCode,channelCode";
     if (relocInfo)
     {
-      phStream << ",usedInReloc,residual,weight";
+      phStream << ",usedInReloc,weight,startResidual,finalResidual";
     }
     phStream << endl;
 
@@ -552,12 +527,13 @@ void Catalog::writeToFile(const string &eventFile,
       {
         if (!ph.relocInfo.isRelocated)
         {
-          phStream << ",false,,";
+          phStream << ",false,,,";
         }
         else
         {
-          phStream << strf(",true,%g,%g", ph.relocInfo.residual,
-                           ph.relocInfo.weight);
+          phStream << strf(",true,%g,%g,%g", ph.relocInfo.weight,
+                           ph.relocInfo.startResidual,
+                           ph.relocInfo.finalResidual);
         }
       }
       phStream << endl;

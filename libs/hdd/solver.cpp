@@ -246,7 +246,7 @@ void Solver::addObservation(unsigned evId1,
                             unsigned evId2,
                             const std::string &staId,
                             char phase,
-                            double observedDiffTime,
+                            double timeDiff,
                             double aPrioriWeight,
                             bool isXcorr)
 {
@@ -256,8 +256,8 @@ void Solver::addObservation(unsigned evId1,
   unsigned evIdx2   = _eventIdConverter.convert(evId2);
   unsigned phStaIdx = _phStaIdConverter.convert(phStaId);
   unsigned obsIdx   = _obsIdConverter.convert(obsId);
-  _observations[obsIdx] = Observation{evIdx1,           evIdx2,        phStaIdx,
-                                      observedDiffTime, aPrioriWeight, isXcorr};
+  _observations[obsIdx] =
+      Observation{evIdx1, evIdx2, phStaIdx, timeDiff, aPrioriWeight, isXcorr};
 }
 
 void Solver::addObservationParams(unsigned evId,
@@ -292,6 +292,49 @@ void Solver::addObservationParams(unsigned evId,
                                                   0};
 }
 
+bool Solver::getObservationParams(unsigned evId,
+                                  const std::string &staId,
+                                  char phase,
+                                  double &evLat,
+                                  double &evLon,
+                                  double &evDepth,
+                                  double &staLat,
+                                  double &staLon,
+                                  double &staElevation,
+                                  bool &computeEvChanges,
+                                  double &travelTime,
+                                  double &travelTimeResidual,
+                                  double &takeOffAngleAzim,
+                                  double &takeOffAngleDip,
+                                  double &velocityAtSrc) const
+{
+  unsigned evIdx;
+  if (!_eventIdConverter.hasId(evId, evIdx)) return false;
+
+  string phStaId = string(1, phase) + "@" + staId;
+  unsigned phStaIdx;
+  if (!_phStaIdConverter.hasId(phStaId, phStaIdx)) return false;
+
+  const ObservationParams &oprms = _obsParams.at(evIdx).at(phStaIdx);
+  const EventParams &eprms       = _eventParams.at(evIdx);
+  const StationParams &sprms     = _stationParams.at(phStaIdx);
+
+  evLat              = eprms.lat;
+  evLon              = eprms.lon;
+  evDepth            = eprms.depth;
+  staLat             = sprms.lat;
+  staLon             = sprms.lon;
+  staElevation       = sprms.elevation;
+  computeEvChanges   = oprms.computeEvChanges;
+  travelTime         = oprms.travelTime;
+  travelTimeResidual = oprms.travelTimeResidual;
+  takeOffAngleAzim   = oprms.takeOffAngleAzim;
+  takeOffAngleDip    = oprms.takeOffAngleDip;
+  velocityAtSrc      = oprms.velocityAtSrc;
+
+  return true;
+}
+
 bool Solver::getEventChanges(unsigned evId,
                              double &deltaLat,
                              double &deltaLon,
@@ -311,16 +354,9 @@ bool Solver::getEventChanges(unsigned evId,
   return true;
 }
 
-bool Solver::getObservationParamsChanges(unsigned evId,
-                                         const std::string &staId,
-                                         char phase,
-                                         unsigned &startingTTObs,
-                                         unsigned &startingCCObs,
-                                         unsigned &finalTotalObs,
-                                         double &meanAPrioriWeight,
-                                         double &meanFinalWeight,
-                                         double &meanObsResiduals,
-                                         std::set<unsigned> &evIds) const
+bool Solver::isEventPhaseUsed(unsigned evId,
+                              const std::string &staId,
+                              char phase) const
 {
   unsigned evIdx;
   if (!_eventIdConverter.hasId(evId, evIdx)) return false;
@@ -329,38 +365,20 @@ bool Solver::getObservationParamsChanges(unsigned evId,
   unsigned phStaIdx;
   if (!_phStaIdConverter.hasId(phStaId, phStaIdx)) return false;
 
-  const auto &it1 = _paramStats.find(evIdx);
-  if (it1 == _paramStats.end()) return false;
+  const auto &it1 = _stats.find(evIdx);
+  if (it1 == _stats.end()) return false;
 
   const auto &it2 = it1->second.find(phStaIdx);
   if (it2 == it1->second.end()) return false;
 
-  const ParamStats &prmSts = it2->second;
+  const Stats &stat = it2->second;
 
-  startingTTObs     = prmSts.startingTTObs;
-  startingCCObs     = prmSts.startingCCObs;
-  finalTotalObs     = prmSts.finalTotalObs;
-  meanAPrioriWeight = 0;
-  meanFinalWeight   = 0;
-  meanObsResiduals  = 0;
-  if ((startingTTObs + startingCCObs) > 0)
-  {
-    meanAPrioriWeight =
-        prmSts.totalAPrioriWeight / (startingTTObs + startingCCObs);
-  }
-  if (finalTotalObs > 0)
-  {
-    meanFinalWeight  = prmSts.totalFinalWeight / finalTotalObs;
-    meanObsResiduals = prmSts.totalResiduals / finalTotalObs;
-  }
-  evIds.insert(prmSts.peerEvIds.begin(), prmSts.peerEvIds.end());
-  return true;
+  return stat.finalTotalObs > 0;
 }
 
 void Solver::loadSolutions()
 {
-  auto computeEventDelta = [this](unsigned evIdx,
-                                  EventDeltas &evDelta) -> bool {
+  auto fetchEventDelta = [this](unsigned evIdx, EventDeltas &evDelta) -> bool {
     const unsigned evOffset = evIdx * 4;
 
     evDelta.kmLon = _dd.m[evOffset + 0];
@@ -382,22 +400,22 @@ void Solver::loadSolutions()
   // (i.e. discard events that lost all their observations due to
   // downweighting).
   //
-  for (const auto &kv1 : _paramStats)
+  for (const auto &kv1 : _stats)
   {
-    unsigned evIdx = kv1.first;
-    bool allZero   = true;
+    unsigned evIdx        = kv1.first;
+    bool someObservations = false;
 
     for (const auto &kv2 : kv1.second)
     {
-      const ParamStats &pweight = kv2.second;
-      if (pweight.totalFinalWeight > 0)
+      const Stats &stat = kv2.second;
+      if (stat.finalTotalObs > 0)
       {
-        allZero = false;
+        someObservations = true;
         break;
       }
     }
 
-    if (!allZero) _eventDeltas[evIdx] = {};
+    if (someObservations) _eventDeltas[evIdx] = {};
   }
 
   //
@@ -408,14 +426,12 @@ void Solver::loadSolutions()
   {
     const unsigned evIds = it->first;
     EventDeltas &evDelta = it->second;
-    it                   = computeEventDelta(evIds, evDelta) ? std::next(it)
-                                                             : _eventDeltas.erase(it);
+    it                   = fetchEventDelta(evIds, evDelta) ? std::next(it)
+                                                           : _eventDeltas.erase(it);
   }
 
   // free some memory
-  _eventParams.clear();
-  _residuals.clear();
-  _dd = DDSystem(); // free memory
+  _dd = DDSystem();
 }
 
 void Solver::computePartialDerivatives()
@@ -523,13 +539,13 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
   return weights;
 }
 
-void Solver::prepareDDSystem(double ttConstraint,
-                             double dampingFactor,
-                             double residualDownWeight)
+void Solver::prepare(double ttConstraint, double residualDownWeight)
 {
   computePartialDerivatives();
 
+  //
   // Count how many travel time constraints we need in the DD system.
+  //
   unsigned ttconstraintNum = 0;
   if (ttConstraint > 0)
   {
@@ -538,11 +554,15 @@ void Solver::prepareDDSystem(double ttConstraint,
         if (kv2.second.computeEvChanges) ttconstraintNum++;
   }
 
+  //
   // allocate DD system memory
+  //
   _dd = DDSystem(_observations.size(), _eventIdConverter.size(),
                  _phStaIdConverter.size(), ttconstraintNum);
 
+  //
   // initialize `G`
+  //
   for (const auto &kv1 : _obsParams)
   {
     unsigned evIdx = kv1.first;
@@ -557,7 +577,9 @@ void Solver::prepareDDSystem(double ttConstraint,
     }
   }
 
-  // initialize: `W`, `d`, `evByObsi`, `phStaByObs`
+  //
+  // initialize: `W`, `d`, `evByObs`, `phStaByObs`
+  //
   for (auto &kw : _observations)
   {
     unsigned obIdx                  = kw.first;
@@ -570,39 +592,17 @@ void Solver::prepareDDSystem(double ttConstraint,
     _dd.evByObs[1][obIdx] = obprm2.computeEvChanges ? ob.ev2Idx : -1;
     _dd.phStaByObs[obIdx] = ob.phStaIdx;
     // compute double difference
-    _dd.d[obIdx] =
-        ob.observedDiffTime - (obprm1.travelTime - obprm2.travelTime);
-
-    // (bookkeeping) Keep track of the weights of observation parameters.
-    if (obprm1.computeEvChanges)
-    {
-      ParamStats &prmSts = _paramStats[ob.ev1Idx][ob.phStaIdx];
-      if (ob.isXcorr)
-        prmSts.startingCCObs++;
-      else
-        prmSts.startingTTObs++;
-      prmSts.totalAPrioriWeight += _dd.W[obIdx];
-      prmSts.peerEvIds.insert(_eventIdConverter.fromIdx(ob.ev2Idx));
-    }
-
-    if (obprm2.computeEvChanges)
-    {
-      ParamStats &prmSts = _paramStats[ob.ev2Idx][ob.phStaIdx];
-      if (ob.isXcorr)
-        prmSts.startingCCObs++;
-      else
-        prmSts.startingTTObs++;
-      prmSts.totalAPrioriWeight += _dd.W[obIdx];
-      prmSts.peerEvIds.insert(_eventIdConverter.fromIdx(ob.ev1Idx));
-    }
+    _dd.d[obIdx] = ob.timeDiff - (obprm1.travelTime - obprm2.travelTime);
   }
 
+  //
   // downweight observations by residuals
-  _residuals = vector<double>(_dd.d, _dd.d + _dd.nObs);
+  //
   if (residualDownWeight > 0)
   {
+    vector<double> residuals = vector<double>(_dd.d, _dd.d + _dd.nObs);
     vector<double> resWeights =
-        computeResidualWeights(_residuals, residualDownWeight);
+        computeResidualWeights(residuals, residualDownWeight);
     for (unsigned obIdx = 0; obIdx < _dd.nObs; obIdx++)
     {
       _dd.W[obIdx] *= resWeights[obIdx];
@@ -624,23 +624,23 @@ void Solver::prepareDDSystem(double ttConstraint,
     const int evIdx1 = _dd.evByObs[0][obIdx]; // event 1 for this observation
     if (evIdx1 >= 0)
     {
-      ParamStats &prmSts = _paramStats.at(evIdx1).at(phStaIdx);
-      prmSts.finalTotalObs++;
-      prmSts.totalFinalWeight += observationWeight;
-      prmSts.totalResiduals += _residuals.at(obIdx);
+      Stats &stat = _stats.at(evIdx1).at(phStaIdx);
+      stat.finalTotalObs++;
+      stat.totalFinalWeight += observationWeight;
     }
 
     const int evIdx2 = _dd.evByObs[1][obIdx]; // event 2 for this observation
     if (evIdx2 >= 0)
     {
-      ParamStats &prmSts = _paramStats.at(evIdx2).at(phStaIdx);
-      prmSts.finalTotalObs++;
-      prmSts.totalFinalWeight += observationWeight;
-      prmSts.totalResiduals += _residuals.at(obIdx);
+      Stats &stat = _stats.at(evIdx2).at(phStaIdx);
+      stat.finalTotalObs++;
+      stat.totalFinalWeight += observationWeight;
     }
   }
 
+  //
   // add travel time residual constraints after DD observations
+  //
   if (ttConstraint > 0)
   {
     unsigned ttconstraintIdx = _dd.nObs - 1;
@@ -655,13 +655,13 @@ void Solver::prepareDDSystem(double ttConstraint,
 
         if (!obprm.computeEvChanges) continue;
 
-        const auto &it1 = _paramStats.find(evIdx);
-        if (it1 == _paramStats.end()) continue;
+        const auto &it1 = _stats.find(evIdx);
+        if (it1 == _stats.end()) continue;
 
         const auto &it2 = it1->second.find(phStaIdx);
         if (it2 == it1->second.end()) continue;
 
-        const ParamStats &prmSts = it2->second;
+        const Stats &stat = it2->second;
 
         if (++ttconstraintIdx >= _dd.numRowsG)
         {
@@ -672,10 +672,9 @@ void Solver::prepareDDSystem(double ttConstraint,
         }
 
         _dd.W[ttconstraintIdx] =
-            ttConstraint *
-            (prmSts.finalTotalObs != 0
-                 ? (prmSts.totalFinalWeight / prmSts.finalTotalObs)
-                 : 0);
+            ttConstraint * (stat.finalTotalObs > 0
+                                ? (stat.totalFinalWeight / stat.finalTotalObs)
+                                : 0);
         _dd.d[ttconstraintIdx]          = -obprm.travelTimeResidual;
         _dd.evByObs[0][ttconstraintIdx] = evIdx;
         _dd.evByObs[1][ttconstraintIdx] = -1;
@@ -703,7 +702,9 @@ void Solver::prepareDDSystem(double ttConstraint,
     }
   }
 
+  //
   // print residual by inter-event distance
+  //
   multimap<double, unsigned> obByDist = computeInterEventDistance();
   auto obByDistIt                     = obByDist.begin();
   while (obByDistIt != obByDist.end())
@@ -717,7 +718,7 @@ void Solver::prepareDDSystem(double ttConstraint,
     while (obByDistIt != obByDist.end() && decileRes.size() < decileSize)
     {
       unsigned obIdx = obByDistIt->second;
-      decileRes.push_back(_residuals.at(obIdx));
+      decileRes.push_back(_dd.d[obIdx]);
       finalDist = obByDistIt->first;
       obByDistIt++;
     }
@@ -733,14 +734,13 @@ void Solver::prepareDDSystem(double ttConstraint,
 
   // free some memory
   _observations.clear();
-  _obsParams.clear();
+  _eventParams.clear();
   _stationParams.clear();
+  _obsParams.clear();
 }
 
 void Solver::solve(unsigned numIterations,
-                   double ttConstraint,
                    double dampingFactor,
-                   double residualDownWeight,
                    bool normalizeG)
 {
   if (_observations.size() == 0)
@@ -750,13 +750,13 @@ void Solver::solve(unsigned numIterations,
 
   if (_type == "LSQR")
   {
-    _solve<lsqrBase>(numIterations, ttConstraint, dampingFactor,
-                     residualDownWeight, normalizeG, std::set<unsigned>{4});
+    _solve<lsqrBase>(numIterations, dampingFactor, normalizeG,
+                     std::set<unsigned>{4});
   }
   else if (_type == "LSMR")
   {
-    _solve<lsmrBase>(numIterations, ttConstraint, dampingFactor,
-                     residualDownWeight, normalizeG, std::set<unsigned>{3, 6});
+    _solve<lsmrBase>(numIterations, dampingFactor, normalizeG,
+                     std::set<unsigned>{3, 6});
   }
   else
   {
@@ -767,14 +767,10 @@ void Solver::solve(unsigned numIterations,
 
 template <typename T>
 void Solver::_solve(unsigned numIterations,
-                    double ttConstraint,
                     double dampingFactor,
-                    double residualDownWeight,
                     bool normalizeG,
                     std::set<unsigned> rejectStoppingReasons)
 {
-  prepareDDSystem(ttConstraint, dampingFactor, residualDownWeight);
-
   Adapter<T> solver(_dd); // keeps only a reference to _dd, doesn't copy it!!!
   if (normalizeG)
   {

@@ -456,9 +456,9 @@ Catalog DD::relocateMultiEvents(
 
   logInfoF("Found %zu event clusters with the following number of events:",
            clusters.size());
-  for (const auto &neighCluster : clusters)
+  for (const auto &cluster : clusters)
   {
-    logInfoF(" %zu events", neighCluster.size());
+    logInfoF(" %zu events", cluster.size());
   }
 
   if (saveProcessing)
@@ -474,17 +474,16 @@ Catalog DD::relocateMultiEvents(
   Catalog relocatedCatalog{};
 
   unsigned clusterId = 1;
-  for (const auto &neighCluster : clusters)
+  for (const auto &cluster : clusters)
   {
-    logInfoF("Relocating cluster %u (%zu events)", clusterId,
-             neighCluster.size());
+    logInfoF("Relocating cluster %u (%zu events)", clusterId, cluster.size());
 
     if (saveProcessing)
     {
       string prefix = strf("cluster-%u", clusterId);
-      Neighbours::writeToFile(neighCluster, catToReloc, prefix + "-pair.csv");
+      Neighbours::writeToFile(cluster, catToReloc, prefix + "-pair.csv");
       Catalog catToDump;
-      for (const auto &kv : neighCluster)
+      for (const auto &kv : cluster)
       {
         catToDump.add(kv.first, catToReloc, true);
       }
@@ -495,12 +494,12 @@ Catalog DD::relocateMultiEvents(
 
     // Perform cross-correlation
     const XCorrCache xcorr =
-        buildXCorrCache(catToReloc, neighCluster, clustOpt.xcorrMaxEvStaDist,
+        buildXCorrCache(catToReloc, cluster, clustOpt.xcorrMaxEvStaDist,
                         clustOpt.xcorrMaxInterEvDist, xcorrData);
 
     // the actual relocation
     Catalog relocatedCluster =
-        relocate(catToReloc, neighCluster, solverOpt, false, xcorr);
+        relocate(catToReloc, cluster, solverOpt, false, xcorr);
 
     relocatedCatalog.add(relocatedCluster, true);
 
@@ -603,7 +602,6 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
              "lat %.6f lon %.6f depth %.4f time %s",
              ev.latitude, ev.longitude, ev.depth,
              UTCClock::toString(ev.time).c_str());
-    logInfoF("Relocation report: %s", relocationReport(relocatedEvCat).c_str());
 
     evToRelocateCat = std::move(relocatedEvCat);
   }
@@ -627,8 +625,6 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
              "lat %.6f lon %.6f depth %.4f time %s",
              ev.latitude, ev.longitude, ev.depth,
              UTCClock::toString(ev.time).c_str());
-    logInfoF("Relocation report: %s",
-             relocationReport(relocatedEvWithXcorr).c_str());
 
     // update the "origin change information" taking into consideration
     // the first relocation step, too
@@ -715,24 +711,24 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
                           joinPath(processingDataDir, "input-station.csv"));
     }
 
-    unordered_map<unsigned, Neighbours> neighCluster;
-    neighCluster.emplace(neighbours.referenceId(), std::move(neighbours));
+    unordered_map<unsigned, Neighbours> cluster;
+    cluster.emplace(neighbours.referenceId(), std::move(neighbours));
 
     if (saveProcessing)
     {
-      Neighbours::writeToFile(neighCluster, catalog, "pair.csv");
+      Neighbours::writeToFile(cluster, catalog, "pair.csv");
     }
 
     XCorrCache xcorr{};
     if (doXcorr)
     {
       // Perform cross-correlation
-      xcorr = buildXCorrCache(catalog, neighCluster, clustOpt.xcorrMaxEvStaDist,
+      xcorr = buildXCorrCache(catalog, cluster, clustOpt.xcorrMaxEvStaDist,
                               clustOpt.xcorrMaxInterEvDist);
     }
 
     // the actual relocation
-    relocatedEvCat = relocate(catalog, neighCluster, solverOpt, true, xcorr);
+    relocatedEvCat = relocate(catalog, cluster, solverOpt, true, xcorr);
 
     if (saveProcessing)
     {
@@ -750,7 +746,7 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
 }
 
 Catalog DD::relocate(const Catalog &catalog,
-                     const unordered_map<unsigned, Neighbours> &neighCluster,
+                     const unordered_map<unsigned, Neighbours> &cluster,
                      const SolverOptions &solverOpt,
                      bool keepNeighboursFixed,
                      const XCorrCache &xcorr) const
@@ -760,12 +756,14 @@ Catalog DD::relocate(const Catalog &catalog,
   //
   // iterate the solver computation multiple times
   //
-  Catalog finalCatalog(catalog);
-  unordered_map<unsigned, Neighbours> finalNeighCluster;
-  ObservationParams obsparams;
-  for (unsigned iteration = 0; iteration < solverOpt.algoIterations;
+  Catalog workingCatalog(catalog);
+
+  for (unsigned iteration = 0; iteration <= solverOpt.algoIterations;
        iteration++)
   {
+    bool isFirstIteration = (iteration == 0);
+    bool isLastIteration  = (iteration == solverOpt.algoIterations);
+
     //
     // compute parameters for this loop iteration
     //
@@ -785,31 +783,52 @@ Catalog DD::relocate(const Catalog &catalog,
     logInfoF(
         "Solving iteration %u num events %zu. Parameters: dampingFactor=%.2f "
         "downWeightingByResidual=%.2f absLocConstraint=%.2f",
-        iteration, neighCluster.size(), dampingFactor, downWeightingByResidual,
+        iteration, cluster.size(), dampingFactor, downWeightingByResidual,
         absLocConstraint);
 
+    //
     // create a solver and then add observations
+    //
     Solver solver(solverOpt.type);
+    ObservationParams obsparams;
 
     //
     // Add absolute travel time/cross-correlation differences to the solver
     // (the observations)
     //
-    for (const auto &kv : neighCluster)
+    for (const auto &kv : cluster)
     {
-      addObservations(solver, finalCatalog, kv.second, keepNeighboursFixed,
+      addObservations(solver, workingCatalog, kv.second, keepNeighboursFixed,
                       solverOpt.usePickUncertainties,
                       solverOpt.xcorrWeightScaler, xcorr, obsparams);
     }
     obsparams.addToSolver(solver);
 
     //
+    // Compute and log event rms
+    //
+    computeEventResiduals(obsparams, workingCatalog, solverOpt, cluster,
+                          isFirstIteration);
+
+    //
+    // Prepare the solver, which logs the DD residuals
+    //
+    solver.prepare(absLocConstraint, downWeightingByResidual);
+
+    if (isLastIteration)
+    {
+      // Last iteration is just fo logging the residuals
+      // So exit without solving the system
+      break;
+    }
+
+    //
     // solve the system
     //
     try
     {
-      solver.solve(solverOpt.solverIterations, absLocConstraint, dampingFactor,
-                   downWeightingByResidual, solverOpt.L2normalization);
+      solver.solve(solverOpt.solverIterations, dampingFactor,
+                   solverOpt.L2normalization);
     }
     catch (exception &e)
     {
@@ -818,41 +837,26 @@ Catalog DD::relocate(const Catalog &catalog,
       break;
     }
 
-    // prepare for next iteration
-    obsparams = ObservationParams();
-
-    // update event parameters
-    finalCatalog =
-        updateRelocatedEvents(solver, finalCatalog, solverOpt, neighCluster,
-                              obsparams, finalNeighCluster);
+    //
+    // update event location/time
+    //
+    workingCatalog = updateRelocatedEvents(solver, workingCatalog, solverOpt,
+                                           cluster, isFirstIteration);
   }
 
-  // compute last bit of statistics for the relocated events
-  return updateRelocatedEventsFinalStats(catalog, finalCatalog,
-                                         finalNeighCluster);
-}
-
-string DD::relocationReport(const Catalog &relocatedEv)
-{
-  const Event &event = relocatedEv.getEvents().begin()->second;
-  if (!event.relocInfo.isRelocated) return "Event not relocated";
-
-  return strf("Rms change [sec]: %.4f (before/after %.4f/%.4f) "
-              "Neighbours=%u Phases: P=%u S=%u "
-              "DD observations: %u (CC P/S %u/%u TT P/S %u/%u) "
-              "DD residuals [msec]: before=%.f+/-%.1f after=%.f+/-%.1f",
-              (event.relocInfo.finalRms - event.relocInfo.startRms),
-              event.relocInfo.startRms, event.relocInfo.finalRms,
-              event.relocInfo.numNeighbours, event.relocInfo.usedP,
-              event.relocInfo.usedS,
-              (event.relocInfo.dd.numCCp + event.relocInfo.dd.numCCs +
-               event.relocInfo.dd.numTTp + event.relocInfo.dd.numTTs),
-              event.relocInfo.dd.numCCp, event.relocInfo.dd.numCCs,
-              event.relocInfo.dd.numTTp, event.relocInfo.dd.numTTs,
-              event.relocInfo.dd.startResidualMedian * 1000,
-              event.relocInfo.dd.startResidualMAD * 1000,
-              event.relocInfo.dd.finalResidualMedian * 1000,
-              event.relocInfo.dd.finalResidualMAD * 1000);
+  //
+  // Build and return the catalog with only relocated events/phases
+  //
+  Catalog catalogToReturn{};
+  for (const auto &kv : workingCatalog.getEvents())
+  {
+    const Event &event = kv.second;
+    if (event.relocInfo.isRelocated)
+    {
+      catalogToReturn.add(event.id, workingCatalog, true);
+    }
+  }
+  return catalogToReturn;
 }
 
 /*
@@ -873,7 +877,12 @@ void DD::addObservations(Solver &solver,
   const Event &refEv = catalog.getEvents().at(neighbours.referenceId());
 
   //
-  // loop through reference event phases
+  // Loop through reference event phases
+  // Instead of looping though the Neighbours phases as expected, we loop though
+  // each reference event phase and check if there is an entry in Neighbours
+  // This approach allows to search only once in the catalog and then reuse the
+  // refEv phases for all neighbours (small optimization in case of catalogs
+  // with millions of phases)
   //
   auto eqlrng = catalog.getPhases().equal_range(refEv.id);
   for (auto it = eqlrng.first; it != eqlrng.second; ++it)
@@ -1022,27 +1031,118 @@ void DD::ObservationParams::addToSolver(Solver &solver) const
   }
 }
 
-Catalog DD::updateRelocatedEvents(
-    const Solver &solver,
-    const Catalog &catalog,
-    const SolverOptions &solverOpt,
-    const unordered_map<unsigned, Neighbours> &neighCluster,
-    ObservationParams &obsparams,
-    unordered_map<unsigned, Neighbours> &finalNeighCluster // output
-) const
+Catalog
+DD::computeEventResiduals(const ObservationParams &obsparams,
+                          const Catalog &catalog,
+                          const SolverOptions &solverOpt,
+                          const unordered_map<unsigned, Neighbours> &cluster,
+                          bool isFirstIteration) const
+{
+  unordered_map<string, Station> stations    = catalog.getStations();
+  map<unsigned, Event> events                = catalog.getEvents();
+  unordered_multimap<unsigned, Phase> phases = catalog.getPhases();
+  vector<double> allRms;
+
+  //
+  // loop through each event in the cluster
+  //
+  for (const auto &kv : cluster)
+  {
+    Event &event = events.at(kv.second.referenceId());
+
+    if (isFirstIteration)
+    {
+      event.relocInfo.startRms = 0;
+    }
+    event.relocInfo.finalRms = 0;
+
+    double sumSquaredResiduals = 0.0;
+    double sumSquaredWeights   = 0.0;
+    auto eqlrng                = phases.equal_range(event.id);
+    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+    {
+      Phase &phase           = it->second;
+      const Station &station = stations.at(phase.stationId);
+      char phaseTypeAsChar   = static_cast<char>(phase.procInfo.type);
+
+      if (isFirstIteration)
+      {
+        phase.relocInfo.startResidual = 0;
+      }
+
+      phase.relocInfo.finalResidual = 0;
+      phase.relocInfo.weight =
+          solverOpt.usePickUncertainties ? phase.procInfo.classWeight : 1;
+
+      try // obsparams.get can throw
+      {
+        double residual = obsparams.get(event.id, station.id, phaseTypeAsChar)
+                              .travelTimeResidual;
+        double weight = phase.relocInfo.weight;
+
+        if (isFirstIteration)
+        {
+          phase.relocInfo.startResidual = residual;
+        }
+        else
+        {
+          phase.relocInfo.finalResidual = residual;
+        }
+
+        sumSquaredResiduals += (residual * weight) * (residual * weight);
+        sumSquaredWeights += weight * weight;
+      }
+      catch (std::out_of_range &e)
+      {}
+    }
+
+    if (sumSquaredWeights > 0)
+    {
+      double rms = std::sqrt(sumSquaredResiduals / sumSquaredWeights);
+      if (isFirstIteration)
+      {
+        event.relocInfo.startRms = rms;
+      }
+      else
+      {
+        event.relocInfo.finalRms = rms;
+      }
+      allRms.push_back(rms);
+    }
+  }
+
+  double min, max, q1, q2, q3;
+  compute5numberSummary(allRms, min, max, q1, q2, q3);
+  logInfoF("Event RMS [msec]: min %.3f 1st quartile %.3f median %.3f 3rd "
+           "quartile %.3f max %.3f ",
+           min * 1000, q1 * 1000, q2 * 1000, q3 * 1000, max * 1000);
+
+  return Catalog(stations, events, phases);
+}
+
+Catalog
+DD::updateRelocatedEvents(const Solver &solver,
+                          const Catalog &catalog,
+                          const SolverOptions &solverOpt,
+                          const unordered_map<unsigned, Neighbours> &cluster,
+                          bool isFirstIteration) const
 {
   unordered_map<string, Station> stations    = catalog.getStations();
   map<unsigned, Event> events                = catalog.getEvents();
   unordered_multimap<unsigned, Phase> phases = catalog.getPhases();
   unsigned relocatedEvs                      = 0;
-  vector<double> allRms;
 
   //
-  // loop through each event with its corresponding neighbours cluster
+  // loop through each event in the cluster
   //
-  for (const auto &kv : neighCluster)
+  for (const auto &kv : cluster)
   {
     Event &event = events.at(kv.second.referenceId());
+
+    if (isFirstIteration)
+    {
+      event.relocInfo.isRelocated = false;
+    }
 
     //
     // get relocation changes (km and sec) computed by the solver for
@@ -1052,7 +1152,6 @@ Catalog DD::updateRelocatedEvents(
     if (!solver.getEventChanges(event.id, deltaLat, deltaLon, deltaDepth,
                                 deltaTime))
     {
-      event.relocInfo.isRelocated = false;
       continue;
     }
 
@@ -1071,93 +1170,39 @@ Catalog DD::updateRelocatedEvents(
     computeCoordinates(distance, azimuth, event.latitude, event.longitude,
                        newLat, newLon, event.depth);
 
-    Neighbours finalNeighbours(event.id);
-    bool isFirstIteration = !event.relocInfo.isRelocated;
-
     //
     // update event location/time and compute statistics
     //
-    event.latitude                = newLat;
-    event.longitude               = newLon;
-    event.depth                   = newDepth;
-    event.time                    = newTime;
-    event.relocInfo.finalRms      = 0;
-    event.relocInfo.isRelocated   = true;
-    event.relocInfo.numNeighbours = 0;
-    event.relocInfo.usedP         = 0;
-    event.relocInfo.usedS         = 0;
-    event.relocInfo.dd.numTTp     = 0;
-    event.relocInfo.dd.numTTs     = 0;
-    event.relocInfo.dd.numCCp     = 0;
-    event.relocInfo.dd.numCCs     = 0;
+    event.latitude              = newLat;
+    event.longitude             = newLon;
+    event.depth                 = newDepth;
+    event.time                  = newTime;
+    event.relocInfo.isRelocated = true;
 
-    set<unsigned> neighbourIds;
-    vector<double> obsResiduals;
-    double sumSquaredResiduals = 0.0;
-    double sumSquaredWeights   = 0.0;
-    bool nottt                 = true;
-    auto eqlrng                = phases.equal_range(event.id);
+    bool nottt = true;
+
+    auto eqlrng = phases.equal_range(event.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
       Phase &phase           = it->second;
       const Station &station = stations.at(phase.stationId);
       char phaseTypeAsChar   = static_cast<char>(phase.procInfo.type);
 
-      phase.relocInfo.isRelocated = false;
-
-      unsigned startTTObs, startCCObs, finalTotalObs;
-      double meanDDResidual, meanAPrioriWeight, meanFinalWeight;
-
-      if (!solver.getObservationParamsChanges(
-              event.id, station.id, phaseTypeAsChar, startTTObs, startCCObs,
-              finalTotalObs, meanAPrioriWeight, meanFinalWeight, meanDDResidual,
-              neighbourIds))
+      if (isFirstIteration)
       {
-        continue;
+        phase.relocInfo.isRelocated = false;
       }
 
-      if (finalTotalObs == 0)
+      if (!solver.isEventPhaseUsed(event.id, station.id, phaseTypeAsChar))
       {
         continue;
       }
 
       phase.relocInfo.isRelocated = true;
-      phase.relocInfo.weight =
-          solverOpt.usePickUncertainties ? phase.procInfo.classWeight : 1;
-      obsResiduals.push_back(meanDDResidual);
 
-      if (obsparams.add(*_ttt, event, station, phase, true))
+      if (_ttt.getTTT)
       {
-        double travelTime =
-            obsparams.get(event.id, station.id, phaseTypeAsChar).travelTime;
-        double residual = travelTime - durToSec(phase.time - event.time);
-        double weight   = phase.relocInfo.weight;
-        phase.relocInfo.residual = residual;
-        sumSquaredResiduals += (residual * weight) * (residual * weight);
-        sumSquaredWeights += weight * weight;
         nottt = false; // at least one travel time table information is returned
-      }
-      else
-      {
-        phase.relocInfo.residual = 0;
-      }
-
-      if (phase.procInfo.type == Phase::Type::P)
-      {
-        event.relocInfo.usedP++;
-        event.relocInfo.dd.numCCp += startCCObs;
-        event.relocInfo.dd.numTTp += startTTObs;
-      }
-      if (phase.procInfo.type == Phase::Type::S)
-      {
-        event.relocInfo.usedS++;
-        event.relocInfo.dd.numCCs += startCCObs;
-        event.relocInfo.dd.numTTs += startTTObs;
-      }
-
-      for (unsigned nId : neighbourIds)
-      {
-        finalNeighbours.add(nId, station.id, phase.procInfo.type);
       }
     }
 
@@ -1182,137 +1227,17 @@ Catalog DD::updateRelocatedEvents(
       continue;
     }
 
-    if (sumSquaredWeights > 0)
-    {
-      event.relocInfo.finalRms =
-          std::sqrt(sumSquaredResiduals / sumSquaredWeights);
-      allRms.push_back(event.relocInfo.finalRms);
-    }
-
-    double residualMedian = computeMedian(obsResiduals);
-    double residualMAD =
-        computeMedianAbsoluteDeviation(obsResiduals, residualMedian);
-    if (isFirstIteration)
-    {
-      event.relocInfo.dd.startResidualMedian = residualMedian;
-      event.relocInfo.dd.startResidualMAD    = residualMAD;
-    }
-    event.relocInfo.dd.finalResidualMedian = residualMedian;
-    event.relocInfo.dd.finalResidualMAD    = residualMAD;
-
-    event.relocInfo.numNeighbours = finalNeighbours.ids().size();
-
-    auto it = finalNeighCluster.find(finalNeighbours.referenceId());
-    if (it != finalNeighCluster.end())
-    {
-      // Key exists — overwrite the value with a moved object
-      it->second = std::move(finalNeighbours);
-    }
-    else
-    {
-      // Key does not exist — insert by moving
-      finalNeighCluster.emplace(finalNeighbours.referenceId(),
-                                std::move(finalNeighbours));
-    }
-
     relocatedEvs++;
   }
 
   logInfoF("Successfully relocated %u events", relocatedEvs);
 
-  double min, max, q1, q2, q3;
-  compute5numberSummary(allRms, min, max, q1, q2, q3);
-  logInfoF("Event RMS [msec]: min %.3f 1st quartile %.3f median %.3f 3rd "
-           "quartile %.3f max %.3f ",
-           min * 1000, q1 * 1000, q2 * 1000, q3 * 1000, max * 1000);
-
   return Catalog(stations, events, phases);
-}
-
-Catalog DD::updateRelocatedEventsFinalStats(
-    const Catalog &startCatalog,
-    const Catalog &finalCatalog,
-    const unordered_map<unsigned, Neighbours> &neighCluster) const
-{
-  Catalog catalogToReturn{};
-  vector<double> allRms;
-  vector<double> stationDist;
-
-  for (const auto &kv : neighCluster)
-  {
-    const Neighbours &neighbours = kv.second;
-    auto it = finalCatalog.getEvents().find(neighbours.referenceId());
-
-    // If the event hasn't been relocated, remove it from the final catalog.
-    if (it == finalCatalog.getEvents().end() ||
-        !it->second.relocInfo.isRelocated)
-    {
-      continue;
-    }
-
-    Catalog tmpCat = finalCatalog.extractEvent(neighbours.referenceId(), true);
-
-    const Event &startEvent =
-        startCatalog.getEvents().at(neighbours.referenceId());
-    Event finalEvent = tmpCat.getEvents().at(neighbours.referenceId());
-
-    //
-    // Compute starting event rms considering only the phases in the final
-    // catalog.
-    //
-    double sumSquaredResiduals    = 0.0;
-    double sumSquaredWeights      = 0.0;
-    finalEvent.relocInfo.startRms = 0;
-    const auto &eqlrng = tmpCat.getPhases().equal_range(finalEvent.id);
-    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-    {
-      const Phase &finalEvPhase = it->second;
-      const Station &station = tmpCat.getStations().at(finalEvPhase.stationId);
-      try
-      {
-        double travelTime = _ttt->compute(
-            startEvent, station,
-            string(1, static_cast<char>(finalEvPhase.procInfo.type)));
-        double residual =
-            travelTime - durToSec(finalEvPhase.time - startEvent.time);
-        double weight = finalEvPhase.relocInfo.weight;
-        sumSquaredResiduals += (residual * weight) * (residual * weight);
-        sumSquaredWeights += weight * weight;
-      }
-      catch (exception &e)
-      {
-        logWarningF(
-            "Travel Time Table error: %s (Event lat %.6f lon %.6f depth %.6f "
-            "Station lat %.6f lon %.6f elevation %.f )",
-            e.what(), startEvent.latitude, startEvent.longitude,
-            startEvent.depth, station.latitude, station.longitude,
-            station.elevation);
-      }
-    }
-
-    if (sumSquaredWeights > 0)
-    {
-      finalEvent.relocInfo.startRms =
-          std::sqrt(sumSquaredResiduals / sumSquaredWeights);
-      allRms.push_back(finalEvent.relocInfo.startRms);
-    }
-
-    tmpCat.updateEvent(finalEvent, false);
-    catalogToReturn.add(finalEvent.id, tmpCat, true);
-  }
-
-  double min, max, q1, q2, q3;
-  compute5numberSummary(allRms, min, max, q1, q2, q3);
-  logInfoF("Event RMS before relocation [msec]: min %.3f 1st quartile %.3f "
-           "median %.3f 3rd quartile %.3f max %.3f ",
-           min * 1000, q1 * 1000, q2 * 1000, q3 * 1000, max * 1000);
-
-  return catalogToReturn;
 }
 
 XCorrCache
 DD::buildXCorrCache(Catalog &catalog,
-                    const unordered_map<unsigned, Neighbours> &neighCluster,
+                    const unordered_map<unsigned, Neighbours> &cluster,
                     double xcorrMaxEvStaDist,
                     double xcorrMaxInterEvDist,
                     const XCorrCache &precomputed)
@@ -1331,7 +1256,7 @@ DD::buildXCorrCache(Catalog &catalog,
 
   unsigned long performed = 0;
 
-  for (const auto &kv : neighCluster)
+  for (const auto &kv : cluster)
   {
     const Neighbours &neighbours = kv.second;
     const Event &refEv = catalog.getEvents().at(neighbours.referenceId());
@@ -1340,11 +1265,11 @@ DD::buildXCorrCache(Catalog &catalog,
                              xcorrMaxInterEvDist, precomputed, xcorr);
 
     const unsigned onePerThousand =
-        neighCluster.size() < 1000 ? 1 : (neighCluster.size() / 1000);
+        cluster.size() < 1000 ? 1 : (cluster.size() / 1000);
     if (++performed % onePerThousand == 0)
     {
       logInfoF("Cross-correlation completion %.1f%%",
-               (performed * 100 / (double)neighCluster.size()));
+               (performed * 100 / (double)cluster.size()));
     }
   }
 
