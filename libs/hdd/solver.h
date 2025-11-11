@@ -159,7 +159,7 @@ public:
                       unsigned evId2,
                       const std::string &staId,
                       char phase,
-                      double diffTime,
+                      double timeDiff,
                       double aPrioriWeight,
                       bool isXcorr);
 
@@ -179,11 +179,27 @@ public:
                             double takeOffAngleDip,
                             double velocityAtSrc);
 
-  void solve(unsigned numIterations    = 0,
-             double ttConstraint       = 0,
-             double dampingFactor      = 0,
-             double residualDownWeight = 0,
-             bool normalizeG           = true);
+  bool getObservationParams(unsigned evId,
+                            const std::string &staId,
+                            char phase,
+                            double &evLat,
+                            double &evLon,
+                            double &evDepth,
+                            double &staLat,
+                            double &staLon,
+                            double &staElevation,
+                            bool &computeEvChanges,
+                            double &travelTime,
+                            double &travelTimeResidual,
+                            double &takeOffAngleAzim,
+                            double &takeOffAngleDip,
+                            double &velocityAtSrc) const;
+
+  void prepare(double ttConstraint = 0, double residualDownWeight = 0);
+
+  void solve(unsigned numIterations = 0,
+             double dampingFactor   = 0,
+             bool normalizeG        = true);
 
   bool getEventChanges(unsigned evId,
                        double &deltaLat,
@@ -191,16 +207,8 @@ public:
                        double &deltaDepth,
                        double &deltaTT) const;
 
-  bool getObservationParamsChanges(unsigned evId,
-                                   const std::string &staId,
-                                   char phase,
-                                   unsigned &startingTTObs,
-                                   unsigned &startingCCObs,
-                                   unsigned &finalTotalObs,
-                                   double &meanAPrioriWeight,
-                                   double &meanFinalWeight,
-                                   double &meanObsResidual,
-                                   std::set<unsigned> &evIds) const;
+  bool
+  isEventPhaseUsed(unsigned evId, const std::string &staId, char phase) const;
 
 private:
   void computePartialDerivatives();
@@ -211,15 +219,9 @@ private:
   computeResidualWeights(const std::vector<double> &residuals,
                          const double alpha) const;
 
-  void prepareDDSystem(double ttConstraint,
-                       double dampingFactor,
-                       double residualDownWeight);
-
   template <typename T>
   void _solve(unsigned numIterations,
-              double ttConstraint,
               double dampingFactor,
-              double residualDownWeight,
               bool normalizeG,
               std::set<unsigned> rejectStoppingReasons);
 
@@ -235,7 +237,7 @@ private:
     unsigned ev1Idx;
     unsigned ev2Idx;
     unsigned phStaIdx;
-    double observedDiffTime;
+    double timeDiff;
     double aPrioriWeight;
     bool isXcorr;
   };
@@ -269,19 +271,13 @@ private:
   std::unordered_map<unsigned, std::unordered_map<unsigned, ObservationParams>>
       _obsParams;
 
-  struct ParamStats
+  struct Stats
   {
-    unsigned startingTTObs    = 0;
-    unsigned startingCCObs    = 0;
-    unsigned finalTotalObs    = 0;
-    double totalAPrioriWeight = 0;
-    double totalFinalWeight   = 0;
-    double totalResiduals     = 0;
-    std::set<unsigned> peerEvIds;
+    unsigned finalTotalObs  = 0;
+    double totalFinalWeight = 0;
   };
   // key1=evIdx  key2=phStaIdx
-  std::unordered_map<unsigned, std::unordered_map<unsigned, ParamStats>>
-      _paramStats;
+  std::unordered_map<unsigned, std::unordered_map<unsigned, Stats>> _stats;
 
   struct EventDeltas
   {
@@ -292,7 +288,6 @@ private:
   };
   std::unordered_map<unsigned, EventDeltas> _eventDeltas; // key = evIdx
 
-  std::vector<double> _residuals;
   DDSystem _dd;
   std::string _type;
 };

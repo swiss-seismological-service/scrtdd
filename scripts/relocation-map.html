@@ -356,7 +356,7 @@ function loadData() {
           group : "abs-events"
         };
       }),
-      d3.csv("./me-dd-event.csv", function(data) {
+      d3.csv("./relocated-event.csv", function(data) {
         return {
           id    : +data.id, 
           time  : new Date(data.isotime),
@@ -367,11 +367,7 @@ function loadData() {
           desc  : new Date(data.isotime).toUTCString()
                   + "<br>Mag " + data.magnitude 
                   + "<br>Depth km " + data.depth
-                  + "<br>Depth change km " + data.depthChange
-                  + "<br>Epicenter change km " + data.locChange
-                  + "<br>Rms change sec " + (parseFloat(data.finalRms) - parseFloat(data.startRms)).toFixed(3)
-                  + "<br>Used phases P " + data.ph_usedP + " S " + data.ph_usedS
-                  + "<br>Used neighbours " + data.numNeighbours, 
+                  + "<br>Rms change sec " + (parseFloat(data.finalRms) - parseFloat(data.startRms)).toFixed(3),
           group : "medd-events"
         };
       }),

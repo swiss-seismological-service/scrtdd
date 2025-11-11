@@ -80,22 +80,6 @@ public:
       bool isRelocated = false;
       double startRms;
       double finalRms;
-      unsigned numNeighbours;
-      unsigned usedP;
-      unsigned usedS;
-
-      struct
-      {
-        unsigned numTTp;
-        unsigned numTTs;
-        unsigned numCCp;
-        unsigned numCCs;
-        double startResidualMedian;
-        double startResidualMAD;
-        double finalResidualMedian;
-        double finalResidualMAD;
-      } dd; // double-difference
-
     } relocInfo;
 
     // Compare attributes when the id is not known (works between multiple
@@ -147,7 +131,8 @@ public:
     {
       bool isRelocated = false;
       double weight;
-      double residual;
+      double startResidual;
+      double finalResidual;
     } relocInfo;
 
     bool trusted() const
