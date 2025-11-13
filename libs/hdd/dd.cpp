@@ -85,6 +85,37 @@ struct WfCounters
   }
 };
 
+void writeDoubleDifferenceToFile(
+    const std::vector<HDD::Solver::DoubleDifference> &dds,
+    const HDD::XCorrCache &xcorr,
+    const HDD::Catalog &cat,
+    const std::string &file)
+{
+  ofstream os(file);
+  os << "eventId1,eventId2,networkCode,stationCode,locationCode,phaseType,"
+        "weight,xcorrUsed,xcorrValid,xcorrCoefficient,xcorrLag,"
+        "observedTimeDiff,computedTimeDiff,doubleDifference,interEventDistance"
+     << endl;
+
+  for (const auto &e : dds)
+  {
+    const HDD::Catalog::Station &sta = cat.getStations().at(e.staId);
+    Phase::Type type                 = static_cast<Phase::Type>(e.phase);
+    HDD::XCorrCache::Entry x;
+    if (xcorr.has(e.evId1, e.evId2, e.staId, type))
+    {
+      x = xcorr.get(e.evId1, e.evId2, e.staId, type);
+    }
+    os << HDD::strf("%u,%u,%s,%s,%s,%c,%s,%s,%g,%g,%g,%g,%g,%g", e.evId1,
+                    e.evId2, sta.networkCode.c_str(), sta.stationCode.c_str(),
+                    sta.locationCode.c_str(), e.phase,
+                    e.isXcorr ? "true" : "false", x.valid ? "true" : "false",
+                    x.coeff, x.lag, e.observedTimeDiff, e.computedTimeDiff,
+                    e.doubleDifference, e.interEventDistance)
+       << endl;
+  }
+}
+
 } // namespace
 
 namespace HDD {
@@ -498,17 +529,22 @@ Catalog DD::relocateMultiEvents(
                         clustOpt.xcorrMaxInterEvDist, xcorrData);
 
     // the actual relocation
-    Catalog relocatedCluster =
-        relocate(catToReloc, cluster, solverOpt, false, xcorr);
+    std::vector<Solver::DoubleDifference> startDDs, finalDDs;
+    Catalog relocatedCluster = relocate(catToReloc, cluster, solverOpt, false,
+                                        xcorr, startDDs, finalDDs);
 
     relocatedCatalog.add(relocatedCluster, true);
 
     if (saveProcessing)
     {
-      string prefix = strf("relocated-cluster-%u", clusterId);
+      string prefix = strf("cluster-%u", clusterId);
+      writeDoubleDifferenceToFile(startDDs, xcorr, catToReloc,
+                                  prefix + "initial-double-difference");
+      writeDoubleDifferenceToFile(finalDDs, xcorr, catToReloc,
+                                  prefix + "final-double-difference");
       relocatedCluster.writeToFile(
-          joinPath(processingDataDir, (prefix + "-event.csv")),
-          joinPath(processingDataDir, (prefix + "-phase.csv")));
+          joinPath(processingDataDir, (prefix + "-relocated-event.csv")),
+          joinPath(processingDataDir, (prefix + "-relocated-phase.csv")));
     }
     clusterId++;
 
@@ -728,10 +764,16 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
     }
 
     // the actual relocation
-    relocatedEvCat = relocate(catalog, cluster, solverOpt, true, xcorr);
+    std::vector<Solver::DoubleDifference> startDDs, finalDDs;
+    relocatedEvCat =
+        relocate(catalog, cluster, solverOpt, true, xcorr, startDDs, finalDDs);
 
     if (saveProcessing)
     {
+      writeDoubleDifferenceToFile(startDDs, xcorr, catalog,
+                                  "initial-double-difference");
+      writeDoubleDifferenceToFile(finalDDs, xcorr, catalog,
+                                  "final-double-difference");
       relocatedEvCat.writeToFile(
           joinPath(processingDataDir, "relocated-event.csv"),
           joinPath(processingDataDir, "relocated-phase.csv"));
@@ -749,7 +791,9 @@ Catalog DD::relocate(const Catalog &catalog,
                      const unordered_map<unsigned, Neighbours> &cluster,
                      const SolverOptions &solverOpt,
                      bool keepNeighboursFixed,
-                     const XCorrCache &xcorr) const
+                     const XCorrCache &xcorr,
+                     std::vector<Solver::DoubleDifference> startDDs,
+                     std::vector<Solver::DoubleDifference> finalDDs) const
 {
   logInfo("Building and solving double-difference system...");
 
@@ -815,10 +859,16 @@ Catalog DD::relocate(const Catalog &catalog,
     //
     solver.prepare(absLocConstraint, downWeightingByResidual);
 
+    if (isFirstIteration)
+    {
+      startDDs = solver.getDoubleDifferences();
+    }
+
     if (isLastIteration)
     {
-      // Last iteration is just fo logging the residuals
-      // So exit without solving the system
+      // Last iteration is just fo logging the residuals and collect latest
+      // double differences. So exit without solving the system
+      finalDDs = solver.getDoubleDifferences();
       break;
     }
 

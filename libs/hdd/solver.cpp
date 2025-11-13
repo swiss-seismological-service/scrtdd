@@ -335,6 +335,40 @@ bool Solver::getObservationParams(unsigned evId,
   return true;
 }
 
+std::vector<Solver::DoubleDifference> Solver::getDoubleDifferences() const
+{
+  std::vector<DoubleDifference> results;
+  results.reserve(_observations.size());
+  for (auto &kw : _observations)
+  {
+    // unsigned obIdx        = kw.first;
+    const Observation &ob = kw.second;
+
+    // Get staId and phase
+    string phStaId = _phStaIdConverter.fromIdx(ob.phStaIdx);
+    size_t pos     = phStaId.find('@');
+    if (pos == std::string::npos)
+    {
+      throw Exception("Solver: internal logic error (phStaId formmating)");
+    }
+    char phase        = phStaId[0]; // or phStaId.substr(0, 1)[0]
+    std::string staId = phStaId.substr(pos + 1);
+
+    DoubleDifference entry{_eventIdConverter.fromIdx(ob.ev1Idx),
+                           _eventIdConverter.fromIdx(ob.ev2Idx),
+                           staId,
+                           phase,
+                           ob.residualDownWeight,
+                           ob.isXcorr,
+                           ob.timeDiff,
+                           ob.computedTimeDiff,
+                           ob.doubleDifference,
+                           ob.interEventDistance};
+    results.emplace_back(std::move(entry));
+  }
+  return results;
+}
+
 bool Solver::getEventChanges(unsigned evId,
                              double &deltaLat,
                              double &deltaLon,
@@ -457,7 +491,7 @@ void Solver::computePartialDerivatives()
   }
 }
 
-multimap<double, unsigned> Solver::computeInterEventDistance() const
+multimap<double, unsigned> Solver::computeInterEventDistance()
 {
   if (_observations.size() < 1)
   {
@@ -467,10 +501,10 @@ multimap<double, unsigned> Solver::computeInterEventDistance() const
   map<string, double> distCache;
   multimap<double, unsigned> dists;
 
-  for (const auto &kw : _observations)
+  for (auto &kw : _observations)
   {
-    unsigned obIdx           = kw.first;
-    const Observation &obsrv = kw.second;
+    unsigned obIdx     = kw.first;
+    Observation &obsrv = kw.second;
 
     double interEvDistance;
 
@@ -492,6 +526,7 @@ multimap<double, unsigned> Solver::computeInterEventDistance() const
     }
 
     dists.emplace(interEvDistance, obIdx);
+    obsrv.interEventDistance = interEvDistance;
   }
 
   return dists;
@@ -587,12 +622,15 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
     const ObservationParams &obprm1 = _obsParams.at(ob.ev1Idx).at(ob.phStaIdx);
     const ObservationParams &obprm2 = _obsParams.at(ob.ev2Idx).at(ob.phStaIdx);
 
+    // compute double difference
+    ob.computedTimeDiff = obprm1.travelTime - obprm2.travelTime;
+    ob.doubleDifference = ob.timeDiff - ob.computedTimeDiff;
+
     _dd.W[obIdx]          = ob.aPrioriWeight;
     _dd.evByObs[0][obIdx] = obprm1.computeEvChanges ? ob.ev1Idx : -1;
     _dd.evByObs[1][obIdx] = obprm2.computeEvChanges ? ob.ev2Idx : -1;
     _dd.phStaByObs[obIdx] = ob.phStaIdx;
-    // compute double difference
-    _dd.d[obIdx] = ob.timeDiff - (obprm1.travelTime - obprm2.travelTime);
+    _dd.d[obIdx]          = ob.doubleDifference;
   }
 
   //
@@ -606,6 +644,7 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
     for (unsigned obIdx = 0; obIdx < _dd.nObs; obIdx++)
     {
       _dd.W[obIdx] *= resWeights[obIdx];
+      _observations.at(obIdx).residualDownWeight = _dd.W[obIdx];
     }
   }
 
@@ -731,12 +770,6 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
              startingDist, finalDist, decileRes.size(), min * 1000, q1 * 1000,
              q2 * 1000, q3 * 1000, max * 1000);
   }
-
-  // free some memory
-  _observations.clear();
-  _eventParams.clear();
-  _stationParams.clear();
-  _obsParams.clear();
 }
 
 void Solver::solve(unsigned numIterations,
@@ -747,6 +780,12 @@ void Solver::solve(unsigned numIterations,
   {
     throw Exception("Solver: no observations given");
   }
+
+  // free some memory
+  _observations.clear();
+  _eventParams.clear();
+  _stationParams.clear();
+  _obsParams.clear();
 
   if (_type == "LSQR")
   {

@@ -197,23 +197,25 @@ public:
 
   void prepare(double ttConstraint = 0, double residualDownWeight = 0);
 
-  void solve(unsigned numIterations = 0,
-             double dampingFactor   = 0,
-             bool normalizeG        = true);
-
-  bool getEventChanges(unsigned evId,
-                       double &deltaLat,
-                       double &deltaLon,
-                       double &deltaDepth,
-                       double &deltaTT) const;
-
-  bool
-  isEventPhaseUsed(unsigned evId, const std::string &staId, char phase) const;
+  struct DoubleDifference
+  {
+    unsigned evId1;
+    unsigned evId2;
+    std::string staId;
+    char phase;
+    double weight;
+    bool isXcorr;
+    double observedTimeDiff;   // sec
+    double computedTimeDiff;   // sec
+    double doubleDifference;   // sec
+    double interEventDistance; // km
+  };
+  std::vector<DoubleDifference> getDoubleDifferences() const;
 
 private:
   void computePartialDerivatives();
 
-  std::multimap<double, unsigned> computeInterEventDistance() const;
+  std::multimap<double, unsigned> computeInterEventDistance();
 
   std::vector<double>
   computeResidualWeights(const std::vector<double> &residuals,
@@ -234,12 +236,18 @@ private:
 
   struct Observation
   {
+    // user provided
     unsigned ev1Idx;
     unsigned ev2Idx;
     unsigned phStaIdx;
     double timeDiff;
     double aPrioriWeight;
     bool isXcorr;
+    // computed
+    double computedTimeDiff;
+    double doubleDifference;
+    double residualDownWeight;
+    double interEventDistance;
   };
   std::unordered_map<unsigned, Observation> _observations; // key = obsIdx
 
@@ -257,12 +265,14 @@ private:
 
   struct ObservationParams
   {
+    // user provided
     bool computeEvChanges;
     double travelTime;
     double travelTimeResidual;
     double takeOffAngleAzim;
     double takeOffAngleDip;
     double velocityAtSrc;
+    // computed
     double dx;
     double dy;
     double dz;
