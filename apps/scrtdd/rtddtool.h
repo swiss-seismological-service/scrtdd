@@ -135,7 +135,6 @@ private:
     std::string dumpCatalog;
     std::string dumpWaveforms;
     std::string mergeCatalogs;
-    std::string evalXCorr;
     std::string clusters;
     std::string xcorrCache;
     std::string reloadProfileMsg;
@@ -166,7 +165,6 @@ private:
     HDD::Catalog relocateSingleEvent(DataModel::Origin *org);
     HDD::Catalog relocateCatalog(const std::string &clusterFiles = "",
                                  const std::string &xcorrFile    = "");
-    void evalXCorr(const std::string &xcorrFile);
     void dumpWaveforms();
     void dumpClusters();
 

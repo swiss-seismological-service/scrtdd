@@ -39,8 +39,7 @@
 
 using namespace std;
 using namespace Seiscomp;
-using PhaseSrc       = HDD::Catalog::Phase::Source;
-using XCorrEvalStats = HDD::DD::XCorrEvalStats;
+using PhaseSrc = HDD::Catalog::Phase::Source;
 using Seiscomp::Core::stringify;
 
 namespace {
@@ -638,97 +637,5 @@ void convertOrigin(DataSource &dataSrc,
   newOrg->setQuality(oq);
 }
 
-void printEvalXcorrStats(
-    const XCorrEvalStats &pTotStats,
-    const XCorrEvalStats &sTotStats,
-    const map<string, XCorrEvalStats> &pStatsByStation,
-    const map<string, XCorrEvalStats> &sStatsByStation,
-    const map<unsigned, XCorrEvalStats> &pStatsByStaDistance,
-    const map<unsigned, XCorrEvalStats> &sStatsByStaDistance,
-    const map<unsigned, XCorrEvalStats> &pStatsByInterEvDistance,
-    const map<unsigned, XCorrEvalStats> &sStatsByInterEvDistance,
-    double interEvDistStep,
-    double staDistStep,
-    double completionPercent)
-{
-  unsigned skipped, performed;
-  double meanCoeff, meanCoeffAbsDev, medianCoeff, medianCoeffAbsDev;
-  double meanLag, meanLagAbsDev, medianLag, medianLagAbsDev;
-
-  string log;
-  if (completionPercent >= 1)
-    log += "---FINAL STATS--\n";
-  else
-    log += stringify("---PARTIAL STATS %.1f%%---\n", completionPercent * 100);
-
-  auto header = [](const string &firstColumn) {
-    return stringify(
-        "%-20s   #CC   #Skip meanCC (MAD) medianCC (MAD) meanLag (MAD) "
-        "medianLag (MAD)\n",
-        firstColumn.c_str());
-  };
-
-  auto row = [&](const string &firstColumn, const XCorrEvalStats &stats) {
-    stats.summarize(skipped, performed, meanCoeff, meanCoeffAbsDev, medianCoeff,
-                    medianCoeffAbsDev, meanLag, meanLagAbsDev, medianLag,
-                    medianLagAbsDev);
-    return stringify(
-        "%-15s %10u %7u %5.2f (%3.2f) %7.2f (%3.2f) %7.f (%3.f) %9.f (%3.f)\n",
-        firstColumn.c_str(), performed, skipped, meanCoeff, meanCoeffAbsDev,
-        medianCoeff, medianCoeffAbsDev, meanLag * 1000, meanLagAbsDev * 1000,
-        medianLag * 1000, medianLagAbsDev * 1000);
-  };
-
-  log += header("Total xcorr P phases");
-  log += row("", pTotStats);
-  log += header("Total xcorr S phases");
-  log += row("", sTotStats);
-
-  log += stringify("Xcorr P phases by inter-event distance in %.2f km step\n",
-                   interEvDistStep);
-  log += header(" EvDist [km]");
-  for (const auto &kv : pStatsByInterEvDistance)
-    log += row(stringify("%5.2f-%-5.2f", kv.first * interEvDistStep,
-                         (kv.first + 1) * interEvDistStep),
-               kv.second);
-
-  log += stringify("Xcorr S phases by inter-event distance in %.2f km step\n",
-                   interEvDistStep);
-  log += header(" EvDist [km]");
-  for (const auto &kv : sStatsByInterEvDistance)
-    log += row(stringify("%5.2f-%-5.2f", kv.first * interEvDistStep,
-                         (kv.first + 1) * interEvDistStep),
-               kv.second);
-
-  log +=
-      stringify("XCorr P phases by event to station distance in %.2f km step\n",
-                staDistStep);
-  log += header("StaDist [km]");
-  for (const auto &kv : pStatsByStaDistance)
-    log += row(stringify("%3d-%-3d", int(kv.first * staDistStep),
-                         int((kv.first + 1) * staDistStep)),
-               kv.second);
-
-  log +=
-      stringify("XCorr S phases by event to station distance in %.2f km step\n",
-                staDistStep);
-  log += header("StaDist [km]");
-  for (const auto &kv : sStatsByStaDistance)
-    log += row(stringify("%3d-%-3d", int(kv.first * staDistStep),
-                         int((kv.first + 1) * staDistStep)),
-               kv.second);
-
-  log += stringify("XCorr P phases by station\n");
-  log += header("Station");
-  for (const auto &kv : pStatsByStation)
-    log += row(stringify("%-12s", kv.first.c_str()), kv.second);
-
-  log += stringify("XCorr S phases by station\n");
-  log += header("Station");
-  for (const auto &kv : sStatsByStation)
-    log += row(stringify("%-12s", kv.first.c_str()), kv.second);
-
-  std::cout << log;
-}
 } // namespace SCAdapter
 } // namespace HDD
