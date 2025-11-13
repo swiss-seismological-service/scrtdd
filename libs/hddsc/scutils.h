@@ -101,19 +101,6 @@ void convertOrigin(DataSource &dataSrc,
                    Seiscomp::DataModel::OriginPtr &newOrg,
                    std::vector<Seiscomp::DataModel::PickPtr> &newOrgPicks);
 
-void printEvalXcorrStats(
-    const HDD::DD::XCorrEvalStats &pTotStats,
-    const HDD::DD::XCorrEvalStats &sTotStats,
-    const std::map<std::string, HDD::DD::XCorrEvalStats> &pStatsByStation,
-    const std::map<std::string, HDD::DD::XCorrEvalStats> &sStatsByStation,
-    const std::map<unsigned, HDD::DD::XCorrEvalStats> &pStatsByStaDistance,
-    const std::map<unsigned, HDD::DD::XCorrEvalStats> &sStatsByStaDistance,
-    const std::map<unsigned, HDD::DD::XCorrEvalStats> &pStatsByInterEvDistance,
-    const std::map<unsigned, HDD::DD::XCorrEvalStats> &sStatsByInterEvDistance,
-    double interEvDistStep,
-    double staDistStep,
-    double completionPercent);
-
 inline Seiscomp::Core::Time toSC(const HDD::UTCTime &t)
 {
   return Seiscomp::Core::Time(HDD::durToSec(t.time_since_epoch()));

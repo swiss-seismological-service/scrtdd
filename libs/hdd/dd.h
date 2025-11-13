@@ -210,55 +210,6 @@ public:
                               const SolverOptions &solverOpt,
                               bool saveProcessing           = false,
                               std::string processingDataDir = "");
-
-  struct XCorrEvalStats
-  {
-    std::vector<unsigned> skipped;
-    std::vector<unsigned> performed;
-    std::vector<double> coeff;
-    std::vector<double> lag;
-    void summarize(unsigned &skipped,
-                   unsigned &performed,
-                   double &meanCoeff,
-                   double &meanCoeffAbsDev,
-                   double &medianCoeff,
-                   double &medianCoeffAbsDev,
-                   double &meanLag,
-                   double &meanLagAbsDev,
-                   double &medianLag,
-                   double &medianLagAbsDev) const;
-  };
-
-  using evalXcorrCallback = std::function<void(
-      const XCorrEvalStats &pTotStats,
-      const XCorrEvalStats &sTotStats,
-      const std::map<std::string, XCorrEvalStats> &pStatsByStation,
-      const std::map<std::string, XCorrEvalStats> &sStatsByStation,
-      const std::map<unsigned, XCorrEvalStats> &pStatsByStaDistance,
-      const std::map<unsigned, XCorrEvalStats> &sStatsByStaDistance,
-      const std::map<unsigned, XCorrEvalStats> &pStatsByInterEvDistance,
-      const std::map<unsigned, XCorrEvalStats> &sStatsByInterEvDistance,
-      double interEvDistStep,
-      double staDistStep,
-      double completionPercent)>;
-
-  // Compute statistics on cross-correlatio results
-  void evalXCorr(const ClusteringOptions &clustOpt,
-                 const evalXcorrCallback &cb,
-                 XCorrCache &precomputed,
-                 const double interEvDistStep = 0.1, // km
-                 const double staDistStep     = 3);      // km
-
-  // Compute statistics on cross-correlatio results
-  void evalXCorr(const ClusteringOptions &clustOpt,
-                 const evalXcorrCallback &cb,
-                 const double interEvDistStep = 0.1, // km
-                 const double staDistStep     = 3)       // km
-  {
-    XCorrCache empty;
-    evalXCorr(clustOpt, cb, empty, interEvDistStep, staDistStep);
-  }
-
   //
   // Static method
   //

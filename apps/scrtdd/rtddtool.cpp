@@ -60,7 +60,6 @@ using namespace std;
 using namespace Seiscomp::DataModel;
 using HDD::SCAdapter::addToCatalog;
 using HDD::SCAdapter::convertOrigin;
-using HDD::SCAdapter::printEvalXcorrStats;
 using Seiscomp::Core::fromString;
 using Seiscomp::Core::stringify;
 using PhaseType  = HDD::Catalog::Phase::Type;
@@ -282,13 +281,6 @@ void RTDD::createCommandLineDescription()
       "multi-event mode.",
       &_config.eventXML, true);
   commandline().addOption(
-      "Mode", "eval-xcorr",
-      "Compute cross-correlation statistics for the catalog passed as "
-      "argument. The input can be a single file (containing seiscomp origin "
-      "ids) or a file triplet (station.csv,event.csv,phase.csv). Use in "
-      "combination with --profile",
-      &_config.evalXCorr, true);
-  commandline().addOption(
       "Mode", "dump-clusters",
       "Find clusters in the catalog passed as argument and save them in "
       "the working directory."
@@ -389,9 +381,9 @@ bool RTDD::validateParameters()
 
   // disable messaging (offline mode) with certain command line options
   if (!_config.eventXML.empty() || !_config.dumpCatalog.empty() ||
-      !_config.mergeCatalogs.empty() || !_config.evalXCorr.empty() ||
-      !_config.relocateCatalog.empty() || _config.loadProfileWf ||
-      !_config.dumpWaveforms.empty() || !_config.dumpClusters.empty() ||
+      !_config.mergeCatalogs.empty() || !_config.relocateCatalog.empty() ||
+      _config.loadProfileWf || !_config.dumpWaveforms.empty() ||
+      !_config.dumpClusters.empty() ||
       (!_config.originIDs.empty() && _config.testMode))
   {
     SEISCOMP_INFO("Disable messaging");
@@ -400,12 +392,6 @@ bool RTDD::validateParameters()
   }
 
   bool profileRequireDB = false;
-  if (!_config.evalXCorr.empty() &&
-      ::splitString(_config.evalXCorr, ",").size() ==
-          1) // single file containing origin ids
-  {
-    profileRequireDB = true;
-  }
 
   if (!_config.dumpWaveforms.empty() &&
       ::splitString(_config.dumpWaveforms, ",").size() ==
@@ -1033,9 +1019,8 @@ bool RTDD::validateParameters()
   // and certain command line options are present too
   if (!isInventoryDatabaseEnabled() && !profileRequireDB &&
       (!_config.eventXML.empty() || !_config.mergeCatalogs.empty() ||
-       !_config.evalXCorr.empty() || !_config.relocateCatalog.empty() ||
-       !_config.dumpWaveforms.empty() || _config.loadProfileWf ||
-       !_config.dumpClusters.empty()))
+       !_config.relocateCatalog.empty() || !_config.dumpWaveforms.empty() ||
+       _config.loadProfileWf || !_config.dumpClusters.empty()))
   {
     SEISCOMP_INFO("Disable database connection");
     setDatabaseEnabled(false, false);
@@ -1127,17 +1112,6 @@ bool RTDD::run()
                      _config.eventXML.c_str());
       return false;
     }
-  }
-
-  // evaluate cross-correlation and exit
-  if (!_config.evalXCorr.empty())
-  {
-    HDD::Catalog catalog = getCatalog(_config.evalXCorr);
-    ProfilePtr profile   = getProfile(_config.forceProfile);
-    if (catalog.empty() || !profile) return false;
-    loadProfile(profile, catalog);
-    profile->evalXCorr(_config.xcorrCache);
-    return true;
   }
 
   // dump clusters and exit
@@ -2123,33 +2097,6 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
       "Wrote relocated catalog files reloc-event.csv, reloc-phase.csv, "
       "reloc-station.csv and cross-correlation results xcorr.csv");
   return relocatedCat;
-}
-
-void RTDD::Profile::evalXCorr(const std::string &xcorrFile)
-{
-  if (!loaded)
-  {
-    string msg = Core::stringify(
-        "Cannot evalute cross-correlation settings, profile %s not initialized",
-        name.c_str());
-    throw runtime_error(msg.c_str());
-  }
-  lastUsage = Core::Time::GMT();
-
-  HDD::XCorrCache xcorr;
-  if (!xcorrFile.empty())
-  {
-    xcorr = HDD::XCorrCache::readFromFile(dd->getCatalog(), xcorrFile);
-  }
-
-  dd->evalXCorr(multiEventClustering, printEvalXcorrStats, xcorr);
-
-  if (!xcorr.empty())
-  {
-    xcorr.writeToFile(dd->getCatalog(), "xcorr.csv");
-  }
-
-  SEISCOMP_INFO("Wrote cross-correlation results xcorr.csv");
 }
 
 void RTDD::Profile::dumpWaveforms()
