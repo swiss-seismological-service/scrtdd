@@ -256,19 +256,28 @@ void Solver::addObservation(unsigned evId1,
   unsigned evIdx2   = _eventIdConverter.convert(evId2);
   unsigned phStaIdx = _phStaIdConverter.convert(phStaId);
   unsigned obsIdx   = _obsIdConverter.convert(obsId);
-  _observations[obsIdx] =
-      Observation{evIdx1, evIdx2, phStaIdx, timeDiff, aPrioriWeight, isXcorr};
+  _observations.insert({obsIdx, Observation{evIdx1, evIdx2, phStaIdx, timeDiff,
+                                            aPrioriWeight, isXcorr}});
+}
+
+void Solver::addEvent(unsigned evId, double evLat, double evLon, double evDepth)
+{
+  int evIdx = _eventIdConverter.convert(evId);
+  _eventParams.insert({evIdx, EventParams{evLat, evLon, evDepth}});
+}
+
+void Solver::addStation(const std::string &staId,
+                        double staLat,
+                        double staLon,
+                        double staElevation)
+{
+  unsigned staIdx = _staIdConverter.convert(staId);
+  _stationParams.insert({staIdx, StationParams{staLat, staLon, staElevation}});
 }
 
 void Solver::addObservationParams(unsigned evId,
                                   const std::string &staId,
                                   char phase,
-                                  double evLat,
-                                  double evLon,
-                                  double evDepth,
-                                  double staLat,
-                                  double staLon,
-                                  double staElevation,
                                   bool computeEvChanges,
                                   double travelTime,
                                   double travelTimeResidual,
@@ -276,31 +285,58 @@ void Solver::addObservationParams(unsigned evId,
                                   double takeOffAngleDip,
                                   double velocityAtSrc)
 {
-  string phStaId              = string(1, phase) + "@" + staId;
-  int evIdx                   = _eventIdConverter.convert(evId);
-  unsigned phStaIdx           = _phStaIdConverter.convert(phStaId);
-  _eventParams[evIdx]         = EventParams{evLat, evLon, evDepth};
-  _stationParams[phStaIdx]    = StationParams{staLat, staLon, staElevation};
-  _obsParams[evIdx][phStaIdx] = ObservationParams{computeEvChanges,
-                                                  travelTime,
-                                                  travelTimeResidual,
-                                                  takeOffAngleAzim,
-                                                  takeOffAngleDip,
-                                                  velocityAtSrc,
-                                                  0,
-                                                  0,
-                                                  0};
+  string phStaId    = string(1, phase) + "@" + staId;
+  int evIdx         = _eventIdConverter.convert(evId);
+  unsigned phStaIdx = _phStaIdConverter.convert(phStaId);
+  _obsParams[evIdx].insert(
+      {phStaIdx, ObservationParams{computeEvChanges, travelTime,
+                                   travelTimeResidual, takeOffAngleAzim,
+                                   takeOffAngleDip, velocityAtSrc, 0, 0, 0}});
+}
+
+bool Solver::getEvent(unsigned evId,
+                      double &evLat,
+                      double &evLon,
+                      double &evDepth) const
+{
+  unsigned evIdx;
+  if (!_eventIdConverter.hasId(evId, evIdx)) return false;
+
+  const auto &it = _eventParams.find(evIdx);
+  if (it == _eventParams.end()) return false;
+
+  const EventParams &eprms = it->second;
+
+  evLat   = eprms.lat;
+  evLon   = eprms.lon;
+  evDepth = eprms.depth;
+
+  return true;
+}
+
+bool Solver::getStation(const std::string &staId,
+                        double &staLat,
+                        double &staLon,
+                        double &staElevation) const
+{
+  unsigned staIdx;
+  if (!_staIdConverter.hasId(staId, staIdx)) return false;
+
+  const auto &it = _stationParams.find(staIdx);
+  if (it == _stationParams.end()) return false;
+
+  const StationParams &sprms = it->second;
+
+  staLat       = sprms.lat;
+  staLon       = sprms.lon;
+  staElevation = sprms.elevation;
+
+  return true;
 }
 
 bool Solver::getObservationParams(unsigned evId,
                                   const std::string &staId,
                                   char phase,
-                                  double &evLat,
-                                  double &evLon,
-                                  double &evDepth,
-                                  double &staLat,
-                                  double &staLon,
-                                  double &staElevation,
                                   bool &computeEvChanges,
                                   double &travelTime,
                                   double &travelTimeResidual,
@@ -315,16 +351,14 @@ bool Solver::getObservationParams(unsigned evId,
   unsigned phStaIdx;
   if (!_phStaIdConverter.hasId(phStaId, phStaIdx)) return false;
 
-  const ObservationParams &oprms = _obsParams.at(evIdx).at(phStaIdx);
-  const EventParams &eprms       = _eventParams.at(evIdx);
-  const StationParams &sprms     = _stationParams.at(phStaIdx);
+  const auto &it1 = _obsParams.find(evIdx);
+  if (it1 == _obsParams.end()) return false;
 
-  evLat              = eprms.lat;
-  evLon              = eprms.lon;
-  evDepth            = eprms.depth;
-  staLat             = sprms.lat;
-  staLon             = sprms.lon;
-  staElevation       = sprms.elevation;
+  const auto &it2 = it1->second.find(phStaIdx);
+  if (it2 == it1->second.end()) return false;
+
+  const ObservationParams &oprms = it2->second;
+
   computeEvChanges   = oprms.computeEvChanges;
   travelTime         = oprms.travelTime;
   travelTimeResidual = oprms.travelTimeResidual;

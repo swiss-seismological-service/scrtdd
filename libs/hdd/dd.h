@@ -242,48 +242,28 @@ private:
                    std::vector<Solver::DoubleDifference> startDDs,
                    std::vector<Solver::DoubleDifference> finalDDs) const;
 
-  struct ObservationParams
-  {
-    struct Entry
-    {
-      Catalog::Event event;
-      Catalog::Station station;
-      char phaseType;
-      double travelTime;
-      double travelTimeResidual;
-      double takeOfAngleAzim;
-      double takeOfAngleDip;
-      double velocityAtSrc;
-      bool computeEvChanges;
-    };
-    bool add(HDD::TravelTimeTable &ttt,
-             const Catalog::Event &event,
-             const Catalog::Station &station,
-             const Catalog::Phase &phase,
-             bool computeEvChanges);
-    const Entry &
-    get(unsigned eventId, const std::string stationId, char phaseType) const;
-    void addToSolver(Solver &solver) const;
-
-  private:
-    std::unordered_map<std::string, Entry> _entries;
-  };
-
   void addObservations(Solver &solver,
                        const Catalog &catalog,
                        const Neighbours &neighbours,
                        bool keepNeighboursFixed,
                        bool usePickUncertainties,
                        double xcorrWeightScaler,
-                       const XCorrCache &xcorr,
-                       ObservationParams &obsparams) const;
+                       const XCorrCache &xcorr) const;
+
+  bool addObservationParams(Solver &solver,
+                            TravelTimeTable &ttt,
+                            const Catalog::Event &event,
+                            const Catalog::Station &station,
+                            const Catalog::Phase &phase,
+                            bool computeEvChanges) const;
 
   Catalog
-  computeEventResiduals(const ObservationParams &obsparams,
+  computeEventResiduals(const Solver &solver,
                         const Catalog &catalog,
                         const SolverOptions &solverOpt,
                         const std::unordered_map<unsigned, Neighbours> &cluster,
                         bool isFirstIteration) const;
+
   Catalog
   updateRelocatedEvents(const Solver &solver,
                         const Catalog &catalog,

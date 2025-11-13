@@ -155,6 +155,13 @@ public:
   Solver(const Solver &other)           = delete;
   Solver operator=(const Solver &other) = delete;
 
+  void addEvent(unsigned evId, double evLat, double evLon, double evDepth);
+
+  void addStation(const std::string &staId,
+                  double staLat,
+                  double staLon,
+                  double staElevation);
+
   void addObservation(unsigned evId1,
                       unsigned evId2,
                       const std::string &staId,
@@ -166,12 +173,6 @@ public:
   void addObservationParams(unsigned evId,
                             const std::string &staId,
                             char phase,
-                            double evLat,
-                            double evLon,
-                            double evDepth,
-                            double staLat,
-                            double staLon,
-                            double staElevation,
                             bool computeEvChanges,
                             double travelTime,
                             double travelTimeResidual,
@@ -179,15 +180,17 @@ public:
                             double takeOffAngleDip,
                             double velocityAtSrc);
 
+  bool
+  getEvent(unsigned evId, double &evLat, double &evLon, double &evDepth) const;
+
+  bool getStation(const std::string &staId,
+                  double &staLat,
+                  double &staLon,
+                  double &staElevation) const;
+
   bool getObservationParams(unsigned evId,
                             const std::string &staId,
                             char phase,
-                            double &evLat,
-                            double &evLon,
-                            double &evDepth,
-                            double &staLat,
-                            double &staLon,
-                            double &staElevation,
                             bool &computeEvChanges,
                             double &travelTime,
                             double &travelTimeResidual,
@@ -212,6 +215,19 @@ public:
   };
   std::vector<DoubleDifference> getDoubleDifferences() const;
 
+  void solve(unsigned numIterations = 0,
+             double dampingFactor   = 0,
+             bool normalizeG        = true);
+
+  bool getEventChanges(unsigned evId,
+                       double &deltaLat,
+                       double &deltaLon,
+                       double &deltaDepth,
+                       double &deltaTT) const;
+
+  bool
+  isEventPhaseUsed(unsigned evId, const std::string &staId, char phase) const;
+
 private:
   void computePartialDerivatives();
 
@@ -231,6 +247,7 @@ private:
 
 private:
   IdToIndex<unsigned> _eventIdConverter;
+  IdToIndex<std::string> _staIdConverter;
   IdToIndex<std::string> _phStaIdConverter;
   IdToIndex<std::string> _obsIdConverter;
 
@@ -261,7 +278,7 @@ private:
   {
     double lat, lon, elevation;
   };
-  std::unordered_map<unsigned, StationParams> _stationParams; // key = phStaIdx
+  std::unordered_map<unsigned, StationParams> _stationParams; // key = staIdx
 
   struct ObservationParams
   {
