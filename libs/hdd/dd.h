@@ -287,7 +287,9 @@ private:
                    const std::unordered_map<unsigned, Neighbours> &neighCluster,
                    const SolverOptions &solverOpt,
                    bool keepNeighboursFixed,
-                   const XCorrCache &xcorr) const;
+                   const XCorrCache &xcorr,
+                   std::vector<Solver::DoubleDifference> startDDs,
+                   std::vector<Solver::DoubleDifference> finalDDs) const;
 
   struct ObservationParams
   {
