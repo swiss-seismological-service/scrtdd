@@ -517,8 +517,8 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
   const double median = computeMedian(residuals);
   const double MAD    = computeMedianAbsoluteDeviation(residuals, median);
 
-  logInfoF("Solver: num DD %zu residual median %.3f [msec] "
-           "MedianAbsoluteDeviation %.3f [msec]",
+  logInfoF("Num DD %zu residual [msec] median %.3f MedianAbsoluteDeviation "
+           "%.3f [msec]",
            _observations.size(), median * 1000, MAD * 1000);
 
   //
@@ -723,13 +723,13 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
       obByDistIt++;
     }
 
-    const double median = computeMedian(decileRes);
-    const double MAD    = computeMedianAbsoluteDeviation(decileRes, median);
-
-    logInfoF("Solver: Inter-event dist %.3f-%-.3f [km] num DD %zu residual "
-             "median %6.3f [msec] MedianAbsoluteDeviation %6.3f [msec]",
-             startingDist, finalDist, decileRes.size(), median * 1000,
-             MAD * 1000);
+    double min, max, q1, q2, q3;
+    compute5numberSummary(decileRes, min, max, q1, q2, q3);
+    logInfoF("Inter-event dist %.3f-%-.3f [km] num DD %zu residual "
+             "[msec] min %6.3f 1st quartile %6.3f median %6.3f 3rd quartile "
+             "%6.3f max %6.3f ",
+             startingDist, finalDist, decileRes.size(), min * 1000, q1 * 1000,
+             q2 * 1000, q3 * 1000, max * 1000);
   }
 
   // free some memory

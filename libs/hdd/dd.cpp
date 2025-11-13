@@ -781,7 +781,7 @@ Catalog DD::relocate(const Catalog &catalog,
                                           solverOpt.absLocConstraintEnd);
 
     logInfoF(
-        "Solving iteration %u num events %zu. Parameters: dampingFactor=%.2f "
+        "Iteration %u num events %zu. Parameters: dampingFactor=%.2f "
         "downWeightingByResidual=%.2f absLocConstraint=%.2f",
         iteration, cluster.size(), dampingFactor, downWeightingByResidual,
         absLocConstraint);
@@ -825,6 +825,7 @@ Catalog DD::relocate(const Catalog &catalog,
     //
     // solve the system
     //
+    logInfoF("Solving...");
     try
     {
       solver.solve(solverOpt.solverIterations, dampingFactor,
