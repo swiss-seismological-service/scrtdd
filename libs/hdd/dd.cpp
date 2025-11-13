@@ -824,34 +824,26 @@ Catalog DD::relocate(const Catalog &catalog,
     double absLocConstraint = interpolate(solverOpt.absLocConstraintStart,
                                           solverOpt.absLocConstraintEnd);
 
-    logInfoF(
-        "Iteration %u num events %zu. Parameters: dampingFactor=%.2f "
-        "downWeightingByResidual=%.2f absLocConstraint=%.2f",
-        iteration, cluster.size(), dampingFactor, downWeightingByResidual,
-        absLocConstraint);
+    logInfoF("Iteration %u num events %zu. Parameters: dampingFactor=%.2f "
+             "downWeightingByResidual=%.2f absLocConstraint=%.2f",
+             iteration, cluster.size(), dampingFactor, downWeightingByResidual,
+             absLocConstraint);
 
     //
     // create a solver and then add observations
     //
     Solver solver(solverOpt.type);
-    ObservationParams obsparams;
-
-    //
-    // Add absolute travel time/cross-correlation differences to the solver
-    // (the observations)
-    //
     for (const auto &kv : cluster)
     {
       addObservations(solver, workingCatalog, kv.second, keepNeighboursFixed,
                       solverOpt.usePickUncertainties,
-                      solverOpt.xcorrWeightScaler, xcorr, obsparams);
+                      solverOpt.xcorrWeightScaler, xcorr);
     }
-    obsparams.addToSolver(solver);
 
     //
     // Compute and log event rms
     //
-    computeEventResiduals(obsparams, workingCatalog, solverOpt, cluster,
+    computeEventResiduals(solver, workingCatalog, solverOpt, cluster,
                           isFirstIteration);
 
     //
@@ -921,8 +913,7 @@ void DD::addObservations(Solver &solver,
                          bool keepNeighboursFixed,
                          bool usePickUncertainties,
                          double xcorrWeightScaler,
-                         const XCorrCache &xcorr,
-                         ObservationParams &obsparams) const
+                         const XCorrCache &xcorr) const
 {
   // copy event because we'll update it
   const Event &refEv = catalog.getEvents().at(neighbours.referenceId());
@@ -978,8 +969,10 @@ void DD::addObservations(Solver &solver,
         continue;
       }
 
-      if (!obsparams.add(*_ttt, refEv, station, refPhase, true) ||
-          !obsparams.add(*_ttt, event, station, phase, !keepNeighboursFixed))
+      if (!addObservationParams(solver, *_ttt, refEv, station, refPhase,
+                                true) ||
+          !addObservationParams(solver, *_ttt, event, station, phase,
+                                !keepNeighboursFixed))
       {
         logDebugF("Skipping observation (ev %u-%u sta %s phase %c)", refEv.id,
                   event.id, station.id.c_str(), phaseTypeAsChar);
@@ -1027,26 +1020,43 @@ void DD::addObservations(Solver &solver,
   }
 }
 
-bool DD::ObservationParams::add(HDD::TravelTimeTable &ttt,
-                                const Event &event,
-                                const Station &station,
-                                const Phase &phase,
-                                bool computeEvChanges)
+bool DD::addObservationParams(Solver &solver,
+                              TravelTimeTable &ttt,
+                              const Catalog::Event &event,
+                              const Catalog::Station &station,
+                              const Catalog::Phase &phase,
+                              bool computeEvChanges) const
 {
   char phaseType = static_cast<char>(phase.procInfo.type);
-  const string key =
-      std::to_string(event.id) + "@" + station.id + ":" + phaseType;
-  if (_entries.find(key) == _entries.end())
+
+  bool dummy1;
+  double dummy2;
+  //
+  // check if this data has been already added to the solver
+  //
+  if (!solver.getObservationParams(event.id, station.id, phaseType, dummy1,
+                                   dummy2, dummy2, dummy2, dummy2, dummy2))
   {
+    //
+    // Compute travel time information
+    //
     try
     {
-      double travelTime, azimuth, takeOffAngle, velocityAtSrc;
-      ttt.compute(event, station, string(1, phaseType), travelTime, azimuth,
-                  takeOffAngle, velocityAtSrc);
-      double ttResidual = travelTime - durToSec(phase.time - event.time);
-      _entries[key]     = Entry{event,        station,       phaseType,
-                            travelTime,   ttResidual,    azimuth,
-                            takeOffAngle, velocityAtSrc, computeEvChanges};
+      double travelTime, takeOfAngleAzim, takeOfAngleDip, velocityAtSrc;
+      ttt.compute(event, station, string(1, phaseType), travelTime,
+                  takeOfAngleAzim, takeOfAngleDip, velocityAtSrc);
+      double travelTimeResidual =
+          travelTime - durToSec(phase.time - event.time);
+
+      //
+      // Populate the solver
+      //
+      solver.addEvent(event.id, event.latitude, event.longitude, event.depth);
+      solver.addStation(station.id, station.latitude, station.longitude,
+                        station.elevation);
+      solver.addObservationParams(
+          event.id, station.id, phaseType, computeEvChanges, travelTime,
+          travelTimeResidual, takeOfAngleAzim, takeOfAngleDip, velocityAtSrc);
     }
     catch (exception &e)
     {
@@ -1061,30 +1071,8 @@ bool DD::ObservationParams::add(HDD::TravelTimeTable &ttt,
   return true;
 }
 
-const DD::ObservationParams::Entry &DD::ObservationParams::get(
-    unsigned eventId, const string stationId, char phaseType) const
-{
-  const string key =
-      std::to_string(eventId) + "@" + stationId + ":" + phaseType;
-  return _entries.at(key);
-}
-
-void DD::ObservationParams::addToSolver(Solver &solver) const
-{
-  for (const auto &kv : _entries)
-  {
-    const ObservationParams::Entry &e = kv.second;
-    solver.addObservationParams(
-        e.event.id, e.station.id, e.phaseType, e.event.latitude,
-        e.event.longitude, e.event.depth, e.station.latitude,
-        e.station.longitude, e.station.elevation, e.computeEvChanges,
-        e.travelTime, e.travelTimeResidual, e.takeOfAngleAzim, e.takeOfAngleDip,
-        e.velocityAtSrc);
-  }
-}
-
 Catalog
-DD::computeEventResiduals(const ObservationParams &obsparams,
+DD::computeEventResiduals(const Solver &solver,
                           const Catalog &catalog,
                           const SolverOptions &solverOpt,
                           const unordered_map<unsigned, Neighbours> &cluster,
@@ -1126,10 +1114,13 @@ DD::computeEventResiduals(const ObservationParams &obsparams,
       phase.relocInfo.weight =
           solverOpt.usePickUncertainties ? phase.procInfo.classWeight : 1;
 
-      try // obsparams.get can throw
+      bool dummy1;
+      double residual, dummy2;
+
+      if (solver.getObservationParams(event.id, station.id, phaseTypeAsChar,
+                                      dummy1, dummy2, residual, dummy2, dummy2,
+                                      dummy2))
       {
-        double residual = obsparams.get(event.id, station.id, phaseTypeAsChar)
-                              .travelTimeResidual;
         double weight = phase.relocInfo.weight;
 
         if (isFirstIteration)
@@ -1144,8 +1135,6 @@ DD::computeEventResiduals(const ObservationParams &obsparams,
         sumSquaredResiduals += (residual * weight) * (residual * weight);
         sumSquaredWeights += weight * weight;
       }
-      catch (std::out_of_range &e)
-      {}
     }
 
     if (sumSquaredWeights > 0)
