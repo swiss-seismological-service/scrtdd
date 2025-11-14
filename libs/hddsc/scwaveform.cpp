@@ -129,7 +129,7 @@ unique_ptr<HDD::Trace> WaveformProxy::loadTrace(const HDD::TimeWindow &tw,
   IO::RecordInput inp(rs.get(), Array::DOUBLE, Record::DATA_ONLY);
   TimeWindowBuffer seq(sctw, tolerance);
   RecordPtr rec;
-  while (rec = inp.next())
+  while ((rec = inp.next()))
   {
     seq.feed(rec.get());
   }
@@ -244,7 +244,7 @@ void WaveformProxy::loadTraces(
     //
     IO::RecordInput inp(rs.get(), Array::DOUBLE, Record::DATA_ONLY);
     RecordPtr rec;
-    while (rec = inp.next())
+    while ((rec = inp.next()))
     {
       auto eqlrng = streamBuf.equal_range(rec->streamID());
       for (auto it = eqlrng.first; it != eqlrng.second; ++it)
