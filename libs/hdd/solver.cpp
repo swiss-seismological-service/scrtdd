@@ -697,7 +697,7 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
     const int evIdx1 = _dd.evByObs[0][obIdx]; // event 1 for this observation
     if (evIdx1 >= 0)
     {
-      Stats &stat = _stats.at(evIdx1).at(phStaIdx);
+      Stats &stat = _stats[evIdx1][phStaIdx];
       stat.finalTotalObs++;
       stat.totalFinalWeight += observationWeight;
     }
@@ -705,7 +705,7 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
     const int evIdx2 = _dd.evByObs[1][obIdx]; // event 2 for this observation
     if (evIdx2 >= 0)
     {
-      Stats &stat = _stats.at(evIdx2).at(phStaIdx);
+      Stats &stat = _stats[evIdx2][phStaIdx];
       stat.finalTotalObs++;
       stat.totalFinalWeight += observationWeight;
     }
