@@ -62,6 +62,7 @@ string formatMessage(const Level level, const std::string &message)
   case Level::info: return timestamp + "[INFO ] " + message;
   case Level::warning: return timestamp + "[WARN ] " + message;
   case Level::error: return timestamp + "[ERROR] " + message;
+  default: return timestamp + "[     ] " + message;
   }
 }
 
