@@ -58,11 +58,11 @@ string formatMessage(const Level level, const std::string &message)
   std::string timestamp = getCurrentTimestamp();
   switch (level)
   {
-  case Level::debug: return timestamp + "[DEBUG] " + message;
-  case Level::info: return timestamp + "[INFO ] " + message;
-  case Level::warning: return timestamp + "[WARN ] " + message;
-  case Level::error: return timestamp + "[ERROR] " + message;
-  default: return timestamp + "[     ] " + message;
+  case Level::debug: return timestamp + " [DEBUG] " + message;
+  case Level::info: return timestamp + " [INFO ] " + message;
+  case Level::warning: return timestamp + " [WARN ] " + message;
+  case Level::error: return timestamp + " [ERROR] " + message;
+  default: return timestamp + " [     ] " + message;
   }
 }
 
@@ -91,23 +91,30 @@ void logToFile(Level level, const std::string &message)
 
 LogCallback _userLogger = nullptr;
 
+Level _minLevel = Level::debug;
+
 } // namespace
 
 namespace HDD {
 
 namespace Logger {
 
+void setLevel(Level l) { _minLevel = l; }
+
 void setLogger(LogCallback callback) { _userLogger = std::move(callback); }
 
 void log(const Level level, const std::string &message)
 {
-  if (_userLogger)
+  if (level >= _minLevel)
   {
-    _userLogger(level, message);
-  }
-  else // Fallback to cerr if no user logger is set
-  {
-    std::cerr << formatMessage(level, message) << std::endl;
+    if (_userLogger)
+    {
+      _userLogger(level, message);
+    }
+    else // Fallback to cerr if no user logger is set
+    {
+      std::cerr << formatMessage(level, message) << std::endl;
+    }
   }
 
   // Always log to active file loggers
