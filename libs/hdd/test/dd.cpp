@@ -302,7 +302,7 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
 
   HDD::DD dd(cat, ddCfg, std::move(ttt));
 
-  //dd.enableSaveProcessing(workingDir); // for debugging
+  bool saveProcessing = false; // for debugging
 
   HDD::ClusteringOptions clusterCfg;
   clusterCfg.numEllipsoids    = 0;
@@ -321,7 +321,7 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
   solverCfg.downWeightingByResidualStart = 0;
   solverCfg.downWeightingByResidualEnd   = 0;
 
-  return  dd.relocateMultiEvents(clusterCfg, solverCfg);
+  return  dd.relocateMultiEvents(clusterCfg, solverCfg, saveProcessing);
 }
 
 HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
@@ -333,7 +333,7 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
 
   HDD::DD dd(bgCat, ddCfg, std::move(ttt));
 
-  //dd.enableSaveProcessing(workingDir); // for debugging
+  bool saveProcessing = false; // for debugging
 
   HDD::ClusteringOptions clusterCfg;
   clusterCfg.numEllipsoids    = 5;
@@ -357,7 +357,7 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
     const Event &ev = kv.second;
     HDD::Catalog orgToRelocate = realTimeCat.extractEvent(ev.id, false);
     HDD::Catalog relocatedEvent = dd.relocateSingleEvent(
-        orgToRelocate, true, clusterCfg, clusterCfg, solverCfg);
+        orgToRelocate, true, clusterCfg, clusterCfg, solverCfg, saveProcessing);
     relocCat.add(relocatedEvent, false);
   }
 
