@@ -64,10 +64,10 @@ public:
 
   bool has(unsigned neighbourId) const;
 
-  bool has(unsigned neighbourId, const std::string stationId) const;
+  bool has(unsigned neighbourId, const std::string &stationId) const;
 
   bool has(unsigned neighbourId,
-           const std::string stationId,
+           const std::string &stationId,
            Catalog::Phase::Type type) const;
 
   std::unordered_set<std::string> stations() const;

@@ -54,8 +54,11 @@ void Neighbours::add(unsigned neighbourId,
                      const std::string &stationId,
                      const Catalog::Phase::Type &phase)
 {
-  _phases[neighbourId][Phase::Type::P] = {};
-  _phases[neighbourId][Phase::Type::S] = {};
+  if (_phases.find(neighbourId) == _phases.end())
+  {
+    _phases[neighbourId][Phase::Type::P] = {};
+    _phases[neighbourId][Phase::Type::S] = {};
+  }
   _phases[neighbourId][phase].insert(stationId);
 }
 
@@ -66,12 +69,12 @@ bool Neighbours::has(unsigned neighbourId) const
   return _phases.find(neighbourId) != _phases.end();
 }
 
-bool Neighbours::has(unsigned neighbourId, const std::string stationId) const
+bool Neighbours::has(unsigned neighbourId, const std::string &stationId) const
 {
   try
   {
-    return _phases.at(neighbourId).at(Phase::Type::P).count(stationId) > 0 ||
-           _phases.at(neighbourId).at(Phase::Type::S).count(stationId) > 0;
+    return (_phases.at(neighbourId).at(Phase::Type::P).count(stationId) > 0) ||
+           (_phases.at(neighbourId).at(Phase::Type::S).count(stationId) > 0);
   }
   catch (std::out_of_range &e)
   {
@@ -80,7 +83,7 @@ bool Neighbours::has(unsigned neighbourId, const std::string stationId) const
 }
 
 bool Neighbours::has(unsigned neighbourId,
-                     const std::string stationId,
+                     const std::string &stationId,
                      Catalog::Phase::Type type) const
 {
   try
