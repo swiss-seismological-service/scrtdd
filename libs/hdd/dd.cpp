@@ -800,7 +800,7 @@ Catalog DD::relocate(const Catalog &catalog,
   //
   // iterate the solver computation multiple times
   //
-  Catalog workingCatalog(catalog);
+  Catalog currentCatalog(catalog), prevCatalog{};
 
   for (unsigned iteration = 0; iteration <= solverOpt.algoIterations;
        iteration++)
@@ -833,17 +833,36 @@ Catalog DD::relocate(const Catalog &catalog,
     // create a solver and then add observations
     //
     Solver solver(solverOpt.type);
+
     for (const auto &kv : cluster)
     {
-      addObservations(solver, workingCatalog, kv.second, keepNeighboursFixed,
-                      solverOpt.usePickUncertainties,
-                      solverOpt.xcorrWeightScaler, xcorr);
+      unsigned eventId = kv.first;
+      bool tttOk       = addObservations(
+          solver, currentCatalog, kv.second, keepNeighboursFixed,
+          solverOpt.usePickUncertainties, solverOpt.xcorrWeightScaler, xcorr);
+
+      if (!tttOk && !prevCatalog.empty() &&
+          currentCatalog.getEvents().at(eventId).relocInfo.isRelocated)
+      {
+        // No trave time information: the event was reloacated but the new
+        // location is outside the travel time table boundaries (e.g. an
+        // air-quake when the ttt do not support negative depths).
+        // Restore the previous location of the event
+        logDebugF("Event %u relocated, but it is now outside the travel time "
+                  "table boundaries. Revert it to the previous location.",
+                  eventId);
+        currentCatalog.removeEvent(eventId);
+        currentCatalog.add(eventId, prevCatalog, true);
+        addObservations(solver, currentCatalog, kv.second, keepNeighboursFixed,
+                        solverOpt.usePickUncertainties,
+                        solverOpt.xcorrWeightScaler, xcorr);
+      }
     }
 
     //
     // Compute and log event rms
     //
-    computeEventResiduals(solver, workingCatalog, solverOpt, cluster,
+    computeEventResiduals(solver, currentCatalog, solverOpt, cluster,
                           isFirstIteration);
 
     //
@@ -883,7 +902,8 @@ Catalog DD::relocate(const Catalog &catalog,
     //
     // update event location/time
     //
-    workingCatalog = updateRelocatedEvents(solver, workingCatalog, solverOpt,
+    prevCatalog    = std::move(currentCatalog);
+    currentCatalog = updateRelocatedEvents(solver, prevCatalog, solverOpt,
                                            cluster, isFirstIteration);
   }
 
@@ -891,12 +911,12 @@ Catalog DD::relocate(const Catalog &catalog,
   // Build and return the catalog with only relocated events/phases
   //
   Catalog catalogToReturn{};
-  for (const auto &kv : workingCatalog.getEvents())
+  for (const auto &kv : currentCatalog.getEvents())
   {
     const Event &event = kv.second;
     if (event.relocInfo.isRelocated)
     {
-      catalogToReturn.add(event.id, workingCatalog, true);
+      catalogToReturn.add(event.id, currentCatalog, true);
     }
   }
   return catalogToReturn;
@@ -907,7 +927,7 @@ Catalog DD::relocate(const Catalog &catalog,
  * travel times from the cross-correlation for pairs of earthquakes to the
  * solver.
  */
-void DD::addObservations(Solver &solver,
+bool DD::addObservations(Solver &solver,
                          const Catalog &catalog,
                          const Neighbours &neighbours,
                          bool keepNeighboursFixed,
@@ -918,6 +938,9 @@ void DD::addObservations(Solver &solver,
   // copy event because we'll update it
   const Event &refEv = catalog.getEvents().at(neighbours.referenceId());
   const unordered_set<unsigned> neighboursIds = neighbours.ids();
+
+  // Detect an event that moved to a location outside the ttt range
+  bool tttAttempted = false, tttAvailable = false;
 
   //
   // Loop through reference event phases
@@ -969,6 +992,8 @@ void DD::addObservations(Solver &solver,
         continue;
       }
 
+      tttAttempted = true; // at least one attempt at loading ttt
+                           //
       if (!addObservationParams(solver, *_ttt, refEv, station, refPhase,
                                 true) ||
           !addObservationParams(solver, *_ttt, event, station, phase,
@@ -978,6 +1003,8 @@ void DD::addObservations(Solver &solver,
                   event.id, station.id.c_str(), phaseTypeAsChar);
         continue;
       }
+
+      tttAvailable = true; // at least once successfully ttt query
 
       //
       // compute absolute travel time differences to the solver
@@ -1018,6 +1045,8 @@ void DD::addObservations(Solver &solver,
                             phaseTypeAsChar, diffTime.count(), weight, isXcorr);
     }
   }
+
+  return !tttAttempted || tttAvailable;
 }
 
 bool DD::addObservationParams(Solver &solver,
@@ -1040,23 +1069,11 @@ bool DD::addObservationParams(Solver &solver,
     //
     // Compute travel time information
     //
+    double travelTime, takeOfAngleAzim, takeOfAngleDip, velocityAtSrc;
     try
     {
-      double travelTime, takeOfAngleAzim, takeOfAngleDip, velocityAtSrc;
       ttt.compute(event, station, string(1, phaseType), travelTime,
                   takeOfAngleAzim, takeOfAngleDip, velocityAtSrc);
-      double travelTimeResidual =
-          travelTime - durToSec(phase.time - event.time);
-
-      //
-      // Populate the solver
-      //
-      solver.addEvent(event.id, event.latitude, event.longitude, event.depth);
-      solver.addStation(station.id, station.latitude, station.longitude,
-                        station.elevation);
-      solver.addObservationParams(
-          event.id, station.id, phaseType, computeEvChanges, travelTime,
-          travelTimeResidual, takeOfAngleAzim, takeOfAngleDip, velocityAtSrc);
     }
     catch (exception &e)
     {
@@ -1067,6 +1084,17 @@ bool DD::addObservationParams(Solver &solver,
           station.latitude, station.longitude, station.elevation);
       return false;
     }
+    double travelTimeResidual = travelTime - durToSec(phase.time - event.time);
+
+    //
+    // Populate the solver
+    //
+    solver.addEvent(event.id, event.latitude, event.longitude, event.depth);
+    solver.addStation(station.id, station.latitude, station.longitude,
+                      station.elevation);
+    solver.addObservationParams(
+        event.id, station.id, phaseType, computeEvChanges, travelTime,
+        travelTimeResidual, takeOfAngleAzim, takeOfAngleDip, velocityAtSrc);
   }
   return true;
 }
@@ -1220,8 +1248,6 @@ DD::updateRelocatedEvents(const Solver &solver,
     event.time                  = newTime;
     event.relocInfo.isRelocated = true;
 
-    bool nottt = true;
-
     auto eqlrng = phases.equal_range(event.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
@@ -1240,32 +1266,6 @@ DD::updateRelocatedEvents(const Solver &solver,
       }
 
       phase.relocInfo.isRelocated = true;
-
-      if (_ttt.getTTT)
-      {
-        nottt = false; // at least one travel time table information is returned
-      }
-    }
-
-    // no trave time information: the event was reloacated but it
-    // looks like the new location is outside the travel time table
-    // boundaries (e.g. air-quake). Restore the previous location
-    if (nottt)
-    {
-      logDebugF("Event %u relocated, but it is now outside the travel time "
-                "table boundaries. Revert it to the previous location.",
-                event.id);
-      event = catalog.getEvents().at(event.id);
-      //  eqlrng is already populated
-      for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-      {
-        Phase &phase = it->second;
-        phase        = catalog
-                    .searchPhase(phase.eventId, phase.stationId,
-                                 phase.procInfo.type)
-                    ->second;
-      }
-      continue;
     }
 
     relocatedEvs++;

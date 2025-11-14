@@ -242,7 +242,7 @@ private:
                    std::vector<Solver::DoubleDifference> startDDs,
                    std::vector<Solver::DoubleDifference> finalDDs) const;
 
-  void addObservations(Solver &solver,
+  bool addObservations(Solver &solver,
                        const Catalog &catalog,
                        const Neighbours &neighbours,
                        bool keepNeighboursFixed,

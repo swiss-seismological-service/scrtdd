@@ -296,7 +296,9 @@ unsigned Catalog::add(unsigned evId, const Catalog &evCat, bool keepEvId)
   if (keepEvId)
   {
     if (_events.find(event.id) != _events.end())
-      throw Exception("Cannot add event, internal logic error");
+    {
+      throw Exception("Cannot add event, the same id exists already");
+    }
     _events[event.id] = event;
     newEventId        = event.id;
   }
