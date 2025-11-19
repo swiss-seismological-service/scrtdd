@@ -32,6 +32,7 @@
 #include <seiscomp/core/genericrecord.h>
 #include <seiscomp/core/strings.h>
 #include <seiscomp/core/system.h>
+#include <seiscomp/core/version.h>
 #include <seiscomp/datamodel/event.h>
 #include <seiscomp/datamodel/magnitude.h>
 #include <seiscomp/datamodel/origin.h>
@@ -42,7 +43,11 @@
 #include <seiscomp/io/archive/xmlarchive.h>
 #include <seiscomp/io/records/mseedrecord.h>
 #include <seiscomp/logging/channel.h>
+#if SC_API_VERSION < SC_API_VERSION_CHECK(17, 0, 0)
 #include <seiscomp/logging/filerotator.h>
+#else
+#include <seiscomp/logging/output/filerotator.h>
+#endif
 #include <seiscomp/math/geo.h>
 #include <seiscomp/utils/files.h>
 
