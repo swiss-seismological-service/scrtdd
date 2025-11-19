@@ -19,7 +19,12 @@
 #include "hdd/log.h"
 
 #define SEISCOMP_COMPONENT RTDD
+#include <seiscomp/core/version.h>
+#if SC_API_VERSION < SC_API_VERSION_CHECK(17, 0, 0)
 #include <seiscomp/logging/file.h>
+#else
+#include <seiscomp/logging/output/file.h>
+#endif
 #include <seiscomp/logging/log.h>
 
 using namespace std;
