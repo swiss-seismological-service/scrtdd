@@ -440,6 +440,7 @@ void convertOrigin(DataSource &dataSrc,
     comment->setText(org->publicID());
     comment->setCreationInfo(ci);
     newOrg->add(comment.get());
+
     //
     // Copy magnitude from org
     //
@@ -482,32 +483,6 @@ void convertOrigin(DataSource &dataSrc,
         newOrg->add(newMag);
       }
     }
-
-    //
-    // add all arrivals that were in the original Origin (before relocation)
-    //
-    for (size_t i = 0; i < org->arrivalCount(); i++)
-    {
-      DataModel::Arrival *orgArr = org->arrival(i);
-
-      DataModel::ArrivalPtr newArr = new DataModel::Arrival();
-      newArr->setPickID(orgArr->pickID());
-      newArr->setPhase(orgArr->phase());
-      newArr->setWeight(0.);
-      newArr->setTimeUsed(false);
-
-      newOrg->add(newArr.get());
-
-      DataModel::PickPtr pick = dataSrc.get<DataModel::Pick>(orgArr->pickID());
-      if (pick)
-      {
-        associatedStations.insert(pick->waveformID().networkCode() + "." +
-                                  pick->waveformID().stationCode());
-
-        if (includeExistingPicks)
-          newOrgPicks.push_back(DataModel::Pick::Cast(pick->clone()));
-      }
-    }
   }
 
   // add missing arrivals and fill in all the properties
@@ -518,27 +493,35 @@ void convertOrigin(DataSource &dataSrc,
 
     associatedStations.insert(phase.networkCode + "." + phase.stationCode);
 
-    // check if this phase has been already added
-    bool alreadyAdded = false;
-    DataModel::ArrivalPtr newArr;
+    // check if the pick already exists
+    bool pickExists = false;
+    string pickPublicId;
 
-    for (size_t i = 0; i < newOrg->arrivalCount(); i++)
+    if (org)
     {
-      newArr                  = newOrg->arrival(i);
-      DataModel::PickPtr pick = dataSrc.get<DataModel::Pick>(newArr->pickID());
-
-      if (pick && toSC(phase.time) == pick->time().value() &&
-          phase.networkCode == pick->waveformID().networkCode() &&
-          phase.stationCode == pick->waveformID().stationCode() &&
-          phase.locationCode == pick->waveformID().locationCode() &&
-          phase.channelCode == pick->waveformID().channelCode())
+      for (size_t i = 0; i < org->arrivalCount(); i++)
       {
-        alreadyAdded = true;
-        break;
+        DataModel::Arrival *orgArr = org->arrival(i);
+        DataModel::PickPtr pick =
+            dataSrc.get<DataModel::Pick>(orgArr->pickID());
+        if (pick && toSC(phase.time) == pick->time().value() &&
+            phase.networkCode == pick->waveformID().networkCode() &&
+            phase.stationCode == pick->waveformID().stationCode() &&
+            phase.locationCode == pick->waveformID().locationCode() &&
+            phase.channelCode == pick->waveformID().channelCode())
+        {
+          pickExists   = true;
+          pickPublicId = pick->publicID();
+          if (includeExistingPicks)
+          {
+            newOrgPicks.push_back(DataModel::Pick::Cast(pick->clone()));
+          }
+          break;
+        }
       }
     }
 
-    if (!alreadyAdded)
+    if (!pickExists)
     {
       // prepare the new pick
       DataModel::PickPtr newPick = DataModel::Pick::Create();
@@ -547,23 +530,30 @@ void convertOrigin(DataSource &dataSrc,
       newPick->setEvaluationMode(
           DataModel::EvaluationMode(DataModel::AUTOMATIC));
       DataModel::TimeQuantity pickTime(toSC(phase.time));
-      pickTime.setLowerUncertainty(phase.lowerUncertainty);
-      pickTime.setUpperUncertainty(phase.upperUncertainty);
+      if (std::isfinite(phase.lowerUncertainty))
+      {
+        pickTime.setLowerUncertainty(phase.lowerUncertainty);
+      }
+      if (std::isfinite(phase.upperUncertainty))
+      {
+        pickTime.setUpperUncertainty(phase.upperUncertainty);
+      }
       newPick->setTime(pickTime);
       newPick->setPhaseHint(DataModel::Phase(phase.type));
       newPick->setWaveformID(DataModel::WaveformStreamID(
           phase.networkCode, phase.stationCode, phase.locationCode,
           phase.channelCode, ""));
+      pickPublicId = newPick->publicID();
       newOrgPicks.push_back(newPick);
-
-      // prepare the new arrival
-      newArr = new DataModel::Arrival();
-      newArr->setCreationInfo(ci);
-      newArr->setPickID(newPick->publicID());
-      newArr->setPhase(phase.type);
-
-      newOrg->add(newArr.get());
     }
+
+    // prepare the new arrival
+    DataModel::ArrivalPtr newArr = new DataModel::Arrival();
+    newArr->setCreationInfo(ci);
+    newArr->setPickID(pickPublicId);
+    newArr->setPhase(phase.type);
+
+    newOrg->add(newArr.get());
 
     newArr->setWeight(phase.relocInfo.isRelocated ? phase.relocInfo.weight
                                                   : 0.);
