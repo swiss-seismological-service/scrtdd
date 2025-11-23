@@ -248,7 +248,8 @@ void Solver::addObservation(unsigned evId1,
                             char phase,
                             double timeDiff,
                             double aPrioriWeight,
-                            bool isXcorr)
+                            bool xcorrUsed,
+                            double xcorrCoeff)
 {
   string phStaId    = string(1, phase) + "@" + staId;
   string obsId      = to_string(evId1) + "+" + to_string(evId2) + "_" + phStaId;
@@ -256,8 +257,9 @@ void Solver::addObservation(unsigned evId1,
   unsigned evIdx2   = _eventIdConverter.convert(evId2);
   unsigned phStaIdx = _phStaIdConverter.convert(phStaId);
   unsigned obsIdx   = _obsIdConverter.convert(obsId);
-  _observations.insert({obsIdx, Observation{evIdx1, evIdx2, phStaIdx, timeDiff,
-                                            aPrioriWeight, isXcorr}});
+  _observations.insert(
+      {obsIdx, Observation{evIdx1, evIdx2, phStaIdx, timeDiff, aPrioriWeight,
+                           xcorrUsed, xcorrCoeff}});
 }
 
 void Solver::addEvent(unsigned evId, double evLat, double evLon, double evDepth)
@@ -393,7 +395,8 @@ std::vector<Solver::DoubleDifference> Solver::getDoubleDifferences() const
                            staId,
                            phase,
                            ob.residualDownWeight,
-                           ob.isXcorr,
+                           ob.xcorrUsed,
+                           ob.xcorrCoeff,
                            ob.timeDiff,
                            ob.computedTimeDiff,
                            ob.doubleDifference,
@@ -780,11 +783,13 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
   //
   multimap<double, unsigned> obByDist = computeInterEventDistance();
   auto obByDistIt                     = obByDist.begin();
+  vector<string> xcorrLines;
   while (obByDistIt != obByDist.end())
   {
     unsigned decileSize = (obByDist.size() / 10) + 1;
-    vector<double> decileRes;
+    vector<double> decileRes, decileCoeff;
     decileRes.reserve(decileSize);
+    decileCoeff.reserve(decileSize);
 
     double startingDist = obByDistIt->first;
     double finalDist    = obByDistIt->first;
@@ -792,17 +797,36 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
     {
       unsigned obIdx = obByDistIt->second;
       decileRes.push_back(_dd.d[obIdx]);
+      if (_observations.at(obIdx).xcorrCoeff > 0)
+      {
+        decileCoeff.push_back(_observations.at(obIdx).xcorrCoeff);
+      }
       finalDist = obByDistIt->first;
       obByDistIt++;
     }
 
     double min, max, q1, q2, q3;
     compute5numberSummary(decileRes, min, max, q1, q2, q3);
-    logInfoF("Inter-event dist %.3f-%-.3f [km] num DD %zu residual "
-             "[msec] min %6.3f 1st quartile %6.3f median %6.3f 3rd quartile "
-             "%6.3f max %6.3f ",
-             startingDist, finalDist, decileRes.size(), min * 1000, q1 * 1000,
-             q2 * 1000, q3 * 1000, max * 1000);
+    logInfoF("Event dist %.3f-%-.3f [km] num DD %zu residual "
+             "[msec] 1st quartile %6.3f median %6.3f 3rd quartile %6.3f",
+             startingDist, finalDist, decileRes.size(), q1 * 1000, q2 * 1000,
+             q3 * 1000);
+    // when xcorr is not used there no entries
+    if (decileCoeff.size() > 0)
+    {
+      compute5numberSummary(decileCoeff, min, max, q1, q2, q3);
+      string line = strf(
+          "Event dist %.3f-%-.3f [km] num CC %zu corr-coeff "
+          "min %.2f 1st quartile %.2f median %.2f 3rd quartile %.2f max %.2f",
+          startingDist, finalDist, decileCoeff.size(), min, q1, q2, q3, max);
+      xcorrLines.push_back(std::move(line));
+    }
+  }
+
+  // Print Xcorr 5 number summary
+  for (const string &line : xcorrLines)
+  {
+    logInfo(line);
   }
 }
 

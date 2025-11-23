@@ -1021,7 +1021,8 @@ bool DD::addObservations(Solver &solver,
       // event/refEv pair at station/phase and refine the differential
       // time and update the weight
       //
-      bool isXcorr = false;
+      bool xcorrUsed    = false;
+      double xcorrCoeff = 0;
 
       if (!xcorr.empty()) // xcorr is enabled
       {
@@ -1031,18 +1032,22 @@ bool DD::addObservations(Solver &solver,
         {
           const auto &e = xcorr.get(refEv.id, event.id, refPhase.stationId,
                                     refPhase.procInfo.type);
-
-          if (e.valid && e.coeff >= xcorrCfg.minCoef)
+          if (e.valid)
           {
-            isXcorr = true;
-            diffTime -= duration<double>(e.lag);
-            weight += ((weight * xcorrWeightScaler) - weight) * e.coeff;
+            xcorrCoeff = e.coeff;
+            if (e.coeff >= xcorrCfg.minCoef)
+            {
+              xcorrUsed = true;
+              diffTime -= duration<double>(e.lag);
+              weight += ((weight * xcorrWeightScaler) - weight) * e.coeff;
+            }
           }
         }
       }
 
       solver.addObservation(refEv.id, event.id, refPhase.stationId,
-                            phaseTypeAsChar, diffTime.count(), weight, isXcorr);
+                            phaseTypeAsChar, diffTime.count(), weight,
+                            xcorrUsed, xcorrCoeff);
     }
   }
 

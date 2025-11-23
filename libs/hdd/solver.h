@@ -168,7 +168,8 @@ public:
                       char phase,
                       double timeDiff,
                       double aPrioriWeight,
-                      bool isXcorr);
+                      bool xcorrUsed,
+                      double xcorrCoeff);
 
   void addObservationParams(unsigned evId,
                             const std::string &staId,
@@ -207,7 +208,8 @@ public:
     std::string staId;
     char phase;
     double weight;
-    bool isXcorr;
+    bool xcorrUsed;
+    double xcorrCoeff;
     double observedTimeDiff;   // sec
     double computedTimeDiff;   // sec
     double doubleDifference;   // sec
@@ -259,7 +261,8 @@ private:
     unsigned phStaIdx;
     double timeDiff;
     double aPrioriWeight;
-    bool isXcorr;
+    bool xcorrUsed;
+    double xcorrCoeff;
     // computed
     double computedTimeDiff;
     double doubleDifference;
