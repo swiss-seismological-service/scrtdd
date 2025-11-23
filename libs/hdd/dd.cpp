@@ -770,7 +770,7 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
           joinPath(processingDataDir, "relocated-phase.csv"));
     }
   }
-  catch (exception &e)
+  catch (Exception &e)
   {
     logError(e.what());
   }
@@ -883,7 +883,7 @@ Catalog DD::relocate(const Catalog &catalog,
       solver.solve(solverOpt.solverIterations, dampingFactor,
                    solverOpt.L2normalization);
     }
-    catch (exception &e)
+    catch (Exception &e)
     {
       logInfoF("Cannot solve the double-difference system, stop here (%s)",
                e.what());
@@ -1071,7 +1071,7 @@ bool DD::addObservationParams(Solver &solver,
       ttt.compute(event, station, string(1, phaseType), travelTime,
                   takeOfAngleAzim, takeOfAngleDip, velocityAtSrc);
     }
-    catch (exception &e)
+    catch (Exception &e)
     {
       logWarningF(
           "Travel Time Table error: %s (Event lat %.6f lon %.6f depth %.6f "
