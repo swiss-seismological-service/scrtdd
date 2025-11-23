@@ -87,30 +87,22 @@ struct WfCounters
 
 void writeDoubleDifferenceToFile(
     const std::vector<HDD::Solver::DoubleDifference> &dds,
-    const HDD::XCorrCache &xcorr,
     const HDD::Catalog &cat,
     const std::string &file)
 {
   ofstream os(file);
   os << "eventId1,eventId2,networkCode,stationCode,locationCode,phaseType,"
-        "weight,xcorrUsed,xcorrValid,xcorrCoefficient,xcorrLag,"
-        "observedTimeDiff,computedTimeDiff,doubleDifference,interEventDistance"
+        "weight,xcorrUsed,xcorrCoefficient,doubleDifferenceResidual,"
+        "interEventDistance"
      << endl;
 
   for (const auto &e : dds)
   {
     const HDD::Catalog::Station &sta = cat.getStations().at(e.staId);
-    Phase::Type type                 = static_cast<Phase::Type>(e.phase);
-    HDD::XCorrCache::Entry x;
-    if (xcorr.has(e.evId1, e.evId2, e.staId, type))
-    {
-      x = xcorr.get(e.evId1, e.evId2, e.staId, type);
-    }
-    os << HDD::strf("%u,%u,%s,%s,%s,%c,%s,%s,%g,%g,%g,%g,%g,%g", e.evId1,
-                    e.evId2, sta.networkCode.c_str(), sta.stationCode.c_str(),
+    os << HDD::strf("%u,%u,%s,%s,%s,%c,%s,%g,%g,%g", e.evId1, e.evId2,
+                    sta.networkCode.c_str(), sta.stationCode.c_str(),
                     sta.locationCode.c_str(), e.phase,
-                    e.isXcorr ? "true" : "false", x.valid ? "true" : "false",
-                    x.coeff, x.lag, e.observedTimeDiff, e.computedTimeDiff,
+                    e.xcorrUsed ? "true" : "false", e.xcorrCoeff,
                     e.doubleDifference, e.interEventDistance)
        << endl;
   }
@@ -538,9 +530,9 @@ Catalog DD::relocateMultiEvents(
     if (saveProcessing)
     {
       string prefix = strf("cluster-%u", clusterId);
-      writeDoubleDifferenceToFile(startDDs, xcorr, catToReloc,
+      writeDoubleDifferenceToFile(startDDs, catToReloc,
                                   prefix + "initial-double-difference");
-      writeDoubleDifferenceToFile(finalDDs, xcorr, catToReloc,
+      writeDoubleDifferenceToFile(finalDDs, catToReloc,
                                   prefix + "final-double-difference");
       relocatedCluster.writeToFile(
           joinPath(processingDataDir, (prefix + "-relocated-event.csv")),
@@ -770,10 +762,9 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
 
     if (saveProcessing)
     {
-      writeDoubleDifferenceToFile(startDDs, xcorr, catalog,
+      writeDoubleDifferenceToFile(startDDs, catalog,
                                   "initial-double-difference");
-      writeDoubleDifferenceToFile(finalDDs, xcorr, catalog,
-                                  "final-double-difference");
+      writeDoubleDifferenceToFile(finalDDs, catalog, "final-double-difference");
       relocatedEvCat.writeToFile(
           joinPath(processingDataDir, "relocated-event.csv"),
           joinPath(processingDataDir, "relocated-phase.csv"));
