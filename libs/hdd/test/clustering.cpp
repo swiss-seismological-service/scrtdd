@@ -181,7 +181,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // neighbours out of rangei: maxEllipsoidSize
   BOOST_CHECK_THROW(
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     0,  //  double minEStoIEratio
@@ -198,7 +197,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // stations out of range: minESdis
   BOOST_CHECK_THROW(
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     52, //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     0,  //  double minEStoIEratio
@@ -215,7 +213,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // stations out of range: maxESdis
   BOOST_CHECK_THROW(
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     48, //  double maxESdis      -1 = no limits
                                     0,  //  double minEStoIEratio
@@ -232,7 +229,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // minEStoIEratio not enough
   BOOST_CHECK_THROW(
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     60, //  double minEStoIEratio
@@ -249,7 +245,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // too many DTs per event requested
   BOOST_CHECK_THROW(
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     0,  //  double minEStoIEratio
@@ -266,7 +261,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // too many neighbours requested
   BOOST_CHECK_THROW(
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     0,  //  double minEStoIEratio
@@ -283,7 +277,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // maxEllipsoidSize/numEllipsoids
   HDD::Neighbours neighbours =
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     0,  //  double minEStoIEratio
@@ -304,7 +297,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // maxEllipsoidSize/numEllipsoids
   neighbours =
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     0,  //  double minEStoIEratio
@@ -325,7 +317,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // maxEllipsoidSize/numEllipsoids
   neighbours =
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     0,  //  double minEStoIEratio
@@ -346,7 +337,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // minEStoIEratio
   neighbours =
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     48, //  double minEStoIEratio
@@ -367,7 +357,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // maxNumNeigh
   neighbours =
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     0,  //  double minEStoIEratio
@@ -385,7 +374,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // maxNumNeigh
   neighbours =
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     0,  //  double minEStoIEratio
@@ -403,7 +391,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // minDTperEvt
   neighbours =
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     0,  //  double minEStoIEratio
@@ -424,7 +411,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // maxDTperEvt
   neighbours =
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     0,  //  double minEStoIEratio
@@ -443,7 +429,6 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   // maxDTperEvt
   neighbours =
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     0,  //  double minEStoIEratio
@@ -478,7 +463,6 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
   // test multiple ellipsoids
   HDD::Neighbours neighbours =
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     0,  //  double minESdis
                                     -1, //  double maxESdis      -1 = no limits
                                     0,  //  double minEStoIEratio
@@ -502,7 +486,6 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
   // test multiple ellipsoids
   neighbours =
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     50, //  double minESdis
                                     91, //  double maxESdis      -1 = no limits
                                     10, //  double minEStoIEratio
@@ -525,7 +508,6 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
   // test multiple ellipsoids
   neighbours =
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     50, //  double minESdis
                                     91, //  double maxESdis      -1 = no limits
                                     10, //  double minEStoIEratio
@@ -547,7 +529,6 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
   // test multiple ellipsoids
   neighbours =
       HDD::selectNeighbouringEvents(cat, event, cat,
-                                    0,  //  double minPhaseWeight
                                     50, //  double minESdis
                                     91, //  double maxESdis      -1 = no limits
                                     10, //  double minEStoIEratio
@@ -582,7 +563,6 @@ BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
   unordered_map<unsigned, HDD::Neighbours> neighboursByEvent =
       HDD::selectNeighbouringEventsCatalog(
           cat,
-          0,      //  double minPhaseWeight
           0,      //  double minESdis
           -1,     //  double maxESdis      -1 = no limits
           0,      //  double minEStoIEratio
@@ -659,7 +639,6 @@ BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
   unordered_map<unsigned, HDD::Neighbours> neighboursByEvent =
       HDD::selectNeighbouringEventsCatalog(
           cat,
-          0,      //  double minPhaseWeight
           0,      //  double minESdis
           -1,     //  double maxESdis      -1 = no limits
           0,      //  double minEStoIEratio

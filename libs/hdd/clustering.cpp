@@ -287,7 +287,6 @@ Neighbours::readFromFile(const Catalog &cat, const std::string &file)
 Neighbours selectNeighbouringEvents(const Catalog &catalog,
                                     const Event &refEv,
                                     const Catalog &refEvCatalog,
-                                    double minPhaseWeight,
                                     double minESdist,
                                     double maxESdist,
                                     double minEStoIEratio,
@@ -407,9 +406,6 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
       const Phase &phase     = it->second;
       const Station &station = catalog.getStations().at(phase.stationId);
 
-      // check pick weight
-      if (phase.procInfo.classWeight < minPhaseWeight) continue;
-
       // check this station distance to reference event is ok
       const auto &staRefEvDistanceIt =
           validatedStationDistance.find(phase.stationId);
@@ -442,8 +438,7 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
                                                  phase.procInfo.type);
       if (itRef != refEvCatalog.getPhases().end())
       {
-        const Phase &refPhase = itRef->second;
-        if (refPhase.procInfo.classWeight >= minPhaseWeight) peer_found = true;
+        peer_found = true;
       }
 
       if (!peer_found)
@@ -613,7 +608,6 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
 
 unordered_map<unsigned, Neighbours>
 selectNeighbouringEventsCatalog(const Catalog &catalog,
-                                double minPhaseWeight,
                                 double minESdist,
                                 double maxESdist,
                                 double minEStoIEratio,
@@ -643,9 +637,9 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
     try
     {
       Neighbours neighbours = selectNeighbouringEvents(
-          validCatalog, event, validCatalog, minPhaseWeight, minESdist,
-          maxESdist, minEStoIEratio, minDTperEvt, maxDTperEvt, minNumNeigh,
-          maxNumNeigh, numEllipsoids, maxEllipsoidSize, keepUnmatched);
+          validCatalog, event, validCatalog, minESdist, maxESdist,
+          minEStoIEratio, minDTperEvt, maxDTperEvt, minNumNeigh, maxNumNeigh,
+          numEllipsoids, maxEllipsoidSize, keepUnmatched);
 
       neighboursList.emplace(neighbours.referenceId(), std::move(neighbours));
     }
@@ -697,8 +691,8 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
         try
         {
           neighbours = selectNeighbouringEvents(
-              validCatalog, event, validCatalog, minPhaseWeight, minESdist,
-              maxESdist, minEStoIEratio, minDTperEvt, maxDTperEvt, minNumNeigh,
+              validCatalog, event, validCatalog, minESdist, maxESdist,
+              minEStoIEratio, minDTperEvt, maxDTperEvt, minNumNeigh,
               maxNumNeigh, numEllipsoids, maxEllipsoidSize, keepUnmatched);
         }
         catch (...)

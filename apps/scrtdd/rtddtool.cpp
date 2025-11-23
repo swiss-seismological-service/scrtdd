@@ -595,19 +595,6 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->singleEventClustering.minPhaseWeight =
-          configGetInt(prefix + "minPhaseWeight");
-      prof->multiEventClustering.minPhaseWeight =
-          configGetInt(prefix + "minPhaseWeight");
-    }
-    catch (...)
-    {
-      prof->singleEventClustering.minPhaseWeight = 0;
-      prof->multiEventClustering.minPhaseWeight  = 0;
-    }
-
-    try
-    {
       prof->singleEventClustering.minESdist =
           configGetDouble(prefix + "minStationDistance");
       prof->multiEventClustering.minESdist =

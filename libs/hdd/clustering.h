@@ -105,8 +105,7 @@ private:
 Neighbours selectNeighbouringEvents(const Catalog &catalog,
                                     const Catalog::Event &refEv,
                                     const Catalog &refEvCatalog,
-                                    double minPhaseWeight = 0,
-                                    double minESdis       = 0,
+                                    double minESdis = 0,
                                     double maxESdis = -1, // -1 = no limits
                                     double minEStoIEratio  = 0,
                                     unsigned minDTperEvt   = 1,
@@ -119,7 +118,6 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
 
 std::unordered_map<unsigned, Neighbours>
 selectNeighbouringEventsCatalog(const Catalog &catalog,
-                                double minPhaseWeight,
                                 double minESdis,
                                 double maxESdis,
                                 double minEStoIEratio,

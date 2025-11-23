@@ -63,7 +63,7 @@
             <description>Whether to use pick time uncertainty to weigh each pick accordingly to 'pickUncertaintyClasses'. If enabled, each double-difference equation weight will be the average of its pick weights.</description>
           </parameter>
           <parameter name="pickUncertaintyClasses" type="list:string" unit="s" default="0.000,0.025,0.050,0.100,0.200,0.400" >
-            <description>Define the pick time uncertainty classes from which the pick weight is computed. This parameter defines a list of uncertainty time intervals: the interval in which a pick time uncertainty falls defines the pick class e.g. a pick with uncertainty of 0.150 falls in the 4th interval and the pick class is then 4. if pick uncertainties are absent, the lowest class will be used. The pick weight then is computed as: 1 / 2^(class-1) </description>
+            <description>Define the pick time uncertainty classes from which the pick weight is computed. This parameter defines a list of uncertainty time intervals: the interval in which a pick time uncertainty falls defines the pick class e.g. a pick with uncertainty of 0.150 falls in the 4th interval and the pick class is then 4. if pick uncertainties are absent, the lowest class will be used. The pick weight is computed as: 1 / 2^(class-1) </description>
           </parameter>
           <group name="catalog">
             <description>Define the reference catalog for single-event mode.</description>
@@ -98,9 +98,6 @@
               </parameter>
               <parameter name="maxStationDistance" type="double" unit="km">
                 <description>Max distance (km) between event and station allowed for a phase to be used. Phases belonging to stations not satisfying this condition will not be used. A value of 0 or less disables this limit.</description>
-              </parameter>
-              <parameter name="minPhaseWeight" type="int">
-                <description>Minimum accepted phase weight, accordingly to 'pickUncertaintyClasses' parameter. If this value is set, phases with lower weight will not be used.</description>
               </parameter>
             </group>
             <group name="eventPairSelection">

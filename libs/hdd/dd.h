@@ -83,8 +83,6 @@ struct Config
 
 struct ClusteringOptions
 {
-  // min weight of phases required (0-1)
-  double minPhaseWeight = 0;
   // min hypocenter-station to interevent distance ratio required
   double minEStoIEratio = 1;
   // min hypocenter-station distance required

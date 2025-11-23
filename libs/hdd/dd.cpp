@@ -411,10 +411,10 @@ DD::findClusters(const ClusteringOptions &clustOpt)
   // find Neighbours for each event in the catalog
   unordered_map<unsigned, Neighbours> neighboursByEvent =
       selectNeighbouringEventsCatalog(
-          _bgCat, clustOpt.minPhaseWeight, clustOpt.minESdist,
-          clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
-          clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
-          clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, true);
+          _bgCat, clustOpt.minESdist, clustOpt.maxESdist,
+          clustOpt.minEStoIEratio, clustOpt.minDTperEvt, clustOpt.maxDTperEvt,
+          clustOpt.minNumNeigh, clustOpt.maxNumNeigh, clustOpt.numEllipsoids,
+          clustOpt.maxEllipsoidSize, true);
 
   // Organize the neighbours by not connected clusters
   return clusterizeNeighbouringEvents(neighboursByEvent);
@@ -468,10 +468,10 @@ Catalog DD::relocateMultiEvents(
     // find Neighbours for each event in the catalog
     unordered_map<unsigned, Neighbours> neighboursByEvent =
         selectNeighbouringEventsCatalog(
-            catToReloc, clustOpt.minPhaseWeight, clustOpt.minESdist,
-            clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
-            clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
-            clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, true);
+            catToReloc, clustOpt.minESdist, clustOpt.maxESdist,
+            clustOpt.minEStoIEratio, clustOpt.minDTperEvt, clustOpt.maxDTperEvt,
+            clustOpt.minNumNeigh, clustOpt.maxNumNeigh, clustOpt.numEllipsoids,
+            clustOpt.maxEllipsoidSize, true);
 
     // Organize the neighbours by non-connected clusters
     clusters = clusterizeNeighbouringEvents(neighboursByEvent);
@@ -716,11 +716,10 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
     bool keepUnmatchedPhases = doXcorr; // useful for detecting missed picks
 
     Neighbours neighbours = selectNeighbouringEvents(
-        bgCat, evToRelocate, evToRelocateCat, clustOpt.minPhaseWeight,
-        clustOpt.minESdist, clustOpt.maxESdist, clustOpt.minEStoIEratio,
-        clustOpt.minDTperEvt, clustOpt.maxDTperEvt, clustOpt.minNumNeigh,
-        clustOpt.maxNumNeigh, clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize,
-        keepUnmatchedPhases);
+        bgCat, evToRelocate, evToRelocateCat, clustOpt.minESdist,
+        clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
+        clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
+        clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, keepUnmatchedPhases);
 
     logInfoF("Found %zu neighbouring events", neighbours.ids().size());
 
