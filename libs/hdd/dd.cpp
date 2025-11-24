@@ -1029,7 +1029,8 @@ bool DD::addObservations(Solver &solver,
             {
               xcorrUsed = true;
               diffTime -= duration<double>(e.lag);
-              weight += ((weight * xcorrWeightScaler) - weight) * e.coeff;
+              double weightGain = (weight * xcorrWeightScaler) - weight;
+              weight += weightGain * e.coeff;
             }
           }
         }

@@ -726,16 +726,6 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->solverCfg.xcorrWeightScaler =
-          configGetDouble(prefix + "weightScaler");
-    }
-    catch (...)
-    {
-      prof->solverCfg.xcorrWeightScaler = 1.5;
-    }
-
-    try
-    {
       string compatibleChannels =
           configGetString(prefix + "compatibleChannels");
       vector<string> compatibleSets = ::splitString(compatibleChannels, ";");
@@ -988,6 +978,16 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {}
+
+    try
+    {
+      prof->solverCfg.xcorrWeightScaler =
+          configGetDouble(prefix + "xcorrWeightScaler");
+    }
+    catch (...)
+    {
+      prof->solverCfg.xcorrWeightScaler = 1.5;
+    }
 
     prof->ddCfg.diskTraceMinLen =
         configGetDouble("performance.cachedWaveformLength");

@@ -136,9 +136,6 @@
             <parameter name="maxInterEventDistance" type="double" default="0" unit="km">
               <description>Maximum allowed distance (km) between events for a cross-correlation to happen. Phases of event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 disables the cross-correlations.</description>
             </parameter>
-            <parameter name="weightScaler" type="double" default="1.5">
-              <description>Weight scaling of the equations that use cross-correlation differential times with respect to equations that use pick times only.</description>
-            </parameter>
             <parameter name="compatibleChannels" type="string" default="">
               <description>The cross-correlation is computed only on phases picked on the same channel code (e.g. HH. EH, HG, etc). However here it is possible to force the cross-correlation between different channel codes on the same station. The value is a list separated by ';' and each element is a list (again) of compatible channels separated by ',' for example: "HH,EH;HG,HN"</description>
             </parameter>
@@ -205,6 +202,9 @@
             </parameter>
             <parameter name="absoluteLocationConstraint" type="list:double" default="0.3" >
               <description>When a value greater than 0 is used, the double-difference system is modified to solve for both absolute and relative locations. Additional equations are added, which constrain the absolute travel time residuals. This option selects the weight to be given to these equations. One or two values can be given; when two values are given the first value is used in the first iteration, the second value in the last iteration and the iterations in between use interpolated values.</description>
+            </parameter>
+            <parameter name="xcorrWeightScaler" type="double" default="1.5">
+              <description>Weight scaling of the equations that use cross-correlation differential times with respect to equations that use differential pick times only.</description>
             </parameter>
           </group>
         </struct>
