@@ -239,7 +239,7 @@ void DD::unloadTravelTimeTable() { _ttt->freeResources(); }
 
 const std::vector<std::string> DD::xcorrComponents(const Phase &phase) const
 {
-  const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
+  const auto &xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
   if (xcorrCfg.components.empty() ||
       (xcorrCfg.components.size() == 1 && xcorrCfg.components.at(0).empty()))
   {
@@ -638,7 +638,7 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
     logError("Failed to perform step 1 origin relocation");
   }
 
-  logInfo("Performing step 2: relocation with cross-correlation");
+  logInfo("Performing step 2: relocate again, possibly with cross-correlation");
 
   eventWorkingDir = joinPath(processingDataDir, "step2");
 
@@ -946,7 +946,7 @@ bool DD::addObservations(Solver &solver,
     const Phase &refPhase  = it->second;
     const Station &station = catalog.getStations().at(refPhase.stationId);
     char phaseTypeAsChar   = static_cast<char>(refPhase.procInfo.type);
-    const auto xcorrCfg    = _cfg.xcorr.at(refPhase.procInfo.type);
+    const auto &xcorrCfg   = _cfg.xcorr.at(refPhase.procInfo.type);
 
     //
     // loop through neighbouring events and look for the matching phase
@@ -1317,7 +1317,7 @@ DD::buildXCorrCache(Catalog &catalog,
            "%u, loaded from disk cache %u",
            wfcount.downloaded, wfcount.no_avail, wfcount.disk_cached);
 
-  logXCorrSummary(xcorr);
+  logXCorrSummary(cluster, xcorr);
 
   return xcorr;
 }
@@ -1354,7 +1354,6 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
   {
     const Phase &refPhase  = itRef->second;
     const Station &station = catalog.getStations().at(refPhase.stationId);
-    const auto xcorrCfg    = _cfg.xcorr.at(refPhase.procInfo.type);
 
     //
     // skip stations too far away
@@ -1547,8 +1546,8 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
 
 TimeWindow DD::xcorrTimeWindowLong(const Phase &phase) const
 {
-  const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
-  TimeWindow tw       = xcorrTimeWindowShort(phase);
+  const auto &xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
+  TimeWindow tw        = xcorrTimeWindowShort(phase);
   tw.setStartTime(tw.startTime() - secToDur(xcorrCfg.maxDelay));
   tw.setEndTime(tw.endTime() + secToDur(xcorrCfg.maxDelay));
   return tw;
@@ -1556,7 +1555,7 @@ TimeWindow DD::xcorrTimeWindowLong(const Phase &phase) const
 
 TimeWindow DD::xcorrTimeWindowShort(const Phase &phase) const
 {
-  const auto xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
+  const auto &xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
   UTCTime::duration shortDuration =
       secToDur(xcorrCfg.endOffset - xcorrCfg.startOffset);
   UTCTime::duration shortTimeCorrection = secToDur(xcorrCfg.startOffset);
@@ -1641,7 +1640,7 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
 {
   coeffOut = lagOut = 0;
 
-  auto xcorrCfg = _cfg.xcorr.at(phase1.procInfo.type);
+  const auto &xcorrCfg = _cfg.xcorr.at(phase1.procInfo.type);
 
   TimeWindow tw1 = xcorrTimeWindowLong(phase1);
   TimeWindow tw2 = xcorrTimeWindowLong(phase2);
@@ -1820,73 +1819,110 @@ shared_ptr<const Trace> DD::getWaveform(Waveform::Processor &wfProc,
                     _cfg.wfFilter.resampleFreq, trans);
 }
 
-void DD::logXCorrSummary(const XCorrCache &xcorr)
+void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
+                         const XCorrCache &xcorr)
 {
-  struct
+  struct Counters
   {
-    unsigned skipped;
-    unsigned performed;
-    unsigned performed_s;
-    unsigned performed_p;
-    unsigned good_cc;
-    unsigned good_cc_s;
-    unsigned good_cc_p;
-  } counters{};
-
-  auto callback = [&counters, this](unsigned ev1, unsigned ev2,
-                                    const std::string &stationId,
-                                    const Catalog::Phase::Type &type,
-                                    const XCorrCache::Entry &e) {
-    if (e.valid)
-    {
-      const auto xcorrCfg = _cfg.xcorr.at(type);
-      bool goodCoeff      = e.coeff >= xcorrCfg.minCoef;
-
-      counters.performed++;
-      if (type == Phase::Type::S)
-        counters.performed_s++;
-      else if (type == Phase::Type::P)
-        counters.performed_p++;
-
-      if (goodCoeff)
-      {
-        counters.good_cc++;
-        if (type == Phase::Type::S)
-          counters.good_cc_s++;
-        else if (type == Phase::Type::P)
-          counters.good_cc_p++;
-      }
-    }
-    else
-      counters.skipped++;
+    unsigned performed      = 0;
+    unsigned failed         = 0;
+    unsigned aboveThreshold = 0;
+    vector<double> coeff;
+    vector<double> lag;
   };
 
-  xcorr.forEach(callback);
+  map<string, Counters> pCountByStation; // key station id
+  map<string, Counters> sCountByStation; // key station id
 
-  // each xcorr is reported twice in XCorrCache (ev1-ev2 and ev2-ev1)
-  counters.skipped /= 2;
-  counters.performed /= 2;
-  counters.performed_s /= 2;
-  counters.performed_p /= 2;
-  counters.good_cc /= 2;
-  counters.good_cc_s /= 2;
-  counters.good_cc_p /= 2;
+  for (const auto &kv : cluster)
+  {
+    const Neighbours &neighbours = kv.second;
+    for (const auto &t : neighbours.phases())
+    {
+      const string &stationId              = std::get<0>(t);
+      const Catalog::Phase::Type phaseType = std::get<1>(t);
+      const unsigned neighEvId             = std::get<2>(t);
 
-  logInfoF("Cross-correlation performed %u (P phase %.f%%, S phase %.f%%), "
-           "skipped %u (%.f%%)",
-           counters.performed,
-           (counters.performed_p * 100. / counters.performed),
-           (counters.performed_s * 100. / counters.performed), counters.skipped,
-           (counters.skipped * 100. / (counters.performed + counters.skipped)));
+      if (!xcorr.has(neighbours.referenceId(), neighEvId, stationId, phaseType))
+      {
+        continue;
+      }
+      const auto &e =
+          xcorr.get(neighbours.referenceId(), neighEvId, stationId, phaseType);
+      Counters &counters = (phaseType == Phase::Type::P)
+                               ? pCountByStation[stationId]
+                               : sCountByStation[stationId];
 
-  logInfoF("Successful cross-correlation (coefficient above threshold) %.1f%% "
-           "(%u/%u). Successful P %.1f%% (%u/%u). Successful S %.1f%% (%u/%u)",
-           (counters.good_cc * 100.0 / counters.performed), counters.good_cc,
-           counters.performed,
-           (counters.good_cc_p * 100.0 / counters.performed_p),
-           counters.good_cc_p, counters.performed_p,
-           (counters.good_cc_s * 100.0 / counters.performed_s),
-           counters.good_cc_s, counters.performed_s);
+      if (e.valid)
+      {
+        counters.performed++;
+        counters.coeff.push_back(e.coeff);
+        counters.lag.push_back(e.lag);
+
+        const auto &xcorrCfg = _cfg.xcorr.at(phaseType);
+        if (e.coeff >= xcorrCfg.minCoef)
+        {
+          counters.aboveThreshold++;
+        }
+      }
+      else
+      {
+        counters.failed++;
+      }
+    }
+  }
+
+  unsigned performed      = 0;
+  unsigned failed         = 0;
+  unsigned aboveThreshold = 0;
+  logInfo("Station P  #CC   fail   above-threshold     corr-coeff five-number "
+          "summary");
+  for (const auto &kv : pCountByStation)
+  {
+    const string &stationId = kv.first;
+    const Counters &c       = kv.second;
+
+    double min, max, q1, q2, q3;
+    compute5numberSummary(c.coeff, min, max, q1, q2, q3);
+
+    unsigned tot = c.performed + c.failed;
+
+    logInfoF("%-12s %10u %.1f%% %.1f%% %.2f %.2f %.2f %.2f %.2f",
+             stationId.c_str(), tot, (c.failed * 100.0 / tot),
+             (c.aboveThreshold * 100.0 / tot), min, q1, q2, q3, max);
+    performed += c.performed;
+    failed += c.failed;
+    aboveThreshold += c.aboveThreshold;
+  }
+  unsigned tot = performed + failed;
+  logInfoF("Total %10u %.1f%% %.1f%%", tot, (failed * 100.0 / tot),
+           (aboveThreshold * 100.0 / tot));
+
+  performed      = 0;
+  failed         = 0;
+  aboveThreshold = 0;
+  logInfo("Station S  #CC   fail   above-threshold     corr-coeff five-number "
+          "summary");
+  for (const auto &kv : sCountByStation)
+  {
+    const string &stationId = kv.first;
+    const Counters &c       = kv.second;
+
+    double min, max, q1, q2, q3;
+    compute5numberSummary(c.coeff, min, max, q1, q2, q3);
+
+    unsigned tot = c.performed + c.failed;
+
+    logInfoF("%-12s %10u %.1f%% %.1f%% %.2f %.2f %.2f %.2f %.2f",
+             stationId.c_str(), tot, (c.failed * 100.0 / tot),
+             (c.aboveThreshold * 100.0 / tot), min, q1, q2, q3, max);
+    performed += c.performed;
+    failed += c.failed;
+    aboveThreshold += c.aboveThreshold;
+  }
+  tot = performed + failed;
+  logInfoF("Total %10u %.1f%% %.1f%%", tot, (failed * 100.0 / tot),
+           (aboveThreshold * 100.0 / tot));
 }
 
 } // namespace HDD

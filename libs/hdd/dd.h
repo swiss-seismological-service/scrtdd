@@ -182,7 +182,7 @@ public:
 
   // Multi-event relocation of the background catalog
   Catalog relocateMultiEvents(
-      std::list<std::unordered_map<unsigned, Neighbours>> &clusterData,
+      std::list<std::unordered_map<unsigned, Neighbours>> &clusters,
       XCorrCache &xcorrData,
       const ClusteringOptions &clustOpt,
       const SolverOptions &solverOpt,
@@ -233,7 +233,7 @@ private:
                                   std::string processingDataDir = "");
 
   Catalog relocate(const Catalog &catalog,
-                   const std::unordered_map<unsigned, Neighbours> &neighCluster,
+                   const std::unordered_map<unsigned, Neighbours> &cluster,
                    const SolverOptions &solverOpt,
                    bool keepNeighboursFixed,
                    const XCorrCache &xcorr,
@@ -271,7 +271,7 @@ private:
 
   XCorrCache
   buildXCorrCache(Catalog &catalog,
-                  const std::unordered_map<unsigned, Neighbours> &neighCluster,
+                  const std::unordered_map<unsigned, Neighbours> &cluster,
                   double xcorrMaxEvStaDist      = -1,
                   double xcorrMaxInterEvDist    = -1,
                   const XCorrCache &precomputed = XCorrCache());
@@ -321,7 +321,8 @@ private:
                              double xcorrMaxEvStaDist,
                              double xcorrMaxInterEvDist);
 
-  void logXCorrSummary(const XCorrCache &xcorr);
+  void logXCorrSummary(const std::unordered_map<unsigned, Neighbours> &cluster,
+                       const XCorrCache &xcorr);
 
   const std::vector<std::string>
   xcorrComponents(const Catalog::Phase &phase) const;
