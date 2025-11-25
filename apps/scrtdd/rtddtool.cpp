@@ -340,12 +340,6 @@ void RTDD::createCommandLineDescription()
       "Specify a file containing precomputed cross-correlation values",
       &_config.xcorrCache, true);
   commandline().addOption(
-      "ModeOptions", "cache-wf-all",
-      "All waveforms will be saved to disk cache, even temporarily "
-      "ones. Normally only catalog phase waveforms are cached to disk. "
-      "This is useful to speed up debugging/testing when the same "
-      "origins are repeatedly processed with --origin or --ep options.");
-  commandline().addOption(
       "ModeOptions", "test",
       "Test mode, no messages are sent when relocating a single event");
   commandline().addOption("ModeOptions", "xmlout",
@@ -371,9 +365,8 @@ bool RTDD::validateParameters()
   _config.cacheWaveforms       = configGetBool("performance.cacheWaveforms");
   _config.cacheDirectory =
       env->absolutePath(configGetPath("performance.cacheDirectory"));
-  _config.testMode          = commandline().hasOption("test");
-  _config.loadProfileWf     = commandline().hasOption("load-profile-wf");
-  _config.cacheAllWaveforms = commandline().hasOption("cache-wf-all");
+  _config.testMode      = commandline().hasOption("test");
+  _config.loadProfileWf = commandline().hasOption("load-profile-wf");
 
   // disable messaging (offline mode) with certain command line options
   if (!_config.eventXML.empty() || !_config.dumpCatalog.empty() ||
@@ -1865,7 +1858,7 @@ void RTDD::loadProfile(ProfilePtr profile,
 {
   profile->load(query(), &_cache, _eventParameters.get(),
                 _config.cacheDirectory, _config.cacheWaveforms,
-                _config.cacheAllWaveforms, alternativeCatalog);
+                alternativeCatalog);
 }
 
 // Profile class
@@ -1878,7 +1871,6 @@ void RTDD::Profile::load(DatabaseQuery *query,
                          EventParameters *eventParameters,
                          const string &workingDir,
                          bool cacheWaveforms,
-                         bool cacheAllWaveforms,
                          const HDD::Catalog alternativeCatalog)
 {
   if (loaded) return;
@@ -1967,14 +1959,13 @@ void RTDD::Profile::load(DatabaseQuery *query,
     dd.reset(new HDD::DD(ddbgc, ddCfg, std::move(ttt), std::move(wf)));
 
     if (cacheWaveforms)
+    {
       dd->enableCatalogWaveformDiskCache(HDD::joinPath(profileDir, "wfcache"));
+    }
     else
+    {
       dd->disableCatalogWaveformDiskCache();
-
-    if (cacheAllWaveforms)
-      dd->enableAllWaveformDiskCache(HDD::joinPath(profileDir, "tmpcache"));
-    else
-      dd->disableAllWaveformDiskCache();
+    }
   }
   catch (exception &e)
   {

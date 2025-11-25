@@ -154,16 +154,6 @@ public:
     return _useCatalogWaveformDiskCache;
   }
 
-  // Enable/disable the usage of disk cache for temporary waveforms
-  // (e.g. single-event). Normaly only background catalog waveforms
-  // are cached to disk, but his might come in handy when testing or
-  // developing and multiple relocations are attempted on the same
-  // single-events
-  void disableAllWaveformDiskCache();
-  void enableAllWaveformDiskCache(const std::string &tmpCacheDir);
-  std::string allWaveformDiskCacheDir() const { return _tmpCacheDir; }
-  bool useAllWaveformCache() const { return _waveformCacheAll; }
-
   // preload all background catalog waveforms: store them on disk cache
   // (if enabled and not already there) then cache them in memory
   // already processed, ready for cross-correlation
@@ -337,9 +327,7 @@ private:
   std::shared_ptr<Waveform::Proxy> _wf;
 
   std::string _cacheDir;
-  std::string _tmpCacheDir;
   bool _useCatalogWaveformDiskCache = true;
-  bool _waveformCacheAll            = false;
 
   struct
   {

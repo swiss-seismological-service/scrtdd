@@ -119,7 +119,6 @@ private:
     bool allowManualOrigin     = true;
     int profileTimeAlive       = -1; // seconds
     bool cacheWaveforms        = false;
-    bool cacheAllWaveforms     = false;
     std::string cacheDirectory = "/tmp/rtdd";
     bool debugWaveforms        = false;
 
@@ -154,7 +153,6 @@ private:
               DataModel::EventParameters *eventParameters,
               const std::string &workingDir,
               bool cacheWaveforms,
-              bool cacheAllWaveforms,
               const HDD::Catalog alternativeCatalog = HDD::Catalog());
     void unload();
     bool isLoaded() { return loaded; }

@@ -125,7 +125,6 @@ DD::DD(const Catalog &catalog,
       _ttt(std::move(ttt)), _wf(std::move(wf))
 {
   disableCatalogWaveformDiskCache();
-  disableAllWaveformDiskCache();
 }
 
 void DD::disableCatalogWaveformDiskCache()
@@ -147,23 +146,6 @@ void DD::enableCatalogWaveformDiskCache(const std::string &cacheDir)
     }
   }
   createWaveformCache();
-}
-
-void DD::disableAllWaveformDiskCache() { _waveformCacheAll = false; }
-
-void DD::enableAllWaveformDiskCache(const std::string &tmpCacheDir)
-{
-  _waveformCacheAll = true;
-  _tmpCacheDir      = tmpCacheDir;
-
-  if (!pathExists(_tmpCacheDir))
-  {
-    if (!createDirectories(_tmpCacheDir))
-    {
-      string msg = "Unable to create cache directory: " + _tmpCacheDir;
-      throw Exception(msg);
-    }
-  }
 }
 
 void DD::createWaveformCache()
@@ -1454,19 +1436,8 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
   // phase
   //
   shared_ptr<Waveform::BatchLoader> batchLoader(new Waveform::BatchLoader(_wf));
-
-  shared_ptr<Waveform::Loader> loader = batchLoader;
-  shared_ptr<Waveform::DiskCachedLoader> diskLoader;
-  if (_useCatalogWaveformDiskCache && _waveformCacheAll)
-  {
-    diskLoader.reset(
-        new Waveform::DiskCachedLoader(_wf, batchLoader, _tmpCacheDir));
-    loader.reset(
-        new Waveform::ExtraLenLoader(diskLoader, _cfg.diskTraceMinLen));
-  }
-
-  shared_ptr<Waveform::Processor> proc(
-      new Waveform::BasicProcessor(_wf, loader, _cfg.wfFilter.extraTraceLen));
+  shared_ptr<Waveform::Processor> proc(new Waveform::BasicProcessor(
+      _wf, batchLoader, _cfg.wfFilter.extraTraceLen));
 
   //
   // loop through reference event phases
@@ -1542,11 +1513,8 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
   // print counters
   WfCounters wfcount{};
   wfcount.update(batchLoader.get());
-  wfcount.update(diskLoader.get());
-  logInfoF("Event %s: waveforms downloaded %u, not available %u, loaded from "
-           "disk cache %u",
-           string(refEv).c_str(), wfcount.downloaded, wfcount.no_avail,
-           wfcount.disk_cached);
+  logInfoF("Event %s: waveforms downloaded %u, not available %u",
+           string(refEv).c_str(), wfcount.downloaded, wfcount.no_avail);
 
   return shared_ptr<Waveform::Processor>(new Waveform::MemCachedProc(proc));
 }
