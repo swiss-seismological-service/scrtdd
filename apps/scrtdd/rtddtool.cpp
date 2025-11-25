@@ -709,24 +709,6 @@ bool RTDD::validateParameters()
       prof->xcorrOpt.maxInterEvDist = 2;
     }
 
-    try
-    {
-      string compatibleChannels =
-          configGetString(prefix + "compatibleChannels");
-      vector<string> compatibleSets = ::splitString(compatibleChannels, ";");
-      for (const auto &cs : compatibleSets)
-      {
-        vector<string> codes = ::splitString(cs, ",");
-        for (size_t i = 0; i < codes.size() - 1; i++)
-          for (size_t j = i + 1; j < codes.size(); j++)
-          {
-            prof->xcorrOpt.compatibleChannels.push_back({codes[i], codes[j]});
-          }
-      }
-    }
-    catch (...)
-    {}
-
     prefix = string("profile.") + prof->name + ".crossCorrelation.p-phase.";
     try
     {

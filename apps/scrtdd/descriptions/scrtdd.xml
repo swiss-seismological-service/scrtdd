@@ -139,9 +139,6 @@
             <parameter name="maxInterEventDistance" type="double" default="2" unit="km">
               <description>Maximum allowed distance (km) between events for a cross-correlation to happen. Phases of event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Setting it to -1 removes the limits.</description>
             </parameter>
-            <parameter name="compatibleChannels" type="string" default="">
-              <description>The cross-correlation is computed only on phases picked on the same channel code (e.g. HH. EH, HG, etc). However here it is possible to force the cross-correlation between different channel codes on the same station. The value is a list separated by ';' and each element is a list (again) of compatible channels separated by ',' for example: "HH,EH;HG,HN"</description>
-            </parameter>
             <group name="p-phase">
               <parameter name="minCCCoef" type="double" default="0.70">
                 <description>Min cross-correlation coefficient accepted to use a differential travel time.</description>

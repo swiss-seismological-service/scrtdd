@@ -1554,34 +1554,11 @@ bool DD::xcorrPhases(const XcorrOptions &xcorrOpt,
     return false;
   }
 
-  //
-  // Try to use the same channels for the cross-correlation. In case the two
-  // phases differ, do not change the catalog phase channels.
-  //
-  const string channelCodeRoot1 = getBandAndInstrumentCodes(phase1.channelCode);
-  const string channelCodeRoot2 = getBandAndInstrumentCodes(phase2.channelCode);
-
-  if (channelCodeRoot1 != channelCodeRoot2)
+  if (phase1.channelCode != phase2.channelCode)
   {
-    bool channelsAreCompatible = false;
-    for (const pair<string, string> &p : xcorrOpt.compatibleChannels)
-    {
-      if ((p.first == channelCodeRoot1 && p.second == channelCodeRoot2) ||
-          (p.second == channelCodeRoot1 && p.first == channelCodeRoot2))
-      {
-        channelsAreCompatible = true;
-        break;
-      }
-    }
-
-    if (!channelsAreCompatible)
-    {
-      logDebugF("Skipping cross-correlation: incompatible channels %s and %s "
-                "(%s and %s)",
-                channelCodeRoot1.c_str(), channelCodeRoot2.c_str(),
-                string(phase1).c_str(), string(phase2).c_str());
-      return false;
-    }
+    logDebugF("Skipping cross-correlation: incompatible channels %s and %s ",
+              string(phase1).c_str(), string(phase2).c_str());
+    return false;
   }
 
   //

@@ -91,7 +91,6 @@ struct XcorrOptions
   double minEvStaDist   = 0;     // min event to station distance
   double maxEvStaDist   = -1;    // max event to station distance -1 -> disable
   double maxInterEvDist = -1;    // max inter-event distance -1 -> disable
-  std::vector<std::pair<std::string, std::string>> compatibleChannels;
   struct XCorr
   {
     double minCoef;     // min cross-correlatation coefficient required (0-1)
