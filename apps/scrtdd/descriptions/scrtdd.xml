@@ -59,9 +59,6 @@
           <parameter name="S-Phases" type="list:string" default="S,Sn,Sg">
             <description>Defines a priority list of accepted S phases. Phases not in the list will be ignored. If multiple phases exist for a station, the first one in the list will be used.</description>
           </parameter>
-          <parameter name="usePickUncertainties" type="boolean" default="false">
-            <description>Whether to use pick time uncertainty to weigh each pick accordingly to 'pickUncertaintyClasses'. If enabled, each double-difference equation weight will be the average of its pick weights.</description>
-          </parameter>
           <parameter name="pickUncertaintyClasses" type="list:string" unit="s" default="0.000,0.025,0.050,0.100,0.200,0.400" >
             <description>Define the pick time uncertainty classes from which the pick weight is computed. This parameter defines a list of uncertainty time intervals: the interval in which a pick time uncertainty falls defines the pick class e.g. a pick with uncertainty of 0.150 falls in the 4th interval and the pick class is then 4. if pick uncertainties are absent, the lowest class will be used. The pick weight is computed as: 1 / 2^(class-1) </description>
           </parameter>
@@ -211,6 +208,9 @@
             </parameter>
             <parameter name="xcorrWeightScaler" type="double" default="1.5">
               <description>Weight scaling of the equations that use cross-correlation differential times with respect to equations that use differential pick times only.</description>
+            </parameter>
+            <parameter name="usePickUncertainties" type="boolean" default="false">
+              <description>Whether to use pick time uncertainty to weigh each pick accordingly to 'pickUncertaintyClasses'. If enabled, each double-difference equation weight will be the average of its pick weights.</description>
             </parameter>
           </group>
         </struct>

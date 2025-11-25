@@ -496,16 +496,6 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->solverOpt.usePickUncertainties =
-          configGetBool(prefix + "usePickUncertainties");
-    }
-    catch (...)
-    {
-      prof->solverOpt.usePickUncertainties = false;
-    }
-
-    try
-    {
       vector<string> tokens =
           configGetStrings(prefix + "pickUncertaintyClasses");
       prof->ddCfg.pickUncertaintyClasses.clear();
@@ -980,6 +970,16 @@ bool RTDD::validateParameters()
     catch (...)
     {
       prof->solverOpt.xcorrWeightScaler = 1.5;
+    }
+
+    try
+    {
+      prof->solverOpt.usePickUncertainties =
+          configGetBool(prefix + "usePickUncertainties");
+    }
+    catch (...)
+    {
+      prof->solverOpt.usePickUncertainties = false;
     }
 
     prof->ddCfg.diskTraceMinLen =
