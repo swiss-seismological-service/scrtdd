@@ -340,10 +340,6 @@ void RTDD::createCommandLineDescription()
       "Specify a file containing precomputed cross-correlation values",
       &_config.xcorrCache, true);
   commandline().addOption(
-      "ModeOptions", "expiry,x",
-      "Defines the time span in hours after which objects expire.",
-      &_config.fExpiry, true);
-  commandline().addOption(
       "ModeOptions", "cache-wf-all",
       "All waveforms will be saved to disk cache, even temporarily "
       "ones. Normally only catalog phase waveforms are cached to disk. "
@@ -1043,7 +1039,7 @@ bool RTDD::init()
   _inputOrgs  = addInputObjectLog("origin");
   _outputOrgs = addOutputObjectLog("origin", primaryMessagingGroup());
 
-  _cache.setTimeSpan(Core::TimeSpan(_config.fExpiry * 3600.));
+  _cache.setTimeSpan(Core::TimeSpan(3600.));
   _cache.setDatabaseArchive(query());
 
   // Enable periodic timer: handleTimeout()

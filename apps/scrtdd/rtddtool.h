@@ -126,7 +126,6 @@ private:
     // Mode
     bool forceProcessing = false;
     bool testMode        = false;
-    double fExpiry       = 1.0;
     std::string originIDs;
     std::string eventXML;
     std::string forceProfile;
