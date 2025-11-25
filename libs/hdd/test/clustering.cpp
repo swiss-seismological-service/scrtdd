@@ -141,9 +141,12 @@ void checkNeighbours(const HDD::Neighbours &neighbours,
                      const unordered_set<Phase::Type> &mustBePresentPhases)
 {
   BOOST_CHECK(mustBePresentStations == neighbours.stations());
-  for (const unsigned id : mustBePresentIds) {
-    for (const string &sta : mustBePresentStations) {
-      for (const Phase::Type pht : mustBePresentPhases) {
+  for (const unsigned id : mustBePresentIds)
+  {
+    for (const string &sta : mustBePresentStations)
+    {
+      for (const Phase::Type pht : mustBePresentPhases)
+      {
         BOOST_CHECK(neighbours.has(id, sta, pht));
       }
     }

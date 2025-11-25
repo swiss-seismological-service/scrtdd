@@ -235,11 +235,10 @@ string DD::generateWorkingSubDir(const Event &ev) const
 
 void DD::unloadWaveforms() { createWaveformCache(); }
 
-void DD::unloadTravelTimeTable() { _ttt->freeResources(); }
-
-const std::vector<std::string> DD::xcorrComponents(const Phase &phase) const
+const std::vector<std::string> DD::xcorrComponents(const XcorrOptions &xcorrOpt,
+                                                   const Phase &phase) const
 {
-  const auto &xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
+  const auto &xcorrCfg = xcorrOpt.phase.at(phase.procInfo.type);
   if (xcorrCfg.components.empty() ||
       (xcorrCfg.components.size() == 1 && xcorrCfg.components.at(0).empty()))
   {
@@ -251,7 +250,7 @@ const std::vector<std::string> DD::xcorrComponents(const Phase &phase) const
   }
 }
 
-void DD::preloadWaveforms()
+void DD::preloadWaveforms(const XcorrOptions &xcorrOpt)
 {
   //
   // preload waveforms, store them on disk and cache them in memory
@@ -263,16 +262,17 @@ void DD::preloadWaveforms()
            _bgCat.getEvents().size());
 
   auto forEventWaveforms =
-      [this](const Event &event, unsigned &numPhases, unsigned &numSPhases,
-             std::function<bool(const TimeWindow &, const Event &,
-                                const Phase &, const string &)> func) {
+      [this,
+       &xcorrOpt](const Event &event, unsigned &numPhases, unsigned &numSPhases,
+                  std::function<bool(const TimeWindow &, const Event &,
+                                     const Phase &, const string &)> func) {
         auto eqlrng = _bgCat.getPhases().equal_range(event.id);
         for (auto it = eqlrng.first; it != eqlrng.second; ++it)
         {
           const Phase &phase = it->second;
-          TimeWindow tw      = xcorrTimeWindowLong(phase);
+          TimeWindow tw      = xcorrTimeWindowLong(xcorrOpt, phase);
 
-          for (const string &component : xcorrComponents(phase))
+          for (const string &component : xcorrComponents(xcorrOpt, phase))
           {
             if (func(tw, event, phase, component)) break;
           }
@@ -345,7 +345,7 @@ void DD::preloadWaveforms()
            wfcount.no_avail, wfcount.disk_cached);
 }
 
-void DD::dumpWaveforms(const string &basePath)
+void DD::dumpWaveforms(const XcorrOptions &xcorrOpt, const string &basePath)
 {
   if (!basePath.empty() && !pathExists(basePath))
   {
@@ -372,9 +372,9 @@ void DD::dumpWaveforms(const string &basePath)
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
       const Phase &phase = it->second;
-      TimeWindow tw      = xcorrTimeWindowLong(phase);
+      TimeWindow tw      = xcorrTimeWindowLong(xcorrOpt, phase);
 
-      for (const string &component : xcorrComponents(phase))
+      for (const string &component : xcorrComponents(xcorrOpt, phase))
       {
         // memCache->getAuxProcessor() -> we don't want to cache the
         // whole catalog waveforms into memory
@@ -424,6 +424,7 @@ Catalog DD::relocateMultiEvents(
     std::list<unordered_map<unsigned, Neighbours>> &clusters,
     XCorrCache &xcorrData,
     const ClusteringOptions &clustOpt,
+    const XcorrOptions &xcorrOpt,
     const SolverOptions &solverOpt,
     bool saveProcessing,
     string processingDataDir)
@@ -516,14 +517,14 @@ Catalog DD::relocateMultiEvents(
     }
 
     // Perform cross-correlation
-    const XCorrCache xcorr =
-        buildXCorrCache(catToReloc, cluster, clustOpt.xcorrMaxEvStaDist,
-                        clustOpt.xcorrMaxInterEvDist, xcorrData);
+    XCorrCache xcorr =
+        buildXCorrCache(catToReloc, cluster, xcorrOpt, xcorrData);
 
     // the actual relocation
     std::vector<Solver::DoubleDifference> startDDs, finalDDs;
-    Catalog relocatedCluster = relocate(catToReloc, cluster, solverOpt, false,
-                                        xcorr, startDDs, finalDDs);
+    Catalog relocatedCluster =
+        relocate(catToReloc, cluster, xcorrOpt, solverOpt, false, xcorr,
+                 startDDs, finalDDs);
 
     relocatedCatalog.add(relocatedCluster, true);
 
@@ -561,6 +562,7 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
                                 bool isManual,
                                 const ClusteringOptions &clustOpt1,
                                 const ClusteringOptions &clustOpt2,
+                                const XcorrOptions &xcorrOpt,
                                 const SolverOptions &solverOpt,
                                 bool saveProcessing,
                                 string processingDataDir)
@@ -619,9 +621,12 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
                 : Phase::Source::RT_EVENT_AUTOMATIC),
       _cfg.validPphases, _cfg.validSphases, _cfg.pickUncertaintyClasses);
 
-  Catalog relocatedEvCat =
-      relocateEventSingleStep(bgCat, evToRelocateCat, clustOpt1, solverOpt,
-                              false, saveProcessing, eventWorkingDir);
+  XcorrOptions xcorrOptDisabled(xcorrOpt);
+  xcorrOptDisabled.enable = false;
+
+  Catalog relocatedEvCat = relocateEventSingleStep(
+      bgCat, evToRelocateCat, clustOpt1, xcorrOptDisabled, solverOpt,
+      saveProcessing, eventWorkingDir);
 
   if (!relocatedEvCat.empty())
   {
@@ -643,8 +648,8 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
   eventWorkingDir = joinPath(processingDataDir, "step2");
 
   Catalog relocatedEvWithXcorr =
-      relocateEventSingleStep(bgCat, evToRelocateCat, clustOpt2, solverOpt,
-                              true, saveProcessing, eventWorkingDir);
+      relocateEventSingleStep(bgCat, evToRelocateCat, clustOpt2, xcorrOpt,
+                              solverOpt, saveProcessing, eventWorkingDir);
 
   if (!relocatedEvWithXcorr.empty())
   {
@@ -683,8 +688,8 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
 Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
                                     const Catalog &evToRelocateCat,
                                     const ClusteringOptions &clustOpt,
+                                    const XcorrOptions &xcorrOpt,
                                     const SolverOptions &solverOpt,
-                                    bool doXcorr,
                                     bool saveProcessing,
                                     string processingDataDir)
 {
@@ -713,13 +718,11 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
     //
     // select neighbouring events
     //
-    bool keepUnmatchedPhases = doXcorr; // useful for detecting missed picks
-
     Neighbours neighbours = selectNeighbouringEvents(
         bgCat, evToRelocate, evToRelocateCat, clustOpt.minESdist,
         clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
         clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
-        clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, keepUnmatchedPhases);
+        clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, false);
 
     logInfoF("Found %zu neighbouring events", neighbours.ids().size());
 
@@ -746,18 +749,13 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
       Neighbours::writeToFile(cluster, catalog, "pair.csv");
     }
 
-    XCorrCache xcorr{};
-    if (doXcorr)
-    {
-      // Perform cross-correlation
-      xcorr = buildXCorrCache(catalog, cluster, clustOpt.xcorrMaxEvStaDist,
-                              clustOpt.xcorrMaxInterEvDist);
-    }
+    // Perform cross-correlation
+    XCorrCache xcorr = buildXCorrCache(catalog, cluster, xcorrOpt);
 
     // the actual relocation
     std::vector<Solver::DoubleDifference> startDDs, finalDDs;
-    relocatedEvCat =
-        relocate(catalog, cluster, solverOpt, true, xcorr, startDDs, finalDDs);
+    relocatedEvCat = relocate(catalog, cluster, xcorrOpt, solverOpt, true,
+                              xcorr, startDDs, finalDDs);
 
     if (saveProcessing)
     {
@@ -779,6 +777,7 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
 
 Catalog DD::relocate(const Catalog &catalog,
                      const unordered_map<unsigned, Neighbours> &cluster,
+                     const XcorrOptions &xcorrOpt,
                      const SolverOptions &solverOpt,
                      bool keepNeighboursFixed,
                      const XCorrCache &xcorr,
@@ -827,9 +826,10 @@ Catalog DD::relocate(const Catalog &catalog,
     for (const auto &kv : cluster)
     {
       unsigned eventId = kv.first;
-      bool tttOk       = addObservations(
-          solver, currentCatalog, kv.second, keepNeighboursFixed,
-          solverOpt.usePickUncertainties, solverOpt.xcorrWeightScaler, xcorr);
+      bool tttOk =
+          addObservations(solver, currentCatalog, kv.second,
+                          keepNeighboursFixed, solverOpt.usePickUncertainties,
+                          solverOpt.xcorrWeightScaler, xcorrOpt, xcorr);
 
       if (!tttOk && !prevCatalog.empty() &&
           currentCatalog.getEvents().at(eventId).relocInfo.isRelocated)
@@ -845,7 +845,7 @@ Catalog DD::relocate(const Catalog &catalog,
         currentCatalog.add(eventId, prevCatalog, true);
         addObservations(solver, currentCatalog, kv.second, keepNeighboursFixed,
                         solverOpt.usePickUncertainties,
-                        solverOpt.xcorrWeightScaler, xcorr);
+                        solverOpt.xcorrWeightScaler, xcorrOpt, xcorr);
       }
     }
 
@@ -923,6 +923,7 @@ bool DD::addObservations(Solver &solver,
                          bool keepNeighboursFixed,
                          bool usePickUncertainties,
                          double xcorrWeightScaler,
+                         const XcorrOptions &xcorrOpt,
                          const XCorrCache &xcorr) const
 {
   // copy event because we'll update it
@@ -946,7 +947,7 @@ bool DD::addObservations(Solver &solver,
     const Phase &refPhase  = it->second;
     const Station &station = catalog.getStations().at(refPhase.stationId);
     char phaseTypeAsChar   = static_cast<char>(refPhase.procInfo.type);
-    const auto &xcorrCfg   = _cfg.xcorr.at(refPhase.procInfo.type);
+    const auto &xcorrCfg   = xcorrOpt.phase.at(refPhase.procInfo.type);
 
     //
     // loop through neighbouring events and look for the matching phase
@@ -1275,17 +1276,14 @@ DD::updateRelocatedEvents(const Solver &solver,
 XCorrCache
 DD::buildXCorrCache(Catalog &catalog,
                     const unordered_map<unsigned, Neighbours> &cluster,
-                    double xcorrMaxEvStaDist,
-                    double xcorrMaxInterEvDist,
+                    const XcorrOptions &xcorrOpt,
                     const XCorrCache &precomputed)
 {
   XCorrCache xcorr{};
 
-  if (xcorrMaxEvStaDist == 0 || xcorrMaxInterEvDist == 0)
+  if (!xcorrOpt.enable)
   {
-    logInfoF("Cross-correlation is disabled (maxStationDistance %g, "
-             "maxInterEventDistance %g)",
-             xcorrMaxEvStaDist, xcorrMaxInterEvDist);
+    logInfo("Cross-correlation is disabled");
     return xcorr;
   }
 
@@ -1298,8 +1296,8 @@ DD::buildXCorrCache(Catalog &catalog,
     const Neighbours &neighbours = kv.second;
     const Event &refEv = catalog.getEvents().at(neighbours.referenceId());
 
-    buildXcorrDiffTTimePairs(catalog, neighbours, refEv, xcorrMaxEvStaDist,
-                             xcorrMaxInterEvDist, precomputed, xcorr);
+    buildXcorrDiffTTimePairs(catalog, neighbours, refEv, xcorrOpt, precomputed,
+                             xcorr);
 
     const unsigned onePerThousand =
         cluster.size() < 1000 ? 1 : (cluster.size() / 1000);
@@ -1318,7 +1316,7 @@ DD::buildXCorrCache(Catalog &catalog,
            "%u, loaded from disk cache %u",
            wfcount.downloaded, wfcount.no_avail, wfcount.disk_cached);
 
-  logXCorrSummary(cluster, xcorr);
+  logXCorrSummary(cluster, xcorrOpt, xcorr);
 
   return xcorr;
 }
@@ -1330,8 +1328,7 @@ DD::buildXCorrCache(Catalog &catalog,
 void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
                                   const Neighbours &neighbours,
                                   const Event &refEv,
-                                  double xcorrMaxEvStaDist,
-                                  double xcorrMaxInterEvDist,
+                                  const XcorrOptions &xcorrOpt,
                                   const XCorrCache &precomputed,
                                   XCorrCache &xcorr)
 {
@@ -1344,8 +1341,8 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
   // make use of the background catalog cache (_wfAccess.memCache) to
   // load them
   //
-  shared_ptr<Waveform::Processor> tmpMemCache(preloadNonCatalogWaveforms(
-      catalog, neighbours, refEv, xcorrMaxEvStaDist, xcorrMaxInterEvDist));
+  shared_ptr<Waveform::Processor> tmpMemCache(
+      preloadNonCatalogWaveforms(catalog, neighbours, refEv, xcorrOpt));
 
   //
   // loop through reference event phases
@@ -1357,10 +1354,14 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
     const Station &station = catalog.getStations().at(refPhase.stationId);
 
     //
-    // skip stations too far away
+    // skip stations too close or too far away
     //
     double stationDistance = computeDistance(refEv, station);
-    if (stationDistance > xcorrMaxEvStaDist && xcorrMaxEvStaDist >= 0)
+    if (stationDistance < xcorrOpt.minEvStaDist)
+    {
+      continue;
+    }
+    if (stationDistance > xcorrOpt.maxEvStaDist && xcorrOpt.maxEvStaDist >= 0)
     {
       continue;
     }
@@ -1389,7 +1390,8 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
       // skip events too far away
       //
       double interEventDistance = computeDistance(refEv, event);
-      if (interEventDistance > xcorrMaxInterEvDist && xcorrMaxInterEvDist >= 0)
+      if (interEventDistance > xcorrOpt.maxInterEvDist &&
+          xcorrOpt.maxInterEvDist >= 0)
       {
         continue;
       }
@@ -1426,7 +1428,7 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
             double coeff, lag;
             string component;
             bool valid =
-                xcorrPhases(refEv, refPhase, *refPrc, event, phase,
+                xcorrPhases(xcorrOpt, refEv, refPhase, *refPrc, event, phase,
                             *_wfAccess.memCache, coeff, lag, component);
 
             // cache cross-correlation results
@@ -1443,8 +1445,7 @@ shared_ptr<Waveform::Processor>
 DD::preloadNonCatalogWaveforms(Catalog &catalog,
                                const Neighbours &neighbours,
                                const Event &refEv,
-                               double xcorrMaxEvStaDist,
-                               double xcorrMaxInterEvDist)
+                               const XcorrOptions &xcorrOpt)
 {
   //
   // For single-event relocation in real-time we want to load the waveforms
@@ -1476,7 +1477,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
   {
     const Phase &refPhase  = itRef->second;
     const Station &station = catalog.getStations().at(refPhase.stationId);
-    const auto components  = xcorrComponents(refPhase);
+    const auto components  = xcorrComponents(xcorrOpt, refPhase);
 
     // We deal only with real-time event data
     if (refPhase.procInfo.source == Phase::Source::CATALOG)
@@ -1486,10 +1487,14 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
     onlyCatalogPhases = false;
 
     //
-    // skip stations too far away
+    // skip stations too close or too far away
     //
     double stationDistance = computeDistance(refEv, station);
-    if (stationDistance > xcorrMaxEvStaDist && xcorrMaxEvStaDist >= 0)
+    if (stationDistance < xcorrOpt.minEvStaDist)
+    {
+      continue;
+    }
+    if (stationDistance > xcorrOpt.maxEvStaDist && xcorrOpt.maxEvStaDist >= 0)
     {
       continue;
     }
@@ -1505,7 +1510,8 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
       // skip events too far away
       //
       double interEventDistance = computeDistance(refEv, event);
-      if (interEventDistance > xcorrMaxInterEvDist && xcorrMaxInterEvDist >= 0)
+      if (interEventDistance > xcorrOpt.maxInterEvDist &&
+          xcorrOpt.maxInterEvDist >= 0)
         continue;
 
       if (neighbours.has(neighEvId, refPhase.stationId, refPhase.procInfo.type))
@@ -1513,7 +1519,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
         //
         // For each match load the reference event phase waveforms
         //
-        TimeWindow tw = xcorrTimeWindowLong(refPhase);
+        TimeWindow tw = xcorrTimeWindowLong(xcorrOpt, refPhase);
 
         for (const string &component : components)
         {
@@ -1545,25 +1551,28 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
   return shared_ptr<Waveform::Processor>(new Waveform::MemCachedProc(proc));
 }
 
-TimeWindow DD::xcorrTimeWindowLong(const Phase &phase) const
+TimeWindow DD::xcorrTimeWindowLong(const XcorrOptions &xcorrOpt,
+                                   const Phase &phase) const
 {
-  const auto &xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
-  TimeWindow tw        = xcorrTimeWindowShort(phase);
+  const auto &xcorrCfg = xcorrOpt.phase.at(phase.procInfo.type);
+  TimeWindow tw        = xcorrTimeWindowShort(xcorrOpt, phase);
   tw.setStartTime(tw.startTime() - secToDur(xcorrCfg.maxDelay));
   tw.setEndTime(tw.endTime() + secToDur(xcorrCfg.maxDelay));
   return tw;
 }
 
-TimeWindow DD::xcorrTimeWindowShort(const Phase &phase) const
+TimeWindow DD::xcorrTimeWindowShort(const XcorrOptions &xcorrOpt,
+                                    const Phase &phase) const
 {
-  const auto &xcorrCfg = _cfg.xcorr.at(phase.procInfo.type);
+  const auto &xcorrCfg = xcorrOpt.phase.at(phase.procInfo.type);
   UTCTime::duration shortDuration =
       secToDur(xcorrCfg.endOffset - xcorrCfg.startOffset);
   UTCTime::duration shortTimeCorrection = secToDur(xcorrCfg.startOffset);
   return TimeWindow(phase.time + shortTimeCorrection, shortDuration);
 }
 
-bool DD::xcorrPhases(const Event &event1,
+bool DD::xcorrPhases(const XcorrOptions &xcorrOpt,
+                     const Event &event1,
                      const Phase &phase1,
                      Waveform::Processor &ph1Cache,
                      const Event &event2,
@@ -1615,11 +1624,11 @@ bool DD::xcorrPhases(const Event &event1,
   // the cross-correlation
   //
   bool performed = false;
-  for (const string &component : xcorrComponents(phase1))
+  for (const string &component : xcorrComponents(xcorrOpt, phase1))
   {
     performed =
-        xcorrPhasesOneComponent(event1, phase1, ph1Cache, event2, phase2,
-                                ph2Cache, component, coeffOut, lagOut);
+        xcorrPhasesOneComponent(xcorrOpt, event1, phase1, ph1Cache, event2,
+                                phase2, ph2Cache, component, coeffOut, lagOut);
     if (performed)
     {
       componentOut = component;
@@ -1629,7 +1638,8 @@ bool DD::xcorrPhases(const Event &event1,
   return performed;
 }
 
-bool DD::xcorrPhasesOneComponent(const Event &event1,
+bool DD::xcorrPhasesOneComponent(const XcorrOptions &xcorrOpt,
+                                 const Event &event1,
                                  const Phase &phase1,
                                  Waveform::Processor &ph1Cache,
                                  const Event &event2,
@@ -1641,10 +1651,10 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
 {
   coeffOut = lagOut = 0;
 
-  const auto &xcorrCfg = _cfg.xcorr.at(phase1.procInfo.type);
+  const auto &xcorrCfg = xcorrOpt.phase.at(phase1.procInfo.type);
 
-  TimeWindow tw1 = xcorrTimeWindowLong(phase1);
-  TimeWindow tw2 = xcorrTimeWindowLong(phase2);
+  TimeWindow tw1 = xcorrTimeWindowLong(xcorrOpt, phase1);
+  TimeWindow tw2 = xcorrTimeWindowLong(xcorrOpt, phase2);
 
   // Load the long `tr1`, because we want to cache the long version. Then
   // we'll trim it.
@@ -1687,7 +1697,7 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
     // Trim `tr2` to shorter length; we want to cross-correlate the short one
     // with the long one.
     Trace tr2Short(*tr2);
-    TimeWindow tw2Short = xcorrTimeWindowShort(phase2);
+    TimeWindow tw2Short = xcorrTimeWindowShort(xcorrOpt, phase2);
     if (!tr2Short.slice(tw2Short))
     {
       logDebugF("Skipping cross-correlation: cannot trim phase2 waveform "
@@ -1708,7 +1718,7 @@ bool DD::xcorrPhasesOneComponent(const Event &event1,
     // Trim `tr1` to shorter length; we want to cross-correlate the short with
     // the long one.
     Trace tr1Short(*tr1);
-    TimeWindow tw1Short = xcorrTimeWindowShort(phase1);
+    TimeWindow tw1Short = xcorrTimeWindowShort(xcorrOpt, phase1);
     if (!tr1Short.slice(tw1Short))
     {
       logDebugF("Skipping cross-correlation: cannot trim phase1 waveform "
@@ -1821,6 +1831,7 @@ shared_ptr<const Trace> DD::getWaveform(Waveform::Processor &wfProc,
 }
 
 void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
+                         const XcorrOptions &xcorrOpt,
                          const XCorrCache &xcorr)
 {
   struct Counters
@@ -1860,7 +1871,7 @@ void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
         counters.coeff.push_back(e.coeff);
         counters.lag.push_back(e.lag);
 
-        const auto &xcorrCfg = _cfg.xcorr.at(phaseType);
+        const auto &xcorrCfg = xcorrOpt.phase.at(phaseType);
         if (e.coeff >= xcorrCfg.minCoef)
         {
           counters.aboveThreshold++;

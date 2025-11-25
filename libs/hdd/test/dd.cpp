@@ -30,11 +30,11 @@
 #include <boost/test/data/monomorphic.hpp>
 #include <boost/test/data/test_case.hpp>
 
+#include "common.ipp"
 #include "hdd/catalog.h"
 #include "hdd/dd.h"
 #include "hdd/random.h"
 #include "hdd/ttt.h"
-#include "common.ipp"
 
 using namespace std;
 using namespace HDD;
@@ -45,9 +45,7 @@ namespace bdata = boost::unit_test::data;
 
 namespace {
 
-void addStationsToCatalog(HDD::Catalog &cat,
-                          double lat,
-                          double lon)
+void addStationsToCatalog(HDD::Catalog &cat, double lat, double lon)
 {
   Station sta;
   double staLat, staLon;
@@ -123,13 +121,13 @@ void addEventToCatalog(HDD::Catalog &cat,
     ph.channelCode      = "";
 
     double travelTime = ttt.compute(ev, sta, "P");
-    ph.time = ev.time + secToDur(travelTime);
-    ph.type = "P";
+    ph.time           = ev.time + secToDur(travelTime);
+    ph.type           = "P";
     cat.addPhase(ph);
 
     travelTime = ttt.compute(ev, sta, "S");
-    ph.time = ev.time + secToDur(travelTime);
-    ph.type = "S";
+    ph.time    = ev.time + secToDur(travelTime);
+    ph.type    = "S";
     cat.addPhase(ph);
   }
 }
@@ -204,25 +202,31 @@ HDD::Catalog buildCatalog(HDD::TravelTimeTable &ttt,
 {
   HDD::Catalog cat;
 
-  if (nllStations) addNLLStationsToCatalog(cat);
-  else addStationsToCatalog(cat, lat, lon);
+  if (nllStations)
+    addNLLStationsToCatalog(cat);
+  else
+    addStationsToCatalog(cat, lat, lon);
 
   double distance = extent * 2.5;
   double clusterLat, clusterLon;
   // cluster 1
-  computeCoordinates(distance, degToRad(135), lat, lon, clusterLat, clusterLon, depth);
+  computeCoordinates(distance, degToRad(135), lat, lon, clusterLat, clusterLon,
+                     depth);
   addEvents1ToCatalog(cat, ttt, time + secToDur(1), clusterLat, clusterLon,
                       depth, numEvents / 6, extent);
   // cluster 2
-  computeCoordinates(distance, degToRad(315), lat, lon, clusterLat, clusterLon, depth);
+  computeCoordinates(distance, degToRad(315), lat, lon, clusterLat, clusterLon,
+                     depth);
   addEvents2ToCatalog(cat, ttt, time + secToDur(2), clusterLat, clusterLon,
                       depth, numEvents / 6, extent);
   // cluster 3
-  computeCoordinates(distance, degToRad(45), lat, lon, clusterLat, clusterLon, depth);
+  computeCoordinates(distance, degToRad(45), lat, lon, clusterLat, clusterLon,
+                     depth);
   addEvents3ToCatalog(cat, ttt, time + secToDur(3), clusterLat, clusterLon,
                       depth, numEvents / 6, extent);
   // cluster 4
-  computeCoordinates(distance, degToRad(225), lat, lon, clusterLat, clusterLon, depth);
+  computeCoordinates(distance, degToRad(225), lat, lon, clusterLat, clusterLon,
+                     depth);
   addEvents1ToCatalog(cat, ttt, time + secToDur(4), clusterLat, clusterLon,
                       depth, numEvents / 6, extent);
   addEvents2ToCatalog(cat, ttt, time + secToDur(4), clusterLat, clusterLon,
@@ -230,8 +234,8 @@ HDD::Catalog buildCatalog(HDD::TravelTimeTable &ttt,
   addEvents3ToCatalog(cat, ttt, time + secToDur(4), clusterLat, clusterLon,
                       depth, numEvents / 6, extent);
 
-  return Catalog::filterPhasesAndSetWeights(cat, Phase::Source::CATALOG, 
-                                            {"P"}, {"S"}, {});
+  return Catalog::filterPhasesAndSetWeights(cat, Phase::Source::CATALOG, {"P"},
+                                            {"S"}, {});
 }
 
 HDD::Catalog buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
@@ -245,8 +249,10 @@ HDD::Catalog buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
 {
   HDD::Catalog cat;
 
-  if (nllStations) addNLLStationsToCatalog(cat);
-  else addStationsToCatalog(cat, lat, lon);
+  if (nllStations)
+    addNLLStationsToCatalog(cat);
+  else
+    addStationsToCatalog(cat, lat, lon);
 
   addEvents1ToCatalog(cat, ttt, time + secToDur(1), lat, lon, depth,
                       numEvents / 3, extent);
@@ -255,27 +261,27 @@ HDD::Catalog buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
   addEvents3ToCatalog(cat, ttt, time + secToDur(3), lat, lon, depth,
                       numEvents / 3, extent);
 
-  return Catalog::filterPhasesAndSetWeights(cat, Phase::Source::CATALOG, 
-                                            {"P"}, {"S"}, {});
+  return Catalog::filterPhasesAndSetWeights(cat, Phase::Source::CATALOG, {"P"},
+                                            {"S"}, {});
 }
 
 void randomPerturbation(HDD::Catalog &cat)
 {
   // random changes to all events (mean of all changes is != 0)
-  HDD::NormalRandomer timeDist(0.1, 0.2, 0x1004); // sec
+  HDD::NormalRandomer timeDist(0.1, 0.2, 0x1004);  // sec
   HDD::NormalRandomer latDist(1.5, 0.3, 0x1001);   // km
   HDD::NormalRandomer lonDist(-0.7, 0.8, 0x1002);  // km
-  HDD::NormalRandomer depthDist(1.5, 0.7, 0x1003);  // km
+  HDD::NormalRandomer depthDist(1.5, 0.7, 0x1003); // km
   for (const auto &kv : cat.getEvents())
   {
     Event ev = kv.second;
     ev.time += secToDur(timeDist.next());
 
     ev.depth += depthDist.next();
-    if (ev.depth < 0) ev.depth = 0; 
+    if (ev.depth < 0) ev.depth = 0;
 
     double distance = latDist.next();
-    if ( distance >= 0 )
+    if (distance >= 0)
       computeCoordinates(distance, degToRad(180), ev.latitude, ev.longitude,
                          ev.latitude, ev.longitude, ev.depth);
     else
@@ -283,7 +289,7 @@ void randomPerturbation(HDD::Catalog &cat)
                          ev.latitude, ev.longitude, ev.depth);
 
     distance = lonDist.next();
-    if ( distance >= 0 )
+    if (distance >= 0)
       computeCoordinates(distance, degToRad(90), ev.latitude, ev.longitude,
                          ev.latitude, ev.longitude, ev.depth);
     else
@@ -304,24 +310,27 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
 
   bool saveProcessing = false; // for debugging
 
-  HDD::ClusteringOptions clusterCfg;
-  clusterCfg.numEllipsoids    = 0;
-  clusterCfg.maxEllipsoidSize = 15;
-  clusterCfg.minEStoIEratio   = 0;
-  // disable cross-correlation
-  clusterCfg.xcorrMaxEvStaDist   = 0;
-  clusterCfg.xcorrMaxInterEvDist = 0;
+  HDD::ClusteringOptions clusterOpt;
+  clusterOpt.numEllipsoids    = 0;
+  clusterOpt.maxEllipsoidSize = 15;
+  clusterOpt.minEStoIEratio   = 0;
 
-  HDD::SolverOptions solverCfg;
-  solverCfg.algoIterations               = 20;
-  solverCfg.absLocConstraintStart        = 0.3;
-  solverCfg.absLocConstraintEnd          = 0.3;
-  solverCfg.dampingFactorStart           = 0.01;
-  solverCfg.dampingFactorEnd             = 0.01;
-  solverCfg.downWeightingByResidualStart = 0;
-  solverCfg.downWeightingByResidualEnd   = 0;
+  HDD::XcorrOptions xcorrOpt;
+  xcorrOpt.enable = false; // disable cross-correlation
 
-  return  dd.relocateMultiEvents(clusterCfg, solverCfg, saveProcessing);
+  HDD::SolverOptions solverOpt;
+  solverOpt.algoIterations               = 20;
+  solverOpt.absLocConstraintStart        = 0.3;
+  solverOpt.absLocConstraintEnd          = 0.3;
+  solverOpt.dampingFactorStart           = 0.01;
+  solverOpt.dampingFactorEnd             = 0.01;
+  solverOpt.downWeightingByResidualStart = 0;
+  solverOpt.downWeightingByResidualEnd   = 0;
+
+  std::list<std::unordered_map<unsigned, Neighbours>> clusters;
+  XCorrCache xcorrData;
+  return dd.relocateMultiEvents(clusters, xcorrData, clusterOpt, xcorrOpt,
+                                solverOpt, saveProcessing);
 }
 
 HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
@@ -335,29 +344,30 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
 
   bool saveProcessing = false; // for debugging
 
-  HDD::ClusteringOptions clusterCfg;
-  clusterCfg.numEllipsoids    = 5;
-  clusterCfg.maxEllipsoidSize = 15;
-  clusterCfg.maxNumNeigh      = 40;
-  clusterCfg.minEStoIEratio   = 0;
-  // disable cross-correlation
-  clusterCfg.xcorrMaxEvStaDist   = 0;
-  clusterCfg.xcorrMaxInterEvDist = 0;
+  HDD::ClusteringOptions clusterOpt;
+  clusterOpt.numEllipsoids    = 5;
+  clusterOpt.maxEllipsoidSize = 15;
+  clusterOpt.maxNumNeigh      = 40;
+  clusterOpt.minEStoIEratio   = 0;
 
-  HDD::SolverOptions solverCfg;
-  solverCfg.algoIterations        = 20;
-  solverCfg.absLocConstraintStart = 0.3;
-  solverCfg.absLocConstraintEnd   = 0.3;
-  solverCfg.dampingFactorStart    = 0.01;
-  solverCfg.dampingFactorEnd      = 0.01;
+  HDD::XcorrOptions xcorrOpt;
+  xcorrOpt.enable = false; // disable cross-correlation
+
+  HDD::SolverOptions solverOpt;
+  solverOpt.algoIterations        = 20;
+  solverOpt.absLocConstraintStart = 0.3;
+  solverOpt.absLocConstraintEnd   = 0.3;
+  solverOpt.dampingFactorStart    = 0.01;
+  solverOpt.dampingFactorEnd      = 0.01;
 
   HDD::Catalog relocCat;
   for (const auto &kv : realTimeCat.getEvents())
   {
-    const Event &ev = kv.second;
+    const Event &ev            = kv.second;
     HDD::Catalog orgToRelocate = realTimeCat.extractEvent(ev.id, false);
-    HDD::Catalog relocatedEvent = dd.relocateSingleEvent(
-        orgToRelocate, true, clusterCfg, clusterCfg, solverCfg, saveProcessing);
+    HDD::Catalog relocatedEvent =
+        dd.relocateSingleEvent(orgToRelocate, true, clusterOpt, clusterOpt,
+                               xcorrOpt, solverOpt, saveProcessing);
     relocCat.add(relocatedEvent, false);
   }
 
@@ -388,15 +398,16 @@ struct Centroid
   double depth;
 };
 
-// This centroid is in the middle of the generated nll grid files
-// Tests that runs with nll grids, should use this centroid, with
-// varying depths
-const Centroid nllCentroid{47.0, 8.5, 5};
-
 const vector<Centroid> centroidList{
-  nllCentroid, {0, 0, 2},
-  { 85, -90, 3},  {-85, 90, 10},
-  { 75, 170, 8},  { -60, -170, 2},
+  {nllGridCentroidLat, nllGridCentroidLon, 0},
+  {nllGridCentroidLat, nllGridCentroidLon, -1.5},
+  {nllGridCentroidLat, nllGridCentroidLon, 1.5},
+  {nllGridCentroidLat, nllGridCentroidLon, 8},
+  {0, 0, -1},
+  { 85, -90, 0},
+  {-85, 90, 3},
+  { 75, 170, 8},
+  { -60, -170, 2},
   { 0, 179.99, 4},
 };
 
@@ -408,14 +419,16 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event1,
                      cIdx,
                      tttIdx)
 {
-  const Centroid &centroid             = centroidList.at(cIdx);
-  bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
+  const Centroid &centroid = centroidList.at(cIdx);
+  bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations && 
    (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
   {
-    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
-    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
+    BOOST_TEST_MESSAGE(
+        "Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any
+                       // assertions"
     return;
   }
 
@@ -439,14 +452,16 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event2,
                      cIdx,
                      tttIdx)
 {
-  const Centroid &centroid             = centroidList.at(cIdx);
-  bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
+  const Centroid &centroid = centroidList.at(cIdx);
+  bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations && 
    (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
   {
-    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
-    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
+    BOOST_TEST_MESSAGE(
+        "Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any
+                       // assertions"
     return;
   }
 
@@ -482,14 +497,16 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event3,
                      cIdx,
                      tttIdx)
 {
-  const Centroid &centroid             = centroidList.at(cIdx);
-  bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
+  const Centroid &centroid = centroidList.at(cIdx);
+  bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations && 
    (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
   {
-    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
-    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
+    BOOST_TEST_MESSAGE(
+        "Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any
+                       // assertions"
     return;
   }
 
@@ -516,14 +533,16 @@ BOOST_DATA_TEST_CASE(test_dd_single_event1,
                      cIdx,
                      tttIdx)
 {
-  const Centroid &centroid             = centroidList.at(cIdx);
-  bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
+  const Centroid &centroid = centroidList.at(cIdx);
+  bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations && 
    (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
   {
-    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
-    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
+    BOOST_TEST_MESSAGE(
+        "Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any
+                       // assertions"
     return;
   }
 
@@ -550,14 +569,16 @@ BOOST_DATA_TEST_CASE(test_dd_single_event2,
                      cIdx,
                      tttIdx)
 {
-  const Centroid &centroid             = centroidList.at(cIdx);
-  bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
+  const Centroid &centroid = centroidList.at(cIdx);
+  bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations &&  
    (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
   {
-    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
-    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
+    BOOST_TEST_MESSAGE(
+        "Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any
+                       // assertions"
     return;
   }
 
@@ -596,14 +617,16 @@ BOOST_DATA_TEST_CASE(test_dd_single_event3,
                      cIdx,
                      tttIdx)
 {
-  const Centroid &centroid             = centroidList.at(cIdx);
-  bool nllStations = (tttList.at(tttIdx).type == "NonLinLoc");
+  const Centroid &centroid = centroidList.at(cIdx);
+  bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
 
   if (nllStations &&
    (centroid.lat != nllCentroid.lat || centroid.lon != nllCentroid.lon))
   {
-    BOOST_TEST_MESSAGE("Skipping NonLinLoc test in a location without grid files");
-    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any assertions"
+    BOOST_TEST_MESSAGE(
+        "Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any
+                       // assertions"
     return;
   }
 

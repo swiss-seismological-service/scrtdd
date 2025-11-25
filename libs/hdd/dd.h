@@ -58,22 +58,10 @@ struct Config
   // configuration change
   double diskTraceMinLen = 10;
 
-  struct XCorr
-  {
-    double minCoef;     // min cross-correlatation coefficient required (0-1)
-    double startOffset; // secs
-    double endOffset;   // secs
-    double maxDelay;    // secs
-    std::vector<std::string> components; // priority list of components to use
-  };
-  std::map<Catalog::Phase::Type, struct XCorr> xcorr = {
-      {Catalog::Phase::Type::P, {0.50, -0.50, 0.50, 0.50, {"Z"}}},
-      {Catalog::Phase::Type::S, {0.50, -0.50, 0.75, 0.50, {"H"}}}};
-
   struct
   {
-    std::string filterStr = "ITAPER(1)>>BW_HLP(2,1,20)"; // "" -> no filtering
-    double resampleFreq   = 0;                           // 0 -> no resampling
+    std::string filterStr = ""; // "" -> no filtering
+    double resampleFreq   = 0;  // 0 -> no resampling
     // Extra waveform to load before and after the required window. This extra
     // len is useful to initialize the filter and to discard potential filter
     // artifacts at the beginning and end of trace
@@ -103,10 +91,25 @@ struct ClusteringOptions
   // quadrants.
   unsigned numEllipsoids  = 5;
   double maxEllipsoidSize = 10; // km
+};
 
-  // cross-correlation observations specific
-  double xcorrMaxEvStaDist = -1; // max event to station distance -1 -> disable
-  double xcorrMaxInterEvDist = -1; // max inter-event distance -1 -> disable
+struct XcorrOptions
+{
+  bool enable           = false; // perform or not cross-correlation
+  double minEvStaDist   = 0;     // min event to station distance
+  double maxEvStaDist   = -1;    // max event to station distance -1 -> disable
+  double maxInterEvDist = -1;    // max inter-event distance -1 -> disable
+  struct XCorr
+  {
+    double minCoef;     // min cross-correlatation coefficient required (0-1)
+    double startOffset; // window start: secs before pick
+    double endOffset;   // window end: secs after pick
+    double maxDelay;    // secs
+    std::vector<std::string> components; // priority list of components to use
+  };
+  std::map<Catalog::Phase::Type, struct XCorr> phase = {
+      {Catalog::Phase::Type::P, {0.50, -0.50, 0.50, 0.50, {"Z"}}},
+      {Catalog::Phase::Type::S, {0.50, -0.50, 0.75, 0.50, {"H"}}}};
 };
 
 struct SolverOptions
@@ -164,14 +167,15 @@ public:
   // preload all background catalog waveforms: store them on disk cache
   // (if enabled and not already there) then cache them in memory
   // already processed, ready for cross-correlation
-  void preloadWaveforms();
+  void preloadWaveforms(const XcorrOptions &xcorrOpt);
 
   // free waveforms memory
   void unloadWaveforms();
 
   // save to disk the background catalog waveforms after being
   // resampled and filtered (for debugging)
-  void dumpWaveforms(const std::string &basePath = "");
+  void dumpWaveforms(const XcorrOptions &xcorrOpt,
+                     const std::string &basePath = "");
 
   // free ttt memory and resources
   void unloadTravelTimeTable();
@@ -185,26 +189,17 @@ public:
       std::list<std::unordered_map<unsigned, Neighbours>> &clusters,
       XCorrCache &xcorrData,
       const ClusteringOptions &clustOpt,
+      const XcorrOptions &xcorrOpt,
       const SolverOptions &solverOpt,
       bool saveProcessing           = false,
       std::string processingDataDir = "");
-
-  Catalog relocateMultiEvents(const ClusteringOptions &clustOpt,
-                              const SolverOptions &solverOpt,
-                              bool saveProcessing           = false,
-                              std::string processingDataDir = "")
-  {
-    std::list<std::unordered_map<unsigned, Neighbours>> emptyClusters;
-    XCorrCache emptyXcorr;
-    return relocateMultiEvents(emptyClusters, emptyXcorr, clustOpt, solverOpt,
-                               saveProcessing, processingDataDir);
-  }
 
   // Single-event relocation against background catalog
   Catalog relocateSingleEvent(const Catalog &singleEvent,
                               bool isManual,
                               const ClusteringOptions &clustOpt1,
                               const ClusteringOptions &clustOpt2,
+                              const XcorrOptions &xcorrOpt,
                               const SolverOptions &solverOpt,
                               bool saveProcessing           = false,
                               std::string processingDataDir = "");
@@ -227,13 +222,14 @@ private:
   Catalog relocateEventSingleStep(const Catalog &bgCat,
                                   const Catalog &evToRelocateCat,
                                   const ClusteringOptions &clustOpt,
+                                  const XcorrOptions &xcorrOpt,
                                   const SolverOptions &solverOpt,
-                                  bool doXcorr,
                                   bool saveProcessing           = false,
                                   std::string processingDataDir = "");
 
   Catalog relocate(const Catalog &catalog,
                    const std::unordered_map<unsigned, Neighbours> &cluster,
+                   const XcorrOptions &xcorrOpt,
                    const SolverOptions &solverOpt,
                    bool keepNeighboursFixed,
                    const XCorrCache &xcorr,
@@ -246,6 +242,7 @@ private:
                        bool keepNeighboursFixed,
                        bool usePickUncertainties,
                        double xcorrWeightScaler,
+                       const XcorrOptions &xcorrOpt,
                        const XCorrCache &xcorr) const;
 
   bool addObservationParams(Solver &solver,
@@ -272,19 +269,18 @@ private:
   XCorrCache
   buildXCorrCache(Catalog &catalog,
                   const std::unordered_map<unsigned, Neighbours> &cluster,
-                  double xcorrMaxEvStaDist      = -1,
-                  double xcorrMaxInterEvDist    = -1,
+                  const XcorrOptions &xcorrOpt,
                   const XCorrCache &precomputed = XCorrCache());
 
   void buildXcorrDiffTTimePairs(Catalog &catalog,
                                 const Neighbours &neighbours,
                                 const Catalog::Event &refEv,
-                                double xcorrMaxEvStaDist,   // -1 to disable
-                                double xcorrMaxInterEvDist, // -1 to disable
+                                const XcorrOptions &xcorrOpt,
                                 const XCorrCache &precomputed,
                                 XCorrCache &xcorr);
 
-  bool xcorrPhases(const Catalog::Event &event1,
+  bool xcorrPhases(const XcorrOptions &xcorrOpt,
+                   const Catalog::Event &event1,
                    const Catalog::Phase &phase1,
                    Waveform::Processor &ph1Cache,
                    const Catalog::Event &event2,
@@ -294,7 +290,8 @@ private:
                    double &lagOut,
                    std::string &componentOut);
 
-  bool xcorrPhasesOneComponent(const Catalog::Event &event1,
+  bool xcorrPhasesOneComponent(const XcorrOptions &xcorrOpt,
+                               const Catalog::Event &event1,
                                const Catalog::Phase &phase1,
                                Waveform::Processor &ph1Cache,
                                const Catalog::Event &event2,
@@ -304,9 +301,11 @@ private:
                                double &coeffOut,
                                double &lagOut);
 
-  TimeWindow xcorrTimeWindowLong(const Catalog::Phase &phase) const;
+  TimeWindow xcorrTimeWindowLong(const XcorrOptions &xcorrOpt,
+                                 const Catalog::Phase &phase) const;
 
-  TimeWindow xcorrTimeWindowShort(const Catalog::Phase &phase) const;
+  TimeWindow xcorrTimeWindowShort(const XcorrOptions &xcorrOpt,
+                                  const Catalog::Phase &phase) const;
 
   std::shared_ptr<const Trace> getWaveform(Waveform::Processor &wfLoader,
                                            const TimeWindow &tw,
@@ -318,14 +317,15 @@ private:
   preloadNonCatalogWaveforms(Catalog &catalog,
                              const Neighbours &neighbours,
                              const Catalog::Event &refEv,
-                             double xcorrMaxEvStaDist,
-                             double xcorrMaxInterEvDist);
+                             const XcorrOptions &xcorrOpt);
 
   void logXCorrSummary(const std::unordered_map<unsigned, Neighbours> &cluster,
+                       const XcorrOptions &xcorrOpt,
                        const XCorrCache &xcorr);
 
   const std::vector<std::string>
-  xcorrComponents(const Catalog::Phase &phase) const;
+  xcorrComponents(const XcorrOptions &xcorrOpt,
+                  const Catalog::Phase &phase) const;
 
 private:
   const Config _cfg;

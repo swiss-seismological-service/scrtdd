@@ -507,12 +507,12 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->solverCfg.usePickUncertainties =
+      prof->solverOpt.usePickUncertainties =
           configGetBool(prefix + "usePickUncertainties");
     }
     catch (...)
     {
-      prof->solverCfg.usePickUncertainties = false;
+      prof->solverOpt.usePickUncertainties = false;
     }
 
     try
@@ -700,28 +700,32 @@ bool RTDD::validateParameters()
     prefix = string("profile.") + prof->name + ".crossCorrelation.";
     try
     {
-      prof->singleEventClustering.xcorrMaxEvStaDist =
-          configGetDouble(prefix + "maxStationDistance");
-      prof->multiEventClustering.xcorrMaxEvStaDist =
-          configGetDouble(prefix + "maxStationDistance");
+      prof->xcorrOpt.minEvStaDist =
+          configGetDouble(prefix + "minStationDistance");
     }
     catch (...)
     {
-      prof->singleEventClustering.xcorrMaxEvStaDist = 0;
-      prof->multiEventClustering.xcorrMaxEvStaDist  = 0;
+      prof->xcorrOpt.minEvStaDist = 0;
     }
 
     try
     {
-      prof->singleEventClustering.xcorrMaxInterEvDist =
-          configGetDouble(prefix + "maxInterEventDistance");
-      prof->multiEventClustering.xcorrMaxInterEvDist =
+      prof->xcorrOpt.maxEvStaDist =
+          configGetDouble(prefix + "maxStationDistance");
+    }
+    catch (...)
+    {
+      prof->xcorrOpt.maxEvStaDist = 60;
+    }
+
+    try
+    {
+      prof->xcorrOpt.maxInterEvDist =
           configGetDouble(prefix + "maxInterEventDistance");
     }
     catch (...)
     {
-      prof->singleEventClustering.xcorrMaxInterEvDist = 0;
-      prof->multiEventClustering.xcorrMaxInterEvDist  = 0;
+      prof->xcorrOpt.maxInterEvDist = 2;
     }
 
     try
@@ -745,102 +749,102 @@ bool RTDD::validateParameters()
     prefix = string("profile.") + prof->name + ".crossCorrelation.p-phase.";
     try
     {
-      prof->ddCfg.xcorr[PhaseType::P].startOffset =
+      prof->xcorrOpt.phase[PhaseType::P].startOffset =
           configGetDouble(prefix + "start");
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::P].startOffset = -0.50;
+      prof->xcorrOpt.phase[PhaseType::P].startOffset = -0.50;
     }
 
     try
     {
-      prof->ddCfg.xcorr[PhaseType::P].endOffset =
+      prof->xcorrOpt.phase[PhaseType::P].endOffset =
           configGetDouble(prefix + "end");
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::P].endOffset = 0.50;
+      prof->xcorrOpt.phase[PhaseType::P].endOffset = 0.50;
     }
 
     try
     {
-      prof->ddCfg.xcorr[PhaseType::P].maxDelay =
+      prof->xcorrOpt.phase[PhaseType::P].maxDelay =
           configGetDouble(prefix + "maxDelay");
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::P].maxDelay = 0.50;
+      prof->xcorrOpt.phase[PhaseType::P].maxDelay = 0.50;
     }
 
     try
     {
-      prof->ddCfg.xcorr[PhaseType::P].minCoef =
+      prof->xcorrOpt.phase[PhaseType::P].minCoef =
           configGetDouble(prefix + "minCCCoef");
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::P].minCoef = 0.70;
+      prof->xcorrOpt.phase[PhaseType::P].minCoef = 0.70;
     }
     try
     {
-      prof->ddCfg.xcorr[PhaseType::P].components =
+      prof->xcorrOpt.phase[PhaseType::P].components =
           configGetStrings(prefix + "components");
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::P].components = {"Z"};
+      prof->xcorrOpt.phase[PhaseType::P].components = {"Z"};
     }
 
     prefix = string("profile.") + prof->name + ".crossCorrelation.s-phase.";
     try
     {
-      prof->ddCfg.xcorr[PhaseType::S].startOffset =
+      prof->xcorrOpt.phase[PhaseType::S].startOffset =
           configGetDouble(prefix + "start");
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::S].startOffset = -0.50;
+      prof->xcorrOpt.phase[PhaseType::S].startOffset = -0.50;
     }
 
     try
     {
-      prof->ddCfg.xcorr[PhaseType::S].endOffset =
+      prof->xcorrOpt.phase[PhaseType::S].endOffset =
           configGetDouble(prefix + "end");
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::S].endOffset = 0.75;
+      prof->xcorrOpt.phase[PhaseType::S].endOffset = 0.75;
     }
 
     try
     {
-      prof->ddCfg.xcorr[PhaseType::S].maxDelay =
+      prof->xcorrOpt.phase[PhaseType::S].maxDelay =
           configGetDouble(prefix + "maxDelay");
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::S].maxDelay = 0.50;
+      prof->xcorrOpt.phase[PhaseType::S].maxDelay = 0.50;
     }
 
     try
     {
-      prof->ddCfg.xcorr[PhaseType::S].minCoef =
+      prof->xcorrOpt.phase[PhaseType::S].minCoef =
           configGetDouble(prefix + "minCCCoef");
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::S].minCoef = 0.70;
+      prof->xcorrOpt.phase[PhaseType::S].minCoef = 0.70;
     }
 
     try
     {
-      prof->ddCfg.xcorr[PhaseType::S].components =
+      prof->xcorrOpt.phase[PhaseType::S].components =
           configGetStrings(prefix + "components");
     }
     catch (...)
     {
-      prof->ddCfg.xcorr[PhaseType::S].components = {"H"};
+      prof->xcorrOpt.phase[PhaseType::S].components = {"H"};
     }
 
     prefix = string("profile.") + prof->name +
@@ -877,39 +881,39 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->solverCfg.type = configGetString(prefix + "solverType");
+      prof->solverOpt.type = configGetString(prefix + "solverType");
     }
     catch (...)
     {
-      prof->solverCfg.type = "LSMR";
+      prof->solverOpt.type = "LSMR";
     }
 
     try
     {
-      prof->solverCfg.algoIterations = configGetInt(prefix + "algoIterations");
+      prof->solverOpt.algoIterations = configGetInt(prefix + "algoIterations");
     }
     catch (...)
     {
-      prof->solverCfg.algoIterations = 20;
+      prof->solverOpt.algoIterations = 20;
     }
 
     try
     {
-      prof->solverCfg.downWeightingByResidualStart = 10.;
-      prof->solverCfg.downWeightingByResidualEnd   = 5.;
+      prof->solverOpt.downWeightingByResidualStart = 10.;
+      prof->solverOpt.downWeightingByResidualEnd   = 5.;
 
       vector<double> values =
           configGetDoubles(prefix + "downWeightingByResidual");
 
       if (values.size() == 1)
       {
-        prof->solverCfg.downWeightingByResidualStart = values[0];
-        prof->solverCfg.downWeightingByResidualEnd   = values[0];
+        prof->solverOpt.downWeightingByResidualStart = values[0];
+        prof->solverOpt.downWeightingByResidualEnd   = values[0];
       }
       else if (values.size() == 2)
       {
-        prof->solverCfg.downWeightingByResidualStart = values[0];
-        prof->solverCfg.downWeightingByResidualEnd   = values[1];
+        prof->solverOpt.downWeightingByResidualStart = values[0];
+        prof->solverOpt.downWeightingByResidualEnd   = values[1];
       }
       else
       {
@@ -924,20 +928,20 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->solverCfg.dampingFactorStart = 0.01;
-      prof->solverCfg.dampingFactorEnd   = 0.01;
+      prof->solverOpt.dampingFactorStart = 0.01;
+      prof->solverOpt.dampingFactorEnd   = 0.01;
 
       vector<double> values = configGetDoubles(prefix + "dampingFactor");
 
       if (values.size() == 1)
       {
-        prof->solverCfg.dampingFactorStart = values[0];
-        prof->solverCfg.dampingFactorEnd   = values[0];
+        prof->solverOpt.dampingFactorStart = values[0];
+        prof->solverOpt.dampingFactorEnd   = values[0];
       }
       else if (values.size() == 2)
       {
-        prof->solverCfg.dampingFactorStart = values[0];
-        prof->solverCfg.dampingFactorEnd   = values[1];
+        prof->solverOpt.dampingFactorStart = values[0];
+        prof->solverOpt.dampingFactorEnd   = values[1];
       }
       else
       {
@@ -952,21 +956,21 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->solverCfg.absLocConstraintStart = 0.3;
-      prof->solverCfg.absLocConstraintEnd   = 0.3;
+      prof->solverOpt.absLocConstraintStart = 0.3;
+      prof->solverOpt.absLocConstraintEnd   = 0.3;
 
       vector<double> values =
           configGetDoubles(prefix + "absoluteLocationConstraint");
 
       if (values.size() == 1)
       {
-        prof->solverCfg.absLocConstraintStart = values[0];
-        prof->solverCfg.absLocConstraintEnd   = values[0];
+        prof->solverOpt.absLocConstraintStart = values[0];
+        prof->solverOpt.absLocConstraintEnd   = values[0];
       }
       else if (values.size() == 2)
       {
-        prof->solverCfg.absLocConstraintStart = values[0];
-        prof->solverCfg.absLocConstraintEnd   = values[1];
+        prof->solverOpt.absLocConstraintStart = values[0];
+        prof->solverOpt.absLocConstraintEnd   = values[1];
       }
       else
       {
@@ -981,12 +985,12 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->solverCfg.xcorrWeightScaler =
+      prof->solverOpt.xcorrWeightScaler =
           configGetDouble(prefix + "xcorrWeightScaler");
     }
     catch (...)
     {
-      prof->solverCfg.xcorrWeightScaler = 1.5;
+      prof->solverOpt.xcorrWeightScaler = 1.5;
     }
 
     prof->ddCfg.diskTraceMinLen =
@@ -996,8 +1000,8 @@ bool RTDD::validateParameters()
     prof->recordStreamURL                   = recordStreamURL();
     prof->singleEventClustering.maxDTperEvt = 0;
     prof->multiEventClustering.maxDTperEvt  = 0;
-    prof->solverCfg.L2normalization         = true;
-    prof->solverCfg.solverIterations        = 0;
+    prof->solverOpt.L2normalization         = true;
+    prof->solverOpt.solverIterations        = 0;
 
     _profiles.push_back(prof);
   }
@@ -2006,7 +2010,7 @@ void RTDD::Profile::preloadWaveforms()
         name.c_str());
     throw runtime_error(msg.c_str());
   }
-  dd->preloadWaveforms();
+  dd->preloadWaveforms(xcorrOpt);
   lastUsage = Core::Time::GMT();
 }
 
@@ -2040,7 +2044,7 @@ HDD::Catalog RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   bool isManual = org->evaluationMode() == DataModel::MANUAL;
 
   return dd->relocateSingleEvent(orgToRelocate, isManual, singleEventClustering,
-                                 singleEventClustering, solverCfg);
+                                 singleEventClustering, xcorrOpt, solverOpt);
 }
 
 HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
@@ -2075,7 +2079,7 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
   }
 
   HDD::Catalog relocatedCat = dd->relocateMultiEvents(
-      clusters, xcorr, multiEventClustering, solverCfg, true);
+      clusters, xcorr, multiEventClustering, xcorrOpt, solverOpt, true);
 
   relocatedCat.writeToFile("reloc-event.csv", "reloc-phase.csv",
                            "reloc-station.csv");
@@ -2096,7 +2100,7 @@ void RTDD::Profile::dumpWaveforms()
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::GMT();
-  dd->dumpWaveforms();
+  dd->dumpWaveforms(xcorrOpt);
 }
 
 void RTDD::Profile::dumpClusters()

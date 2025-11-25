@@ -181,7 +181,8 @@ private:
     HDD::Config ddCfg;
     HDD::ClusteringOptions singleEventClustering;
     HDD::ClusteringOptions multiEventClustering;
-    HDD::SolverOptions solverCfg;
+    HDD::XcorrOptions xcorrOpt;
+    HDD::SolverOptions solverOpt;
 
   private:
     bool loaded;

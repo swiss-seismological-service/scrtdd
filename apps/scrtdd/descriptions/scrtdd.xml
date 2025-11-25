@@ -129,12 +129,18 @@
             </group>
           </group>
           <group name="crossCorrelation">
-           <description>Cross-correlation is used to improve the differential travel times used in the double-difference system. This step is optional and can be disabled by setting to 0 either 'maxStationDistance' or 'maxInterEventDistance'</description> 
-            <parameter name="maxStationDistance" type="double" default="0" unit="km">
-              <description>Maximum allowed distance (km) between event and station for a cross-correlation to happen. Phases belonging to further stations will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 disables the cross-correlations.</description> 
+            <description>Cross-correlation is used to improve the differential times used in the double-difference system</description>
+            <parameter name="enable" type="boolean" default="false">
+              <description>Enable or disable the waveform cross-correlation.</description>
             </parameter>
-            <parameter name="maxInterEventDistance" type="double" default="0" unit="km">
-              <description>Maximum allowed distance (km) between events for a cross-correlation to happen. Phases of event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Setting it to -1 removes the limits. Settings it to 0 disables the cross-correlations.</description>
+            <parameter name="minStationDistance" type="double" default="0" unit="km">
+              <description>Minimum allowed distance between event and station. Phases belonging to closer stations will not be used in cross-correlation.</description> 
+            </parameter>
+            <parameter name="maxStationDistance" type="double" default="60" unit="km">
+              <description>Maximum allowed distance between event and station. Phases belonging to further stations will not be used in cross-correlation. Setting it to -1 removes the limits.</description>
+            </parameter>
+            <parameter name="maxInterEventDistance" type="double" default="2" unit="km">
+              <description>Maximum allowed distance (km) between events for a cross-correlation to happen. Phases of event pairs whose inter-event distance if further than this value will not be used in cross-correlation. Setting it to -1 removes the limits.</description>
             </parameter>
             <parameter name="compatibleChannels" type="string" default="">
               <description>The cross-correlation is computed only on phases picked on the same channel code (e.g. HH. EH, HG, etc). However here it is possible to force the cross-correlation between different channel codes on the same station. The value is a list separated by ';' and each element is a list (again) of compatible channels separated by ',' for example: "HH,EH;HG,HN"</description>
