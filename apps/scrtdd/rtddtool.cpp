@@ -365,6 +365,8 @@ bool RTDD::validateParameters()
   _config.cacheWaveforms       = configGetBool("performance.cacheWaveforms");
   _config.cacheDirectory =
       env->absolutePath(configGetPath("performance.cacheDirectory"));
+  _config.cachedWaveformLength =
+      configGetDouble("performance.cachedWaveformLength");
   _config.testMode      = commandline().hasOption("test");
   _config.loadProfileWf = commandline().hasOption("load-profile-wf");
 
@@ -718,7 +720,7 @@ bool RTDD::validateParameters()
         for (size_t i = 0; i < codes.size() - 1; i++)
           for (size_t j = i + 1; j < codes.size(); j++)
           {
-            prof->ddCfg.compatibleChannels.push_back({codes[i], codes[j]});
+            prof->xcorrOpt.compatibleChannels.push_back({codes[i], codes[j]});
           }
       }
     }
@@ -982,9 +984,6 @@ bool RTDD::validateParameters()
       prof->solverOpt.usePickUncertainties = false;
     }
 
-    prof->ddCfg.diskTraceMinLen =
-        configGetDouble("performance.cachedWaveformLength");
-
     // no reason to make those configurable
     prof->recordStreamURL                   = recordStreamURL();
     prof->singleEventClustering.maxDTperEvt = 0;
@@ -1018,7 +1017,7 @@ bool RTDD::init()
 
   _config.cacheDirectory =
       boost::filesystem::path(_config.cacheDirectory).string();
-  if (!Util::pathExists(_config.cacheDirectory))
+  if (_config.cacheWaveforms && !Util::pathExists(_config.cacheDirectory))
   {
     if (!Util::createPath(_config.cacheDirectory))
     {
@@ -1858,7 +1857,7 @@ void RTDD::loadProfile(ProfilePtr profile,
 {
   profile->load(query(), &_cache, _eventParameters.get(),
                 _config.cacheDirectory, _config.cacheWaveforms,
-                alternativeCatalog);
+                _config.cachedWaveformLength, alternativeCatalog);
 }
 
 // Profile class
@@ -1871,6 +1870,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
                          EventParameters *eventParameters,
                          const string &workingDir,
                          bool cacheWaveforms,
+                         double cachedWaveformLength,
                          const HDD::Catalog alternativeCatalog)
 {
   if (loaded) return;
@@ -1960,7 +1960,8 @@ void RTDD::Profile::load(DatabaseQuery *query,
 
     if (cacheWaveforms)
     {
-      dd->enableCatalogWaveformDiskCache(HDD::joinPath(profileDir, "wfcache"));
+      dd->enableCatalogWaveformDiskCache(HDD::joinPath(profileDir, "wfcache"),
+                                         cachedWaveformLength);
     }
     else
     {

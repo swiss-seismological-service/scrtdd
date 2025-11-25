@@ -122,70 +122,67 @@ DD::DD(const Catalog &catalog,
                                                 _cfg.validPphases,
                                                 _cfg.validSphases,
                                                 _cfg.pickUncertaintyClasses)),
-      _ttt(std::move(ttt)), _wf(std::move(wf))
+      _ttt(std::move(ttt)), _proxy(std::move(wf))
 {
   disableCatalogWaveformDiskCache();
 }
 
 void DD::disableCatalogWaveformDiskCache()
 {
-  _useCatalogWaveformDiskCache = false;
-  createWaveformCache();
+  _wfAccess.useCache = false;
+  initWaveformAccess();
 }
 
-void DD::enableCatalogWaveformDiskCache(const std::string &cacheDir)
+void DD::enableCatalogWaveformDiskCache(const std::string &cacheDir,
+                                        double diskTraceMinLen)
 {
-  _useCatalogWaveformDiskCache = true;
-  _cacheDir                    = cacheDir;
-  if (!pathExists(_cacheDir))
+  _wfAccess.useCache        = true;
+  _wfAccess.cacheDir        = cacheDir;
+  _wfAccess.diskTraceMinLen = diskTraceMinLen;
+  if (!pathExists(_wfAccess.cacheDir))
   {
-    if (!createDirectories(_cacheDir))
+    if (!createDirectories(_wfAccess.cacheDir))
     {
-      string msg = "Unable to create cache directory: " + _cacheDir;
+      string msg = "Unable to create cache directory: " + _wfAccess.cacheDir;
       throw Exception(msg);
     }
   }
-  createWaveformCache();
+  initWaveformAccess();
 }
 
-void DD::createWaveformCache()
+void DD::initWaveformAccess()
 {
-  _wfAccess.loader    = make_shared<Waveform::BasicLoader>(_wf);
+  _wfAccess.loader    = make_shared<Waveform::BasicLoader>(_proxy);
   _wfAccess.diskCache = nullptr;
   _wfAccess.memCache  = nullptr;
 
   shared_ptr<Waveform::Loader> currLdr = _wfAccess.loader;
 
-  if (_useCatalogWaveformDiskCache)
+  if (_wfAccess.useCache)
   {
-    _wfAccess.diskCache =
-        make_shared<Waveform::DiskCachedLoader>(_wf, currLdr, _cacheDir);
+    _wfAccess.diskCache = make_shared<Waveform::DiskCachedLoader>(
+        _proxy, currLdr, _wfAccess.cacheDir);
     currLdr = make_shared<Waveform::ExtraLenLoader>(_wfAccess.diskCache,
-                                                    _cfg.diskTraceMinLen);
+                                                    _wfAccess.diskTraceMinLen);
   }
 
   shared_ptr<Waveform::Processor> currProc =
-      make_shared<Waveform::BasicProcessor>(_wf, currLdr,
+      make_shared<Waveform::BasicProcessor>(_proxy, currLdr,
                                             _cfg.wfFilter.extraTraceLen);
-
-  // Using the MemCachedProc mechanism of wrapping Waveform::Processor it is
-  // possible to add additional Waveform::Processor(S) with specialized
-  // operations between currProc and memCache. For example there use to be a SNR
-  // filter there
 
   _wfAccess.memCache = make_shared<Waveform::MemCachedProc>(currProc);
 }
 
 void DD::replaceWaveformLoader(const shared_ptr<Waveform::Loader> &baseLdr)
 {
-  if (_useCatalogWaveformDiskCache)
+  if (_wfAccess.useCache)
   {
     _wfAccess.diskCache->setAuxLoader(baseLdr);
   }
   else
   {
     _wfAccess.memCache->setAuxProcessor(make_shared<Waveform::BasicProcessor>(
-        _wf, baseLdr, _cfg.wfFilter.extraTraceLen));
+        _proxy, baseLdr, _cfg.wfFilter.extraTraceLen));
   }
 }
 
@@ -215,7 +212,7 @@ string DD::generateWorkingSubDir(const Event &ev) const
   return generateWorkingSubDir(prefix);
 }
 
-void DD::unloadWaveforms() { createWaveformCache(); }
+void DD::unloadWaveforms() { initWaveformAccess(); }
 
 const std::vector<std::string> DD::xcorrComponents(const XcorrOptions &xcorrOpt,
                                                    const Phase &phase) const
@@ -275,7 +272,7 @@ void DD::preloadWaveforms(const XcorrOptions &xcorrOpt)
 
     // Use a BatchLoader for the current event
     shared_ptr<Waveform::BatchLoader> batchLoader =
-        make_shared<Waveform::BatchLoader>(_wf);
+        make_shared<Waveform::BatchLoader>(_proxy);
     replaceWaveformLoader(batchLoader);
 
     // The following call won't try to load the waveforms. Instead it will
@@ -313,7 +310,7 @@ void DD::preloadWaveforms(const XcorrOptions &xcorrOpt)
   }
 
   // Restore original loader
-  replaceWaveformLoader(make_shared<Waveform::BasicLoader>(_wf));
+  replaceWaveformLoader(make_shared<Waveform::BasicLoader>(_proxy));
 
   wfcount.update(_wfAccess.loader.get());
   wfcount.update(_wfAccess.diskCache.get());
@@ -374,8 +371,7 @@ void DD::dumpWaveforms(const XcorrOptions &xcorrOpt, const string &basePath)
         logInfoF("Writing %s", wfPath.c_str());
         try
         {
-
-          _wf->writeTrace(*tr, wfPath);
+          _proxy->writeTrace(*tr, wfPath);
         }
         catch (exception &e)
         {
@@ -1435,9 +1431,10 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
   // unresponsive due to the multiple connections requests, one for each event
   // phase
   //
-  shared_ptr<Waveform::BatchLoader> batchLoader(new Waveform::BatchLoader(_wf));
+  shared_ptr<Waveform::BatchLoader> batchLoader(
+      new Waveform::BatchLoader(_proxy));
   shared_ptr<Waveform::Processor> proc(new Waveform::BasicProcessor(
-      _wf, batchLoader, _cfg.wfFilter.extraTraceLen));
+      _proxy, batchLoader, _cfg.wfFilter.extraTraceLen));
 
   //
   // loop through reference event phases
@@ -1567,7 +1564,7 @@ bool DD::xcorrPhases(const XcorrOptions &xcorrOpt,
   if (channelCodeRoot1 != channelCodeRoot2)
   {
     bool channelsAreCompatible = false;
-    for (const pair<string, string> &p : _cfg.compatibleChannels)
+    for (const pair<string, string> &p : xcorrOpt.compatibleChannels)
     {
       if ((p.first == channelCodeRoot1 && p.second == channelCodeRoot2) ||
           (p.second == channelCodeRoot1 && p.first == channelCodeRoot2))

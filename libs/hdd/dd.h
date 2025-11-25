@@ -50,14 +50,6 @@ struct Config
   std::vector<double> pickUncertaintyClasses = {0.000, 0.025, 0.050,
                                                 0.100, 0.200, 0.400};
 
-  std::vector<std::pair<std::string, std::string>> compatibleChannels;
-
-  // For waveforms that are cached to disk, store at least `diskTraceMinLen`
-  // secs of data (centered at pick time).
-  // This is to avoid re-downloading waveforms at every cross-correlation
-  // configuration change
-  double diskTraceMinLen = 10;
-
   struct
   {
     std::string filterStr = ""; // "" -> no filtering
@@ -99,6 +91,7 @@ struct XcorrOptions
   double minEvStaDist   = 0;     // min event to station distance
   double maxEvStaDist   = -1;    // max event to station distance -1 -> disable
   double maxInterEvDist = -1;    // max inter-event distance -1 -> disable
+  std::vector<std::pair<std::string, std::string>> compatibleChannels;
   struct XCorr
   {
     double minCoef;     // min cross-correlatation coefficient required (0-1)
@@ -144,14 +137,19 @@ public:
 
   const Catalog &getCatalog() const { return _srcCat; }
 
+  //
   // Enable/disable the usage of disk cache for the background
-  // catalog waveforms
+  // catalog waveforms. Store at least `diskTraceMinLen`
+  // secs of data (centered at pick time).
+  //
   void disableCatalogWaveformDiskCache();
-  void enableCatalogWaveformDiskCache(const std::string &cacheDir);
-  std::string catalogWaveformDiskCacheDir() const { return _cacheDir; }
-  bool useCatalogWaveformDiskCache() const
+  void enableCatalogWaveformDiskCache(const std::string &cacheDir,
+                                      double diskTraceMinLen = 10.);
+  std::string catalogWaveformDiskCacheDir() const { return _wfAccess.cacheDir; }
+  bool useCatalogWaveformDiskCache() const { return _wfAccess.useCache; }
+  double catalogWaveformDiskCacheTraceMinLen() const
   {
-    return _useCatalogWaveformDiskCache;
+    return _wfAccess.diskTraceMinLen;
   }
 
   // preload all background catalog waveforms: store them on disk cache
@@ -203,7 +201,7 @@ public:
                     double &coeffOut);
 
 private:
-  void createWaveformCache();
+  void initWaveformAccess();
   void replaceWaveformLoader(const std::shared_ptr<Waveform::Loader> &baseLdr);
 
   std::string generateWorkingSubDir(const std::string &prefix) const;
@@ -324,13 +322,17 @@ private:
   const Catalog _bgCat;
 
   std::unique_ptr<TravelTimeTable> _ttt;
-  std::shared_ptr<Waveform::Proxy> _wf;
-
-  std::string _cacheDir;
-  bool _useCatalogWaveformDiskCache = true;
+  std::shared_ptr<Waveform::Proxy> _proxy;
 
   struct
   {
+    bool useCache = false;
+    std::string cacheDir;
+    // For waveforms that are cached to disk, store at least `diskTraceMinLen`
+    // secs of data (centered at pick time).
+    // This is to avoid re-downloading waveforms at every cross-correlation
+    // configuration change
+    double diskTraceMinLen = 10;
     std::shared_ptr<Waveform::Loader> loader;
     std::shared_ptr<Waveform::DiskCachedLoader> diskCache;
     std::shared_ptr<Waveform::MemCachedProc> memCache;

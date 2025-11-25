@@ -63,7 +63,7 @@ public:
   Proxy &operator=(const Proxy &other) = delete;
 
   // load one trace at the requested time window for a specific station
-  // throw std::exception is the trace cannot be loaded
+  // throw HDD::Exception is the trace cannot be loaded
   virtual std::unique_ptr<Trace> loadTrace(const TimeWindow &tw,
                                            const std::string &networkCode,
                                            const std::string &stationCode,

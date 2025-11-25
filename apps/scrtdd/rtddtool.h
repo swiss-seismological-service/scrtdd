@@ -114,13 +114,13 @@ private:
   struct Config
   {
     std::vector<std::string> activeProfiles;
-    bool onlyPreferredOrigin   = true;
-    bool allowAutomaticOrigin  = true;
-    bool allowManualOrigin     = true;
-    int profileTimeAlive       = -1; // seconds
-    bool cacheWaveforms        = false;
-    std::string cacheDirectory = "/tmp/rtdd";
-    bool debugWaveforms        = false;
+    bool onlyPreferredOrigin    = true;
+    bool allowAutomaticOrigin   = true;
+    bool allowManualOrigin      = true;
+    int profileTimeAlive        = -1; // seconds
+    bool cacheWaveforms         = false;
+    std::string cacheDirectory  = "/tmp/rtdd";
+    double cachedWaveformLength = 10.;
 
     // Mode
     bool forceProcessing = false;
@@ -153,6 +153,7 @@ private:
               DataModel::EventParameters *eventParameters,
               const std::string &workingDir,
               bool cacheWaveforms,
+              double cachedWaveformLength,
               const HDD::Catalog alternativeCatalog = HDD::Catalog());
     void unload();
     bool isLoaded() { return loaded; }
