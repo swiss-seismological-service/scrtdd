@@ -1,15 +1,15 @@
 INCLUDE_DIRECTORIES(.)
 
 SET(HDDSC_SOURCES
-	scutils.cpp
-	scttt.cpp
-	scwaveform.cpp
+	utils.cpp
+	ttt.cpp
+	waveform.cpp
 )
 
 SET(HDDSC_HEADERS
-	scutils.h
-	scttt.h
-	scwaveform.h
+	utils.h
+	ttt.h
+	waveform.h
 )
 
 SC_ADD_LIBRARY(HDDSC hddsc)

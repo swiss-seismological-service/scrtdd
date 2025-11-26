@@ -20,9 +20,9 @@
 #include "hdd/log.h"
 #include "hdd/ttt/homogeneous.h"
 #include "hdd/ttt/nllgrid.h"
-#include "hddsc/scttt.h"
-#include "hddsc/scutils.h"
-#include "hddsc/scwaveform.h"
+#include "hddsc/ttt.h"
+#include "hddsc/utils.h"
+#include "hddsc/waveform.h"
 #include "msg.h"
 
 #define SEISCOMP_COMPONENT RTDD

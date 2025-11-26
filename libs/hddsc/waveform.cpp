@@ -14,10 +14,10 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#include "scwaveform.h"
+#include "waveform.h"
 #include "hdd/log.h"
 #include "hdd/utils.h"
-#include "scutils.h"
+#include "utils.h"
 
 #include <fstream>
 #include <iostream>

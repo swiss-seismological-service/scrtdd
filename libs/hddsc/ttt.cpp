@@ -14,7 +14,7 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#include "scttt.h"
+#include "ttt.h"
 #include "hdd/log.h"
 #include "hdd/utils.h"
 #include <seiscomp/math/geo.h>

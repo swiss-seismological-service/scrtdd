@@ -4,7 +4,7 @@
 #include <boost/test/data/test_case.hpp>
 
 #include "hdd/dd.h"
-#include "scwaveform.h"
+#include "waveform.h"
 #include <cstring>
 #include <ostream>
 

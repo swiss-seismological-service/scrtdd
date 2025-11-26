@@ -14,8 +14,8 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#ifndef __HDD_SCTTT_H__
-#define __HDD_SCTTT_H__
+#ifndef __HDD_SC_TTT_H__
+#define __HDD_SC_TTT_H__
 
 #include "hdd/ttt.h"
 

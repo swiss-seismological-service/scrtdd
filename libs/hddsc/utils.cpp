@@ -15,7 +15,7 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#include "scutils.h"
+#include "utils.h"
 
 #include "hdd/csvreader.h"
 #include "hdd/log.h"

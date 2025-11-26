@@ -15,8 +15,8 @@
  *   Developed by Luca Scarabello <luca.scarabello@sed.ethz.ch>            *
  ***************************************************************************/
 
-#ifndef __HDD_SCUTILS_H__
-#define __HDD_SCUTILS_H__
+#ifndef __HDD_SC_UTILS_H__
+#define __HDD_SC_UTILS_H__
 
 #include "hdd/catalog.h"
 #include "hdd/dd.h"
