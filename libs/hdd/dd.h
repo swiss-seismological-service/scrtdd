@@ -141,20 +141,19 @@ public:
   // catalog waveforms. Store at least `diskTraceMinLen`
   // secs of data (centered at pick time).
   //
-  void disableCatalogWaveformDiskCache();
   void enableCatalogWaveformDiskCache(const std::string &cacheDir,
                                       double diskTraceMinLen = 10.);
+  void disableCatalogWaveformDiskCache();
+  // Preload all background catalog waveforms: store them on disk cache
+  // (if cache enabled)
+  void preloadCatalogWaveformDiskCache(const XcorrOptions &xcorrOpt);
+
   std::string catalogWaveformDiskCacheDir() const { return _wfAccess.cacheDir; }
   bool useCatalogWaveformDiskCache() const { return _wfAccess.useCache; }
   double catalogWaveformDiskCacheTraceMinLen() const
   {
     return _wfAccess.diskTraceMinLen;
   }
-
-  // preload all background catalog waveforms: store them on disk cache
-  // (if enabled and not already there) then cache them in memory
-  // already processed, ready for cross-correlation
-  void preloadWaveforms(const XcorrOptions &xcorrOpt);
 
   // free waveforms memory
   void unloadWaveforms();
@@ -327,13 +326,11 @@ private:
   {
     bool useCache = false;
     std::string cacheDir;
-    // For waveforms that are cached to disk, store at least `diskTraceMinLen`
-    // secs of data (centered at pick time).
-    // This is to avoid re-downloading waveforms at every cross-correlation
-    // configuration change
     double diskTraceMinLen = 10;
     std::shared_ptr<Waveform::Loader> loader;
     std::shared_ptr<Waveform::DiskCachedLoader> diskCache;
+    std::shared_ptr<Waveform::ExtraLenLoader> extraLen;
+    std::shared_ptr<Waveform::BasicProcessor> basicProc;
     std::shared_ptr<Waveform::MemCachedProc> memCache;
   } _wfAccess;
 };

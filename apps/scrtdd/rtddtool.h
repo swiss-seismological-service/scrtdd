@@ -136,7 +136,7 @@ private:
     std::string clusters;
     std::string xcorrCache;
     std::string reloadProfileMsg;
-    bool loadProfileWf = false;
+    bool preloadWaveforms = false;
 
     // cron
     int wakeupInterval = 1; // sec

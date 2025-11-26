@@ -19,21 +19,21 @@
       </parameter>
       <group name="performance">
         <parameter name="delayTime" type="int" default="10" unit="sec">
-          <description>Specifies a delay time in seconds after an origin is created or updated to trigger the single-event relocation.</description>
+          <description>Specifies a delay time in seconds after an origin is created/updated to trigger the single-event relocation.</description>
         </parameter>
-        <parameter name="profileTimeAlive" type="int" default="3600" unit="sec">
-          <description>Defines how long the real-time profile data should be kept in memory (in seconds). This is useful to release memory (catalog waveform data) after a period of inactivity, at the cost of having to reload the catalog (load and process waveforms) when a new origin arrives. A negative value force the profiles to stay always in memory.</description>
+        <parameter name="profileTimeAlive" type="int" default="600" unit="sec">
+          <description>Defines how long the profile data should be kept in memory (in seconds). This is useful to release memory (catalog waveform data) after a period of inactivity. A negative value force the profiles to stay always in memory.</description>
         </parameter>
         <parameter name="cacheWaveforms" type="boolean" default="true">
-          <description>Save catalog waveforms to local disk after they have been loaded the first time. This avoids re-reading them from the configured recordStream in the future since this operation is dramatically slow (unless the recordStream points to a local disk source, in which case there is no advantage over caching the waveforms). Note: It is safe to delete the cache folder, in which case the waveforms will be loaded and saved again on disk the next time the profile is loaded (they will be read again from the configured recordStream).</description>
+          <description>Save reference catalog waveforms to local disk after they have been loaded the first time. This avoids re-reading them from the configured recordStream.</description>
         </parameter>
-        <parameter name="cachedWaveformLength" type="double" default="10" unit="sec">
-          <description>The waveform length to store in the disk cache (centered around pick time). Although the minimum required waveform length is inferred from the cross-correlation settings, this option allows to increase the disk cache to a longer window, which become useful to skip the data re-downloading if the cross-correlation settings are changed.
-          </description>
-        </parameter> 
         <parameter name="cacheDirectory" type="path" default="@ROOTDIR@/var/lib/rtdd">
           <description>Defines the directory used for storing waveform cache.</description>
         </parameter>
+        <parameter name="cachedWaveformLength" type="double" default="10" unit="sec">
+          <description>The waveform length (centered around pick time) to be used for the disk cache. Although the required waveform length is inferred from the cross-correlation settings, this option allows for a longer disk cached trace that becomes useful in case the cross-correlation settings are changed in the future.
+          </description>
+        </parameter> 
       </group>
       <group name="profile">
         <description>Each profile is a configuration set with an optional region. The region is used only in real-time processing to select a profile for an origin. If an origin falls in multiple profile regions, the profile defined first in 'activeProfile' option will be used. This allows for hierarchical regions, where special regions are defined first and a broader region is defined last. A profile is enabled in real-time processing only when added to 'activeProfile' option.</description>

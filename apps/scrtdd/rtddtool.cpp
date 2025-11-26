@@ -333,7 +333,7 @@ void RTDD::createCommandLineDescription()
       &_config.forceProfile, true);
   commandline().addOption(
       "ModeOptions", "clusters",
-      "Specify a list of files containing precomputed event pairs",
+      "Specify a list of files containing precomputed events/phases pairs",
       &_config.clusters, true);
   commandline().addOption(
       "ModeOptions", "xcorr-cache",
@@ -367,13 +367,13 @@ bool RTDD::validateParameters()
       env->absolutePath(configGetPath("performance.cacheDirectory"));
   _config.cachedWaveformLength =
       configGetDouble("performance.cachedWaveformLength");
-  _config.testMode      = commandline().hasOption("test");
-  _config.loadProfileWf = commandline().hasOption("load-profile-wf");
+  _config.testMode         = commandline().hasOption("test");
+  _config.preloadWaveforms = commandline().hasOption("load-profile-wf");
 
   // disable messaging (offline mode) with certain command line options
   if (!_config.eventXML.empty() || !_config.dumpCatalog.empty() ||
       !_config.mergeCatalogs.empty() || !_config.relocateCatalog.empty() ||
-      _config.loadProfileWf || !_config.dumpWaveforms.empty() ||
+      _config.preloadWaveforms || !_config.dumpWaveforms.empty() ||
       !_config.dumpClusters.empty() ||
       (!_config.originIDs.empty() && _config.testMode))
   {
@@ -981,7 +981,7 @@ bool RTDD::validateParameters()
   if (!isInventoryDatabaseEnabled() && !profileRequireDB &&
       (!_config.eventXML.empty() || !_config.mergeCatalogs.empty() ||
        !_config.relocateCatalog.empty() || !_config.dumpWaveforms.empty() ||
-       _config.loadProfileWf || !_config.dumpClusters.empty()))
+       _config.preloadWaveforms || !_config.dumpClusters.empty()))
   {
     SEISCOMP_INFO("Disable database connection");
     setDatabaseEnabled(false, false);
@@ -1087,7 +1087,7 @@ bool RTDD::run()
   }
 
   // load catalog waveforms and exit
-  if (_config.loadProfileWf)
+  if (_config.preloadWaveforms)
   {
     ProfilePtr profile = getProfile(_config.forceProfile);
     if (!profile) return false;
@@ -1382,7 +1382,6 @@ void RTDD::checkProfileStatus()
     if (!currProfile->isLoaded())
     {
       loadProfile(currProfile);
-      if (_config.profileTimeAlive < 0) currProfile->preloadWaveforms();
     }
 
     // periodic clean up of profiles
@@ -1726,7 +1725,6 @@ void RTDD::relocateOrigin(DataModel::Origin *org,
   if (!profile->isLoaded())
   {
     loadProfile(profile);
-    if (_config.profileTimeAlive < 0) profile->preloadWaveforms();
   }
   HDD::Catalog relocatedOrg = profile->relocateSingleEvent(org);
   bool includeMagnitude     = org->evaluationMode() == DataModel::MANUAL;
@@ -1980,7 +1978,7 @@ void RTDD::Profile::preloadWaveforms()
         name.c_str());
     throw runtime_error(msg.c_str());
   }
-  dd->preloadWaveforms(xcorrOpt);
+  dd->preloadCatalogWaveformDiskCache(xcorrOpt);
   lastUsage = Core::Time::GMT();
 }
 

@@ -152,9 +152,11 @@ void DD::enableCatalogWaveformDiskCache(const std::string &cacheDir,
 
 void DD::initWaveformAccess()
 {
-  _wfAccess.loader    = make_shared<Waveform::BasicLoader>(_proxy);
-  _wfAccess.diskCache = nullptr;
-  _wfAccess.memCache  = nullptr;
+  _wfAccess.loader = make_shared<Waveform::BasicLoader>(_proxy);
+  _wfAccess.diskCache.reset();
+  _wfAccess.extraLen.reset();
+  _wfAccess.basicProc.reset();
+  _wfAccess.memCache.reset();
 
   shared_ptr<Waveform::Loader> currLdr = _wfAccess.loader;
 
@@ -162,15 +164,15 @@ void DD::initWaveformAccess()
   {
     _wfAccess.diskCache = make_shared<Waveform::DiskCachedLoader>(
         _proxy, currLdr, _wfAccess.cacheDir);
-    currLdr = make_shared<Waveform::ExtraLenLoader>(_wfAccess.diskCache,
-                                                    _wfAccess.diskTraceMinLen);
+    _wfAccess.extraLen = make_shared<Waveform::ExtraLenLoader>(
+        _wfAccess.diskCache, _wfAccess.diskTraceMinLen);
+    currLdr = _wfAccess.extraLen;
   }
 
-  shared_ptr<Waveform::Processor> currProc =
-      make_shared<Waveform::BasicProcessor>(_proxy, currLdr,
-                                            _cfg.wfFilter.extraTraceLen);
-
-  _wfAccess.memCache = make_shared<Waveform::MemCachedProc>(currProc);
+  _wfAccess.basicProc = make_shared<Waveform::BasicProcessor>(
+      _proxy, currLdr, _cfg.wfFilter.extraTraceLen);
+  _wfAccess.memCache =
+      make_shared<Waveform::MemCachedProc>(_wfAccess.basicProc);
 }
 
 void DD::replaceWaveformLoader(const shared_ptr<Waveform::Loader> &baseLdr)
@@ -181,8 +183,7 @@ void DD::replaceWaveformLoader(const shared_ptr<Waveform::Loader> &baseLdr)
   }
   else
   {
-    _wfAccess.memCache->setAuxProcessor(make_shared<Waveform::BasicProcessor>(
-        _proxy, baseLdr, _cfg.wfFilter.extraTraceLen));
+    _wfAccess.basicProc->setAuxLoader(baseLdr);
   }
 }
 
@@ -229,39 +230,22 @@ const std::vector<std::string> DD::xcorrComponents(const XcorrOptions &xcorrOpt,
   }
 }
 
-void DD::preloadWaveforms(const XcorrOptions &xcorrOpt)
+void DD::preloadCatalogWaveformDiskCache(const XcorrOptions &xcorrOpt)
 {
   //
-  // preload waveforms, store them on disk and cache them in memory
-  // (already processed).
-  // For better performance we want to load waveforms in batch
-  // (batchloader)
+  // Preload waveforms and store them on disk.
+  // For better performance we want to load waveforms in batch (batchloader)
   //
+  if (!_wfAccess.useCache)
+  {
+    logInfoF("Waveform disk cache is disabled: nothing to do.");
+    return;
+  }
+
   logInfoF("Loading catalog waveform data (%zu events to load)",
            _bgCat.getEvents().size());
 
-  auto forEventWaveforms =
-      [this,
-       &xcorrOpt](const Event &event, unsigned &numPhases, unsigned &numSPhases,
-                  std::function<bool(const TimeWindow &, const Event &,
-                                     const Phase &, const string &)> func) {
-        auto eqlrng = _bgCat.getPhases().equal_range(event.id);
-        for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-        {
-          const Phase &phase = it->second;
-          TimeWindow tw      = xcorrTimeWindowLong(xcorrOpt, phase);
-
-          for (const string &component : xcorrComponents(xcorrOpt, phase))
-          {
-            if (func(tw, event, phase, component)) break;
-          }
-
-          numPhases++;
-          if (phase.procInfo.type == Phase::Type::S) numSPhases++;
-        }
-      };
-
-  unsigned numPhases = 0, numSPhases = 0, numEvents = 0;
+  unsigned numEvents = 0;
   WfCounters wfcount{};
 
   for (const auto &kv : _bgCat.getEvents())
@@ -275,28 +259,38 @@ void DD::preloadWaveforms(const XcorrOptions &xcorrOpt)
         make_shared<Waveform::BatchLoader>(_proxy);
     replaceWaveformLoader(batchLoader);
 
-    // The following call won't try to load the waveforms. Instead it will
+    // The following loop won't try to load the waveforms. Instead it will
     // records in BatchLoader the required waveforms that will be loaded
     // in batch later
-    auto requestWaveform = [this](const TimeWindow &tw, const Event &ev,
-                                  const Phase &ph, const string &component) {
-      getWaveform(*_wfAccess.memCache, tw, ev, ph, component);
-      return false;
-    };
+    auto eqlrng = _bgCat.getPhases().equal_range(event.id);
+    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+    {
+      const Phase &phase = it->second;
+      TimeWindow tw      = xcorrTimeWindowLong(xcorrOpt, phase);
 
-    forEventWaveforms(event, numPhases, numSPhases, requestWaveform);
+      for (const string &component : xcorrComponents(xcorrOpt, phase))
+      {
+        getWaveform(*_wfAccess.basicProc, tw, event, phase, component);
+      }
+    }
 
     // This will actually download the waveworms
     batchLoader->load();
 
-    // now process and store the waveforms into memory
-    auto cacheWaveform = [this](const TimeWindow &tw, const Event &ev,
-                                const Phase &ph, const string &component) {
-      return getWaveform(*_wfAccess.memCache, tw, ev, ph, component) != nullptr;
-    };
+    // now  store the waveforms to disk
+    eqlrng = _bgCat.getPhases().equal_range(event.id);
+    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+    {
+      const Phase &phase = it->second;
+      TimeWindow tw      = xcorrTimeWindowLong(xcorrOpt, phase);
 
-    unsigned dummy;
-    forEventWaveforms(event, dummy, dummy, cacheWaveform);
+      for (const string &component : xcorrComponents(xcorrOpt, phase))
+      {
+        // _wfAccess.basicProc because we don't want to cache the
+        // whole catalog waveforms into memory with _wfAccess.memCache
+        getWaveform(*_wfAccess.basicProc, tw, event, phase, component);
+      }
+    }
 
     wfcount.update(batchLoader.get());
 
@@ -310,18 +304,15 @@ void DD::preloadWaveforms(const XcorrOptions &xcorrOpt)
   }
 
   // Restore original loader
-  replaceWaveformLoader(make_shared<Waveform::BasicLoader>(_proxy));
+  replaceWaveformLoader(_wfAccess.loader);
 
-  wfcount.update(_wfAccess.loader.get());
   wfcount.update(_wfAccess.diskCache.get());
 
-  logInfoF("Finished preloading catalog waveform data: total events %zu total "
-           "phases %u (P %.f%%, S %.f%%). Waveforms downloaded %u, not "
-           "available %u, loaded from disk cache %u",
-           _bgCat.getEvents().size(), numPhases,
-           ((numPhases - numSPhases) * 100. / numPhases),
-           (numSPhases * 100. / numPhases), wfcount.downloaded,
-           wfcount.no_avail, wfcount.disk_cached);
+  logInfoF(
+      "Finished preloading catalog waveform data: total events %zu."
+      "Waveforms downloaded %u, not available %u, loaded from disk cache %u",
+      _bgCat.getEvents().size(), wfcount.downloaded, wfcount.no_avail,
+      wfcount.disk_cached);
 }
 
 void DD::dumpWaveforms(const XcorrOptions &xcorrOpt, const string &basePath)
@@ -355,11 +346,10 @@ void DD::dumpWaveforms(const XcorrOptions &xcorrOpt, const string &basePath)
 
       for (const string &component : xcorrComponents(xcorrOpt, phase))
       {
-        // memCache->getAuxProcessor() -> we don't want to cache the
-        // whole catalog waveforms into memory
+        // _wfAccess.basicProc because we don't want to cache the
+        // whole catalog waveforms into memory with _wfAccess.memCache
         shared_ptr<const Trace> tr =
-            getWaveform(*_wfAccess.memCache->getAuxProcessor(), tw, event,
-                        phase, component);
+            getWaveform(*_wfAccess.basicProc, tw, event, phase, component);
 
         if (!tr) continue;
 
@@ -1504,7 +1494,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
     return nullptr;
   }
 
-  // This will actually dowanload the waveworms all at once
+  // This will actually dowanload the waveforms all at once
   batchLoader->load();
 
   // print counters
