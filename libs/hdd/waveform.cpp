@@ -842,56 +842,5 @@ void resample(Trace &trace, double new_sf)
   trace.setSamplingFrequency(new_sf);
 }
 
-double computeSnr(const Trace &tr,
-                  const UTCTime &pickTime,
-                  double noiseOffsetStart,
-                  double noiseOffsetEnd,
-                  double signalOffsetStart,
-                  double signalOffsetEnd)
-{
-  const double *data     = tr.data();
-  const size_t data_size = tr.sampleCount();
-
-  const double noiseStartIdx =
-      std::round(tr.index(pickTime + secToDur(noiseOffsetStart)));
-  const double noiseEndIdx =
-      std::round(tr.index(pickTime + secToDur(noiseOffsetEnd)));
-  const double signalStartIdx =
-      std::round(tr.index(pickTime + secToDur(signalOffsetStart)));
-  const double signalEndIdx =
-      std::round(tr.index(pickTime + secToDur(signalOffsetEnd)));
-
-  if ((std::min({noiseStartIdx, noiseEndIdx, signalStartIdx, signalEndIdx}) <
-       0) ||
-      (std::max({noiseStartIdx, noiseEndIdx, signalStartIdx, signalEndIdx}) >=
-       data_size))
-  {
-    logDebug(
-        "Cannot compute SNR: noise/signal windows exceed waveform boundaries");
-    return -1;
-  }
-
-  const size_t noiseStart  = noiseStartIdx;
-  const size_t noiseEnd    = noiseEndIdx;
-  const size_t signalStart = signalStartIdx;
-  const size_t signalEnd   = signalEndIdx;
-
-  double noise = 0;
-  for (size_t i = noiseStart; i < noiseEnd; i++)
-  {
-    noise += square(data[i]);
-  }
-  noise /= (noiseEnd - noiseStart);
-
-  double signal = 0;
-  for (size_t i = signalStart; i < signalEnd; i++)
-  {
-    signal += square(data[i]);
-  }
-  signal /= (signalEnd - signalStart);
-
-  return signal / noise;
-}
-
 } // namespace Waveform
 } // namespace HDD

@@ -285,19 +285,6 @@ void testFiltering(const vector<Trace> &traces)
   }
 }
 
-void testSnrSynthetic(const Trace &trace)
-{
-  double snr = Waveform::computeSnr(
-      trace, trace.startTime() + (trace.timeWindow().length() / 2), -0.5, 0, 0,
-      0.5);
-  BOOST_CHECK(snr > 2);
-
-  snr = Waveform::computeSnr(
-      trace, trace.startTime() + (trace.timeWindow().length() / 2), 0, 0.5, 0.5,
-      1);
-  BOOST_CHECK(snr < 2);
-}
-
 const vector<Trace> realTraces = {
     readTrace("./data/waveform/xcorr1.mseed"),
     readTrace("./data/waveform/xcorr2.mseed"),
@@ -305,15 +292,6 @@ const vector<Trace> realTraces = {
     readTrace("./data/waveform/xcorr4.mseed"),
     readTrace("./data/waveform/xcorr5.mseed"),
     readTrace("./data/waveform/xcorr6.mseed")};
-
-const vector<Trace> badSnrTraces = {
-    readTrace("./data/waveform/snr1.mseed"),
-    readTrace("./data/waveform/snr2.mseed"),
-    readTrace("./data/waveform/snr3.mseed"),
-    readTrace("./data/waveform/snr4.mseed"),
-    readTrace("./data/waveform/snr5.mseed"),
-    readTrace("./data/waveform/snr6.mseed"),
-    readTrace("./data/waveform/snr7.mseed")};
 
 const vector<Trace> synthetic1Traces = {
     buildSyntheticTrace1(160), buildSyntheticTrace1(158),
@@ -330,11 +308,6 @@ const vector<Trace> synthetic3Traces = {
 } // namespace
 
 BOOST_DATA_TEST_CASE(test_read_write1, bdata::make(realTraces), trace)
-{
-  testReadWriteTrace(trace);
-}
-
-BOOST_DATA_TEST_CASE(test_read_write2, bdata::make(badSnrTraces), trace)
 {
   testReadWriteTrace(trace);
 }
@@ -411,33 +384,3 @@ BOOST_AUTO_TEST_CASE(test_filtering2)
   testFiltering(synthetic2Traces);
 }
 
-BOOST_DATA_TEST_CASE(test_snr_bad, bdata::make(badSnrTraces), trace)
-{
-  double snr = Waveform::computeSnr(
-      trace, trace.startTime() + (trace.timeWindow().length() / 2), -3, -0.350,
-      -0.350, 0.350);
-  BOOST_CHECK(snr < 2);
-}
-
-BOOST_DATA_TEST_CASE(test_snr_ok, bdata::make(realTraces), trace)
-{
-  double snr = Waveform::computeSnr(
-      trace, trace.startTime() + (trace.timeWindow().length() / 2), -0.7, -0.1,
-      -0.1, 0.5);
-  BOOST_CHECK(snr >= 2);
-}
-
-BOOST_DATA_TEST_CASE(test_snr_synthetic1, bdata::make(synthetic1Traces), trace)
-{
-  testSnrSynthetic(trace);
-}
-
-BOOST_DATA_TEST_CASE(test_snr_synthetic2, bdata::make(synthetic2Traces), trace)
-{
-  testSnrSynthetic(trace);
-}
-
-BOOST_DATA_TEST_CASE(test_snr_synthetic3, bdata::make(synthetic3Traces), trace)
-{
-  testSnrSynthetic(trace);
-}

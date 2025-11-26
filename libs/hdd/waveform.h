@@ -261,9 +261,6 @@ public:
                 const Catalog::Phase &ph,
                 const Catalog::Event &ev) const;
 
-  void writeTrace(const Trace &trace, const std::string &file);
-  std::unique_ptr<Trace> readTrace(const std::string &file);
-
   // ugly, but we need to give the user some feedbacks
   unsigned _counters_wf_cached = 0;
 
@@ -404,13 +401,6 @@ inline std::string getOrientationCode(const std::string &channelCode)
 }
 
 void resample(Trace &trace, double new_sf);
-
-double computeSnr(const Trace &tr,
-                  const UTCTime &pickTime,
-                  double noiseOffsetStart,
-                  double noiseOffsetEnd,
-                  double signalOffsetStart,
-                  double signalOffsetEnd);
 
 std::unique_ptr<Trace> transformL2(const TimeWindow &tw,
                                    const Catalog::Phase &ph,

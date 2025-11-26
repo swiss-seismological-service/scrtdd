@@ -224,19 +224,6 @@ void testReampling(const vector<Trace> &traces)
   }
 }
 
-void testSnrSynthetic(const Trace &trace)
-{
-  double snr = Waveform::computeSnr(
-      trace, trace.startTime() + (trace.timeWindow().length() / 2), -0.5, 0, 0,
-      0.5);
-  BOOST_CHECK(snr > 2);
-
-  snr = Waveform::computeSnr(
-      trace, trace.startTime() + (trace.timeWindow().length() / 2), 0, 0.5, 0.5,
-      1);
-  BOOST_CHECK(snr < 2);
-}
-
 const vector<Trace> synthetic1Traces = {
     buildSyntheticTrace1(160), buildSyntheticTrace1(158),
     buildSyntheticTrace1(80), buildSyntheticTrace1(83)};
@@ -290,17 +277,3 @@ BOOST_AUTO_TEST_CASE(test_resampling3)
   testReampling(synthetic3Traces);
 }
 
-BOOST_DATA_TEST_CASE(test_snr_synthetic1, bdata::make(synthetic1Traces), trace)
-{
-  testSnrSynthetic(trace);
-}
-
-BOOST_DATA_TEST_CASE(test_snr_synthetic2, bdata::make(synthetic2Traces), trace)
-{
-  testSnrSynthetic(trace);
-}
-
-BOOST_DATA_TEST_CASE(test_snr_synthetic3, bdata::make(synthetic3Traces), trace)
-{
-  testSnrSynthetic(trace);
-}
