@@ -295,8 +295,7 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
                                     unsigned minNumNeigh,
                                     unsigned maxNumNeigh,
                                     unsigned numEllipsoids,
-                                    double maxEllipsoidSize,
-                                    bool keepUnmatched)
+                                    double maxEllipsoidSize)
 {
   logDebugF("Selecting Neighbouring Events for event %s lat %g lon %g depth %g",
             string(refEv).c_str(), refEv.latitude, refEv.longitude,
@@ -388,18 +387,19 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
   multimap<double, SelectedEventEntry> selectedEvents; // distance, struct
   unordered_map<unsigned, int> dtCountByEvent;         // eventid, dtCount
 
+  // closer events fetched first
   for (const auto &kv : eventByDistance)
   {
     const double eventDistance = kv.first;
     const Event &event         = catalog.getEvents().at(kv.second);
 
-    // Loop through event phases and keep track of the valid phases and their
-    // station distance.
     multimap<double, pair<string, Phase::Type>>
         stationByDistance; // distance, <stationid,phaseType>
     multimap<double, pair<string, Phase::Type>>
         unmatchedPhases; // distance, <stationid,phaseType>
 
+    // Loop through event phases and keep track of the valid phases and their
+    // station distance.
     auto eqlrng = catalog.getPhases().equal_range(event.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
@@ -413,11 +413,13 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
 
       double staRefEvDistance = staRefEvDistanceIt->second;
 
-      if ((staRefEvDistance / eventDistance) <
-          minEStoIEratio) // ratio too small ?
+      // station distance to inter-event distance ratio too small ?
+      if ((staRefEvDistance / eventDistance) < minEStoIEratio)
       {
         continue;
-      } // check if the station distance to the current event is valid
+      }
+
+      // check if the station distance to the current event is valid
       if (maxESdist > 0 || minESdist > 0 || minEStoIEratio > 0)
       {
         // compute distance between current event and station
@@ -433,16 +435,11 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
       }
 
       // now find corresponding phase in reference event phases
-      bool peer_found = false;
-      auto itRef      = refEvCatalog.searchPhase(refEv.id, phase.stationId,
-                                                 phase.procInfo.type);
-      if (itRef != refEvCatalog.getPhases().end())
+      auto itRef =
+          refEvCatalog.searchPhase(refEv.id, phase.stationId, phase.type);
+      if (itRef == refEvCatalog.getPhases().end())
       {
-        peer_found = true;
-      }
-
-      if (!peer_found)
-      {
+        // phase not found
         unmatchedPhases.emplace(
             std::piecewise_construct, std::forward_as_tuple(staRefEvDistance),
             std::forward_as_tuple(phase.stationId, phase.procInfo.type));
@@ -475,20 +472,6 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
       const pair<string, Phase::Type> &staPh = kw.second;
       evSelEntry.phases[staPh.first].insert(staPh.second);
       numObservations++;
-    }
-
-    if (keepUnmatched)
-    {
-      // Add theoretical picks to `refEv` of those neighbors' phases respecting
-      // the constraints. Those phases might be used for cross-correlation.
-      for (const auto &kw : unmatchedPhases)
-      {
-        // if `maxDTperEvt` is set, make sure to stay within limits
-        if (maxDTperEvt > 0 && numObservations >= maxDTperEvt) break;
-        const pair<string, Phase::Type> &staPh = kw.second;
-        evSelEntry.phases[staPh.first].insert(staPh.second);
-        numObservations++;
-      }
     }
 
     // add this event to the selected ones
@@ -616,8 +599,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
                                 unsigned minNumNeigh,
                                 unsigned maxNumNeigh,
                                 unsigned numEllipsoids,
-                                double maxEllipsoidSize,
-                                bool keepUnmatched)
+                                double maxEllipsoidSize)
 {
   logInfo("Searching for event clusters in the event catalog");
 
@@ -639,7 +621,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
       Neighbours neighbours = selectNeighbouringEvents(
           validCatalog, event, validCatalog, minESdist, maxESdist,
           minEStoIEratio, minDTperEvt, maxDTperEvt, minNumNeigh, maxNumNeigh,
-          numEllipsoids, maxEllipsoidSize, keepUnmatched);
+          numEllipsoids, maxEllipsoidSize);
 
       neighboursList.emplace(neighbours.referenceId(), std::move(neighbours));
     }
@@ -693,7 +675,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
           neighbours = selectNeighbouringEvents(
               validCatalog, event, validCatalog, minESdist, maxESdist,
               minEStoIEratio, minDTperEvt, maxDTperEvt, minNumNeigh,
-              maxNumNeigh, numEllipsoids, maxEllipsoidSize, keepUnmatched);
+              maxNumNeigh, numEllipsoids, maxEllipsoidSize);
         }
         catch (...)
         {

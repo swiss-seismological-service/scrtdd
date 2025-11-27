@@ -197,7 +197,7 @@ public:
   void removeEvent(unsigned eventId);
   void removePhase(unsigned eventId,
                    const std::string &stationId,
-                   const Phase::Type &type);
+                   const std::string &type);
 
   std::string addStation(const Station &);
   unsigned addEvent(const Event &);
@@ -225,7 +225,7 @@ public:
   std::unordered_map<unsigned, Phase>::const_iterator
   searchPhase(unsigned eventId,
               const std::string &stationId,
-              const Phase::Type &type) const;
+              const std::string &type) const;
 
   void writeToFile(const std::string &eventFile,
                    const std::string &phaseFile   = "",

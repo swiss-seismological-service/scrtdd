@@ -192,8 +192,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     0,  //  unsigned maxNumNeigh   0 = no limits
                                     1,  //  unsigned numEllipsoids
-                                    0.5,   //  double maxEllipsoidSize
-                                    false) //  bool keepUnmatched
+                                    0.5)   //  double maxEllipsoidSize
       ,
       HDD::Exception);
 
@@ -208,8 +207,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     0,  //  unsigned maxNumNeigh  0 = no limits
                                     1,  //  unsigned numEllipsoids
-                                    2,  //  double maxEllipsoidSize
-                                    false) //  bool keepUnmatched
+                                    2)  //  double maxEllipsoidSize
       ,
       HDD::Exception);
 
@@ -224,8 +222,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     0,  //  unsigned maxNumNeigh  0 = no limits
                                     1,  //  unsigned numEllipsoids
-                                    2,  //  double maxEllipsoidSize
-                                    false) //  bool keepUnmatched
+                                    2)  //  double maxEllipsoidSize
       ,
       HDD::Exception);
 
@@ -240,8 +237,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     0,  //  unsigned maxNumNeigh  0 = no limits
                                     1,  //  unsigned numEllipsoids
-                                    2,  //  double maxEllipsoidSize
-                                    false) //  bool keepUnmatched
+                                    2)  //  double maxEllipsoidSize
       ,
       HDD::Exception);
 
@@ -256,8 +252,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     0,  //  unsigned maxNumNeigh  0 = no limits
                                     1,  //  unsigned numEllipsoids
-                                    2,  //  double maxEllipsoidSize
-                                    false) //  bool keepUnmatched
+                                    2)  //  double maxEllipsoidSize
       ,
       HDD::Exception);
 
@@ -272,8 +267,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     5,  //  unsigned minNumNeigh
                                     0,  //  unsigned maxNumNeigh  0 = no limits
                                     1,  //  unsigned numEllipsoids
-                                    2,  //  double maxEllipsoidSize
-                                    false) //  bool keepUnmatched
+                                    2)  //  double maxEllipsoidSize
       ,
       HDD::Exception);
 
@@ -288,8 +282,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     0,  //  unsigned maxNumNeigh  0 = no limits
                                     0,  //  unsigned numEllipsoids
-                                    2,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+                                    2);  //  double maxEllipsoidSize
 
   BOOST_CHECK_EQUAL(neighbours.referenceId(), event.id);
   BOOST_CHECK(neighbours.ids() == neighbourIds);
@@ -308,8 +301,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     0,  //  unsigned maxNumNeigh  0 = no limits
                                     1,  //  unsigned numEllipsoids
-                                    2,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+                                    2); //  double maxEllipsoidSize
 
   BOOST_CHECK_EQUAL(neighbours.referenceId(), event.id);
   BOOST_CHECK(neighbours.ids() == neighbourIds);
@@ -328,8 +320,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     0,  //  unsigned maxNumNeigh  0 = no limits
                                     5,  //  unsigned numEllipsoids
-                                    2,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+                                    2); //  double maxEllipsoidSize
 
   BOOST_CHECK_EQUAL(neighbours.referenceId(), event.id);
   BOOST_CHECK(neighbours.ids() == neighbourIds);
@@ -348,8 +339,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     0,  //  unsigned maxNumNeigh   0 = no limits
                                     1,  //  unsigned numEllipsoids
-                                    2,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+                                    2); //  double maxEllipsoidSize
 
   BOOST_CHECK_EQUAL(neighbours.referenceId(), event.id);
   BOOST_CHECK(neighbours.ids() == neighbourIds);
@@ -368,8 +358,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     2,  //  unsigned maxNumNeigh  0 = no limits
                                     1,  //  unsigned numEllipsoids
-                                    2,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+                                    2); //  double maxEllipsoidSize
 
   BOOST_CHECK_EQUAL(neighbours.referenceId(), event.id);
   BOOST_CHECK(neighbours.ids().size() == 2);
@@ -385,8 +374,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     3,  //  unsigned maxNumNeigh   0 = no limits
                                     1,  //  unsigned numEllipsoids
-                                    2,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+                                    2); //  double maxEllipsoidSize
 
   BOOST_CHECK_EQUAL(neighbours.referenceId(), event.id);
   BOOST_CHECK(neighbours.ids().size() == 3);
@@ -402,8 +390,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     0,  //  unsigned maxNumNeigh  0 = no limits
                                     5,  //  unsigned numEllipsoids
-                                    2,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+                                    2); //  double maxEllipsoidSize
 
   BOOST_CHECK_EQUAL(neighbours.referenceId(), event.id);
   BOOST_CHECK(neighbours.ids() == neighbourIds);
@@ -422,8 +409,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     0,  //  unsigned maxNumNeigh  0 = no limits
                                     1,  //  unsigned numEllipsoids
-                                    2,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+                                    2); //  double maxEllipsoidSize
 
   BOOST_CHECK_EQUAL(neighbours.referenceId(), event.id);
   BOOST_CHECK(neighbours.ids() == neighbourIds);
@@ -440,8 +426,7 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     0,  //  unsigned maxNumNeigh  0 = no limits
                                     1,  //  unsigned numEllipsoids
-                                    2,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+                                    2); //  double maxEllipsoidSize
 
   BOOST_CHECK_EQUAL(neighbours.referenceId(), event.id);
   BOOST_CHECK(neighbours.ids() == neighbourIds);
@@ -474,8 +459,7 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
                                     1,  //  unsigned minNumNeigh
                                     24, //  unsigned maxNumNeigh  0 = no limits
                                     3,  //  unsigned numEllipsoids
-                                    4,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+                                    4); //  double maxEllipsoidSize
 
   neighbourIds = {2,  3,  4,  5,  6,  7,  8,  9,  14, 15, 16, 17,
                   18, 19, 20, 21, 26, 27, 28, 29, 30, 31, 32, 33};
@@ -497,8 +481,7 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
                                     16, //  unsigned minNumNeigh
                                     16, //  unsigned maxNumNeigh  0 = no limits
                                     3,  //  unsigned numEllipsoids
-                                    4,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+                                    4); //  double maxEllipsoidSize
 
   neighbourIds = {2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 18, 19, 20, 21};
 
@@ -519,8 +502,7 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
                                     16, //  unsigned minNumNeigh
                                     16, //  unsigned maxNumNeigh  0 = no limits
                                     3,  //  unsigned numEllipsoids
-                                    4,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+                                    4); //  double maxEllipsoidSize
 
   neighbourIds = {2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 18, 19, 20, 21};
 
@@ -540,8 +522,7 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
                                     8,  //  unsigned minNumNeigh
                                     8,  //  unsigned maxNumNeigh  0 = no limits
                                     3,  //  unsigned numEllipsoids
-                                    4,  //  double maxEllipsoidSize
-                                    false); //  bool keepUnmatched
+                                    4);  //  double maxEllipsoidSize
 
   neighbourIds = {2, 3, 4, 5, 6, 7, 8, 9};
 
@@ -574,8 +555,7 @@ BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
           1,      //  unsigned minNumNeigh
           0,      //  unsigned maxNumNeigh   0 = no limits
           0,      //  unsigned numEllipsoids
-          8,      //  double maxEllipsoidSize
-          false); //  bool keepUnmatched
+          8);     //  double maxEllipsoidSize
 
   BOOST_REQUIRE(neighboursByEvent.size() == 9);
 
@@ -650,8 +630,7 @@ BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
           1,      //  unsigned minNumNeigh
           0,      //  unsigned maxNumNeigh   0 = no limits
           0,      //  unsigned numEllipsoids
-          1.5,    //  double maxEllipsoidSize
-          false); //  bool keepUnmatched
+          1.5);   //  double maxEllipsoidSize
 
   BOOST_REQUIRE(neighboursByEvent.size() == 8);
 

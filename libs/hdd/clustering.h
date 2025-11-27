@@ -113,8 +113,7 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
                                     unsigned minNumNeigh   = 1,
                                     unsigned maxNumNeigh   = 0, // 0 = no limits
                                     unsigned numEllipsoids = 5,
-                                    double maxEllipsoidSize = 10,
-                                    bool keepUnmatched      = false);
+                                    double maxEllipsoidSize = 10);
 
 std::unordered_map<unsigned, Neighbours>
 selectNeighbouringEventsCatalog(const Catalog &catalog,
@@ -126,8 +125,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
                                 unsigned minNumNeigh,
                                 unsigned maxNumNeigh,
                                 unsigned numEllipsoids,
-                                double maxEllipsoidSize,
-                                bool keepUnmatched);
+                                double maxEllipsoidSize);
 
 std::list<std::unordered_map<unsigned, Neighbours>>
 clusterizeNeighbouringEvents(

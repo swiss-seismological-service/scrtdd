@@ -382,7 +382,7 @@ DD::findClusters(const ClusteringOptions &clustOpt)
           _bgCat, clustOpt.minESdist, clustOpt.maxESdist,
           clustOpt.minEStoIEratio, clustOpt.minDTperEvt, clustOpt.maxDTperEvt,
           clustOpt.minNumNeigh, clustOpt.maxNumNeigh, clustOpt.numEllipsoids,
-          clustOpt.maxEllipsoidSize, true);
+          clustOpt.maxEllipsoidSize);
 
   // Organize the neighbours by not connected clusters
   return clusterizeNeighbouringEvents(neighboursByEvent);
@@ -440,7 +440,7 @@ Catalog DD::relocateMultiEvents(
             catToReloc, clustOpt.minESdist, clustOpt.maxESdist,
             clustOpt.minEStoIEratio, clustOpt.minDTperEvt, clustOpt.maxDTperEvt,
             clustOpt.minNumNeigh, clustOpt.maxNumNeigh, clustOpt.numEllipsoids,
-            clustOpt.maxEllipsoidSize, true);
+            clustOpt.maxEllipsoidSize);
 
     // Organize the neighbours by non-connected clusters
     clusters = clusterizeNeighbouringEvents(neighboursByEvent);
@@ -690,7 +690,7 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
         bgCat, evToRelocate, evToRelocateCat, clustOpt.minESdist,
         clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
         clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
-        clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize, false);
+        clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize);
 
     logInfoF("Found %zu neighbouring events", neighbours.ids().size());
 
@@ -929,8 +929,7 @@ bool DD::addObservations(Solver &solver,
       const Event &event = catalog.getEvents().at(neighEvId);
 
       const Phase &phase =
-          catalog
-              .searchPhase(event.id, refPhase.stationId, refPhase.procInfo.type)
+          catalog.searchPhase(event.id, refPhase.stationId, refPhase.type)
               ->second;
       //
       // compute travel times for both event and `refEv`
@@ -1366,10 +1365,9 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
 
       if (neighbours.has(neighEvId, refPhase.stationId, refPhase.procInfo.type))
       {
-        const Phase &phase = catalog
-                                 .searchPhase(event.id, refPhase.stationId,
-                                              refPhase.procInfo.type)
-                                 ->second;
+        const Phase &phase =
+            catalog.searchPhase(event.id, refPhase.stationId, refPhase.type)
+                ->second;
 
         // In single-event mode `refPhase` is real-time and `phase` is from
         // the catalog. In multi-event mode both are from the catalog.

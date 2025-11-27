@@ -484,7 +484,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->ddCfg.validPphases = {"Pg", "P"};
+      prof->ddCfg.validPphases = {"P", "Pg", "Pn"};
     }
 
     try
@@ -493,7 +493,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->ddCfg.validSphases = {"Sg", "S"};
+      prof->ddCfg.validSphases = {"S", "Sg", "Sn"};
     }
 
     try

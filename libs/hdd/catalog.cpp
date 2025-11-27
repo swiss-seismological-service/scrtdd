@@ -336,7 +336,7 @@ void Catalog::removeEvent(unsigned eventId)
 
 void Catalog::removePhase(unsigned eventId,
                           const std::string &stationId,
-                          const Phase::Type &type)
+                          const std::string &type)
 {
   unordered_map<unsigned, Phase>::const_iterator it =
       searchPhase(eventId, stationId, type);
@@ -416,13 +416,13 @@ Catalog::searchStation(const std::string &networkCode,
 unordered_map<unsigned, Catalog::Phase>::const_iterator
 Catalog::searchPhase(unsigned eventId,
                      const std::string &stationId,
-                     const Phase::Type &type) const
+                     const std::string &type) const
 {
   auto eqlrng = _phases.equal_range(eventId);
   for (auto it = eqlrng.first; it != eqlrng.second; ++it)
   {
     const Catalog::Phase &ph = it->second;
-    if (ph.stationId == stationId && ph.procInfo.type == type) return it;
+    if (ph.stationId == stationId && ph.type == type) return it;
   }
   return _phases.end();
 }
