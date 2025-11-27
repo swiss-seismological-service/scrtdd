@@ -75,7 +75,7 @@
             </parameter>
           </group>
           <group name="doubleDifferenceSystem">
-            <description>These options control the creation of the double-difference equation system, that is which events and phases are used to build the system</description> 
+            <description>These options control the clustering phase, which is responsible to selects the event pairs and their phases to be used in the double-difference equation system.</description> 
             <group name="eventFiltering">
               <description>Exclude poorly connected events from the DD system: not enough phases and/or neighbours</description>
               <parameter name="minNumPhases" type="int" default="4">
