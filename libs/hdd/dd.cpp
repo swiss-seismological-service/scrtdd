@@ -116,12 +116,12 @@ DD::DD(const Catalog &catalog,
        const Config &cfg,
        std::unique_ptr<HDD::TravelTimeTable> ttt,
        std::unique_ptr<HDD::Waveform::Proxy> wf)
-    : _cfg(cfg), _srcCat(catalog),
-      _bgCat(Catalog::filterPhasesAndSetWeights(_srcCat,
-                                                Phase::Source::CATALOG,
-                                                _cfg.validPphases,
-                                                _cfg.validSphases,
-                                                _cfg.pickUncertaintyClasses)),
+    : _cfg(cfg),
+      _bgCat(Catalog::fillProcessingInfo(catalog,
+                                         Phase::Source::CATALOG,
+                                         _cfg.validPphases,
+                                         _cfg.validSphases,
+                                         _cfg.pickUncertaintyClasses)),
       _ttt(std::move(ttt)), _proxy(std::move(wf))
 {
   disableCatalogWaveformDiskCache();
@@ -583,7 +583,7 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
 
   string eventWorkingDir = joinPath(processingDataDir, "step1");
 
-  Catalog evToRelocateCat = Catalog::filterPhasesAndSetWeights(
+  Catalog evToRelocateCat = Catalog::fillProcessingInfo(
       singleEvent,
       (isManual ? Phase::Source::RT_EVENT_MANUAL
                 : Phase::Source::RT_EVENT_AUTOMATIC),
@@ -1535,7 +1535,7 @@ bool DD::xcorrPhases(const XcorrOptions &xcorrOpt,
                      double &lagOut,
                      string &componentOut)
 {
-  if (phase1.procInfo.type != phase2.procInfo.type)
+  if (phase1.type != phase2.type)
   {
     logErrorF("Skipping cross-correlation: mismatching phases (%s and %s)",
               string(phase1).c_str(), string(phase2).c_str());

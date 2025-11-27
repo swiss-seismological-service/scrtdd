@@ -109,15 +109,16 @@ public:
 
     enum class Type : char
     {
-      P = 'P',
-      S = 'S'
+      P  = 'P',
+      S  = 'S',
+      NO = '_'
     };
 
     enum class Source
     {
       CATALOG,
       RT_EVENT_MANUAL,
-      RT_EVENT_AUTOMATIC,
+      RT_EVENT_AUTOMATIC
     };
 
     struct
@@ -205,7 +206,6 @@ public:
 
   bool updateStation(const Station &newStation, bool addIfMissing = false);
   bool updateEvent(const Event &newEv, bool addIfMissing = false);
-  bool updatePhase(const Phase &newPh, bool addIfMissing = false);
 
   const std::unordered_map<std::string, Station> &getStations() const
   {
@@ -238,11 +238,11 @@ public:
   computePickWeight(const Catalog::Phase &phase,
                     const std::vector<double> &uncertaintyClasses);
   static Catalog
-  filterPhasesAndSetWeights(const Catalog &catalog,
-                            const Catalog::Phase::Source &source,
-                            const std::vector<std::string> &PphaseToKeep,
-                            const std::vector<std::string> &SphaseToKeep,
-                            const std::vector<double> &uncertaintyClasses);
+  fillProcessingInfo(const Catalog &catalog,
+                     const Catalog::Phase::Source &source,
+                     const std::vector<std::string> &validPphases,
+                     const std::vector<std::string> &validSphases,
+                     const std::vector<double> &uncertaintyClasses);
 
 private:
   std::unordered_map<std::string, Station> _stations; // indexed by station id

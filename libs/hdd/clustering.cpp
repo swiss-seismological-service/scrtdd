@@ -406,6 +406,12 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
       const Phase &phase     = it->second;
       const Station &station = catalog.getStations().at(phase.stationId);
 
+      // skip unwanted phase types
+      if (phase.procInfo.type == Phase::Type::NO)
+      {
+        continue;
+      }
+
       // check this station distance to reference event is ok
       const auto &staRefEvDistanceIt =
           validatedStationDistance.find(phase.stationId);

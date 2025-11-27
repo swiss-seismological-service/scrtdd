@@ -377,27 +377,6 @@ bool Catalog::updateEvent(const Event &newEv, bool addIfMissing)
   return false;
 }
 
-bool Catalog::updatePhase(const Phase &newPh, bool addIfMissing)
-{
-  auto eqlrng = _phases.equal_range(newPh.eventId);
-  for (auto it = eqlrng.first; it != eqlrng.second; ++it)
-  {
-    Catalog::Phase &ph = it->second;
-    if (ph.stationId == newPh.stationId &&
-        ph.procInfo.type == newPh.procInfo.type)
-    {
-      ph = newPh;
-      return true;
-    }
-  }
-
-  if (addIfMissing)
-  {
-    addPhase(newPh);
-  }
-  return false;
-}
-
 map<unsigned, Catalog::Event>::const_iterator
 Catalog::searchEvent(const Event &event) const
 {
@@ -565,122 +544,49 @@ void Catalog::writeToFile(const string &eventFile,
   }
 }
 
-/*
- * Build a catalog with requested phases, only. Besides, make sure, that for an
- * event/station pair there is only one P and one S phase. If multiple phases
- * are found, keep the one with the highest priority.
- */
 Catalog
-Catalog::filterPhasesAndSetWeights(const Catalog &catalog,
-                                   const Phase::Source &source,
-                                   const std::vector<std::string> &PphaseToKeep,
-                                   const std::vector<std::string> &SphaseToKeep,
-                                   const vector<double> &uncertaintyClasses)
+Catalog::fillProcessingInfo(const Catalog &catalog,
+                            const Catalog::Phase::Source &source,
+                            const std::vector<std::string> &validPphases,
+                            const std::vector<std::string> &validSphases,
+                            const std::vector<double> &uncertaintyClasses)
 {
-  unordered_multimap<unsigned, Phase> filteredS;
-  unordered_multimap<unsigned, Phase> filteredP;
+  unordered_multimap<unsigned, Phase> phases;
 
   // loop through each event
   for (const auto &kv : catalog.getEvents())
   {
     const Event &event = kv.second;
 
-    // loop through all phases of current event
-    const auto &eqlrng = catalog.getPhases().equal_range(event.id);
+    // loop through all phases of current event and set ProcInfo
+    auto eqlrng = catalog.getPhases().equal_range(event.id);
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
-      // keep the phase only if it has a higher priority than an existing one
-      // or if this is the only one for a given station
-      const Phase &phase = it->second;
+      Phase phase                = it->second;
+      phase.procInfo.classWeight = computePickWeight(phase, uncertaintyClasses);
+      phase.procInfo.source      = source;
+      phase.procInfo.type        = Phase::Type::NO;
 
       // P phase
-      auto itpp = find(PphaseToKeep.begin(), PphaseToKeep.end(), phase.type);
-      if (itpp != PphaseToKeep.end())
+      auto itpp = find(validPphases.begin(), validPphases.end(), phase.type);
+      if (itpp != validPphases.end())
       {
-        auto priority = std::distance(PphaseToKeep.begin(), itpp);
-
-        // fetch already selected P phases for current event, and check if
-        // there is already a P phase for the same station
-        bool inserted = false;
-        auto eqlrng2  = filteredP.equal_range(event.id);
-        for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
-        {
-          Phase &existingPhase = it2->second;
-          auto existingPriority =
-              std::distance(PphaseToKeep.begin(),
-                            find(PphaseToKeep.begin(), PphaseToKeep.end(),
-                                 existingPhase.type));
-          if (existingPhase.type == phase.type &&
-              existingPhase.stationId == phase.stationId &&
-              existingPriority < priority)
-          {
-            existingPhase = phase;
-            inserted      = true;
-            break;
-          }
-        }
-        if (!inserted) filteredP.emplace(phase.eventId, phase);
-        continue;
+        phase.procInfo.type = Phase::Type::P;
       }
-
-      // S phase
-      auto itsp = find(SphaseToKeep.begin(), SphaseToKeep.end(), phase.type);
-      if (itsp != SphaseToKeep.end())
+      else
       {
-        auto priority = std::distance(SphaseToKeep.begin(), itsp);
-
-        // fetch already selected S phases for current event, and check if
-        // there is already a S phase for the same station
-        bool inserted = false;
-        auto eqlrng2  = filteredS.equal_range(event.id);
-        for (auto it2 = eqlrng2.first; it2 != eqlrng2.second; ++it2)
+        // S phase
+        auto itsp = find(validSphases.begin(), validSphases.end(), phase.type);
+        if (itsp != validSphases.end())
         {
-          Phase &existingPhase = it2->second;
-          auto existingPriority =
-              std::distance(SphaseToKeep.begin(),
-                            find(SphaseToKeep.begin(), SphaseToKeep.end(),
-                                 existingPhase.type));
-          if (existingPhase.type == phase.type &&
-              existingPhase.stationId == phase.stationId &&
-              existingPriority < priority)
-          {
-            existingPhase = phase;
-            inserted      = true;
-            break;
-          }
+          phase.procInfo.type = Phase::Type::S;
         }
-        if (!inserted) filteredS.emplace(phase.eventId, phase);
-        continue;
       }
-
-      logDebugF("Discard phase (%s), the type is not among the selected ones",
-                string(phase).c_str());
+      phases.emplace(phase.eventId, phase);
     }
   }
 
-  // loop through selected phases and replace the actual phase name with a
-  // generic P or S
-  unordered_multimap<unsigned, Phase> filteredPhases;
-  for (auto &it : filteredP)
-  {
-    Phase &phase               = it.second;
-    phase.procInfo.classWeight = computePickWeight(phase, uncertaintyClasses);
-    phase.procInfo.type        = Phase::Type::P;
-    phase.procInfo.source      = source;
-
-    filteredPhases.emplace(phase.eventId, phase);
-  }
-  for (auto &it : filteredS)
-  {
-    Phase &phase               = it.second;
-    phase.procInfo.classWeight = computePickWeight(phase, uncertaintyClasses);
-    phase.procInfo.type        = Phase::Type::S;
-    phase.procInfo.source      = source;
-
-    filteredPhases.emplace(phase.eventId, phase);
-  }
-
-  return Catalog(catalog.getStations(), catalog.getEvents(), filteredPhases);
+  return Catalog(catalog.getStations(), catalog.getEvents(), phases);
 }
 
 double Catalog::computePickWeight(const Phase &phase,

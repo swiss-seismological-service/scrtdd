@@ -134,7 +134,7 @@ public:
   DD(const DD &other)            = delete;
   DD &operator=(const DD &other) = delete;
 
-  const Catalog &getCatalog() const { return _srcCat; }
+  const Catalog &getCatalog() const { return _bgCat; }
 
   //
   // Enable/disable the usage of disk cache for the background
@@ -316,7 +316,6 @@ private:
 private:
   const Config _cfg;
 
-  const Catalog _srcCat;
   const Catalog _bgCat;
 
   std::unique_ptr<TravelTimeTable> _ttt;

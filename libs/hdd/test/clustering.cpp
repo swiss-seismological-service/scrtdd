@@ -131,7 +131,7 @@ HDD::Catalog buildCatalog(double lat,
   addEventToCatalog(cat, lat, lon, depth);
   const Event &event = cat.getEvents().begin()->second;
   addNeighboursToCatalog(cat, event, neighDist);
-  return HDD::Catalog::filterPhasesAndSetWeights(
+  return HDD::Catalog::fillProcessingInfo(
       cat, Phase::Source::CATALOG, PphaseToKeep, SphaseToKeep, {});
 }
 

@@ -234,7 +234,7 @@ HDD::Catalog buildCatalog(HDD::TravelTimeTable &ttt,
   addEvents3ToCatalog(cat, ttt, time + secToDur(4), clusterLat, clusterLon,
                       depth, numEvents / 6, extent);
 
-  return Catalog::filterPhasesAndSetWeights(cat, Phase::Source::CATALOG, {"P"},
+  return Catalog::fillProcessingInfo(cat, Phase::Source::CATALOG, {"P"},
                                             {"S"}, {});
 }
 
@@ -261,7 +261,7 @@ HDD::Catalog buildBackgroundCatalog(HDD::TravelTimeTable &ttt,
   addEvents3ToCatalog(cat, ttt, time + secToDur(3), lat, lon, depth,
                       numEvents / 3, extent);
 
-  return Catalog::filterPhasesAndSetWeights(cat, Phase::Source::CATALOG, {"P"},
+  return Catalog::fillProcessingInfo(cat, Phase::Source::CATALOG, {"P"},
                                             {"S"}, {});
 }
 
