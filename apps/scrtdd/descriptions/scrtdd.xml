@@ -175,8 +175,8 @@
             </group>
             <group name="waveformFiltering">
               <description>Filter waveforms before performing the cross-correlation</description>
-              <parameter name="filterString" type="string" default="&quot;ITAPER(1)&gt;&gt;BW_HLP(2,1,20)&quot;">
-                <description>SeisComP string based filter definition. Set to "" to disable filtering.</description>
+              <parameter name="filterString" type="string" default="">
+                <description>SeisComP string based filter definition e.g."ITAPER(1)>>BW_HLP(2,1,20)". Set to "" to disable filtering.</description>
               </parameter>
               <parameter name="margin" type="double" default="1" unit="sec">
                 <description>Extra seconds to add to the waveform ends before applying the filter. Useful to initialize the filter and to discard potential filter artifacts at the beginning and end of trace</description>

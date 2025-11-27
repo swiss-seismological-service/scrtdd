@@ -818,7 +818,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->ddCfg.wfFilter.filterStr = "ITAPER(1)>>BW_HLP(2,1,20)";
+      prof->ddCfg.wfFilter.filterStr = "";
     }
 
     try
