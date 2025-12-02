@@ -713,7 +713,7 @@ bool RTDD::validateParameters()
     try
     {
       prof->xcorrOpt.phase[PhaseType::P].startOffset =
-          configGetDouble(prefix + "start");
+          configGetDouble(prefix + "winStart");
     }
     catch (...)
     {
@@ -723,11 +723,21 @@ bool RTDD::validateParameters()
     try
     {
       prof->xcorrOpt.phase[PhaseType::P].endOffset =
-          configGetDouble(prefix + "end");
+          configGetDouble(prefix + "winEnd");
     }
     catch (...)
     {
       prof->xcorrOpt.phase[PhaseType::P].endOffset = 0.50;
+    }
+
+    try
+    {
+      prof->xcorrOpt.phase[PhaseType::P].winScaling =
+          configGetDouble(prefix + "winScaling");
+    }
+    catch (...)
+    {
+      prof->xcorrOpt.phase[PhaseType::P].winScaling = 0.02;
     }
 
     try
@@ -763,7 +773,7 @@ bool RTDD::validateParameters()
     try
     {
       prof->xcorrOpt.phase[PhaseType::S].startOffset =
-          configGetDouble(prefix + "start");
+          configGetDouble(prefix + "winStart");
     }
     catch (...)
     {
@@ -773,11 +783,21 @@ bool RTDD::validateParameters()
     try
     {
       prof->xcorrOpt.phase[PhaseType::S].endOffset =
-          configGetDouble(prefix + "end");
+          configGetDouble(prefix + "winEnd");
     }
     catch (...)
     {
-      prof->xcorrOpt.phase[PhaseType::S].endOffset = 0.75;
+      prof->xcorrOpt.phase[PhaseType::S].endOffset = 1.00;
+    }
+
+    try
+    {
+      prof->xcorrOpt.phase[PhaseType::S].winScaling =
+          configGetDouble(prefix + "winScaling");
+    }
+    catch (...)
+    {
+      prof->xcorrOpt.phase[PhaseType::S].winScaling = 0.04;
     }
 
     try

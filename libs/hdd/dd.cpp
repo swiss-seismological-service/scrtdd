@@ -266,7 +266,7 @@ void DD::preloadCatalogWaveformDiskCache(const XcorrOptions &xcorrOpt)
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
       const Phase &phase = it->second;
-      TimeWindow tw      = xcorrTimeWindowLong(xcorrOpt, phase);
+      TimeWindow tw      = xcorrTimeWindowLong(xcorrOpt, event, phase);
 
       for (const string &component : xcorrComponents(xcorrOpt, phase))
       {
@@ -282,7 +282,7 @@ void DD::preloadCatalogWaveformDiskCache(const XcorrOptions &xcorrOpt)
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
       const Phase &phase = it->second;
-      TimeWindow tw      = xcorrTimeWindowLong(xcorrOpt, phase);
+      TimeWindow tw      = xcorrTimeWindowLong(xcorrOpt, event, phase);
 
       for (const string &component : xcorrComponents(xcorrOpt, phase))
       {
@@ -342,7 +342,7 @@ void DD::dumpWaveforms(const XcorrOptions &xcorrOpt, const string &basePath)
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
       const Phase &phase = it->second;
-      TimeWindow tw      = xcorrTimeWindowLong(xcorrOpt, phase);
+      TimeWindow tw      = xcorrTimeWindowShort(xcorrOpt, event, phase);
 
       for (const string &component : xcorrComponents(xcorrOpt, phase))
       {
@@ -1475,7 +1475,7 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
         //
         // For each match load the reference event phase waveforms
         //
-        TimeWindow tw = xcorrTimeWindowLong(xcorrOpt, refPhase);
+        TimeWindow tw = xcorrTimeWindowLong(xcorrOpt, refEv, refPhase);
 
         for (const string &component : components)
         {
@@ -1501,27 +1501,37 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
   logInfoF("Event %s: waveforms downloaded %u, not available %u",
            string(refEv).c_str(), wfcount.downloaded, wfcount.no_avail);
 
-  return shared_ptr<Waveform::Processor>(new Waveform::MemCachedProc(proc));
+  return make_shared<Waveform::MemCachedProc>(proc);
 }
 
 TimeWindow DD::xcorrTimeWindowLong(const XcorrOptions &xcorrOpt,
+                                   const Event &event,
                                    const Phase &phase) const
 {
   const auto &xcorrCfg = xcorrOpt.phase.at(phase.procInfo.type);
-  TimeWindow tw        = xcorrTimeWindowShort(xcorrOpt, phase);
+  TimeWindow tw        = xcorrTimeWindowShort(xcorrOpt, event, phase);
   tw.setStartTime(tw.startTime() - secToDur(xcorrCfg.maxDelay));
   tw.setEndTime(tw.endTime() + secToDur(xcorrCfg.maxDelay));
   return tw;
 }
 
 TimeWindow DD::xcorrTimeWindowShort(const XcorrOptions &xcorrOpt,
+                                    const Event &event,
                                     const Phase &phase) const
 {
   const auto &xcorrCfg = xcorrOpt.phase.at(phase.procInfo.type);
-  UTCTime::duration shortDuration =
+  const UTCTime::duration win_len =
       secToDur(xcorrCfg.endOffset - xcorrCfg.startOffset);
-  UTCTime::duration shortTimeCorrection = secToDur(xcorrCfg.startOffset);
-  return TimeWindow(phase.time + shortTimeCorrection, shortDuration);
+  const UTCTime::duration travel_time  = phase.time - event.time;
+  const duration<double> win_extention = travel_time * xcorrCfg.winScaling;
+  const double win_scaler              = (win_len + win_extention) / win_len;
+  const duration<double> win_start =
+      secToDur(xcorrCfg.startOffset) * win_scaler;
+  const UTCTime final_start =
+      phase.time + std::chrono::duration_cast<UTCTime::duration>(win_start);
+  const UTCTime::duration final_win_len =
+      std::chrono::duration_cast<UTCTime::duration>(win_len + win_extention);
+  return TimeWindow(final_start, final_win_len);
 }
 
 bool DD::xcorrPhases(const XcorrOptions &xcorrOpt,
@@ -1583,8 +1593,8 @@ bool DD::xcorrPhasesOneComponent(const XcorrOptions &xcorrOpt,
 
   const auto &xcorrCfg = xcorrOpt.phase.at(phase1.procInfo.type);
 
-  TimeWindow tw1 = xcorrTimeWindowLong(xcorrOpt, phase1);
-  TimeWindow tw2 = xcorrTimeWindowLong(xcorrOpt, phase2);
+  TimeWindow tw1 = xcorrTimeWindowLong(xcorrOpt, event1, phase1);
+  TimeWindow tw2 = xcorrTimeWindowLong(xcorrOpt, event2, phase2);
 
   // Load the long `tr1`, because we want to cache the long version. Then
   // we'll trim it.
@@ -1627,7 +1637,7 @@ bool DD::xcorrPhasesOneComponent(const XcorrOptions &xcorrOpt,
     // Trim `tr2` to shorter length; we want to cross-correlate the short one
     // with the long one.
     Trace tr2Short(*tr2);
-    TimeWindow tw2Short = xcorrTimeWindowShort(xcorrOpt, phase2);
+    TimeWindow tw2Short = xcorrTimeWindowShort(xcorrOpt, event2, phase2);
     if (!tr2Short.slice(tw2Short))
     {
       logDebugF("Skipping cross-correlation: cannot trim phase2 waveform "
@@ -1648,7 +1658,7 @@ bool DD::xcorrPhasesOneComponent(const XcorrOptions &xcorrOpt,
     // Trim `tr1` to shorter length; we want to cross-correlate the short with
     // the long one.
     Trace tr1Short(*tr1);
-    TimeWindow tw1Short = xcorrTimeWindowShort(xcorrOpt, phase1);
+    TimeWindow tw1Short = xcorrTimeWindowShort(xcorrOpt, event1, phase1);
     if (!tr1Short.slice(tw1Short))
     {
       logDebugF("Skipping cross-correlation: cannot trim phase1 waveform "

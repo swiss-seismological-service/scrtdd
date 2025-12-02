@@ -96,12 +96,14 @@ struct XcorrOptions
     double minCoef;     // min cross-correlatation coefficient required (0-1)
     double startOffset; // window start: secs before pick
     double endOffset;   // window end: secs after pick
+    double winScaling;  // Window scaling coefficient
+                        // WinLen = (endOff-startOff) + TravelTime * winScaling
     double maxDelay;    // secs
     std::vector<std::string> components; // priority list of components to use
   };
   std::map<Catalog::Phase::Type, struct XCorr> phase = {
-      {Catalog::Phase::Type::P, {0.50, -0.50, 0.50, 0.50, {"Z"}}},
-      {Catalog::Phase::Type::S, {0.50, -0.50, 0.75, 0.50, {"H"}}}};
+      {Catalog::Phase::Type::P, {0.70, -0.50, 0.50, 0.02, 0.50, {"Z"}}},
+      {Catalog::Phase::Type::S, {0.70, -0.50, 1.00, 0.04, 0.50, {"H"}}}};
 };
 
 struct SolverOptions
@@ -288,9 +290,11 @@ private:
                                double &lagOut);
 
   TimeWindow xcorrTimeWindowLong(const XcorrOptions &xcorrOpt,
+                                 const Catalog::Event &event,
                                  const Catalog::Phase &phase) const;
 
   TimeWindow xcorrTimeWindowShort(const XcorrOptions &xcorrOpt,
+                                  const Catalog::Event &event,
                                   const Catalog::Phase &phase) const;
 
   std::shared_ptr<const Trace> getWaveform(Waveform::Processor &wfLoader,

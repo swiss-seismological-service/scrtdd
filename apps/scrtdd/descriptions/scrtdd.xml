@@ -143,11 +143,14 @@
               <parameter name="minCCCoef" type="double" default="0.70">
                 <description>Min cross-correlation coefficient accepted to use a differential travel time.</description>
               </parameter>
-              <parameter name="start" type="double" default="-0.50" unit="sec">
+              <parameter name="winStart" type="double" default="-0.50" unit="sec">
                 <description>Start of data window to cross-correlate with respect to pick time (+/- secs).</description>
               </parameter>
-              <parameter name="end" type="double" default="0.50" unit="sec">
+              <parameter name="winEnd" type="double" default="0.50" unit="sec">
                 <description>End of data window to cross-correlate with respect to pick time (+/- secs).</description>
+              </parameter>
+              <parameter name="winScaling" type="double" default="0.02">
+                <description>Window scaling coefficient. Window Length = (winEnd-winStart) + TravelTime * winScaling.</description>
               </parameter>
               <parameter name="maxDelay" type="double" default="0.50" unit="sec">
                 <description>Maximum data windows lag accepted (secs).</description>
@@ -160,11 +163,14 @@
               <parameter name="minCCCoef" type="double" default="0.70">
                 <description>Min cross-correlation coefficient accepted to use a differential travel time.</description>
               </parameter>
-              <parameter name="start" type="double" default="-0.50" unit="sec">
+              <parameter name="winStart" type="double" default="-0.50" unit="sec">
                 <description>Start of data window to cross-correlate with respect to pick time (+/- secs).</description>
               </parameter>
-              <parameter name="end" type="double" default="0.75" unit="sec">
+              <parameter name="winEnd" type="double" default="1.00" unit="sec">
                 <description>End of data window to cross-correlate with respect to pick time (+/- secs).</description>
+              </parameter>
+              <parameter name="winScaling" type="double" default="0.04">
+                <description>Window scaling coefficient. Window Length = (winEnd-winStart) + TravelTime * winScaling.</description>
               </parameter>
               <parameter name="maxDelay" type="double" default="0.50" unit="sec">
                 <description>Maximum data windows lag accepted (secs).</description>
