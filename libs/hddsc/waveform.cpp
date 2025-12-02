@@ -116,11 +116,25 @@ unique_ptr<HDD::Trace> WaveformProxy::loadTrace(const HDD::TimeWindow &tw,
 {
   const Core::TimeWindow sctw = toSC(tw);
 
+  Seiscomp::DataModel::Inventory *inv =
+      Seiscomp::Client::Inventory::Instance()->inventory();
+  if (!inv)
+  {
+    throw HDD::Exception("Unable to fetch inventory");
+  }
+
+  // skip unexisting streams (otherwise seedlink may hang forever, in case
+  // the user didn't specify a timeout with limted reconnections)
+  if (!getStream(inv, networkCode, stationCode, locationCode, channelCode,
+                 sctw.startTime()))
+  {
+    throw HDD::Exception("Inventory doesn't contain the requested stream");
+  }
+
   IO::RecordStreamPtr rs = IO::RecordStream::Open(_recordStreamURL.c_str());
   if (rs == nullptr)
   {
-    string msg = "Cannot open RecordStream: " + _recordStreamURL;
-    throw HDD::Exception(msg);
+    throw HDD::Exception("Cannot open RecordStream: " + _recordStreamURL);
   }
 
   rs->setTimeWindow(sctw);
@@ -147,6 +161,13 @@ void WaveformProxy::loadTraces(
                         const HDD::TimeWindow &,
                         const string &)> &onTraceFailed)
 {
+  Seiscomp::DataModel::Inventory *inv =
+      Seiscomp::Client::Inventory::Instance()->inventory();
+  if (!inv)
+  {
+    throw HDD::Exception("Unable to fetch inventory");
+  }
+
   // Prepare the requests in a more convenient format
   struct Request
   {
@@ -233,8 +254,16 @@ void WaveformProxy::loadTraces(
         else
           it2++;
       }
-      rs->addStream(req.net, req.sta, req.loc, req.ch,
-                    contiguousRequest.startTime(), contiguousRequest.endTime());
+
+      // skip unexisting streams (otherwise seedlink may hang forever, in case
+      // the user didn't specify a timeout with limted reconnections)
+      if (getStream(inv, req.net, req.sta, req.loc, req.ch,
+                    contiguousRequest.startTime()))
+      {
+        rs->addStream(req.net, req.sta, req.loc, req.ch,
+                      contiguousRequest.startTime(),
+                      contiguousRequest.endTime());
+      }
       it = eqlrng.second;
     }
 
