@@ -40,6 +40,7 @@
 #include <list>
 #include <stdexcept>
 #include <unordered_map>
+#include <functional>
 
 namespace HDD {
 
@@ -48,8 +49,14 @@ template <typename key_t, typename value_t> class lru_cache
 public:
   typedef typename std::pair<key_t, value_t> key_value_pair_t;
   typedef typename std::list<key_value_pair_t>::iterator list_iterator_t;
+  typedef std::function<void (const key_t&, value_t&)> callback_t;
 
   lru_cache(size_t max_size) : _max_size(max_size) {}
+
+  void register_on_pop(callback_t cb)
+  {
+    _callback = std::move(cb);
+  }
 
   void put(const key_t &key, value_t &&value)
   {
@@ -67,6 +74,11 @@ public:
       auto last = _cache_items_list.end();
       last--;
       _cache_items_map.erase(last->first);
+      if ( _callback )
+      {
+        key_value_pair_t& p = _cache_items_list.back();
+        _callback(p.first, p.second);
+      }
       _cache_items_list.pop_back();
     }
   }
@@ -100,6 +112,7 @@ private:
   std::list<key_value_pair_t> _cache_items_list;
   std::unordered_map<key_t, list_iterator_t> _cache_items_map;
   const size_t _max_size;
+  callback_t _callback;
 };
 
 } // namespace HDD

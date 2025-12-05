@@ -87,21 +87,16 @@ private:
   AngleKDTree _PAngleKDTree;
   AngleKDTree _SAngleKDTree;
 
-  struct GridCloser
+  struct GridHolder
   {
-    GridCloser(const std::shared_ptr<NLL::VelGrid> &velGrid);
-    GridCloser(const std::shared_ptr<NLL::TimeGrid> &timeGrid);
-    GridCloser(const std::shared_ptr<NLL::AngleGrid> &angleGrid);
-    ~GridCloser();
-    GridCloser(const GridCloser &)            = default;
-    GridCloser &operator=(const GridCloser &) = default;
-    GridCloser(GridCloser &&)                 = default;
-    GridCloser &operator=(GridCloser &&)      = default;
+    GridHolder(const std::shared_ptr<NLL::VelGrid> &g) : velGrid(g) {}
+    GridHolder(const std::shared_ptr<NLL::TimeGrid> &g) : timeGrid(g) {}
+    GridHolder(const std::shared_ptr<NLL::AngleGrid> &g) : angleGrid(g) {}
     std::shared_ptr<NLL::VelGrid> velGrid;
     std::shared_ptr<NLL::TimeGrid> timeGrid;
     std::shared_ptr<NLL::AngleGrid> angleGrid;
   };
-  lru_cache<std::string, GridCloser> _openGrids;
+  lru_cache<std::string, GridHolder> _openGrids;
 };
 
 } // namespace TTT

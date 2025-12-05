@@ -47,28 +47,6 @@ namespace HDD {
 
 namespace TTT {
 
-NLLGrid::GridCloser::GridCloser(const shared_ptr<VelGrid> &grid)
-{
-  velGrid = grid;
-}
-
-NLLGrid::GridCloser::GridCloser(const shared_ptr<TimeGrid> &grid)
-{
-  timeGrid = grid;
-}
-
-NLLGrid::GridCloser::GridCloser(const shared_ptr<AngleGrid> &grid)
-{
-  angleGrid = grid;
-}
-
-NLLGrid::GridCloser::~GridCloser()
-{
-  if (velGrid) velGrid->close();
-  if (timeGrid) timeGrid->close();
-  if (angleGrid) angleGrid->close();
-}
-
 NLLGrid::NLLGrid(const std::string &gridPath,
                  const std::string &gridModel,
                  double maxSearchDistance,
@@ -174,6 +152,12 @@ NLLGrid::NLLGrid(const std::string &gridPath,
   _STimeKDTree  = KDTree<shared_ptr<TimeGrid>>(STimeGrids);
   _PAngleKDTree = KDTree<shared_ptr<AngleGrid>>(PAngleGrids);
   _SAngleKDTree = KDTree<shared_ptr<AngleGrid>>(SAngleGrids);
+
+  _openGrids.register_on_pop([](const string &key, GridHolder &h) {
+    if (h.velGrid) h.velGrid->close();
+    if (h.timeGrid) h.timeGrid->close();
+    if (h.angleGrid) h.angleGrid->close();
+  });
 }
 
 void NLLGrid::closeOpenFiles() { _openGrids.clear(); }
@@ -225,7 +209,7 @@ double NLLGrid::compute(double eventLat,
     }
 
     // cache the grid
-    _openGrids.put(key, GridCloser(timeGrid));
+    _openGrids.put(key, GridHolder(timeGrid));
   }
   return timeGrid->getTime(eventLat, eventLon, eventDepth);
 }
@@ -281,7 +265,7 @@ void NLLGrid::compute(double eventLat,
     }
 
     // cache the grid (to keep track of open files)
-    _openGrids.put(key, GridCloser(velGrid));
+    _openGrids.put(key, GridHolder(velGrid));
   }
 
   // get the value from the grid now that it is loaded
@@ -329,7 +313,7 @@ void NLLGrid::compute(double eventLat,
     }
 
     // cache the grid
-    _openGrids.put(key, GridCloser(angleGrid));
+    _openGrids.put(key, GridHolder(angleGrid));
   }
 
   angleGrid->getAngles(eventLat, eventLon, eventDepth, azimuth, takeOffAngle);
