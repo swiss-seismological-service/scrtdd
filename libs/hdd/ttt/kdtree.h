@@ -43,7 +43,9 @@ template <typename T> class KDTree
 public:
   struct Point
   {
-    double latitude, longitude, elevation; // km
+    double latitude;
+    double longitude;
+    double depth;
     T data;
   };
 
@@ -69,15 +71,13 @@ public:
     return _points[idx];
   }
 
-  const Point &search(double latitude,
-                      double longitude,
-                      double elevation,
-                      double maxDist) const
+  const Point &
+  search(double latitude, double longitude, double depth, double maxDist) const
   {
     Point query;
     query.latitude  = latitude;
     query.longitude = longitude;
-    query.elevation = elevation;
+    query.depth     = depth;
     return search(query, maxDist);
   }
 
@@ -94,7 +94,7 @@ private:
   {
     if (npoints == 0) return nullptr;
 
-    const int axis   = depth % 3; // lat, lon, elevation
+    const int axis   = depth % 3; // lat, lon, depth
     const size_t mid = (npoints - 1) / 2;
 
     std::nth_element(
@@ -104,7 +104,7 @@ private:
           else if (axis == 1)
             return _points[lhs].longitude < _points[rhs].longitude;
           else if (axis == 2)
-            return _points[lhs].elevation < _points[rhs].elevation;
+            return _points[lhs].depth < _points[rhs].depth;
           else
             throw std::runtime_error("KDTree internal logic error");
         });
@@ -132,10 +132,9 @@ private:
 
     const Point &curr = _points[node->idx];
 
-    double dist =
-        computeDistance(curr.latitude, curr.longitude, curr.elevation,
-                        query.latitude, query.longitude, query.elevation);
-    if (dist <= maxDist)
+    double dist = computeDistance(curr.latitude, curr.longitude, curr.depth,
+                                  query.latitude, query.longitude, query.depth);
+    if (dist * 1000. <= maxDist)
     {
       *idx = node->idx;
       return true;
@@ -148,7 +147,7 @@ private:
     else if (axis == 1)
       next_node = node->next[query.longitude < curr.longitude ? 0 : 1].get();
     else if (axis == 2)
-      next_node = node->next[query.elevation < curr.elevation ? 0 : 1].get();
+      next_node = node->next[query.depth < curr.depth ? 0 : 1].get();
     else
       throw std::runtime_error("KDTree internal logic error");
 

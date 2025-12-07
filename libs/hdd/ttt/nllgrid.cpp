@@ -93,8 +93,8 @@ NLLGrid::NLLGrid(const std::string &gridPath,
         const Grid::Info &ginfo = grid->getInfo();
         ginfo.transform->toLatLon(ginfo.srcex, ginfo.srcey, point.latitude,
                                   point.longitude);
-        point.elevation = -ginfo.srcez;
-        PTimeGrids.emplace_back(point);
+        point.depth = ginfo.srcez;
+        PTimeGrids.push_back(std::move(point));
       }
       else if (std::regex_match(filename, reSTime))
       {
@@ -104,8 +104,8 @@ NLLGrid::NLLGrid(const std::string &gridPath,
         const Grid::Info &ginfo = grid->getInfo();
         ginfo.transform->toLatLon(ginfo.srcex, ginfo.srcey, point.latitude,
                                   point.longitude);
-        point.elevation = -ginfo.srcez;
-        STimeGrids.emplace_back(point);
+        point.depth = ginfo.srcez;
+        STimeGrids.push_back(std::move(point));
       }
       else if (std::regex_match(filename, rePAngle))
       {
@@ -115,8 +115,8 @@ NLLGrid::NLLGrid(const std::string &gridPath,
         const Grid::Info &ginfo = grid->getInfo();
         ginfo.transform->toLatLon(ginfo.srcex, ginfo.srcey, point.latitude,
                                   point.longitude);
-        point.elevation = -ginfo.srcez;
-        PAngleGrids.emplace_back(point);
+        point.depth = ginfo.srcez;
+        PAngleGrids.push_back(std::move(point));
       }
       else if (std::regex_match(filename, reSAngle))
       {
@@ -126,8 +126,8 @@ NLLGrid::NLLGrid(const std::string &gridPath,
         const Grid::Info &ginfo = grid->getInfo();
         ginfo.transform->toLatLon(ginfo.srcex, ginfo.srcey, point.latitude,
                                   point.longitude);
-        point.elevation = -ginfo.srcez;
-        SAngleGrids.emplace_back(point);
+        point.depth = ginfo.srcez;
+        SAngleGrids.push_back(std::move(point));
       }
       else if (std::regex_match(filename, rePModel))
       {
@@ -187,15 +187,15 @@ double NLLGrid::compute(double eventLat,
       if (phaseType == "P")
       {
         timeGrid = _PTimeKDTree
-                       .search(stationLat, stationLon, stationElevation / 1000.,
-                               _maxSearchDistance)
+                       .search(stationLat, stationLon,
+                               -stationElevation / 1000., _maxSearchDistance)
                        .data;
       }
       else if (phaseType == "S")
       {
         timeGrid = _STimeKDTree
-                       .search(stationLat, stationLon, stationElevation / 1000.,
-                               _maxSearchDistance)
+                       .search(stationLat, stationLon,
+                               -stationElevation / 1000., _maxSearchDistance)
                        .data;
       }
     }
@@ -292,14 +292,14 @@ void NLLGrid::compute(double eventLat,
       {
         angleGrid = _PAngleKDTree
                         .search(stationLat, stationLon,
-                                stationElevation / 1000., _maxSearchDistance)
+                                -stationElevation / 1000., _maxSearchDistance)
                         .data;
       }
       else if (phaseType == "S")
       {
         angleGrid = _SAngleKDTree
                         .search(stationLat, stationLon,
-                                stationElevation / 1000., _maxSearchDistance)
+                                -stationElevation / 1000., _maxSearchDistance)
                         .data;
       }
     }
