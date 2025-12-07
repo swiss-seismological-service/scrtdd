@@ -54,17 +54,18 @@ public:
   KDTree(const std::vector<Point> &points)
   {
     _points = points;
+    _nodes.resize(points.size());
 
-    std::vector<size_t> indices(points.size());
+    std::vector<size_t> indices(_points.size());
     std::iota(std::begin(indices), std::end(indices), 0);
 
-    _root = buildRecursive(indices.data(), points.size(), 0);
+    _root = buildRecursive(indices.data(), _points.size(), 0);
   }
 
   const Point &search(const Point &query, double maxDist) const
   {
     size_t idx;
-    if (!searchRecursive(query, _root.get(), &idx, maxDist))
+    if (!searchRecursive(query, _root, &idx, maxDist))
     {
       throw std::range_error("There is no such point in the kd-tree");
     }
@@ -84,13 +85,12 @@ public:
 private:
   struct Node
   {
-    size_t idx = -1;               // index to the original point
-    int axis   = -1;               // dimension's axis
-    std::unique_ptr<Node> next[2]; // pointers to the child nodes
+    size_t idx = -1; // index to the original point
+    int axis   = -1; // dimension's axis
+    Node *next[2];   // index to the child nodes
   };
 
-  std::unique_ptr<Node>
-  buildRecursive(size_t *indices, size_t npoints, int depth)
+  Node *buildRecursive(size_t *indices, size_t npoints, int depth)
   {
     if (npoints == 0) return nullptr;
 
@@ -109,10 +109,11 @@ private:
             throw std::runtime_error("KDTree internal logic error");
         });
 
-    std::unique_ptr<Node> node(new Node());
-    node->idx  = indices[mid];
-    node->axis = axis;
+    const size_t idx = indices[mid];
 
+    Node *node    = &_nodes.at(idx);
+    node->idx     = idx;
+    node->axis    = axis;
     node->next[0] = buildRecursive(indices, mid, depth + 1);
     node->next[1] =
         buildRecursive(indices + mid + 1, npoints - mid - 1, depth + 1);
@@ -143,11 +144,11 @@ private:
     const int axis = node->axis;
     const Node *next_node;
     if (axis == 0)
-      next_node = node->next[query.latitude < curr.latitude ? 0 : 1].get();
+      next_node = node->next[query.latitude < curr.latitude ? 0 : 1];
     else if (axis == 1)
-      next_node = node->next[query.longitude < curr.longitude ? 0 : 1].get();
+      next_node = node->next[query.longitude < curr.longitude ? 0 : 1];
     else if (axis == 2)
-      next_node = node->next[query.depth < curr.depth ? 0 : 1].get();
+      next_node = node->next[query.depth < curr.depth ? 0 : 1];
     else
       throw std::runtime_error("KDTree internal logic error");
 
@@ -155,7 +156,8 @@ private:
   }
 
 private:
-  std::unique_ptr<Node> _root;
+  Node *_root;
+  std::vector<Node> _nodes;
   std::vector<Point> _points;
 };
 
