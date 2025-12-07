@@ -283,17 +283,16 @@ void Solver::addObservationParams(unsigned evId,
                                   bool computeEvChanges,
                                   double travelTime,
                                   double travelTimeResidual,
-                                  double takeOffAngleAzim,
-                                  double takeOffAngleDip,
-                                  double velocityAtSrc)
+                                  double dx,
+                                  double dy,
+                                  double dz)
 {
   string phStaId    = string(1, phase) + "@" + staId;
   int evIdx         = _eventIdConverter.convert(evId);
   unsigned phStaIdx = _phStaIdConverter.convert(phStaId);
   _obsParams[evIdx].insert(
       {phStaIdx, ObservationParams{computeEvChanges, travelTime,
-                                   travelTimeResidual, takeOffAngleAzim,
-                                   takeOffAngleDip, velocityAtSrc, 0, 0, 0}});
+                                   travelTimeResidual, dx, dy, dz}});
 }
 
 bool Solver::getEvent(unsigned evId,
@@ -342,9 +341,9 @@ bool Solver::getObservationParams(unsigned evId,
                                   bool &computeEvChanges,
                                   double &travelTime,
                                   double &travelTimeResidual,
-                                  double &takeOffAngleAzim,
-                                  double &takeOffAngleDip,
-                                  double &velocityAtSrc) const
+                                  double &dx,
+                                  double &dy,
+                                  double &dz) const
 {
   unsigned evIdx;
   if (!_eventIdConverter.hasId(evId, evIdx)) return false;
@@ -364,9 +363,9 @@ bool Solver::getObservationParams(unsigned evId,
   computeEvChanges   = oprms.computeEvChanges;
   travelTime         = oprms.travelTime;
   travelTimeResidual = oprms.travelTimeResidual;
-  takeOffAngleAzim   = oprms.takeOffAngleAzim;
-  takeOffAngleDip    = oprms.takeOffAngleDip;
-  velocityAtSrc      = oprms.velocityAtSrc;
+  dx                 = oprms.dx;
+  dy                 = oprms.dy;
+  dz                 = oprms.dz;
 
   return true;
 }
@@ -505,29 +504,6 @@ void Solver::loadSolutions()
   _dd = DDSystem();
 }
 
-void Solver::computePartialDerivatives()
-{
-  for (auto &kv1 : _obsParams)
-  {
-    for (auto &kv2 : kv1.second)
-    {
-      ObservationParams &obprm = kv2.second;
-
-      // dip angle:  0(down):180(up) -> -90(down):+90(up)
-      const double dip = obprm.takeOffAngleDip - degToRad(90);
-      // Make azimuth relative to the station(this is not the back
-      // azimuth, even though they are identical for a short event-station
-      // distance)
-      const double azi      = obprm.takeOffAngleAzim - degToRad(180);
-      const double slowness = 1. / obprm.velocityAtSrc;
-
-      obprm.dx = slowness * std::cos(dip) * std::sin(azi);
-      obprm.dy = slowness * std::cos(dip) * std::cos(azi);
-      obprm.dz = slowness * std::sin(dip);
-    }
-  }
-}
-
 multimap<double, unsigned> Solver::computeInterEventDistance()
 {
   if (_observations.size() < 1)
@@ -613,8 +589,6 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
 
 void Solver::prepare(double ttConstraint, double residualDownWeight)
 {
-  computePartialDerivatives();
-
   //
   // Count how many travel time constraints we need in the DD system.
   //

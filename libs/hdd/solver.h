@@ -177,9 +177,9 @@ public:
                             bool computeEvChanges,
                             double travelTime,
                             double travelTimeResidual,
-                            double takeOffAngleAzim,
-                            double takeOffAngleDip,
-                            double velocityAtSrc);
+                            double dx,
+                            double dy,
+                            double dz);
 
   bool
   getEvent(unsigned evId, double &evLat, double &evLon, double &evDepth) const;
@@ -195,9 +195,9 @@ public:
                             bool &computeEvChanges,
                             double &travelTime,
                             double &travelTimeResidual,
-                            double &takeOffAngleAzim,
-                            double &takeOffAngleDip,
-                            double &velocityAtSrc) const;
+                            double &dx,
+                            double &dy,
+                            double &dz) const;
 
   void prepare(double ttConstraint = 0, double residualDownWeight = 0);
 
@@ -231,8 +231,6 @@ public:
   isEventPhaseUsed(unsigned evId, const std::string &staId, char phase) const;
 
 private:
-  void computePartialDerivatives();
-
   std::multimap<double, unsigned> computeInterEventDistance();
 
   std::vector<double>
@@ -285,17 +283,12 @@ private:
 
   struct ObservationParams
   {
-    // user provided
     bool computeEvChanges;
-    double travelTime;
-    double travelTimeResidual;
-    double takeOffAngleAzim;
-    double takeOffAngleDip;
-    double velocityAtSrc;
-    // computed
-    double dx;
-    double dy;
-    double dz;
+    double travelTime;         // sec
+    double travelTimeResidual; // sec
+    double dx;                 // sec/km
+    double dy;                 // sec/km
+    double dz;                 // sec/km
   };
   // key1=evIdx  key2=phStaIdx
   std::unordered_map<unsigned, std::unordered_map<unsigned, ObservationParams>>

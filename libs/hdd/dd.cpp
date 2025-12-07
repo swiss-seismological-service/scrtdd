@@ -1033,11 +1033,11 @@ bool DD::addObservationParams(Solver &solver,
     //
     // Compute travel time information
     //
-    double travelTime, takeOfAngleAzim, takeOfAngleDip, velocityAtSrc;
+    double travelTime, takeOffAngleAzim, takeOffAngleDip, velocityAtSrc;
     try
     {
       ttt.compute(event, station, string(1, phaseType), travelTime,
-                  takeOfAngleAzim, takeOfAngleDip, velocityAtSrc);
+                  takeOffAngleAzim, takeOffAngleDip, velocityAtSrc);
     }
     catch (Exception &e)
     {
@@ -1051,14 +1051,29 @@ bool DD::addObservationParams(Solver &solver,
     double travelTimeResidual = travelTime - durToSec(phase.time - event.time);
 
     //
+    // compute partial derivatives
+    //
+    const double slowness = 1. / velocityAtSrc;
+    // dip angle:  0(down):180(up) -> -90(down):+90(up)
+    const double dip = degToRad(takeOffAngleDip - 90);
+    // Make azimuth relative to the station(this is not the back
+    // azimuth, even though they are identical for a short event-station
+    // distance)
+    const double azi = degToRad(takeOffAngleAzim - 180);
+
+    const double dx = slowness * std::cos(dip) * std::sin(azi);
+    const double dy = slowness * std::cos(dip) * std::cos(azi);
+    const double dz = slowness * std::sin(dip);
+
+    //
     // Populate the solver
     //
     solver.addEvent(event.id, event.latitude, event.longitude, event.depth);
     solver.addStation(station.id, station.latitude, station.longitude,
                       station.elevation);
-    solver.addObservationParams(
-        event.id, station.id, phaseType, computeEvChanges, travelTime,
-        travelTimeResidual, takeOfAngleAzim, takeOfAngleDip, velocityAtSrc);
+    solver.addObservationParams(event.id, station.id, phaseType,
+                                computeEvChanges, travelTime,
+                                travelTimeResidual, dx, dy, dz);
   }
   return true;
 }
