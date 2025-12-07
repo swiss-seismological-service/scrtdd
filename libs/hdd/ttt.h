@@ -46,9 +46,8 @@ public:
   /*
    * The implementation of this interface MUST compute:
    * - travelTime    [seconds]
-   * - azimuth       [rad]
-   * - backAzimuth   [rad]
-   * - takeOffAngle  [rad] 0(down):180(up)
+   * - azimuth       [degree]
+   * - takeOffAngle  [degree] 0(down):180(up)
    * - velocityAtSrc [km/sec]
    */
   virtual void compute(double eventLat,

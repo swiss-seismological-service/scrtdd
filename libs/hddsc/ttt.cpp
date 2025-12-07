@@ -100,9 +100,10 @@ void TravelTimeTable::compute(double eventLat,
 #endif
   {
     azimuth = computeAzimuth(eventLat, eventLon, stationLat, stationLon);
+    azimuth = radToDeg(azimuth);
   }
 
-  takeOffAngle = degToRad(tt.takeoff);
+  takeOffAngle = tt.takeoff;
 }
 
 } // namespace SCAdapter

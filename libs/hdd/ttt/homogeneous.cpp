@@ -75,9 +75,12 @@ void Homogeneous::compute(double eventLat,
       computeDistance(eventLat, eventLon, eventDepth, stationLat, stationLon,
                       -(stationElevation / 1000.), &azimuth);
 
+  azimuth = radToDeg(azimuth);
+
   double vDist = eventDepth + stationElevation / 1000.;
   takeOffAngle = std::asin(vDist / hDist);
-  takeOffAngle += degToRad(90); // -90(down):+90(up) -> 0(down):180(up)
+  takeOffAngle = radToDeg(takeOffAngle);
+  takeOffAngle += 90; // -90(down):+90(up) -> 0(down):180(up)
 
   if (phaseType == "P")
     velocityAtSrc = _pVel;

@@ -1242,14 +1242,12 @@ void AngleGrid::convertAngles(const TakeOffAngles &angles,
   {
     azim = angles.azimuth / 10.0; // tenths of degree -> degree
     azim = _grid.info.transform->toLatLonAngle(azim);
-    azim = degToRad(azim);
   }
   else
   {
     azim = std::numeric_limits<double>::quiet_NaN();
   }
-  dip = (angles.dip / 10.0);
-  dip = degToRad(dip);
+  dip = angles.dip / 10.0; // tenths of degree -> degree
 }
 
 template <typename GRID_FLOAT_TYPE>

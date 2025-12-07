@@ -321,6 +321,7 @@ void NLLGrid::compute(double eventLat,
   if (!std::isfinite(azimuth)) // if not 3D model compute azimuth
   {
     azimuth = computeAzimuth(eventLat, eventLon, stationLat, stationLon);
+    azimuth = radToDeg(azimuth);
   }
 }
 
