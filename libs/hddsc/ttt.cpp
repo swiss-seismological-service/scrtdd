@@ -88,8 +88,8 @@ void TravelTimeTable::compute(double eventLat,
 
   // We want dtdd and dtdh to use the same units:
   // - transform dtdd [sec/rad] -> [sec/km]
-  double dtdd2  = tt.dtdd / kmOfDegree(eventDepth);
-  velocityAtSrc = 1.0 / std::sqrt(square(tt.dtdh) + square(dtdd2));
+  const double dtdd = tt.dtdd / kmOfDegree(eventDepth);
+  velocityAtSrc     = 1.0 / std::sqrt(square(tt.dtdh) + square(dtdd));
 
 #if SC_API_VERSION >= SC_API_VERSION_CHECK(16, 0, 0)
   if (tt.azi) // 3D model
