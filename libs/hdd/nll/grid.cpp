@@ -235,7 +235,7 @@ void SimpleTransform::toLatLon(double xLoc,
                                double &lat,
                                double &lon) const
 {
-  rotate(xLoc, yLoc);
+  inverseRotate(xLoc, yLoc);
   lat = _orgLat + yLoc / c111;
   lon = _orgLong + xLoc / (c111 * std::cos(degToRad(lat)));
   lon = normalizeLon(lon);
@@ -269,7 +269,7 @@ void SDCTransform::toLatLon(double xLoc,
                             double &lat,
                             double &lon) const
 {
-  rotate(xLoc, yLoc);
+  inverseRotate(xLoc, yLoc);
   yLoc /= _xltkm;
   lat = _orgLat + yLoc;
   double xlt1 =
@@ -315,7 +315,7 @@ void LambertTransform::toLatLon(double xLoc,
                                 double &lat,
                                 double &lon) const
 {
-  rotate(xLoc, yLoc);
+  inverseRotate(xLoc, yLoc);
   GMT::ilamb(_proj, &lon, &lat, xLoc * 1000.0, yLoc * 1000.0);
   lon = normalizeLon(lon);
 }
@@ -350,7 +350,7 @@ void TransMercTransform::toLatLon(double xLoc,
                                   double &lat,
                                   double &lon) const
 {
-  rotate(xLoc, yLoc);
+  inverseRotate(xLoc, yLoc);
   GMT::itm(_proj, &lon, &lat, xLoc * 1000.0, yLoc * 1000.0);
   lon = normalizeLon(lon);
 }
@@ -381,7 +381,7 @@ void AziEqdistTransform::toLatLon(double xLoc,
                                   double &lat,
                                   double &lon) const
 {
-  rotate(xLoc, yLoc);
+  inverseRotate(xLoc, yLoc);
   GMT::iazeqdist(_proj, &lon, &lat, xLoc * 1000.0, yLoc * 1000.0);
   lon = normalizeLon(lon);
 }
@@ -630,8 +630,7 @@ Transform::Transform(const std::string &type,
                      double orgLong,
                      double rot)
     : _type(type), _orgLat(orgLat), _orgLong(orgLong), _rot(rot),
-      _angle(-degToRad(_rot)), _cosang(std::cos(_angle)),
-      _sinang(std::sin(_angle))
+      _cosang(std::cos(-degToRad(rot))), _sinang(std::sin(-degToRad(rot)))
 {
   if (_orgLat > 90 || _orgLat < -90)
   {

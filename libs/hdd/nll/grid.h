@@ -75,17 +75,24 @@ public:
 protected:
   void rotate(double &xLoc, double &yLoc) const
   {
-    double xtemp = xLoc;
-    double ytemp = yLoc;
-    xLoc         = xtemp * _cosang - ytemp * _sinang;
-    yLoc         = ytemp * _cosang + xtemp * _sinang;
+    const double xtemp = xLoc;
+    const double ytemp = yLoc;
+    xLoc               = xtemp * _cosang - ytemp * _sinang;
+    yLoc               = ytemp * _cosang + xtemp * _sinang;
+  }
+
+  void inverseRotate(double &xLoc, double &yLoc) const
+  {
+    const double xtemp = xLoc;
+    const double ytemp = yLoc;
+    xLoc               = xtemp * _cosang + ytemp * _sinang;
+    yLoc               = ytemp * _cosang - xtemp * _sinang;
   }
 
   const std::string _type;
   const double _orgLat;
   const double _orgLong;
   const double _rot;
-  const double _angle;
   const double _cosang;
   const double _sinang;
 };
