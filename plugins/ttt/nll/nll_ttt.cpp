@@ -150,7 +150,7 @@ bool NLLGrid::setModel(const string &model)
   std::string gridModel;
   bool swapBytes           = false;
   unsigned maxOpenFiles    = 512;
-  double maxSearchDistance = 0.1;
+  double maxSearchDistance = 10;
 
   try
   {

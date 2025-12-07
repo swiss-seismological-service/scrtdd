@@ -27,7 +27,7 @@
 						Path to travel time tables (grids).
 						</description>
 					</parameter>
-					<parameter name="maxSearchDistance" type="double" default="0.1" unit="m">
+					<parameter name="maxSearchDistance" type="double" default="10" unit="m">
 						<description>
 							Define the maximum allowed station location difference between
 							the inventory and the grid files. If a grid file for a station 
