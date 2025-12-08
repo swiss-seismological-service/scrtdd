@@ -181,30 +181,37 @@ double NLLGrid::compute(double eventLat,
   }
   catch (std::range_error &e)
   {
+    // Find the correct grid
+    double gridDist;
     try
     {
-      // Find the correct grid
       if (phaseType == "P")
       {
         timeGrid = _PTimeKDTree
-                       .search(stationLat, stationLon,
-                               -stationElevation / 1000., _maxSearchDistance)
+                       .nnSearch(stationLat, stationLon,
+                                 -stationElevation / 1000., gridDist)
                        .data;
       }
       else if (phaseType == "S")
       {
         timeGrid = _STimeKDTree
-                       .search(stationLat, stationLon,
-                               -stationElevation / 1000., _maxSearchDistance)
+                       .nnSearch(stationLat, stationLon,
+                                 -stationElevation / 1000., gridDist)
                        .data;
       }
     }
     catch (std::range_error &e)
     {
+      throw Exception(strf("No %s time grids found", phaseType.c_str()));
+    }
+
+    if ((gridDist * 1000) > _maxSearchDistance) // gridDist is in km
+    {
       string msg =
-          strf("Cannot find a suitable %s time grid (station lat %g lon "
-               "%g elevation %g)",
-               phaseType.c_str(), stationLat, stationLon, stationElevation);
+          strf("Cannot find a suitable %s time grid (station lat %g "
+               "lon %g elevation %g). Closest grid is at %g [m] %s",
+               phaseType.c_str(), stationLat, stationLon, stationElevation,
+               gridDist * 1000, timeGrid->getInfo().hdrFilePath.c_str());
       throw Exception(msg);
     }
 
@@ -257,11 +264,7 @@ void NLLGrid::compute(double eventLat,
 
     if (!velGrid)
     {
-      string msg =
-          strf("Cannot find a suitable %s velocity grid (station lat %g "
-               "lon %g elevation %g)",
-               phaseType.c_str(), stationLat, stationLon, stationElevation);
-      throw Exception(msg);
+      throw Exception(strf("No %s velocity grid found", phaseType.c_str()));
     }
 
     // cache the grid (to keep track of open files)
@@ -285,30 +288,37 @@ void NLLGrid::compute(double eventLat,
   }
   catch (std::range_error &e)
   {
+    // Find the correct grid
+    double gridDist;
     try
     {
-      // Find the correct grid
       if (phaseType == "P")
       {
         angleGrid = _PAngleKDTree
-                        .search(stationLat, stationLon,
-                                -stationElevation / 1000., _maxSearchDistance)
+                        .nnSearch(stationLat, stationLon,
+                                  -stationElevation / 1000., gridDist)
                         .data;
       }
       else if (phaseType == "S")
       {
         angleGrid = _SAngleKDTree
-                        .search(stationLat, stationLon,
-                                -stationElevation / 1000., _maxSearchDistance)
+                        .nnSearch(stationLat, stationLon,
+                                  -stationElevation / 1000., gridDist)
                         .data;
       }
     }
     catch (std::range_error &e)
     {
+      throw Exception(strf("No %s angle grids found", phaseType.c_str()));
+    }
+
+    if ((gridDist * 1000) > _maxSearchDistance) // gridDist is in km
+    {
       string msg =
           strf("Cannot find a suitable %s angle grid (station lat %g "
-               "lon %g elevation %g)",
-               phaseType.c_str(), stationLat, stationLon, stationElevation);
+               "lon %g elevation %g). Closest grid is at %g [m] %s",
+               phaseType.c_str(), stationLat, stationLon, stationElevation,
+               gridDist * 1000, angleGrid->getInfo().hdrFilePath.c_str());
       throw Exception(msg);
     }
 

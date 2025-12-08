@@ -62,32 +62,52 @@ public:
     _root = buildRecursive(indices.data(), _points.size(), 0);
   }
 
-  const Point &search(const Point &query, double maxDist) const
+  const Point &search(const Point &query) const
   {
     size_t idx;
-    if (!searchRecursive(query, _root, &idx, maxDist))
+    if (!searchRecursive(query, _root, idx))
     {
       throw std::range_error("There is no such point in the kd-tree");
     }
     return _points[idx];
   }
 
-  const Point &
-  search(double latitude, double longitude, double depth, double maxDist) const
+  const Point &search(double latitude, double longitude, double depth) const
   {
     Point query;
     query.latitude  = latitude;
     query.longitude = longitude;
     query.depth     = depth;
-    return search(query, maxDist);
+    return search(query);
+  }
+
+  const Point &nnSearch(const Point &query, double &dist) const
+  {
+    size_t idx;
+    dist = std::numeric_limits<double>::max();
+    if (!nnSearchRecursive(query, _root, idx, dist))
+    {
+      throw std::range_error("kd-tree is empty");
+    }
+    return _points[idx];
+  }
+
+  const Point &
+  nnSearch(double latitude, double longitude, double depth, double &dist) const
+  {
+    Point query;
+    query.latitude  = latitude;
+    query.longitude = longitude;
+    query.depth     = depth;
+    return nnSearch(query, dist);
   }
 
 private:
   struct Node
   {
-    size_t idx = -1; // index to the original point
-    int axis   = -1; // dimension's axis
-    Node *next[2];   // index to the child nodes
+    size_t idx;    // index to the original point
+    int axis;      // dimension's axis
+    Node *next[2]; // index to the child nodes
   };
 
   Node *buildRecursive(size_t *indices, size_t npoints, int depth)
@@ -121,10 +141,57 @@ private:
     return node;
   }
 
-  bool searchRecursive(const Point &query,
-                       const Node *node,
-                       size_t *idx,
-                       double maxDist /*meters*/) const
+  bool searchRecursive(const Point &query, const Node *node, size_t &idx) const
+  {
+    if (!node)
+    {
+      return false;
+    }
+
+    const Point &curr = _points[node->idx];
+
+    if (curr.latitude == query.latitude && curr.longitude == query.longitude &&
+        curr.depth == query.depth)
+    {
+      idx = node->idx;
+      return true;
+    }
+
+    const int axis = node->axis;
+    int dir;
+    bool equalOnAxis;
+    if (axis == 0)
+    {
+      dir         = query.latitude < curr.latitude ? 0 : 1;
+      equalOnAxis = query.latitude == curr.latitude;
+    }
+    else if (axis == 1)
+    {
+      dir         = query.longitude < curr.longitude ? 0 : 1;
+      equalOnAxis = query.longitude == curr.longitude;
+    }
+    else if (axis == 2)
+    {
+      dir         = query.depth < curr.depth ? 0 : 1;
+      equalOnAxis = query.depth == curr.depth;
+    }
+    else
+    {
+      throw std::runtime_error("KDTree internal logic error");
+    }
+
+    bool found = searchRecursive(query, node->next[dir], idx);
+    if (!found && equalOnAxis)
+    {
+      return searchRecursive(query, node->next[dir == 0 ? 1 : 0], idx);
+    }
+    return found;
+  }
+
+  bool nnSearchRecursive(const Point &query,
+                         const Node *node,
+                         size_t &idx,
+                         double &minDist) const
   {
     if (!node)
     {
@@ -135,24 +202,43 @@ private:
 
     double dist = computeDistance(curr.latitude, curr.longitude, curr.depth,
                                   query.latitude, query.longitude, query.depth);
-    if (dist * 1000. <= maxDist)
+
+    if (dist < minDist)
     {
-      *idx = node->idx;
-      return true;
+      idx     = node->idx;
+      minDist = dist;
     }
 
     const int axis = node->axis;
-    const Node *next_node;
+    double axisDist;
+    int dir;
     if (axis == 0)
-      next_node = node->next[query.latitude < curr.latitude ? 0 : 1];
+    {
+      dir      = query.latitude < curr.latitude ? 0 : 1;
+      axisDist = computeDistance(curr.latitude, 0, query.latitude, 0);
+    }
     else if (axis == 1)
-      next_node = node->next[query.longitude < curr.longitude ? 0 : 1];
+    {
+      dir      = query.longitude < curr.longitude ? 0 : 1;
+      axisDist = computeDistance(0, query.longitude, 0, query.longitude);
+    }
     else if (axis == 2)
-      next_node = node->next[query.depth < curr.depth ? 0 : 1];
+    {
+      dir      = query.depth < curr.depth ? 0 : 1;
+      axisDist = std::abs(curr.depth - query.depth);
+    }
     else
+    {
       throw std::runtime_error("KDTree internal logic error");
+    }
 
-    return searchRecursive(query, next_node, idx, maxDist);
+    nnSearchRecursive(query, node->next[dir], idx, minDist);
+
+    if (axisDist < minDist)
+    {
+      nnSearchRecursive(query, node->next[dir == 0 ? 1 : 0], idx, minDist);
+    }
+    return true;
   }
 
 private:
