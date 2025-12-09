@@ -28,10 +28,10 @@
 #ifndef __HDD_TTT_NLLGRID_H__
 #define __HDD_TTT_NLLGRID_H__
 
-#include "../3rd-party/lrucache.h"
+#include "../kdtree.h"
+#include "../lrucache.h"
 #include "../nll/grid.h"
 #include "../ttt.h"
-#include "kdtree.h"
 
 #include <unordered_set>
 

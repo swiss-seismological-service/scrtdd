@@ -45,6 +45,8 @@ SET(HDD_HEADERS
 	utctime.h
 	catalog.h
 	clustering.h
+	kdtree.h
+	lrucache.h
 	ttt.h
 	solver.h
 	xcorr.h
@@ -59,10 +61,6 @@ SET(HDD_HEADERS_TTT
 
 SET(HDD_HEADERS_NLL
 	nll/grid.h
-)
-
-SET(HDD_HEADERS_3RDPARTY
-	3rd-party/lrucache.h
 )
 
 IF (HDD_USE_BOOST_FS)
@@ -81,10 +79,6 @@ INSTALL(
 INSTALL(
 	TARGETS ${HDD_HEADERS_NLL}
 	PUBLIC_HEADER DESTINATION ${HDD_HEADERS_INSTALL_DIR}/hdd/nll
-)
-INSTALL(
-	TARGETS ${HDD_HEADERS_3RDPARTY}
-	PUBLIC_HEADER DESTINATION ${HDD_HEADERS_INSTALL_DIR}/hdd/3rd-party
 )
 ENDIF()
 

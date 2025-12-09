@@ -1,9 +1,8 @@
 /*
- * https://github.com/lamerman/cpp-lru-cache
- *
  * BSD-3-Clause License
  *
  * Copyright (c) 2014, lamerman
+ * Copyright (c) 2022, ETHZ/SED
  *
  * All rights reserved.
  *
@@ -23,24 +22,30 @@
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Original code https://github.com/lamerman/cpp-lru-cache
+ *
+ * Modified by Luca Scarabello <luca.scarabello@sed.ethz.ch>
+ *
  */
 
 #ifndef __HDD_LRU_CACHE_H__
 #define __HDD_LRU_CACHE_H__
 
 #include <cstddef>
+#include <functional>
 #include <list>
 #include <stdexcept>
 #include <unordered_map>
-#include <functional>
 
 namespace HDD {
 
@@ -49,14 +54,11 @@ template <typename key_t, typename value_t> class lru_cache
 public:
   typedef typename std::pair<key_t, value_t> key_value_pair_t;
   typedef typename std::list<key_value_pair_t>::iterator list_iterator_t;
-  typedef std::function<void (const key_t&, value_t&)> callback_t;
+  typedef std::function<void(const key_t &, value_t &)> callback_t;
 
   lru_cache(size_t max_size) : _max_size(max_size) {}
 
-  void register_on_pop(callback_t cb)
-  {
-    _callback = std::move(cb);
-  }
+  void register_on_pop(callback_t cb) { _callback = std::move(cb); }
 
   void put(const key_t &key, value_t &&value)
   {
@@ -74,9 +76,9 @@ public:
       auto last = _cache_items_list.end();
       last--;
       _cache_items_map.erase(last->first);
-      if ( _callback )
+      if (_callback)
       {
-        key_value_pair_t& p = _cache_items_list.back();
+        key_value_pair_t &p = _cache_items_list.back();
         _callback(p.first, p.second);
       }
       _cache_items_list.pop_back();

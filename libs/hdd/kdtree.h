@@ -28,7 +28,7 @@
 #ifndef __HDD_TTT_KDTREE_H__
 #define __HDD_TTT_KDTREE_H__
 
-#include "../utils.h"
+#include "utils.h"
 
 #include <memory>
 #include <stdexcept>
