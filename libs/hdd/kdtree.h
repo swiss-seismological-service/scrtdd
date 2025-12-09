@@ -30,6 +30,7 @@
 
 #include "utils.h"
 
+#include <map>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -51,10 +52,10 @@ public:
 
   KDTree() = default;
 
-  KDTree(const std::vector<Point> &points)
+  KDTree(std::vector<Point> &&points)
   {
-    _points = points;
-    _nodes.resize(points.size());
+    _points = std::move(points);
+    _nodes.resize(_points.size());
 
     std::vector<size_t> indices(_points.size());
     std::iota(std::begin(indices), std::end(indices), 0);
@@ -62,15 +63,7 @@ public:
     _root = buildRecursive(indices.data(), _points.size(), 0);
   }
 
-  const Point &search(const Point &query) const
-  {
-    size_t idx;
-    if (!searchRecursive(query, _root, idx))
-    {
-      throw std::range_error("There is no such point in the kd-tree");
-    }
-    return _points[idx];
-  }
+  const std::vector<Point> &points() const { return _points; }
 
   const Point &search(double latitude, double longitude, double depth) const
   {
@@ -78,16 +71,10 @@ public:
     query.latitude  = latitude;
     query.longitude = longitude;
     query.depth     = depth;
-    return search(query);
-  }
-
-  const Point &nnSearch(const Point &query, double &dist) const
-  {
     size_t idx;
-    dist = std::numeric_limits<double>::max();
-    if (!nnSearchRecursive(query, _root, idx, dist))
+    if (!searchRecursive(query, _root, idx))
     {
-      throw std::range_error("kd-tree is empty");
+      throw std::range_error("There is no such point in the kd-tree");
     }
     return _points[idx];
   }
@@ -99,7 +86,40 @@ public:
     query.latitude  = latitude;
     query.longitude = longitude;
     query.depth     = depth;
-    return nnSearch(query, dist);
+    size_t idx;
+    dist = std::numeric_limits<double>::max();
+    if (!nnSearchRecursive(query, _root, idx, dist))
+    {
+      throw std::range_error("kd-tree is empty");
+    }
+    return _points[idx];
+  }
+
+  std::multimap<double, size_t> // distance km, point idx
+  knnSearch(double latitude, double longitude, double depth, size_t k) const
+  {
+    Point query;
+    query.latitude  = latitude;
+    query.longitude = longitude;
+    query.depth     = depth;
+    std::multimap<double, size_t> queue;
+    knnSearchRecursive(query, _root, queue, k);
+    return queue;
+  }
+
+  std::multimap<double, size_t> // distance km, point idx
+  radiusSearch(double latitude,
+               double longitude,
+               double depth,
+               double radius) const
+  {
+    Point query;
+    query.latitude  = latitude;
+    query.longitude = longitude;
+    query.depth     = depth;
+    std::multimap<double, size_t> queue;
+    radiusSearchRecursive(query, _root, queue, radius);
+    return queue;
   }
 
 private:
@@ -200,8 +220,9 @@ private:
 
     const Point &curr = _points[node->idx];
 
-    double dist = computeDistance(curr.latitude, curr.longitude, curr.depth,
-                                  query.latitude, query.longitude, query.depth);
+    const double dist =
+        computeDistance(curr.latitude, curr.longitude, curr.depth,
+                        query.latitude, query.longitude, query.depth);
 
     if (dist < minDist)
     {
@@ -239,6 +260,115 @@ private:
       nnSearchRecursive(query, node->next[dir == 0 ? 1 : 0], idx, minDist);
     }
     return true;
+  }
+
+  void knnSearchRecursive(const Point &query,
+                          const Node *node,
+                          std::multimap<double, size_t> &queue, // dist km, idx
+                          size_t k) const
+  {
+    if (!node)
+    {
+      return;
+    }
+
+    const Point &curr = _points[node->idx];
+
+    const double dist =
+        computeDistance(curr.latitude, curr.longitude, curr.depth,
+                        query.latitude, query.longitude, query.depth);
+
+    if (queue.size() < k)
+    {
+      queue.emplace(dist, node->idx);
+    }
+    else if (dist < queue.rbegin()->first)
+    {
+      queue.emplace(dist, node->idx);
+      queue.erase(std::prev(queue.end())); // remove last entry
+    }
+
+    const int axis = node->axis;
+    double axisDist;
+    int dir;
+    if (axis == 0)
+    {
+      dir      = query.latitude < curr.latitude ? 0 : 1;
+      axisDist = computeDistance(curr.latitude, 0, query.latitude, 0);
+    }
+    else if (axis == 1)
+    {
+      dir      = query.longitude < curr.longitude ? 0 : 1;
+      axisDist = computeDistance(0, query.longitude, 0, query.longitude);
+    }
+    else if (axis == 2)
+    {
+      dir      = query.depth < curr.depth ? 0 : 1;
+      axisDist = std::abs(curr.depth - query.depth);
+    }
+    else
+    {
+      throw std::runtime_error("KDTree internal logic error");
+    }
+
+    knnSearchRecursive(query, node->next[dir], queue, k);
+
+    if (queue.size() < k || axisDist < queue.rbegin()->first)
+    {
+      knnSearchRecursive(query, node->next[dir == 0 ? 1 : 0], queue, k);
+    }
+  }
+
+  void
+  radiusSearchRecursive(const Point &query,
+                        const Node *node,
+                        std::multimap<double, size_t> &queue, // dist km, idx
+                        double radius) const
+  {
+    if (!node)
+    {
+      return;
+    }
+
+    const Point &curr = _points[node->idx];
+
+    const double dist =
+        computeDistance(curr.latitude, curr.longitude, curr.depth,
+                        query.latitude, query.longitude, query.depth);
+    if (dist <= radius)
+    {
+      queue.emplace(dist, node->idx);
+    }
+
+    const int axis = node->axis;
+    double axisDist;
+    int dir;
+    if (axis == 0)
+    {
+      dir      = query.latitude < curr.latitude ? 0 : 1;
+      axisDist = computeDistance(curr.latitude, 0, query.latitude, 0);
+    }
+    else if (axis == 1)
+    {
+      dir      = query.longitude < curr.longitude ? 0 : 1;
+      axisDist = computeDistance(0, query.longitude, 0, query.longitude);
+    }
+    else if (axis == 2)
+    {
+      dir      = query.depth < curr.depth ? 0 : 1;
+      axisDist = std::abs(curr.depth - query.depth);
+    }
+    else
+    {
+      throw std::runtime_error("KDTree internal logic error");
+    }
+
+    radiusSearchRecursive(query, node->next[dir], queue, radius);
+
+    if (axisDist <= radius)
+    {
+      radiusSearchRecursive(query, node->next[dir == 0 ? 1 : 0], queue, radius);
+    }
   }
 
 private:

@@ -148,10 +148,10 @@ NLLGrid::NLLGrid(const std::string &gridPath,
             _PVelGrid ? 1 : 0, _SVelGrid ? 1 : 0, PTimeGrids.size(),
             STimeGrids.size(), PAngleGrids.size(), SAngleGrids.size());
 
-  _PTimeKDTree  = KDTree<shared_ptr<TimeGrid>>(PTimeGrids);
-  _STimeKDTree  = KDTree<shared_ptr<TimeGrid>>(STimeGrids);
-  _PAngleKDTree = KDTree<shared_ptr<AngleGrid>>(PAngleGrids);
-  _SAngleKDTree = KDTree<shared_ptr<AngleGrid>>(SAngleGrids);
+  _PTimeKDTree  = KDTree<shared_ptr<TimeGrid>>(std::move(PTimeGrids));
+  _STimeKDTree  = KDTree<shared_ptr<TimeGrid>>(std::move(STimeGrids));
+  _PAngleKDTree = KDTree<shared_ptr<AngleGrid>>(std::move(PAngleGrids));
+  _SAngleKDTree = KDTree<shared_ptr<AngleGrid>>(std::move(SAngleGrids));
 
   _openGrids.register_on_pop([](const string &key, GridHolder &h) {
     if (h.velGrid) h.velGrid->close();
