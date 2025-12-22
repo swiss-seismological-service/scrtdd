@@ -25,8 +25,4 @@ FOREACH(testSrc ${TESTS})
 		COMMAND ${testName}
 	)
 
-	# Set the data directory to read the test travel time tables
-	SET_TESTS_PROPERTIES(${testName} PROPERTIES
-		ENVIRONMENT "SEISCOMP_ROOT=${CMAKE_CURRENT_SOURCE_DIR}/data"
-	) 
 ENDFOREACH(testSrc)

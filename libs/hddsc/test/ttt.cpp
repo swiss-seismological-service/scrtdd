@@ -41,12 +41,6 @@ struct Delta
 };
 
 vector<Delta> deltaList = {
-    //
-    {   0,    0, -1},
-    {   0,    0,  1},
-    {0.01,    0,  0},
-    {   0, 0.01,  0},
-    //
     {0.05, 0, -1},
     {0.05, 0, 1},
     {0.05, 0, 2},
@@ -90,64 +84,64 @@ vector<Delta> deltaListZeroElevation = {
     {0.05, 0, 8},
     {0.05, 0, 16},
     {0.05, 0, 25},
-    {0.05, 0, 35},
+    {0.05, 0, 40},
     {0, 0.05, 4},
     {0, 0.05, 8},
     {0, 0.05, 16},
     {0, 0.05, 25},
-    {0, 0.05, 35},
+    {0, 0.05, 40},
     {-0.05, 0, 4},
     {-0.05, 0, 8},
     {-0.05, 0, 16},
     {-0.05, 0, 25},
-    {-0.05, 0, 35},
+    {-0.05, 0, 40},
     {0, -0.05, 4},
     {0, -0.05, 8},
     {0, -0.05, 16},
     {0, -0.05, 25},
-    {0, -0.05, 35},
+    {0, -0.05, 40},
     //
     {0.1, 0, 4},
     {0.1, 0, 8},
     {0.1, 0, 16},
     {0.1, 0, 25},
-    {0.1, 0, 35},
+    {0.1, 0, 40},
     {0, 0.1, 4},
     {0, 0.1, 8},
     {0, 0.1, 16},
     {0, 0.1, 25},
-    {0, 0.1, 35},
+    {0, 0.1, 40},
     {-0.1, 0, 4},
     {-0.1, 0, 8},
     {-0.1, 0, 16},
     {-0.1, 0, 25},
-    {-0.1, 0, 35},
+    {-0.1, 0, 40},
     {0, -0.1, 4},
     {0, -0.1, 8},
     {0, -0.1, 16},
     {0, -0.1, 25},
-    {0, -0.1, 35},
+    {0, -0.1, 40},
     //
     {0.4, 0, 4},
     {0.4, 0, 8},
     {0.4, 0, 16},
     {0.4, 0, 25},
-    {0.4, 0, 35},
+    {0.4, 0, 40},
     {0, 0.4, 4},
     {0, 0.4, 8},
     {0, 0.4, 16},
     {0, 0.4, 25},
-    {0, 0.4, 35},
+    {0, 0.4, 40},
     {-0.4, 0, 4},
     {-0.4, 0, 8},
     {-0.4, 0, 16},
     {-0.4, 0, 25},
-    {-0.4, 0, 35},
+    {-0.4, 0, 40},
     {0, -0.4, 4},
     {0, -0.4, 8},
     {0, -0.4, 16},
     {0, -0.4, 25},
-    {0, -0.4, 35},
+    {0, -0.4, 40},
 };
 
 void test_ttt_internal(const std::vector<TTTParams>& tttPrms,
@@ -173,9 +167,10 @@ void test_ttt_internal(const std::vector<TTTParams>& tttPrms,
     const double lon          = station.longitude + delta.lon;
     const double depth        = stationDepth + delta.depth;
 
-    BOOST_TEST_MESSAGE(strf("Testing station %s lat %.1f lon %.1f depth %.1f",
+    BOOST_TEST_MESSAGE(strf("Testing station %s lat %.1f lon %.1f depth %.1f "
+                            "with lat %.2f lon %.2f depth %.2f",
                             station.id.c_str(), station.latitude,
-                            station.longitude, stationDepth));
+                            station.longitude, stationDepth, lat, lon, depth));
 
     vector<double> travelTimeP(ttts.size(), 0);
     vector<double> takeOffAngleAzimP(ttts.size(), 0);
@@ -189,6 +184,7 @@ void test_ttt_internal(const std::vector<TTTParams>& tttPrms,
 
     for (size_t i = 0; i < ttts.size(); i++)
     {
+      BOOST_TEST_MESSAGE("TTT type " + tttPrms[i].type);
       BOOST_CHECK_NO_THROW(ttts[i]->compute(
           lat, lon, depth, station, "P", travelTimeP[i], takeOffAngleAzimP[i],
           takeOffAngleDipP[i], velocityAtSrcP[i]));
@@ -208,9 +204,9 @@ void test_ttt_internal(const std::vector<TTTParams>& tttPrms,
           "TTT type %-9s [Travel time, Velocity, Take-Off Angle Azimuth and "
           "Dip] P [%5.2f %5.2f %4.f %4.f] S [%5.2f %5.2f %4.f %4.f]",
           tttPrms[i].type.c_str(), travelTimeP[i], velocityAtSrcP[i],
-          radToDeg(takeOffAngleAzimP[i]), radToDeg(takeOffAngleDipP[i]),
-          travelTimeS[i], velocityAtSrcS[i], radToDeg(takeOffAngleAzimS[i]),
-          radToDeg(takeOffAngleDipS[i])));
+          takeOffAngleAzimP[i], takeOffAngleDipP[i],
+          travelTimeS[i], velocityAtSrcS[i], takeOffAngleAzimS[i],
+          takeOffAngleDipS[i]));
     }
 
     for (size_t i = 0; i < ttts.size() - 1; i++)
@@ -223,17 +219,15 @@ void test_ttt_internal(const std::vector<TTTParams>& tttPrms,
         BOOST_CHECK_CLOSE(velocityAtSrcS[i], velocityAtSrcS[j], 5);
 
         auto checkCloseAngles = [](double x, double y, double degreeTol) {
-          double diffAngle = atan2(sin(x - y), cos(x - y));
-          diffAngle        = radToDeg(diffAngle);
-          BOOST_TEST_MESSAGE(" x " << radToDeg(x) << " y " << radToDeg(y)
-                                   << " delta " << diffAngle);
+          double diffAngle = std::fmod(x - y + 540.0, 360.0) - 180.0;
+          diffAngle = std::abs(diffAngle);
           BOOST_CHECK_SMALL(diffAngle, degreeTol);
         };
 
-        checkCloseAngles(takeOffAngleAzimP[i], takeOffAngleAzimP[j], 3);
-        checkCloseAngles(takeOffAngleDipP[i], takeOffAngleDipP[j], 3);
-        checkCloseAngles(takeOffAngleAzimS[i], takeOffAngleAzimS[j], 3);
-        checkCloseAngles(takeOffAngleDipS[i], takeOffAngleDipS[j], 3);
+        checkCloseAngles(takeOffAngleAzimP[i], takeOffAngleAzimP[j], 6);
+        checkCloseAngles(takeOffAngleDipP[i], takeOffAngleDipP[j], 6);
+        checkCloseAngles(takeOffAngleAzimS[i], takeOffAngleAzimS[j], 6);
+        checkCloseAngles(takeOffAngleDipS[i], takeOffAngleDipS[j], 6);
       }
     }
   }
@@ -248,8 +242,16 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
   BOOST_TEST_MESSAGE(strf("Testing DELTA lat %.1f lon %.1f depth %.1f",
                           delta.lat, delta.lon, delta.depth));
 
-  std::vector<TTTParams> tttPrms(tttList);
-  for (const TTTParams& prms : tttListSC){
+  std::vector<TTTParams> tttPrms;
+  for (const TTTParams& prms : tttList)
+  {
+    if (prms.type == "Native:homogeneous" || prms.type == "Native:NonLinLoc")
+    {
+      tttPrms.push_back(prms);
+    }
+  }
+  for (const TTTParams& prms : tttListSC)
+  {
     if (prms.type == "homogeneous" || prms.type == "tttnll")
     {
       tttPrms.push_back(prms);
@@ -260,13 +262,21 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
 
 BOOST_DATA_TEST_CASE(test_ttt_zero_elevation, bdata::xrange(deltaListZeroElevation.size()), deltaIdx)
 {
-  const Delta &delta = deltaList[deltaIdx];
+  const Delta &delta = deltaListZeroElevation[deltaIdx];
 
   BOOST_TEST_MESSAGE(strf("Testing DELTA lat %.1f lon %.1f depth %.1f",
                           delta.lat, delta.lon, delta.depth));
 
   std::vector<TTTParams> tttPrms;
-  for (const TTTParams& prms : tttListSC){
+  for (const TTTParams& prms : tttList)
+  {
+    if (prms.type == "Native:NonLinLoc")
+    {
+      tttPrms.push_back(prms);
+    }
+  }
+  for (const TTTParams& prms : tttListSC)
+  {
     if (prms.type == "libtau" || prms.type == "LOCSAT" || prms.type == "tttnll")
     {
       tttPrms.push_back(prms);

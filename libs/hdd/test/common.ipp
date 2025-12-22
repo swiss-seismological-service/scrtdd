@@ -61,7 +61,7 @@ std::unique_ptr<HDD::TravelTimeTable> createTTT(const TTTParams &prms)
   if (prms.type == "Native:NonLinLoc")
   {
     return std::unique_ptr<HDD::TravelTimeTable>(
-        new HDD::TTT::NLLGrid(prms.args[0], prms.args[1], 1.0, false, 5));
+        new HDD::TTT::NLLGrid(prms.args[0], prms.args[1], 1.0, false, 256));
   }
   else if (prms.type == "Native:homogeneous")
   {

@@ -29,7 +29,7 @@ VGOUT  ./model/iasp91
 #
 # Layer 2DGrid (NOTE: num_grid_x must be = 2 for 2D grids)
 # 3D grid
-VGGRID 111 111 72 -40 -40 -4.0 0.7 0.7 0.7 SLOW_LEN
+VGGRID  201 201 72 -70 -70 -4.0 0.7 0.7 0.7 SLOW_LEN
 
 # -----------------------------------------------------------------------------
 # velocity model description

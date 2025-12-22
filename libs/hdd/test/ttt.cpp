@@ -160,8 +160,6 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
         auto checkCloseAngles = [](double x, double y, double degreeTol) {
           double diffAngle = std::fmod(x - y + 540.0, 360.0) - 180.0;
           diffAngle = std::abs(diffAngle);
-          BOOST_TEST_MESSAGE(" x " << x << " y " << y
-                                   << " delta " << diffAngle);
           BOOST_CHECK_SMALL(diffAngle, degreeTol);
         };
 

@@ -420,7 +420,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event1,
                      tttIdx)
 {
   const Centroid &centroid = centroidList.at(cIdx);
-  bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
+  bool nllStations         = (tttList.at(tttIdx).type == "Native:NonLinLoc");
 
   if (nllStations && 
    (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
@@ -453,7 +453,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event2,
                      tttIdx)
 {
   const Centroid &centroid = centroidList.at(cIdx);
-  bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
+  bool nllStations         = (tttList.at(tttIdx).type == "Native:NonLinLoc");
 
   if (nllStations && 
    (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
@@ -498,7 +498,7 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event3,
                      tttIdx)
 {
   const Centroid &centroid = centroidList.at(cIdx);
-  bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
+  bool nllStations         = (tttList.at(tttIdx).type == "Native:NonLinLoc");
 
   if (nllStations && 
    (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
@@ -534,7 +534,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event1,
                      tttIdx)
 {
   const Centroid &centroid = centroidList.at(cIdx);
-  bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
+  bool nllStations         = (tttList.at(tttIdx).type == "Native:NonLinLoc");
 
   if (nllStations && 
    (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
@@ -570,7 +570,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event2,
                      tttIdx)
 {
   const Centroid &centroid = centroidList.at(cIdx);
-  bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
+  bool nllStations         = (tttList.at(tttIdx).type == "Native:NonLinLoc");
 
   if (nllStations &&  
    (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
@@ -618,7 +618,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event3,
                      tttIdx)
 {
   const Centroid &centroid = centroidList.at(cIdx);
-  bool nllStations         = (tttList.at(tttIdx).type == "NonLinLoc");
+  bool nllStations         = (tttList.at(tttIdx).type == "Native:NonLinLoc");
 
   if (nllStations &&
    (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
