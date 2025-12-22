@@ -380,7 +380,7 @@ DD::findClusters(const ClusteringOptions &clustOpt)
   unordered_map<unsigned, Neighbours> neighboursByEvent =
       selectNeighbouringEventsCatalog(
           _bgCat, clustOpt.minESdist, clustOpt.maxESdist,
-          clustOpt.minEStoIEratio, clustOpt.minDTperEvt, clustOpt.maxDTperEvt,
+          clustOpt.minEStoIEratio, clustOpt.minNumPhases, clustOpt.maxNumPhases,
           clustOpt.minNumNeigh, clustOpt.maxNumNeigh, clustOpt.numEllipsoids,
           clustOpt.maxEllipsoidSize);
 
@@ -438,9 +438,9 @@ Catalog DD::relocateMultiEvents(
     unordered_map<unsigned, Neighbours> neighboursByEvent =
         selectNeighbouringEventsCatalog(
             catToReloc, clustOpt.minESdist, clustOpt.maxESdist,
-            clustOpt.minEStoIEratio, clustOpt.minDTperEvt, clustOpt.maxDTperEvt,
-            clustOpt.minNumNeigh, clustOpt.maxNumNeigh, clustOpt.numEllipsoids,
-            clustOpt.maxEllipsoidSize);
+            clustOpt.minEStoIEratio, clustOpt.minNumPhases,
+            clustOpt.maxNumPhases, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
+            clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize);
 
     // Organize the neighbours by non-connected clusters
     clusters = clusterizeNeighbouringEvents(neighboursByEvent);
@@ -688,8 +688,8 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
     //
     Neighbours neighbours = selectNeighbouringEvents(
         bgCat, evToRelocate, evToRelocateCat, clustOpt.minESdist,
-        clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minDTperEvt,
-        clustOpt.maxDTperEvt, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
+        clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minNumPhases,
+        clustOpt.maxNumPhases, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
         clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize);
 
     logInfoF("Found %zu neighbouring events", neighbours.ids().size());

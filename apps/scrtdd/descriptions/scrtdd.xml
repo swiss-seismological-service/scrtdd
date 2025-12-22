@@ -102,10 +102,10 @@
               <group name="singleEvent">
                 <description>Configuration for single-event relocation</description>
                 <parameter name="maxNumNeighbours" type="int" default="80">
-                  <description>Maximum number of neighbors per event. Useful to reduce computation time when relocating a large number events. A value of 0 disables this limit</description>
-                </parameter>  
+                  <description>Maximum number of neighbors per event. A value of 0 disables this limit</description>
+                </parameter>
                 <parameter name="numEllipsoids" type="int" default="5">
-                  <description>Number of concentric ellipsoidal layers to use in neighboring events selection. If 'maxNumNeigh' is not set this parameter does not have effects. If 'maxNumNeigh' is set and 'numEllipsoids' is not 0, the optimal 'maxNumNeigh' value is 'numEllipsoids' * 8.</description>
+                  <description>Number of concentric ellipsoidal layers to use in neighboring events selection. If 'maxNumNeigh' is not set this parameter does not have effects. If 'numEllipsoids' is not 0, the optimal 'maxNumNeigh' value is 'numEllipsoids' * 8.</description>
                 </parameter>
                 <parameter name="maxEllipsoidSize" type="double" default="5" unit="km">
                   <description>Horizontal axis length (km) of the outermost boundary. Each inner concentric layer axis will be of size/2 of the previous one. Please, note that the horizontal axis size is half of the vertical one.</description>
@@ -114,10 +114,10 @@
               <group name="multiEvent">
                 <description>Configuration for multi-event relocation</description>
                 <parameter name="maxNumNeighbours" type="int" default="30">
-                  <description>Maximum number of neighbors per event. Useful to reduce computation time when relocating a large number events. A value of 0 or less disables this limit</description>
+                  <description>Maximum number of neighbors per event. A value of 0 or less disables this limit</description>
                 </parameter>  
                 <parameter name="numEllipsoids" type="int" default="0">
-                  <description>Number of concentric ellipsoidal layers to use in neighboring events selection. If 'maxNumNeigh' is not set this parameter does not have effects. If 'maxNumNeigh' is set and 'numEllipsoids' is not 0, the optimal 'maxNumNeigh' value is 'numEllipsoids' * 8.</description>
+                  <description>Number of concentric ellipsoidal layers to use in neighboring events selection. If 'maxNumNeigh' is not set this parameter does not have effects. If 'numEllipsoids' is not 0, the optimal 'maxNumNeigh' value is 'numEllipsoids' * 8.</description>
                 </parameter>
                 <parameter name="maxEllipsoidSize" type="double" default="5" unit="km">
                   <description>Horizontal axis length (km) of the outermost boundary. Each inner concentric layer axis will be of size/2 of the previous one. Please, note that the horizontal axis size is half of the vertical one.</description>

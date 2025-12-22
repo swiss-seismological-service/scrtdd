@@ -547,15 +547,15 @@ bool RTDD::validateParameters()
              ".doubleDifferenceSystem.eventFiltering.";
     try
     {
-      prof->singleEventClustering.minDTperEvt =
+      prof->singleEventClustering.minNumPhases =
           configGetInt(prefix + "minNumPhases");
-      prof->multiEventClustering.minDTperEvt =
+      prof->multiEventClustering.minNumPhases =
           configGetInt(prefix + "minNumPhases");
     }
     catch (...)
     {
-      prof->singleEventClustering.minDTperEvt = 4;
-      prof->multiEventClustering.minDTperEvt  = 4;
+      prof->singleEventClustering.minNumPhases = 4;
+      prof->multiEventClustering.minNumPhases  = 4;
     }
 
     try
@@ -987,11 +987,11 @@ bool RTDD::validateParameters()
     }
 
     // no reason to make those configurable
-    prof->recordStreamURL                   = recordStreamURL();
-    prof->singleEventClustering.maxDTperEvt = 0;
-    prof->multiEventClustering.maxDTperEvt  = 0;
-    prof->solverOpt.L2normalization         = true;
-    prof->solverOpt.solverIterations        = 0;
+    prof->recordStreamURL                    = recordStreamURL();
+    prof->singleEventClustering.maxNumPhases = 0;
+    prof->multiEventClustering.maxNumPhases  = 0;
+    prof->solverOpt.L2normalization          = true;
+    prof->solverOpt.solverIterations         = 0;
 
     _profiles.push_back(prof);
   }
