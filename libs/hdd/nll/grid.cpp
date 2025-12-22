@@ -398,9 +398,15 @@ double interpolateSquareLagrange(double xdiff,
                                  double vval10,
                                  double vval11)
 {
-  return vval00 * (1.0 - xdiff) * (1.0 - zdiff) +
-         vval01 * (1.0 - xdiff) * zdiff + vval10 * xdiff * (1.0 - zdiff) +
-         vval11 * xdiff * zdiff;
+  // Lambda for linear interpolation
+  auto lerp = [](double a, double b, double t) { return a + t * (b - a); };
+
+  // Step 1: Interpolate along Z-axis (reducing 4 points to 2)
+  double z0 = lerp(vval00, vval01, zdiff);
+  double z1 = lerp(vval10, vval11, zdiff);
+
+  // Step 2: Interpolate along X-axis (final value)
+  return lerp(z0, z1, xdiff);
 }
 
 /*
@@ -420,70 +426,84 @@ double interpolateCubeLagrange(double xdiff,
                                double vval110,
                                double vval111)
 {
-  double oneMinusXdiff = 1.0 - xdiff;
-  double oneMinusYdiff = 1.0 - ydiff;
-  double oneMinusZdiff = 1.0 - zdiff;
+  // Define the linear interpolation lambda
+  auto lerp = [](double a, double b, double t) { return a + t * (b - a); };
 
-  return vval000 * (oneMinusXdiff) * (oneMinusYdiff) * (oneMinusZdiff) +
-         vval001 * (oneMinusXdiff) * (oneMinusYdiff)*zdiff +
-         vval010 * (oneMinusXdiff)*ydiff * (oneMinusZdiff) +
-         vval011 * (oneMinusXdiff)*ydiff * zdiff +
-         vval100 * xdiff * (oneMinusYdiff) * (oneMinusZdiff) +
-         vval101 * xdiff * (oneMinusYdiff)*zdiff +
-         vval110 * xdiff * ydiff * (oneMinusZdiff) +
-         vval111 * xdiff * ydiff * zdiff;
+  // Step 1: Interpolate along Z-axis (reducing 8 points to 4)
+  double z00 = lerp(vval000, vval001, zdiff);
+  double z01 = lerp(vval010, vval011, zdiff);
+  double z10 = lerp(vval100, vval101, zdiff);
+  double z11 = lerp(vval110, vval111, zdiff);
+
+  // Step 2: Interpolate along Y-axis (reducing 4 points to 2)
+  double y0 = lerp(z00, z01, ydiff);
+  double y1 = lerp(z10, z11, ydiff);
+
+  // Step 3: Interpolate along X-axis (final value)
+  return lerp(y0, y1, xdiff);
 }
 
 /*
- * function to find angles inside a cube
- * angle_quality_cutoff value to determine "bad" angles
- * 0.0 <= xdiff/ydiff/zdiff <= 1.0
+ * Similar to interpolateSquareLagrange but for angles. Since they can wrap
+ * at 360 degree, they need a special function
  */
-TakeOffAngles interpolateCubeAngles(double xdiff,
-                                    double ydiff,
-                                    double zdiff,
-                                    TakeOffAngles vval000,
-                                    TakeOffAngles vval001,
-                                    TakeOffAngles vval010,
-                                    TakeOffAngles vval011,
-                                    TakeOffAngles vval100,
-                                    TakeOffAngles vval101,
-                                    TakeOffAngles vval110,
-                                    TakeOffAngles vval111,
-                                    unsigned angle_quality_cutoff)
+double interpolateSquareAngles(
+    double xdiff, double zdiff, double v00, double v01, double v10, double v11)
 {
-  // check for lowest quality angles
-  unsigned short lowest_qual = std::min(std::initializer_list<unsigned short>(
-      {vval000.quality, vval001.quality, vval010.quality, vval011.quality,
-       vval100.quality, vval101.quality, vval110.quality, vval111.quality}));
+  // 1. Interpolate X-components
+  double x_comp = interpolateSquareLagrange(
+      xdiff, zdiff, cos(degToRad(v00)), cos(degToRad(v01)), cos(degToRad(v10)),
+      cos(degToRad(v11)));
 
-  // if lowest quality is too low, use nearest node */
-  if (lowest_qual < angle_quality_cutoff)
-  {
-    TakeOffAngles nearest;
-    if (xdiff < 0.5)
-      nearest = (ydiff < 0.5) ? ((zdiff < 0.5) ? vval000 : vval001)
-                              : ((zdiff < 0.5) ? vval010 : vval011);
-    else
-      nearest = (ydiff < 0.5) ? ((zdiff < 0.5) ? vval100 : vval101)
-                              : ((zdiff < 0.5) ? vval110 : vval111);
+  // 2. Interpolate Z-components
+  double z_comp = interpolateSquareLagrange(
+      xdiff, zdiff, sin(degToRad(v00)), sin(degToRad(v01)), sin(degToRad(v10)),
+      sin(degToRad(v11)));
 
-    if (nearest.quality > lowest_qual)
-    {
-      return nearest;
-    }
-  }
+  // 3. Convert back to degrees
+  double result = atan2(z_comp, x_comp);
 
-  /* otherwise interpolate */
-  unsigned short azim_interp = interpolateCubeLagrange(
-      xdiff, ydiff, zdiff, vval000.azimuth, vval001.azimuth, vval010.azimuth,
-      vval011.azimuth, vval100.azimuth, vval101.azimuth, vval110.azimuth,
-      vval111.azimuth);
-  unsigned short dip_interp = interpolateCubeLagrange(
-      xdiff, ydiff, zdiff, vval000.dip, vval001.dip, vval010.dip, vval011.dip,
-      vval100.dip, vval101.dip, vval110.dip, vval111.dip);
+  // Normalize to [0, 360)
+  result = radToDeg(result);
+  if (result < 0) result += 360.0;
+  return result;
+}
 
-  return {lowest_qual, dip_interp, azim_interp};
+/*
+ * Similar to interpolateCubeLagrange but for angles. Since they can wrap
+ * at 360 degree, they need a special function
+ */
+double interpolateCubeAngles(double xdiff,
+                             double ydiff,
+                             double zdiff,
+                             double v000,
+                             double v001,
+                             double v010,
+                             double v011,
+                             double v100,
+                             double v101,
+                             double v110,
+                             double v111)
+{
+  // 1. Interpolate the X-components (cosines)
+  double cos_comp = interpolateCubeLagrange(
+      xdiff, ydiff, zdiff, cos(degToRad(v000)), cos(degToRad(v001)),
+      cos(degToRad(v010)), cos(degToRad(v011)), cos(degToRad(v100)),
+      cos(degToRad(v101)), cos(degToRad(v110)), cos(degToRad(v111)));
+
+  // 2. Interpolate the Y-components (sines)
+  double sin_comp = interpolateCubeLagrange(
+      xdiff, ydiff, zdiff, sin(degToRad(v000)), sin(degToRad(v001)),
+      sin(degToRad(v010)), sin(degToRad(v011)), sin(degToRad(v100)),
+      sin(degToRad(v101)), sin(degToRad(v110)), sin(degToRad(v111)));
+
+  // 3. Reconstruct the angle from the average vector components
+  double result = atan2(sin_comp, cos_comp);
+
+  // Normalize result to [0, 360)
+  result = radToDeg(result);
+  if (result < 0) result += 360.0;
+  return result;
 }
 
 } // namespace
@@ -1262,9 +1282,26 @@ GRID_FLOAT_TYPE AngleGrid::interpolateValues3D(double xdiff,
                                                GRID_FLOAT_TYPE vval110,
                                                GRID_FLOAT_TYPE vval111)
 {
-  return interpolateCubeAngles(xdiff, ydiff, zdiff, vval000, vval001, vval010,
-                               vval011, vval100, vval101, vval110, vval111,
-                               _quality_cutoff);
+  // get lowest quality angles
+  unsigned short lowest_qual = std::min(std::initializer_list<unsigned short>(
+      {vval000.quality, vval001.quality, vval010.quality, vval011.quality,
+       vval100.quality, vval101.quality, vval110.quality, vval111.quality}));
+
+  // due to the azimuth angle range that span 0/360, we must use a special
+  // interpolation function that handle the wrapping at 360
+  unsigned short azim_interp =
+      interpolateCubeAngles(
+          xdiff, ydiff, zdiff, vval000.azimuth / 10., vval001.azimuth / 10.,
+          vval010.azimuth / 10., vval011.azimuth / 10., vval100.azimuth / 10.,
+          vval101.azimuth / 10., vval110.azimuth / 10., vval111.azimuth / 10.) *
+      10.0;
+
+  // dip angles are in the range 0-180, so simple interpolation
+  unsigned short dip_interp = interpolateCubeLagrange(
+      xdiff, ydiff, zdiff, vval000.dip, vval001.dip, vval010.dip, vval011.dip,
+      vval100.dip, vval101.dip, vval110.dip, vval111.dip);
+
+  return {lowest_qual, dip_interp, azim_interp};
 }
 
 template <typename GRID_FLOAT_TYPE>
@@ -1275,8 +1312,21 @@ GRID_FLOAT_TYPE AngleGrid::interpolateValues2D(double xdiff,
                                                GRID_FLOAT_TYPE vval10,
                                                GRID_FLOAT_TYPE vval11)
 {
-  return interpolateCubeAngles(0, xdiff, zdiff, vval00, vval01, vval10, vval11,
-                               vval00, vval01, vval10, vval11, _quality_cutoff);
+  // get lowest quality angles
+  unsigned short lowest_qual = std::min(std::initializer_list<unsigned short>(
+      {vval00.quality, vval01.quality, vval10.quality, vval11.quality}));
+
+  // There is no azimuth in 2D Angle Grids: skip the value computation
+  unsigned short azim_interp = 0;
+  //    interpolateSquareAngles(xdiff, zdiff, vval00.azimuth / 10.,
+  //                            vval01.azimuth / 10., vval10.azimuth / 10.,
+  //                            vval11.azimuth / 10.) * 10.0;
+
+  // dip angles are in the range 0-180, so simple interpolation
+  unsigned short dip_interp = interpolateSquareLagrange(
+      xdiff, zdiff, vval00.dip, vval01.dip, vval10.dip, vval11.dip);
+
+  return {lowest_qual, dip_interp, azim_interp};
 }
 
 VelGrid::VelGrid(const std::string &filePath, bool swapBytes)

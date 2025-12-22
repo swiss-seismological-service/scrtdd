@@ -293,7 +293,7 @@ public:
   {
     unsigned short quality : 4;  // 0 to 10
     unsigned short dip : 12;     // 0 (down) to 1800 (up) in tenths deg
-    unsigned short azimuth : 16; // 0 to 3600 in tenths deg
+    unsigned short azimuth : 16; // 0 to 3600 in tenths deg, clockwise
   };
 
 private:
