@@ -71,7 +71,7 @@ void addEventToCatalog(HDD::Catalog &cat, double lat, double lon, double depth)
   ev.latitude            = lat;
   ev.longitude           = lon;
   ev.depth               = depth;
-  const unsigned eventId = cat.addEvent(ev);
+  const unsigned eventId = cat.addEvent(ev, false);
 
   for (const auto &kv : cat.getStations())
   {
@@ -577,7 +577,7 @@ BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
   }
 
   list<unordered_map<unsigned, HDD::Neighbours>> clusters =
-      HDD::clusterizeNeighbouringEvents(neighboursByEvent);
+      HDD::clusterizeNeighbouringEvents(std::move(neighboursByEvent));
 
   BOOST_REQUIRE(clusters.size() == 1);
 
@@ -652,7 +652,7 @@ BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
   }
 
   list<unordered_map<unsigned, HDD::Neighbours>> clusters =
-      HDD::clusterizeNeighbouringEvents(neighboursByEvent);
+      HDD::clusterizeNeighbouringEvents(std::move(neighboursByEvent));
 
   BOOST_REQUIRE(clusters.size() == 4);
 

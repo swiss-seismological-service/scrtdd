@@ -251,7 +251,7 @@ addToCatalog(HDD::Catalog &cat,
     SEISCOMP_DEBUG("Adding origin '%s' to the Catalog",
                    org->publicID().c_str());
 
-    unsigned newEventId = cat.addEvent(ev);
+    unsigned newEventId = cat.addEvent(ev, false);
 
     // add phases
     for (size_t i = 0; i < org->arrivalCount(); ++i)

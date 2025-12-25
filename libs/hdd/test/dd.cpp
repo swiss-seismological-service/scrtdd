@@ -104,7 +104,7 @@ void addEventToCatalog(HDD::Catalog &cat,
   ev.longitude           = normalizeLon(lon);
   ev.depth               = depth;
   ev.magnitude           = 1.0;
-  const unsigned eventId = cat.addEvent(ev);
+  const unsigned eventId = cat.addEvent(ev, false);
 
   for (const auto &kv : cat.getStations())
   {

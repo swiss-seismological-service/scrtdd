@@ -714,10 +714,9 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
  * In addition, don't report the same pair multiple times (e.g. ev1-ev2 and
  * ev2-ev1) since we only need one observation per pair in the DD solver.
  *
- * The input will be moved to the return value!
  */
 list<unordered_map<unsigned, Neighbours>> clusterizeNeighbouringEvents(
-    unordered_map<unsigned, Neighbours> &neighboursByEvent)
+    unordered_map<unsigned, Neighbours> neighboursByEvent)
 {
   map<unsigned, vector<Neighbours>> clusters;         // cluster id, cluster
   unordered_map<unsigned, unsigned> clusterIdByEvent; // event id, cluster id

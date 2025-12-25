@@ -90,7 +90,7 @@ private:
   std::unordered_set<std::string> _validSphases;
   std::unique_ptr<HDD::TTT::NLLGrid> _grids;
 
-  static void initializeLibraryOnce()
+  static bool initializeLibraryOnce()
   {
     static bool initialized = []() {
       // init HDD Logger
@@ -106,6 +106,7 @@ private:
       HDD::Logger::setLogger(hddLogger);
       return true;
     }();
+    return initialized;
   }
 };
 

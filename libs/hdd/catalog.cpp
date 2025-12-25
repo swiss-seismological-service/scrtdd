@@ -82,6 +82,24 @@ bool strToBool(const std::string &s)
 
 namespace HDD {
 
+Catalog::Catalog(const std::vector<Station> &stations,
+                 const std::vector<Event> &events,
+                 const std::vector<Phase> &phases)
+{
+  for (const auto &sta : stations)
+  {
+    addStation(sta);
+  }
+  for (const auto &ev : events)
+  {
+    addEvent(ev, true);
+  }
+  for (const auto &ph : phases)
+  {
+    addPhase(ph);
+  }
+}
+
 Catalog::Catalog(const string &stationFile,
                  const string &eventFile,
                  const string &phaFile,
@@ -244,35 +262,25 @@ void Catalog::add(const Catalog &other, bool keepEvId)
       logDebugF("Skipping duplicated event id %u", event.id);
       continue;
     }
-    this->add(event.id, other, keepEvId);
+    add(event.id, other, keepEvId);
   }
 }
 
 Catalog Catalog::extractEvent(unsigned eventId, bool keepEvId) const
 {
-  Catalog eventToExtract{};
 
-  auto search = this->getEvents().find(eventId);
-  if (search == this->getEvents().end())
+  auto search = getEvents().find(eventId);
+  if (search == getEvents().end())
   {
     string msg = strf("Cannot find event id %u in the catalog.", eventId);
     throw Exception(msg);
   }
 
   const Catalog::Event &event = search->second;
-  unsigned newEventId;
+  Catalog eventToExtract{};
+  unsigned newEventId = eventToExtract.addEvent(event, keepEvId);
 
-  if (keepEvId)
-  {
-    eventToExtract._events[event.id] = event;
-    newEventId                       = event.id;
-  }
-  else
-  {
-    newEventId = eventToExtract.addEvent(event);
-  }
-
-  auto eqlrng = this->getPhases().equal_range(event.id);
+  auto eqlrng = getPhases().equal_range(event.id);
   for (auto it = eqlrng.first; it != eqlrng.second; ++it)
   {
     Catalog::Phase phase = it->second;
@@ -289,24 +297,9 @@ Catalog Catalog::extractEvent(unsigned eventId, bool keepEvId) const
 
 unsigned Catalog::add(unsigned evId, const Catalog &evCat, bool keepEvId)
 {
-  unsigned newEventId;
-
   const Catalog::Event &event = evCat._events.find(evId)->second;
 
-  if (keepEvId)
-  {
-    if (_events.find(event.id) != _events.end())
-    {
-      throw Exception("Cannot add event, the same id exists already");
-    }
-    _events[event.id] = event;
-    newEventId        = event.id;
-  }
-  else
-  {
-    // don't add an event with same values, but keep merging phases
-    newEventId = addEvent(event);
-  }
+  unsigned newEventId = addEvent(event, keepEvId);
 
   auto eqlrng = evCat._phases.equal_range(event.id);
   for (auto it = eqlrng.first; it != eqlrng.second; ++it)
@@ -362,7 +355,7 @@ bool Catalog::updateStation(const Station &newStation, bool addIfMissing)
   return false;
 }
 
-bool Catalog::updateEvent(const Event &newEv, bool addIfMissing)
+bool Catalog::updateEvent(const Event &newEv, bool addIfMissing, bool keepEvId)
 {
   map<unsigned, Catalog::Event>::iterator it = _events.find(newEv.id);
   if (it != _events.end())
@@ -372,7 +365,7 @@ bool Catalog::updateEvent(const Event &newEv, bool addIfMissing)
   }
   else if (addIfMissing)
   {
-    addEvent(newEv);
+    addEvent(newEv, keepEvId);
   }
   return false;
 }
@@ -419,14 +412,26 @@ string Catalog::addStation(const Station &sta)
   return stationId;
 }
 
-unsigned Catalog::addEvent(const Event &event)
+unsigned Catalog::addEvent(const Event &event, bool keepEvId)
 {
-  decltype(_events)::key_type maxKey =
-      _events.empty() ? 0 : _events.rbegin()->first;
-  Event newEvent       = event;
-  newEvent.id          = maxKey + 1;
-  _events[newEvent.id] = newEvent;
-  return newEvent.id;
+  if (keepEvId)
+  {
+    if (_events.find(event.id) != _events.end())
+    {
+      throw Exception("Cannot add event, the same id exists already");
+    }
+    _events[event.id] = event;
+    return event.id;
+  }
+  else
+  {
+    decltype(_events)::key_type maxKey =
+        _events.empty() ? 0 : _events.rbegin()->first;
+    Event newEvent       = event;
+    newEvent.id          = maxKey + 1;
+    _events[newEvent.id] = newEvent;
+    return newEvent.id;
+  }
 }
 
 void Catalog::addPhase(const Phase &phase)

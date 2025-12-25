@@ -52,7 +52,7 @@ public:
 
   KDTree() = default;
 
-  KDTree(std::vector<Point> &&points)
+  KDTree(std::vector<Point> points)
   {
     _points = std::move(points);
     _nodes.resize(_points.size());

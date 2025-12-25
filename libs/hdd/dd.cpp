@@ -385,7 +385,7 @@ DD::findClusters(const ClusteringOptions &clustOpt)
           clustOpt.maxEllipsoidSize);
 
   // Organize the neighbours by not connected clusters
-  return clusterizeNeighbouringEvents(neighboursByEvent);
+  return clusterizeNeighbouringEvents(std::move(neighboursByEvent));
 }
 
 Catalog DD::relocateMultiEvents(
@@ -443,7 +443,7 @@ Catalog DD::relocateMultiEvents(
             clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize);
 
     // Organize the neighbours by non-connected clusters
-    clusters = clusterizeNeighbouringEvents(neighboursByEvent);
+    clusters = clusterizeNeighbouringEvents(std::move(neighboursByEvent));
   }
 
   logInfoF("Found %zu event clusters with the following number of events:",

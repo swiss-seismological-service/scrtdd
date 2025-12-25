@@ -60,7 +60,7 @@ public:
 
   void register_on_pop(callback_t cb) { _callback = std::move(cb); }
 
-  void put(const key_t &key, value_t &&value)
+  void put(const key_t &key, value_t value)
   {
     auto it = _cache_items_map.find(key);
     _cache_items_list.emplace_front(key, std::move(value));

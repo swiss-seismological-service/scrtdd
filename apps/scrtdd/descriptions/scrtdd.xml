@@ -54,10 +54,10 @@
             <description>The model to be used. The format depends on tableType.</description>
           </parameter>
           <parameter name="P-Phases" type="list:string" default="P,Pg,Pn">
-            <description>Defines a priority list of accepted P phases. Phases not in the list will be ignored. If multiple phases exist for a station, the first one in the list will be used.</description>
+            <description>Defines a list of accepted P phases. Phases not in the list will be ignored.</description>
           </parameter>
           <parameter name="S-Phases" type="list:string" default="S,Sg,Sn">
-            <description>Defines a priority list of accepted S phases. Phases not in the list will be ignored. If multiple phases exist for a station, the first one in the list will be used.</description>
+            <description>Defines a list of accepted S phases. Phases not in the list will be ignored. </description>
           </parameter>
           <parameter name="pickUncertaintyClasses" type="list:string" unit="s" default="0.000,0.025,0.050,0.100,0.200,0.400" >
             <description>Define the pick time uncertainty classes from which the pick weight is computed. This parameter defines a list of uncertainty time intervals: the interval in which a pick time uncertainty falls defines the pick class e.g. a pick with uncertainty of 0.150 falls in the 4th interval and the pick class is then 4. if pick uncertainties are absent, the lowest class will be used. The pick weight is computed as: 1 / 2^(class-1) </description>

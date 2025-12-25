@@ -129,7 +129,7 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
 
 std::list<std::unordered_map<unsigned, Neighbours>>
 clusterizeNeighbouringEvents(
-    std::unordered_map<unsigned, Neighbours> &neighboursByEvent);
+    std::unordered_map<unsigned, Neighbours> neighboursByEvent);
 
 } // namespace HDD
 

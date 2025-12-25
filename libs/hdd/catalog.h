@@ -172,17 +172,16 @@ public:
   Catalog(Catalog &&other)            = default;
   Catalog &operator=(Catalog &&other) = default;
 
-  Catalog(std::unordered_map<std::string, Station> &&stations,
-          std::map<unsigned, Event> &&events,
-          std::unordered_multimap<unsigned, Phase> &&phases)
-      : _stations(stations), _events(events), _phases(phases)
+  Catalog(std::unordered_map<std::string, Station> stations,
+          std::map<unsigned, Event> events,
+          std::unordered_multimap<unsigned, Phase> phases)
+      : _stations(std::move(stations)), _events(std::move(events)),
+        _phases(std::move(phases))
   {}
 
-  Catalog(const std::unordered_map<std::string, Station> &stations,
-          const std::map<unsigned, Event> &events,
-          const std::unordered_multimap<unsigned, Phase> &phases)
-      : _stations(stations), _events(events), _phases(phases)
-  {}
+  Catalog(const std::vector<Station> &stations,
+          const std::vector<Event> &events,
+          const std::vector<Phase> &phases);
 
   Catalog(const std::string &stationFile,
           const std::string &eventFile,
@@ -201,11 +200,13 @@ public:
                    const std::string &type);
 
   std::string addStation(const Station &);
-  unsigned addEvent(const Event &);
+  unsigned addEvent(const Event &, bool keepEvId);
   void addPhase(const Phase &);
 
   bool updateStation(const Station &newStation, bool addIfMissing = false);
-  bool updateEvent(const Event &newEv, bool addIfMissing = false);
+  bool updateEvent(const Event &newEv,
+                   bool addIfMissing = false,
+                   bool keepEvId     = false);
 
   const std::unordered_map<std::string, Station> &getStations() const
   {
