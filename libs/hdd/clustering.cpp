@@ -52,13 +52,8 @@ std::unordered_set<unsigned> Neighbours::ids() const
 
 void Neighbours::add(unsigned neighbourId,
                      const std::string &stationId,
-                     const Catalog::Phase::Type &phase)
+                     const std::string &phase)
 {
-  if (_phases.find(neighbourId) == _phases.end())
-  {
-    _phases[neighbourId][Phase::Type::P] = {};
-    _phases[neighbourId][Phase::Type::S] = {};
-  }
   _phases[neighbourId][phase].insert(stationId);
 }
 
@@ -73,22 +68,29 @@ bool Neighbours::has(unsigned neighbourId, const std::string &stationId) const
 {
   try
   {
-    return (_phases.at(neighbourId).at(Phase::Type::P).count(stationId) > 0) ||
-           (_phases.at(neighbourId).at(Phase::Type::S).count(stationId) > 0);
+    const auto &map = _phases.at(neighbourId);
+    for (const auto &kv2 : map)
+    {
+      const string phase = kv2.first;
+      const auto &set    = kv2.second;
+      if (set.count(stationId) > 0)
+      {
+        return true;
+      }
+    }
   }
   catch (std::out_of_range &e)
-  {
-    return false;
-  }
+  {}
+  return false;
 }
 
 bool Neighbours::has(unsigned neighbourId,
                      const std::string &stationId,
-                     Catalog::Phase::Type type) const
+                     const std::string &phase) const
 {
   try
   {
-    return _phases.at(neighbourId).at(type).count(stationId) > 0;
+    return _phases.at(neighbourId).at(phase).count(stationId) > 0;
   }
   catch (std::out_of_range &e)
   {
@@ -99,63 +101,58 @@ bool Neighbours::has(unsigned neighbourId,
 std::unordered_set<std::string> Neighbours::stations() const
 {
   unordered_set<string> results;
-  for (const auto &kv : _phases)
+  for (const auto &kv1 : _phases)
   {
-    const auto &map  = kv.second;
-    const auto &setP = map.at(Phase::Type::P);
-    results.insert(setP.begin(), setP.end());
-    const auto &setS = map.at(Phase::Type::S);
-    results.insert(setS.begin(), setS.end());
-  }
-  return results;
-}
-
-std::unordered_set<std::string>
-Neighbours::stations(Catalog::Phase::Type type) const
-{
-  unordered_set<string> results;
-  for (const auto &kv : _phases)
-  {
-    const auto &map = kv.second;
-    const auto &set = map.at(type);
-    results.insert(set.begin(), set.end());
-  }
-  return results;
-}
-
-std::vector<std::tuple<std::string, Catalog::Phase::Type, unsigned>>
-Neighbours::phases() const
-{
-  vector<tuple<string, Catalog::Phase::Type, unsigned>> result;
-  for (const auto &kv : _phases)
-  {
-    unsigned neighbourId = kv.first;
-    const auto &map      = kv.second;
-    for (Phase::Type type : {Phase::Type::P, Phase::Type::S})
+    // unsigned neighbourId = kv1.first;
+    const auto &map = kv1.second;
+    for (const auto &kv2 : map)
     {
-      const auto &set = map.at(type);
+      const string phase = kv2.first;
+      const auto &set    = kv2.second;
       for (const string &station : set)
       {
-        result.emplace_back(station, type, neighbourId);
+        results.insert(station);
+      }
+    }
+  }
+  return results;
+}
+
+std::vector<std::tuple<std::string, std::string, unsigned>>
+Neighbours::phases() const
+{
+  vector<tuple<string, string, unsigned>> result;
+  for (const auto &kv1 : _phases)
+  {
+    unsigned neighbourId = kv1.first;
+    const auto &map      = kv1.second;
+    for (const auto &kv2 : map)
+    {
+      const string phase = kv2.first;
+      const auto &set    = kv2.second;
+      for (const string &station : set)
+      {
+        result.emplace_back(station, phase, neighbourId);
       }
     }
   }
   return result;
 }
 
-std::vector<std::tuple<std::string, Catalog::Phase::Type>>
+std::vector<std::tuple<std::string, std::string>>
 Neighbours::phases(unsigned neighbourId) const
 {
-  vector<tuple<string, Catalog::Phase::Type>> result;
+  vector<tuple<string, string>> result;
   try
   {
     const auto &map = _phases.at(neighbourId);
-    for (Phase::Type type : {Phase::Type::P, Phase::Type::S})
+    for (const auto &kv2 : map)
     {
-      const auto &set = map.at(type);
+      const string phase = kv2.first;
+      const auto &set    = kv2.second;
       for (const string &station : set)
       {
-        result.emplace_back(station, type);
+        result.emplace_back(station, phase);
       }
     }
   }
@@ -197,14 +194,14 @@ void Neighbours::appendToStream(const Catalog &cat, std::ostream &os) const
     const auto &staPhs   = kv1.second;
     for (const auto &kv2 : staPhs)
     {
-      const Catalog::Phase::Type type            = kv2.first;
+      const std::string phase                    = kv2.first;
       const std::unordered_set<string> &stations = kv2.second;
       for (const string &stationId : stations)
       {
         const Catalog::Station &sta = cat.getStations().at(stationId);
-        os << strf("%u,%u,%s,%s,%s,%c", _refEvId, neighbourId,
+        os << strf("%u,%u,%s,%s,%s,%s", _refEvId, neighbourId,
                    sta.networkCode.c_str(), sta.stationCode.c_str(),
-                   sta.locationCode.c_str(), static_cast<char>(type))
+                   sta.locationCode.c_str(), phase.c_str())
            << endl;
       }
     }
@@ -237,11 +234,6 @@ void Neighbours::writeToFile(
 unordered_map<unsigned, Neighbours>
 Neighbours::readFromFile(const Catalog &cat, const std::string &file)
 {
-  auto strToPhaseType = [](const std::string &s) -> Catalog::Phase::Type {
-    return (s == "P" || s == "p") ? Catalog::Phase::Type::P
-                                  : Catalog::Phase::Type::S;
-  };
-
   unordered_map<unsigned, Neighbours> neighbours;
 
   vector<unordered_map<string, string>> lines = CSV::readWithHeader(file);
@@ -251,12 +243,12 @@ Neighbours::readFromFile(const Catalog &cat, const std::string &file)
     for (const auto &row : lines)
     {
       row_count++;
-      unsigned ev1              = std::stoul(row.at("eventId1"));
-      unsigned ev2              = std::stoul(row.at("eventId2"));
-      string networkCode        = row.at("networkCode");
-      string stationCode        = row.at("stationCode");
-      string locationCode       = row.at("locationCode");
-      Catalog::Phase::Type type = strToPhaseType(row.at("phaseType"));
+      unsigned ev1        = std::stoul(row.at("eventId1"));
+      unsigned ev2        = std::stoul(row.at("eventId2"));
+      string networkCode  = row.at("networkCode");
+      string stationCode  = row.at("stationCode");
+      string locationCode = row.at("locationCode");
+      string phase        = row.at("phaseType");
 
       std::string stationId =
           cat.searchStation(networkCode, stationCode, locationCode)->second.id;
@@ -272,7 +264,7 @@ Neighbours::readFromFile(const Catalog &cat, const std::string &file)
       }
 
       Neighbours &current = neighbours.find(ev1)->second;
-      current.add(ev2, stationId, type);
+      current.add(ev2, stationId, phase);
     }
   }
   catch (std::exception &e)
@@ -382,7 +374,7 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
   struct SelectedEventEntry
   {
     Event event;
-    unordered_map<string, unordered_set<Phase::Type>> phases;
+    unordered_map<string, unordered_set<string>> phases;
   };
   multimap<double, SelectedEventEntry> selectedEvents; // distance, struct
   unordered_map<unsigned, int> dtCountByEvent;         // eventid, dtCount
@@ -393,10 +385,8 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
     const double eventDistance = kv.first;
     const Event &event         = catalog.getEvents().at(kv.second);
 
-    multimap<double, pair<string, Phase::Type>>
-        stationByDistance; // distance, <stationid,phaseType>
-    multimap<double, pair<string, Phase::Type>>
-        unmatchedPhases; // distance, <stationid,phaseType>
+    multimap<double, pair<string, string>>
+        stationByDistance; // distance, <stationid,phase>
 
     // Loop through event phases and keep track of the valid phases and their
     // station distance.
@@ -446,15 +436,12 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
       if (itRef == refEvCatalog.getPhases().end())
       {
         // phase not found
-        unmatchedPhases.emplace(
-            std::piecewise_construct, std::forward_as_tuple(staRefEvDistance),
-            std::forward_as_tuple(phase.stationId, phase.procInfo.type));
         continue;
       }
 
       stationByDistance.emplace(
           std::piecewise_construct, std::forward_as_tuple(staRefEvDistance),
-          std::forward_as_tuple(phase.stationId, phase.procInfo.type));
+          std::forward_as_tuple(phase.stationId, phase.type));
     }
 
     // check if enough phases (> `minDTperEvt`); if not skip event
@@ -475,7 +462,7 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
     {
       // If `maxDTperEvt` is set, make sure to stay within limits.
       if (maxDTperEvt > 0 && numObservations >= maxDTperEvt) break;
-      const pair<string, Phase::Type> &staPh = kw.second;
+      const pair<string, string> &staPh = kw.second; // station, phase
       evSelEntry.phases[staPh.first].insert(staPh.second);
       numObservations++;
     }
@@ -510,11 +497,11 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
       // add this event to the catalog
       for (const auto &kv : evSelEntry.phases)
       {
-        const string &stationId                                    = kv.first;
-        const std::unordered_set<HDD::Catalog::Phase::Type> &types = kv.second;
-        for (auto type : types)
+        const string &stationId                  = kv.first;
+        const std::unordered_set<string> &phases = kv.second;
+        for (const auto &phase : phases)
         {
-          neighbours.add(ev.id, stationId, type);
+          neighbours.add(ev.id, stationId, phase);
         }
       }
       logDebugF("Neighbour: #phases %2d distance %g depth-diff %g event %s",
@@ -559,12 +546,11 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
               // add this event to the catalog
               for (const auto &kv : evSelEntry.phases)
               {
-                const string &stationId = kv.first;
-                const std::unordered_set<HDD::Catalog::Phase::Type> &types =
-                    kv.second;
-                for (auto type : types)
+                const string &stationId                  = kv.first;
+                const std::unordered_set<string> &phases = kv.second;
+                for (const auto &phase : phases)
                 {
-                  neighbours.add(ev.id, stationId, type);
+                  neighbours.add(ev.id, stationId, phase);
                 }
               }
               logDebugF("Neighbour: ellipsoid %2d quadrant %d #phases %2d "

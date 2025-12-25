@@ -922,8 +922,7 @@ bool DD::addObservations(Solver &solver,
     //
     for (unsigned neighEvId : neighboursIds)
     {
-      if (!neighbours.has(neighEvId, refPhase.stationId,
-                          refPhase.procInfo.type))
+      if (!neighbours.has(neighEvId, refPhase.stationId, refPhase.type))
         continue;
 
       const Event &event = catalog.getEvents().at(neighEvId);
@@ -1378,7 +1377,10 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
         continue;
       }
 
-      if (neighbours.has(neighEvId, refPhase.stationId, refPhase.procInfo.type))
+      //
+      // Check if this event pair has an entry for this station/phase
+      //
+      if (neighbours.has(neighEvId, refPhase.stationId, refPhase.type))
       {
         const Phase &phase =
             catalog.searchPhase(event.id, refPhase.stationId, refPhase.type)
@@ -1485,7 +1487,10 @@ DD::preloadNonCatalogWaveforms(Catalog &catalog,
           xcorrOpt.maxInterEvDist >= 0)
         continue;
 
-      if (neighbours.has(neighEvId, refPhase.stationId, refPhase.procInfo.type))
+      //
+      // Check if this event pair has an entry for this station/phase
+      //
+      if (neighbours.has(neighEvId, refPhase.stationId, refPhase.type))
       {
         //
         // For each match load the reference event phase waveforms
@@ -1806,9 +1811,28 @@ void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
     const Neighbours &neighbours = kv.second;
     for (const auto &t : neighbours.phases())
     {
-      const string &stationId              = std::get<0>(t);
-      const Catalog::Phase::Type phaseType = std::get<1>(t);
-      const unsigned neighEvId             = std::get<2>(t);
+      const string &stationId  = std::get<0>(t);
+      const string &phase      = std::get<1>(t);
+      const unsigned neighEvId = std::get<2>(t);
+
+      Catalog::Phase::Type phaseType = Phase::Type::NO;
+      // P phase
+      auto itpp =
+          find(_cfg.validPphases.begin(), _cfg.validPphases.end(), phase);
+      if (itpp != _cfg.validPphases.end())
+      {
+        phaseType = Phase::Type::P;
+      }
+      else
+      {
+        // S phase
+        auto itsp =
+            find(_cfg.validSphases.begin(), _cfg.validSphases.end(), phase);
+        if (itsp != _cfg.validSphases.end())
+        {
+          phaseType = Phase::Type::S;
+        }
+      }
 
       if (!xcorr.has(neighbours.referenceId(), neighEvId, stationId, phaseType))
       {

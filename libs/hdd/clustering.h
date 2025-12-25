@@ -58,7 +58,7 @@ public:
 
   void add(unsigned neighbourId,
            const std::string &stationId,
-           const Catalog::Phase::Type &phase);
+           const std::string &phase);
 
   void remove(unsigned neighbourId);
 
@@ -68,16 +68,13 @@ public:
 
   bool has(unsigned neighbourId,
            const std::string &stationId,
-           Catalog::Phase::Type type) const;
+           const std::string &phase) const;
 
   std::unordered_set<std::string> stations() const;
 
-  std::unordered_set<std::string> stations(Catalog::Phase::Type type) const;
+  std::vector<std::tuple<std::string, std::string, unsigned>> phases() const;
 
-  std::vector<std::tuple<std::string, Catalog::Phase::Type, unsigned>>
-  phases() const;
-
-  std::vector<std::tuple<std::string, Catalog::Phase::Type>>
+  std::vector<std::tuple<std::string, std::string>>
   phases(unsigned neighbourId) const;
 
   Catalog toCatalog(const Catalog &catalog, bool includeRefEv = false) const;
@@ -96,8 +93,8 @@ public:
 private:
   unsigned _refEvId;
   std::unordered_map<
-      unsigned,                                // indexed by event id
-      std::unordered_map<Catalog::Phase::Type, // indexed by phase type
+      unsigned,                       // indexed by event id
+      std::unordered_map<std::string, // indexed by phase type
                          std::unordered_set<std::string>>> // station id
       _phases;
 };
