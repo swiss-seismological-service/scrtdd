@@ -50,26 +50,26 @@ public:
   void add(unsigned evId1,
            unsigned evId2,
            const std::string &stationId,
-           const Catalog::Phase::Type &type,
+           const std::string &phase,
            bool valid,
            double coeff,
            double lag)
   {
     Entry e;
-    e.valid                                 = valid;
-    e.coeff                                 = coeff;
-    e.lag                                   = lag;
-    _entries[evId1][stationId][type][evId2] = e;
-    e.lag                                   = -lag;
-    _entries[evId2][stationId][type][evId1] = e;
+    e.valid                                  = valid;
+    e.coeff                                  = coeff;
+    e.lag                                    = lag;
+    _entries[evId1][stationId][phase][evId2] = e;
+    e.lag                                    = -lag;
+    _entries[evId2][stationId][phase][evId1] = e;
   }
 
   void add(const XCorrCache &xcorr)
   {
     auto callback =
         [this](unsigned ev1, unsigned ev2, const std::string &stationId,
-               const Catalog::Phase::Type &type, const XCorrCache::Entry &e) {
-          add(ev1, ev2, stationId, type, e.valid, e.coeff, e.lag);
+               const std::string &phase, const XCorrCache::Entry &e) {
+          add(ev1, ev2, stationId, phase, e.valid, e.coeff, e.lag);
         };
     forEach(callback);
   }
@@ -77,32 +77,31 @@ public:
   void remove(unsigned evId1,
               unsigned evId2,
               const std::string &stationId,
-              const Catalog::Phase::Type &type)
+              const std::string &phase)
   {
     try
     {
-      _entries.at(evId1).at(stationId).at(type).erase(evId2);
+      _entries.at(evId1).at(stationId).at(phase).erase(evId2);
     }
     catch (...)
     {}
     try
     {
-      _entries.at(evId2).at(stationId).at(type).erase(evId1);
+      _entries.at(evId2).at(stationId).at(phase).erase(evId1);
     }
     catch (...)
     {}
   }
 
-  void remove(unsigned evId1,
-              const std::string &stationId,
-              const Catalog::Phase::Type &type)
+  void
+  remove(unsigned evId1, const std::string &stationId, const std::string &phase)
   {
-    if (has(evId1, stationId, type))
+    if (has(evId1, stationId, phase))
     {
-      std::unordered_map<unsigned, Entry> copy = get(evId1, stationId, type);
+      std::unordered_map<unsigned, Entry> copy = get(evId1, stationId, phase);
       for (const auto &kv : copy)
       {
-        remove(evId1, kv.first, stationId, type);
+        remove(evId1, kv.first, stationId, phase);
       }
     }
   }
@@ -110,11 +109,11 @@ public:
   bool has(unsigned evId1,
            unsigned evId2,
            const std::string &stationId,
-           const Catalog::Phase::Type &type) const
+           const std::string &phase) const
   {
     try
     {
-      _entries.at(evId1).at(stationId).at(type).at(evId2);
+      _entries.at(evId1).at(stationId).at(phase).at(evId2);
       return true;
     }
     catch (...)
@@ -125,11 +124,11 @@ public:
 
   bool has(unsigned evId1,
            const std::string &stationId,
-           const Catalog::Phase::Type &type) const
+           const std::string &phase) const
   {
     try
     {
-      _entries.at(evId1).at(stationId).at(type);
+      _entries.at(evId1).at(stationId).at(phase);
       return true;
     }
     catch (...)
@@ -141,23 +140,22 @@ public:
   const Entry &get(unsigned evId1,
                    unsigned evId2,
                    const std::string &stationId,
-                   const Catalog::Phase::Type &type) const
+                   const std::string &phase) const
   {
-    return _entries.at(evId1).at(stationId).at(type).at(evId2);
+    return _entries.at(evId1).at(stationId).at(phase).at(evId2);
   }
 
-  const std::unordered_map<unsigned, Entry> &
-  get(unsigned evId1,
-      const std::string &stationId,
-      const Catalog::Phase::Type &type) const
+  const std::unordered_map<unsigned, Entry> &get(unsigned evId1,
+                                                 const std::string &stationId,
+                                                 const std::string &phase) const
   {
-    return _entries.at(evId1).at(stationId).at(type);
+    return _entries.at(evId1).at(stationId).at(phase);
   }
 
   using ForEachCallback = std::function<void(unsigned ev1,
                                              unsigned ev2,
                                              const std::string &stationId,
-                                             const Catalog::Phase::Type &type,
+                                             const std::string &phase,
                                              const Entry &e)>;
 
   void forEach(const ForEachCallback &c) const
@@ -204,14 +202,14 @@ public:
 
   void forEach(unsigned evId1,
                const std::string &stationId,
-               const Catalog::Phase::Type &type,
+               const std::string &phase,
                const ForEachCallback &c) const
   {
     try
     {
-      for (const auto &kv4 : _entries.at(evId1).at(stationId).at(type))
+      for (const auto &kv4 : _entries.at(evId1).at(stationId).at(phase))
       {
-        c(evId1, kv4.first, stationId, type, kv4.second);
+        c(evId1, kv4.first, stationId, phase, kv4.second);
       }
     }
     catch (...)
@@ -226,8 +224,8 @@ private:
   std::unordered_map<
       unsigned, // indexed by event id
       std::unordered_map<
-          std::string,                             // indexed by station id
-          std::unordered_map<Catalog::Phase::Type, // indexed by phase type
+          std::string,                    // indexed by station id
+          std::unordered_map<std::string, // indexed by phase type
                              std::unordered_map<unsigned, // indexed by event id
                                                 Entry>>>>
       _entries;

@@ -903,11 +903,11 @@ bool DD::addObservations(Solver &solver,
 
   //
   // Loop through reference event phases
-  // Instead of looping though the Neighbours phases as expected, we loop though
-  // each reference event phase and check if there is an entry in Neighbours
-  // This approach allows to search only once in the catalog and then reuse the
-  // refEv phases for all neighbours (small optimization in case of catalogs
-  // with millions of phases)
+  // Instead of looping though the Neighbours.phases() as expected, we loop
+  // though each reference event phase and check if there is an entry in
+  // Neighbours This approach allows to search for each reference event phase
+  // only once and use this refEv phase for all neighbours (small optimization
+  // in case of catalogs with millions of phases)
   //
   auto eqlrng = catalog.getPhases().equal_range(refEv.id);
   for (auto it = eqlrng.first; it != eqlrng.second; ++it)
@@ -956,8 +956,8 @@ bool DD::addObservations(Solver &solver,
           !addObservationParams(solver, *_ttt, event, station, phase,
                                 !keepNeighboursFixed))
       {
-        logDebugF("Skipping observation (ev %u-%u sta %s phase %c)", refEv.id,
-                  event.id, station.id.c_str(), phaseTypeAsChar);
+        logDebugF("Skipping observation (ev %u-%u sta %s phase %s)", refEv.id,
+                  event.id, station.id.c_str(), refPhase.type.c_str());
         continue;
       }
 
@@ -984,11 +984,10 @@ bool DD::addObservations(Solver &solver,
       if (!xcorr.empty()) // xcorr is enabled
       {
 
-        if (xcorr.has(refEv.id, event.id, refPhase.stationId,
-                      refPhase.procInfo.type))
+        if (xcorr.has(refEv.id, event.id, refPhase.stationId, refPhase.type))
         {
-          const auto &e = xcorr.get(refEv.id, event.id, refPhase.stationId,
-                                    refPhase.procInfo.type);
+          const auto &e =
+              xcorr.get(refEv.id, event.id, refPhase.stationId, refPhase.type);
           if (e.valid)
           {
             xcorrCoeff = e.coeff;
@@ -1394,16 +1393,15 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
         }
 
         // skip cross-correlation if we already have the result in cache
-        if (!xcorr.has(refEv.id, event.id, refPhase.stationId,
-                       refPhase.procInfo.type))
+        if (!xcorr.has(refEv.id, event.id, refPhase.stationId, refPhase.type))
         {
           try
           {
             // fetch the cross-correlation results from the precomputed values
             const XCorrCache::Entry &e = precomputed.get(
-                refEv.id, event.id, refPhase.stationId, refPhase.procInfo.type);
-            xcorr.add(refEv.id, event.id, refPhase.stationId,
-                      refPhase.procInfo.type, e.valid, e.coeff, e.lag);
+                refEv.id, event.id, refPhase.stationId, refPhase.type);
+            xcorr.add(refEv.id, event.id, refPhase.stationId, refPhase.type,
+                      e.valid, e.coeff, e.lag);
           }
           catch (...)
           {
@@ -1415,8 +1413,8 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
                             *_wfAccess.memCache, coeff, lag, component);
 
             // cache cross-correlation results
-            xcorr.add(refEv.id, event.id, refPhase.stationId,
-                      refPhase.procInfo.type, valid, coeff, lag);
+            xcorr.add(refEv.id, event.id, refPhase.stationId, refPhase.type,
+                      valid, coeff, lag);
           }
         }
       }
@@ -1834,12 +1832,18 @@ void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
         }
       }
 
-      if (!xcorr.has(neighbours.referenceId(), neighEvId, stationId, phaseType))
+      if (phaseType == Phase::Type::NO)
+      {
+        logWarning("Unknown phase in xcorr stats");
+        continue;
+      }
+
+      if (!xcorr.has(neighbours.referenceId(), neighEvId, stationId, phase))
       {
         continue;
       }
       const auto &e =
-          xcorr.get(neighbours.referenceId(), neighEvId, stationId, phaseType);
+          xcorr.get(neighbours.referenceId(), neighEvId, stationId, phase);
       Counters &counters = (phaseType == Phase::Type::P)
                                ? pCountByStation[stationId]
                                : sCountByStation[stationId];
