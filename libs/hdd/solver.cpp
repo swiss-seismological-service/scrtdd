@@ -245,13 +245,13 @@ namespace HDD {
 void Solver::addObservation(unsigned evId1,
                             unsigned evId2,
                             const std::string &staId,
-                            char phase,
+                            const std::string &phase,
                             double timeDiff,
                             double aPrioriWeight,
                             bool xcorrUsed,
                             double xcorrCoeff)
 {
-  string phStaId    = string(1, phase) + "@" + staId;
+  string phStaId    = phase + "@" + staId;
   string obsId      = to_string(evId1) + "+" + to_string(evId2) + "_" + phStaId;
   unsigned evIdx1   = _eventIdConverter.convert(evId1);
   unsigned evIdx2   = _eventIdConverter.convert(evId2);
@@ -279,7 +279,7 @@ void Solver::addStation(const std::string &staId,
 
 void Solver::addObservationParams(unsigned evId,
                                   const std::string &staId,
-                                  char phase,
+                                  const std::string &phase,
                                   bool computeEvChanges,
                                   double travelTime,
                                   double travelTimeResidual,
@@ -287,7 +287,7 @@ void Solver::addObservationParams(unsigned evId,
                                   double dy,
                                   double dz)
 {
-  string phStaId    = string(1, phase) + "@" + staId;
+  string phStaId    = phase + "@" + staId;
   int evIdx         = _eventIdConverter.convert(evId);
   unsigned phStaIdx = _phStaIdConverter.convert(phStaId);
   _obsParams[evIdx].insert(
@@ -337,7 +337,7 @@ bool Solver::getStation(const std::string &staId,
 
 bool Solver::getObservationParams(unsigned evId,
                                   const std::string &staId,
-                                  char phase,
+                                  const std::string &phase,
                                   bool &computeEvChanges,
                                   double &travelTime,
                                   double &travelTimeResidual,
@@ -348,7 +348,7 @@ bool Solver::getObservationParams(unsigned evId,
   unsigned evIdx;
   if (!_eventIdConverter.hasId(evId, evIdx)) return false;
 
-  string phStaId = string(1, phase) + "@" + staId;
+  string phStaId = phase + "@" + staId;
   unsigned phStaIdx;
   if (!_phStaIdConverter.hasId(phStaId, phStaIdx)) return false;
 
@@ -386,8 +386,8 @@ std::vector<Solver::DoubleDifference> Solver::getDoubleDifferences() const
     {
       throw Exception("Solver: internal logic error (phStaId formmating)");
     }
-    char phase        = phStaId[0]; // or phStaId.substr(0, 1)[0]
-    std::string staId = phStaId.substr(pos + 1);
+    string phase = phStaId.substr(0, pos);
+    string staId = phStaId.substr(pos + 1);
 
     DoubleDifference entry{_eventIdConverter.fromIdx(ob.ev1Idx),
                            _eventIdConverter.fromIdx(ob.ev2Idx),
@@ -426,12 +426,12 @@ bool Solver::getEventChanges(unsigned evId,
 
 bool Solver::isEventPhaseUsed(unsigned evId,
                               const std::string &staId,
-                              char phase) const
+                              const std::string &phase) const
 {
   unsigned evIdx;
   if (!_eventIdConverter.hasId(evId, evIdx)) return false;
 
-  string phStaId = string(1, phase) + "@" + staId;
+  string phStaId = phase + "@" + staId;
   unsigned phStaIdx;
   if (!_phStaIdConverter.hasId(phStaId, phStaIdx)) return false;
 

@@ -99,9 +99,9 @@ void writeDoubleDifferenceToFile(
   for (const auto &e : dds)
   {
     const HDD::Catalog::Station &sta = cat.getStations().at(e.staId);
-    os << HDD::strf("%u,%u,%s,%s,%s,%c,%s,%g,%g,%g", e.evId1, e.evId2,
+    os << HDD::strf("%u,%u,%s,%s,%s,%s,%s,%g,%g,%g", e.evId1, e.evId2,
                     sta.networkCode.c_str(), sta.stationCode.c_str(),
-                    sta.locationCode.c_str(), e.phase,
+                    sta.locationCode.c_str(), e.phase.c_str(),
                     e.xcorrUsed ? "true" : "false", e.xcorrCoeff,
                     e.doubleDifference, e.interEventDistance)
        << endl;
@@ -914,7 +914,6 @@ bool DD::addObservations(Solver &solver,
   {
     const Phase &refPhase  = it->second;
     const Station &station = catalog.getStations().at(refPhase.stationId);
-    char phaseTypeAsChar   = static_cast<char>(refPhase.procInfo.type);
     const auto &xcorrCfg   = xcorrOpt.phase.at(refPhase.procInfo.type);
 
     //
@@ -1003,8 +1002,8 @@ bool DD::addObservations(Solver &solver,
       }
 
       solver.addObservation(refEv.id, event.id, refPhase.stationId,
-                            phaseTypeAsChar, diffTime.count(), weight,
-                            xcorrUsed, xcorrCoeff);
+                            refPhase.type, diffTime.count(), weight, xcorrUsed,
+                            xcorrCoeff);
     }
   }
 
@@ -1018,14 +1017,12 @@ bool DD::addObservationParams(Solver &solver,
                               const Catalog::Phase &phase,
                               bool computeEvChanges) const
 {
-  char phaseType = static_cast<char>(phase.procInfo.type);
-
   bool dummy1;
   double dummy2;
   //
   // check if this data has been already added to the solver
   //
-  if (!solver.getObservationParams(event.id, station.id, phaseType, dummy1,
+  if (!solver.getObservationParams(event.id, station.id, phase.type, dummy1,
                                    dummy2, dummy2, dummy2, dummy2, dummy2))
   {
     //
@@ -1034,6 +1031,7 @@ bool DD::addObservationParams(Solver &solver,
     double travelTime, takeOffAngleAzim, takeOffAngleDip, velocityAtSrc;
     try
     {
+      char phaseType = static_cast<char>(phase.procInfo.type);
       ttt.compute(event, station, string(1, phaseType), travelTime,
                   takeOffAngleAzim, takeOffAngleDip, velocityAtSrc);
     }
@@ -1069,7 +1067,7 @@ bool DD::addObservationParams(Solver &solver,
     solver.addEvent(event.id, event.latitude, event.longitude, event.depth);
     solver.addStation(station.id, station.latitude, station.longitude,
                       station.elevation);
-    solver.addObservationParams(event.id, station.id, phaseType,
+    solver.addObservationParams(event.id, station.id, phase.type,
                                 computeEvChanges, travelTime,
                                 travelTimeResidual, dx, dy, dz);
   }
@@ -1108,7 +1106,6 @@ DD::computeEventResiduals(const Solver &solver,
     {
       Phase &phase           = it->second;
       const Station &station = stations.at(phase.stationId);
-      char phaseTypeAsChar   = static_cast<char>(phase.procInfo.type);
 
       if (isFirstIteration)
       {
@@ -1122,9 +1119,8 @@ DD::computeEventResiduals(const Solver &solver,
       bool dummy1;
       double residual, dummy2;
 
-      if (solver.getObservationParams(event.id, station.id, phaseTypeAsChar,
-                                      dummy1, dummy2, residual, dummy2, dummy2,
-                                      dummy2))
+      if (solver.getObservationParams(event.id, station.id, phase.type, dummy1,
+                                      dummy2, residual, dummy2, dummy2, dummy2))
       {
         double weight = phase.relocInfo.weight;
 
@@ -1230,14 +1226,13 @@ DD::updateRelocatedEvents(const Solver &solver,
     {
       Phase &phase           = it->second;
       const Station &station = stations.at(phase.stationId);
-      char phaseTypeAsChar   = static_cast<char>(phase.procInfo.type);
 
       if (isFirstIteration)
       {
         phase.relocInfo.isRelocated = false;
       }
 
-      if (!solver.isEventPhaseUsed(event.id, station.id, phaseTypeAsChar))
+      if (!solver.isEventPhaseUsed(event.id, station.id, phase.type))
       {
         continue;
       }

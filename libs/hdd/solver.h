@@ -165,7 +165,7 @@ public:
   void addObservation(unsigned evId1,
                       unsigned evId2,
                       const std::string &staId,
-                      char phase,
+                      const std::string &phase,
                       double timeDiff,
                       double aPrioriWeight,
                       bool xcorrUsed,
@@ -173,7 +173,7 @@ public:
 
   void addObservationParams(unsigned evId,
                             const std::string &staId,
-                            char phase,
+                            const std::string &phase,
                             bool computeEvChanges,
                             double travelTime,
                             double travelTimeResidual,
@@ -191,7 +191,7 @@ public:
 
   bool getObservationParams(unsigned evId,
                             const std::string &staId,
-                            char phase,
+                            const std::string &phase,
                             bool &computeEvChanges,
                             double &travelTime,
                             double &travelTimeResidual,
@@ -206,7 +206,7 @@ public:
     unsigned evId1;
     unsigned evId2;
     std::string staId;
-    char phase;
+    std::string phase;
     double weight;
     bool xcorrUsed;
     double xcorrCoeff;
@@ -227,8 +227,9 @@ public:
                        double &deltaDepth,
                        double &deltaTT) const;
 
-  bool
-  isEventPhaseUsed(unsigned evId, const std::string &staId, char phase) const;
+  bool isEventPhaseUsed(unsigned evId,
+                        const std::string &staId,
+                        const std::string &phase) const;
 
 private:
   std::multimap<double, unsigned> computeInterEventDistance();
