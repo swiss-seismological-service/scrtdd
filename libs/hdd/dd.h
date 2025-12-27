@@ -49,7 +49,7 @@ struct Config
   std::vector<std::string> validSphases      = {"Sg", "S", "Sx"};
   std::vector<double> pickUncertaintyClasses = {0.000, 0.025, 0.050,
                                                 0.100, 0.200, 0.400};
-
+  bool PSTableOnly                           = true;
   struct
   {
     std::string filterStr = ""; // "" -> no filtering

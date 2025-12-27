@@ -1031,9 +1031,20 @@ bool DD::addObservationParams(Solver &solver,
     double travelTime, takeOffAngleAzim, takeOffAngleDip, velocityAtSrc;
     try
     {
-      char phaseType = static_cast<char>(phase.procInfo.type);
-      ttt.compute(event, station, string(1, phaseType), travelTime,
-                  takeOffAngleAzim, takeOffAngleDip, velocityAtSrc);
+      string phaseName = phase.type;
+      if (_cfg.PSTableOnly)
+      {
+        if (phase.procInfo.type == Phase::Type::P)
+        {
+          phaseName = "P";
+        }
+        else if (phase.procInfo.type == Phase::Type::S)
+        {
+          phaseName = "S";
+        }
+      }
+      ttt.compute(event, station, phaseName, travelTime, takeOffAngleAzim,
+                  takeOffAngleDip, velocityAtSrc);
     }
     catch (Exception &e)
     {

@@ -53,6 +53,11 @@
           <parameter name="tableModel" type="string" default="iasp91">
             <description>The model to be used. The format depends on tableType.</description>
           </parameter>
+          <parameter name="PSTableOnly" type="boolean" default="true">
+            <description>
+            If enabled, the arrival travel time information are fetched using 'P' and 'S' tables only and the user selected specific phase type is not considered (e.g. Pg, Sg, PmP, SmS, P1, S1, etc).
+          </description>
+          </parameter>
           <parameter name="P-Phases" type="list:string" default="P,Pg,Pn">
             <description>Defines a list of accepted P phases. Phases not in the list will be ignored.</description>
           </parameter>

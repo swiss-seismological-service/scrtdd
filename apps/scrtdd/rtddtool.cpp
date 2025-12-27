@@ -480,6 +480,15 @@ bool RTDD::validateParameters()
 
     try
     {
+      prof->ddCfg.PSTableOnly = configGetBool(prefix + "PSTableOnly");
+    }
+    catch (...)
+    {
+      prof->ddCfg.PSTableOnly = true;
+    }
+
+    try
+    {
       prof->ddCfg.validPphases = configGetStrings(prefix + "P-Phases");
     }
     catch (...)
