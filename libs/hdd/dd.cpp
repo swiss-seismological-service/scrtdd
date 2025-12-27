@@ -894,117 +894,120 @@ bool DD::addObservations(Solver &solver,
                          const XcorrOptions &xcorrOpt,
                          const XCorrCache &xcorr) const
 {
-  // copy event because we'll update it
   const Event &refEv = catalog.getEvents().at(neighbours.referenceId());
-  const unordered_set<unsigned> neighboursIds = neighbours.ids();
 
   // Detect an event that moved to a location outside the ttt range
   bool tttAttempted = false, tttAvailable = false;
 
+  // stationId, phase, neighbourId
+  std::vector<std::tuple<std::string, std::string, unsigned>> nPhases =
+      neighbours.phases();
+
+  // sort the nPhases so that we can search the reference event phase only once
+  // and reuse it for multiple neighbours (see loop)
+  std::sort(nPhases.begin(), nPhases.end());
+
   //
-  // Loop through reference event phases
-  // Instead of looping though the Neighbours.phases() as expected, we loop
-  // though each reference event phase and check if there is an entry in
-  // Neighbours This approach allows to search for each reference event phase
-  // only once and use this refEv phase for all neighbours (small optimization
-  // in case of catalogs with millions of phases)
+  // Loop through neighbours events that matched refEv phases
   //
-  auto eqlrng = catalog.getPhases().equal_range(refEv.id);
-  for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+  const Phase *refPhase  = nullptr;
+  const Station *station = nullptr;
+  for (const auto &t : nPhases)
   {
-    const Phase &refPhase  = it->second;
-    const Station &station = catalog.getStations().at(refPhase.stationId);
-    const auto &xcorrCfg   = xcorrOpt.phase.at(refPhase.procInfo.type);
+    const string stationId   = std::get<0>(t);
+    const string phaseType   = std::get<1>(t);
+    const unsigned neighEvId = std::get<2>(t);
 
-    //
-    // loop through neighbouring events and look for the matching phase
-    //
-    for (unsigned neighEvId : neighboursIds)
+    if (!refPhase || refPhase->stationId != stationId ||
+        refPhase->type != phaseType)
     {
-      if (!neighbours.has(neighEvId, refPhase.stationId, refPhase.type))
-        continue;
+      refPhase = &catalog.searchPhase(refEv.id, stationId, phaseType)->second;
+    }
 
-      const Event &event = catalog.getEvents().at(neighEvId);
+    if (!station || station->id != stationId)
+    {
+      station = &catalog.getStations().at(stationId);
+    }
 
-      const Phase &phase =
-          catalog.searchPhase(event.id, refPhase.stationId, refPhase.type)
-              ->second;
-      //
-      // compute travel times for both event and `refEv`
-      //
-      UTCTime::duration ref_travel_time = refPhase.time - refEv.time;
-      if (ref_travel_time.count() < 0)
+    const auto &xcorrCfg = xcorrOpt.phase.at(refPhase->procInfo.type);
+
+    const Event &event = catalog.getEvents().at(neighEvId);
+
+    const Phase &phase =
+        catalog.searchPhase(event.id, stationId, phaseType)->second;
+    //
+    // compute travel times for both event and `refEv`
+    //
+    UTCTime::duration ref_travel_time = refPhase->time - refEv.time;
+    if (ref_travel_time.count() < 0)
+    {
+      logDebugF("Ignoring phase %s with negative travel time ",
+                string(*refPhase).c_str());
+      continue;
+    }
+
+    UTCTime::duration travel_time = phase.time - event.time;
+    if (travel_time.count() < 0)
+    {
+      logDebugF("Ignoring phase %s with negative travel time ",
+                string(phase).c_str());
+      continue;
+    }
+
+    tttAttempted = true; // at least one attempt at loading ttt
+                         //
+    if (!addObservationParams(solver, *_ttt, refEv, *station, *refPhase,
+                              true) ||
+        !addObservationParams(solver, *_ttt, event, *station, phase,
+                              !keepNeighboursFixed))
+    {
+      logDebugF("Skipping observation (ev %u-%u sta %s phase %s)", refEv.id,
+                event.id, station->id.c_str(), phaseType.c_str());
+      continue;
+    }
+
+    tttAvailable = true; // at least once successfully ttt query
+
+    //
+    // compute absolute travel time differences to the solver
+    //
+    duration<double> diffTime = ref_travel_time - travel_time;
+    double weight =
+        usePickUncertainties
+            ? ((refPhase->procInfo.classWeight + phase.procInfo.classWeight) /
+               2.0)
+            : 1.0;
+
+    //
+    // Check if we have cross-correlation results for the current
+    // event/refEv pair at station/phase and refine the differential
+    // time and update the weight
+    //
+    bool xcorrUsed    = false;
+    double xcorrCoeff = 0;
+
+    if (!xcorr.empty()) // xcorr is enabled
+    {
+
+      if (xcorr.has(refEv.id, event.id, stationId, phaseType))
       {
-        logDebugF("Ignoring phase %s with negative travel time",
-                  string(refPhase).c_str());
-        continue;
-      }
-
-      UTCTime::duration travel_time = phase.time - event.time;
-      if (travel_time.count() < 0)
-      {
-        logDebugF("Ignoring phase %s with negative travel time",
-                  string(phase).c_str());
-        continue;
-      }
-
-      tttAttempted = true; // at least one attempt at loading ttt
-                           //
-      if (!addObservationParams(solver, *_ttt, refEv, station, refPhase,
-                                true) ||
-          !addObservationParams(solver, *_ttt, event, station, phase,
-                                !keepNeighboursFixed))
-      {
-        logDebugF("Skipping observation (ev %u-%u sta %s phase %s)", refEv.id,
-                  event.id, station.id.c_str(), refPhase.type.c_str());
-        continue;
-      }
-
-      tttAvailable = true; // at least once successfully ttt query
-
-      //
-      // compute absolute travel time differences to the solver
-      //
-      duration<double> diffTime = ref_travel_time - travel_time;
-      double weight =
-          usePickUncertainties
-              ? ((refPhase.procInfo.classWeight + phase.procInfo.classWeight) /
-                 2.0)
-              : 1.0;
-
-      //
-      // Check if we have cross-correlation results for the current
-      // event/refEv pair at station/phase and refine the differential
-      // time and update the weight
-      //
-      bool xcorrUsed    = false;
-      double xcorrCoeff = 0;
-
-      if (!xcorr.empty()) // xcorr is enabled
-      {
-
-        if (xcorr.has(refEv.id, event.id, refPhase.stationId, refPhase.type))
+        const auto &e = xcorr.get(refEv.id, event.id, stationId, phaseType);
+        if (e.valid)
         {
-          const auto &e =
-              xcorr.get(refEv.id, event.id, refPhase.stationId, refPhase.type);
-          if (e.valid)
+          xcorrCoeff = e.coeff;
+          if (e.coeff >= xcorrCfg.minCoef)
           {
-            xcorrCoeff = e.coeff;
-            if (e.coeff >= xcorrCfg.minCoef)
-            {
-              xcorrUsed = true;
-              diffTime -= duration<double>(e.lag);
-              double weightGain = (weight * xcorrWeightScaler) - weight;
-              weight += weightGain * e.coeff;
-            }
+            xcorrUsed = true;
+            diffTime -= duration<double>(e.lag);
+            double weightGain = (weight * xcorrWeightScaler) - weight;
+            weight += weightGain * e.coeff;
           }
         }
       }
-
-      solver.addObservation(refEv.id, event.id, refPhase.stationId,
-                            refPhase.type, diffTime.count(), weight, xcorrUsed,
-                            xcorrCoeff);
     }
+
+    solver.addObservation(refEv.id, event.id, stationId, phaseType,
+                          diffTime.count(), weight, xcorrUsed, xcorrCoeff);
   }
 
   return !tttAttempted || tttAvailable;
