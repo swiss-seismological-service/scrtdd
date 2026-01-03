@@ -57,6 +57,13 @@ public:
   typedef std::function<void(const key_t &, value_t &)> callback_t;
 
   lru_cache(size_t max_size) : _max_size(max_size) {}
+  ~lru_cache() = default;
+
+  lru_cache(const lru_cache &other)            = default;
+  lru_cache &operator=(const lru_cache &other) = default;
+
+  lru_cache(lru_cache &&other)            = default;
+  lru_cache &operator=(lru_cache &&other) = default;
 
   void register_on_pop(callback_t cb) { _callback = std::move(cb); }
 

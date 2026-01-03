@@ -647,12 +647,12 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->singleEventClustering.maxEllipsoidSize =
-          configGetDouble(prefix + "maxEllipsoidSize");
+      prof->singleEventClustering.maxNeighbourDist =
+          configGetDouble(prefix + "maxNeighbourDistance");
     }
     catch (...)
     {
-      prof->singleEventClustering.maxEllipsoidSize = 5;
+      prof->singleEventClustering.maxNeighbourDist = 5;
     }
 
     prefix = string("profile.") + prof->name +
@@ -664,7 +664,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->multiEventClustering.maxNumNeigh = 30;
+      prof->multiEventClustering.maxNumNeigh = 40;
     }
 
     try
@@ -679,12 +679,12 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->multiEventClustering.maxEllipsoidSize =
-          configGetDouble(prefix + "maxEllipsoidSize");
+      prof->multiEventClustering.maxNeighbourDist =
+          configGetDouble(prefix + "maxNeighbourDistance");
     }
     catch (...)
     {
-      prof->multiEventClustering.maxEllipsoidSize = 5;
+      prof->multiEventClustering.maxNeighbourDist = 5;
     }
 
     prefix = string("profile.") + prof->name + ".crossCorrelation.";

@@ -72,17 +72,18 @@ struct ClusteringOptions
   // min neighbors required
   unsigned minNumNeigh = 8;
   // max neighbors allowed (furthest events are discarded)
-  unsigned maxNumNeigh = 0; // 0 -> disable
+  unsigned maxNumNeigh = 40; // 0 -> disable
   // min phases per event pair required
   unsigned minNumPhases = 4;
   // max phases per event pair used
   unsigned maxNumPhases = 0; // 0 -> disable
+  // max max neighbour distsance [km]
+  double maxNeighbourDist = 5;
   // From Waldhauser 2009: to assure a spatially homogeneous subsampling,
   // reference events are selected within each of five concentric, vertically
   // longated ellipsoidal layers of increasing thickness. Each layer has 8
   // quadrants.
-  unsigned numEllipsoids  = 5;
-  double maxEllipsoidSize = 10; // km
+  unsigned numEllipsoids = 5;
 };
 
 struct XcorrOptions
@@ -252,12 +253,12 @@ private:
                         bool isFirstIteration) const;
 
   XCorrCache
-  buildXCorrCache(Catalog &catalog,
+  buildXCorrCache(const Catalog &catalog,
                   const std::unordered_map<unsigned, Neighbours> &cluster,
                   const XcorrOptions &xcorrOpt,
                   const XCorrCache &precomputed = XCorrCache());
 
-  void buildXcorrDiffTTimePairs(Catalog &catalog,
+  void buildXcorrDiffTTimePairs(const Catalog &catalog,
                                 const Neighbours &neighbours,
                                 const Catalog::Event &refEv,
                                 const XcorrOptions &xcorrOpt,
@@ -301,7 +302,7 @@ private:
                                            const std::string &component);
 
   std::shared_ptr<Waveform::Processor>
-  preloadNonCatalogWaveforms(Catalog &catalog,
+  preloadNonCatalogWaveforms(const Catalog &catalog,
                              const Neighbours &neighbours,
                              const Catalog::Event &refEv,
                              const XcorrOptions &xcorrOpt);
@@ -316,9 +317,8 @@ private:
 
 private:
   const Config _cfg;
-
   const Catalog _bgCat;
-
+  const EventTree _evTree;
   std::unique_ptr<TravelTimeTable> _ttt;
   std::shared_ptr<Waveform::Proxy> _proxy;
 

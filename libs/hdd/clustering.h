@@ -29,6 +29,7 @@
 #define __HDD_CLUSTERING_H__
 
 #include "catalog.h"
+#include "kdtree.h"
 #include <fstream>
 #include <list>
 #include <set>
@@ -53,6 +54,8 @@ public:
 
   unsigned referenceId() const { return _refEvId; }
   void setReferenceId(unsigned refEvId) { _refEvId = refEvId; }
+
+  size_t amount() const;
 
   std::unordered_set<unsigned> ids() const;
 
@@ -99,30 +102,36 @@ private:
       _phases;
 };
 
-Neighbours selectNeighbouringEvents(const Catalog &catalog,
+using EventTree = KDTree<unsigned>; // store event id
+
+EventTree createEventTree(const Catalog &catalog);
+
+Neighbours selectNeighbouringEvents(const EventTree &tree,
+                                    const Catalog &catalog,
                                     const Catalog::Event &refEv,
                                     const Catalog &refEvCatalog,
                                     double minESdis = 0,
                                     double maxESdis = -1, // -1 = no limits
                                     double minEStoIEratio  = 0,
-                                    unsigned minDTperEvt   = 1,
-                                    unsigned maxDTperEvt   = 0, // 0 = no limits
+                                    unsigned minPhase      = 1,
+                                    unsigned maxPhase      = 0, // 0 = no limits
                                     unsigned minNumNeigh   = 1,
                                     unsigned maxNumNeigh   = 0, // 0 = no limits
                                     unsigned numEllipsoids = 5,
-                                    double maxEllipsoidSize = 10);
+                                    double maxNeighbourDist = 5); // km
 
 std::unordered_map<unsigned, Neighbours>
-selectNeighbouringEventsCatalog(const Catalog &catalog,
+selectNeighbouringEventsCatalog(const EventTree &tree,
+                                const Catalog &catalog,
                                 double minESdis,
                                 double maxESdis,
                                 double minEStoIEratio,
-                                unsigned minDTperEvt,
-                                unsigned maxDTperEvt,
+                                unsigned minPhase,
+                                unsigned maxPhase,
                                 unsigned minNumNeigh,
                                 unsigned maxNumNeigh,
                                 unsigned numEllipsoids,
-                                double maxEllipsoidSize);
+                                double maxNeighbourDist);
 
 std::list<std::unordered_map<unsigned, Neighbours>>
 clusterizeNeighbouringEvents(

@@ -28,6 +28,7 @@
 #include "clustering.h"
 #include "csvreader.h"
 #include "ellipsoid.h"
+#include "kdtree.h"
 #include "log.h"
 #include "utils.h"
 
@@ -38,6 +39,8 @@ using Phase   = HDD::Catalog::Phase;
 using Station = HDD::Catalog::Station;
 
 namespace HDD {
+
+size_t Neighbours::amount() const { return _phases.size(); }
 
 std::unordered_set<unsigned> Neighbours::ids() const
 {
@@ -276,75 +279,38 @@ Neighbours::readFromFile(const Catalog &cat, const std::string &file)
   return neighbours;
 }
 
-Neighbours selectNeighbouringEvents(const Catalog &catalog,
+EventTree createEventTree(const Catalog &catalog)
+{
+  vector<EventTree::Point> points;
+  points.reserve(catalog.getEvents().size());
+  for (const auto &kv : catalog.getEvents())
+  {
+    const Event &event = kv.second;
+    EventTree::Point point{event.latitude, event.longitude, event.depth,
+                           event.id};
+    points.push_back(std::move(point));
+  }
+  return EventTree(std::move(points));
+}
+
+Neighbours selectNeighbouringEvents(const EventTree &evTree,
+                                    const Catalog &catalog,
                                     const Event &refEv,
                                     const Catalog &refEvCatalog,
                                     double minESdist,
                                     double maxESdist,
                                     double minEStoIEratio,
-                                    unsigned minDTperEvt,
-                                    unsigned maxDTperEvt,
+                                    unsigned minPhase,
+                                    unsigned maxPhase,
                                     unsigned minNumNeigh,
                                     unsigned maxNumNeigh,
                                     unsigned numEllipsoids,
-                                    double maxEllipsoidSize)
+                                    double maxNeighbourDist)
 {
-  logDebugF("Selecting Neighbouring Events for event %s lat %g lon %g depth %g",
-            string(refEv).c_str(), refEv.latitude, refEv.longitude,
-            refEv.depth);
-
   // Optimization: make code faster but the result will be the same.
   if (maxNumNeigh <= 0)
   {
-    logDebug("Disabling ellipsoid algorithm since maxNumNeigh is not set");
     numEllipsoids = 0;
-  }
-
-  /*
-   * Build ellipsoids
-   *
-   * From Waldhauser 2009: to assure a spatially homogeneous subsampling,
-   * reference events are selected within each of five concentric, vertically
-   * elongated ellipsoidal layers of increasing thickness. Each layer has 8
-   * quadrants.
-   */
-  vector<HddEllipsoid> ellipsoids;
-  double verticalSize =
-      maxEllipsoidSize * 2; // horizontal to vertical axis length
-  for (unsigned i = 1; i < numEllipsoids; i++)
-  {
-    ellipsoids.push_back(HddEllipsoid(verticalSize, refEv.latitude,
-                                      refEv.longitude, refEv.depth));
-    verticalSize /= 2;
-  }
-  ellipsoids.push_back(HddEllipsoid(0, verticalSize, refEv.latitude,
-                                    refEv.longitude, refEv.depth));
-
-  //
-  // Sort catalog events by distance and drop the ones further than the outmost
-  // ellipsoid.
-  //
-  multimap<double, unsigned> eventByDistance;      // distance, eventid
-  unordered_map<unsigned, double> distanceByEvent; // eventid, distance
-
-  for (const auto &kv : catalog.getEvents())
-  {
-    const Event &event = kv.second;
-
-    if (event == refEv) continue;
-
-    // drop event if outside the outmost ellipsod boundaries
-    const HddEllipsoid &outmostEllip = ellipsoids.at(0);
-    if (!outmostEllip.getOuterEllipsoid().isInside(
-            event.latitude, event.longitude, event.depth))
-      continue;
-
-    // compute distance between current event and reference origin
-    double distance = computeDistance(refEv, event);
-
-    // keep a list of events in range sorted by distance
-    eventByDistance.emplace(distance, event.id);
-    distanceByEvent.emplace(event.id, distance);
   }
 
   //
@@ -368,25 +334,20 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
   }
 
   //
-  // Select from the events within distance the ones which respect the
-  // constraints.
+  // Helper that tries to add an event as neighbour to refEv if all the
+  // constraints are met and returns true. Returns false otherwise
   //
-  struct SelectedEventEntry
-  {
-    Event event;
-    unordered_map<string, unordered_set<string>> phases;
-  };
-  multimap<double, SelectedEventEntry> selectedEvents; // distance, struct
-  unordered_map<unsigned, int> dtCountByEvent;         // eventid, dtCount
+  auto addNeighbour = [&](Neighbours &neighbours, unsigned eventId,
+                          double eventDistance) -> bool {
+    if (eventId == refEv.id)
+    {
+      return false;
+    }
 
-  // closer events fetched first
-  for (const auto &kv : eventByDistance)
-  {
-    const double eventDistance = kv.first;
-    const Event &event         = catalog.getEvents().at(kv.second);
+    const Event &event = catalog.getEvents().at(eventId);
 
     multimap<double, pair<string, string>>
-        stationByDistance; // distance, <stationid,phase>
+        staPhByDistance; // distance, <stationid,phase>
 
     // Loop through event phases and keep track of the valid phases and their
     // station distance.
@@ -405,7 +366,10 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
       // check this station distance to reference event is ok
       const auto &staRefEvDistanceIt =
           validatedStationDistance.find(phase.stationId);
-      if (staRefEvDistanceIt == validatedStationDistance.end()) continue;
+      if (staRefEvDistanceIt == validatedStationDistance.end())
+      {
+        continue;
+      }
 
       double staRefEvDistance = staRefEvDistanceIt->second;
 
@@ -439,142 +403,185 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
         continue;
       }
 
-      stationByDistance.emplace(
+      staPhByDistance.emplace(
           std::piecewise_construct, std::forward_as_tuple(staRefEvDistance),
           std::forward_as_tuple(phase.stationId, phase.type));
     }
 
-    // check if enough phases (> `minDTperEvt`); if not skip event
-    if (stationByDistance.size() < minDTperEvt)
+    // check if enough phases (> `minPhase`); if not skip event
+    if (staPhByDistance.size() < minPhase)
     {
-      continue;
+      return false;
     }
 
-    unsigned numObservations = 0;
-
-    // Since the constraints are met `evSelEntry` will be added to
-    // `selectedEvents`
-    SelectedEventEntry evSelEntry;
-    evSelEntry.event = event;
-
-    // copy the phases
-    for (const auto &kw : stationByDistance)
+    // The constraints are met so add the neighbour with the matched phases
+    unsigned addedPhases = 0;
+    for (const auto &kw : staPhByDistance)
     {
-      // If `maxDTperEvt` is set, make sure to stay within limits.
-      if (maxDTperEvt > 0 && numObservations >= maxDTperEvt) break;
+      // If `maxPhase` is set, make sure to stay within limits.
+      if (maxPhase > 0 && addedPhases >= maxPhase)
+      {
+        break;
+      }
       const pair<string, string> &staPh = kw.second; // station, phase
-      evSelEntry.phases[staPh.first].insert(staPh.second);
-      numObservations++;
+      neighbours.add(event.id, staPh.first, staPh.second);
+      addedPhases++;
     }
 
-    // add this event to the selected ones
-    selectedEvents.emplace(eventDistance, evSelEntry);
-    dtCountByEvent.emplace(event.id, numObservations);
+    return true;
+  };
 
-    // If ellipsoid algorithm is disabled and maxNumNeigh is set, then
-    // we can stop when we have found maxNumNeigh events
-    if (numEllipsoids <= 0 && maxNumNeigh > 0 &&
-        selectedEvents.size() >= maxNumNeigh)
-    {
-      break;
-    }
-  }
-
-  // Finally, build the catalog of neighboring events using either the
-  // ellipsoids algorithm or the nearest neighbour method.
+  //
+  // Find the neighboring events using either the ellipsoids algorithm or the
+  // nearest neighbour method.
+  //
   Neighbours neighbours(refEv.id);
 
-  if (numEllipsoids <= 0)
+  if (numEllipsoids <= 0) // nearest neighbour
   {
-    // If `numEllipsoids` is 0, disable the ellipsoid algorithm and simply
-    // select events by means of the nearest neighbor algorithm. Since
-    // `selectedEvents` is sorted by distance, we obtain closer events first.
-    for (const auto &kv : selectedEvents)
-    {
-      const SelectedEventEntry &evSelEntry = kv.second;
-      const Event &ev                      = evSelEntry.event;
 
-      // add this event to the catalog
-      for (const auto &kv : evSelEntry.phases)
+    auto callback = [&](const EventTree::Point &point, double eventDistance) {
+      // we reached the search distance limit
+      if (eventDistance > maxNeighbourDist)
       {
-        const string &stationId                  = kv.first;
-        const std::unordered_set<string> &phases = kv.second;
-        for (const auto &phase : phases)
-        {
-          neighbours.add(ev.id, stationId, phase);
-        }
+        return true; // stops bestFirstSearch
       }
-      logDebugF("Neighbour: #phases %2d distance %g depth-diff %g event %s",
-                dtCountByEvent[ev.id], distanceByEvent[ev.id],
-                refEv.depth - ev.depth, string(ev).c_str());
-    }
+
+      // add eventId as a valid neighbour
+      const unsigned eventId = point.data;
+      bool added             = addNeighbour(neighbours, eventId, eventDistance);
+
+      // we have found maxNumNeigh events
+      if (added && maxNumNeigh > 0 && neighbours.amount() >= maxNumNeigh)
+      {
+        return true; // stops bestFirstSearch
+      }
+
+      return false; // continue bestFirstSearch
+    };
+
+    // bestFirstSearch calls 'callback' by nearest neighbour until callback
+    // retuns true
+    evTree.bestFirstSearch(refEv.latitude, refEv.longitude, refEv.depth,
+                           callback);
   }
-  else
+  else // apply Waldauser's concentric ellipsoids algorithm
   {
     //
-    // apply Waldauser's concentric ellipsoids algorithm
+    // Build ellipsoids
+    //
+    vector<HddEllipsoid> ellipsoids(numEllipsoids, HddEllipsoid(0, 0, 0, 0));
+    double verticalSemiAxisLen = maxNeighbourDist * 2;
+    for (int i = numEllipsoids - 1; i > 0; --i)
+    {
+      ellipsoids[i] = HddEllipsoid(verticalSemiAxisLen, refEv.latitude,
+                                   refEv.longitude, refEv.depth);
+      verticalSemiAxisLen /= 2;
+    }
+    ellipsoids[0] = HddEllipsoid(0, verticalSemiAxisLen, refEv.latitude,
+                                 refEv.longitude, refEv.depth);
+
+    const HddEllipsoid &outmostEllip = ellipsoids.at(numEllipsoids - 1);
+
+    //
+    // Find all neighbours within radius equal to the max VerticalSemiAxisLen
+    // of the largest ellipsoid
+    //
+    double radius = outmostEllip.getOuterEllipsoidVerticalSemiAxisLen();
+
+    // distance km, point idx
+    multimap<double, size_t> pointsByDistance = evTree.radiusSearch(
+        refEv.latitude, refEv.longitude, refEv.depth, radius);
+
+    // drop events outside the outmost ellipsod boundaries
+    for (auto it = pointsByDistance.begin(); it != pointsByDistance.end();)
+    {
+      const size_t idx              = it->second;
+      const EventTree::Point &point = evTree.points().at(idx);
+
+      if (outmostEllip.getOuterEllipsoid().isInside(
+              point.latitude, point.longitude, point.depth))
+      {
+        ++it;
+        continue;
+      }
+      it = pointsByDistance.erase(it);
+    }
+
+    //
+    // Select neighbours for each ellipsoid/quadrant combination in a round
+    // robin fashion until 'maxNumNeigh' is reached
     //
     bool workToDo = true;
 
     while (workToDo)
     {
-      for (int elpsNum = ellipsoids.size() - 1; elpsNum >= 0; elpsNum--)
+      // loop through ellipsoids
+      for (const HddEllipsoid &ellpsd : ellipsoids)
       {
+        bool resetSearchRange = true;
+
+        // loop through quadrants
         for (int quadrant : {1, 2, 3, 4, 5, 6, 7, 8})
         {
           // if we either don't have events or we have already selected
           // `maxNumNeigh` neighbors, exit
-          if (selectedEvents.empty() ||
-              (maxNumNeigh > 0 && neighbours.ids().size() >= maxNumNeigh))
+          if (pointsByDistance.empty() ||
+              (maxNumNeigh > 0 && neighbours.amount() >= maxNumNeigh))
           {
             workToDo = false;
             break;
           }
 
-          // since `selectedEvents` is sorted by distance, we get closer events
-          // first
-          for (auto it = selectedEvents.begin(); it != selectedEvents.end();
-               it++)
+          multimap<double, size_t>::iterator minDist, maxDist;
+
+          if (resetSearchRange)
           {
-            const SelectedEventEntry &evSelEntry = it->second;
-            const Event &ev                      = evSelEntry.event;
+            minDist = pointsByDistance.lower_bound(
+                ellpsd.getInnerEllipsoidHorizontalSemiAxesLen());
+            maxDist = pointsByDistance.upper_bound(
+                ellpsd.getOuterEllipsoidVerticalSemiAxisLen());
+            resetSearchRange = false;
+          }
 
-            bool found = ellipsoids[elpsNum].isInside(ev.latitude, ev.longitude,
-                                                      ev.depth, quadrant);
-            if (found)
+          // Search an event within the current ellipdoid/quadrant
+          for (auto it = minDist; it != maxDist;)
+          {
+            const double eventDistance    = it->first;
+            const size_t idx              = it->second;
+            const EventTree::Point &point = evTree.points().at(idx);
+            const unsigned eventId        = point.data;
+
+            // check this event (point) is in the current ellipdoid/quadrant
+            if (!ellpsd.isInside(point.latitude, point.longitude, point.depth,
+                                 quadrant))
             {
-              // add this event to the catalog
-              for (const auto &kv : evSelEntry.phases)
-              {
-                const string &stationId                  = kv.first;
-                const std::unordered_set<string> &phases = kv.second;
-                for (const auto &phase : phases)
-                {
-                  neighbours.add(ev.id, stationId, phase);
-                }
-              }
-              logDebugF("Neighbour: ellipsoid %2d quadrant %d #phases %2d "
-                        "distance %5.2f depth-diff %6.3f event %s",
-                        elpsNum, quadrant, dtCountByEvent[ev.id],
-                        distanceByEvent[ev.id], refEv.depth - ev.depth,
-                        string(ev).c_str());
-
-              selectedEvents.erase(it);
-              break;
+              ++it;
+              continue; // try next event
             }
+
+            // event in current ellipdoid/quadrant -> try addinh it to the
+            // neighbours
+            bool added = addNeighbour(neighbours, eventId, eventDistance);
+
+            // remove the event from future selection
+            it               = pointsByDistance.erase(it);
+            resetSearchRange = true;
+
+            if (added) break; // next ellipdoid/quadrant
           }
         }
+        if (!workToDo) break;
       }
     }
   }
 
   // check if enough neighbors were found
-  if (neighbours.ids().size() < minNumNeigh)
+  if (neighbours.amount() < minNumNeigh)
   {
     string msg =
         strf("Skipping event %s, insufficient number of neighbors (%zu)",
-             string(refEv).c_str(), neighbours.ids().size());
-    logDebugF("%s", msg.c_str());
+             string(refEv).c_str(), neighbours.amount());
     throw Exception(msg);
   }
 
@@ -582,16 +589,17 @@ Neighbours selectNeighbouringEvents(const Catalog &catalog,
 }
 
 unordered_map<unsigned, Neighbours>
-selectNeighbouringEventsCatalog(const Catalog &catalog,
+selectNeighbouringEventsCatalog(const EventTree &evTree,
+                                const Catalog &catalog,
                                 double minESdist,
                                 double maxESdist,
                                 double minEStoIEratio,
-                                unsigned minDTperEvt,
-                                unsigned maxDTperEvt,
+                                unsigned minPhase,
+                                unsigned maxPhase,
                                 unsigned minNumNeigh,
                                 unsigned maxNumNeigh,
                                 unsigned numEllipsoids,
-                                double maxEllipsoidSize)
+                                double maxNeighbourDist)
 {
   logInfo("Searching for event clusters in the event catalog");
 
@@ -611,9 +619,9 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
     try
     {
       Neighbours neighbours = selectNeighbouringEvents(
-          validCatalog, event, validCatalog, minESdist, maxESdist,
-          minEStoIEratio, minDTperEvt, maxDTperEvt, minNumNeigh, maxNumNeigh,
-          numEllipsoids, maxEllipsoidSize);
+          evTree, validCatalog, event, validCatalog, minESdist, maxESdist,
+          minEStoIEratio, minPhase, maxPhase, minNumNeigh, maxNumNeigh,
+          numEllipsoids, maxNeighbourDist);
 
       neighboursList.emplace(neighbours.referenceId(), std::move(neighbours));
     }
@@ -665,9 +673,9 @@ selectNeighbouringEventsCatalog(const Catalog &catalog,
         try
         {
           neighbours = selectNeighbouringEvents(
-              validCatalog, event, validCatalog, minESdist, maxESdist,
-              minEStoIEratio, minDTperEvt, maxDTperEvt, minNumNeigh,
-              maxNumNeigh, numEllipsoids, maxEllipsoidSize);
+              evTree, validCatalog, event, validCatalog, minESdist, maxESdist,
+              minEStoIEratio, minPhase, maxPhase, minNumNeigh, maxNumNeigh,
+              numEllipsoids, maxNeighbourDist);
         }
         catch (...)
         {

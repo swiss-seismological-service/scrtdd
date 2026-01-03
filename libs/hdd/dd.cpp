@@ -122,7 +122,8 @@ DD::DD(const Catalog &catalog,
                                          _cfg.validPphases,
                                          _cfg.validSphases,
                                          _cfg.pickUncertaintyClasses)),
-      _ttt(std::move(ttt)), _proxy(std::move(wf))
+      _evTree(createEventTree(_bgCat)), _ttt(std::move(ttt)),
+      _proxy(std::move(wf))
 {
   disableCatalogWaveformDiskCache();
 }
@@ -379,10 +380,10 @@ DD::findClusters(const ClusteringOptions &clustOpt)
   // find Neighbours for each event in the catalog
   unordered_map<unsigned, Neighbours> neighboursByEvent =
       selectNeighbouringEventsCatalog(
-          _bgCat, clustOpt.minESdist, clustOpt.maxESdist,
+          _evTree, _bgCat, clustOpt.minESdist, clustOpt.maxESdist,
           clustOpt.minEStoIEratio, clustOpt.minNumPhases, clustOpt.maxNumPhases,
           clustOpt.minNumNeigh, clustOpt.maxNumNeigh, clustOpt.numEllipsoids,
-          clustOpt.maxEllipsoidSize);
+          clustOpt.maxNeighbourDist);
 
   // Organize the neighbours by not connected clusters
   return clusterizeNeighbouringEvents(std::move(neighboursByEvent));
@@ -397,11 +398,10 @@ Catalog DD::relocateMultiEvents(
     bool saveProcessing,
     string processingDataDir)
 {
-  logInfo("Starting DD relocator in multiple events mode");
-
-  Catalog catToReloc(_bgCat);
-
-  logInfoF("The catalog contains %zu events", catToReloc.getEvents().size());
+  logInfoF(
+      "Starting DD relocator in multiple events mode. The catalog contains "
+      "%zu events",
+      _bgCat.getEvents().size());
 
   if (saveProcessing)
   {
@@ -437,10 +437,10 @@ Catalog DD::relocateMultiEvents(
     // find Neighbours for each event in the catalog
     unordered_map<unsigned, Neighbours> neighboursByEvent =
         selectNeighbouringEventsCatalog(
-            catToReloc, clustOpt.minESdist, clustOpt.maxESdist,
+            _evTree, _bgCat, clustOpt.minESdist, clustOpt.maxESdist,
             clustOpt.minEStoIEratio, clustOpt.minNumPhases,
             clustOpt.maxNumPhases, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
-            clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize);
+            clustOpt.numEllipsoids, clustOpt.maxNeighbourDist);
 
     // Organize the neighbours by non-connected clusters
     clusters = clusterizeNeighbouringEvents(std::move(neighboursByEvent));
@@ -455,9 +455,9 @@ Catalog DD::relocateMultiEvents(
 
   if (saveProcessing)
   {
-    catToReloc.writeToFile(joinPath(processingDataDir, "input-event.csv"),
-                           joinPath(processingDataDir, "input-phase.csv"),
-                           joinPath(processingDataDir, "input-station.csv"));
+    _bgCat.writeToFile(joinPath(processingDataDir, "input-event.csv"),
+                       joinPath(processingDataDir, "input-phase.csv"),
+                       joinPath(processingDataDir, "input-station.csv"));
   }
 
   //
@@ -473,11 +473,11 @@ Catalog DD::relocateMultiEvents(
     if (saveProcessing)
     {
       string prefix = strf("cluster-%u", clusterId);
-      Neighbours::writeToFile(cluster, catToReloc, prefix + "-pair.csv");
+      Neighbours::writeToFile(cluster, _bgCat, prefix + "-pair.csv");
       Catalog catToDump;
       for (const auto &kv : cluster)
       {
-        catToDump.add(kv.first, catToReloc, true);
+        catToDump.add(kv.first, _bgCat, true);
       }
       catToDump.writeToFile(
           joinPath(processingDataDir, (prefix + "-event.csv")),
@@ -485,23 +485,21 @@ Catalog DD::relocateMultiEvents(
     }
 
     // Perform cross-correlation
-    XCorrCache xcorr =
-        buildXCorrCache(catToReloc, cluster, xcorrOpt, xcorrData);
+    XCorrCache xcorr = buildXCorrCache(_bgCat, cluster, xcorrOpt, xcorrData);
 
     // the actual relocation
     std::vector<Solver::DoubleDifference> startDDs, finalDDs;
-    Catalog relocatedCluster =
-        relocate(catToReloc, cluster, xcorrOpt, solverOpt, false, xcorr,
-                 startDDs, finalDDs);
+    Catalog relocatedCluster = relocate(_bgCat, cluster, xcorrOpt, solverOpt,
+                                        false, xcorr, startDDs, finalDDs);
 
     relocatedCatalog.add(relocatedCluster, true);
 
     if (saveProcessing)
     {
       string prefix = strf("cluster-%u", clusterId);
-      writeDoubleDifferenceToFile(startDDs, catToReloc,
+      writeDoubleDifferenceToFile(startDDs, _bgCat,
                                   prefix + "initial-double-difference");
-      writeDoubleDifferenceToFile(finalDDs, catToReloc,
+      writeDoubleDifferenceToFile(finalDDs, _bgCat,
                                   prefix + "final-double-difference");
       relocatedCluster.writeToFile(
           joinPath(processingDataDir, (prefix + "-relocated-event.csv")),
@@ -687,12 +685,12 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
     // select neighbouring events
     //
     Neighbours neighbours = selectNeighbouringEvents(
-        bgCat, evToRelocate, evToRelocateCat, clustOpt.minESdist,
+        _evTree, _bgCat, evToRelocate, evToRelocateCat, clustOpt.minESdist,
         clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minNumPhases,
         clustOpt.maxNumPhases, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
-        clustOpt.numEllipsoids, clustOpt.maxEllipsoidSize);
+        clustOpt.numEllipsoids, clustOpt.maxNeighbourDist);
 
-    logInfoF("Found %zu neighbouring events", neighbours.ids().size());
+    logInfoF("Found %zu neighbouring events", neighbours.amount());
 
     //
     // prepare catalog to relocate
@@ -1263,7 +1261,7 @@ DD::updateRelocatedEvents(const Solver &solver,
 }
 
 XCorrCache
-DD::buildXCorrCache(Catalog &catalog,
+DD::buildXCorrCache(const Catalog &catalog,
                     const unordered_map<unsigned, Neighbours> &cluster,
                     const XcorrOptions &xcorrOpt,
                     const XCorrCache &precomputed)
@@ -1314,7 +1312,7 @@ DD::buildXCorrCache(Catalog &catalog,
  * Compute and store to `XCorrCache` cross-correlated differential travel
  * times for pairs of the earthquake.
  */
-void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
+void DD::buildXcorrDiffTTimePairs(const Catalog &catalog,
                                   const Neighbours &neighbours,
                                   const Event &refEv,
                                   const XcorrOptions &xcorrOpt,
@@ -1432,7 +1430,7 @@ void DD::buildXcorrDiffTTimePairs(Catalog &catalog,
 }
 
 shared_ptr<Waveform::Processor>
-DD::preloadNonCatalogWaveforms(Catalog &catalog,
+DD::preloadNonCatalogWaveforms(const Catalog &catalog,
                                const Neighbours &neighbours,
                                const Event &refEv,
                                const XcorrOptions &xcorrOpt)

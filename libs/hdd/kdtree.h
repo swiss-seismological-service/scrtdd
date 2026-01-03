@@ -32,12 +32,11 @@
 
 #include <map>
 #include <memory>
+#include <queue>
 #include <stdexcept>
 #include <vector>
 
 namespace HDD {
-
-namespace TTT {
 
 template <typename T> class KDTree
 {
@@ -50,8 +49,6 @@ public:
     T data;
   };
 
-  KDTree() = default;
-
   KDTree(std::vector<Point> points)
   {
     _points = std::move(points);
@@ -62,6 +59,15 @@ public:
 
     _root = buildRecursive(indices.data(), _points.size(), 0);
   }
+
+  KDTree()  = default;
+  ~KDTree() = default;
+
+  KDTree(const KDTree &other)            = default;
+  KDTree &operator=(const KDTree &other) = default;
+
+  KDTree(KDTree &&other)            = default;
+  KDTree &operator=(KDTree &&other) = default;
 
   const std::vector<Point> &points() const { return _points; }
 
@@ -122,6 +128,96 @@ public:
     return queue;
   }
 
+  void
+  bestFirstSearch(double latitude,
+                  double longitude,
+                  double depth,
+                  std::function<bool(const Point &, double)> callback) const
+  {
+    if (!_root) return;
+
+    struct Item
+    {
+      double minDist;
+      const Node *node;   // If non-null, this is a node to expand
+      const Point *point; // If non-null, this is a result point
+
+      // Priority queue is a max-heap, we want a min-heap (lowest distance
+      // first)
+      bool operator>(const Item &other) const
+      {
+        return minDist > other.minDist;
+      }
+    };
+
+    std::priority_queue<Item, std::vector<Item>, std::greater<Item>> pq;
+
+    Point query{latitude, longitude, depth, T()};
+
+    // Start with the root node
+    pq.push({0.0, _root, nullptr});
+
+    while (!pq.empty())
+    {
+      Item top = pq.top();
+      pq.pop();
+
+      // If we popped a Point, it is guaranteed to be the next closest point.
+      if (top.point)
+      {
+        if (callback(*top.point, top.minDist))
+        {
+          return;
+        }
+        continue;
+      }
+
+      // If we popped a Node, expand it
+      const Node *node  = top.node;
+      const Point &curr = _points[node->idx];
+
+      // Add the actual point at this node to the queue as a candidate
+      double d_point =
+          computeDistance(curr.latitude, curr.longitude, curr.depth,
+                          query.latitude, query.longitude, query.depth);
+      pq.push({d_point, nullptr, &curr});
+
+      int axis = node->axis;
+      int dir;
+      double axisDist;
+
+      if (axis == 0)
+      {
+        dir      = query.latitude < curr.latitude ? 0 : 1;
+        axisDist = computeDistance(curr.latitude, 0, query.latitude, 0);
+      }
+      else if (axis == 1)
+      {
+        dir      = query.longitude < curr.longitude ? 0 : 1;
+        axisDist = computeDistance(0, curr.longitude, 0, query.longitude);
+      }
+      else
+      {
+        dir      = query.depth < curr.depth ? 0 : 1;
+        axisDist = std::abs(curr.depth - query.depth);
+      }
+
+      if (node->next[dir])
+      {
+        // The near volume has the same min distance as the current volume
+        pq.push({top.minDist, node->next[dir], nullptr});
+      }
+
+      if (node->next[1 - dir])
+      {
+        // The far volume's min distance is at least the distance to the split
+        // plane
+        double farMinDist = std::max(top.minDist, axisDist);
+        pq.push({farMinDist, node->next[1 - dir], nullptr});
+      }
+    }
+  }
+
 private:
   struct Node
   {
@@ -138,7 +234,7 @@ private:
     const size_t mid = (npoints - 1) / 2;
 
     std::nth_element(
-        indices, indices + mid, indices + npoints, [&](int lhs, int rhs) {
+        indices, indices + mid, indices + npoints, [&](size_t lhs, size_t rhs) {
           if (axis == 0)
             return _points[lhs].latitude < _points[rhs].latitude;
           else if (axis == 1)
@@ -203,7 +299,7 @@ private:
     bool found = searchRecursive(query, node->next[dir], idx);
     if (!found && equalOnAxis)
     {
-      return searchRecursive(query, node->next[dir == 0 ? 1 : 0], idx);
+      return searchRecursive(query, node->next[1 - dir], idx);
     }
     return found;
   }
@@ -241,7 +337,7 @@ private:
     else if (axis == 1)
     {
       dir      = query.longitude < curr.longitude ? 0 : 1;
-      axisDist = computeDistance(0, query.longitude, 0, query.longitude);
+      axisDist = computeDistance(0, curr.longitude, 0, query.longitude);
     }
     else if (axis == 2)
     {
@@ -257,7 +353,7 @@ private:
 
     if (axisDist < minDist)
     {
-      nnSearchRecursive(query, node->next[dir == 0 ? 1 : 0], idx, minDist);
+      nnSearchRecursive(query, node->next[1 - dir], idx, minDist);
     }
     return true;
   }
@@ -299,7 +395,7 @@ private:
     else if (axis == 1)
     {
       dir      = query.longitude < curr.longitude ? 0 : 1;
-      axisDist = computeDistance(0, query.longitude, 0, query.longitude);
+      axisDist = computeDistance(0, curr.longitude, 0, query.longitude);
     }
     else if (axis == 2)
     {
@@ -315,7 +411,7 @@ private:
 
     if (queue.size() < k || axisDist < queue.rbegin()->first)
     {
-      knnSearchRecursive(query, node->next[dir == 0 ? 1 : 0], queue, k);
+      knnSearchRecursive(query, node->next[1 - dir], queue, k);
     }
   }
 
@@ -351,7 +447,7 @@ private:
     else if (axis == 1)
     {
       dir      = query.longitude < curr.longitude ? 0 : 1;
-      axisDist = computeDistance(0, query.longitude, 0, query.longitude);
+      axisDist = computeDistance(0, curr.longitude, 0, query.longitude);
     }
     else if (axis == 2)
     {
@@ -367,7 +463,7 @@ private:
 
     if (axisDist <= radius)
     {
-      radiusSearchRecursive(query, node->next[dir == 0 ? 1 : 0], queue, radius);
+      radiusSearchRecursive(query, node->next[1 - dir], queue, radius);
     }
   }
 
@@ -376,8 +472,6 @@ private:
   std::vector<Node> _nodes;
   std::vector<Point> _points;
 };
-
-} // namespace TTT
 
 } // namespace HDD
 

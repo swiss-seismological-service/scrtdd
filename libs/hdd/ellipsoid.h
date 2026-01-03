@@ -38,6 +38,8 @@ namespace HDD {
  *
  *      (x-xo)^2 / axix_a^2 + (y-yo)^2 / axis_b^2 + (z-zo)^2 / axis_c^2 = 1
  *
+ * axis_a, axis_b: horizontal semi-axes length
+ * axis_c: vertical semi-axis length
  */
 struct Ellipsoid
 {
@@ -56,7 +58,7 @@ struct Ellipsoid
     return one <= 1;
   }
 
-  double axis_a = 0, axis_b = 0, axis_c = 0; // axis in km
+  double axis_a = 0, axis_b = 0, axis_c = 0; // semi-axes in km
   double lat = 0, lon = 0, depth = 0;        // origin
 };
 
@@ -88,23 +90,30 @@ public:
 
   ~HddEllipsoid() = default;
 
-  HddEllipsoid(double vertical_axis_len, double lat, double lon, double depth)
-      : HddEllipsoid(vertical_axis_len / 2., vertical_axis_len, lat, lon, depth)
+  HddEllipsoid(double outer_vertical_semi_axis_len,
+               double lat,
+               double lon,
+               double depth)
+      : HddEllipsoid(outer_vertical_semi_axis_len / 2.,
+                     outer_vertical_semi_axis_len,
+                     lat,
+                     lon,
+                     depth)
   {}
 
-  HddEllipsoid(double inner_vertical_axis_len,
-               double outer_vertical_axis_len,
+  HddEllipsoid(double inner_vertical_semi_axis_len,
+               double outer_vertical_semi_axis_len,
                double lat,
                double lon,
                double depth)
   {
-    _outerEllipsoid.axis_a = outer_vertical_axis_len / 2.;
+    _outerEllipsoid.axis_a = outer_vertical_semi_axis_len / 2.;
     _outerEllipsoid.axis_b = _outerEllipsoid.axis_a;
-    _outerEllipsoid.axis_c = outer_vertical_axis_len;
+    _outerEllipsoid.axis_c = outer_vertical_semi_axis_len;
 
-    _innerEllipsoid.axis_a = inner_vertical_axis_len / 2.;
+    _innerEllipsoid.axis_a = inner_vertical_semi_axis_len / 2.;
     _innerEllipsoid.axis_b = _innerEllipsoid.axis_a;
-    _innerEllipsoid.axis_c = inner_vertical_axis_len;
+    _innerEllipsoid.axis_c = inner_vertical_semi_axis_len;
 
     _outerEllipsoid.lat = _innerEllipsoid.lat = lat;
     _outerEllipsoid.lon = _innerEllipsoid.lon = lon;
@@ -112,7 +121,28 @@ public:
   }
 
   const Ellipsoid &getInnerEllipsoid() const { return _innerEllipsoid; }
+
   const Ellipsoid &getOuterEllipsoid() const { return _outerEllipsoid; }
+
+  double getInnerEllipsoidHorizontalSemiAxesLen() const
+  {
+    return _innerEllipsoid.axis_a;
+  }
+
+  double getOuterEllipsoidHorizontalSemiAxesLen() const
+  {
+    return _outerEllipsoid.axis_a;
+  }
+
+  double getInnerEllipsoidVerticalSemiAxisLen() const
+  {
+    return _innerEllipsoid.axis_c;
+  }
+
+  double getOuterEllipsoidVerticalSemiAxisLen() const
+  {
+    return _outerEllipsoid.axis_c;
+  }
 
   // Returns if the coordinate provided is located within the correct quadrant,
   // and is both inside the outer layer and outside of the inner one.
