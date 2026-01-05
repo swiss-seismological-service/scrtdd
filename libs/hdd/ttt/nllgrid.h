@@ -48,6 +48,14 @@ public:
           bool swapBytes           = false,
           unsigned maxOpenFiles    = 512);
 
+  double compute(double eventLat,
+                 double eventLon,
+                 double eventDepth,
+                 double stationLat,
+                 double stationLon,
+                 double stationElevation,
+                 const std::string &phaseType) override;
+
   void compute(double eventLat,
                double eventLon,
                double eventDepth,
@@ -56,17 +64,10 @@ public:
                double stationElevation,
                const std::string &phaseType,
                double &travelTime,
-               double &azimuth,
-               double &takeOffAngle,
-               double &velocityAtSrc) override;
-
-  double compute(double eventLat,
-                 double eventLon,
-                 double eventDepth,
-                 double stationLat,
-                 double stationLon,
-                 double stationElevation,
-                 const std::string &phaseType) override;
+               double &takeOffAzi,
+               double &takeOffDip,
+               double &dtdd,
+               double &dtdh) override;
 
   void closeOpenFiles();
 

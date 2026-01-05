@@ -64,30 +64,41 @@ void Homogeneous::compute(double eventLat,
                           double stationElevation,
                           const std::string &phaseType,
                           double &travelTime,
-                          double &azimuth,
-                          double &takeOffAngle,
-                          double &velocityAtSrc)
+                          double &takeOffAzi,
+                          double &takeOffDip,
+                          double &dtdd,
+                          double &dtdh)
 {
-  travelTime = compute(eventLat, eventLon, eventDepth, stationLat, stationLon,
-                       stationElevation, phaseType);
-
-  double hDist =
-      computeDistance(eventLat, eventLon, eventDepth, stationLat, stationLon,
-                      -(stationElevation / 1000.), &azimuth);
-
-  azimuth = radToDeg(azimuth);
-
-  double vDist = eventDepth + stationElevation / 1000.;
-  takeOffAngle = std::asin(vDist / hDist);
-  takeOffAngle = radToDeg(takeOffAngle);
-  takeOffAngle += 90; // -90(down):+90(up) -> 0(down):180(up)
-
+  double velocity; // [km/s]
   if (phaseType == "P")
-    velocityAtSrc = _pVel;
+    velocity = _pVel;
   else if (phaseType == "S")
-    velocityAtSrc = _sVel;
+    velocity = _sVel;
   else
     throw Exception("Unknown phase type: " + phaseType);
+
+  //
+  // straight ray path since we are in a homogeneous media
+  //
+  double atKmDepth = (eventDepth - stationElevation / 1000.) / 2.;
+
+  double Hdist = computeDistance(eventLat, eventLon, stationLat, stationLon,
+                                 &takeOffAzi, nullptr, atKmDepth); // [km]
+  takeOffAzi   = radToDeg(takeOffAzi);                             // [degree]
+
+  double Vdist    = eventDepth + stationElevation / 1000.; // [km]
+  double distance = sqrt(Hdist * Hdist + Vdist * Vdist);   // [km]
+
+  travelTime = distance / velocity; // [sec]
+
+  takeOffDip = atan2(Vdist, Hdist); // [rad]
+
+  dtdd = std::cos(takeOffDip) // [sec/deg]
+         / km2deg(velocity, atKmDepth);
+  dtdh = std::sin(takeOffDip) / velocity; // [sec/km]
+
+  takeOffDip = radToDeg(takeOffDip);
+  takeOffDip += 90; // -90(down):+90(up) -> 0(down):180(up)
 }
 } // namespace TTT
 

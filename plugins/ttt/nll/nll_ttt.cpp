@@ -271,18 +271,14 @@ TravelTime NLLGrid::compute(const char *phase,
 
   try
   {
-    double travelTime, azimuth, takeOffAngle, velocity;
-    _grids->compute(lat1, lon1, dep1, lat2, lon2, alt2, phaseType, travelTime,
-                    azimuth, takeOffAngle, velocity);
-    const double takeoffRad = HDD::radToDeg(takeOffAngle);
-    const double dtdd =
-        std::cos(takeoffRad) / (velocity * HDD::kmOfDegree(dep1)); // [sec/deg]
-    const double dtdh = std::sin(takeoffRad) / velocity;           // [sec/km]
-    TravelTime ttt(phase, travelTime, dtdd, dtdh, 0, takeOffAngle);
+    TravelTime tt(phase, 0, 0, 0, 0, 0);
+    double takeOffAzi;
+    _grids->compute(lat1, lon1, dep1, lat2, lon2, alt2, phaseType, tt.time,
+                    takeOffAzi, tt.takeoff, tt.dtdd, tt.dtdh);
 #if SC_API_VERSION >= SC_API_VERSION_CHECK(16, 0, 0)
-    ttt.azi = azimuth;
+    tt.azi = takeOffAzi;
 #endif
-    return ttt;
+    return tt;
   }
   catch (HDD::Exception &e)
   {

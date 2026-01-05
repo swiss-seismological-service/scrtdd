@@ -222,10 +222,10 @@ public:
              bool normalizeG        = true);
 
   bool getEventChanges(unsigned evId,
-                       double &deltaLat,
-                       double &deltaLon,
-                       double &deltaDepth,
-                       double &deltaTT) const;
+                       double &deltaLat,         // km
+                       double &deltaLon,         // km
+                       double &deltaDepth,       // km
+                       double &deltaTime) const; // sec
 
   bool isEventPhaseUsed(unsigned evId,
                         const std::string &staId,

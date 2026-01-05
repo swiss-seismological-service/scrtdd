@@ -46,9 +46,10 @@ public:
   /*
    * The implementation of this interface MUST compute:
    * - travelTime    [seconds]
-   * - azimuth       [degree]
-   * - takeOffAngle  [degree] 0(down):180(up)
-   * - velocityAtSrc [km/sec]
+   * - takeOffAzi    [degree]
+   * - takeOffDip    [degree] 0(down):180(up)
+   * - dtdd          [sec/rad] horizontal slowness
+   * - dtdh          [km/sec] vertical slowness
    */
   virtual void compute(double eventLat,
                        double eventLon,
@@ -58,21 +59,23 @@ public:
                        double stationElevation,
                        const std::string &phaseType,
                        double &travelTime,
-                       double &azimuth,
-                       double &takeOffAngle,
-                       double &velocityAtSrc) = 0;
+                       double &takeOffAzi,
+                       double &takeOffDip,
+                       double &dtdd,
+                       double &dtdh) = 0;
 
   void compute(const Catalog::Event &event,
                const Catalog::Station &station,
                const std::string &phaseType,
                double &travelTime,
-               double &azimuth,
-               double &takeOffAngle,
-               double &velocityAtSrc)
+               double &takeOffAzi,
+               double &takeOffDip,
+               double &dtdd,
+               double &dtdh)
   {
     compute(event.latitude, event.longitude, event.depth, station.latitude,
             station.longitude, station.elevation, phaseType, travelTime,
-            azimuth, takeOffAngle, velocityAtSrc);
+            takeOffAzi, takeOffDip, dtdd, dtdh);
   }
 
   void compute(double eventLat,
@@ -81,13 +84,14 @@ public:
                const Catalog::Station &station,
                const std::string &phaseType,
                double &travelTime,
-               double &azimuth,
-               double &takeOffAngle,
-               double &velocityAtSrc)
+               double &takeOffAzi,
+               double &takeOffDip,
+               double &dtdd,
+               double &dtdh)
   {
     compute(eventLat, eventLon, eventDepth, station.latitude, station.longitude,
-            station.elevation, phaseType, travelTime, azimuth, takeOffAngle,
-            velocityAtSrc);
+            station.elevation, phaseType, travelTime, takeOffAzi, takeOffDip,
+            dtdd, dtdh);
   }
 
   void compute(const Catalog::Event &event,
@@ -96,13 +100,14 @@ public:
                double stationElevation,
                const std::string &phaseType,
                double &travelTime,
-               double &azimuth,
-               double &takeOffAngle,
-               double &velocityAtSrc)
+               double &takeOffAzi,
+               double &takeOffDip,
+               double &dtdd,
+               double &dtdh)
   {
     compute(event.latitude, event.longitude, event.depth, stationLat,
-            stationLon, stationElevation, phaseType, travelTime, azimuth,
-            takeOffAngle, velocityAtSrc);
+            stationLon, stationElevation, phaseType, travelTime, takeOffAzi,
+            takeOffDip, dtdd, dtdh);
   }
 
   /*

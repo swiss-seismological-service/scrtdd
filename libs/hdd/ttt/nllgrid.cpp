@@ -229,9 +229,10 @@ void NLLGrid::compute(double eventLat,
                       double stationElevation,
                       const std::string &phaseType,
                       double &travelTime,
-                      double &azimuth,
-                      double &takeOffAngle,
-                      double &velocityAtSrc)
+                      double &takeOffAzi,
+                      double &takeOffDip,
+                      double &dtdd,
+                      double &dtdh)
 {
   //
   // get travelTime
@@ -240,7 +241,7 @@ void NLLGrid::compute(double eventLat,
                        stationElevation, phaseType);
 
   //
-  // Get velocityAtSrc
+  // Get velocity at source
   //
   string key = "velocity:" + phaseType;
 
@@ -272,7 +273,7 @@ void NLLGrid::compute(double eventLat,
   }
 
   // get the value from the grid now that it is loaded
-  velocityAtSrc = velGrid->getVel(eventLat, eventLon, eventDepth);
+  const double velocity = velGrid->getVel(eventLat, eventLon, eventDepth);
 
   //
   // Get takeOffAngles
@@ -326,13 +327,18 @@ void NLLGrid::compute(double eventLat,
     _openGrids.put(key, GridHolder(angleGrid));
   }
 
-  angleGrid->getAngles(eventLat, eventLon, eventDepth, azimuth, takeOffAngle);
+  angleGrid->getAngles(eventLat, eventLon, eventDepth, takeOffAzi, takeOffDip);
 
-  if (!std::isfinite(azimuth)) // if not 3D model compute azimuth
+  if (!std::isfinite(takeOffAzi)) // if not 3D model compute azimuth
   {
-    azimuth = computeAzimuth(eventLat, eventLon, stationLat, stationLon);
-    azimuth = radToDeg(azimuth);
+    takeOffAzi = computeAzimuth(eventLat, eventLon, stationLat, stationLon);
+    takeOffAzi = radToDeg(takeOffAzi);
   }
+
+  const double dip = degToRad(takeOffDip - 90);
+
+  dtdd = std::cos(dip) / HDD::km2deg(velocity, eventDepth); // [sec/deg]
+  dtdh = std::sin(dip) / velocity;                          // [sec/km]
 }
 
 } // namespace TTT

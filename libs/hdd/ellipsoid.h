@@ -149,8 +149,7 @@ public:
   bool
   isInside(double lat, double lon, double depth, int quadrant /* 1-8 */) const
   {
-    return isInQuadrant(_innerEllipsoid, lat, lon, depth, quadrant) &&
-           isInside(lat, lon, depth);
+    return isInQuadrant(lat, lon, depth, quadrant) && isInside(lat, lon, depth);
   }
 
   // Returns if the coordinate provided is located both inside the outer layer
@@ -161,14 +160,15 @@ public:
            !_innerEllipsoid.isInside(lat, lon, depth);
   }
 
-  static bool isInQuadrant(const Ellipsoid &ellip,
-                           double lat,
-                           double lon,
-                           double depth,
-                           int quadrant /* 1-8 */)
+  bool isInQuadrant(double lat,
+                    double lon,
+                    double depth,
+                    int quadrant /* 1-8 */) const
   {
     if (quadrant < 1 || quadrant > 8)
       throw Exception("quadrant should be between 1 and 8");
+
+    const Ellipsoid &ellip = _outerEllipsoid; // inner or outer is the same
 
     if (depth < ellip.depth && std::set<int>{1, 2, 3, 4}.count(quadrant) != 0)
       return false;

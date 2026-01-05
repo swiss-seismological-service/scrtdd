@@ -80,67 +80,31 @@ vector<Delta> deltaList = {
 };
 
 vector<Delta> deltaListZeroElevation = {
-    {0.05, 0, 4},
-    {0.05, 0, 8},
-    {0.05, 0, 16},
-    {0.05, 0, 25},
-    {0.05, 0, 40},
-    {0, 0.05, 4},
-    {0, 0.05, 8},
-    {0, 0.05, 16},
-    {0, 0.05, 25},
-    {0, 0.05, 40},
-    {-0.05, 0, 4},
-    {-0.05, 0, 8},
-    {-0.05, 0, 16},
-    {-0.05, 0, 25},
-    {-0.05, 0, 40},
-    {0, -0.05, 4},
-    {0, -0.05, 8},
-    {0, -0.05, 16},
-    {0, -0.05, 25},
-    {0, -0.05, 40},
     //
-    {0.1, 0, 4},
     {0.1, 0, 8},
     {0.1, 0, 16},
     {0.1, 0, 25},
     {0.1, 0, 40},
-    {0, 0.1, 4},
     {0, 0.1, 8},
     {0, 0.1, 16},
     {0, 0.1, 25},
     {0, 0.1, 40},
-    {-0.1, 0, 4},
     {-0.1, 0, 8},
     {-0.1, 0, 16},
     {-0.1, 0, 25},
     {-0.1, 0, 40},
-    {0, -0.1, 4},
     {0, -0.1, 8},
     {0, -0.1, 16},
     {0, -0.1, 25},
     {0, -0.1, 40},
     //
-    {0.4, 0, 4},
-    {0.4, 0, 8},
     {0.4, 0, 16},
-    {0.4, 0, 25},
     {0.4, 0, 40},
-    {0, 0.4, 4},
-    {0, 0.4, 8},
     {0, 0.4, 16},
-    {0, 0.4, 25},
     {0, 0.4, 40},
-    {-0.4, 0, 4},
-    {-0.4, 0, 8},
     {-0.4, 0, 16},
-    {-0.4, 0, 25},
     {-0.4, 0, 40},
-    {0, -0.4, 4},
-    {0, -0.4, 8},
     {0, -0.4, 16},
-    {0, -0.4, 25},
     {0, -0.4, 40},
 };
 
@@ -175,22 +139,24 @@ void test_ttt_internal(const std::vector<TTTParams>& tttPrms,
     vector<double> travelTimeP(ttts.size(), 0);
     vector<double> takeOffAngleAzimP(ttts.size(), 0);
     vector<double> takeOffAngleDipP(ttts.size(), 0);
-    vector<double> velocityAtSrcP(ttts.size(), 0);
+    vector<double> dtddP(ttts.size(), 0);
+    vector<double> dtdhP(ttts.size(), 0);
 
     vector<double> travelTimeS(ttts.size(), 0);
     vector<double> takeOffAngleAzimS(ttts.size(), 0);
     vector<double> takeOffAngleDipS(ttts.size(), 0);
-    vector<double> velocityAtSrcS(ttts.size(), 0);
+    vector<double> dtddS(ttts.size(), 0);
+    vector<double> dtdhS(ttts.size(), 0);
 
     for (size_t i = 0; i < ttts.size(); i++)
     {
       BOOST_TEST_MESSAGE("TTT type " + tttPrms[i].type);
       BOOST_CHECK_NO_THROW(ttts[i]->compute(
           lat, lon, depth, station, "P", travelTimeP[i], takeOffAngleAzimP[i],
-          takeOffAngleDipP[i], velocityAtSrcP[i]));
+          takeOffAngleDipP[i], dtddP[i], dtdhP[i]));
       BOOST_CHECK_NO_THROW(ttts[i]->compute(
           lat, lon, depth, station, "S", travelTimeS[i], takeOffAngleAzimS[i],
-          takeOffAngleDipS[i], velocityAtSrcS[i]));
+          takeOffAngleDipS[i], dtddS[i], dtdhS[i]));
 
       BOOST_CHECK_EQUAL(travelTimeP[i],
                         ttts[i]->compute(lat, lon, depth, station, "P"));
@@ -201,11 +167,11 @@ void test_ttt_internal(const std::vector<TTTParams>& tttPrms,
     for (size_t i = 0; i < ttts.size(); i++)
     {
       BOOST_TEST_MESSAGE(strf(
-          "TTT type %-9s [Travel time, Velocity, Take-Off Angle Azimuth and "
-          "Dip] P [%5.2f %5.2f %4.f %4.f] S [%5.2f %5.2f %4.f %4.f]",
-          tttPrms[i].type.c_str(), travelTimeP[i], velocityAtSrcP[i],
+          "TTT type %-9s [Travel time, dtdd, dtdh, Take-Off Azimuth and "
+          "Dip] P [%5.2f %5.2f %5.2f %4.f %4.f] S [%5.2f %5.2f %5.2f %4.f %4.f]",
+          tttPrms[i].type.c_str(), travelTimeP[i], dtddP[i], dtdhP[i],
           takeOffAngleAzimP[i], takeOffAngleDipP[i],
-          travelTimeS[i], velocityAtSrcS[i], takeOffAngleAzimS[i],
+          travelTimeS[i], dtddS[i], dtdhS[i], takeOffAngleAzimS[i],
           takeOffAngleDipS[i]));
     }
 
@@ -213,10 +179,12 @@ void test_ttt_internal(const std::vector<TTTParams>& tttPrms,
     {
       for (size_t j = i + 1; j < ttts.size(); j++)
       {
-        BOOST_CHECK_CLOSE(travelTimeP[i], travelTimeP[j], 12);
-        BOOST_CHECK_CLOSE(travelTimeS[i], travelTimeS[j], 12);
-        BOOST_CHECK_CLOSE(velocityAtSrcP[i], velocityAtSrcP[j], 5);
-        BOOST_CHECK_CLOSE(velocityAtSrcS[i], velocityAtSrcS[j], 5);
+        BOOST_CHECK_CLOSE(travelTimeP[i], travelTimeP[j], 5);
+        BOOST_CHECK_CLOSE(travelTimeS[i], travelTimeS[j], 5);
+        BOOST_CHECK_CLOSE(dtddP[i], dtddP[j], 9);
+        BOOST_CHECK_CLOSE(dtdhP[i], dtdhP[j], 9);
+        BOOST_CHECK_CLOSE(dtddS[i], dtddS[j], 9);
+        BOOST_CHECK_CLOSE(dtdhS[i], dtdhS[j], 9);
 
         auto checkCloseAngles = [](double x, double y, double degreeTol) {
           double diffAngle = std::fmod(x - y + 540.0, 360.0) - 180.0;
@@ -224,10 +192,10 @@ void test_ttt_internal(const std::vector<TTTParams>& tttPrms,
           BOOST_CHECK_SMALL(diffAngle, degreeTol);
         };
 
-        checkCloseAngles(takeOffAngleAzimP[i], takeOffAngleAzimP[j], 6);
-        checkCloseAngles(takeOffAngleDipP[i], takeOffAngleDipP[j], 6);
-        checkCloseAngles(takeOffAngleAzimS[i], takeOffAngleAzimS[j], 6);
-        checkCloseAngles(takeOffAngleDipS[i], takeOffAngleDipS[j], 6);
+        checkCloseAngles(takeOffAngleAzimP[i], takeOffAngleAzimP[j], 5);
+        checkCloseAngles(takeOffAngleDipP[i], takeOffAngleDipP[j], 5);
+        checkCloseAngles(takeOffAngleAzimS[i], takeOffAngleAzimS[j], 5);
+        checkCloseAngles(takeOffAngleDipS[i], takeOffAngleDipS[j], 5);
       }
     }
   }

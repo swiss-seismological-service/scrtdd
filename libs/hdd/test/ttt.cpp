@@ -113,23 +113,26 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
     vector<double> travelTimeP(tttList.size(), 0);
     vector<double> takeOffAngleAzimP(tttList.size(), 0);
     vector<double> takeOffAngleDipP(tttList.size(), 0);
-    vector<double> velocityAtSrcP(tttList.size(), 0);
+    vector<double> dtddP(tttList.size(), 0);
+    vector<double> dtdhP(tttList.size(), 0);
 
     vector<double> travelTimeS(tttList.size(), 0);
     vector<double> takeOffAngleAzimS(tttList.size(), 0);
     vector<double> takeOffAngleDipS(tttList.size(), 0);
-    vector<double> velocityAtSrcS(tttList.size(), 0);
+    vector<double> dtddS(tttList.size(), 0);
+    vector<double> dtdhS(tttList.size(), 0);
 
     for (size_t i = 0; i < tttList.size(); i++)
     {
+      BOOST_TEST_MESSAGE("TTT type " + tttList[i].type);
       unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList[i]);
       BOOST_REQUIRE(ttt);
       BOOST_CHECK_NO_THROW(ttt->compute(
           lat, lon, depth, station, "P", travelTimeP[i], takeOffAngleAzimP[i],
-          takeOffAngleDipP[i], velocityAtSrcP[i]));
+          takeOffAngleDipP[i], dtddP[i], dtdhP[i]));
       BOOST_CHECK_NO_THROW(ttt->compute(
           lat, lon, depth, station, "S", travelTimeS[i], takeOffAngleAzimS[i],
-          takeOffAngleDipS[i], velocityAtSrcS[i]));
+          takeOffAngleDipS[i], dtddS[i], dtdhS[i]));
 
       BOOST_CHECK_EQUAL(travelTimeP[i],
                         ttt->compute(lat, lon, depth, station, "P"));
@@ -140,11 +143,11 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
     for (size_t i = 0; i < tttList.size(); i++)
     {
       BOOST_TEST_MESSAGE(strf(
-          "TTT type %-9s [Travel time, Velocity, Take-Off Angle Azimuth and "
-          "Dip] P [%5.2f %5.2f %4.f %4.f] S [%5.2f %5.2f %4.f %4.f]",
-          tttList[i].type.c_str(), travelTimeP[i], velocityAtSrcP[i],
+          "TTT type %-9s [Travel time, dtdd, dtdh, Take-Off Azimuth and "
+          "Dip] P [%5.2f %5.2f %5.2f %4.f %4.f] S [%5.2f %5.2f %5.2f %4.f %4.f]",
+          tttList[i].type.c_str(), travelTimeP[i], dtddP[i], dtdhP[i],
           takeOffAngleAzimP[i], takeOffAngleDipP[i],
-          travelTimeS[i], velocityAtSrcS[i], takeOffAngleAzimS[i],
+          travelTimeS[i], dtddS[i], dtdhS[i], takeOffAngleAzimS[i],
           takeOffAngleDipS[i]));
     }
 
@@ -152,10 +155,12 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
     {
       for (size_t j = i + 1; j < tttList.size(); j++)
       {
-        BOOST_CHECK_CLOSE(travelTimeP[i], travelTimeP[j], 12);
-        BOOST_CHECK_CLOSE(travelTimeS[i], travelTimeS[j], 12);
-        BOOST_CHECK_CLOSE(velocityAtSrcP[i], velocityAtSrcP[j], 5);
-        BOOST_CHECK_CLOSE(velocityAtSrcS[i], velocityAtSrcS[j], 5);
+        BOOST_CHECK_CLOSE(travelTimeP[i], travelTimeP[j], 5);
+        BOOST_CHECK_CLOSE(travelTimeS[i], travelTimeS[j], 5);
+        BOOST_CHECK_CLOSE(dtddP[i], dtddP[j], 5);
+        BOOST_CHECK_CLOSE(dtdhP[i], dtdhP[j], 5);
+        BOOST_CHECK_CLOSE(dtddS[i], dtddS[j], 5);
+        BOOST_CHECK_CLOSE(dtdhS[i], dtdhS[j], 5);
 
         auto checkCloseAngles = [](double x, double y, double degreeTol) {
           double diffAngle = std::fmod(x - y + 540.0, 360.0) - 180.0;

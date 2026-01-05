@@ -409,7 +409,7 @@ bool Solver::getEventChanges(unsigned evId,
                              double &deltaLat,
                              double &deltaLon,
                              double &deltaDepth,
-                             double &deltaTT) const
+                             double &deltaTime) const
 {
   unsigned evIdx;
   if (!_eventIdConverter.hasId(evId, evIdx)) return false;
@@ -420,7 +420,7 @@ bool Solver::getEventChanges(unsigned evId,
   deltaLat                   = evDelta.kmLat;
   deltaLon                   = evDelta.kmLon;
   deltaDepth                 = evDelta.depth;
-  deltaTT                    = evDelta.time;
+  deltaTime                  = evDelta.time;
   return true;
 }
 

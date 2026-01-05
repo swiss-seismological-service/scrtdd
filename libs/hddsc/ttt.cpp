@@ -72,9 +72,10 @@ void TravelTimeTable::compute(double eventLat,
                               double stationElevation,
                               const std::string &phaseType,
                               double &travelTime,
-                              double &azimuth,
-                              double &takeOffAngle,
-                              double &velocityAtSrc)
+                              double &takeOffAzi,
+                              double &takeOffDip,
+                              double &dtdd,
+                              double &dtdh)
 {
   Seiscomp::TravelTime tt =
       _ttt->compute(phaseType.c_str(), eventLat, eventLon, eventDepth,
@@ -85,25 +86,21 @@ void TravelTimeTable::compute(double eventLat,
   }
 
   travelTime = tt.time;
-
-  // We want dtdd and dtdh to use the same units:
-  // - transform dtdd [sec/rad] -> [sec/km]
-  const double dtdd = tt.dtdd / kmOfDegree(eventDepth);
-  velocityAtSrc     = 1.0 / std::sqrt(square(tt.dtdh) + square(dtdd));
+  dtdd       = tt.dtdd;
+  dtdh       = tt.dtdh;
+  takeOffDip = tt.takeoff;
 
 #if SC_API_VERSION >= SC_API_VERSION_CHECK(16, 0, 0)
   if (tt.azi) // 3D model
   {
-    azimuth = *tt.azi;
+    takeOffAzi = *tt.azi;
   }
   else
 #endif
   {
-    azimuth = computeAzimuth(eventLat, eventLon, stationLat, stationLon);
-    azimuth = radToDeg(azimuth);
+    takeOffAzi = computeAzimuth(eventLat, eventLon, stationLat, stationLon);
+    takeOffAzi = radToDeg(takeOffAzi);
   }
-
-  takeOffAngle = tt.takeoff;
 }
 
 } // namespace SCAdapter

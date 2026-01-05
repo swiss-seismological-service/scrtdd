@@ -55,9 +55,10 @@ public:
                double stationElevation,
                const std::string &phaseType,
                double &travelTime,
-               double &azimuth,
-               double &takeOffAngle,
-               double &velocityAtSrc) override;
+               double &takeOffAzi,
+               double &takeOffDip,
+               double &dtdd,
+               double &dtdh) override;
 
 private:
   const double _pVel, _sVel; // [km/sec]
