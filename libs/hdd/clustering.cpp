@@ -512,40 +512,26 @@ Neighbours selectNeighbouringEvents(const EventTree &evTree,
     // Select neighbours for each ellipsoid/quadrant combination in a round
     // robin fashion until 'maxNumNeigh' is reached
     //
-    bool workToDo = true;
+    bool workToDo = !pointsByDistance.empty();
 
     while (workToDo)
     {
+      bool match = false;
+
       // loop through ellipsoids
       for (const HddEllipsoid &ellpsd : ellipsoids)
       {
-        bool resetSearchRange = true;
+        auto minSearchDist = pointsByDistance.lower_bound(
+            ellpsd.getInnerEllipsoidHorizontalSemiAxesLen());
+        auto maxSearchDist = pointsByDistance.upper_bound(
+            ellpsd.getOuterEllipsoidVerticalSemiAxisLen());
 
         // loop through quadrants
-        for (int quadrant : {1, 2, 3, 4, 5, 6, 7, 8})
+        for (const int quadrant : {1, 2, 3, 4, 5, 6, 7, 8})
         {
-          // if we either don't have events or we have already selected
-          // `maxNumNeigh` neighbors, exit
-          if (pointsByDistance.empty() ||
-              (maxNumNeigh > 0 && neighbours.amount() >= maxNumNeigh))
-          {
-            workToDo = false;
-            break;
-          }
-
-          multimap<double, size_t>::iterator minDist, maxDist;
-
-          if (resetSearchRange)
-          {
-            minDist = pointsByDistance.lower_bound(
-                ellpsd.getInnerEllipsoidHorizontalSemiAxesLen());
-            maxDist = pointsByDistance.upper_bound(
-                ellpsd.getOuterEllipsoidVerticalSemiAxisLen());
-            resetSearchRange = false;
-          }
 
           // Search an event within the current ellipdoid/quadrant
-          for (auto it = minDist; it != maxDist;)
+          for (auto it = minSearchDist; it != maxSearchDist;)
           {
             const double eventDistance    = it->first;
             const size_t idx              = it->second;
@@ -564,14 +550,36 @@ Neighbours selectNeighbouringEvents(const EventTree &evTree,
             // neighbours
             bool added = addNeighbour(neighbours, eventId, eventDistance);
 
+            //
             // remove the event from future selection
-            it               = pointsByDistance.erase(it);
-            resetSearchRange = true;
+            //
+            bool updateMinSearchDist = (minSearchDist == it);
+            it                       = pointsByDistance.erase(it);
+            if (updateMinSearchDist) minSearchDist = it;
 
-            if (added) break; // next ellipdoid/quadrant
+            match = true;
+
+            if (added) break; // next ellipsoid/quadrant
+          }
+
+          // if we either don't have events or we have already selected
+          // `maxNumNeigh` neighbors, exit
+          if (pointsByDistance.empty() ||
+              (maxNumNeigh > 0 && neighbours.amount() >= maxNumNeigh))
+          {
+            workToDo = false;
+            break;
           }
         }
         if (!workToDo) break;
+      }
+
+      if (!match && workToDo) // this should never happen, just safety belt
+      {
+        workToDo = false;
+        logWarningF("Internal logic error in ellipsoid algorithm (remaining "
+                    "events %zu)",
+                    pointsByDistance.size());
       }
     }
   }
