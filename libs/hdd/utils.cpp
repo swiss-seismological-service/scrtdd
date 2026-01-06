@@ -96,7 +96,7 @@ std::vector<std::string> splitString(const std::string &str,
 }
 
 /*
- * Computes the azimuth [radiant] of the point lat2,lon2 as seen from
+ * Computes the azimuth [radians] of the point lat2,lon2 as seen from
  * lat1,lon1
  *
  * All these formulas are for calculations on the basis of a spherical
@@ -110,7 +110,8 @@ double computeAzimuth(double lat1, double lon1, double lat2, double lon2)
   const double Fi2      = degToRad(lat2);
   const double cosLat2  = cos(Fi2);
 
-  if (lat1 == lat2 && (lat1 == 90 || lat1 == -90 || deltaLon == 0))
+  // Handle identity cases
+  if (std::abs(lat1 - lat2) < 1e-9 && std::abs(deltaLon) < 1e-9)
   {
     return 0.;
   }
@@ -118,20 +119,21 @@ double computeAzimuth(double lat1, double lon1, double lat2, double lon2)
   const double y = sin(deltaLon) * cosLat2;
   const double x = cos(Fi1) * sin(Fi2) - sin(Fi1) * cosLat2 * cos(deltaLon);
 
-  const double azimuth = atan2(y, x);
+  const double azimuth = std::atan2(y, x);
+
   if (!std::isfinite(azimuth))
   {
     throw Exception("Internal logic error: computeAzimuth failed");
   }
-
   return azimuth;
 }
 
 /*
  * Computes the coordinates (lat, lon) of the point which is at the
- * passed azimuth [radiant] and distance [radiant] (angularDistance true)
- * or [km] (angularDistance false and set `atKmDepth` approprieatly) as seen
- * from the point at latitude, longitude [clat, clon]
+ * passed azimuth [radians, clockwise from North (0 = North)] and distance
+ * [radians] (isAngularDist true) or [km] (isAngularDist false and set
+ * `atKmDepth` approprieatly) as seen from the point at latitude, longitude
+ * [clat, clon]
  *
  * All these formulas are for calculations on the basis of a spherical
  * earth (ignoring ellipsoidal effects)
@@ -144,7 +146,7 @@ void computeCoordinates(double distance,
                         double &lat,
                         double &lon,
                         double atKmDepth,
-                        bool angularDistance)
+                        bool isAngularDist)
 {
   if (distance == 0)
   {
@@ -153,7 +155,7 @@ void computeCoordinates(double distance,
     return;
   }
 
-  if (!angularDistance)
+  if (!isAngularDist)
   {
     distance = km2rad(distance, atKmDepth);
   }
@@ -179,9 +181,9 @@ void computeCoordinates(double distance,
 }
 
 /*
- * Compute distance [radiant] (`angularDistance` true) or [km]
- * (`angularDistance` false and set `atKmDepth` approprieatly) between two
- * points and optionally `azimuth` and `backazimuth` [radiants]
+ * Compute distance [radians] (`isAngularDist` true) or [km]
+ * (`isAngularDist` false and set `atKmDepth` approprieatly) between two
+ * points and optionally `azimuth` and `backazimuth` [radianss]
  *
  * All these formulas are for calculations on the basis of a spherical
  * earth (ignoring ellipsoidal effects)
@@ -194,7 +196,7 @@ double computeDistance(double lat1,
                        double *azimuth,
                        double *backAzimuth,
                        double atKmDepth,
-                       bool angularDistance)
+                       bool isAngularDist)
 {
   const double deltaLat = degToRad(lat2 - lat1);
   const double deltaLon = degToRad(lon2 - lon1);
@@ -205,7 +207,8 @@ double computeDistance(double lat1,
   const double sinLat1  = sin(Fi1);
   const double sinLat2  = sin(Fi2);
 
-  if (lat1 == lat2 && (lat1 == 90 || lat1 == -90 || deltaLon == 0))
+  // Handle identity cases
+  if (std::abs(lat1 - lat2) < 1e-9 && std::abs(deltaLon) < 1e-9)
   {
     if (azimuth) *azimuth = 0.;
     if (backAzimuth) *backAzimuth = 0.;
@@ -215,14 +218,17 @@ double computeDistance(double lat1,
   double a = square(sin(deltaLat / 2.)) +
              cosLat1 * cosLat2 * square(sin(deltaLon / 2.));
 
-  double distance = 2. * atan2(sqrt(a), sqrt(1. - a));
-  if (!std::isfinite(distance))
+  // Clamp 'a' to [0, 1] to avoid NaN in sqrt due to floating point precision
+  a = std::max(0.0, std::min(1.0, a));
+
+  double angularDist = 2.0 * std::atan2(std::sqrt(a), std::sqrt(1.0 - a));
+  if (!std::isfinite(angularDist))
   {
     throw Exception("Internal logic error: computeDistance failed");
   }
 
-  auto computeAzimuth = [](double deltaLon, double cosLat1, double cosLat2,
-                           double sinLat1, double sinLat2) {
+  auto computeAzimuthLocal = [](double deltaLon, double cosLat1, double cosLat2,
+                                double sinLat1, double sinLat2) {
     double y = sin(deltaLon) * cosLat2;
     double x = cosLat1 * sinLat2 - sinLat1 * cosLat2 * cos(deltaLon);
     return atan2(y, x);
@@ -230,7 +236,8 @@ double computeDistance(double lat1,
 
   if (azimuth)
   {
-    *azimuth = computeAzimuth(deltaLon, cosLat1, cosLat2, sinLat1, sinLat2);
+    *azimuth =
+        computeAzimuthLocal(deltaLon, cosLat1, cosLat2, sinLat1, sinLat2);
     if (!std::isfinite(*azimuth))
     {
       throw Exception("Internal logic error: computeDistance failed");
@@ -239,17 +246,19 @@ double computeDistance(double lat1,
 
   if (backAzimuth)
   {
-    *backAzimuth = computeAzimuth(degToRad(lon1 - lon2), cosLat2, cosLat1,
-                                  sinLat2, sinLat1);
+    *backAzimuth = computeAzimuthLocal(degToRad(lon1 - lon2), cosLat2, cosLat1,
+                                       sinLat2, sinLat1);
     if (!std::isfinite(*backAzimuth))
     {
       throw Exception("Internal logic error: computeDistance failed");
     }
   }
-
-  return angularDistance ? distance : rad2km(distance, atKmDepth);
+  return isAngularDist ? angularDist : rad2km(angularDist, atKmDepth);
 }
 
+/*
+ * 3D Distance (Pythagorean approximation for depth)
+ */
 double computeDistance(double lat1,
                        double lon1,
                        double kmDepth1,
@@ -259,12 +268,12 @@ double computeDistance(double lat1,
                        double *azimuth,
                        double *backAzimuth)
 {
-  double atKmDepth = (kmDepth1 + kmDepth2) / 2.;
-  double Hdist =
-      computeDistance(lat1, lon1, lat2, lon2, azimuth, backAzimuth, atKmDepth);
-  if (kmDepth1 == kmDepth2) return Hdist;
-  double Vdist = abs(kmDepth1 - kmDepth2);
-  return std::sqrt(square(Hdist) + square(Vdist));
+  double avgDepth = (kmDepth1 + kmDepth2) / 2.0;
+  double hDist = computeDistance(lat1, lon1, lat2, lon2, azimuth, backAzimuth,
+                                 avgDepth, false);
+  double vDist = abs(kmDepth1 - kmDepth2);
+  if (vDist < 1e-7) return hDist;
+  return std::sqrt(square(hDist) + square(vDist));
 }
 
 double computeDistance(const Catalog::Event &ev1,
