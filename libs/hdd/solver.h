@@ -222,9 +222,9 @@ public:
              bool normalizeG        = true);
 
   bool getEventChanges(unsigned evId,
-                       double &deltaLat,         // km
-                       double &deltaLon,         // km
-                       double &deltaDepth,       // km
+                       double &deltaX,           // km
+                       double &deltaY,           // km
+                       double &deltaZ,           // km
                        double &deltaTime) const; // sec
 
   bool isEventPhaseUsed(unsigned evId,
@@ -305,10 +305,10 @@ private:
 
   struct EventDeltas
   {
-    double time;  // sec
-    double depth; // km
-    double kmLat; // km
-    double kmLon; // km
+    double time; // sec
+    double x;    // km
+    double y;    // km
+    double z;    // km
   };
   std::unordered_map<unsigned, EventDeltas> _eventDeltas; // key = evIdx
 

@@ -1061,12 +1061,12 @@ bool DD::addObservationParams(Solver &solver,
     //
     // partial derivatives
     //
-    dtdd             = dtdd / kmOfDegree(event.depth); // [sec/rad] -> [sec/km]
-    const double azi = degToRad(90 - takeOffAngleAzim);
+    dtdd = dtdd / kmOfDegree(event.depth); // [sec/deg] -> [sec/km]
+    const double angle = degToRad(90 - takeOffAngleAzim);
 
-    const double dx = dtdd * std::cos(azi);
-    const double dy = dtdd * std::sin(azi);
-    const double dz = dtdh;
+    const double dx = dtdd * -std::cos(angle);
+    const double dy = dtdd * -std::sin(angle);
+    const double dz = -dtdh;
 
     //
     // Populate the solver
@@ -1197,21 +1197,21 @@ DD::updateRelocatedEvents(const Solver &solver,
     // get relocation changes (km and sec) computed by the solver for
     // the current event
     //
-    double deltaKmLat, deltaKmLon, deltaDepth, deltaTime;
-    if (!solver.getEventChanges(event.id, deltaKmLat, deltaKmLon, deltaDepth,
-                                deltaTime))
+    double deltaX, deltaY, deltaZ, deltaTime;
+    if (!solver.getEventChanges(event.id, deltaX, deltaY, deltaZ, deltaTime))
     {
       continue;
     }
 
-    double newDepth = event.depth + deltaDepth;
+    double newDepth = event.depth - deltaZ; // depth opposite sign of Z
     UTCTime newTime = event.time + secToDur(deltaTime);
 
     //
-    // converte delta lat lon [ km -> degree ]
+    // convert delta lat lon from km to degree using computeCoordinates()
     //
-    double distance = std::sqrt(square(deltaKmLat) + square(deltaKmLon));
-    double azimuth  = std::atan2(-deltaKmLon, -deltaKmLat);
+    double distance = std::sqrt(square(deltaX) + square(deltaY));
+    // Since azimuth=PI/2-angle we use the identity atan2(x,y)=PI/2-atan2(y,x)
+    double azimuth = std::atan2(deltaX, deltaY);
 
     // Computes the coordinates (lat, lon) of the point which is at
     // azimuth [rad] and distance [km] as seen from the original event location

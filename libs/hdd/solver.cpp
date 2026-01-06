@@ -406,9 +406,9 @@ std::vector<Solver::DoubleDifference> Solver::getDoubleDifferences() const
 }
 
 bool Solver::getEventChanges(unsigned evId,
-                             double &deltaLat,
-                             double &deltaLon,
-                             double &deltaDepth,
+                             double &deltaX,
+                             double &deltaY,
+                             double &deltaZ,
                              double &deltaTime) const
 {
   unsigned evIdx;
@@ -417,9 +417,9 @@ bool Solver::getEventChanges(unsigned evId,
   if (_eventDeltas.find(evIdx) == _eventDeltas.end()) return false;
 
   const EventDeltas &evDelta = _eventDeltas.at(evIdx);
-  deltaLat                   = evDelta.kmLat;
-  deltaLon                   = evDelta.kmLon;
-  deltaDepth                 = evDelta.depth;
+  deltaX                     = evDelta.x;
+  deltaY                     = evDelta.y;
+  deltaZ                     = evDelta.z;
   deltaTime                  = evDelta.time;
   return true;
 }
@@ -451,13 +451,13 @@ void Solver::loadSolutions()
   auto fetchEventDelta = [this](unsigned evIdx, EventDeltas &evDelta) -> bool {
     const unsigned evOffset = evIdx * 4;
 
-    evDelta.kmLon = _dd.m[evOffset + 0];
-    evDelta.kmLat = _dd.m[evOffset + 1];
-    evDelta.depth = _dd.m[evOffset + 2];
-    evDelta.time  = _dd.m[evOffset + 3];
+    evDelta.x    = _dd.m[evOffset + 0];
+    evDelta.y    = _dd.m[evOffset + 1];
+    evDelta.z    = _dd.m[evOffset + 2];
+    evDelta.time = _dd.m[evOffset + 3];
 
-    if (!std::isfinite(evDelta.kmLon) || !std::isfinite(evDelta.kmLat) ||
-        !std::isfinite(evDelta.depth) || !std::isfinite(evDelta.time))
+    if (!std::isfinite(evDelta.x) || !std::isfinite(evDelta.y) ||
+        !std::isfinite(evDelta.z) || !std::isfinite(evDelta.time))
     {
       return false;
     }
