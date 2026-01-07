@@ -28,7 +28,7 @@
           <description>Save reference catalog waveforms to local disk after they have been loaded the first time. This avoids re-reading them from the configured recordStream.</description>
         </parameter>
         <parameter name="cacheDirectory" type="path" default="@ROOTDIR@/var/lib/rtdd">
-          <description>Defines the directory used for storing waveform cache.</description>
+          <description>Defines the base directory used for storing waveform cache. Each profile will store the waveforms in @cacheDirectory@/profile/wfcache</description>
         </parameter>
         <parameter name="cachedWaveformLength" type="double" default="10" unit="sec">
           <description>The waveform length (centered around pick time) to be used for the disk cache. Although the required waveform length is inferred from the cross-correlation settings, this option allows for a longer disk cached trace that becomes useful in case the cross-correlation settings are changed in the future.

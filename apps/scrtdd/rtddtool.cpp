@@ -32,7 +32,6 @@
 #include <seiscomp/core/genericrecord.h>
 #include <seiscomp/core/strings.h>
 #include <seiscomp/core/system.h>
-#include <seiscomp/core/version.h>
 #include <seiscomp/datamodel/event.h>
 #include <seiscomp/datamodel/magnitude.h>
 #include <seiscomp/datamodel/origin.h>
@@ -43,11 +42,6 @@
 #include <seiscomp/io/archive/xmlarchive.h>
 #include <seiscomp/io/records/mseedrecord.h>
 #include <seiscomp/logging/channel.h>
-#if SC_API_VERSION < SC_API_VERSION_CHECK(17, 0, 0)
-#include <seiscomp/logging/filerotator.h>
-#else
-#include <seiscomp/logging/output/filerotator.h>
-#endif
 #include <seiscomp/math/geo.h>
 #include <seiscomp/utils/files.h>
 
@@ -1877,14 +1871,12 @@ RTDD::Profile::~Profile() { unload(); }
 void RTDD::Profile::load(DatabaseQuery *query,
                          PublicObjectTimeSpanBuffer *cache,
                          EventParameters *eventParameters,
-                         const string &workingDir,
+                         const string &cacheDirectory,
                          bool cacheWaveforms,
                          double cachedWaveformLength,
                          const HDD::Catalog alternativeCatalog)
 {
   if (loaded) return;
-
-  string profileDir = (boost::filesystem::path(workingDir) / name).string();
 
   this->query           = query;
   this->cache           = cache;
@@ -1921,7 +1913,8 @@ void RTDD::Profile::load(DatabaseQuery *query,
 
     if (cacheWaveforms)
     {
-      dd->enableCatalogWaveformDiskCache(HDD::joinPath(profileDir, "wfcache"),
+      auto wfcache = boost::filesystem::path(cacheDirectory) / name / "wfcache";
+      dd->enableCatalogWaveformDiskCache(wfcache.string(),
                                          cachedWaveformLength);
     }
     else
