@@ -31,6 +31,7 @@
 #include "utils.h"
 
 using namespace std;
+using namespace HDD::Logger;
 using Catalog         = HDD::Catalog;
 using ThreeComponents = HDD::Waveform::ThreeComponents;
 using Transform       = HDD::Waveform::Processor::Transform;

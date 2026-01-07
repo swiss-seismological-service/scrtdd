@@ -31,6 +31,7 @@
 #include "utils.h"
 
 using namespace std;
+using namespace HDD::Logger;
 using Event   = HDD::Catalog::Event;
 using Phase   = HDD::Catalog::Phase;
 using Station = HDD::Catalog::Station;

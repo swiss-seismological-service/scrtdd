@@ -31,6 +31,7 @@
 
 using namespace std;
 using namespace HDD::NLL;
+using namespace HDD::Logger;
 
 namespace HDD {
 

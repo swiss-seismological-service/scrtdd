@@ -39,6 +39,7 @@ namespace fs = std::filesystem;
 #endif
 
 using namespace std;
+using namespace HDD::Logger;
 
 namespace HDD {
 

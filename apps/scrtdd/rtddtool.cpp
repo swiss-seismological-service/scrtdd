@@ -17,9 +17,9 @@
 
 #include "rtddtool.h"
 #include "hdd/csvreader.h"
+#include "hdd/log.h"
 #include "hdd/ttt/homogeneous.h"
 #include "hdd/ttt/nllgrid.h"
-#include "hddsc/sclog.h"
 #include "hddsc/scttt.h"
 #include "hddsc/scutils.h"
 #include "hddsc/scwaveform.h"
@@ -1086,7 +1086,17 @@ bool RTDD::init()
   // Check each N seconds if a new job needs to be started
   _cronCounter = _config.wakeupInterval;
 
-  HDD::SCAdapter::initLogger();
+  // init HDD Logger
+  auto hddLogger = [](HDD::Logger::Level level, const std::string &msg) {
+    switch (level)
+    {
+    case HDD::Logger::Level::debug: SEISCOMP_DEBUG_S(msg); break;
+    case HDD::Logger::Level::info: SEISCOMP_INFO_S(msg); break;
+    case HDD::Logger::Level::warning: SEISCOMP_WARNING_S(msg); break;
+    case HDD::Logger::Level::error: SEISCOMP_ERROR_S(msg); break;
+    }
+  };
+  HDD::Logger::setLogger(hddLogger);
 
   return true;
 }

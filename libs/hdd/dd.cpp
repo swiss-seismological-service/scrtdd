@@ -33,6 +33,7 @@
 #include <limits>
 
 using namespace std;
+using namespace HDD::Logger;
 using std::chrono::duration;
 using Event     = HDD::Catalog::Event;
 using Phase     = HDD::Catalog::Phase;
@@ -454,13 +455,10 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
   }
 
   // prepare file logger
-  unique_ptr<Logger::File> fileLogger;
+  string logFile = joinPath(catalogWorkingDir, "info.log");
   if (_saveProcessing)
   {
-    string logFile = joinPath(catalogWorkingDir, "info.log");
-    fileLogger =
-        Logger::toFile(logFile, {Logger::Level::info, Logger::Level::warning,
-                                 Logger::Level::error});
+    addFileLogger(logFile, Level::info);
   }
 
   // find Neighbours for each event in the catalog
@@ -547,6 +545,8 @@ unique_ptr<Catalog> DD::relocateMultiEvents(const ClusteringOptions &clustOpt,
                      joinPath(catalogWorkingDir, "xcorr.csv"));
   }
 
+  removeFileLogger(logFile);
+
   return relocatedCatalog;
 }
 
@@ -589,13 +589,10 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   }
 
   // prepare file logger
-  unique_ptr<Logger::File> fileLogger;
+  string logFile = joinPath(baseWorkingDir, "info.log");
   if (_saveProcessing)
   {
-    string logFile = joinPath(baseWorkingDir, "info.log");
-    fileLogger =
-        Logger::toFile(logFile, {Logger::Level::info, Logger::Level::warning,
-                                 Logger::Level::error});
+    addFileLogger(logFile, Level::info);
   }
 
   logInfo("Performing step 1: initial location refinement (no "
@@ -664,6 +661,8 @@ unique_ptr<Catalog> DD::relocateSingleEvent(const Catalog &singleEvent,
   }
 
   if (!relocatedEvWithXcorr) throw Exception("Failed origin relocation");
+
+  removeFileLogger(logFile);
 
   return relocatedEvWithXcorr;
 }
