@@ -4,9 +4,9 @@
 #include <boost/test/data/test_case.hpp>
 
 #include "hdd/catalog.h"
+#include "hdd/test/common.ipp"
 #include "hdd/ttt.h"
 #include "hdd/utils.h"
-#include "hdd/test/common.ipp"
 #include "ttt.h"
 
 using namespace std;
@@ -19,19 +19,18 @@ const std::vector<TTTParams> tttListSC = {
     {"LOCSAT", {"iasp91"}},
     {"libtau", {"iasp91"}},
     {"homogeneous", {"iasp91"}},
-    {"tttnll", {"iasp91_2D_simple"}},
-    {"tttnll", {"iasp91_2D_sdc"}},
-    {"tttnll", {"iasp91_2D_global"}},
-    {"tttnll", {"iasp91_2D_azimuthal_equidist"}},
-    {"tttnll", {"iasp91_2D_merc"}},
-    {"tttnll", {"iasp91_2D_lambert"}},
-    {"tttnll", {"iasp91_3D_simple"}},
-    {"tttnll", {"iasp91_3D_sdc"}},
-    {"tttnll", {"iasp91_3D_azimuthal_equidist"}},
-    {"tttnll", {"iasp91_3D_merc"}},
-    {"tttnll", {"iasp91_3D_lambert"}},
+    {"NLLGrid", {"iasp91_2D_simple"}},
+    {"NLLGrid", {"iasp91_2D_sdc"}},
+    {"NLLGrid", {"iasp91_2D_global"}},
+    {"NLLGrid", {"iasp91_2D_azimuthal_equidist"}},
+    {"NLLGrid", {"iasp91_2D_merc"}},
+    {"NLLGrid", {"iasp91_2D_lambert"}},
+    {"NLLGrid", {"iasp91_3D_simple"}},
+    {"NLLGrid", {"iasp91_3D_sdc"}},
+    {"NLLGrid", {"iasp91_3D_azimuthal_equidist"}},
+    {"NLLGrid", {"iasp91_3D_merc"}},
+    {"NLLGrid", {"iasp91_3D_lambert"}},
 };
-
 
 struct Delta
 {
@@ -108,18 +107,19 @@ vector<Delta> deltaListZeroElevation = {
     {0, -0.4, 40},
 };
 
-void test_ttt_internal(const std::vector<TTTParams>& tttPrms,
-                       const std::vector<HDD::Catalog::Station>& stations,
-                       const Delta &delta) {
+void test_ttt_internal(const std::vector<TTTParams> &tttPrms,
+                       const std::vector<HDD::Catalog::Station> &stations,
+                       const Delta &delta)
+{
 
- std::vector<shared_ptr<HDD::TravelTimeTable>> ttts;
- for (TTTParams prm : tttPrms)
+  std::vector<shared_ptr<HDD::TravelTimeTable>> ttts;
+  for (TTTParams prm : tttPrms)
   {
     shared_ptr<HDD::TravelTimeTable> ttt =
-      prm.type.rfind("Native:", 0) == 0 
-      ? createTTT(prm)
-      : std::unique_ptr<HDD::TravelTimeTable>(
-          new HDD::SCAdapter::TravelTimeTable(prm.type, prm.args[0]));
+        prm.type.rfind("Native:", 0) == 0
+            ? createTTT(prm)
+            : std::unique_ptr<HDD::TravelTimeTable>(
+                  new HDD::SCAdapter::TravelTimeTable(prm.type, prm.args[0]));
     BOOST_REQUIRE(ttt);
     ttts.push_back(ttt);
   }
@@ -211,14 +211,14 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
                           delta.lat, delta.lon, delta.depth));
 
   std::vector<TTTParams> tttPrms;
-  for (const TTTParams& prms : tttList)
+  for (const TTTParams &prms : tttList)
   {
     if (prms.type == "Native:homogeneous" || prms.type == "Native:NonLinLoc")
     {
       tttPrms.push_back(prms);
     }
   }
-  for (const TTTParams& prms : tttListSC)
+  for (const TTTParams &prms : tttListSC)
   {
     if (prms.type == "homogeneous" || prms.type == "tttnll")
     {
@@ -228,7 +228,9 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
   test_ttt_internal(tttPrms, stationList, delta);
 }
 
-BOOST_DATA_TEST_CASE(test_ttt_zero_elevation, bdata::xrange(deltaListZeroElevation.size()), deltaIdx)
+BOOST_DATA_TEST_CASE(test_ttt_zero_elevation,
+                     bdata::xrange(deltaListZeroElevation.size()),
+                     deltaIdx)
 {
   const Delta &delta = deltaListZeroElevation[deltaIdx];
 
@@ -236,14 +238,14 @@ BOOST_DATA_TEST_CASE(test_ttt_zero_elevation, bdata::xrange(deltaListZeroElevati
                           delta.lat, delta.lon, delta.depth));
 
   std::vector<TTTParams> tttPrms;
-  for (const TTTParams& prms : tttList)
+  for (const TTTParams &prms : tttList)
   {
     if (prms.type == "Native:NonLinLoc")
     {
       tttPrms.push_back(prms);
     }
   }
-  for (const TTTParams& prms : tttListSC)
+  for (const TTTParams &prms : tttListSC)
   {
     if (prms.type == "libtau" || prms.type == "LOCSAT" || prms.type == "tttnll")
     {
