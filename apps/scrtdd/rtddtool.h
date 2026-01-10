@@ -85,11 +85,7 @@ private:
   bool processOrigin(DataModel::Origin *origin,
                      DataModel::OriginPtr &relocatedOrg,
                      std::vector<DataModel::PickPtr> &relocatedOrgPicks,
-                     const ProfilePtr &profile,
-                     bool forceProcessing,
-                     bool allowAutomaticOrigin,
-                     bool allowManualOrigin,
-                     bool doSend);
+                     const ProfilePtr &profile);
 
   void relocateOrigin(DataModel::Origin *org,
                       ProfilePtr profile,
@@ -114,9 +110,10 @@ private:
   struct Config
   {
     std::vector<std::string> activeProfiles;
-    bool onlyPreferredOrigin    = true;
-    bool allowAutomaticOrigin   = true;
-    bool allowManualOrigin      = true;
+    bool onlyPreferredOrigin  = true;
+    bool allowAutomaticOrigin = true;
+    bool allowManualOrigin    = true;
+    std::vector<std::string> acceptedOriginAuthors;
     int profileTimeAlive        = -1; // seconds
     bool cacheWaveforms         = false;
     std::string cacheDirectory  = "/tmp/rtdd";

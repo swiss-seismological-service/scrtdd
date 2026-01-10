@@ -19,6 +19,12 @@
         an event.
         </description>
       </parameter>
+      <parameter name="acceptedOriginAuthors" type="list:string" default="">
+        <description>
+        Allow relocation of origins only from the given authors. Separate
+        multiple authors by comma. If omitted, no filtering is applied.
+        </description>
+      </parameter>
       <parameter name="activeProfiles" type="list:string" default="">
         <description>
         Defines a list of active profiles for single-event processing.
