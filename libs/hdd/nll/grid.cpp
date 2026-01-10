@@ -511,6 +511,22 @@ double interpolateCubeAngles(double xdiff,
 namespace HDD {
 namespace NLL {
 
+void Transform::rotate(double &xLoc, double &yLoc) const
+{
+  const double xtemp = xLoc;
+  const double ytemp = yLoc;
+  xLoc               = xtemp * _cosang - ytemp * _sinang;
+  yLoc               = ytemp * _cosang + xtemp * _sinang;
+}
+
+void Transform::inverseRotate(double &xLoc, double &yLoc) const
+{
+  const double xtemp = xLoc;
+  const double ytemp = yLoc;
+  xLoc               = xtemp * _cosang + ytemp * _sinang;
+  yLoc               = ytemp * _cosang - xtemp * _sinang;
+}
+
 unique_ptr<Transform> Transform::parse(const std::vector<string> &tokens)
 {
   if (tokens.at(0) != "TRANSFORM" && tokens.at(0) != "TRANS")
@@ -1039,8 +1055,6 @@ GRID_FLOAT_TYPE Grid::getValue2D(
 
   double dist;
 
-  // This check means the code shuould move to the sub-classes, but I don't
-  // like all the code duplication that the move would require
   if (info.gridType == Type::velocity)
   {
     // VEL grid headers don't have _srce informationm, the velocity depends on

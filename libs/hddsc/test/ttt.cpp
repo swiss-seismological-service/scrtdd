@@ -21,7 +21,6 @@ const std::vector<TTTParams> tttListSC = {
     {"homogeneous", {"iasp91"}},
     {"NLLGrid", {"iasp91_2D_simple"}},
     {"NLLGrid", {"iasp91_2D_sdc"}},
-    {"NLLGrid", {"iasp91_2D_global"}},
     {"NLLGrid", {"iasp91_2D_azimuthal_equidist"}},
     {"NLLGrid", {"iasp91_2D_merc"}},
     {"NLLGrid", {"iasp91_2D_lambert"}},

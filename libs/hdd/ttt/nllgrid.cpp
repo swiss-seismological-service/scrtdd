@@ -88,8 +88,13 @@ NLLGrid::NLLGrid(const std::string &gridPath,
       if (std::regex_match(filename, rePTime))
       {
         TimeKDTree::Point point;
-        auto grid  = make_shared<TimeGrid>(baseFilePath, _swapBytes);
-        point.data = grid;
+        auto grid = make_shared<TimeGrid>(baseFilePath, _swapBytes);
+        if (grid->isGlobal())
+        {
+          throw Exception(strf("Global transform is not supported (%s)",
+                               baseFilePath.c_str()));
+        }
+        point.data              = grid;
         const Grid::Info &ginfo = grid->getInfo();
         ginfo.transform->toLatLon(ginfo.srcex, ginfo.srcey, point.latitude,
                                   point.longitude);
@@ -99,8 +104,13 @@ NLLGrid::NLLGrid(const std::string &gridPath,
       else if (std::regex_match(filename, reSTime))
       {
         TimeKDTree::Point point;
-        auto grid  = make_shared<TimeGrid>(baseFilePath, _swapBytes);
-        point.data = grid;
+        auto grid = make_shared<TimeGrid>(baseFilePath, _swapBytes);
+        if (grid->isGlobal())
+        {
+          throw Exception(strf("Global transform is not supported (%s)",
+                               baseFilePath.c_str()));
+        }
+        point.data              = grid;
         const Grid::Info &ginfo = grid->getInfo();
         ginfo.transform->toLatLon(ginfo.srcex, ginfo.srcey, point.latitude,
                                   point.longitude);
@@ -110,8 +120,13 @@ NLLGrid::NLLGrid(const std::string &gridPath,
       else if (std::regex_match(filename, rePAngle))
       {
         AngleKDTree::Point point;
-        auto grid  = make_shared<AngleGrid>(baseFilePath, _swapBytes);
-        point.data = grid;
+        auto grid = make_shared<AngleGrid>(baseFilePath, _swapBytes);
+        if (grid->isGlobal())
+        {
+          throw Exception(strf("Global transform is not supported (%s)",
+                               baseFilePath.c_str()));
+        }
+        point.data              = grid;
         const Grid::Info &ginfo = grid->getInfo();
         ginfo.transform->toLatLon(ginfo.srcex, ginfo.srcey, point.latitude,
                                   point.longitude);
@@ -121,8 +136,13 @@ NLLGrid::NLLGrid(const std::string &gridPath,
       else if (std::regex_match(filename, reSAngle))
       {
         AngleKDTree::Point point;
-        auto grid  = make_shared<AngleGrid>(baseFilePath, _swapBytes);
-        point.data = grid;
+        auto grid = make_shared<AngleGrid>(baseFilePath, _swapBytes);
+        if (grid->isGlobal())
+        {
+          throw Exception(strf("Global transform is not supported (%s)",
+                               baseFilePath.c_str()));
+        }
+        point.data              = grid;
         const Grid::Info &ginfo = grid->getInfo();
         ginfo.transform->toLatLon(ginfo.srcex, ginfo.srcey, point.latitude,
                                   point.longitude);

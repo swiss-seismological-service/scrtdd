@@ -45,7 +45,6 @@ const std::vector<TTTParams> tttList = {
     {"Native:homogeneous",  {"5.8", "3.36"}},
     {"Native:NonLinLoc", {"./data/nll/iasp91_2D_simple/time", "iasp91"}},
     {"Native:NonLinLoc", {"./data/nll/iasp91_2D_sdc/time", "iasp91"}},
-    {"Native:NonLinLoc", {"./data/nll/iasp91_2D_global/time", "iasp91"}},
     {"Native:NonLinLoc", {"./data/nll/iasp91_2D_azimuthal_equidist/time", "iasp91"}},
     {"Native:NonLinLoc", {"./data/nll/iasp91_2D_merc/time", "iasp91"}},
     {"Native:NonLinLoc", {"./data/nll/iasp91_2D_lambert/time", "iasp91"}},

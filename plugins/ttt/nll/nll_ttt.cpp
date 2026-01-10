@@ -127,16 +127,15 @@ bool NLLGrid::setModel(const string &model)
   _model = "";
   _grids.reset();
 
-  // load global configuration
   auto app = Seiscomp::System::Application::Instance();
   const Config::Config *cfg;
   Config::Config tmp;
 
-  if (app)
+  if (app) // app specific configuration
   {
     cfg = &app->configuration();
   }
-  else
+  else // load global configuration
   {
     if (!Environment::Instance()->initConfig(&tmp, ""))
     {

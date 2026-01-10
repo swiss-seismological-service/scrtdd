@@ -55,6 +55,8 @@ public:
   Transform(Transform &&)                 = delete;
   Transform &operator=(Transform &&)      = delete;
 
+  std::string getType() const { return _type; }
+
   virtual void
   fromLatLon(double lat, double lon, double &xLoc, double &yLoc) const = 0;
   virtual void
@@ -73,21 +75,8 @@ public:
                           double zLoc2) const;
 
 protected:
-  void rotate(double &xLoc, double &yLoc) const
-  {
-    const double xtemp = xLoc;
-    const double ytemp = yLoc;
-    xLoc               = xtemp * _cosang - ytemp * _sinang;
-    yLoc               = ytemp * _cosang + xtemp * _sinang;
-  }
-
-  void inverseRotate(double &xLoc, double &yLoc) const
-  {
-    const double xtemp = xLoc;
-    const double ytemp = yLoc;
-    xLoc               = xtemp * _cosang + ytemp * _sinang;
-    yLoc               = ytemp * _cosang - xtemp * _sinang;
-  }
+  void rotate(double &xLoc, double &yLoc) const;
+  void inverseRotate(double &xLoc, double &yLoc) const;
 
   const std::string _type;
   const double _orgLat;
@@ -242,6 +231,8 @@ public:
 
   bool is3D() const { return _grid.info.numx > 1; }
 
+  bool isGlobal() const { return _grid.info.transform->getType() == "GLOBAL"; }
+
   const Grid::Info &getInfo() const { return _grid.info; }
 
 private:
@@ -286,6 +277,8 @@ public:
                         double &dip);
 
   bool is3D() const { return _grid.info.numx > 1; }
+
+  bool isGlobal() const { return _grid.info.transform->getType() == "GLOBAL"; }
 
   const Grid::Info &getInfo() const { return _grid.info; }
 
@@ -337,6 +330,8 @@ public:
                        unsigned long long iz);
 
   bool is3D() const { return _grid.info.numx > 2; }
+
+  bool isGlobal() const { return _grid.info.transform->getType() == "GLOBAL"; }
 
   const Grid::Info &getInfo() const { return _grid.info; }
 
