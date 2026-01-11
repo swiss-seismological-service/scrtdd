@@ -1632,6 +1632,7 @@ bool RTDD::processOrigin(Origin *origin,
     }
   }
 
+  // check for specific allowed authors
   if (!_config.acceptedOriginAuthors.empty() && !_config.forceProcessing)
   {
     bool authorAllowed = false;
@@ -1666,9 +1667,18 @@ bool RTDD::processOrigin(Origin *origin,
   SEISCOMP_INFO("Relocating origin %s using profile %s",
                 origin->publicID().c_str(), profile->name.c_str());
 
+  //
+  // Relocate origig
+  //
+  if (!profile->isLoaded())
+  {
+    loadProfile(profile);
+  }
+
+  HDD::Catalog relocated;
   try
   {
-    relocateOrigin(origin, profile, relocatedOrg, relocatedOrgPicks);
+    HDD::Catalog relocated = profile->relocateSingleEvent(origin);
   }
   catch (exception &e)
   {
@@ -1677,12 +1687,10 @@ bool RTDD::processOrigin(Origin *origin,
     return true;
   }
 
-  if (!relocatedOrg)
-  {
-    SEISCOMP_ERROR("processing of origin '%s' failed",
-                   origin->publicID().c_str());
-    return true;
-  }
+  DataSource dataSrc(query(), &_cache, _eventParameters.get());
+  convertOrigin(dataSrc, relocated, origin, author(), agencyID(),
+                profile->methodID, (profile->tttType + ":" + profile->tttModel),
+                false, relocatedOrg, relocatedOrgPicks);
 
   SEISCOMP_INFO("Origin %s has been relocated", origin->publicID().c_str());
 
@@ -1731,22 +1739,6 @@ bool RTDD::processOrigin(Origin *origin,
 void RTDD::removedFromCache(Seiscomp::DataModel::PublicObject *po)
 {
   // do nothing
-}
-
-void RTDD::relocateOrigin(DataModel::Origin *org,
-                          ProfilePtr profile,
-                          DataModel::OriginPtr &newOrg,
-                          std::vector<DataModel::PickPtr> &newOrgPicks)
-{
-  if (!profile->isLoaded())
-  {
-    loadProfile(profile);
-  }
-  HDD::Catalog relocatedOrg = profile->relocateSingleEvent(org);
-  DataSource dataSrc(query(), &_cache, _eventParameters.get());
-  convertOrigin(dataSrc, relocatedOrg, org, author(), agencyID(),
-                profile->methodID, (profile->tttType + ":" + profile->tttModel),
-                false, newOrg, newOrgPicks);
 }
 
 HDD::Catalog

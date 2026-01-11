@@ -87,11 +87,6 @@ private:
                      std::vector<DataModel::PickPtr> &relocatedOrgPicks,
                      const ProfilePtr &profile);
 
-  void relocateOrigin(DataModel::Origin *org,
-                      ProfilePtr profile,
-                      DataModel::OriginPtr &newOrg,
-                      std::vector<DataModel::PickPtr> &newOrgPicks);
-
   void removedFromCache(DataModel::PublicObject *);
 
   HDD::Catalog getCatalog(

@@ -421,13 +421,6 @@ void convertOrigin(DataSource &dataSrc,
   DataModel::RealQuantity depth = DataModel::RealQuantity(event.depth);
   newOrg->setDepth(depth);
 
-  auto evPhases      = relocatedOrg.getPhases().equal_range(event.id);
-  int usedPhaseCount = 0;
-  vector<double> azi;
-  vector<double> staDistances;
-  set<string> associatedStations;
-  set<string> usedStations;
-
   //
   // keep track of the triggering origin of this relocation
   //
@@ -443,6 +436,13 @@ void convertOrigin(DataSource &dataSrc,
   //
   // add arrivals
   //
+  int usedPhaseCount = 0;
+  vector<double> azi;
+  vector<double> staDistances;
+  set<string> associatedStations;
+  set<string> usedStations;
+
+  auto evPhases = relocatedOrg.getPhases().equal_range(event.id);
   for (auto it = evPhases.first; it != evPhases.second; ++it)
   {
     const HDD::Catalog::Phase &phase = it->second;
