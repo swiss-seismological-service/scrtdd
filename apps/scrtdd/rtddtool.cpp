@@ -1747,11 +1747,10 @@ void RTDD::relocateOrigin(DataModel::Origin *org,
     loadProfile(profile);
   }
   HDD::Catalog relocatedOrg = profile->relocateSingleEvent(org);
-  bool includeMagnitude     = org->evaluationMode() == DataModel::MANUAL;
   DataSource dataSrc(query(), &_cache, _eventParameters.get());
   convertOrigin(dataSrc, relocatedOrg, org, author(), agencyID(),
                 profile->methodID, (profile->tttType + ":" + profile->tttModel),
-                includeMagnitude, false, newOrg, newOrgPicks);
+                false, false, newOrg, newOrgPicks);
 }
 
 HDD::Catalog
