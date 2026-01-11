@@ -390,7 +390,6 @@ void convertOrigin(DataSource &dataSrc,
                    const string &agencyID,
                    const string &methodID,
                    const string &earthModelID,
-                   bool includeMagnitude,
                    bool includeExistingPicks,
                    DataModel::OriginPtr &newOrg,                 // return value
                    std::vector<DataModel::PickPtr> &newOrgPicks) // return value
@@ -429,63 +428,21 @@ void convertOrigin(DataSource &dataSrc,
   set<string> associatedStations;
   set<string> usedStations;
 
-  // If we know the origin before relocation fetch some information from it
+  //
+  // keep track of the triggering origin of this relocation
+  //
   if (org)
   {
-    //
-    // keep track of the triggering origin of this relocation
-    //
     DataModel::CommentPtr comment = new DataModel::Comment();
     comment->setId("relocation::sourceOrigin");
     comment->setText(org->publicID());
     comment->setCreationInfo(ci);
     newOrg->add(comment.get());
-
-    //
-    // Copy magnitude from org
-    //
-    if (includeMagnitude)
-    {
-      dataSrc.loadMagnitudes(org, true, true);
-
-      unordered_map<string, string> staMagIdMap;
-      for (size_t i = 0; i < org->stationMagnitudeCount(); i++)
-      {
-        DataModel::StationMagnitude *staMag = org->stationMagnitude(i);
-        DataModel::StationMagnitude *newStaMag =
-            DataModel::StationMagnitude::Create();
-        *newStaMag = *staMag;
-        newOrg->add(newStaMag);
-        staMagIdMap[staMag->publicID()] = newStaMag->publicID();
-      }
-
-      for (size_t i = 0; i < org->magnitudeCount(); i++)
-      {
-        DataModel::Magnitude *mag    = org->magnitude(i);
-        DataModel::Magnitude *newMag = DataModel::Magnitude::Create();
-        *newMag                      = *mag;
-
-        for (size_t j = 0; j < mag->stationMagnitudeContributionCount(); j++)
-        {
-          DataModel::StationMagnitudeContribution *contrib =
-              mag->stationMagnitudeContribution(j);
-          DataModel::StationMagnitudeContributionPtr newContrib =
-              new DataModel::StationMagnitudeContribution(*contrib);
-          try
-          {
-            newContrib->setStationMagnitudeID(
-                staMagIdMap.at(contrib->stationMagnitudeID()));
-          }
-          catch (...)
-          {}
-          newMag->add(newContrib.get());
-        }
-        newOrg->add(newMag);
-      }
-    }
   }
 
-  // add missing arrivals and fill in all the properties
+  //
+  // add arrivals
+  //
   for (auto it = evPhases.first; it != evPhases.second; ++it)
   {
     const HDD::Catalog::Phase &phase = it->second;
