@@ -201,6 +201,15 @@ double NLLGrid::compute(double eventLat,
   }
   catch (std::range_error &e)
   {
+    // Check if we have already excluded the station (save time).
+    if (_unloadables.find(key) != _unloadables.end())
+    {
+      throw Exception(
+          strf("Cannot find a suitable %s time grid (station lat %g "
+               "lon %g elevation %g).",
+               phaseType.c_str(), stationLat, stationLon, stationElevation));
+    }
+
     // Find the correct grid
     double gridDist;
     try
@@ -222,17 +231,18 @@ double NLLGrid::compute(double eventLat,
     }
     catch (std::range_error &e)
     {
+      _unloadables.insert(key);
       throw Exception(strf("No %s time grids found", phaseType.c_str()));
     }
 
     if ((gridDist * 1000) > _maxSearchDistance) // gridDist is in km
     {
-      string msg =
+      _unloadables.insert(key);
+      throw Exception(
           strf("Cannot find a suitable %s time grid (station lat %g "
                "lon %g elevation %g). Closest grid is at %g [m] %s",
                phaseType.c_str(), stationLat, stationLon, stationElevation,
-               gridDist * 1000, timeGrid->getInfo().hdrFilePath.c_str());
-      throw Exception(msg);
+               gridDist * 1000, timeGrid->getInfo().hdrFilePath.c_str()));
     }
 
     // cache the grid
@@ -309,6 +319,15 @@ void NLLGrid::compute(double eventLat,
   }
   catch (std::range_error &e)
   {
+    // Check if we have already excluded the station (save time).
+    if (_unloadables.find(key) != _unloadables.end())
+    {
+      throw Exception(
+          strf("Cannot find a suitable %s angle grid (station lat %g "
+               "lon %g elevation %g)",
+               phaseType.c_str(), stationLat, stationLon, stationElevation));
+    }
+
     // Find the correct grid
     double gridDist;
     try
@@ -330,17 +349,18 @@ void NLLGrid::compute(double eventLat,
     }
     catch (std::range_error &e)
     {
+      _unloadables.insert(key);
       throw Exception(strf("No %s angle grids found", phaseType.c_str()));
     }
 
     if ((gridDist * 1000) > _maxSearchDistance) // gridDist is in km
     {
-      string msg =
+      _unloadables.insert(key);
+      throw Exception(
           strf("Cannot find a suitable %s angle grid (station lat %g "
                "lon %g elevation %g). Closest grid is at %g [m] %s",
                phaseType.c_str(), stationLat, stationLon, stationElevation,
-               gridDist * 1000, angleGrid->getInfo().hdrFilePath.c_str());
-      throw Exception(msg);
+               gridDist * 1000, angleGrid->getInfo().hdrFilePath.c_str()));
     }
 
     // cache the grid

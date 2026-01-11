@@ -88,6 +88,8 @@ private:
   AngleKDTree _PAngleKDTree;
   AngleKDTree _SAngleKDTree;
 
+  std::unordered_set<std::string> _unloadables;
+
   struct GridHolder
   {
     GridHolder(const std::shared_ptr<NLL::VelGrid> &g) : velGrid(g) {}
