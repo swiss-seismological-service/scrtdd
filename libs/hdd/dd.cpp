@@ -485,7 +485,8 @@ Catalog DD::relocateMultiEvents(
     }
 
     // Perform cross-correlation
-    XCorrCache xcorr = buildXCorrCache(_bgCat, cluster, xcorrOpt, xcorrData);
+    XCorrCache xcorr =
+        buildXCorrCache(_bgCat, cluster, xcorrOpt, true, xcorrData);
 
     // the actual relocation
     std::vector<Solver::DoubleDifference> startDDs, finalDDs;
@@ -716,7 +717,7 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
     }
 
     // Perform cross-correlation
-    XCorrCache xcorr = buildXCorrCache(catalog, cluster, xcorrOpt);
+    XCorrCache xcorr = buildXCorrCache(catalog, cluster, xcorrOpt, false);
 
     // the actual relocation
     std::vector<Solver::DoubleDifference> startDDs, finalDDs;
@@ -1259,6 +1260,7 @@ XCorrCache
 DD::buildXCorrCache(const Catalog &catalog,
                     const unordered_map<unsigned, Neighbours> &cluster,
                     const XcorrOptions &xcorrOpt,
+                    bool cacheRefEvWf,
                     const XCorrCache &precomputed)
 {
   XCorrCache xcorr{};
@@ -1278,8 +1280,8 @@ DD::buildXCorrCache(const Catalog &catalog,
     const Neighbours &neighbours = kv.second;
     const Event &refEv = catalog.getEvents().at(neighbours.referenceId());
 
-    buildXcorrDiffTTimePairs(catalog, neighbours, refEv, xcorrOpt, precomputed,
-                             xcorr);
+    buildXcorrDiffTTimePairs(catalog, neighbours, refEv, cacheRefEvWf, xcorrOpt,
+                             precomputed, xcorr);
 
     const unsigned onePerThousand =
         cluster.size() < 1000 ? 1 : (cluster.size() / 1000);
@@ -1310,6 +1312,7 @@ DD::buildXCorrCache(const Catalog &catalog,
 void DD::buildXcorrDiffTTimePairs(const Catalog &catalog,
                                   const Neighbours &neighbours,
                                   const Event &refEv,
+                                  bool cacheRefEvWf,
                                   const XcorrOptions &xcorrOpt,
                                   const XCorrCache &precomputed,
                                   XCorrCache &xcorr)
@@ -1320,11 +1323,14 @@ void DD::buildXcorrDiffTTimePairs(const Catalog &catalog,
   //
   // Prepare the waveform loaders for single-event. Since its waveforms are
   // temporary and discarded after the relocation, we don't want to
-  // make use of the background catalog cache (_wfAccess.memCache) to
-  // load them
+  // make use of the background catalog cache (_wfAccess.memCache)
   //
-  shared_ptr<Waveform::Processor> tmpMemCache(
-      preloadNonCatalogWaveforms(catalog, neighbours, refEv, xcorrOpt));
+  shared_ptr<Waveform::Processor> tmpMemCache;
+  if (!cacheRefEvWf)
+  {
+    tmpMemCache =
+        preloadNonCatalogWaveforms(catalog, neighbours, refEv, xcorrOpt);
+  }
 
   //
   // loop through reference event phases
@@ -1351,15 +1357,8 @@ void DD::buildXcorrDiffTTimePairs(const Catalog &catalog,
     //
     // select appropriate waveform loader for refPhase
     //
-    shared_ptr<Waveform::Processor> refPrc;
-    if (refPhase.procInfo.source == Phase::Source::CATALOG)
-    {
-      refPrc = _wfAccess.memCache;
-    }
-    else if (refPhase.procInfo.source == Phase::Source::RT_EVENT_MANUAL)
-    {
-      refPrc = tmpMemCache;
-    }
+    shared_ptr<Waveform::Processor> refPrc =
+        cacheRefEvWf ? _wfAccess.memCache : tmpMemCache;
 
     //
     // loop through neighbouring events and cross-correlate with `refPhase`
@@ -1431,10 +1430,9 @@ DD::preloadNonCatalogWaveforms(const Catalog &catalog,
                                const XcorrOptions &xcorrOpt)
 {
   //
-  // For single-event relocation in real-time we want to load the waveforms
-  // in batch otherwise the seedlink server gets stuck and becomes
-  // unresponsive due to the multiple connections requests, one for each event
-  // phase
+  // For single-event relocation we want to load the waveforms in batch
+  // otherwise the seedlink server gets stuck and becomes unresponsive due to
+  // the multiple connections requests, one for each event phase
   //
   shared_ptr<Waveform::BatchLoader> batchLoader(
       new Waveform::BatchLoader(_proxy));
@@ -1444,20 +1442,12 @@ DD::preloadNonCatalogWaveforms(const Catalog &catalog,
   //
   // loop through reference event phases
   //
-  bool onlyCatalogPhases = true;
-  auto eqlrngRef         = catalog.getPhases().equal_range(refEv.id);
+  auto eqlrngRef = catalog.getPhases().equal_range(refEv.id);
   for (auto itRef = eqlrngRef.first; itRef != eqlrngRef.second; ++itRef)
   {
     const Phase &refPhase  = itRef->second;
     const Station &station = catalog.getStations().at(refPhase.stationId);
     const auto components  = xcorrComponents(xcorrOpt, refPhase);
-
-    // We deal only with real-time event data
-    if (refPhase.procInfo.source == Phase::Source::CATALOG)
-    {
-      continue;
-    }
-    onlyCatalogPhases = false;
 
     //
     // skip stations too close or too far away
@@ -1505,11 +1495,6 @@ DD::preloadNonCatalogWaveforms(const Catalog &catalog,
         }
       }
     }
-  }
-
-  if (onlyCatalogPhases)
-  {
-    return nullptr;
   }
 
   // This will actually dowanload the waveforms all at once

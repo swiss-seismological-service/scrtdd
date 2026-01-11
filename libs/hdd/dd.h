@@ -256,11 +256,13 @@ private:
   buildXCorrCache(const Catalog &catalog,
                   const std::unordered_map<unsigned, Neighbours> &cluster,
                   const XcorrOptions &xcorrOpt,
+                  bool cacheRefEvWf,
                   const XCorrCache &precomputed = XCorrCache());
 
   void buildXcorrDiffTTimePairs(const Catalog &catalog,
                                 const Neighbours &neighbours,
                                 const Catalog::Event &refEv,
+                                bool cacheRefEvWf,
                                 const XcorrOptions &xcorrOpt,
                                 const XCorrCache &precomputed,
                                 XCorrCache &xcorr);
