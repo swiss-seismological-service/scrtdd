@@ -97,6 +97,7 @@ public:
   };
 
   Grid(Type gridType, const std::string &filePath, bool swapBytes);
+  ~Grid() { close(); }
 
   void close();
 
@@ -203,8 +204,7 @@ public:
                        unsigned long long iy,
                        unsigned long long iz) const
     {
-      return !(ix < 0 || ix >= numx || iy < 0 || iy >= numy || iz < 0 ||
-               iz >= numz);
+      return ix < numx && iy < numy && iz < numz;
     }
   };
   const Info info;
@@ -213,7 +213,9 @@ public:
   parse(const std::string &baseFilePath, Type gridType, bool swapBytes);
 
 private:
-  std::ifstream _bufReader;
+  int _fd                 = -1;
+  void *_mapped           = nullptr;
+  std::size_t _mappedSize = 0;
 };
 
 class TimeGrid

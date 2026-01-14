@@ -33,6 +33,11 @@
 #include <array>
 #include <cstring>
 
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 using namespace std;
 using namespace HDD::Logger;
 using TakeOffAngles = HDD::NLL::AngleGrid::TakeOffAngles;
@@ -822,30 +827,18 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
 void Grid::close()
 {
   logDebugF("Closing grid file %s", info.bufFilePath.c_str());
-  try
+  if (_mapped && _mapped != MAP_FAILED)
   {
-    _bufReader.close();
+    ::munmap(_mapped, _mappedSize);
+    _mapped = nullptr;
   }
-  catch (...)
-  {}
+  if (_fd >= 0)
+  {
+    ::close(_fd);
+    _fd = -1;
+  }
 }
 
-/*
- * This is the function that reads the data from the grid files
- * Since the grid files can vary between hundres of MB to hundreds
- * of GB (even TB) we do not load all the grid files in memory, but
- * we read the data directly from the files, for each value!
- * That might raise concerns on the performance, due to the high I/O
- * involved. However the OS + Filesystem put lots of efforts on
- * caching mechanisms. For exampe when a simple float is read from
- * disk a full page (e.g. 4kB) will be read from disk and stored
- * in memory, so that subsequents reads at close offsets will be
- * fulfilled without additional I/O being involved.
- * In general it is hard to do better than OS+filesystem caching
- * and it might not be worth trying so until real-world scenarios
- * (e.g. grids stored on a network folder) prove an additional
- * caching layer to be necessary
- */
 template <typename GRID_FLOAT_TYPE>
 GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
                                       unsigned long long iy,
@@ -856,49 +849,63 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
     throw Exception("Requested index is out of grid boundaries");
   }
 
+  if (!_mapped && _fd < 0)
+  {
+    _fd = ::open(info.bufFilePath.c_str(), O_RDONLY);
+    if (_fd < 0)
+    {
+      throw Exception("Failed to open grid file " + info.bufFilePath);
+    }
+    struct stat st;
+    if (::fstat(_fd, &st) != 0)
+    {
+      throw Exception(
+          strf("Failed to stat grid file %s", info.bufFilePath.c_str()));
+    }
+
+    _mappedSize = static_cast<std::size_t>(st.st_size);
+
+    _mapped = ::mmap(nullptr, _mappedSize, PROT_READ, MAP_SHARED, _fd, 0);
+    if (_mapped == MAP_FAILED)
+    {
+      throw Exception(
+          strf("Failed to mmap grid file %s", info.bufFilePath.c_str()));
+    }
+
+    ::close(_fd);
+    _fd = -1;
+  }
+
+  if (!_mapped || _mapped == MAP_FAILED)
+  {
+    throw Exception("Opening of grid file failed " + info.bufFilePath);
+  }
+
+  unsigned long long index = ix * info.numy * info.numz + iy * info.numz + iz;
+  unsigned long long byteOffset = index * sizeof(GRID_FLOAT_TYPE);
+
+  if (byteOffset + sizeof(GRID_FLOAT_TYPE) > _mappedSize)
+  {
+    throw Exception("Requested data past end of grid file " + info.bufFilePath);
+  }
+
   GRID_FLOAT_TYPE value;
-  bool retry = true;
-  do
+  std::memcpy(&value, static_cast<const char *>(_mapped) + byteOffset,
+              sizeof(GRID_FLOAT_TYPE));
+
+  if (info.swapBytes)
   {
-    if (!_bufReader.is_open())
+    if constexpr (sizeof(GRID_FLOAT_TYPE) == 4)
     {
-      _bufReader.open(info.bufFilePath, std::ios::binary | std::ios::in);
-      _bufReader.exceptions(std::ios::badbit | std::ios::failbit);
-      retry = false; // just opened, no retry
+      auto *b = reinterpret_cast<unsigned char *>(&value);
+      std::swap(b[0], b[3]);
+      std::swap(b[1], b[2]);
     }
-
-    unsigned long pos = sizeof(GRID_FLOAT_TYPE) *
-                        (ix * info.numy * info.numz + iy * info.numz + iz);
-
-    try
+    else if constexpr (sizeof(GRID_FLOAT_TYPE) == 8)
     {
-      _bufReader.seekg(pos);
-      _bufReader.read(reinterpret_cast<char *>(&value), sizeof(value));
-      retry = false; // all went well, no retry
+      auto *b = reinterpret_cast<unsigned char *>(&value);
+      std::reverse(b, b + 8);
     }
-    catch (exception &e)
-    {
-      _bufReader.close();
-      if (!retry)
-      {
-        string msg = strf("Error while reading grid file %s (%s)",
-                          info.bufFilePath.c_str(), e.what());
-        throw Exception(msg.c_str());
-      }
-      logInfoF("File %s was open but the read failed, retrying...",
-               info.bufFilePath.c_str());
-    }
-  } while (retry);
-
-  if (info.swapBytes && sizeof(GRID_FLOAT_TYPE) == 4)
-  {
-    char *unswappedFloat = (char *)&value;
-    char swappedFloat[4];
-    swappedFloat[0] = unswappedFloat[3];
-    swappedFloat[1] = unswappedFloat[2];
-    swappedFloat[2] = unswappedFloat[1];
-    swappedFloat[3] = unswappedFloat[0];
-    std::memcpy(&value, swappedFloat, 4);
   }
   return value;
 }
