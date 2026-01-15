@@ -51,9 +51,11 @@ NLLGrid::NLLGrid(const std::string &gridPath,
                  const std::string &gridModel,
                  double maxSearchDistance,
                  bool swapBytes,
-                 unsigned maxOpenFiles)
+                 unsigned maxOpenFiles,
+                 bool useMemoryMapping)
     : _gridPath(gridPath), _gridModel(gridModel), _swapBytes(swapBytes),
-      _maxSearchDistance(maxSearchDistance), _openGrids(maxOpenFiles)
+      _maxSearchDistance(maxSearchDistance),
+      _useMemoryMapping(useMemoryMapping), _openGrids(maxOpenFiles)
 {
 
   static const std::regex rePModel(_gridModel + R"(\.P\.mod\.hdr)",
@@ -248,7 +250,7 @@ double NLLGrid::compute(double eventLat,
     // open the grid buffer
     try
     {
-      timeGrid->open();
+      timeGrid->open(_useMemoryMapping);
     }
     catch (Exception &e)
     {
@@ -319,7 +321,7 @@ void NLLGrid::compute(double eventLat,
     // open the grid buffer
     try
     {
-      velGrid->open();
+      velGrid->open(_useMemoryMapping);
     }
     catch (Exception &e)
     {
@@ -395,7 +397,7 @@ void NLLGrid::compute(double eventLat,
     // open the grid buffer
     try
     {
-      angleGrid->open();
+      angleGrid->open(_useMemoryMapping);
     }
     catch (Exception &e)
     {

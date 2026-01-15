@@ -43,8 +43,15 @@
 					<parameter name="maxOpenFiles" type="integer" default="512">
 						<description>
 						Allowing a high number of grid files to be kept open may help the
-						performance when the number of stations is high, but pay attention
-						to the maximum allowed open files per process on your system.
+						performance when working with a high number of stations. Pay
+						attention to your system limits (max open files or max memory
+						mapping limits depending on useMemoryMapping option).
+						</description>
+					</parameter>
+					<parameter name="useMemoryMapping" type="boolean" default="true">
+						<description>
+						Use mmap to read grid files. This offers better performance, but it
+						is optional as certain file systems might not work nicely with it.
 						</description>
 					</parameter>
 				</struct>

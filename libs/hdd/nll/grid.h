@@ -99,7 +99,9 @@ public:
   Grid(Type gridType, const std::string &filePath, bool swapBytes);
   ~Grid();
 
-  void open();
+  // mmap: memory mapping offers better performance, but cerain file systems
+  // might not work well, so it is optional
+  void open(bool mmap = true);
   bool isOpen();
   void close();
 
@@ -215,6 +217,7 @@ public:
   parse(const std::string &baseFilePath, Type gridType, bool swapBytes);
 
 private:
+  bool _useMmap           = true;
   int _fd                 = -1;
   void *_mapped           = nullptr;
   std::size_t _mappedSize = 0;
@@ -225,7 +228,7 @@ class TimeGrid
 public:
   TimeGrid(const std::string &filePath, bool swapBytes);
 
-  void open();
+  void open(bool mmap);
   bool isOpen();
   void close();
 
@@ -271,7 +274,7 @@ public:
             bool swapBytes,
             unsigned quality_cutoff = 5);
 
-  void open();
+  void open(bool mmap);
   bool isOpen();
   void close();
 
@@ -329,7 +332,7 @@ class VelGrid
 public:
   VelGrid(const std::string &filePath, bool swapBytes);
 
-  void open();
+  void open(bool mmap);
   bool isOpen();
   void close();
 

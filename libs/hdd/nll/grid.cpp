@@ -826,10 +826,12 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
   return info;
 }
 
-void Grid::open()
+void Grid::open(bool mmap)
 {
   if (!isOpen())
   {
+    _useMmap = mmap;
+
     if (_fd < 0)
     {
       _fd = ::open(info.bufFilePath.c_str(), O_RDONLY);
@@ -840,48 +842,64 @@ void Grid::open()
       throw Exception("Failed to open grid file " + info.bufFilePath);
     }
 
-    if (_mappedSize == 0)
+    if (_useMmap)
     {
-      struct stat st;
-      if (::fstat(_fd, &st) != 0)
+      if (_mappedSize == 0)
       {
-        throw Exception(
-            strf("Failed to stat grid file %s", info.bufFilePath.c_str()));
+        struct stat st;
+        if (::fstat(_fd, &st) != 0)
+        {
+          throw Exception(
+              strf("Failed to stat grid file %s", info.bufFilePath.c_str()));
+        }
+
+        _mappedSize = static_cast<std::size_t>(st.st_size);
       }
 
-      _mappedSize = static_cast<std::size_t>(st.st_size);
-    }
-
-    if (!_mapped || _mapped == MAP_FAILED)
-    {
-      _mapped = ::mmap(nullptr, _mappedSize, PROT_READ, MAP_SHARED, _fd, 0);
-      if (_mapped == MAP_FAILED)
+      if (!_mapped || _mapped == MAP_FAILED)
       {
-        throw Exception(
-            strf("Failed to mmap grid file %s", info.bufFilePath.c_str()));
+        _mapped = ::mmap(nullptr, _mappedSize, PROT_READ, MAP_SHARED, _fd, 0);
+        if (_mapped == MAP_FAILED)
+        {
+          throw Exception(
+              strf("Failed to mmap grid file %s", info.bufFilePath.c_str()));
+        }
       }
-    }
 
-    ::close(_fd);
-    _fd = -1;
+      ::close(_fd);
+      _fd = -1;
+    }
   }
 }
 
-bool Grid::isOpen() { return _mapped && _mapped != MAP_FAILED; }
+bool Grid::isOpen()
+{
+  if (_useMmap)
+  {
+    return _mapped && _mapped != MAP_FAILED;
+  }
+  else
+  {
+    return _fd >= 0;
+  }
+}
 
 void Grid::close()
 {
   logDebugF("Closing grid file %s", info.bufFilePath.c_str());
+
   if (_mapped && _mapped != MAP_FAILED)
   {
     ::munmap(_mapped, _mappedSize);
     _mapped = nullptr;
   }
+
   if (_fd >= 0)
   {
     ::close(_fd);
     _fd = -1;
   }
+
   _mappedSize = 0;
 }
 
@@ -903,14 +921,27 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
   unsigned long long index = ix * info.numy * info.numz + iy * info.numz + iz;
   unsigned long long byteOffset = index * sizeof(GRID_FLOAT_TYPE);
 
-  if (byteOffset + sizeof(GRID_FLOAT_TYPE) > _mappedSize)
-  {
-    throw Exception("Requested data past end of grid file " + info.bufFilePath);
-  }
-
   GRID_FLOAT_TYPE value;
-  std::memcpy(&value, static_cast<const char *>(_mapped) + byteOffset,
-              sizeof(GRID_FLOAT_TYPE));
+  if (_useMmap)
+  {
+    if (byteOffset + sizeof(GRID_FLOAT_TYPE) > _mappedSize)
+    {
+      throw Exception("Requested data past end of grid file " +
+                      info.bufFilePath);
+    }
+
+    std::memcpy(&value, static_cast<const char *>(_mapped) + byteOffset,
+                sizeof(GRID_FLOAT_TYPE));
+  }
+  else
+  {
+    ssize_t bytesRead = ::pread(_fd, &value, sizeof(value), byteOffset);
+
+    if (bytesRead != sizeof(value))
+    {
+      throw Exception("pread failed or reached EOF");
+    }
+  }
 
   if (info.swapBytes)
   {
@@ -1109,7 +1140,7 @@ TimeGrid::TimeGrid(const std::string &filePath, bool swapBytes)
   }
 }
 
-void TimeGrid::open() { _grid.open(); }
+void TimeGrid::open(bool mmap) { _grid.open(mmap); }
 bool TimeGrid::isOpen() { return _grid.isOpen(); }
 void TimeGrid::close() { _grid.close(); }
 
@@ -1248,7 +1279,7 @@ AngleGrid::AngleGrid(const std::string &filePath,
   }
 }
 
-void AngleGrid::open() { _grid.open(); }
+void AngleGrid::open(bool mmap) { _grid.open(mmap); }
 bool AngleGrid::isOpen() { return _grid.isOpen(); }
 void AngleGrid::close() { _grid.close(); }
 
@@ -1412,7 +1443,7 @@ VelGrid::VelGrid(const std::string &filePath, bool swapBytes)
   }
 }
 
-void VelGrid::open() { _grid.open(); }
+void VelGrid::open(bool mmap) { _grid.open(mmap); }
 bool VelGrid::isOpen() { return _grid.isOpen(); }
 void VelGrid::close() { _grid.close(); }
 

@@ -46,7 +46,8 @@ public:
           const std::string &gridModel,
           double maxSearchDistance = 0.1,
           bool swapBytes           = false,
-          unsigned maxOpenFiles    = 512);
+          unsigned maxOpenFiles    = 512,
+          bool useMemoryMapping    = true);
 
   double compute(double eventLat,
                  double eventLon,
@@ -76,6 +77,7 @@ private:
   std::string _gridModel;
   bool _swapBytes;
   double _maxSearchDistance; // meters
+  bool _useMemoryMapping;
 
   std::shared_ptr<NLL::VelGrid> _PVelGrid;
   std::shared_ptr<NLL::VelGrid> _SVelGrid;
