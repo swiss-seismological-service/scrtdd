@@ -1040,6 +1040,7 @@ bool RTDD::init()
     }
   };
   HDD::Logger::setLogger(hddLogger);
+  HDD::Logger::setLevel(HDD::Logger::Level::debug);
 
   return true;
 }

@@ -45,7 +45,8 @@ enum class Level
   debug,
   info,
   warning,
-  error
+  error,
+  none
 };
 
 using LogCallback =
@@ -53,6 +54,7 @@ using LogCallback =
 
 void setLogger(LogCallback callback);
 void setLevel(Level l);
+Level getLevel();
 void log(const Level level, const std::string &message);
 
 void addFileLogger(const std::string &filename, Level minLevel);
@@ -64,10 +66,14 @@ inline void logDebug(std::string &&s) { log(Level::debug, s); }
 __attribute__((format(printf, 1, 2))) inline void logDebugF(const char *fmt,
                                                             ...)
 {
-  va_list ap;
-  va_start(ap, fmt);
-  log(Level::debug, strf(fmt, ap));
-  va_end(ap);
+  // skip strf formatting if the message is not going to be logged
+  if (getLevel() <= Level::debug)
+  {
+    va_list ap;
+    va_start(ap, fmt);
+    log(Level::debug, strf(fmt, ap));
+    va_end(ap);
+  }
 }
 
 inline void logInfo(const std::string &s) { log(Level::info, s); }
@@ -75,10 +81,14 @@ inline void logInfo(const char *s) { log(Level::info, s); }
 inline void logInfo(std::string &&s) { log(Level::info, s); }
 __attribute__((format(printf, 1, 2))) inline void logInfoF(const char *fmt, ...)
 {
-  va_list ap;
-  va_start(ap, fmt);
-  log(Level::info, strf(fmt, ap));
-  va_end(ap);
+  // skip strf formatting if the message is not going to be logged
+  if (getLevel() <= Level::info)
+  {
+    va_list ap;
+    va_start(ap, fmt);
+    log(Level::info, strf(fmt, ap));
+    va_end(ap);
+  }
 }
 
 inline void logWarning(const std::string &s) { log(Level::warning, s); }
@@ -87,10 +97,14 @@ inline void logWarning(std::string &&s) { log(Level::warning, s); }
 __attribute__((format(printf, 1, 2))) inline void logWarningF(const char *fmt,
                                                               ...)
 {
-  va_list ap;
-  va_start(ap, fmt);
-  log(Level::warning, strf(fmt, ap));
-  va_end(ap);
+  // skip strf formatting if the message is not going to be logged
+  if (getLevel() <= Level::warning)
+  {
+    va_list ap;
+    va_start(ap, fmt);
+    log(Level::warning, strf(fmt, ap));
+    va_end(ap);
+  }
 }
 
 inline void logError(const std::string &s) { log(Level::error, s); }
@@ -99,10 +113,14 @@ inline void logError(std::string &&s) { log(Level::error, s); }
 __attribute__((format(printf, 1, 2))) inline void logErrorF(const char *fmt,
                                                             ...)
 {
-  va_list ap;
-  va_start(ap, fmt);
-  log(Level::error, strf(fmt, ap));
-  va_end(ap);
+  // skip strf formatting if the message is not going to be logged
+  if (getLevel() <= Level::error)
+  {
+    va_list ap;
+    va_start(ap, fmt);
+    log(Level::error, strf(fmt, ap));
+    va_end(ap);
+  }
 }
 
 } // namespace Logger
