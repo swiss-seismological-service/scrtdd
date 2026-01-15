@@ -97,8 +97,10 @@ public:
   };
 
   Grid(Type gridType, const std::string &filePath, bool swapBytes);
-  ~Grid() { close(); }
+  ~Grid();
 
+  void open();
+  bool isOpen();
   void close();
 
   template <typename GRID_FLOAT_TYPE> struct Interpolate2D
@@ -223,6 +225,8 @@ class TimeGrid
 public:
   TimeGrid(const std::string &filePath, bool swapBytes);
 
+  void open();
+  bool isOpen();
   void close();
 
   double getTime(double lat, double lon, double depth);
@@ -267,6 +271,8 @@ public:
             bool swapBytes,
             unsigned quality_cutoff = 5);
 
+  void open();
+  bool isOpen();
   void close();
 
   void
@@ -323,6 +329,8 @@ class VelGrid
 public:
   VelGrid(const std::string &filePath, bool swapBytes);
 
+  void open();
+  bool isOpen();
   void close();
 
   double getVel(double lat, double lon, double depth);

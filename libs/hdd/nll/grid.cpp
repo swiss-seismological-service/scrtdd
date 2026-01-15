@@ -740,6 +740,8 @@ Grid::Grid(Type gridType, const std::string &filePath, bool swapBytes)
   }
 }
 
+Grid::~Grid() { close(); }
+
 Grid::Info
 Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
 {
@@ -824,6 +826,49 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
   return info;
 }
 
+void Grid::open()
+{
+  if (!isOpen())
+  {
+    if (_fd < 0)
+    {
+      _fd = ::open(info.bufFilePath.c_str(), O_RDONLY);
+    }
+
+    if (_fd < 0)
+    {
+      throw Exception("Failed to open grid file " + info.bufFilePath);
+    }
+
+    if (_mappedSize == 0)
+    {
+      struct stat st;
+      if (::fstat(_fd, &st) != 0)
+      {
+        throw Exception(
+            strf("Failed to stat grid file %s", info.bufFilePath.c_str()));
+      }
+
+      _mappedSize = static_cast<std::size_t>(st.st_size);
+    }
+
+    if (!_mapped || _mapped == MAP_FAILED)
+    {
+      _mapped = ::mmap(nullptr, _mappedSize, PROT_READ, MAP_SHARED, _fd, 0);
+      if (_mapped == MAP_FAILED)
+      {
+        throw Exception(
+            strf("Failed to mmap grid file %s", info.bufFilePath.c_str()));
+      }
+    }
+
+    ::close(_fd);
+    _fd = -1;
+  }
+}
+
+bool Grid::isOpen() { return _mapped && _mapped != MAP_FAILED; }
+
 void Grid::close()
 {
   logDebugF("Closing grid file %s", info.bufFilePath.c_str());
@@ -837,6 +882,7 @@ void Grid::close()
     ::close(_fd);
     _fd = -1;
   }
+  _mappedSize = 0;
 }
 
 template <typename GRID_FLOAT_TYPE>
@@ -844,41 +890,14 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
                                       unsigned long long iy,
                                       unsigned long long iz)
 {
+  if (!isOpen())
+  {
+    throw Exception("Grid file not open: " + info.bufFilePath);
+  }
+
   if (!info.isIndexInside(ix, iy, iz))
   {
     throw Exception("Requested index is out of grid boundaries");
-  }
-
-  if (!_mapped && _fd < 0)
-  {
-    _fd = ::open(info.bufFilePath.c_str(), O_RDONLY);
-    if (_fd < 0)
-    {
-      throw Exception("Failed to open grid file " + info.bufFilePath);
-    }
-    struct stat st;
-    if (::fstat(_fd, &st) != 0)
-    {
-      throw Exception(
-          strf("Failed to stat grid file %s", info.bufFilePath.c_str()));
-    }
-
-    _mappedSize = static_cast<std::size_t>(st.st_size);
-
-    _mapped = ::mmap(nullptr, _mappedSize, PROT_READ, MAP_SHARED, _fd, 0);
-    if (_mapped == MAP_FAILED)
-    {
-      throw Exception(
-          strf("Failed to mmap grid file %s", info.bufFilePath.c_str()));
-    }
-
-    ::close(_fd);
-    _fd = -1;
-  }
-
-  if (!_mapped || _mapped == MAP_FAILED)
-  {
-    throw Exception("Opening of grid file failed " + info.bufFilePath);
   }
 
   unsigned long long index = ix * info.numy * info.numz + iy * info.numz + iz;
@@ -1090,6 +1109,8 @@ TimeGrid::TimeGrid(const std::string &filePath, bool swapBytes)
   }
 }
 
+void TimeGrid::open() { _grid.open(); }
+bool TimeGrid::isOpen() { return _grid.isOpen(); }
 void TimeGrid::close() { _grid.close(); }
 
 double TimeGrid::getTimeAtIndex(unsigned long long ix,
@@ -1227,6 +1248,8 @@ AngleGrid::AngleGrid(const std::string &filePath,
   }
 }
 
+void AngleGrid::open() { _grid.open(); }
+bool AngleGrid::isOpen() { return _grid.isOpen(); }
 void AngleGrid::close() { _grid.close(); }
 
 void AngleGrid::getAnglesAtIndex(unsigned long long ix,
@@ -1389,6 +1412,8 @@ VelGrid::VelGrid(const std::string &filePath, bool swapBytes)
   }
 }
 
+void VelGrid::open() { _grid.open(); }
+bool VelGrid::isOpen() { return _grid.isOpen(); }
 void VelGrid::close() { _grid.close(); }
 
 double VelGrid::getVelAtIndex(unsigned long long ix,
