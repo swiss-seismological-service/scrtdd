@@ -67,6 +67,12 @@ class EventList(sc_client.Application):
             "Origins", "manual-only", "Include only manual origins")
         self.commandline().addOption(
             "Origins", "auto-only", "Inlude only automatic origins")
+        ###--- AJS
+        self.commandline().addStringOption("Origins", "inc-status",
+                                           "include only origins whose evaluationStatus is one of the values provided (comma separated list)")
+        self.commandline().addStringOption("Origins", "excl-status",
+                                           "exclude origins whose evaluationStatus is one of the values provided (comma separated list)")
+        ###--- AJS
         self.commandline().addStringOption("Origins", "inc-author",
                                            "include only origins whose author is one of the values provided (comma separated list)")
         self.commandline().addStringOption("Origins", "excl-author",
@@ -144,6 +150,17 @@ class EventList(sc_client.Application):
         except BaseException:
             self.exclAuthor = None
 
+        ### -- AJS
+        try:
+            self.incEvalStat = [a.lower() for a in self.commandline().optionString("inc-status").split(',')]
+        except BaseException:
+            self.incEvalStat = None
+        try:
+            self.exclEvalStat = [a.lower() for a in self.commandline().optionString("excl-status").split(',')]
+        except BaseException:
+            self.exclEvalStat = None
+        ### -- AJS
+
         try:
             self.incAgencyID = self.commandline().optionString("inc-agency").split(',')
         except BaseException:
@@ -176,7 +193,7 @@ class EventList(sc_client.Application):
 
         if not self.simple:
             sys.stdout.write(
-                "origin,event,eventType,evalMode,agencyID,author,methodID,RMS,numPhases,latitude,longitude,depth,time,creationTime,modificationTime\n")
+                "origin,event,eventType,evalMode,evalStat,agencyID,author,methodID,RMS,numPhases,latitude,longitude,depth,time,creationTime,modificationTime\n")
 
         events = []
         for obj in self.query().getEvents(self._startTime, self._endTime):
@@ -210,7 +227,7 @@ class EventList(sc_client.Application):
                 sys.stdout.write("%s\n" % orgInfo.id)
             else:
                 sys.stdout.write(
-                    f"{orgInfo.id},{evId},{evtype},{orgInfo.evalMode},{orgInfo.agencyID},{orgInfo.author},{orgInfo.methodID},"
+                    f"{orgInfo.id},{evId},{evtype},{orgInfo.evalMode},{orgInfo.evalStat},{orgInfo.agencyID},{orgInfo.author},{orgInfo.methodID},"
                     f"{'' if orgInfo.rms is None else orgInfo.rms},"
                     f"{'' if orgInfo.phases is None else orgInfo.phases},"
                     f"{orgInfo.latitude},{orgInfo.longitude},{orgInfo.depth},{orgInfo.time},"
@@ -233,7 +250,7 @@ class EventList(sc_client.Application):
                     origins.append(org)
 
         OrgInfo = namedtuple(
-            'OrgInfo', 'id evalMode creationTime modificationTime agencyID author methodID rms phases latitude longitude depth time sourceOrigin')
+            'OrgInfo', 'id evalMode evalStat creationTime modificationTime agencyID author methodID rms phases latitude longitude depth time sourceOrigin')
         orgInfo = None
         for currOrg in origins:
 
@@ -301,6 +318,13 @@ class EventList(sc_client.Application):
             except:
               rms = None
 
+            ### AJS
+            try:
+                evalStat = sc_datamodel.EEvaluationStatusNames.name(currOrg.evaluationStatus())
+            except:
+                evalStat = None
+            ### AJS
+
             if self.automaticOnly and evalMode != sc_datamodel.AUTOMATIC:
                 continue
 
@@ -331,6 +355,16 @@ class EventList(sc_client.Application):
                (orgInfo is not None and rms > orgInfo.rms)):
                 continue
 
+            #-- AJS
+            if (self.incEvalStat is not None) and (evalStat is not None) and \
+                (evalStat not in self.incEvalStat):
+                continue
+
+            if (self.exclEvalStat is not None) and (evalStat is not None) and \
+                (evalStat in self.exclEvalStat):
+                continue
+            ###---
+
             if (self.incAuthor is not None) and (author is None or
                author not in self.incAuthor):
                 continue
@@ -353,6 +387,10 @@ class EventList(sc_client.Application):
 
             if (self.exclMethodID is not None) and (methodID is not None) and \
                (methodID in self.exclMethodID):
+                continue
+
+            if depth is None or latitude is None or longitude is None:
+                sys.stderr.write("*** Error: Depth/Lat/Lon None value: {0}\n".format(evId))
                 continue
 
             if self.area is not None:
@@ -383,7 +421,7 @@ class EventList(sc_client.Application):
             #        sourceOrigin = comment.text()
             #        break
 
-            orgInfo = OrgInfo(currOrg.publicID(), evalModeStr, creationTime,
+            orgInfo = OrgInfo(currOrg.publicID(), evalModeStr, evalStat, creationTime,
                               modificationTime, agencyID, author, methodID,
                               rms, phases, latitude, longitude,  depth, time,
                               sourceOrigin)
