@@ -596,8 +596,8 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->singleEventClustering.minEStoIEratio = 1;
-      prof->multiEventClustering.minEStoIEratio  = 1;
+      prof->singleEventClustering.minEStoIEratio = 3;
+      prof->multiEventClustering.minEStoIEratio  = 3;
     }
 
     prefix = string("profile.") + prof->name +
@@ -2010,9 +2010,8 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
   relocatedCat.writeToFile("reloc-event.csv", "reloc-phase.csv",
                            "reloc-station.csv");
 
-  SEISCOMP_INFO(
-      "Wrote relocated catalog files reloc-event.csv, reloc-phase.csv, "
-      "reloc-station.csv and cross-correlation results xcorr.csv");
+  SEISCOMP_INFO("Wrote relocated catalog files reloc-event.csv, "
+                "reloc-phase.csv, reloc-station.csv");
   return relocatedCat;
 }
 

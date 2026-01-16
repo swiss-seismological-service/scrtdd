@@ -155,14 +155,13 @@
           </group>
           <group name="doubleDifferenceSystem">
             <description>
-            These options control the clustering phase, which is responsible to
-            selects the event pairs and their phases to be used in the 
-            double-difference equation system.
+            Clustering configuration, which is responsible to selects the event
+            pairs and their phases to be used in the double-difference equation
+            system.
             </description> 
             <group name="eventFiltering">
               <description>
-              Exclude poorly connected events from the DD system: not enough
-              phases and/or neighbours
+              Exclude poorly connected events: not enough phases and/or neighbours
               </description>
               <parameter name="minNumPhases" type="int" default="4">
                 <description>
@@ -179,7 +178,7 @@
             </group>
             <group name="phaseFiltering">
               <description>Exclude not optimal phases from the DD system.</description>
-              <parameter name="minStationToEventPairDistRatio" type="double" default="1">
+              <parameter name="minStationToEventPairDistRatio" type="double" default="3">
                 <description>
                 Minimum ratio between event-station to inter-event distance 
                 allowed. Phases belonging to stations not satisfying this

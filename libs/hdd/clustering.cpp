@@ -609,7 +609,7 @@ selectNeighbouringEventsCatalog(const EventTree &evTree,
                                 unsigned numEllipsoids,
                                 double maxNeighbourDist)
 {
-  logInfo("Searching for event clusters in the event catalog");
+  logInfo("Searching for event neighbours in the catalog");
 
   // output: neighbours for each event in the catalog
   unordered_map<unsigned, Neighbours> neighboursList;
@@ -649,12 +649,6 @@ selectNeighbouringEventsCatalog(const EventTree &evTree,
   {
     redo = false;
     unordered_map<unsigned, Neighbours> validNeighbours;
-
-    logInfoF("Found the neighbours of %zu events (%zu events don't satisfy the "
-             "constraints)",
-             neighboursList.size(), removedEvents.size());
-    logInfo("Search and fix the events whose neighbours do not satisfy the "
-            "constraints...");
 
     for (auto &kv : neighboursList)
     {
@@ -723,7 +717,7 @@ list<unordered_map<unsigned, Neighbours>> clusterizeNeighbouringEvents(
   map<unsigned, vector<Neighbours>> clusters;         // cluster id, cluster
   unordered_map<unsigned, unsigned> clusterIdByEvent; // event id, cluster id
 
-  logInfo("Searching for not connected clusters...");
+  logInfo("Forming event clusters...");
 
   while (!neighboursByEvent.empty())
   {

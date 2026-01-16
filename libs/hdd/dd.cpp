@@ -422,7 +422,7 @@ Catalog DD::relocateMultiEvents(
         throw Exception(msg);
       }
     }
-    logInfoF("Processing data dir %s", processingDataDir.c_str());
+    logInfoF("Saving processing data in %s", processingDataDir.c_str());
   }
 
   // prepare file logger

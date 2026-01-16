@@ -565,9 +565,10 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
   const double median = computeMedian(residuals);
   const double MAD    = computeMedianAbsoluteDeviation(residuals, median);
 
-  logInfoF("Num DD %zu residual [msec] median %.3f MedianAbsoluteDeviation "
-           "%.3f [msec]",
-           _observations.size(), median * 1000, MAD * 1000);
+  logInfoF(
+      "Total DD %zu, dd-residual [msec] median %.3f MedianAbsoluteDeviation "
+      "%.3f",
+      _observations.size(), median * 1000, MAD * 1000);
 
   //
   // compute weights
@@ -781,7 +782,7 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
 
     double min, max, q1, q2, q3;
     compute5numberSummary(decileRes, min, max, q1, q2, q3);
-    logInfoF("Event dist %.3f-%-.3f [km] num DD %zu residual "
+    logInfoF("Event dist %.4f-%-.4f [km], num DD %zu dd-residual "
              "[msec] 1st quartile %6.3f median %6.3f 3rd quartile %6.3f",
              startingDist, finalDist, decileRes.size(), q1 * 1000, q2 * 1000,
              q3 * 1000);
@@ -790,7 +791,7 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
     {
       compute5numberSummary(decileCoeff, min, max, q1, q2, q3);
       string line = strf(
-          "Event dist %.3f-%-.3f [km] num CC %zu corr-coeff "
+          "Event dist %.4f-%-.4f [km], num CC %zu corr-coeff "
           "min %.2f 1st quartile %.2f median %.2f 3rd quartile %.2f max %.2f",
           startingDist, finalDist, decileCoeff.size(), min, q1, q2, q3, max);
       xcorrLines.push_back(std::move(line));
