@@ -67,12 +67,10 @@ class EventList(sc_client.Application):
             "Origins", "manual-only", "Include only manual origins")
         self.commandline().addOption(
             "Origins", "auto-only", "Inlude only automatic origins")
-        ###--- AJS
         self.commandline().addStringOption("Origins", "inc-status",
                                            "include only origins whose evaluationStatus is one of the values provided (comma separated list)")
         self.commandline().addStringOption("Origins", "excl-status",
                                            "exclude origins whose evaluationStatus is one of the values provided (comma separated list)")
-        ###--- AJS
         self.commandline().addStringOption("Origins", "inc-author",
                                            "include only origins whose author is one of the values provided (comma separated list)")
         self.commandline().addStringOption("Origins", "excl-author",
@@ -150,7 +148,6 @@ class EventList(sc_client.Application):
         except BaseException:
             self.exclAuthor = None
 
-        ### -- AJS
         try:
             self.incEvalStat = [a.lower() for a in self.commandline().optionString("inc-status").split(',')]
         except BaseException:
@@ -159,7 +156,6 @@ class EventList(sc_client.Application):
             self.exclEvalStat = [a.lower() for a in self.commandline().optionString("excl-status").split(',')]
         except BaseException:
             self.exclEvalStat = None
-        ### -- AJS
 
         try:
             self.incAgencyID = self.commandline().optionString("inc-agency").split(',')
@@ -318,12 +314,10 @@ class EventList(sc_client.Application):
             except:
               rms = None
 
-            ### AJS
             try:
                 evalStat = sc_datamodel.EEvaluationStatusNames.name(currOrg.evaluationStatus())
             except:
                 evalStat = None
-            ### AJS
 
             if self.automaticOnly and evalMode != sc_datamodel.AUTOMATIC:
                 continue
@@ -355,15 +349,13 @@ class EventList(sc_client.Application):
                (orgInfo is not None and rms > orgInfo.rms)):
                 continue
 
-            #-- AJS
-            if (self.incEvalStat is not None) and (evalStat is not None) and \
-                (evalStat not in self.incEvalStat):
+            if (self.incEvalStat is not None) and (evalStat is None or \
+                evalStat.lower() not in self.incEvalStat):
                 continue
 
             if (self.exclEvalStat is not None) and (evalStat is not None) and \
-                (evalStat in self.exclEvalStat):
+                (evalStat.lower() in self.exclEvalStat):
                 continue
-            ###---
 
             if (self.incAuthor is not None) and (author is None or
                author not in self.incAuthor):
@@ -387,10 +379,6 @@ class EventList(sc_client.Application):
 
             if (self.exclMethodID is not None) and (methodID is not None) and \
                (methodID in self.exclMethodID):
-                continue
-
-            if depth is None or latitude is None or longitude is None:
-                sys.stderr.write("*** Error: Depth/Lat/Lon None value: {0}\n".format(evId))
                 continue
 
             if self.area is not None:
