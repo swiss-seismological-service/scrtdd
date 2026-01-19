@@ -756,6 +756,7 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
   //
   // print residual by inter-event distance
   //
+  logInfo("Five number summary stats grouped by inter-event distance:");
   multimap<double, unsigned> obByDist = computeInterEventDistance();
   auto obByDistIt                     = obByDist.begin();
   vector<string> xcorrLines;
@@ -782,23 +783,26 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
 
     double min, max, q1, q2, q3;
     compute5numberSummary(decileRes, min, max, q1, q2, q3);
-    logInfoF("Event dist %.4f-%-.4f [km], num DD %zu dd-residual "
-             "[msec] 1st quartile %6.3f median %6.3f 3rd quartile %6.3f",
-             startingDist, finalDist, decileRes.size(), q1 * 1000, q2 * 1000,
-             q3 * 1000);
-    // when xcorr is not used there no entries
-    if (decileCoeff.size() > 0)
+    logInfoF("Ev.Dist %.4f-%-.4f [km], #DD %zu dd-residual [msec] min %6.2f "
+             "quartile1 %6.2f median %6.2f quartile3 %6.2f max %6.2f",
+             startingDist, finalDist, decileRes.size(), min * 1000, q1 * 1000,
+             q2 * 1000, q3 * 1000, max * 1000);
+
+    if (decileCoeff.size() > 0) // when xcorr is not used there no entries
     {
       compute5numberSummary(decileCoeff, min, max, q1, q2, q3);
       string line = strf(
-          "Event dist %.4f-%-.4f [km], num CC %zu corr-coeff "
-          "min %.2f 1st quartile %.2f median %.2f 3rd quartile %.2f max %.2f",
+          "Ev.Dist %.4f-%-.4f [km], #CC %zu corr-coeff min %4.2f quartile1 "
+          "%4.2f median %4.2f quartile3 %4.2f max %4.2f",
           startingDist, finalDist, decileCoeff.size(), min, q1, q2, q3, max);
       xcorrLines.push_back(std::move(line));
     }
   }
 
-  // Print Xcorr 5 number summary
+  //
+  // Print Xcorr 5 number summary collected above
+  //
+  if (xcorrLines.size() > 0) logInfo("Cross-correlation:");
   for (const string &line : xcorrLines)
   {
     logInfo(line);

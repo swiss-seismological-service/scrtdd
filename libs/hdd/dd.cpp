@@ -144,8 +144,8 @@ void DD::enableCatalogWaveformDiskCache(const std::string &cacheDir,
   {
     if (!createDirectories(_wfAccess.cacheDir))
     {
-      string msg = "Unable to create cache directory: " + _wfAccess.cacheDir;
-      throw Exception(msg);
+      throw Exception("Unable to create cache directory: " +
+                      _wfAccess.cacheDir);
     }
   }
   initWaveformAccess();
@@ -380,10 +380,10 @@ DD::findClusters(const ClusteringOptions &clustOpt)
   // find Neighbours for each event in the catalog
   unordered_map<unsigned, Neighbours> neighboursByEvent =
       selectNeighbouringEventsCatalog(
-          _evTree, _bgCat, clustOpt.minESdist, clustOpt.maxESdist,
-          clustOpt.minEStoIEratio, clustOpt.minNumPhases, clustOpt.maxNumPhases,
-          clustOpt.minNumNeigh, clustOpt.maxNumNeigh, clustOpt.numEllipsoids,
-          clustOpt.maxNeighbourDist);
+          _evTree, _bgCat, clustOpt.minEvStaDist, clustOpt.maxEvStaDist,
+          clustOpt.minEvStaToInterEvRatio, clustOpt.minNumPhases,
+          clustOpt.maxNumPhases, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
+          clustOpt.numEllipsoids, clustOpt.maxNeighbourDist);
 
   // Organize the neighbours by not connected clusters
   return clusterizeNeighbouringEvents(std::move(neighboursByEvent));
@@ -418,8 +418,7 @@ Catalog DD::relocateMultiEvents(
     {
       if (!createDirectories(processingDataDir))
       {
-        string msg = "Unable to create directory: " + processingDataDir;
-        throw Exception(msg);
+        throw Exception("Unable to create directory: " + processingDataDir);
       }
     }
     logInfoF("Saving processing data in %s", processingDataDir.c_str());
@@ -437,8 +436,8 @@ Catalog DD::relocateMultiEvents(
     // find Neighbours for each event in the catalog
     unordered_map<unsigned, Neighbours> neighboursByEvent =
         selectNeighbouringEventsCatalog(
-            _evTree, _bgCat, clustOpt.minESdist, clustOpt.maxESdist,
-            clustOpt.minEStoIEratio, clustOpt.minNumPhases,
+            _evTree, _bgCat, clustOpt.minEvStaDist, clustOpt.maxEvStaDist,
+            clustOpt.minEvStaToInterEvRatio, clustOpt.minNumPhases,
             clustOpt.maxNumPhases, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
             clustOpt.numEllipsoids, clustOpt.maxNeighbourDist);
 
@@ -473,7 +472,8 @@ Catalog DD::relocateMultiEvents(
     if (saveProcessing)
     {
       string prefix = strf("cluster-%u", clusterId);
-      Neighbours::writeToFile(cluster, _bgCat, prefix + "-pair.csv");
+      Neighbours::writeToFile(
+          cluster, _bgCat, joinPath(processingDataDir, prefix + "-pair.csv"));
       Catalog catToDump;
       for (const auto &kv : cluster)
       {
@@ -481,7 +481,8 @@ Catalog DD::relocateMultiEvents(
       }
       catToDump.writeToFile(
           joinPath(processingDataDir, (prefix + "-event.csv")),
-          joinPath(processingDataDir, (prefix + "-phase.csv")));
+          joinPath(processingDataDir, (prefix + "-phase.csv")),
+          joinPath(processingDataDir, (prefix + "-station.csv")));
     }
 
     // Perform cross-correlation
@@ -498,10 +499,14 @@ Catalog DD::relocateMultiEvents(
     if (saveProcessing)
     {
       string prefix = strf("cluster-%u", clusterId);
-      writeDoubleDifferenceToFile(startDDs, _bgCat,
-                                  prefix + "initial-double-difference");
-      writeDoubleDifferenceToFile(finalDDs, _bgCat,
-                                  prefix + "final-double-difference");
+      writeDoubleDifferenceToFile(
+          startDDs, _bgCat,
+          joinPath(processingDataDir,
+                   (prefix + "-initial-double-difference.csv")));
+      writeDoubleDifferenceToFile(
+          finalDDs, _bgCat,
+          joinPath(processingDataDir,
+                   (prefix + "-final-double-difference.csv")));
       relocatedCluster.writeToFile(
           joinPath(processingDataDir, (prefix + "-relocated-event.csv")),
           joinPath(processingDataDir, (prefix + "-relocated-phase.csv")));
@@ -563,8 +568,7 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
     {
       if (!createDirectories(processingDataDir))
       {
-        string msg = "Unable to create directory: " + processingDataDir;
-        throw Exception(msg);
+        throw Exception("Unable to create directory: " + processingDataDir);
       }
     }
     logInfoF("Processing data dir %s", processingDataDir.c_str());
@@ -643,10 +647,6 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
     logError("Failed to perform step 2 origin relocation");
   }
 
-  if (relocatedEvWithXcorr.empty())
-  {
-    throw Exception("Failed origin relocation");
-  }
   removeFileLogger(logFile);
 
   return relocatedEvWithXcorr;
@@ -686,10 +686,11 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
     // select neighbouring events
     //
     Neighbours neighbours = selectNeighbouringEvents(
-        _evTree, _bgCat, evToRelocate, evToRelocateCat, clustOpt.minESdist,
-        clustOpt.maxESdist, clustOpt.minEStoIEratio, clustOpt.minNumPhases,
-        clustOpt.maxNumPhases, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
-        clustOpt.numEllipsoids, clustOpt.maxNeighbourDist);
+        _evTree, _bgCat, evToRelocate, evToRelocateCat, clustOpt.minEvStaDist,
+        clustOpt.maxEvStaDist, clustOpt.minEvStaToInterEvRatio,
+        clustOpt.minNumPhases, clustOpt.maxNumPhases, clustOpt.minNumNeigh,
+        clustOpt.maxNumNeigh, clustOpt.numEllipsoids,
+        clustOpt.maxNeighbourDist);
 
     logInfoF("Found %zu neighbouring events", neighbours.amount());
 
@@ -713,7 +714,8 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
 
     if (saveProcessing)
     {
-      Neighbours::writeToFile(cluster, catalog, "pair.csv");
+      Neighbours::writeToFile(cluster, catalog,
+                              joinPath(processingDataDir, "pair.csv"));
     }
 
     // Perform cross-correlation
@@ -726,12 +728,15 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
 
     if (saveProcessing)
     {
-      writeDoubleDifferenceToFile(startDDs, catalog,
-                                  "initial-double-difference");
-      writeDoubleDifferenceToFile(finalDDs, catalog, "final-double-difference");
+      writeDoubleDifferenceToFile(
+          startDDs, catalog,
+          joinPath(processingDataDir, "-initial-double-difference.csv"));
+      writeDoubleDifferenceToFile(
+          finalDDs, catalog,
+          joinPath(processingDataDir, "-final-double-difference.csv"));
       relocatedEvCat.writeToFile(
-          joinPath(processingDataDir, "relocated-event.csv"),
-          joinPath(processingDataDir, "relocated-phase.csv"));
+          joinPath(processingDataDir, "-relocated-event.csv"),
+          joinPath(processingDataDir, "-relocated-phase.csv"));
     }
   }
   catch (Exception &e)
@@ -1857,8 +1862,9 @@ void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
   unsigned performed      = 0;
   unsigned failed         = 0;
   unsigned aboveThreshold = 0;
-  logInfo("Station P  #CC   fail   above-threshold     corr-coeff five-number "
-          "summary");
+  logInfoF("(P phases)   Total CC   Failures   Coeff>%.2f            Min  1stQ "
+           "Median 3rdQ  Max",
+           xcorrOpt.phase.at(Phase::Type::P).minCoef);
   for (const auto &kv : pCountByStation)
   {
     const string &stationId = kv.first;
@@ -1869,7 +1875,8 @@ void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
 
     unsigned tot = c.performed + c.failed;
 
-    logInfoF("%-12s %10u %.1f%% %.1f%% %.2f %.2f %.2f %.2f %.2f",
+    logInfoF("%-11s %9u  %6.1f%%     %6.1f%%              %4.2f  %4.2f  %4.2f  "
+             "%4.2f  %4.2f",
              stationId.c_str(), tot, (c.failed * 100.0 / tot),
              (c.aboveThreshold * 100.0 / tot), min, q1, q2, q3, max);
     performed += c.performed;
@@ -1877,14 +1884,18 @@ void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
     aboveThreshold += c.aboveThreshold;
   }
   unsigned tot = performed + failed;
-  logInfoF("Total %10u %.1f%% %.1f%%", tot, (failed * 100.0 / tot),
+  logInfoF("P phases total cross-correlation attempted %u failures %.1f%% "
+           "Above %.2f coeff %.1f%%",
+           tot, (failed * 100.0 / tot),
+           xcorrOpt.phase.at(Phase::Type::P).minCoef,
            (aboveThreshold * 100.0 / tot));
 
   performed      = 0;
   failed         = 0;
   aboveThreshold = 0;
-  logInfo("Station S  #CC   fail   above-threshold     corr-coeff five-number "
-          "summary");
+  logInfoF("(S phases)   Total CC   Failures   Coeff>%.2f            Min  1stQ "
+           "Median 3rdQ  Max",
+           xcorrOpt.phase.at(Phase::Type::S).minCoef);
   for (const auto &kv : sCountByStation)
   {
     const string &stationId = kv.first;
@@ -1895,7 +1906,8 @@ void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
 
     unsigned tot = c.performed + c.failed;
 
-    logInfoF("%-12s %10u %.1f%% %.1f%% %.2f %.2f %.2f %.2f %.2f",
+    logInfoF("%-11s %9u  %6.1f%%     %6.1f%%              %4.2f  %4.2f  %4.2f  "
+             "%4.2f  %4.2f",
              stationId.c_str(), tot, (c.failed * 100.0 / tot),
              (c.aboveThreshold * 100.0 / tot), min, q1, q2, q3, max);
     performed += c.performed;
@@ -1903,7 +1915,10 @@ void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
     aboveThreshold += c.aboveThreshold;
   }
   tot = performed + failed;
-  logInfoF("Total %10u %.1f%% %.1f%%", tot, (failed * 100.0 / tot),
+  logInfoF("S phases total cross-correlation attempted %u failures %.1f%% "
+           "Above %.2f coeff %.1f%%",
+           tot, (failed * 100.0 / tot),
+           xcorrOpt.phase.at(Phase::Type::S).minCoef,
            (aboveThreshold * 100.0 / tot));
 }
 

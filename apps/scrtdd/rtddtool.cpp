@@ -563,41 +563,41 @@ bool RTDD::validateParameters()
 
     try
     {
-      prof->singleEventClustering.minESdist =
+      prof->singleEventClustering.minEvStaDist =
           configGetDouble(prefix + "minStationDistance");
-      prof->multiEventClustering.minESdist =
+      prof->multiEventClustering.minEvStaDist =
           configGetDouble(prefix + "minStationDistance");
     }
     catch (...)
     {
-      prof->singleEventClustering.minESdist = 0;
-      prof->multiEventClustering.minESdist  = 0;
+      prof->singleEventClustering.minEvStaDist = 0;
+      prof->multiEventClustering.minEvStaDist  = 0;
     }
 
     try
     {
-      prof->singleEventClustering.maxESdist =
+      prof->singleEventClustering.maxEvStaDist =
           configGetDouble(prefix + "maxStationDistance");
-      prof->multiEventClustering.maxESdist =
+      prof->multiEventClustering.maxEvStaDist =
           configGetDouble(prefix + "maxStationDistance");
     }
     catch (...)
     {
-      prof->singleEventClustering.maxESdist = 0;
-      prof->multiEventClustering.maxESdist  = 0;
+      prof->singleEventClustering.maxEvStaDist = 0;
+      prof->multiEventClustering.maxEvStaDist  = 0;
     }
 
     try
     {
-      prof->singleEventClustering.minEStoIEratio =
+      prof->singleEventClustering.minEvStaToInterEvRatio =
           configGetDouble(prefix + "minStationToEventPairDistRatio");
-      prof->multiEventClustering.minEStoIEratio =
+      prof->multiEventClustering.minEvStaToInterEvRatio =
           configGetDouble(prefix + "minStationToEventPairDistRatio");
     }
     catch (...)
     {
-      prof->singleEventClustering.minEStoIEratio = 3;
-      prof->multiEventClustering.minEStoIEratio  = 3;
+      prof->singleEventClustering.minEvStaToInterEvRatio = 3;
+      prof->multiEventClustering.minEvStaToInterEvRatio  = 3;
     }
 
     prefix = string("profile.") + prof->name +
@@ -666,6 +666,16 @@ bool RTDD::validateParameters()
     }
 
     prefix = string("profile.") + prof->name + ".crossCorrelation.";
+
+    try
+    {
+      prof->xcorrOpt.enable = configGetBool(prefix + "enable");
+    }
+    catch (...)
+    {
+      prof->xcorrOpt.enable = false;
+    }
+
     try
     {
       prof->xcorrOpt.minEvStaDist =
@@ -1680,12 +1690,16 @@ bool RTDD::processOrigin(Origin *origin,
   HDD::Catalog relocated;
   try
   {
-    HDD::Catalog relocated = profile->relocateSingleEvent(origin);
+    relocated = profile->relocateSingleEvent(origin);
   }
   catch (exception &e)
   {
-    SEISCOMP_ERROR("Cannot relocate origin %s (%s)", origin->publicID().c_str(),
-                   e.what());
+    SEISCOMP_INFO("%s");
+  }
+
+  if (relocated.empty())
+  {
+    SEISCOMP_INFO("Cannot relocate origin %s", origin->publicID().c_str());
     return true;
   }
 
@@ -2008,11 +2022,10 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
   HDD::Catalog relocatedCat = dd->relocateMultiEvents(
       clusters, xcorr, multiEventClustering, xcorrOpt, solverOpt, true);
 
-  relocatedCat.writeToFile("reloc-event.csv", "reloc-phase.csv",
-                           "reloc-station.csv");
+  relocatedCat.writeToFile("relocated-event.csv", "relocated-phase.csv");
 
-  SEISCOMP_INFO("Wrote relocated catalog files reloc-event.csv, "
-                "reloc-phase.csv, reloc-station.csv");
+  SEISCOMP_INFO("Wrote relocated catalog files relocated-event.csv and "
+                "relocated-phase.csv");
   return relocatedCat;
 }
 

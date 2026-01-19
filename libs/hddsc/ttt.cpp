@@ -45,20 +45,21 @@ double TravelTimeTable::compute(double eventLat,
                                 double stationElevation,
                                 const std::string &phaseType)
 {
-#if SC_API_VERSION >= SC_API_VERSION_CHECK(16, 0, 0)
-  double ttime =
-      _ttt->computeTime(phaseType.c_str(), eventLat, eventLon, eventDepth,
-                        stationLat, stationLon, stationElevation);
-#else
-  double ttime =
-      _ttt->compute(phaseType.c_str(), eventLat, eventLon, eventDepth,
-                    stationLat, stationLon, stationElevation)
-          .time;
-#endif
-
-  if (ttime < 0)
+  double ttime;
+  try
   {
-    throw Exception("No travel time data available");
+#if SC_API_VERSION >= SC_API_VERSION_CHECK(16, 0, 0)
+    ttime = _ttt->computeTime(phaseType.c_str(), eventLat, eventLon, eventDepth,
+                              stationLat, stationLon, stationElevation);
+#else
+    ttime = _ttt->compute(phaseType.c_str(), eventLat, eventLon, eventDepth,
+                          stationLat, stationLon, stationElevation)
+                .time;
+#endif
+  }
+  catch (exception &e)
+  {
+    throw HDD::Exception(e.what());
   }
 
   return ttime;
@@ -77,12 +78,16 @@ void TravelTimeTable::compute(double eventLat,
                               double &dtdd,
                               double &dtdh)
 {
-  Seiscomp::TravelTime tt =
-      _ttt->compute(phaseType.c_str(), eventLat, eventLon, eventDepth,
-                    stationLat, stationLon, stationElevation);
-  if (tt.time < 0)
+  Seiscomp::TravelTime tt;
+
+  try
   {
-    throw Exception("No travel time data available");
+    tt = _ttt->compute(phaseType.c_str(), eventLat, eventLon, eventDepth,
+                       stationLat, stationLon, stationElevation);
+  }
+  catch (exception &e)
+  {
+    throw HDD::Exception(e.what());
   }
 
   travelTime = tt.time;

@@ -717,7 +717,8 @@ list<unordered_map<unsigned, Neighbours>> clusterizeNeighbouringEvents(
   map<unsigned, vector<Neighbours>> clusters;         // cluster id, cluster
   unordered_map<unsigned, unsigned> clusterIdByEvent; // event id, cluster id
 
-  logInfo("Forming event clusters...");
+  logInfoF("Forming clusters from the selected %zu events",
+           neighboursByEvent.size());
 
   while (!neighboursByEvent.empty())
   {

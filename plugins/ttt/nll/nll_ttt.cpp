@@ -291,7 +291,6 @@ TravelTime NLLGrid::compute(const char *phase,
   }
   catch (HDD::Exception &e)
   {
-    SEISCOMP_WARNING("%s", e.what());
     throw NoPhaseError();
   }
 }
@@ -325,7 +324,6 @@ double NLLGrid::computeTime(const char *phase,
   }
   catch (HDD::Exception &e)
   {
-    SEISCOMP_WARNING("%s", e.what());
     throw NoPhaseError();
   }
 }

@@ -64,11 +64,11 @@ struct Config
 struct ClusteringOptions
 {
   // min hypocenter-station to interevent distance ratio required
-  double minEStoIEratio = 5;
+  double minEvStaToInterEvRatio = 3;
   // min hypocenter-station distance required
-  double minESdist = 0;
+  double minEvStaDist = 0;
   // max hypocenter-station distance allowed
-  double maxESdist = -1; // -1 -> disable
+  double maxEvStaDist = -1; // -1 -> disable
   // min neighbors required
   unsigned minNumNeigh = 8;
   // max neighbors allowed (furthest events are discarded)

@@ -313,7 +313,7 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
   HDD::ClusteringOptions clusterOpt;
   clusterOpt.numEllipsoids    = 0;
   clusterOpt.maxNeighbourDist = 15;
-  clusterOpt.minEStoIEratio   = 0;
+  clusterOpt.minEvStaToInterEvRatio   = 0;
 
   HDD::XcorrOptions xcorrOpt;
   xcorrOpt.enable = false; // disable cross-correlation
@@ -348,7 +348,7 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
   clusterOpt.numEllipsoids    = 5;
   clusterOpt.maxNeighbourDist = 15;
   clusterOpt.maxNumNeigh      = 40;
-  clusterOpt.minEStoIEratio   = 0;
+  clusterOpt.minEvStaToInterEvRatio   = 0;
 
   HDD::XcorrOptions xcorrOpt;
   xcorrOpt.enable = false; // disable cross-correlation
