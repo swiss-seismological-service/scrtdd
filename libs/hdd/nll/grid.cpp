@@ -826,11 +826,11 @@ Grid::parse(const std::string &baseFilePath, Type gridType, bool swapBytes)
   return info;
 }
 
-void Grid::open(bool mmap)
+void Grid::open(OpenMode mode)
 {
   if (!isOpen())
   {
-    _useMmap = mmap;
+    _mode = mode;
 
     if (_fd < 0)
     {
@@ -842,20 +842,17 @@ void Grid::open(bool mmap)
       throw Exception("Failed to open grid file " + info.bufFilePath);
     }
 
-    if (_useMmap)
+    struct stat st;
+    if (::fstat(_fd, &st) != 0)
     {
-      if (_mappedSize == 0)
-      {
-        struct stat st;
-        if (::fstat(_fd, &st) != 0)
-        {
-          throw Exception(
-              strf("Failed to stat grid file %s", info.bufFilePath.c_str()));
-        }
+      throw Exception(
+          strf("Failed to stat grid file %s", info.bufFilePath.c_str()));
+    }
 
-        _mappedSize = static_cast<std::size_t>(st.st_size);
-      }
+    _mappedSize = static_cast<std::size_t>(st.st_size);
 
+    if (_mode == OpenMode::Mmap)
+    {
       if (!_mapped || _mapped == MAP_FAILED)
       {
         _mapped = ::mmap(nullptr, _mappedSize, PROT_READ, MAP_SHARED, _fd, 0);
@@ -869,18 +866,35 @@ void Grid::open(bool mmap)
       ::close(_fd);
       _fd = -1;
     }
+    else if (_mode == OpenMode::LoadIntoMemory)
+    {
+      _bytes.resize(_mappedSize);
+      ssize_t bytesRead = ::pread(_fd, _bytes.data(), _mappedSize, 0);
+
+      if (bytesRead != (ssize_t)_mappedSize)
+      {
+        throw Exception("pread failed or reached EOF");
+      }
+
+      ::close(_fd);
+      _fd = -1;
+    }
   }
 }
 
 bool Grid::isOpen()
 {
-  if (_useMmap)
+  if (_mode == OpenMode::Mmap)
   {
     return _mapped && _mapped != MAP_FAILED;
   }
-  else
+  else if (_mode == OpenMode::Pread)
   {
     return _fd >= 0;
+  }
+  else
+  {
+    return _bytes.size() > 0;
   }
 }
 
@@ -900,6 +914,8 @@ void Grid::close()
     _fd = -1;
   }
 
+  _bytes.clear();
+  _bytes.shrink_to_fit();
   _mappedSize = 0;
 }
 
@@ -922,7 +938,7 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
   unsigned long long byteOffset = index * sizeof(GRID_FLOAT_TYPE);
 
   GRID_FLOAT_TYPE value;
-  if (_useMmap)
+  if (_mode == OpenMode::Mmap)
   {
     if (byteOffset + sizeof(GRID_FLOAT_TYPE) > _mappedSize)
     {
@@ -933,7 +949,7 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
     std::memcpy(&value, static_cast<const char *>(_mapped) + byteOffset,
                 sizeof(GRID_FLOAT_TYPE));
   }
-  else
+  else if (_mode == OpenMode::Pread)
   {
     ssize_t bytesRead = ::pread(_fd, &value, sizeof(value), byteOffset);
 
@@ -941,6 +957,15 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
     {
       throw Exception("pread failed or reached EOF");
     }
+  }
+  else
+  {
+    if (byteOffset + sizeof(GRID_FLOAT_TYPE) > _bytes.size())
+    {
+      throw Exception("Requested data past end of grid file " +
+                      info.bufFilePath);
+    }
+    std::memcpy(&value, _bytes.data() + byteOffset, sizeof(GRID_FLOAT_TYPE));
   }
 
   if (info.swapBytes)
@@ -1140,7 +1165,7 @@ TimeGrid::TimeGrid(const std::string &filePath, bool swapBytes)
   }
 }
 
-void TimeGrid::open(bool mmap) { _grid.open(mmap); }
+void TimeGrid::open(Grid::OpenMode mode) { _grid.open(mode); }
 bool TimeGrid::isOpen() { return _grid.isOpen(); }
 void TimeGrid::close() { _grid.close(); }
 
@@ -1279,7 +1304,7 @@ AngleGrid::AngleGrid(const std::string &filePath,
   }
 }
 
-void AngleGrid::open(bool mmap) { _grid.open(mmap); }
+void AngleGrid::open(Grid::OpenMode mode) { _grid.open(mode); }
 bool AngleGrid::isOpen() { return _grid.isOpen(); }
 void AngleGrid::close() { _grid.close(); }
 
@@ -1443,7 +1468,7 @@ VelGrid::VelGrid(const std::string &filePath, bool swapBytes)
   }
 }
 
-void VelGrid::open(bool mmap) { _grid.open(mmap); }
+void VelGrid::open(Grid::OpenMode mode) { _grid.open(mode); }
 bool VelGrid::isOpen() { return _grid.isOpen(); }
 void VelGrid::close() { _grid.close(); }
 

@@ -52,11 +52,26 @@ NLLGrid::NLLGrid(const std::string &gridPath,
                  double maxSearchDistance,
                  bool swapBytes,
                  unsigned maxOpenFiles,
-                 bool useMemoryMapping)
+                 const std::string &accessMethod)
     : _gridPath(gridPath), _gridModel(gridModel), _swapBytes(swapBytes),
-      _maxSearchDistance(maxSearchDistance),
-      _useMemoryMapping(useMemoryMapping), _openGrids(maxOpenFiles)
+      _maxSearchDistance(maxSearchDistance), _openGrids(maxOpenFiles)
 {
+  if (accessMethod == "LoadIntoMemory")
+  {
+    _openMode = NLL::Grid::OpenMode::LoadIntoMemory;
+  }
+  else if (accessMethod == "MemoryMapping")
+  {
+    _openMode = NLL::Grid::OpenMode::Mmap;
+  }
+  else if (accessMethod == "KeepOpen")
+  {
+    _openMode = NLL::Grid::OpenMode::Pread;
+  }
+  else
+  {
+    throw Exception("Unsupported grid access mode: " + accessMethod);
+  }
 
   static const std::regex rePModel(_gridModel + R"(\.P\.mod\.hdr)",
                                    std::regex::optimize);
@@ -250,7 +265,7 @@ double NLLGrid::compute(double eventLat,
     // open the grid buffer
     try
     {
-      timeGrid->open(_useMemoryMapping);
+      timeGrid->open(_openMode);
     }
     catch (Exception &e)
     {
@@ -321,7 +336,7 @@ void NLLGrid::compute(double eventLat,
     // open the grid buffer
     try
     {
-      velGrid->open(_useMemoryMapping);
+      velGrid->open(_openMode);
     }
     catch (Exception &e)
     {
@@ -397,7 +412,7 @@ void NLLGrid::compute(double eventLat,
     // open the grid buffer
     try
     {
-      angleGrid->open(_useMemoryMapping);
+      angleGrid->open(_openMode);
     }
     catch (Exception &e)
     {

@@ -44,10 +44,10 @@ class NLLGrid : public HDD::TravelTimeTable
 public:
   NLLGrid(const std::string &gridPath,
           const std::string &gridModel,
-          double maxSearchDistance = 0.1,
-          bool swapBytes           = false,
-          unsigned maxOpenFiles    = 512,
-          bool useMemoryMapping    = true);
+          double maxSearchDistance        = 0.1,
+          bool swapBytes                  = false,
+          unsigned maxOpenFiles           = 512,
+          const std::string &accessMethod = "KeepOpen");
 
   double compute(double eventLat,
                  double eventLon,
@@ -77,7 +77,7 @@ private:
   std::string _gridModel;
   bool _swapBytes;
   double _maxSearchDistance; // meters
-  bool _useMemoryMapping;
+  NLL::Grid::OpenMode _openMode;
 
   std::shared_ptr<NLL::VelGrid> _PVelGrid;
   std::shared_ptr<NLL::VelGrid> _SVelGrid;

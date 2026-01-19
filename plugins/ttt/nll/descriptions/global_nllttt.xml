@@ -3,55 +3,69 @@
 	<plugin name="NLLGrid">
 		<extends>global</extends>
 		<description>
-		SeisComP Travel-times wrapper for NonLinLoc grid files
+		SeisComP travel time wrapper for NonLinLoc grid files.
 		</description>
 		<configuration>
 			<extend-struct type="ttt profile" match-name="NLLGrid">
 				<struct type="table profile">
 					<description>
-					Parameters defining the settings for this profile. Once defined,
-					the profile can be registered in ttt.NLLGrid.tables
+					Defines a travel time profile using NonLinLoc grid files.
+					Once defined, the profile can be enabled by adding its name
+					to the 'ttt.NLLGrid.tables' list.
 					</description>
 					<parameter name="P-Phases" type="list:string" default="P,Pg,Pn">
 						<description>
-						Defines a list of accepted phases for the P grid files.
+						List of phases to be associated with the P-wave travel time grid.
 						</description>
 					</parameter>
 					<parameter name="S-Phases" type="list:string" default="S,Sg,Sn">
 						<description>
-						Defines a list of accepted phases for the S grid files.
+						List of phases to be associated with the S-wave travel time grid.
 						</description>
 					</parameter>
 					<parameter name="tablePath" type="path">
 						<description>
-						Path to travel time tables (grids).
+						Path to the directory containing the NonLinLoc travel time grids.
 						</description>
 					</parameter>
 					<parameter name="maxSearchDistance" type="double" default="10" unit="m">
 						<description>
-							Define the maximum allowed station location difference between
-							the inventory and the grid files. If a grid file for a station 
-							location closer than this value cannot be found, no travel time
-							table can be provided for a station.
+						The maximum allowed distance between a station's location in the
+						inventory and the corresponding location in the grid file headers.
+						If no grid file for a station can be found within this distance,
+						the station will not have travel times.
 						</description>
 					</parameter>
 					<parameter name="swapBytes" type="boolean" default="false">
 						<description>
-						Enable for grid files generated with different endianness.
+						Enable for grid files generated with a different byte order (endianness).
+						</description>
+					</parameter>
+					<parameter name="accessMethod" type="string" default="KeepOpen">
+						<description>
+						 Specifies the method for accessing grid files: 'KeepOpen',
+						'LoadIntoMemory' or 'MemoryMapping'.
+						'KeepOpen' opens the files and reads the required values on demand,
+						while keeping the file open.
+						'MemoryMapping' is the fastest method, ideal for GUIs, but it can 
+						cause issues with a long-running module if the underlying grid file
+						is modified or with network file systems, causing the process to
+						receive a SIGBUG.
+						'LoadIntoMemory' loads all files into memory. This requires an
+						initial file loading overhead (not ideal for GUIs) and higher memory
+						usage. This is the fastest method for long running modules that
+						can keep all the grid files in memory, so that they are loaded only
+						once.
 						</description>
 					</parameter>
 					<parameter name="maxOpenFiles" type="integer" default="512">
 						<description>
-						Allowing a high number of grid files to be kept open may help the
-						performance when working with a high number of stations. Pay
-						attention to your system limits (max open files or max memory
-						mapping limits depending on useMemoryMapping option).
-						</description>
-					</parameter>
-					<parameter name="useMemoryMapping" type="boolean" default="true">
-						<description>
-						Use mmap to read grid files. This offers better performance, but it
-						is optional as certain file systems might not work nicely with it.
+						Defines the maximum number of grid files to keep open. A higher
+						number improves performance. Each station requires 4 files (P-time,
+						S-time, P-angle, S-angle), plus there are the 2, P and S, velocity
+						files. Depending on the 'accessMethod', consider system limits such as
+						max open files (for 'KeepOpen'), max memory mapping limits (for 
+						'MemoryMapping'),  and available memory (for 'LoadIntoMemory').
 						</description>
 					</parameter>
 				</struct>

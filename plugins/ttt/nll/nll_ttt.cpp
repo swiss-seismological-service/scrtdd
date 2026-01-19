@@ -150,9 +150,9 @@ bool NLLGrid::setModel(const string &model)
   std::string gridPath;
   std::string gridModel;
   double maxSearchDistance = 10;
-  unsigned maxOpenFiles    = 512;
   bool swapBytes           = false;
-  bool useMemoryMapping    = true;
+  std::string accessMethod = "KeepOpen";
+  unsigned maxOpenFiles    = 512;
 
   try
   {
@@ -206,21 +206,20 @@ bool NLLGrid::setModel(const string &model)
 
   try
   {
-    maxOpenFiles = cfg->getInt(base + "maxOpenFiles");
+    accessMethod = cfg->getString(base + "accessMethod");
   }
   catch (...)
   {}
 
   try
   {
-    useMemoryMapping = cfg->getBool(base + "useMemoryMapping");
+    maxOpenFiles = cfg->getInt(base + "maxOpenFiles");
   }
   catch (...)
   {}
 
   _grids.reset(new HDD::TTT::NLLGrid(gridPath, gridModel, maxSearchDistance,
-                                     swapBytes, maxOpenFiles,
-                                     useMemoryMapping));
+                                     swapBytes, maxOpenFiles, accessMethod));
 
   _model = model;
   return true;
