@@ -64,7 +64,7 @@ fetch('LAST_RUN')
 
 
 // mapid is the id of the div where the map will appear
-var map = L.map('mapid').setView([46.7, 8.3], 8);
+var map = L.map('mapid');
 
 L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -385,6 +385,30 @@ function loadData() {
      buildStationsLayer(stationData);
      updateVisibleEvents();
      updateVisibleLayers();
+
+     let totalLat = 0;
+     let totalLon = 0;
+     let eventCount = 0;
+
+     // Calculate average for absolute events
+     absEvents.forEach(ev => {
+         totalLat += ev.lat;
+         totalLon += ev.lon;
+         eventCount++;
+     });
+
+     // Calculate average for relocated events
+     meddEvents.forEach(ev => {
+         totalLat += ev.lat;
+         totalLon += ev.lon;
+         eventCount++;
+     });
+
+     if (eventCount > 0) {
+         const avgLat = totalLat / eventCount;
+         const avgLon = totalLon / eventCount;
+         map.setView([avgLat, avgLon], 8);
+     }
   });
 }
 
