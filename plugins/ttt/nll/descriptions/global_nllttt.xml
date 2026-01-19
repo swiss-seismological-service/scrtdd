@@ -41,7 +41,7 @@
 						Enable for grid files generated with a different byte order (endianness).
 						</description>
 					</parameter>
-					<parameter name="accessMethod" type="string" default="KeepOpen">
+					<parameter name="accessMethod" type="string" default="KeepOpen" values="KeepOpen,LoadIntoMemory,MemoryMapping">
 						<description>
 						 Specifies the method for accessing grid files: 'KeepOpen',
 						'LoadIntoMemory' or 'MemoryMapping'.
