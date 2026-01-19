@@ -1037,6 +1037,7 @@ bool RTDD::init()
     case HDD::Logger::Level::info: SEISCOMP_INFO_S(msg); break;
     case HDD::Logger::Level::warning: SEISCOMP_WARNING_S(msg); break;
     case HDD::Logger::Level::error: SEISCOMP_ERROR_S(msg); break;
+    case HDD::Logger::Level::none: break;
     }
   };
   HDD::Logger::setLogger(hddLogger);
