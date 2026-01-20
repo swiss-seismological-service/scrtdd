@@ -667,7 +667,7 @@ selectNeighbouringEventsCatalog(const EventTree &evTree,
             minEStoIEratio, minPhase, maxPhase, maxNumNeigh, numEllipsoids,
             maxNeighbourDist);
 
-        if (neighbours.amount() < minNumNeigh)
+        if (neighbours.amount() >= minNumNeigh)
         {
           invalid = false;
         }
