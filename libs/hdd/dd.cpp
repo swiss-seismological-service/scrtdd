@@ -664,8 +664,8 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
   {
     if (!createDirectories(processingDataDir))
     {
-      string msg = "Unable to create working directory: " + processingDataDir;
-      throw Exception(msg);
+      throw Exception("Unable to create working directory: " +
+                      processingDataDir);
     }
     logInfoF("Working dir %s", processingDataDir.c_str());
 
@@ -675,73 +675,69 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
         joinPath(processingDataDir, "single-event-station.csv"));
   }
 
-  Catalog relocatedEvCat;
+  // extract event to relocate
+  const Event &evToRelocate = evToRelocateCat.getEvents().begin()->second;
 
-  try
+  //
+  // select neighbouring events
+  //
+  Neighbours neighbours = selectNeighbouringEvents(
+      _evTree, _bgCat, evToRelocate, evToRelocateCat, clustOpt.minEvStaDist,
+      clustOpt.maxEvStaDist, clustOpt.minEvStaToInterEvRatio,
+      clustOpt.minNumPhases, clustOpt.maxNumPhases, clustOpt.maxNumNeigh,
+      clustOpt.numEllipsoids, clustOpt.maxNeighbourDist);
+
+  logInfoF("Found %zu neighbouring events", neighbours.amount());
+
+  // check if enough neighbors were found
+  if (neighbours.amount() < clustOpt.minNumNeigh)
   {
-    // extract event to relocate
-    const Event &evToRelocate = evToRelocateCat.getEvents().begin()->second;
-
-    //
-    // select neighbouring events
-    //
-    Neighbours neighbours = selectNeighbouringEvents(
-        _evTree, _bgCat, evToRelocate, evToRelocateCat, clustOpt.minEvStaDist,
-        clustOpt.maxEvStaDist, clustOpt.minEvStaToInterEvRatio,
-        clustOpt.minNumPhases, clustOpt.maxNumPhases, clustOpt.minNumNeigh,
-        clustOpt.maxNumNeigh, clustOpt.numEllipsoids,
-        clustOpt.maxNeighbourDist);
-
-    logInfoF("Found %zu neighbouring events", neighbours.amount());
-
-    //
-    // prepare catalog to relocate
-    //
-    Catalog catalog = neighbours.toCatalog(bgCat);
-    unsigned evToRelocateNewId =
-        catalog.add(evToRelocate.id, evToRelocateCat, false);
-    neighbours.setReferenceId(evToRelocateNewId);
-
-    if (saveProcessing)
-    {
-      catalog.writeToFile(joinPath(processingDataDir, "input-event.csv"),
-                          joinPath(processingDataDir, "input-phase.csv"),
-                          joinPath(processingDataDir, "input-station.csv"));
-    }
-
-    unordered_map<unsigned, Neighbours> cluster;
-    cluster.emplace(neighbours.referenceId(), std::move(neighbours));
-
-    if (saveProcessing)
-    {
-      Neighbours::writeToFile(cluster, catalog,
-                              joinPath(processingDataDir, "pair.csv"));
-    }
-
-    // Perform cross-correlation
-    XCorrCache xcorr = buildXCorrCache(catalog, cluster, xcorrOpt, false);
-
-    // the actual relocation
-    std::vector<Solver::DoubleDifference> startDDs, finalDDs;
-    relocatedEvCat = relocate(catalog, cluster, xcorrOpt, solverOpt, true,
-                              xcorr, startDDs, finalDDs);
-
-    if (saveProcessing)
-    {
-      writeDoubleDifferenceToFile(
-          startDDs, catalog,
-          joinPath(processingDataDir, "-initial-double-difference.csv"));
-      writeDoubleDifferenceToFile(
-          finalDDs, catalog,
-          joinPath(processingDataDir, "-final-double-difference.csv"));
-      relocatedEvCat.writeToFile(
-          joinPath(processingDataDir, "-relocated-event.csv"),
-          joinPath(processingDataDir, "-relocated-phase.csv"));
-    }
+    throw Exception("Insufficient number of neighbors " + neighbours.amount());
   }
-  catch (Exception &e)
+
+  //
+  // prepare catalog to relocate
+  //
+  Catalog catalog = neighbours.toCatalog(bgCat);
+  unsigned evToRelocateNewId =
+      catalog.add(evToRelocate.id, evToRelocateCat, false);
+  neighbours.setReferenceId(evToRelocateNewId);
+
+  if (saveProcessing)
   {
-    logError(e.what());
+    catalog.writeToFile(joinPath(processingDataDir, "input-event.csv"),
+                        joinPath(processingDataDir, "input-phase.csv"),
+                        joinPath(processingDataDir, "input-station.csv"));
+  }
+
+  unordered_map<unsigned, Neighbours> cluster;
+  cluster.emplace(neighbours.referenceId(), std::move(neighbours));
+
+  if (saveProcessing)
+  {
+    Neighbours::writeToFile(cluster, catalog,
+                            joinPath(processingDataDir, "pair.csv"));
+  }
+
+  // Perform cross-correlation
+  XCorrCache xcorr = buildXCorrCache(catalog, cluster, xcorrOpt, false);
+
+  // the actual relocation
+  std::vector<Solver::DoubleDifference> startDDs, finalDDs;
+  Catalog relocatedEvCat = relocate(catalog, cluster, xcorrOpt, solverOpt, true,
+                                    xcorr, startDDs, finalDDs);
+
+  if (saveProcessing)
+  {
+    writeDoubleDifferenceToFile(
+        startDDs, catalog,
+        joinPath(processingDataDir, "-initial-double-difference.csv"));
+    writeDoubleDifferenceToFile(
+        finalDDs, catalog,
+        joinPath(processingDataDir, "-final-double-difference.csv"));
+    relocatedEvCat.writeToFile(
+        joinPath(processingDataDir, "-relocated-event.csv"),
+        joinPath(processingDataDir, "-relocated-phase.csv"));
   }
 
   return relocatedEvCat;

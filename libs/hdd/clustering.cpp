@@ -302,7 +302,6 @@ Neighbours selectNeighbouringEvents(const EventTree &evTree,
                                     double minEStoIEratio,
                                     unsigned minPhase,
                                     unsigned maxPhase,
-                                    unsigned minNumNeigh,
                                     unsigned maxNumNeigh,
                                     unsigned numEllipsoids,
                                     double maxNeighbourDist)
@@ -584,15 +583,6 @@ Neighbours selectNeighbouringEvents(const EventTree &evTree,
     }
   }
 
-  // check if enough neighbors were found
-  if (neighbours.amount() < minNumNeigh)
-  {
-    string msg =
-        strf("Skipping event %s, insufficient number of neighbors (%zu)",
-             string(refEv).c_str(), neighbours.amount());
-    throw Exception(msg);
-  }
-
   return neighbours;
 }
 
@@ -624,16 +614,16 @@ selectNeighbouringEventsCatalog(const EventTree &evTree,
   for (const auto &kv : catalog.getEvents())
   {
     const Catalog::Event &event = kv.second;
-    try
-    {
-      Neighbours neighbours = selectNeighbouringEvents(
-          evTree, validCatalog, event, validCatalog, minESdist, maxESdist,
-          minEStoIEratio, minPhase, maxPhase, minNumNeigh, maxNumNeigh,
-          numEllipsoids, maxNeighbourDist);
+    Neighbours neighbours       = selectNeighbouringEvents(
+        evTree, validCatalog, event, validCatalog, minESdist, maxESdist,
+        minEStoIEratio, minPhase, maxPhase, maxNumNeigh, numEllipsoids,
+        maxNeighbourDist);
 
+    if (neighbours.amount() >= minNumNeigh)
+    {
       neighboursList.emplace(neighbours.referenceId(), std::move(neighbours));
     }
-    catch (...)
+    else
     {
       // event discarded because it doesn't satisfy requirements
       removedEvents.insert(event.id);
@@ -672,14 +662,12 @@ selectNeighbouringEventsCatalog(const EventTree &evTree,
         const Catalog::Event &event =
             validCatalog.getEvents().find(neighbours.referenceId())->second;
 
-        try
-        {
-          neighbours = selectNeighbouringEvents(
-              evTree, validCatalog, event, validCatalog, minESdist, maxESdist,
-              minEStoIEratio, minPhase, maxPhase, minNumNeigh, maxNumNeigh,
-              numEllipsoids, maxNeighbourDist);
-        }
-        catch (...)
+        neighbours = selectNeighbouringEvents(
+            evTree, validCatalog, event, validCatalog, minESdist, maxESdist,
+            minEStoIEratio, minPhase, maxPhase, maxNumNeigh, numEllipsoids,
+            maxNeighbourDist);
+
+        if (neighbours.amount() < minNumNeigh)
         {
           invalid = false;
         }

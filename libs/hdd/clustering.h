@@ -115,7 +115,6 @@ Neighbours selectNeighbouringEvents(const EventTree &tree,
                                     double minEStoIEratio  = 0,
                                     unsigned minPhase      = 1,
                                     unsigned maxPhase      = 0, // 0 = no limits
-                                    unsigned minNumNeigh   = 1,
                                     unsigned maxNumNeigh   = 0, // 0 = no limits
                                     unsigned numEllipsoids = 5,
                                     double maxNeighbourDist = 5); // km
