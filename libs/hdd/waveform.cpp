@@ -571,7 +571,7 @@ unique_ptr<Trace> transformL2(const TimeWindow &tw,
   }
 
   return unique_ptr<Trace>(new Trace(
-      ph.networkCode, ph.stationCode, ph.locationCode, channelCodeRoot + "H",
+      ph.networkCode, ph.stationCode, ph.locationCode, channelCodeRoot + "L",
       startTime, trH1.samplingFrequency(), std::move(l2vec)));
 }
 

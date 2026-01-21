@@ -228,7 +228,7 @@ Catalog::Catalog(const string &stationFile,
 
       if (_events.find(ph.eventId) == _events.end())
       {
-        logInfoF("unknown event %u found in %s", ph.eventId, phaFile.c_str());
+        logDebugF("unknown event %u found in %s", ph.eventId, phaFile.c_str());
       }
 
       if (_stations.find(ph.stationId) == _stations.end())

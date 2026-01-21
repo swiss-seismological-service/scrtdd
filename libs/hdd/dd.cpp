@@ -1762,7 +1762,7 @@ shared_ptr<const Trace> DD::getWaveform(Waveform::Processor &wfProc,
   {
     trans = Transform::RADIAL;
   }
-  else if (component == "H")
+  else if (component == "L2")
   {
     trans = Transform::L2;
   }
@@ -1855,12 +1855,13 @@ void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
     }
   }
 
+  //
+  // P phase
+  //
+  vector<string> logPLines;
   unsigned performed      = 0;
   unsigned failed         = 0;
   unsigned aboveThreshold = 0;
-  logInfoF("(P phases)   Total CC   Failures   Coeff>%.2f            Min  1stQ "
-           "Median 3rdQ  Max",
-           xcorrOpt.phase.at(Phase::Type::P).minCoef);
   for (const auto &kv : pCountByStation)
   {
     const string &stationId = kv.first;
@@ -1871,27 +1872,29 @@ void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
 
     unsigned tot = c.performed + c.failed;
 
-    logInfoF("%-11s %9u  %6.1f%%     %6.1f%%              %4.2f  %4.2f  %4.2f  "
+    logPLines.push_back(
+        strf("%-11s %9u  %6.1f%%     %6.1f%%              %4.2f  %4.2f  %4.2f  "
              "%4.2f  %4.2f",
              stationId.c_str(), tot, (c.failed * 100.0 / tot),
-             (c.aboveThreshold * 100.0 / tot), min, q1, q2, q3, max);
+             (c.aboveThreshold * 100.0 / tot), min, q1, q2, q3, max));
+
     performed += c.performed;
     failed += c.failed;
     aboveThreshold += c.aboveThreshold;
   }
   unsigned tot = performed + failed;
-  logInfoF("P phases total cross-correlation attempted %u failures %.1f%% "
-           "Above %.2f coeff %.1f%%",
-           tot, (failed * 100.0 / tot),
+  logInfoF("Total P phases CC attempted %u failures %.1f%% (%u) "
+           "Above coeff threshold (%.2f) %.1f%% (%u)",
+           tot, (failed * 100.0 / tot), failed,
            xcorrOpt.phase.at(Phase::Type::P).minCoef,
-           (aboveThreshold * 100.0 / tot));
-
+           (aboveThreshold * 100.0 / tot), aboveThreshold);
+  //
+  // S phase
+  //
+  vector<string> logSLines;
   performed      = 0;
   failed         = 0;
   aboveThreshold = 0;
-  logInfoF("(S phases)   Total CC   Failures   Coeff>%.2f            Min  1stQ "
-           "Median 3rdQ  Max",
-           xcorrOpt.phase.at(Phase::Type::S).minCoef);
   for (const auto &kv : sCountByStation)
   {
     const string &stationId = kv.first;
@@ -1902,20 +1905,38 @@ void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
 
     unsigned tot = c.performed + c.failed;
 
-    logInfoF("%-11s %9u  %6.1f%%     %6.1f%%              %4.2f  %4.2f  %4.2f  "
+    logSLines.push_back(
+        strf("%-11s %9u  %6.1f%%     %6.1f%%              %4.2f  %4.2f  %4.2f  "
              "%4.2f  %4.2f",
              stationId.c_str(), tot, (c.failed * 100.0 / tot),
-             (c.aboveThreshold * 100.0 / tot), min, q1, q2, q3, max);
+             (c.aboveThreshold * 100.0 / tot), min, q1, q2, q3, max));
+
     performed += c.performed;
     failed += c.failed;
     aboveThreshold += c.aboveThreshold;
   }
   tot = performed + failed;
-  logInfoF("S phases total cross-correlation attempted %u failures %.1f%% "
-           "Above %.2f coeff %.1f%%",
-           tot, (failed * 100.0 / tot),
+  logInfoF("Total S phases CC attempted %u failures %.1f%% (%u) "
+           "Above coeff threshold (%.2f) %.1f%% (%u)",
+           tot, (failed * 100.0 / tot), failed,
            xcorrOpt.phase.at(Phase::Type::S).minCoef,
-           (aboveThreshold * 100.0 / tot));
+           (aboveThreshold * 100.0 / tot), aboveThreshold);
+
+  logInfoF("(P phases)   Total CC   Failures   Coeff>%.2f            Min  1stQ "
+           "Median 3rdQ  Max",
+           xcorrOpt.phase.at(Phase::Type::P).minCoef);
+  for (const string &line : logPLines)
+  {
+    logInfo(line);
+  }
+
+  logInfoF("(S phases)   Total CC   Failures   Coeff>%.2f            Min  1stQ "
+           "Median 3rdQ  Max",
+           xcorrOpt.phase.at(Phase::Type::S).minCoef);
+  for (const string &line : logSLines)
+  {
+    logInfo(line);
+  }
 }
 
 } // namespace HDD

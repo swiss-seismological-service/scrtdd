@@ -566,7 +566,7 @@ vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
   const double MAD    = computeMedianAbsoluteDeviation(residuals, median);
 
   logInfoF(
-      "Total DD %zu, dd-residual [msec] median %.3f MedianAbsoluteDeviation "
+      "Total dd %zu, dd-residual [msec] median %.3f MedianAbsoluteDeviation "
       "%.3f",
       _observations.size(), median * 1000, MAD * 1000);
 
@@ -756,7 +756,7 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
   //
   // print residual by inter-event distance
   //
-  logInfo("Five number summary stats grouped by inter-event distance:");
+  logInfo("Summary stats grouped by inter-event distance:");
   multimap<double, unsigned> obByDist = computeInterEventDistance();
   auto obByDistIt                     = obByDist.begin();
   vector<string> xcorrLines;
@@ -783,17 +783,17 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
 
     double min, max, q1, q2, q3;
     compute5numberSummary(decileRes, min, max, q1, q2, q3);
-    logInfoF("Ev.Dist %.4f-%-.4f [km], #DD %zu dd-residual [msec] min %6.2f "
-             "quartile1 %6.2f median %6.2f quartile3 %6.2f max %6.2f",
-             startingDist, finalDist, decileRes.size(), min * 1000, q1 * 1000,
-             q2 * 1000, q3 * 1000, max * 1000);
+    logInfoF("Ev.Dist %.4f-%-.4f [km], #dd %zu dd-residual [msec] 1st Quartile "
+             "%7.2f  Median %7.2f  3rd Quartile %7.2f",
+             startingDist, finalDist, decileRes.size(), q1 * 1000, q2 * 1000,
+             q3 * 1000);
 
     if (decileCoeff.size() > 0) // when xcorr is not used there no entries
     {
       compute5numberSummary(decileCoeff, min, max, q1, q2, q3);
       string line = strf(
-          "Ev.Dist %.4f-%-.4f [km], #CC %zu corr-coeff min %4.2f quartile1 "
-          "%4.2f median %4.2f quartile3 %4.2f max %4.2f",
+          "Ev.Dist %.4f-%-.4f [km], #CC %8zu corr-coeff min %4.2f 1stQuart "
+          "%4.2f median %4.2f 3rdQuart %4.2f max %4.2f",
           startingDist, finalDist, decileCoeff.size(), min, q1, q2, q3, max);
       xcorrLines.push_back(std::move(line));
     }

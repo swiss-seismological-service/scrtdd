@@ -320,7 +320,7 @@ void RTDD::createCommandLineDescription()
       "Specify a file containing precomputed cross-correlation values",
       &_config.xcorrCache, true);
   commandline().addOption(
-      "ModeOptions", "test",
+      "Messaging", "test",
       "Test mode, no messages are sent when relocating a single event");
   commandline().addOption("ModeOptions", "xmlout",
                           "Enable XML output when combined with "
@@ -541,8 +541,8 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->singleEventClustering.minNumPhases = 4;
-      prof->multiEventClustering.minNumPhases  = 4;
+      prof->singleEventClustering.minNumPhases = 8;
+      prof->multiEventClustering.minNumPhases  = 8;
     }
 
     try
@@ -824,7 +824,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->xcorrOpt.phase[PhaseType::S].components = {"H"};
+      prof->xcorrOpt.phase[PhaseType::S].components = {"L2"};
     }
 
     prefix = string("profile.") + prof->name +
@@ -880,7 +880,7 @@ bool RTDD::validateParameters()
     try
     {
       prof->solverOpt.downWeightingByResidualStart = 10.;
-      prof->solverOpt.downWeightingByResidualEnd   = 5.;
+      prof->solverOpt.downWeightingByResidualEnd   = 3.;
 
       vector<double> values =
           configGetDoubles(prefix + "downWeightingByResidual");
@@ -970,7 +970,7 @@ bool RTDD::validateParameters()
     }
     catch (...)
     {
-      prof->solverOpt.xcorrWeightScaler = 1.5;
+      prof->solverOpt.xcorrWeightScaler = 2.0;
     }
 
     try

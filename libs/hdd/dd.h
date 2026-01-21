@@ -74,7 +74,7 @@ struct ClusteringOptions
   // max neighbors allowed (furthest events are discarded)
   unsigned maxNumNeigh = 40; // 0 -> disable
   // min phases per event pair required
-  unsigned minNumPhases = 4;
+  unsigned minNumPhases = 8;
   // max phases per event pair used
   unsigned maxNumPhases = 0; // 0 -> disable
   // max max neighbour distsance [km]
@@ -104,7 +104,7 @@ struct XcorrOptions
   };
   std::map<Catalog::Phase::Type, struct XCorr> phase = {
       {Catalog::Phase::Type::P, {0.70, -0.50, 0.50, 0.02, 0.50, {"Z"}}},
-      {Catalog::Phase::Type::S, {0.70, -0.50, 1.00, 0.04, 0.50, {"H"}}}};
+      {Catalog::Phase::Type::S, {0.70, -0.50, 1.00, 0.04, 0.50, {"L2"}}}};
 };
 
 struct SolverOptions
@@ -120,7 +120,7 @@ struct SolverOptions
   double downWeightingByResidualStart = 10.;  // 0 -> disable
   double downWeightingByResidualEnd   = 3.;   // 0 -> disable
   bool usePickUncertainties           = false;
-  double xcorrWeightScaler            = 1.5;
+  double xcorrWeightScaler            = 2.0;
 };
 
 class DD

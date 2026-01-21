@@ -163,7 +163,7 @@
               <description>
               Exclude poorly connected events (events with not enough phases and/or neighbours).
               </description>
-              <parameter name="minNumPhases" type="int" default="4">
+              <parameter name="minNumPhases" type="int" default="8">
                 <description>
                 Minimum number of phases at common stations required between an
                 event pair. Pairs not satisfying this condition will not be used.
@@ -326,7 +326,7 @@
                 <description>
                 Priority list of components to use for cross-correlation (e.g., Z,N,E,1,2,3).
                 The first component in the list that exists for both phases is used.
-                Special values: 'H' computes the L2 norm of the horizontal components;
+                Special values: 'L2' computes the L2 norm of the horizontal components;
                 'T' and 'R' compute the transverse and radial components, respectively,
                 relative to the event location. If empty, the component on which the
                 phase was picked is used (if identical for both phases).
@@ -361,11 +361,11 @@
               <parameter name="maxDelay" type="double" default="0.50" unit="sec">
                 <description>Maximum lag (in seconds) between data windows allowed.</description>
               </parameter>
-              <parameter name="components" type="list:string" default="H">
+              <parameter name="components" type="list:string" default="L2">
                 <description>
                 Priority list of components to use for cross-correlation (e.g., Z,N,E,1,2,3).
                 The first component in the list that exists for both phases is used.
-                Special values: 'H' computes the L2 norm of the horizontal components;
+                Special values: 'L2' computes the L2 norm of the horizontal components;
                 'T' and 'R' compute the transverse and radial components, respectively,
                 relative to the event location. If empty, the component on which the
                 phase was picked is used (if identical for both phases).
@@ -411,7 +411,7 @@
             <parameter name="algoIterations" type="int" default="20">
               <description>Number of iterations for the solver to perform.</description>
             </parameter>
-            <parameter name="downWeightingByResidual" type="list:double" default="10,5" >
+            <parameter name="downWeightingByResidual" type="list:double" default="10,3" >
               <description>
               Specifies residual thresholds for down-weighting equations. Equations
               with residuals smaller than this value (in standard deviations) are
@@ -436,11 +436,12 @@
               and last iterations, with interpolation in between.
               </description>
             </parameter>
-            <parameter name="xcorrWeightScaler" type="double" default="1.5">
+            <parameter name="xcorrWeightScaler" type="double" default="2.0">
               <description>
               Weight scaling factor for equations that use cross-correlation
               differential times relative to equations that use only differential
-              pick times.
+              pick times. For example, a value of 2 means they are weighted twice
+              as much
               </description>
             </parameter>
             <parameter name="usePickUncertainties" type="boolean" default="false">
