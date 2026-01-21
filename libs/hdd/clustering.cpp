@@ -343,7 +343,13 @@ Neighbours selectNeighbouringEvents(const EventTree &evTree,
       return false;
     }
 
-    const Event &event = catalog.getEvents().at(eventId);
+    auto search = catalog.getEvents().find(eventId);
+    if (search == catalog.getEvents().end())
+    {
+      return false;
+    }
+
+    const Event &event = search->second;
 
     multimap<double, pair<string, string>>
         staPhByDistance; // distance, <stationid,phase>
@@ -667,10 +673,7 @@ selectNeighbouringEventsCatalog(const EventTree &evTree,
             minEStoIEratio, minPhase, maxPhase, maxNumNeigh, numEllipsoids,
             maxNeighbourDist);
 
-        if (neighbours.amount() >= minNumNeigh)
-        {
-          invalid = false;
-        }
+        invalid = (neighbours.amount() < minNumNeigh);
       }
 
       // failed to rebuild its neighbours: remove this event too
