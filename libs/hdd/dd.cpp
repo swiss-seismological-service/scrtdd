@@ -99,9 +99,9 @@ void writeDoubleDifferenceToFile(
   for (const auto &e : dds)
   {
     const HDD::Catalog::Station &sta = cat.getStations().at(e.staId);
-    os << HDD::strf("%u,%u,%s,%s,%s,%s,%s,%g,%g,%g", e.evId1, e.evId2,
+    os << HDD::strf("%u,%u,%s,%s,%s,%s,%g,%s,%g,%g,%g", e.evId1, e.evId2,
                     sta.networkCode.c_str(), sta.stationCode.c_str(),
-                    sta.locationCode.c_str(), e.phase.c_str(),
+                    sta.locationCode.c_str(), e.phase.c_str(), e.weight,
                     e.xcorrUsed ? "true" : "false", e.xcorrCoeff,
                     e.doubleDifference, e.interEventDistance)
        << endl;
@@ -749,8 +749,8 @@ Catalog DD::relocate(const Catalog &catalog,
                      const SolverOptions &solverOpt,
                      bool keepNeighboursFixed,
                      const XCorrCache &xcorr,
-                     std::vector<Solver::DoubleDifference> startDDs,
-                     std::vector<Solver::DoubleDifference> finalDDs) const
+                     std::vector<Solver::DoubleDifference> &startDDs,
+                     std::vector<Solver::DoubleDifference> &finalDDs) const
 {
   logInfo("Building and solving double-difference system...");
 
@@ -806,9 +806,9 @@ Catalog DD::relocate(const Catalog &catalog,
         // location is outside the travel time table boundaries (e.g. an
         // air-quake when the ttt do not support negative depths).
         // Restore the previous location of the event
-        logDebugF("Event %u relocated, but it is now outside the travel time "
-                  "table boundaries. Revert it to the previous location.",
-                  eventId);
+        logInfoF("Event %u relocated, but it is now outside the travel time "
+                 "table boundaries. Revert it to the previous location.",
+                 eventId);
         currentCatalog.removeEvent(eventId);
         currentCatalog.add(eventId, prevCatalog, true);
         addObservations(solver, currentCatalog, kv.second, keepNeighboursFixed,
@@ -820,8 +820,8 @@ Catalog DD::relocate(const Catalog &catalog,
     //
     // Compute and log event rms
     //
-    computeEventResiduals(solver, currentCatalog, solverOpt, cluster,
-                          isFirstIteration);
+    currentCatalog = computeEventResiduals(solver, currentCatalog, solverOpt,
+                                           cluster, isFirstIteration);
 
     //
     // Prepare the solver, which logs the DD residuals
@@ -1608,7 +1608,7 @@ bool DD::xcorrPhasesOneComponent(const XcorrOptions &xcorrOpt,
       getWaveform(ph1Cache, tw1, event1, phase1, component);
   if (!tr1)
   {
-    logDebugF("Skipping cross-correlation: no waveform SNR for phase %s",
+    logDebugF("Skipping cross-correlation: no waveform data for phase %s",
               string(phase1).c_str());
     return false;
   }
@@ -1619,7 +1619,7 @@ bool DD::xcorrPhasesOneComponent(const XcorrOptions &xcorrOpt,
       getWaveform(ph2Cache, tw2, event2, phase2, component);
   if (!tr2)
   {
-    logDebugF("Skipping cross-correlation: no waveform for phase %s",
+    logDebugF("Skipping cross-correlation: no waveform data for phase %s",
               string(phase2).c_str());
     return false;
   }

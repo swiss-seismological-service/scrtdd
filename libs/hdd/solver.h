@@ -265,7 +265,7 @@ private:
     // computed
     double computedTimeDiff;
     double doubleDifference;
-    double residualDownWeight;
+    double weight;
     double interEventDistance;
   };
   std::unordered_map<unsigned, Observation> _observations; // key = obsIdx

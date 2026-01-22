@@ -880,7 +880,7 @@ bool RTDD::validateParameters()
     try
     {
       prof->solverOpt.downWeightingByResidualStart = 10.;
-      prof->solverOpt.downWeightingByResidualEnd   = 3.;
+      prof->solverOpt.downWeightingByResidualEnd   = 5.;
 
       vector<double> values =
           configGetDoubles(prefix + "downWeightingByResidual");

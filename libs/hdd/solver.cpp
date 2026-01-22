@@ -393,7 +393,7 @@ std::vector<Solver::DoubleDifference> Solver::getDoubleDifferences() const
                            _eventIdConverter.fromIdx(ob.ev2Idx),
                            staId,
                            phase,
-                           ob.residualDownWeight,
+                           ob.weight,
                            ob.xcorrUsed,
                            ob.xcorrCoeff,
                            ob.timeDiff,
@@ -656,7 +656,6 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
     for (unsigned obIdx = 0; obIdx < _dd.nObs; obIdx++)
     {
       _dd.W[obIdx] *= resWeights[obIdx];
-      _observations.at(obIdx).residualDownWeight = _dd.W[obIdx];
     }
   }
 
@@ -666,6 +665,8 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
   for (unsigned int obIdx = 0; obIdx < _dd.nObs; obIdx++)
   {
     double observationWeight = _dd.W[obIdx];
+
+    _observations.at(obIdx).weight = observationWeight;
 
     if (observationWeight == 0.) continue;
 
@@ -762,39 +763,39 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
   vector<string> xcorrLines;
   while (obByDistIt != obByDist.end())
   {
-    unsigned decileSize = (obByDist.size() / 10) + 1;
-    vector<double> decileRes, decileCoeff;
-    decileRes.reserve(decileSize);
-    decileCoeff.reserve(decileSize);
+    unsigned quantileSize = (obByDist.size() / 20) + 1;
+    vector<double> quantileRes, quantileCoeff;
+    quantileRes.reserve(quantileSize);
+    quantileCoeff.reserve(quantileSize);
 
     double startingDist = obByDistIt->first;
     double finalDist    = obByDistIt->first;
-    while (obByDistIt != obByDist.end() && decileRes.size() < decileSize)
+    while (obByDistIt != obByDist.end() && quantileRes.size() < quantileSize)
     {
       unsigned obIdx = obByDistIt->second;
-      decileRes.push_back(_dd.d[obIdx]);
+      quantileRes.push_back(_dd.d[obIdx]);
       if (_observations.at(obIdx).xcorrCoeff > 0)
       {
-        decileCoeff.push_back(_observations.at(obIdx).xcorrCoeff);
+        quantileCoeff.push_back(_observations.at(obIdx).xcorrCoeff);
       }
       finalDist = obByDistIt->first;
       obByDistIt++;
     }
 
     double min, max, q1, q2, q3;
-    compute5numberSummary(decileRes, min, max, q1, q2, q3);
+    compute5numberSummary(quantileRes, min, max, q1, q2, q3);
     logInfoF("Ev.Dist %.4f-%-.4f [km], #dd %zu dd-residual [msec] 1st Quartile "
              "%7.2f  Median %7.2f  3rd Quartile %7.2f",
-             startingDist, finalDist, decileRes.size(), q1 * 1000, q2 * 1000,
+             startingDist, finalDist, quantileRes.size(), q1 * 1000, q2 * 1000,
              q3 * 1000);
 
-    if (decileCoeff.size() > 0) // when xcorr is not used there no entries
+    if (quantileCoeff.size() > 0) // when xcorr is not used there no entries
     {
-      compute5numberSummary(decileCoeff, min, max, q1, q2, q3);
+      compute5numberSummary(quantileCoeff, min, max, q1, q2, q3);
       string line = strf(
           "Ev.Dist %.4f-%-.4f [km], #CC %8zu corr-coeff min %4.2f 1stQuart "
           "%4.2f median %4.2f 3rdQuart %4.2f max %4.2f",
-          startingDist, finalDist, decileCoeff.size(), min, q1, q2, q3, max);
+          startingDist, finalDist, quantileCoeff.size(), min, q1, q2, q3, max);
       xcorrLines.push_back(std::move(line));
     }
   }

@@ -118,7 +118,7 @@ struct SolverOptions
   double dampingFactorStart           = 0.01; // 0 -> disable
   double dampingFactorEnd             = 0.01; // 0 -> disable
   double downWeightingByResidualStart = 10.;  // 0 -> disable
-  double downWeightingByResidualEnd   = 3.;   // 0 -> disable
+  double downWeightingByResidualEnd   = 5.;   // 0 -> disable
   bool usePickUncertainties           = false;
   double xcorrWeightScaler            = 2.0;
 };
@@ -219,8 +219,8 @@ private:
                    const SolverOptions &solverOpt,
                    bool keepNeighboursFixed,
                    const XCorrCache &xcorr,
-                   std::vector<Solver::DoubleDifference> startDDs,
-                   std::vector<Solver::DoubleDifference> finalDDs) const;
+                   std::vector<Solver::DoubleDifference> &startDDs,
+                   std::vector<Solver::DoubleDifference> &finalDDs) const;
 
   bool addObservations(Solver &solver,
                        const Catalog &catalog,
