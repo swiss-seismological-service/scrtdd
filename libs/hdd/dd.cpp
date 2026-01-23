@@ -267,8 +267,11 @@ void DD::preloadCatalogWaveformDiskCache(const XcorrOptions &xcorrOpt)
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
       const Phase &phase = it->second;
-      TimeWindow tw      = xcorrTimeWindowLong(xcorrOpt, event, phase);
-
+      if (phase.procInfo.type == Phase::Type::NO)
+      {
+        continue;
+      }
+      TimeWindow tw = xcorrTimeWindowLong(xcorrOpt, event, phase);
       for (const string &component : xcorrComponents(xcorrOpt, phase))
       {
         getWaveform(*_wfAccess.basicProc, tw, event, phase, component);
@@ -283,8 +286,11 @@ void DD::preloadCatalogWaveformDiskCache(const XcorrOptions &xcorrOpt)
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
       const Phase &phase = it->second;
-      TimeWindow tw      = xcorrTimeWindowLong(xcorrOpt, event, phase);
-
+      if (phase.procInfo.type == Phase::Type::NO)
+      {
+        continue;
+      }
+      TimeWindow tw = xcorrTimeWindowLong(xcorrOpt, event, phase);
       for (const string &component : xcorrComponents(xcorrOpt, phase))
       {
         // _wfAccess.basicProc because we don't want to cache the
@@ -343,7 +349,13 @@ void DD::dumpWaveforms(const XcorrOptions &xcorrOpt, const string &basePath)
     for (auto it = eqlrng.first; it != eqlrng.second; ++it)
     {
       const Phase &phase = it->second;
-      TimeWindow tw      = xcorrTimeWindowShort(xcorrOpt, event, phase);
+
+      if (phase.procInfo.type == Phase::Type::NO)
+      {
+        continue;
+      }
+
+      TimeWindow tw = xcorrTimeWindowShort(xcorrOpt, event, phase);
 
       for (const string &component : xcorrComponents(xcorrOpt, phase))
       {
