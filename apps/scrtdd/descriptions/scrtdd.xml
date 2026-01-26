@@ -114,10 +114,14 @@
           </description>
           </parameter>
           <parameter name="P-Phases" type="list:string" default="P,Pg,Pn">
-            <description>A list of accepted P-wave phases. Phases not in this list will be ignored.</description>
+            <description>
+            A list of accepted P-wave phases. Phases not in this list will be ignored.
+            </description>
           </parameter>
           <parameter name="S-Phases" type="list:string" default="S,Sg,Sn">
-            <description>A list of accepted S-wave phases. Phases not in this list will be ignored.</description>
+            <description>
+            A list of accepted S-wave phases. Phases not in this list will be ignored.
+            </description>
           </parameter>
           <parameter name="pickUncertaintyClasses" type="list:string" unit="s" default="0.000,0.025,0.050,0.100,0.200,0.400" >
             <description>
@@ -485,6 +489,11 @@
         <optionReference>messaging#subscribe-group</optionReference>
         <optionReference>messaging#content-type</optionReference>
         <optionReference>messaging#start-stop-msg</optionReference>
+        <option long-flag="test">
+          <description>
+          Test mode, no messages are sent when relocating a single event
+          </description>
+        </option>
       </group>
       <group name="Database">
         <optionReference>database#db-driver-list</optionReference>
@@ -501,64 +510,111 @@
       </group>
       <group name="Mode">
         <option long-flag="reloc-catalog" argument="profile">
-          <description>Relocate the catalog passed as argument in multi-event mode. The input can be a single file (containing seiscomp origin ids) or a file triplet (station.csv,event.csv,phase.csv). For events stored in a XML file add the --ep option.</description>
+          <description>
+          Relocate the catalog passed as argument in multi-event mode. The
+          input can be a single file (containing seiscomp origin ids) or a file
+          triplet (station.csv,event.csv,phase.csv). For input events stored
+          in a XML files add the --ep option. Use in combination with --profile.
+          </description>
         </option>
         <option long-flag="origin-id" flag="O" argument="origin-id">
-          <description>Relocate the origin (or multiple comma-separated origins) and send a message. Each origin will be processed according tothe matching profile region unless the --profile option is used.</description>
+          <description>
+          Relocate  the origin (or multiple comma-separated origins) in
+          signle-event mode and send a message. Each origin will be processed
+          accordingly to the matching profile region unless the --profile option
+          is used.
+          </description>
         </option>
         <option long-flag="ep" argument="scxml-file">
-          <description>Event parameters XML file for offline processing of contained origins (implies --test option). Each contained origin will be processed in signle-event mode unless --reloc-catalog is provided, which enable multi-evet mode.</description>
-        </option>      
-        <option long-flag="eval-xcorr" argument="profile">
-          <description>Evaluate cross-correlation settings for the given profile.</description>
+          <description>
+          Relocate contained origins in signle-event mode, unless --reloc-catalog
+          is provided. In signle-event mode, each origin will be processed
+          accordingly to the matching profile region unless the --profile option is
+          used. Together with --reloc-catalog option, the parameters XML file is
+          used to fetch the input catalog data.
+          </description>
         </option>
         <option long-flag="dump-clusters" argument="profile">
-          <description>Find clusters in the catalog passed as argument and save them in the working directory. The catalog can be a single file (containing seiscomp origin ids) or a file triplet (station.csv,event.csv,phase.csv). Use in combination with --profile.</description>
+          <description>
+          Find clusters in the catalog passed as argument and save them in
+          the working directory.
+          The catalog can be a single file (containing seiscomp origin
+          ids) or a file triplet (station.csv,event.csv,phase.csv). Use
+          in combination with --profile.
+          </description>
         </option>
         <option long-flag="dump-wf" argument="profile">
-          <description>Dump processed waveforms of the catalog passed as argument in the current working directory. The catalog can be a single file (containing seiscomp origin ids) or a file triplet (station.csv,event.csv,phase.csv). Use in combination with --profile.</description>
+          <description>
+          Dump processed waveforms of the catalog passed as argument 
+          in the current working directory.
+          The catalog can be a single file (containing seiscomp origin 
+          ids) or a file triplet (station.csv,event.csv,phase.csv). Use 
+          in combination with --profile.
+          </description>
         </option>
         <option long-flag="load-profile-wf" argument="profile">
-          <description>Load catalog waveforms from the configured recordstream and save them into the profile working directory.</description>
+          <description>
+          Load catalog waveforms from the configured recordstream and
+          save them into the profile cache directory. Use in
+          combination with --profile.
+          </description>
         </option>
         <option long-flag="send-reload-profile-msg">
-          <description>Send a message to any running scrtdd module requesting to reload a specific profile passed as argument.</description>
-        </option>        
-      </group>
-      <group name="Catalog">
-        <option long-flag="dump-catalog" argument="catalog-file">
-          <description>Dump the seiscomp event/origin id file passed as argument into a catalog file triplet (station.csv,event.csv,phase.csv).</description>
-        </option>
-        <option long-flag="dump-catalog-options" argument="type,evalmode,includeCreator,excludeCreator,region">
-          <description>Allows the --dump-catalog option to accept event ids besides origin ids. For each event id an origin will be selected following the provided options whose format is: 'type,evalmode,include Creator,excludeCreator,region', where type=preferred|last|first evalmode=any|onlyManual|onlyAutomatic includeCreator=any|author|methodID excludeCreator=none|author|methodID region=any|profileName e.g. to select preferred origins of the input event ids that lie within the region defined for 'myProfile' use 'preferred,any,any,none ,myProfile'</description>
-        </option>
-        <option long-flag="merge-catalogs" argument="catalog-files">
-          <description>Merge in a single catalog all the catalog file triplets (station1.csv,event1.csv,phase1.csv,sta tion2.csv,event2.csv,phase2.csv,...) passed as arguments.</description>
-        </option>
-        <option long-flag="merge-catalogs-keepid" argument="catalog-files">
-          <description>Similar to the --merge-catalogs option but events keep their ids. If multiple events share the same id, subsequent events will be discarded.</description>
+          <description>
+          Send a message to any running scrtdd module requesting to 
+          reload a specific profile passed as argument. Useful to reload the
+          catalog without restarting the module.
+          </description>
         </option>
       </group>
       <group name="ModeOptions">
         <option long-flag="profile" argument="profile"> 
-          <description>To be used in combination with other options: select the profile configuration to use.</description>
-        </option>  
-        <option long-flag="xmlout">
-          <description>Enable XML output when combined with --reloc-catalog or --oring-id options.</description>
-        </option> 
+          <description>
+          To be used in combination with other options: select the 
+          profile configuration to use.
+          </description>
+        </option>
+        <option long-flag="clusters" argument="clusters">
+          <description>
+          Specify a list of files containing precomputed events/phases pairs.
+          Use in combination with --reloc-catalog.
+          </description>
+        </option>
         <option long-flag="xcorr-cache">
-          <description>Specify a file containing precomputed cross-correlation values.</description>
-        </option>       
-        <option long-flag="test">
-          <description>Test mode, no messages are sent</description>
+          <description>
+          Specify a file containing precomputed cross-correlation values.
+          Use in combination with --reloc-catalog.
+          </description>
         </option>
-        <option long-flag="cache-wf-all">
-          <description>All waveforms will be saved to disk cache, even temporarily ones. Normally only catalog phase waveforms are cached to disk. This is useful to speed up debugging/testing when the same origins are repeatedly processed.</description>
+        <option long-flag="xmlout">
+          <description>
+          Enable XML output when combined with --reloc-catalog or --oring-id
+          options.
+          </description>
         </option>
-        <option long-flag="expiry" flag="x" argument="hours">
-          <description>Defines the time span in hours after which objects expire.</description>
+      </group>
+      <group name="Catalog">
+        <option long-flag="dump-catalog" argument="catalog-file">
+          <description>
+          Dump the seiscomp event/origin id file passed as argument into
+          a catalog file triplet (station.csv,event.csv,phase.csv).
+          </description>
         </option>
-      </group>     
+        <option long-flag="merge-catalogs" argument="catalog-files">
+          <description>
+          Merge in a single catalog all the catalog file triplets
+          (station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,
+          phase2.csv,...) passed as arguments.
+          </description>
+        </option>
+        <option long-flag="merge-catalogs-keepid" argument="catalog-files">
+          <description>
+          Similar to the --merge-catalogs option but events keep their ids. If
+          multiple events share the same id, subsequent events will be
+          discarded.
+          </description>
+        </option>
+      </group>
     </command-line>
   </module>
 </seiscomp>

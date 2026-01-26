@@ -238,12 +238,15 @@ void RTDD::createCommandLineDescription()
 {
   StreamApplication::createCommandLineDescription();
 
+  commandline().addOption(
+      "Messaging", "test",
+      "Test mode, no messages are sent when relocating a single event");
   commandline().addGroup("Mode");
   commandline().addOption(
       "Mode", "reloc-catalog",
       "Relocate the catalog passed as argument in multi-event mode. The "
       "input can be a single file (containing seiscomp origin ids) or a file "
-      "triplet (station.csv,event.csv,phase.csv). For events stored "
+      "triplet (station.csv,event.csv,phase.csv). For input events stored "
       "in a XML files add the --ep option. Use in combination with --profile",
       &_config.relocateCatalog, true);
   commandline().addOption(
@@ -251,14 +254,16 @@ void RTDD::createCommandLineDescription()
       "Relocate  the origin (or multiple comma-separated origins) in "
       "signle-event mode and send a message. Each origin will be processed "
       "accordingly to the matching profile region unless the --profile option "
-      " is used.",
+      " is used",
       &_config.originIDs, true);
   commandline().addOption(
       "Mode", "ep",
-      "Event parameters XML file for offline processing of contained origins "
-      "(implies --test option). Each contained origin will be processed in "
-      "signle-event mode unless --reloc-catalog is provided, which enable "
-      "multi-event mode.",
+      "Relocate contained origins in signle-event mode, unless --reloc-catalog "
+      "is provided. In signle-event mode, each origin will be processed "
+      "accordingly to the matching profile region unless the --profile option "
+      "is "
+      "used. Together with --reloc-catalog option, the parameters XML file is "
+      "used to fetch the input catalog data",
       &_config.eventXML, true);
   commandline().addOption(
       "Mode", "dump-clusters",
@@ -266,8 +271,7 @@ void RTDD::createCommandLineDescription()
       "the working directory."
       "The catalog can be a single file (containing seiscomp origin "
       "ids) or a file triplet (station.csv,event.csv,phase.csv). Use "
-      "in combination with --profile. The clusters will be saved into "
-      "the working directory",
+      "in combination with --profile",
       &_config.dumpClusters, true);
   commandline().addOption(
       "Mode", "dump-wf",
@@ -275,7 +279,7 @@ void RTDD::createCommandLineDescription()
       "in the current working directory."
       "The catalog can be a single file (containing seiscomp origin "
       "ids) or a file triplet (station.csv,event.csv,phase.csv). Use "
-      "in combination with --profile.",
+      "in combination with --profile",
       &_config.dumpWaveforms, true);
   commandline().addOption(
       "Mode", "load-profile-wf",
@@ -285,8 +289,28 @@ void RTDD::createCommandLineDescription()
   commandline().addOption(
       "Mode", "send-reload-profile-msg",
       "Send a message to any running scrtdd module requesting to "
-      "reload a specific profile passed as argument",
+      "reload a specific profile passed as argument. Useful to reload the "
+      "catalog without restarting the module.",
       &_config.reloadProfileMsg, true);
+  commandline().addGroup("ModeOptions");
+  commandline().addOption(
+      "ModeOptions", "profile",
+      "To be used in combination with other options: select the "
+      "profile configuration to use",
+      &_config.forceProfile, true);
+  commandline().addOption(
+      "ModeOptions", "clusters",
+      "Specify a list of files containing precomputed events/phases pairs. "
+      "Use in combination with --reloc-catalog",
+      &_config.clusters, true);
+  commandline().addOption(
+      "ModeOptions", "xcorr-cache",
+      "Specify a file containing precomputed cross-correlation values. "
+      "Use in combination with --reloc-catalog",
+      &_config.xcorrCache, true);
+  commandline().addOption("ModeOptions", "xmlout",
+                          "Enable XML output when combined with "
+                          "--reloc-catalog or --oring-id options");
   commandline().addGroup("Catalog");
   commandline().addOption(
       "Catalog", "dump-catalog",
@@ -305,26 +329,6 @@ void RTDD::createCommandLineDescription()
       "multiple events share the same id, subsequent events will be "
       "discarded.",
       &_config.mergeCatalogs, false);
-  commandline().addGroup("ModeOptions");
-  commandline().addOption(
-      "ModeOptions", "profile",
-      "To be used in combination with other options: select the "
-      "profile configuration to use",
-      &_config.forceProfile, true);
-  commandline().addOption(
-      "ModeOptions", "clusters",
-      "Specify a list of files containing precomputed events/phases pairs",
-      &_config.clusters, true);
-  commandline().addOption(
-      "ModeOptions", "xcorr-cache",
-      "Specify a file containing precomputed cross-correlation values",
-      &_config.xcorrCache, true);
-  commandline().addOption(
-      "Messaging", "test",
-      "Test mode, no messages are sent when relocating a single event");
-  commandline().addOption("ModeOptions", "xmlout",
-                          "Enable XML output when combined with "
-                          "--reloc-catalog or --oring-id options");
 }
 
 bool RTDD::validateParameters()
