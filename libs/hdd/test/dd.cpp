@@ -366,8 +366,8 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
     const Event &ev            = kv.second;
     HDD::Catalog orgToRelocate = realTimeCat.extractEvent(ev.id, false);
     HDD::Catalog relocatedEvent =
-        dd.relocateSingleEvent(orgToRelocate, true, clusterOpt, clusterOpt,
-                               xcorrOpt, solverOpt, saveProcessing);
+        dd.relocateSingleEvent(orgToRelocate, true, clusterOpt, xcorrOpt,
+                               solverOpt, saveProcessing);
     relocCat.add(relocatedEvent, false);
   }
 

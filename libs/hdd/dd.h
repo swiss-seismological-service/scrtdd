@@ -183,8 +183,7 @@ public:
   // Single-event relocation against background catalog
   Catalog relocateSingleEvent(const Catalog &singleEvent,
                               bool isManual,
-                              const ClusteringOptions &clustOpt1,
-                              const ClusteringOptions &clustOpt2,
+                              const ClusteringOptions &clustOpt,
                               const XcorrOptions &xcorrOpt,
                               const SolverOptions &solverOpt,
                               bool saveProcessing           = false,
@@ -201,9 +200,6 @@ public:
 private:
   void initWaveformAccess();
   void replaceWaveformLoader(const std::shared_ptr<Waveform::Loader> &baseLdr);
-
-  std::string generateWorkingSubDir(const std::string &prefix) const;
-  std::string generateWorkingSubDir(const Catalog::Event &ev) const;
 
   Catalog relocateEventSingleStep(const Catalog &bgCat,
                                   const Catalog &evToRelocateCat,

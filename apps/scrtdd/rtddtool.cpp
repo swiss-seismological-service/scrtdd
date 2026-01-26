@@ -1687,15 +1687,7 @@ bool RTDD::processOrigin(Origin *origin,
     loadProfile(profile);
   }
 
-  HDD::Catalog relocated;
-  try
-  {
-    relocated = profile->relocateSingleEvent(origin);
-  }
-  catch (exception &e)
-  {
-    SEISCOMP_INFO("%s");
-  }
+  HDD::Catalog relocated = profile->relocateSingleEvent(origin);
 
   if (relocated.empty())
   {
@@ -1967,9 +1959,9 @@ HDD::Catalog RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
 {
   if (!loaded)
   {
-    string msg = Core::stringify(
-        "Cannot relocate origin, profile %s not initialized", name.c_str());
-    throw runtime_error(msg.c_str());
+    SEISCOMP_ERROR("Cannot relocate origin, profile %s not initialized",
+                   name.c_str());
+    return HDD::Catalog{};
   }
   lastUsage = Core::Time::GMT();
 
@@ -1977,15 +1969,73 @@ HDD::Catalog RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
 
   // we pass the stations information from the background catalog, to avoid
   // wasting time accessing the inventory again for information we already have
-  HDD::Catalog orgToRelocate(
-      dd->getCatalog().getStations(), map<unsigned, HDD::Catalog::Event>(),
-      unordered_multimap<unsigned, HDD::Catalog::Phase>());
-  addToCatalog(orgToRelocate, {org}, dataSrc);
+  HDD::Catalog singleEvent(dd->getCatalog().getStations(),
+                           map<unsigned, HDD::Catalog::Event>(),
+                           unordered_multimap<unsigned, HDD::Catalog::Phase>());
+  addToCatalog(singleEvent, {org}, dataSrc);
+
+  SEISCOMP_INFO(
+      "Performing step 1: initial location refinement (no cross-correlation)");
 
   bool isManual = org->evaluationMode() == DataModel::MANUAL;
 
-  return dd->relocateSingleEvent(orgToRelocate, isManual, singleEventClustering,
-                                 singleEventClustering, xcorrOpt, solverOpt);
+  HDD::XcorrOptions xcorrOptDisabled(xcorrOpt);
+  xcorrOptDisabled.enable = false;
+
+  HDD::Catalog relocatedEvCat =
+      dd->relocateSingleEvent(singleEvent, isManual, singleEventClustering,
+                              xcorrOptDisabled, solverOpt);
+
+  if (!relocatedEvCat.empty())
+  {
+    const HDD::Catalog::Event &ev = relocatedEvCat.getEvents().begin()->second;
+    SEISCOMP_INFO("Step 1 relocation successful, new location: lat %.6f lon "
+                  "%.6f depth %.4f time %s",
+                  ev.latitude, ev.longitude, ev.depth,
+                  HDD::UTCClock::toString(ev.time).c_str());
+
+    singleEvent = std::move(relocatedEvCat);
+  }
+  else
+  {
+    SEISCOMP_INFO("Failed to perform step 1 origin relocation");
+  }
+
+  SEISCOMP_INFO(
+      "Performing step 2: relocate again, possibly with cross-correlation");
+
+  HDD::ClusteringOptions singleEventClustering2 = singleEventClustering;
+  singleEventClustering2.numEllipsoids          = 1;
+
+  HDD::Catalog relocatedEvWithXcorr = dd->relocateSingleEvent(
+      singleEvent, isManual, singleEventClustering2, xcorrOpt, solverOpt);
+
+  if (!relocatedEvWithXcorr.empty())
+  {
+    HDD::Catalog::Event ev = relocatedEvWithXcorr.getEvents().begin()->second;
+    SEISCOMP_INFO("Step 2 relocation successful, new location: lat %.6f lon "
+                  "%.6f depth %.4f time %s",
+                  ev.latitude, ev.longitude, ev.depth,
+                  HDD::UTCClock::toString(ev.time).c_str());
+
+    // update the "origin change information" taking into consideration
+    // the first relocation step, too
+    if (!relocatedEvCat.empty())
+    {
+      const HDD::Catalog::Event &prevRelocEv =
+          relocatedEvCat.getEvents().begin()->second;
+      if (prevRelocEv.relocInfo.isRelocated)
+      {
+        ev.relocInfo.startRms = prevRelocEv.relocInfo.startRms;
+        relocatedEvWithXcorr.updateEvent(ev);
+      }
+    }
+  }
+  else
+  {
+    SEISCOMP_INFO("Failed to perform step 2 origin relocation");
+  }
+  return relocatedEvWithXcorr;
 }
 
 HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,

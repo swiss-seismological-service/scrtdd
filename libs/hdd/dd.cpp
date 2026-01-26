@@ -85,6 +85,21 @@ struct WfCounters
   }
 };
 
+string generateWorkingSubDirPath(const string &prefix)
+{
+  HDD::UTCTime now = HDD::UTCClock::now();
+  int year, month, day, hour, min, sec, usec;
+  HDD::UTCClock::toDate(now, year, month, day, hour, min, sec, usec);
+
+  HDD::UniformRandomer ran(0, 9999);
+  ran.setSeed(HDD::durToSec(now.time_since_epoch()));
+
+  // preifx_creationTime_randomNumber
+  string id = HDD::strf("%s_%04d%02d%02d%02d%02d%02d_%04zu", prefix.c_str(),
+                        year, month, day, hour, min, sec, ran.next());
+  return id;
+}
+
 void writeDoubleDifferenceToFile(
     const std::vector<HDD::Solver::DoubleDifference> &dds,
     const HDD::Catalog &cat,
@@ -186,32 +201,6 @@ void DD::replaceWaveformLoader(const shared_ptr<Waveform::Loader> &baseLdr)
   {
     _wfAccess.basicProc->setAuxLoader(baseLdr);
   }
-}
-
-string DD::generateWorkingSubDir(const string &prefix) const
-{
-  UTCTime now = UTCClock::now();
-  int year, month, day, hour, min, sec, usec;
-  UTCClock::toDate(now, year, month, day, hour, min, sec, usec);
-
-  UniformRandomer ran(0, 9999);
-  ran.setSeed(durToSec(now.time_since_epoch()));
-
-  // preifx_creationTime_randomNumber
-  string id = strf("%s_%04d%02d%02d%02d%02d%02d_%04zu", prefix.c_str(), year,
-                   month, day, hour, min, sec, ran.next());
-  return id;
-}
-
-string DD::generateWorkingSubDir(const Event &ev) const
-{
-  int year, month, day, hour, min, sec, usec;
-  UTCClock::toDate(ev.time, year, month, day, hour, min, sec, usec);
-  // singleevent_eventTime_latitude_longitude
-  string prefix =
-      strf("singleevent_%04d%02d%02d%02d%02d%02d_%05d_%06d", year, month, day,
-           hour, min, sec, int(ev.latitude * 1000), int(ev.longitude * 1000));
-  return generateWorkingSubDir(prefix);
 }
 
 void DD::unloadWaveforms() { initWaveformAccess(); }
@@ -422,7 +411,7 @@ Catalog DD::relocateMultiEvents(
     {
       do
       {
-        processingDataDir = generateWorkingSubDir("multievent");
+        processingDataDir = generateWorkingSubDirPath("multievent");
       } while (pathExists(processingDataDir));
     }
 
@@ -544,27 +533,12 @@ Catalog DD::relocateMultiEvents(
 
 Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
                                 bool isManual,
-                                const ClusteringOptions &clustOpt1,
-                                const ClusteringOptions &clustOpt2,
+                                const ClusteringOptions &clustOpt,
                                 const XcorrOptions &xcorrOpt,
                                 const SolverOptions &solverOpt,
                                 bool saveProcessing,
                                 string processingDataDir)
 {
-  const Catalog &bgCat = _bgCat;
-
-  // there must be only one event in the catalog, the origin to relocate
-  const Event &evToRelocate = singleEvent.getEvents().begin()->second;
-  const auto &evToRelocatePhases =
-      singleEvent.getPhases().equal_range(evToRelocate.id);
-
-  logInfoF("Starting DD relocator in single event mode: event %s lat %.6f lon "
-           "%.6f depth %.4f mag %.2f time %s #phases %ld",
-           string(evToRelocate).c_str(), evToRelocate.latitude,
-           evToRelocate.longitude, evToRelocate.depth, evToRelocate.magnitude,
-           UTCClock::toString(evToRelocate.time).c_str(),
-           std::distance(evToRelocatePhases.first, evToRelocatePhases.second));
-
   if (saveProcessing)
   {
     // prepare a folder for processing files
@@ -572,7 +546,7 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
     {
       do
       {
-        processingDataDir = generateWorkingSubDir("multievent");
+        processingDataDir = generateWorkingSubDirPath("singleevent");
       } while (pathExists(processingDataDir));
     }
 
@@ -583,7 +557,12 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
         throw Exception("Unable to create directory: " + processingDataDir);
       }
     }
-    logInfoF("Processing data dir %s", processingDataDir.c_str());
+    logInfoF("Saving processing data in %s", processingDataDir.c_str());
+
+    singleEvent.writeToFile(
+        joinPath(processingDataDir, "single-event.csv"),
+        joinPath(processingDataDir, "single-event-phase.csv"),
+        joinPath(processingDataDir, "single-event-station.csv"));
   }
 
   // prepare file logger
@@ -593,99 +572,11 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
     addFileLogger(logFile, Level::info);
   }
 
-  logInfo("Performing step 1: initial location refinement (no "
-          "cross-correlation)");
-
-  string eventWorkingDir = joinPath(processingDataDir, "step1");
-
   Catalog evToRelocateCat = Catalog::fillProcessingInfo(
       singleEvent,
       (isManual ? Phase::Source::RT_EVENT_MANUAL
                 : Phase::Source::RT_EVENT_AUTOMATIC),
       _cfg.validPphases, _cfg.validSphases, _cfg.pickUncertaintyClasses);
-
-  XcorrOptions xcorrOptDisabled(xcorrOpt);
-  xcorrOptDisabled.enable = false;
-
-  Catalog relocatedEvCat = relocateEventSingleStep(
-      bgCat, evToRelocateCat, clustOpt1, xcorrOptDisabled, solverOpt,
-      saveProcessing, eventWorkingDir);
-
-  if (!relocatedEvCat.empty())
-  {
-    const Event &ev = relocatedEvCat.getEvents().begin()->second;
-    logInfoF("Step 1 relocation successful, new location: "
-             "lat %.6f lon %.6f depth %.4f time %s",
-             ev.latitude, ev.longitude, ev.depth,
-             UTCClock::toString(ev.time).c_str());
-
-    evToRelocateCat = std::move(relocatedEvCat);
-  }
-  else
-  {
-    logError("Failed to perform step 1 origin relocation");
-  }
-
-  logInfo("Performing step 2: relocate again, possibly with cross-correlation");
-
-  eventWorkingDir = joinPath(processingDataDir, "step2");
-
-  Catalog relocatedEvWithXcorr =
-      relocateEventSingleStep(bgCat, evToRelocateCat, clustOpt2, xcorrOpt,
-                              solverOpt, saveProcessing, eventWorkingDir);
-
-  if (!relocatedEvWithXcorr.empty())
-  {
-    Event ev = relocatedEvWithXcorr.getEvents().begin()->second;
-    logInfoF("Step 2 relocation successful, new location: "
-             "lat %.6f lon %.6f depth %.4f time %s",
-             ev.latitude, ev.longitude, ev.depth,
-             UTCClock::toString(ev.time).c_str());
-
-    // update the "origin change information" taking into consideration
-    // the first relocation step, too
-    if (!relocatedEvCat.empty())
-    {
-      const Event &prevRelocEv = relocatedEvCat.getEvents().begin()->second;
-      if (prevRelocEv.relocInfo.isRelocated)
-      {
-        ev.relocInfo.startRms = prevRelocEv.relocInfo.startRms;
-        relocatedEvWithXcorr.updateEvent(ev);
-      }
-    }
-  }
-  else
-  {
-    logError("Failed to perform step 2 origin relocation");
-  }
-
-  removeFileLogger(logFile);
-
-  return relocatedEvWithXcorr;
-}
-
-Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
-                                    const Catalog &evToRelocateCat,
-                                    const ClusteringOptions &clustOpt,
-                                    const XcorrOptions &xcorrOpt,
-                                    const SolverOptions &solverOpt,
-                                    bool saveProcessing,
-                                    string processingDataDir)
-{
-  if (saveProcessing)
-  {
-    if (!createDirectories(processingDataDir))
-    {
-      throw Exception("Unable to create working directory: " +
-                      processingDataDir);
-    }
-    logInfoF("Working dir %s", processingDataDir.c_str());
-
-    evToRelocateCat.writeToFile(
-        joinPath(processingDataDir, "single-event.csv"),
-        joinPath(processingDataDir, "single-event-phase.csv"),
-        joinPath(processingDataDir, "single-event-station.csv"));
-  }
 
   // extract event to relocate
   const Event &evToRelocate = evToRelocateCat.getEvents().begin()->second;
@@ -704,13 +595,14 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
   // check if enough neighbors were found
   if (neighbours.amount() < clustOpt.minNumNeigh)
   {
-    throw Exception("Insufficient number of neighbors " + neighbours.amount());
+    logInfo("Insufficient number of neighbors " + neighbours.amount());
+    return Catalog{};
   }
 
   //
   // prepare catalog to relocate
   //
-  Catalog catalog = neighbours.toCatalog(bgCat);
+  Catalog catalog = neighbours.toCatalog(_bgCat);
   unsigned evToRelocateNewId =
       catalog.add(evToRelocate.id, evToRelocateCat, false);
   neighbours.setReferenceId(evToRelocateNewId);
@@ -743,14 +635,16 @@ Catalog DD::relocateEventSingleStep(const Catalog &bgCat,
   {
     writeDoubleDifferenceToFile(
         startDDs, catalog,
-        joinPath(processingDataDir, "-initial-double-difference.csv"));
+        joinPath(processingDataDir, "initial-double-difference.csv"));
     writeDoubleDifferenceToFile(
         finalDDs, catalog,
-        joinPath(processingDataDir, "-final-double-difference.csv"));
+        joinPath(processingDataDir, "final-double-difference.csv"));
     relocatedEvCat.writeToFile(
-        joinPath(processingDataDir, "-relocated-event.csv"),
-        joinPath(processingDataDir, "-relocated-phase.csv"));
+        joinPath(processingDataDir, "relocated-event.csv"),
+        joinPath(processingDataDir, "relocated-phase.csv"));
   }
+
+  removeFileLogger(logFile);
 
   return relocatedEvCat;
 }
