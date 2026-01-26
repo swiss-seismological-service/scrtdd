@@ -105,6 +105,8 @@ Level getLevel() { return _minLevel; }
 
 void setLogger(LogCallback callback) { _userLogger = std::move(callback); }
 
+void clearLogger() { _userLogger = nullptr; }
+
 void log(const Level level, const std::string &message)
 {
   if (level >= _minLevel)

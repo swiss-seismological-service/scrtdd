@@ -53,8 +53,11 @@ using LogCallback =
     std::function<void(Level level, const std::string &message)>;
 
 void setLogger(LogCallback callback);
+void clearLogger();
+
 void setLevel(Level l);
 Level getLevel();
+
 void log(const Level level, const std::string &message);
 
 void addFileLogger(const std::string &filename, Level minLevel);
