@@ -220,10 +220,10 @@ const std::vector<std::string> DD::xcorrComponents(const XcorrOptions &xcorrOpt,
   }
 }
 
-void DD::preloadCatalogWaveformDiskCache(const XcorrOptions &xcorrOpt)
+void DD::loadCatalogWaveformDiskCache(const XcorrOptions &xcorrOpt)
 {
   //
-  // Preload waveforms and store them on disk.
+  // Load waveforms and store them on disk.
   // For better performance we want to load waveforms in batch (batchloader)
   //
   if (!_wfAccess.useCache)
@@ -305,7 +305,7 @@ void DD::preloadCatalogWaveformDiskCache(const XcorrOptions &xcorrOpt)
   wfcount.update(_wfAccess.diskCache.get());
 
   logInfoF(
-      "Finished preloading catalog waveform data: total events %zu."
+      "Finished loading catalog waveform data: total events %zu."
       "Waveforms downloaded %u, not available %u, loaded from disk cache %u",
       _bgCat.getEvents().size(), wfcount.downloaded, wfcount.no_avail,
       wfcount.disk_cached);
@@ -1305,15 +1305,16 @@ void DD::buildXcorrDiffTTimePairs(const Catalog &catalog,
         {
           try
           {
-            // fetch the cross-correlation results from the precomputed values
+            // try to fetch the cross-correlation results from the precomputed
+            // values
             const XCorrCache::Entry &e = precomputed.get(
                 refEv.id, event.id, refPhase.stationId, refPhase.type);
             xcorr.add(refEv.id, event.id, refPhase.stationId, refPhase.type,
                       e.valid, e.coeff, e.lag);
           }
-          catch (...)
+          catch (std::out_of_range &e)
           {
-            // Do the actual cross-correlation
+            // Do the actual cross-correlation if not found in precomputed
             double coeff, lag;
             string component;
             bool valid =
@@ -1464,9 +1465,14 @@ bool DD::xcorrPhases(const XcorrOptions &xcorrOpt,
     return false;
   }
 
-  if (phase1.channelCode != phase2.channelCode)
+  const string channelCodeRoot1 = getBandAndInstrumentCodes(phase1.channelCode);
+  const string channelCodeRoot2 = getBandAndInstrumentCodes(phase2.channelCode);
+
+  if (channelCodeRoot1 != channelCodeRoot2)
   {
-    logDebugF("Skipping cross-correlation: incompatible channels %s and %s ",
+    logDebugF("Skipping cross-correlation: incompatible channels %s and %s "
+              "(%s and %s)",
+              channelCodeRoot1.c_str(), channelCodeRoot2.c_str(),
               string(phase1).c_str(), string(phase2).c_str());
     return false;
   }

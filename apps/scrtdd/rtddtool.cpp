@@ -1948,7 +1948,7 @@ void RTDD::Profile::preloadWaveforms()
         name.c_str());
     throw runtime_error(msg.c_str());
   }
-  dd->preloadCatalogWaveformDiskCache(xcorrOpt);
+  dd->loadCatalogWaveformDiskCache(xcorrOpt);
   lastUsage = Core::Time::GMT();
 }
 

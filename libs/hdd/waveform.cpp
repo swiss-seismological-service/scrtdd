@@ -35,6 +35,7 @@ using namespace HDD::Logger;
 using Catalog         = HDD::Catalog;
 using ThreeComponents = HDD::Waveform::ThreeComponents;
 using Transform       = HDD::Waveform::Processor::Transform;
+using HDD::Waveform::getBandAndInstrumentCodes;
 
 namespace {
 
@@ -55,6 +56,34 @@ std::string waveformId(const HDD::TimeWindow &tw, const Catalog::Phase &ph)
 {
   return waveformId(tw, ph.networkCode, ph.stationCode, ph.locationCode,
                     ph.channelCode);
+}
+
+std::string
+waveformId(const HDD::TimeWindow &tw, const Catalog::Phase &ph, Transform trans)
+{
+  if (trans == Transform::TRANSVERSAL)
+  {
+    return waveformId(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+                      getBandAndInstrumentCodes(ph.channelCode) + "T");
+  }
+  else if (trans == Transform::RADIAL)
+  {
+    return waveformId(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+                      getBandAndInstrumentCodes(ph.channelCode) + "R");
+  }
+  else if (trans == Transform::L2)
+  {
+    return waveformId(tw, ph.networkCode, ph.stationCode, ph.locationCode,
+                      getBandAndInstrumentCodes(ph.channelCode) + "L");
+  }
+  else if (trans == Transform::NONE)
+  {
+    return waveformId(tw, ph);
+  }
+  else
+  {
+    throw HDD::Exception("Internal logic error: unknown Transform");
+  }
 }
 
 } // namespace
@@ -99,9 +128,28 @@ shared_ptr<const Trace> BatchLoader::get(const TimeWindow &tw,
   }
   else
   {
-    const string wfId = waveformId(tw, ph);
-    const auto it     = _traces.find(wfId);
-    return it != _traces.end() ? it->second : nullptr;
+    const string streamID = ph.networkCode + "." + ph.stationCode + "." +
+                            ph.locationCode + "." + ph.channelCode;
+    auto eqlrng = _traces.equal_range(streamID);
+    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+    {
+      const std::shared_ptr<const Trace> &trace = it->second;
+      if (trace->timeWindow().contains(tw))
+      {
+        if (trace->timeWindow() != tw)
+        {
+          shared_ptr<Trace> nonConstTrace = make_shared<Trace>(*trace);
+          if (!nonConstTrace->slice(tw))
+          {
+            logDebugF("Cannot slice trace for phase %s", string(ph).c_str());
+            return nullptr;
+          }
+          return nonConstTrace;
+        }
+        return trace;
+      }
+    }
+    return nullptr;
   }
 }
 
@@ -129,31 +177,24 @@ void BatchLoader::load()
   const auto onTraceLoaded = [this](const std::string &streamID,
                                     const TimeWindow &tw,
                                     unique_ptr<Trace> trace) {
-    const string wfId =
-        waveformId(tw, trace->networkCode(), trace->stationCode(),
-                   trace->locationCode(), trace->channelCode());
-    _traces[wfId] = std::move(trace);
+    _traces.emplace(streamID, std::move(trace));
     _counters_wf_downloaded++;
   };
 
-  const auto onTraceFailed = [this](const std::string &streamID,
-                                    const TimeWindow &tw,
-                                    const std::string &error) {
-    _counters_wf_no_avail++;
-    logDebugF("Cannnot load trace (stream %s from %s length %.2f sec): %s",
-              streamID.c_str(), UTCClock::toString(tw.startTime()).c_str(),
-              durToSec(tw.length()), error.c_str());
-  };
+  const auto onTraceFailed =
+      [this](const std::string &streamID, const TimeWindow &tw,
+             const std::string &error) { _counters_wf_no_avail++; };
 
   if (_requests.size() > 0)
   {
     _wf->loadTraces(_requests, onTraceLoaded, onTraceFailed);
 
-    logInfoF("Fetched %u/%zu waveforms, not available %u",
-             _counters_wf_downloaded, _requests.size(), _counters_wf_no_avail);
+    logDebugF("BatchLoader:: Fetched %u/%zu waveforms, not available %u",
+              _counters_wf_downloaded, _requests.size(), _counters_wf_no_avail);
 
     _requests.clear();
   }
+
   _dataLoaded = true;
 }
 
@@ -197,15 +238,7 @@ shared_ptr<const Trace> ExtraLenLoader::get(const TimeWindow &tw,
     shared_ptr<Trace> nonConstTrace = make_shared<Trace>(*trace);
     if (!nonConstTrace->slice(tw))
     {
-      logDebugF("Error while loading phase '%s': cannot slice trace "
-                "from %s length %.2f sec. Trace "
-                "data from %s length %.2f sec, samples %zu sampfreq %f",
-                string(ph).c_str(),
-                HDD::UTCClock::toString(tw.startTime()).c_str(),
-                HDD::durToSec(tw.length()),
-                HDD::UTCClock::toString(trace->startTime()).c_str(),
-                HDD::durToSec(trace->timeWindow().length()),
-                trace->sampleCount(), trace->samplingFrequency());
+      logDebugF("Cannot slice trace for phase %s", string(ph).c_str());
       return nullptr;
     }
     trace = nonConstTrace;
@@ -326,13 +359,12 @@ shared_ptr<const Trace> BasicProcessor::get(const TimeWindow &tw,
   }
   catch (exception &e)
   {
-    logDebugF("Cannot compute RT/L2 transformation of stream %s.%s.%s.%s "
-              "from %s length %.2f sec: %s",
-              ph.networkCode.c_str(), ph.stationCode.c_str(),
+    logDebugF("No RT/L2 transformation possible: cannot fetch components "
+              "information for ev %u stream %s.%s.%s.%s at %s: %s",
+              ph.eventId, ph.networkCode.c_str(), ph.stationCode.c_str(),
               ph.locationCode.c_str(),
               getBandAndInstrumentCodes(ph.channelCode).c_str(),
-              UTCClock::toString(tw.startTime()).c_str(), durToSec(tw.length()),
-              e.what());
+              UTCClock::toString(tw.startTime()).c_str(), e.what());
     return nullptr;
   }
 
@@ -361,16 +393,6 @@ shared_ptr<const Trace> BasicProcessor::get(const TimeWindow &tw,
         loadAndProcess(tw, ph, comps.names[ThreeComponents::SecondHorizontal],
                        filterStr, resampleFreq));
     if (trH1 && trH2) trace = transformL2(tw, ph, comps, *trH1, *trH2);
-  }
-
-  if (!trace)
-  {
-    logDebugF(
-        "Cannot compute RT/L2 transformation of stream %s.%s.%s.%s "
-        "from %s length %.2f sec",
-        ph.networkCode.c_str(), ph.stationCode.c_str(), ph.locationCode.c_str(),
-        getBandAndInstrumentCodes(ph.channelCode).c_str(),
-        UTCClock::toString(tw.startTime()).c_str(), durToSec(tw.length()));
   }
 
   return trace;
@@ -404,15 +426,7 @@ BasicProcessor::loadAndProcess(const TimeWindow &tw,
 
   if (!copy->slice(tw))
   {
-    logDebugF("Error while processing phase data '%s': cannot slice trace from "
-              "%s length %.2f sec. Trace data from %s length %.2f sec, samples "
-              "%zu sampfreq %f",
-              string(ph).c_str(),
-              HDD::UTCClock::toString(tw.startTime()).c_str(),
-              HDD::durToSec(tw.length()),
-              HDD::UTCClock::toString(copy->startTime()).c_str(),
-              HDD::durToSec(copy->timeWindow().length()), copy->sampleCount(),
-              copy->samplingFrequency());
+    logDebugF("Cannot slice trace for phase %s ", string(ph).c_str());
     return nullptr;
   }
   return copy;
@@ -451,7 +465,7 @@ shared_ptr<const Trace> MemCachedProc::get(const TimeWindow &tw,
                                            double resampleFreq,
                                            Transform trans)
 {
-  const string wfId             = waveformId(tw, ph);
+  const string wfId             = waveformId(tw, ph, trans);
   shared_ptr<const Trace> trace = getFromCache(wfId);
   bool isCached;
   if (trace)
@@ -480,9 +494,10 @@ shared_ptr<const Trace> MemCachedProc::get(const TimeWindow &tw,
 
 bool MemCachedProc::isCached(const TimeWindow &tw,
                              const Catalog::Phase &ph,
-                             const Catalog::Event &ev) const
+                             const Catalog::Event &ev,
+                             Transform trans) const
 {
-  const string wfId = waveformId(tw, ph);
+  const string wfId = waveformId(tw, ph, trans);
   const auto it     = _traces.find(wfId);
   return it != _traces.end();
 }
@@ -505,7 +520,7 @@ unique_ptr<Trace> transformL2(const TimeWindow &tw,
                               const Trace trH1,
                               const Trace trH2)
 {
-  string channelCodeRoot = Waveform::getBandAndInstrumentCodes(ph.channelCode);
+  string channelCodeRoot = getBandAndInstrumentCodes(ph.channelCode);
 
   if (trH1.samplingFrequency() != trH2.samplingFrequency())
   {
@@ -585,7 +600,7 @@ unique_ptr<Trace> transformRT(const TimeWindow &tw,
                               const Trace trH2,
                               Transform trans)
 {
-  string channelCodeRoot = Waveform::getBandAndInstrumentCodes(ph.channelCode);
+  string channelCodeRoot = getBandAndInstrumentCodes(ph.channelCode);
 
   if (trH1.samplingFrequency() != trH2.samplingFrequency() ||
       trH1.samplingFrequency() != trV.samplingFrequency())

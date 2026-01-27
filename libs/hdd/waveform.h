@@ -77,14 +77,16 @@ public:
   // this method can be implemented by calling loadTrace multiple times. For
   // each succefully loaded trace the 'onTraceLoaded' callback is called,
   // otherwise 'onTraceFailed' is called
+  using OnTraceLoadedCallback =
+      std::function<void(const std::string &,
+                         const HDD::TimeWindow &,
+                         std::unique_ptr<HDD::Trace>)>;
+  using OnTraceFailedCallback = std::function<void(
+      const std::string &, const HDD::TimeWindow &, const std::string &)>;
   virtual void loadTraces(
       const std::unordered_multimap<std::string, const TimeWindow> &request,
-      const std::function<void(const std::string &,
-                               const TimeWindow &,
-                               std::unique_ptr<Trace>)> &onTraceLoaded,
-      const std::function<void(const std::string &,
-                               const TimeWindow &,
-                               const std::string &)> &onTraceFailed) = 0;
+      const OnTraceLoadedCallback &onTraceLoaded,
+      const OnTraceFailedCallback &onTraceFailed) = 0;
 
   // Return orientation information for a station. This is used to
   // perform rotation on the RT components or to know which components
@@ -210,7 +212,7 @@ private:
   std::shared_ptr<Proxy> _wf;
   bool _dataLoaded;
   std::unordered_multimap<std::string, const TimeWindow> _requests;
-  std::unordered_map<std::string, std::shared_ptr<const Trace>> _traces;
+  std::unordered_multimap<std::string, std::shared_ptr<const Trace>> _traces;
 };
 
 class ExtraLenLoader : public Loader
@@ -375,7 +377,8 @@ public:
 
   bool isCached(const TimeWindow &tw,
                 const Catalog::Phase &ph,
-                const Catalog::Event &ev) const;
+                const Catalog::Event &ev,
+                Transform trans) const;
 
 private:
   std::shared_ptr<const Trace> getFromCache(const std::string &wfId);

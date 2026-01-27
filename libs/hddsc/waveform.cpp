@@ -139,12 +139,8 @@ unique_ptr<HDD::Trace> WaveformProxy::loadTrace(const HDD::TimeWindow &tw,
 
 void WaveformProxy::loadTraces(
     const unordered_multimap<string, const HDD::TimeWindow> &request,
-    const function<void(const string &,
-                        const HDD::TimeWindow &,
-                        unique_ptr<HDD::Trace>)> &onTraceLoaded,
-    const function<void(const string &,
-                        const HDD::TimeWindow &,
-                        const string &)> &onTraceFailed)
+    const OnTraceLoadedCallback &onTraceLoaded,
+    const OnTraceFailedCallback &onTraceFailed)
 {
   // Prepare the requests in a more convenient format
   struct Request
@@ -185,8 +181,7 @@ void WaveformProxy::loadTraces(
     // For seedlink: we grouped the requests by net.sta because
     // no multiple requests for the same net.sta are allowed in the same
     // connection
-    for (auto it = reqCopy.begin(), end = reqCopy.end();
-         it != end;) // loop by net.sta
+    for (auto it = reqCopy.begin(), end = reqCopy.end(); it != end;)
     {
       const Request req = it->second;
       Core::TimeWindow contiguousRequest;

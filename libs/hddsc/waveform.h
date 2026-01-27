@@ -41,15 +41,10 @@ public:
             const std::string &locationCode,
             const std::string &channelCode) override;
 
-  void loadTraces(
-      const std::unordered_multimap<std::string, const HDD::TimeWindow>
-          &request,
-      const std::function<void(const std::string &,
-                               const HDD::TimeWindow &,
-                               std::unique_ptr<HDD::Trace>)> &onTraceLoaded,
-      const std::function<void(const std::string &,
-                               const HDD::TimeWindow &,
-                               const std::string &)> &onTraceFailed) override;
+  void loadTraces(const std::unordered_multimap<std::string,
+                                                const HDD::TimeWindow> &request,
+                  const OnTraceLoadedCallback &onTraceLoaded,
+                  const OnTraceFailedCallback &onTraceFailed) override;
 
   void getComponentsInfo(const HDD::Catalog::Phase &ph,
                          HDD::Waveform::ThreeComponents &components) override;

@@ -147,9 +147,9 @@ public:
   void enableCatalogWaveformDiskCache(const std::string &cacheDir,
                                       double diskTraceMinLen = 10.);
   void disableCatalogWaveformDiskCache();
-  // Preload all background catalog waveforms: store them on disk cache
+  // Load all background catalog waveforms: store them on disk cache
   // (if cache enabled)
-  void preloadCatalogWaveformDiskCache(const XcorrOptions &xcorrOpt);
+  void loadCatalogWaveformDiskCache(const XcorrOptions &xcorrOpt);
 
   std::string catalogWaveformDiskCacheDir() const { return _wfAccess.cacheDir; }
   bool useCatalogWaveformDiskCache() const { return _wfAccess.useCache; }
