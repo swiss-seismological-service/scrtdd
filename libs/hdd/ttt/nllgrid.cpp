@@ -221,10 +221,7 @@ double NLLGrid::compute(double eventLat,
     // Check if we have already excluded the station (save time).
     if (_unloadables.find(key) != _unloadables.end())
     {
-      throw Exception(
-          strf("Cannot find a suitable %s time grid (station lat %g "
-               "lon %g elevation %g).",
-               phaseType.c_str(), stationLat, stationLon, stationElevation));
+      throw Exception("Cannot find a suitable " + phaseType + " time grid");
     }
 
     // Find the correct grid
@@ -249,17 +246,17 @@ double NLLGrid::compute(double eventLat,
     catch (std::range_error &e)
     {
       _unloadables.insert(key);
-      throw Exception(strf("No %s time grids found", phaseType.c_str()));
+      throw Exception("Cannot find a suitable " + phaseType + " time grid");
     }
 
     if ((gridDist * 1000) > _maxSearchDistance) // gridDist is in km
     {
       _unloadables.insert(key);
-      throw Exception(
-          strf("Cannot find a suitable %s time grid (station lat %g "
-               "lon %g elevation %g). Closest grid is at %g [m] %s",
-               phaseType.c_str(), stationLat, stationLon, stationElevation,
-               gridDist * 1000, timeGrid->getInfo().hdrFilePath.c_str()));
+      logWarningF("Cannot find a suitable %s time grid (station lat %g "
+                  "lon %g elevation %g). Closest grid is at %g [m] %s",
+                  phaseType.c_str(), stationLat, stationLon, stationElevation,
+                  gridDist * 1000, timeGrid->getInfo().hdrFilePath.c_str());
+      throw Exception("Cannot find a suitable " + phaseType + " time grid");
     }
 
     // open the grid buffer
@@ -270,7 +267,9 @@ double NLLGrid::compute(double eventLat,
     catch (Exception &e)
     {
       _unloadables.insert(key);
-      throw Exception(strf("Cannot open grid file: %s", e.what()));
+      string msg = strf("Cannot open grid file: %s", e.what());
+      logWarning(msg);
+      throw Exception(msg);
     }
 
     //  cache the grid
@@ -314,8 +313,7 @@ void NLLGrid::compute(double eventLat,
     // Check if we have already excluded the station (save time).
     if (_unloadables.find(key) != _unloadables.end())
     {
-      throw Exception(
-          strf("Cannot find a %s velocity grid", phaseType.c_str()));
+      throw Exception("Cannot find a " + phaseType + " velocity grid");
     }
 
     // Fetch the correct grid
@@ -330,7 +328,7 @@ void NLLGrid::compute(double eventLat,
 
     if (!velGrid)
     {
-      throw Exception(strf("No %s velocity grid found", phaseType.c_str()));
+      throw Exception("Cannot find a " + phaseType + " velocity grid");
     }
 
     // open the grid buffer
@@ -341,7 +339,9 @@ void NLLGrid::compute(double eventLat,
     catch (Exception &e)
     {
       _unloadables.insert(key);
-      throw Exception(strf("Cannot open grid file: %s", e.what()));
+      string msg = strf("Cannot open grid file: %s", e.what());
+      logWarning(msg);
+      throw Exception(msg);
     }
 
     // cache the grid (to keep track of open files)
@@ -368,10 +368,7 @@ void NLLGrid::compute(double eventLat,
     // Check if we have already excluded the station (save time).
     if (_unloadables.find(key) != _unloadables.end())
     {
-      throw Exception(
-          strf("Cannot find a suitable %s angle grid (station lat %g "
-               "lon %g elevation %g)",
-               phaseType.c_str(), stationLat, stationLon, stationElevation));
+      throw Exception("Cannot find a suitable " + phaseType + " angle grid");
     }
 
     // Find the correct grid
@@ -396,17 +393,17 @@ void NLLGrid::compute(double eventLat,
     catch (std::range_error &e)
     {
       _unloadables.insert(key);
-      throw Exception(strf("No %s angle grids found", phaseType.c_str()));
+      throw Exception("Cannot find a suitable " + phaseType + " angle grid");
     }
 
     if ((gridDist * 1000) > _maxSearchDistance) // gridDist is in km
     {
       _unloadables.insert(key);
-      throw Exception(
-          strf("Cannot find a suitable %s angle grid (station lat %g "
-               "lon %g elevation %g). Closest grid is at %g [m] %s",
-               phaseType.c_str(), stationLat, stationLon, stationElevation,
-               gridDist * 1000, angleGrid->getInfo().hdrFilePath.c_str()));
+      logWarningF("Cannot find a suitable %s angle grid (station lat %g "
+                  "lon %g elevation %g). Closest grid is at %g [m] %s",
+                  phaseType.c_str(), stationLat, stationLon, stationElevation,
+                  gridDist * 1000, angleGrid->getInfo().hdrFilePath.c_str());
+      throw Exception("Cannot find a suitable " + phaseType + " angle grid");
     }
 
     // open the grid buffer
@@ -417,7 +414,9 @@ void NLLGrid::compute(double eventLat,
     catch (Exception &e)
     {
       _unloadables.insert(key);
-      throw Exception(strf("Cannot open grid file: %s", e.what()));
+      string msg = strf("Cannot open grid file: %s", e.what());
+      logWarning(msg);
+      throw Exception(msg);
     }
 
     // cache the grid
