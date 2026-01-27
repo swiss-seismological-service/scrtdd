@@ -54,6 +54,7 @@ using LogCallback =
 
 void setLogger(LogCallback callback);
 void clearLogger();
+bool hasLogger();
 
 void setLevel(Level l);
 Level getLevel();

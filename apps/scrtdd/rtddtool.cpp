@@ -232,7 +232,7 @@ RTDD::RTDD(int argc, char **argv) : StreamApplication(argc, argv)
   _cache.setPopCallback(boost::bind(&RTDD::removedFromCache, this, _1));
 }
 
-RTDD::~RTDD() { HDD::Logger::clearLogger(); }
+RTDD::~RTDD() {}
 
 void RTDD::createCommandLineDescription()
 {

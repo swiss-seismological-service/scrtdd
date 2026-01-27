@@ -44,8 +44,7 @@ namespace {
 class NLLGrid : public TravelTimeTableInterface
 {
 public:
-  NLLGrid();
-  ~NLLGrid();
+  NLLGrid() { initializeLibraryOnce(); }
 
 public:
   bool setModel(const std::string &model) override;
@@ -90,26 +89,29 @@ private:
   std::unordered_set<std::string> _validPphases;
   std::unordered_set<std::string> _validSphases;
   std::unique_ptr<HDD::TTT::NLLGrid> _grids;
+
+private:
+  static bool initializeLibraryOnce()
+  {
+    static bool initialized = []() {
+      // init HDD Logger
+      auto hddLogger = [](HDD::Logger::Level level, const std::string &msg) {
+        switch (level)
+        {
+        case HDD::Logger::Level::debug: SEISCOMP_DEBUG_S(msg); break;
+        case HDD::Logger::Level::info: SEISCOMP_INFO_S(msg); break;
+        case HDD::Logger::Level::warning: SEISCOMP_WARNING_S(msg); break;
+        case HDD::Logger::Level::error: SEISCOMP_ERROR_S(msg); break;
+        case HDD::Logger::Level::none: break;
+        }
+      };
+      HDD::Logger::setLogger(hddLogger);
+      HDD::Logger::setLevel(HDD::Logger::Level::debug);
+      return true;
+    }();
+    return initialized;
+  }
 };
-
-NLLGrid::NLLGrid()
-{
-  // init HDD Logger
-  auto hddLogger = [](HDD::Logger::Level level, const std::string &msg) {
-    switch (level)
-    {
-    case HDD::Logger::Level::debug: SEISCOMP_DEBUG_S(msg); break;
-    case HDD::Logger::Level::info: SEISCOMP_INFO_S(msg); break;
-    case HDD::Logger::Level::warning: SEISCOMP_WARNING_S(msg); break;
-    case HDD::Logger::Level::error: SEISCOMP_ERROR_S(msg); break;
-    case HDD::Logger::Level::none: break;
-    }
-  };
-  HDD::Logger::setLogger(hddLogger);
-  HDD::Logger::setLevel(HDD::Logger::Level::debug);
-}
-
-NLLGrid::~NLLGrid() { HDD::Logger::clearLogger(); }
 
 double computeDistance(double lat1,
                        double lon1,
