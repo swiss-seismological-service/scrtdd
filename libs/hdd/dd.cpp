@@ -803,7 +803,7 @@ bool DD::addObservations(Solver &solver,
   const Event &refEv = catalog.getEvents().at(neighbours.referenceId());
 
   // Detect an event that moved to a location outside the ttt range
-  bool tttAttempted = false, tttAvailable = false;
+  unsigned tttAttempted = 0, tttAvailable = 0;
 
   // stationId, phase, neighbourId
   std::vector<std::tuple<std::string, std::string, unsigned>> nPhases =
@@ -818,21 +818,42 @@ bool DD::addObservations(Solver &solver,
   //
   const Phase *refPhase  = nullptr;
   const Station *station = nullptr;
+  bool tttError;
   for (const auto &t : nPhases)
   {
     const string stationId   = std::get<0>(t);
     const string phaseType   = std::get<1>(t);
     const unsigned neighEvId = std::get<2>(t);
 
+    if (!station || station->id != stationId)
+    {
+      station = &catalog.getStations().at(stationId);
+    }
+
     if (!refPhase || refPhase->stationId != stationId ||
         refPhase->type != phaseType)
     {
       refPhase = &catalog.searchPhase(refEv.id, stationId, phaseType)->second;
+      tttError = false;
+
+      // Query Travel Time Table Reference Phase
+      tttAttempted++;
+      if (!addObservationParams(solver, *_ttt, refEv, *station, *refPhase,
+                                true))
+      {
+        tttError = true;
+      }
+      else
+      {
+        tttAvailable++;
+      }
     }
 
-    if (!station || station->id != stationId)
+    if (tttError)
     {
-      station = &catalog.getStations().at(stationId);
+      logDebugF("Skipping observation (ev %u-%u sta %s phase %s)", refEv.id,
+                neighEvId, station->id.c_str(), phaseType.c_str());
+      continue;
     }
 
     const auto &xcorrCfg = xcorrOpt.phase.at(refPhase->procInfo.type);
@@ -841,6 +862,15 @@ bool DD::addObservations(Solver &solver,
 
     const Phase &phase =
         catalog.searchPhase(event.id, stationId, phaseType)->second;
+
+    if (!addObservationParams(solver, *_ttt, event, *station, phase,
+                              !keepNeighboursFixed))
+    {
+      logDebugF("Skipping observation (ev %u-%u sta %s phase %s)", refEv.id,
+                event.id, station->id.c_str(), phaseType.c_str());
+      continue;
+    }
+
     //
     // compute travel times for both event and `refEv`
     //
@@ -859,20 +889,6 @@ bool DD::addObservations(Solver &solver,
                 string(phase).c_str());
       continue;
     }
-
-    tttAttempted = true; // at least one attempt at loading ttt
-                         //
-    if (!addObservationParams(solver, *_ttt, refEv, *station, *refPhase,
-                              true) ||
-        !addObservationParams(solver, *_ttt, event, *station, phase,
-                              !keepNeighboursFixed))
-    {
-      logDebugF("Skipping observation (ev %u-%u sta %s phase %s)", refEv.id,
-                event.id, station->id.c_str(), phaseType.c_str());
-      continue;
-    }
-
-    tttAvailable = true; // at least once successfully ttt query
 
     //
     // compute absolute travel time differences to the solver
@@ -916,7 +932,16 @@ bool DD::addObservations(Solver &solver,
                           diffTime.count(), weight, xcorrUsed, xcorrCoeff);
   }
 
-  return !tttAttempted || tttAvailable;
+  if (tttAttempted > 0 && tttAttempted != tttAvailable)
+  {
+    logWarningF(
+        "Travel Time Table: %u/%u queries failed for Event %u at lat %.6f "
+        "lon %.6f depth %.6f",
+        tttAttempted - tttAvailable, tttAttempted, refEv.id, refEv.latitude,
+        refEv.longitude, refEv.depth);
+  }
+
+  return tttAttempted == 0 || tttAvailable > 0;
 }
 
 bool DD::addObservationParams(Solver &solver,
@@ -957,7 +982,7 @@ bool DD::addObservationParams(Solver &solver,
     }
     catch (Exception &e)
     {
-      logWarningF(
+      logDebugF(
           "Travel Time Table error: %s (Event lat %.6f lon %.6f depth %.6f "
           "Station lat %.6f lon %.6f elevation %.f )",
           e.what(), event.latitude, event.longitude, event.depth,
