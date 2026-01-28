@@ -41,7 +41,7 @@ if [ -d $WORKINGDIR ]; then
   exit 1
 fi
 
-mkdir -p $WORKINGDIR
+mkdir -v -p $WORKINGDIR
 
 if [ ! -d $WORKINGDIR ]; then
   echo "Cannot create directory $WORKINGDIR: stop here"
@@ -102,8 +102,8 @@ echo "Done: created files $XMLRELOC_FILE and reloc-event.csv,reloc-phase.csv,rel
 if [ -n "${RTDD_BGCAT_DIR}" ]; then
 
   echo "Copying reloc-station.csv reloc-phase.csv reloc-event.csv to $RTDD_BGCAT_DIR"
-  
-  cp -b -S .old -f reloc-station.csv reloc-phase.csv reloc-event.csv $RTDD_BGCAT_DIR/
+
+  cp -v -b -S .old -f reloc-station.csv reloc-phase.csv reloc-event.csv $RTDD_BGCAT_DIR/
   if [ $? -ne 0 ]; then
     echo "Cannot copy the relocated catalog to $RTDD_BGCAT_DIR: stop here"
     exit 1
@@ -118,10 +118,10 @@ fi
 # Copy the relocated catalog into the web folder
 #
 if [ -n "${WEB_DIR}" ]; then
-  cp -f event.csv  $WEB_DIR/event.csv
-  cp -f station.csv  $WEB_DIR/station.csv
-  cp -f reloc-event.csv $WEB_DIR/me-dd-event.csv
-  cp -f ../relocation-map.html $WEB_DIR/
+  cp -vf event.csv  $WEB_DIR/event.csv
+  cp -vf station.csv  $WEB_DIR/station.csv
+  cp -vf reloc-event.csv $WEB_DIR/me-dd-event.csv
+  cp -vf ../relocation-map.html $WEB_DIR/
   date > $WEB_DIR/LAST_RUN
 fi
 
@@ -164,5 +164,5 @@ echo "Creating backup file $WORKINGDIR.tar.bz2..."
 tar cjSvf $WORKINGDIR.tar.bz2 $WORKINGDIR
 
 echo "Deleting folder $WORKINGDIR..."
-rm -rf $WORKINGDIR
+rm -vrf $WORKINGDIR
 
