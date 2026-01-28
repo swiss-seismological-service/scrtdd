@@ -71,7 +71,7 @@ public:
                const std::string &phase, const XCorrCache::Entry &e) {
           add(ev1, ev2, stationId, phase, e.valid, e.coeff, e.lag);
         };
-    forEach(callback);
+    xcorr.forEach(callback);
   }
 
   void remove(unsigned evId1,
