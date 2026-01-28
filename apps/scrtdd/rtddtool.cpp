@@ -2076,10 +2076,11 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
   HDD::Catalog relocatedCat = dd->relocateMultiEvents(
       clusters, xcorr, multiEventClustering, xcorrOpt, solverOpt, true);
 
-  relocatedCat.writeToFile("relocated-event.csv", "relocated-phase.csv");
+  relocatedCat.writeToFile("reloc-event.csv", "reloc-phase.csv",
+                           "reloc-station.csv");
 
-  SEISCOMP_INFO("Wrote relocated catalog files relocated-event.csv and "
-                "relocated-phase.csv");
+  SEISCOMP_INFO("Wrote relocated catalog files reloc-event.csv, "
+                "reloc-phase.csv and reloc-station.csv");
   return relocatedCat;
 }
 

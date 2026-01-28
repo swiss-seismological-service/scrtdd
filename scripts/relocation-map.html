@@ -356,7 +356,7 @@ function loadData() {
           group : "abs-events"
         };
       }),
-      d3.csv("./relocated-event.csv", function(data) {
+      d3.csv("./reloc-event.csv", function(data) {
         return {
           id    : +data.id, 
           time  : new Date(data.isotime),

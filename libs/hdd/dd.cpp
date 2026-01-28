@@ -509,8 +509,8 @@ Catalog DD::relocateMultiEvents(
           joinPath(processingDataDir,
                    (prefix + "-final-double-difference.csv")));
       relocatedCluster.writeToFile(
-          joinPath(processingDataDir, (prefix + "-relocated-event.csv")),
-          joinPath(processingDataDir, (prefix + "-relocated-phase.csv")));
+          joinPath(processingDataDir, (prefix + "-reloc-event.csv")),
+          joinPath(processingDataDir, (prefix + "-reloc-phase.csv")));
     }
     clusterId++;
 
@@ -521,8 +521,8 @@ Catalog DD::relocateMultiEvents(
   if (saveProcessing)
   {
     relocatedCatalog.writeToFile(
-        joinPath(processingDataDir, "relocated-event.csv"),
-        joinPath(processingDataDir, "relocated-phase.csv"));
+        joinPath(processingDataDir, "reloc-event.csv"),
+        joinPath(processingDataDir, "reloc-phase.csv"));
     xcorrData.writeToFile(_bgCat, joinPath(processingDataDir, "xcorr.csv"));
   }
 
@@ -639,9 +639,8 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
     writeDoubleDifferenceToFile(
         finalDDs, catalog,
         joinPath(processingDataDir, "final-double-difference.csv"));
-    relocatedEvCat.writeToFile(
-        joinPath(processingDataDir, "relocated-event.csv"),
-        joinPath(processingDataDir, "relocated-phase.csv"));
+    relocatedEvCat.writeToFile(joinPath(processingDataDir, "reloc-event.csv"),
+                               joinPath(processingDataDir, "reloc-phase.csv"));
   }
 
   removeFileLogger(logFile);
