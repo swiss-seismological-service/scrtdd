@@ -900,7 +900,10 @@ bool Grid::isOpen()
 
 void Grid::close()
 {
-  logDebugF("Closing grid file %s", info.bufFilePath.c_str());
+  if (isOpen())
+  {
+    logDebugF("Closing grid file %s", info.bufFilePath.c_str());
+  }
 
   if (_mapped && _mapped != MAP_FAILED)
   {
