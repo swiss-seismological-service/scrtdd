@@ -1899,8 +1899,45 @@ void RTDD::Profile::load(DatabaseQuery *query,
     }
 
     // Load the travel time table
-    unique_ptr<HDD::TravelTimeTable> ttt(
-        new HDD::SCAdapter::TravelTimeTable(tttType, tttModel));
+    unique_ptr<HDD::TravelTimeTable> ttt;
+
+    if (tttType == "Native:NLLGrid")
+    {
+      std::vector<std::string> tokens(::splitString(tttModel, ";"));
+      if (tokens.size() != 6)
+      {
+        string msg = stringify("Error while initialzing Native:NLLGrid "
+                               "travel time table. Invalid model (%s)",
+                               tttModel.c_str());
+        throw runtime_error(msg.c_str());
+      }
+      string gridPath          = tokens.at(0);
+      string gridModel         = tokens.at(1);
+      double maxSearchDistance = std::stod(tokens.at(2));
+      bool swapBytes           = tokens.at(3) == "swapBytes" ? true : false;
+      unsigned maxOpenFiles    = std::stoul(tokens.at(4));
+      string &accessMethod     = tokens.at(5);
+      ttt.reset(new HDD::TTT::NLLGrid(gridPath, gridModel, maxSearchDistance,
+                                      swapBytes, maxOpenFiles, accessMethod));
+    }
+    else if (tttType == "Native:homogeneous")
+    {
+      std::vector<std::string> tokens(::splitString(tttModel, ";"));
+      if (tokens.size() != 2)
+      {
+        string msg = stringify("Error while initialzing Native:homogeneous "
+                               "travel time table. Invalid model (%s)",
+                               tttModel.c_str());
+        throw runtime_error(msg.c_str());
+      }
+      double pVel = std::stod(tokens.at(0));
+      double sVel = std::stod(tokens.at(1));
+      ttt.reset(new HDD::TTT::Homogeneous(pVel, sVel));
+    }
+    else
+    {
+      ttt.reset(new HDD::SCAdapter::TravelTimeTable(tttType, tttModel));
+    }
 
     std::unique_ptr<HDD::Waveform::Proxy> wf(
         new HDD::SCAdapter::WaveformProxy(recordStreamURL));
