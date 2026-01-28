@@ -491,7 +491,7 @@ Catalog DD::relocateMultiEvents(
         buildXCorrCache(_bgCat, cluster, xcorrOpt, true, xcorrData);
 
     // the actual relocation
-    std::vector<Solver::DoubleDifference> startDDs, finalDDs;
+    vector<Solver::DoubleDifference> startDDs, finalDDs;
     Catalog relocatedCluster = relocate(_bgCat, cluster, xcorrOpt, solverOpt,
                                         false, xcorr, startDDs, finalDDs);
 
@@ -627,7 +627,7 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
   XCorrCache xcorr = buildXCorrCache(catalog, cluster, xcorrOpt, false);
 
   // the actual relocation
-  std::vector<Solver::DoubleDifference> startDDs, finalDDs;
+  vector<Solver::DoubleDifference> startDDs, finalDDs;
   Catalog relocatedEvCat = relocate(catalog, cluster, xcorrOpt, solverOpt, true,
                                     xcorr, startDDs, finalDDs);
 
@@ -803,10 +803,10 @@ bool DD::addObservations(Solver &solver,
 
   // Detect an event that moved to a location outside the ttt range
   unsigned tttAttempted = 0, tttAvailable = 0;
+  string badStations;
 
   // stationId, phase, neighbourId
-  std::vector<std::tuple<std::string, std::string, unsigned>> nPhases =
-      neighbours.phases();
+  vector<tuple<string, string, unsigned>> nPhases = neighbours.phases();
 
   // sort the nPhases so that we can search the reference event phase only once
   // and reuse it for multiple neighbours (see loop)
@@ -841,6 +841,7 @@ bool DD::addObservations(Solver &solver,
                                 true))
       {
         tttError = true;
+        badStations += " " + stationId;
       }
       else
       {
@@ -935,9 +936,9 @@ bool DD::addObservations(Solver &solver,
   {
     logWarningF(
         "Travel Time Table: %u/%u queries failed for Event %u at lat %.6f "
-        "lon %.6f depth %.6f",
+        "lon %.6f depth %.6f. Problematic stations:%s",
         tttAttempted - tttAvailable, tttAttempted, refEv.id, refEv.latitude,
-        refEv.longitude, refEv.depth);
+        refEv.longitude, refEv.depth, badStations.c_str());
   }
 
   return tttAttempted == 0 || tttAvailable > 0;
