@@ -259,7 +259,18 @@ double NLLGrid::compute(double eventLat,
       throw Exception("Cannot find a suitable " + phaseType + " time grid");
     }
 
-    // open the grid buffer
+    //  cache the grid
+    _openGrids.put(key, GridHolder(timeGrid));
+  }
+
+  //
+  // Open the grid buffer. It may be redundant to check if the grid is open, but
+  // it could be that two stations (so 2 different keys) uses the same grid file
+  // Once a key goes out of the cache it closes the grid for the other as well,
+  // so we must be sure the grid is open before reading it
+  //
+  if (!timeGrid->isOpen())
+  {
     try
     {
       timeGrid->open(_openMode);
@@ -271,10 +282,8 @@ double NLLGrid::compute(double eventLat,
       logWarning(msg);
       throw Exception(msg);
     }
-
-    //  cache the grid
-    _openGrids.put(key, GridHolder(timeGrid));
   }
+
   return timeGrid->getTime(eventLat, eventLon, eventDepth);
 }
 
@@ -328,10 +337,22 @@ void NLLGrid::compute(double eventLat,
 
     if (!velGrid)
     {
+      logWarning("Cannot find a " + phaseType + " velocity grid");
       throw Exception("Cannot find a " + phaseType + " velocity grid");
     }
 
-    // open the grid buffer
+    // cache the grid (to keep track of open files)
+    _openGrids.put(key, GridHolder(velGrid));
+  }
+
+  //
+  // Open the grid buffer. It may be redundant to check if the grid is open, but
+  // it could be that two stations (so 2 different keys) uses the same grid file
+  // Once a key goes out of the cache it closes the grid for the other as well,
+  // so we must be sure the grid is open before reading it
+  //
+  if (!velGrid->isOpen())
+  {
     try
     {
       velGrid->open(_openMode);
@@ -343,9 +364,6 @@ void NLLGrid::compute(double eventLat,
       logWarning(msg);
       throw Exception(msg);
     }
-
-    // cache the grid (to keep track of open files)
-    _openGrids.put(key, GridHolder(velGrid));
   }
 
   // get the value from the grid now that it is loaded
@@ -406,7 +424,18 @@ void NLLGrid::compute(double eventLat,
       throw Exception("Cannot find a suitable " + phaseType + " angle grid");
     }
 
-    // open the grid buffer
+    // cache the grid
+    _openGrids.put(key, GridHolder(angleGrid));
+  }
+
+  //
+  // Open the grid buffer. It may be redundant to check if the grid is open, but
+  // it could be that two stations (so 2 different keys) uses the same grid file
+  // Once a key goes out of the cache it closes the grid for the other as well,
+  // so we must be sure the grid is open before reading it
+  //
+  if (!angleGrid->isOpen())
+  {
     try
     {
       angleGrid->open(_openMode);
@@ -418,9 +447,6 @@ void NLLGrid::compute(double eventLat,
       logWarning(msg);
       throw Exception(msg);
     }
-
-    // cache the grid
-    _openGrids.put(key, GridHolder(angleGrid));
   }
 
   angleGrid->getAngles(eventLat, eventLon, eventDepth, takeOffAzi, takeOffDip);
