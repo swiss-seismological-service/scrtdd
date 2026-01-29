@@ -404,6 +404,7 @@ Catalog DD::relocateMultiEvents(
       "%zu events",
       _bgCat.getEvents().size());
 
+  string logFile;
   if (saveProcessing)
   {
     // prepare a folder for processing files
@@ -423,12 +424,9 @@ Catalog DD::relocateMultiEvents(
       }
     }
     logInfoF("Saving processing data in %s", processingDataDir.c_str());
-  }
 
-  // prepare file logger
-  string logFile = joinPath(processingDataDir, "relocation.log");
-  if (saveProcessing)
-  {
+    // prepare file logger
+    logFile = joinPath(processingDataDir, "relocation.log");
     addFileLogger(logFile, Level::info);
   }
 
@@ -470,9 +468,12 @@ Catalog DD::relocateMultiEvents(
   {
     logInfoF("Relocating cluster %u (%zu events)", clusterId, cluster.size());
 
+    string clusterLogFile;
     if (saveProcessing)
     {
-      string prefix = strf("cluster-%u", clusterId);
+      string prefix  = strf("cluster-%u", clusterId);
+      clusterLogFile = joinPath(processingDataDir, prefix + "-relocation.log");
+      addFileLogger(clusterLogFile, Level::info);
       Neighbours::writeToFile(
           cluster, _bgCat, joinPath(processingDataDir, prefix + "-pair.csv"));
       Catalog catToDump;
@@ -511,6 +512,7 @@ Catalog DD::relocateMultiEvents(
       relocatedCluster.writeToFile(
           joinPath(processingDataDir, (prefix + "-reloc-event.csv")),
           joinPath(processingDataDir, (prefix + "-reloc-phase.csv")));
+      removeFileLogger(clusterLogFile);
     }
     clusterId++;
 
@@ -524,9 +526,8 @@ Catalog DD::relocateMultiEvents(
         joinPath(processingDataDir, "reloc-event.csv"),
         joinPath(processingDataDir, "reloc-phase.csv"));
     xcorrData.writeToFile(_bgCat, joinPath(processingDataDir, "xcorr.csv"));
+    removeFileLogger(logFile);
   }
-
-  removeFileLogger(logFile);
 
   return relocatedCatalog;
 }
