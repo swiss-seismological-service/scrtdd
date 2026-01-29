@@ -1775,7 +1775,7 @@ RTDD::getCatalog(const std::string &catalogPath,
       SEISCOMP_INFO(
           "Loading catalog from station file %s, event file %s, phase file %s",
           tokens[0].c_str(), tokens[1].c_str(), tokens[2].c_str());
-      return HDD::Catalog(tokens[0], tokens[1], tokens[2], true);
+      return HDD::Catalog(tokens[0], tokens[1], tokens[2], false);
     }
     else
     {
@@ -1895,7 +1895,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
     }
     else // catalog is extended format station.csv,event.csv,phase.csv
     {
-      ddbgc = HDD::Catalog(stationFile, eventFile, phaFile);
+      ddbgc = HDD::Catalog(stationFile, eventFile, phaFile, false);
     }
 
     // Load the travel time table
