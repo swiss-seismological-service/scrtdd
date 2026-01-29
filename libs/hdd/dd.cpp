@@ -842,7 +842,7 @@ bool DD::addObservations(Solver &solver,
                                 true))
       {
         tttError = true;
-        badStations += " " + stationId;
+        badStations += " " + phaseType + "@" + stationId;
       }
       else
       {
@@ -935,11 +935,11 @@ bool DD::addObservations(Solver &solver,
 
   if (tttAttempted > 0 && tttAttempted != tttAvailable)
   {
-    logWarningF(
-        "Travel Time Table: %u/%u queries failed for Event %u at lat %.6f "
-        "lon %.6f depth %.6f. Problematic stations:%s",
-        tttAttempted - tttAvailable, tttAttempted, refEv.id, refEv.latitude,
-        refEv.longitude, refEv.depth, badStations.c_str());
+    logWarningF("TTT: %u/%u queries failed for Event %u at lat %.6f "
+                "lon %.6f depth %.6f: %s",
+                tttAttempted - tttAvailable, tttAttempted, refEv.id,
+                refEv.latitude, refEv.longitude, refEv.depth,
+                badStations.c_str());
   }
 
   return tttAttempted == 0 || tttAvailable > 0;
