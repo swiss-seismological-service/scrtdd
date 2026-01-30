@@ -580,7 +580,7 @@
           Use in combination with --reloc-catalog.
           </description>
         </option>
-        <option long-flag="xcorr-cache">
+        <option long-flag="xcorr-cache" argument="xcorr.csv">
           <description>
           Specify a file containing precomputed cross-correlation values.
           Use in combination with --reloc-catalog.
@@ -590,6 +590,12 @@
           <description>
           Enable XML output when combined with --reloc-catalog or --oring-id
           options.
+          </description>
+        </option>
+        <option long-flag="dump-diagnostics">
+          <description>
+          Generate a diagnostics report by creating a dedicated folder in the 
+          current directory containing detailed relocation diagnostic data.
           </description>
         </option>
       </group>

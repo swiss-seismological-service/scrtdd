@@ -151,7 +151,7 @@ private:
     bool isLoaded() { return loaded; }
     void preloadWaveforms();
     void freeResources();
-    Core::TimeSpan inactiveTime() { return Core::Time::GMT() - lastUsage; }
+    Core::TimeSpan inactiveTime() { return Core::Time::UTC() - lastUsage; }
     HDD::Catalog relocateSingleEvent(DataModel::Origin *org);
     HDD::Catalog relocateCatalog(const std::string &clusterFiles = "",
                                  const std::string &xcorrFile    = "");
@@ -167,6 +167,7 @@ private:
     std::string tttType;
     std::string tttModel;
     std::string recordStreamURL;
+    bool dumpDiagnostics;
     RegionPtr region;
     HDD::Config ddCfg;
     HDD::ClusteringOptions singleEventClustering;

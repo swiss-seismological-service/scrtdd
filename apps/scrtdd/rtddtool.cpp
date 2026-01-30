@@ -50,6 +50,8 @@
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
 
+namespace fs = boost::filesystem;
+
 using namespace std;
 using namespace Seiscomp::DataModel;
 using HDD::SCAdapter::addToCatalog;
@@ -311,6 +313,10 @@ void RTDD::createCommandLineDescription()
   commandline().addOption("ModeOptions", "xmlout",
                           "Enable XML output when combined with "
                           "--reloc-catalog or --oring-id options");
+  commandline().addOption(
+      "ModeOptions", "dump-diagnostics",
+      "Generate a diagnostics report by creating a dedicated folder in the "
+      "current directory containing detailed relocation diagnostic data");
   commandline().addGroup("Catalog");
   commandline().addOption(
       "Catalog", "dump-catalog",
@@ -401,9 +407,11 @@ bool RTDD::validateParameters()
   {
     if (profileName.empty()) continue;
 
-    ProfilePtr prof = new Profile;
-    prof->name      = profileName;
-    string prefix   = string("profile.") + prof->name + ".";
+    ProfilePtr prof       = new Profile;
+    prof->name            = profileName;
+    prof->dumpDiagnostics = commandline().hasOption("dump-diagnostics");
+
+    string prefix = string("profile.") + prof->name + ".";
 
     string regionType;
     try
@@ -1018,8 +1026,7 @@ bool RTDD::init()
 
   if (!Application::init()) return false;
 
-  _config.cacheDirectory =
-      boost::filesystem::path(_config.cacheDirectory).string();
+  _config.cacheDirectory = fs::path(_config.cacheDirectory).string();
   if (_config.cacheWaveforms && !Util::pathExists(_config.cacheDirectory))
   {
     if (!Util::createPath(_config.cacheDirectory))
@@ -1366,7 +1373,7 @@ void RTDD::updateObject(const string &parentID, Object *object)
     if (!_config.onlyPreferredOrigin)
     {
       _todos.insert(origin);
-      logObject(_inputOrgs, Core::Time::GMT());
+      logObject(_inputOrgs, Core::Time::UTC());
     }
     return;
   }
@@ -1429,7 +1436,7 @@ void RTDD::runNewJobs()
     _cronCounter = _config.wakeupInterval;
 
     Processes::iterator it;
-    now = Core::Time::GMT();
+    now = Core::Time::UTC();
 
     std::list<ProcessPtr> procToBeRemoved;
     // Update crontab
@@ -1493,7 +1500,7 @@ bool RTDD::addProcess(DataModel::PublicObject *obj)
 {
   if (obj == nullptr) return false;
 
-  now = Core::Time::GMT();
+  now = Core::Time::UTC();
 
   // New process?
   ProcessPtr proc;
@@ -1728,7 +1735,7 @@ bool RTDD::processOrigin(Origin *origin,
     {
       SEISCOMP_INFO("Sending origin %s", relocatedOrg->publicID().c_str());
 
-      logObject(_outputOrgs, Core::Time::GMT());
+      logObject(_outputOrgs, Core::Time::UTC());
 
       EventParametersPtr ep = new EventParameters;
       Notifier::Enable();
@@ -1946,7 +1953,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
 
     if (cacheWaveforms)
     {
-      auto wfcache = boost::filesystem::path(cacheDirectory) / name / "wfcache";
+      auto wfcache = fs::path(cacheDirectory) / name / "wfcache";
       dd->enableCatalogWaveformDiskCache(wfcache.string(),
                                          cachedWaveformLength);
     }
@@ -1963,7 +1970,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
   }
 
   loaded    = true;
-  lastUsage = Core::Time::GMT();
+  lastUsage = Core::Time::UTC();
 
   SEISCOMP_INFO("Profile %s loaded into memory", name.c_str());
 }
@@ -1973,7 +1980,7 @@ void RTDD::Profile::unload()
   SEISCOMP_INFO("Unloading profile %s", name.c_str());
   dd.reset();
   loaded    = false;
-  lastUsage = Core::Time::GMT();
+  lastUsage = Core::Time::UTC();
 }
 
 void RTDD::Profile::preloadWaveforms()
@@ -1986,14 +1993,14 @@ void RTDD::Profile::preloadWaveforms()
     throw runtime_error(msg.c_str());
   }
   dd->loadCatalogWaveformDiskCache(xcorrOpt);
-  lastUsage = Core::Time::GMT();
+  lastUsage = Core::Time::UTC();
 }
 
 void RTDD::Profile::freeResources()
 {
   if (!loaded) return;
   dd->unloadWaveforms();
-  lastUsage = Core::Time::GMT();
+  lastUsage = Core::Time::UTC();
 }
 
 HDD::Catalog RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
@@ -2004,8 +2011,18 @@ HDD::Catalog RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
                    name.c_str());
     return HDD::Catalog{};
   }
-  lastUsage = Core::Time::GMT();
+  lastUsage = Core::Time::UTC();
 
+  // Build diagnostics dir name
+  string diagnosticsDir;
+  if (this->dumpDiagnostics)
+  {
+    diagnosticsDir = "singleevent_" +
+                     Core::Time::UTC().toString("%Y%m%d_%H%M%S") + "_" +
+                     org->time().value().toString("%Y%m%d_%H%M%S_%f");
+  }
+
+  // Prepare input
   DataSource dataSrc(query, cache, eventParameters);
 
   // we pass the stations information from the background catalog, to avoid
@@ -2015,6 +2032,9 @@ HDD::Catalog RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
                            unordered_multimap<unsigned, HDD::Catalog::Phase>());
   addToCatalog(singleEvent, {org}, dataSrc);
 
+  //
+  // Step 1 of single event relocation
+  //
   SEISCOMP_INFO(
       "Performing step 1: initial location refinement (no cross-correlation)");
 
@@ -2024,11 +2044,12 @@ HDD::Catalog RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   xcorrOptDisabled.enable = false;
 
   HDD::ClusteringOptions singleEventClustering1 = singleEventClustering;
-  singleEventClustering2.minEvStaToInterEvRatio = 1;
+  singleEventClustering1.minEvStaToInterEvRatio = 1;
 
-  HDD::Catalog relocatedEvCat =
-      dd->relocateSingleEvent(singleEvent, isManual, singleEventClustering1,
-                              xcorrOptDisabled, solverOpt);
+  HDD::Catalog relocatedEvCat = dd->relocateSingleEvent(
+      singleEvent, isManual, singleEventClustering1, xcorrOptDisabled,
+      solverOpt, this->dumpDiagnostics,
+      (fs::path(diagnosticsDir) / "step1").string());
 
   if (!relocatedEvCat.empty())
   {
@@ -2045,6 +2066,9 @@ HDD::Catalog RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
     SEISCOMP_INFO("Failed to perform step 1 origin relocation");
   }
 
+  //
+  // Step 2 of single event relocation
+  //
   SEISCOMP_INFO(
       "Performing step 2: relocate again, possibly with cross-correlation");
 
@@ -2052,7 +2076,8 @@ HDD::Catalog RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   singleEventClustering2.numEllipsoids          = 1;
 
   HDD::Catalog relocatedEvWithXcorr = dd->relocateSingleEvent(
-      singleEvent, isManual, singleEventClustering2, xcorrOpt, solverOpt);
+      singleEvent, isManual, singleEventClustering2, xcorrOpt, solverOpt,
+      this->dumpDiagnostics, (fs::path(diagnosticsDir) / "step2").string());
 
   if (!relocatedEvWithXcorr.empty())
   {
@@ -2091,7 +2116,7 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
         "Cannot relocate catalog, profile %s not initialized", name.c_str());
     throw runtime_error(msg.c_str());
   }
-  lastUsage = Core::Time::GMT();
+  lastUsage = Core::Time::UTC();
 
   std::list<unordered_map<unsigned, HDD::Neighbours>> clusters;
   if (!clusterFiles.empty())
@@ -2113,8 +2138,9 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
     xcorr = HDD::XCorrCache::readFromFile(dd->getCatalog(), xcorrFile);
   }
 
-  HDD::Catalog relocatedCat = dd->relocateMultiEvents(
-      clusters, xcorr, multiEventClustering, xcorrOpt, solverOpt, true);
+  HDD::Catalog relocatedCat =
+      dd->relocateMultiEvents(clusters, xcorr, multiEventClustering, xcorrOpt,
+                              solverOpt, this->dumpDiagnostics);
 
   relocatedCat.writeToFile("reloc-event.csv", "reloc-phase.csv",
                            "reloc-station.csv");
@@ -2133,7 +2159,7 @@ void RTDD::Profile::dumpWaveforms()
         name.c_str());
     throw runtime_error(msg.c_str());
   }
-  lastUsage = Core::Time::GMT();
+  lastUsage = Core::Time::UTC();
   dd->dumpWaveforms(xcorrOpt);
 }
 
@@ -2145,7 +2171,7 @@ void RTDD::Profile::dumpClusters()
         "Cannot dump clusters, profile %s not initialized", name.c_str());
     throw runtime_error(msg.c_str());
   }
-  lastUsage = Core::Time::GMT();
+  lastUsage = Core::Time::UTC();
   list<unordered_map<unsigned, HDD::Neighbours>> clusters =
       dd->findClusters(multiEventClustering);
   SEISCOMP_INFO("Found %zu clusters", clusters.size());
