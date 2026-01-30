@@ -2023,8 +2023,11 @@ HDD::Catalog RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   HDD::XcorrOptions xcorrOptDisabled(xcorrOpt);
   xcorrOptDisabled.enable = false;
 
+  HDD::ClusteringOptions singleEventClustering1 = singleEventClustering;
+  singleEventClustering2.minEvStaToInterEvRatio = 1;
+
   HDD::Catalog relocatedEvCat =
-      dd->relocateSingleEvent(singleEvent, isManual, singleEventClustering,
+      dd->relocateSingleEvent(singleEvent, isManual, singleEventClustering1,
                               xcorrOptDisabled, solverOpt);
 
   if (!relocatedEvCat.empty())
