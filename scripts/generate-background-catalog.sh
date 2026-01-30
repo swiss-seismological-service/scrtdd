@@ -81,6 +81,7 @@ XMLRELOC_FILE=relocated.xml
 $seiscomp_exec scrtdd -d $CATALOG_DB \
        --reloc-catalog $ID_FILE \
        --profile $RTDD_PROFILE \
+       --dump-diagnostics \
        --verbosity=3 --log-file scrtdd.log \
        --xmlout > $XMLRELOC_FILE
 
