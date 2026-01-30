@@ -254,14 +254,14 @@ void RTDD::createCommandLineDescription()
   commandline().addOption(
       "Mode", "origin-id,O",
       "Relocate  the origin (or multiple comma-separated origins) in "
-      "signle-event mode and send a message. Each origin will be processed "
+      "single-event mode and send a message. Each origin will be processed "
       "accordingly to the matching profile region unless the --profile option "
       " is used",
       &_config.originIDs, true);
   commandline().addOption(
       "Mode", "ep",
-      "Relocate contained origins in signle-event mode, unless --reloc-catalog "
-      "is provided. In signle-event mode, each origin will be processed "
+      "Relocate contained origins in single-event mode, unless --reloc-catalog "
+      "is provided. In single-event mode, each origin will be processed "
       "accordingly to the matching profile region unless the --profile option "
       "is "
       "used. Together with --reloc-catalog option, the parameters XML file is "
@@ -312,7 +312,7 @@ void RTDD::createCommandLineDescription()
       &_config.xcorrCache, true);
   commandline().addOption("ModeOptions", "xmlout",
                           "Enable XML output when combined with "
-                          "--reloc-catalog or --oring-id options");
+                          "--reloc-catalog or --origin-id options");
   commandline().addOption(
       "ModeOptions", "dump-diagnostics",
       "Generate a diagnostics report by creating a dedicated folder in the "

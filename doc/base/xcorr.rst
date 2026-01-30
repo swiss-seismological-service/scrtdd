@@ -1,142 +1,79 @@
 .. _xcorr-event-label:
 
-Cross-correlation
+Cross-Correlation
 =================
 
-The purpose of the cross-correlation is to refine the time difference between two picks at a common station of an event pair. The cross-correlation lag becomes the observed differential time part of a double-difference (see :ref:`multi-event-relocation-process-label`) if the correlation coefficient is above the configured threshold. The phase pairs with lower correlation coefficient maintain the differential time derived from the absolute travel time difference.
+Cross-correlation is used to refine the differential travel time between two phase picks at a common station for an event pair. If the correlation coefficient exceeds a configured threshold, the cross-correlation lag is used to correct the absolute travel-time difference as the observed differential time in the double-difference system (see :ref:`multi-event-relocation-process-label`). Phase pairs with correlation coefficients below the threshold retain the differential time derived from their original pick times.
 
-The cross-correlation step is optional due to the expensive computation time. The improvement in hypocenter solution quality doesn't always improve dramatically, so we suggest to enable it only after the other parameters of rtDD have been optimized. The cross-correlation can be disabled by setting the ``crossCorrelation.maxStationDistance`` and/or ``crossCorrelation.maxInterEventDistance`` to 0. The cross-correlation is also skipped if the ``RecordStream`` parameter is not properly configured, because the waveform data will not be available.
+Because cross-correlation is computationally intensive, it is recommended to enable it only after other relocation parameters have been optimized.
 
-------------------
-Eval-xcorr command
-------------------
+Please note that certain cross-correlation settings require inventory information, for example if the horizontal components have to be used, the inventory is required to know which are the horizontal ones.
 
-The ``--eval-xcorr`` option should be used to properly configure the cross-correlation parameters. The optimization process involves running ``--eval-xcorr`` with different configuration and analyzes the results. The goal is to have as many matches as possible (increase correlation coefficient) avoiding bad/false matches (``lag`` values higher than the expected pick time uncertainty are probably an indication of false matches): this is a trade-off.
+.. _waveform-label:
 
-Example of ``--eval-xcorr`` command::
+-------------
+Waveform Data
+-------------
 
-    scrtdd --eval-xcorr station.csv,event.csv,phase.csv --profile myProfile --verbosity=3 --console=1
+SeisComP applications access waveform data through the RecordStream interface (see the `official SeisComP documentation <https://www.seiscomp.de/doc/base/concepts/recordstream.html>`_ for more details). This can be configured in ``global.cfg`` or specified via the command line using the ``-I URI`` option. RecordStream parameters define the services through which SeisComP accesses real-time and historical waveform data (e.g., SeedLink, FDSN, SDS archives, etc.).
 
-Example output::
+RecordStream Configuration for Single-Event (Real-Time)
+-------------------------------------------------------
 
-    [...]
-    ---FINAL STATS--
-    Total xcorr P phases   #CC   #Skip meanCC (MAD) medianCC (MAD) meanLag (MAD) medianLag (MAD)
-                         41877   61126  0.77 (0.10)    0.77 (0.10)      -0 ( 36)        -0 ( 15)
-    Total xcorr S phases   #CC   #Skip meanCC (MAD) medianCC (MAD) meanLag (MAD) medianLag (MAD)
-                         30730   66292  0.85 (0.06)    0.85 (0.06)      -1 ( 42)        -0 ( 28)
-    Xcorr P phases by inter-event distance in 0.10 km step
-     EvDist [km]           #CC   #Skip meanCC (MAD) medianCC (MAD) meanLag (MAD) medianLag (MAD)
-     0.00-0.10            4764    4508  0.82 (0.10)    0.84 (0.09)       0 ( 28)        -0 ( 11)
-     0.10-0.20           13906   18615  0.78 (0.10)    0.78 (0.10)       0 ( 32)         0 ( 14)
-     0.20-0.30           13633   21365  0.76 (0.10)    0.76 (0.09)      -1 ( 41)         0 ( 17)
-     0.30-0.40            5445    9591  0.75 (0.09)    0.75 (0.09)      -5 ( 44)        -1 ( 20)
-     0.40-0.50            2360    3807  0.75 (0.10)    0.75 (0.09)       5 ( 40)         1 ( 18)
-     0.50-0.60            1010    1727  0.75 (0.10)    0.75 (0.10)       9 ( 35)         3 ( 14)
-     0.60-0.70             553    1114  0.75 (0.10)    0.73 (0.10)       3 ( 37)         1 ( 14)
-     0.70-0.80             142     247  0.74 (0.11)    0.70 (0.09)      20 ( 37)         4 ( 10)
-     0.80-0.90              60     142  0.76 (0.12)    0.77 (0.13)      14 ( 36)         2 ( 10)
-     0.90-1.00               4      10  0.79 (0.11)    0.80 (0.10)      25 ( 28)         7 (  1)
-    Xcorr S phases by inter-event distance in 0.10 km step
-     EvDist [km]           #CC   #Skip meanCC (MAD) medianCC (MAD) meanLag (MAD) medianLag (MAD)
-     0.00-0.10            4024    4472  0.89 (0.06)    0.91 (0.05)      -0 ( 37)         0 ( 25)
-     0.10-0.20           10521   20221  0.85 (0.06)    0.86 (0.06)       0 ( 40)        -0 ( 28)
-     0.20-0.30            9961   23181  0.84 (0.06)    0.84 (0.05)      -0 ( 45)        -0 ( 31)
-     0.30-0.40            3802   10307  0.83 (0.06)    0.83 (0.05)      -7 ( 47)        -4 ( 30)
-     0.40-0.50            1430    4307  0.83 (0.06)    0.83 (0.05)       0 ( 43)        -0 ( 28)
-     0.50-0.60             572    2002  0.83 (0.05)    0.83 (0.05)      16 ( 40)        10 ( 30)
-     0.60-0.70             327    1357  0.83 (0.05)    0.83 (0.05)      -7 ( 42)        -7 ( 30)
-     0.70-0.80              64     287  0.82 (0.05)    0.84 (0.04)       4 ( 33)         2 ( 24)
-     0.80-0.90              26     150  0.83 (0.05)    0.84 (0.05)      13 ( 45)        -3 ( 26)
-     0.90-1.00               3       8  0.80 (0.05)    0.83 (0.03)       9 (  8)        14 (  2)
-    XCorr P phases by event to station distance in 3.00 km step
-    StaDist [km]           #CC   #Skip meanCC (MAD) medianCC (MAD) meanLag (MAD) medianLag (MAD)
-      3-6                   22      17  0.64 (0.04)    0.64 (0.04)      19 ( 23)         6 (  8)
-      6-9                13487   12847  0.77 (0.11)    0.77 (0.11)       0 ( 26)         0 (  9)
-      9-12                7942    9451  0.79 (0.11)    0.81 (0.11)      -1 ( 21)         0 (  9)
-     12-15                7238   11380  0.73 (0.09)    0.72 (0.08)      -0 ( 31)         0 ( 18)
-     15-18                 994     679  0.76 (0.07)    0.76 (0.07)      -5 ( 64)        -2 ( 36)
-     18-21                3067    4218  0.78 (0.08)    0.79 (0.07)      -1 ( 35)        -0 ( 21)
-     21-24                1318    5599  0.73 (0.10)    0.73 (0.09)       2 ( 90)         2 ( 66)
-    [...]
-    XCorr S phases by event to station distance in 3.00 km step
-    StaDist [km]           #CC   #Skip meanCC (MAD) medianCC (MAD) meanLag (MAD) medianLag (MAD)
-      3-6                   35       5  0.89 (0.04)    0.89 (0.04)      -5 ( 16)        -3 ( 14)
-      6-9                 8307   14072  0.87 (0.06)    0.88 (0.05)       0 ( 28)         0 ( 22)
-      9-12                7740   13058  0.84 (0.06)    0.84 (0.05)      -0 ( 44)        -0 ( 33)
-     12-15                3384   10766  0.83 (0.06)    0.83 (0.05)      -1 ( 36)         0 ( 21)
-     15-18                1207    1849  0.83 (0.06)    0.83 (0.05)       1 ( 52)         1 ( 37)
-     18-21                 527    2601  0.82 (0.07)    0.81 (0.06)      -0 ( 54)         2 ( 39)
-     21-24                2411    7921  0.82 (0.06)    0.81 (0.05)      -1 ( 48)        -2 ( 36)
-    [...]
-    XCorr P phases by station
-    Station                #CC   #Skip meanCC (MAD) medianCC (MAD) meanLag (MAD) medianLag (MAD)
-    8D.RAW1.              4254    5109  0.75 (0.09)    0.74 (0.09)      -0 ( 35)         1 ( 26)
-    8D.RAW2.              6436    4086  0.75 (0.10)    0.74 (0.09)       0 ( 22)         0 ( 10)
-    8D.RAW4.              2902    3045  0.79 (0.08)    0.79 (0.07)      -0 ( 30)         0 ( 20)
-    C4.CERNS.                0       0  0.00 (0.00)    0.00 (0.00)       0 (  0)         0 (  0)
-    CH.AIGLE.               41     211  0.80 (0.08)    0.84 (0.06)      -6 ( 78)         1 ( 31)
-    CH.DIX.                687    5012  0.75 (0.09)    0.75 (0.08)       1 ( 48)         0 ( 21)
-    [...]
-    XCorr S phases by station
-    Station                #CC   #Skip meanCC (MAD) medianCC (MAD) meanLag (MAD) medianLag (MAD)
-    8D.RAW1.              2539    7670  0.83 (0.06)    0.83 (0.05)      -0 ( 25)        -0 ( 16)
-    8D.RAW2.              6861    3732  0.88 (0.06)    0.89 (0.05)      -0 ( 28)         0 ( 23)
-    8D.RAW4.                79     838  0.86 (0.06)    0.87 (0.06)      -5 ( 32)        -5 ( 27)
-    CH.AIGLE.              113     288  0.82 (0.04)    0.82 (0.04)      -1 ( 85)        -5 ( 82)
-    CH.DIX.               2394    2606  0.84 (0.06)    0.85 (0.05)       1 ( 35)         0 ( 22)
-    [...]
+A typical RecordStream configuration might look like this::
+
+    recordstream = combined://slink/localhost:18000;sdsarchive//path/to/miniseed
+
+This example combines SeedLink and an SDS archive, allowing ``scrtdd`` to retrieve catalog waveforms from the archive and real-time event data via SeedLink.
+
+Depending on the responsiveness of the SeedLink server, real-time relocations may incur delays. If data is unavailable, SeisComP may attempt to reconnect indefinitely. To prevent excessive delays, use the ``timeout`` and ``retries`` parameters. The following example sets a timeout of 5 seconds (the default is 5 minutes) and disables reconnections for missing data, allowing ``scrtdd`` to proceed with available data::
+
+    recordstream = combined://slink/localhost:18000?timeout=5&retries=0;sdsarchive//path/to/miniseed
 
 
-* ``#CC``: number of cross-correlations performed
-* ``#Skip``: number of cross-correlations whose results do not account for the computation of the statistics
-* ``coeff``: correlation coefficient between phase waveforms 
-* ``lag``: cross-correlation lag between phase waveforms in milliseconds
+RecordStream Configuration for Multi-Event
+------------------------------------------
 
-There could be several reasons why the cross-correlation between 2 phase waveforms is not considered for computing the statistics: the correlation coefficient is below the configured threshold (see ``crossCorrelation.x-phase.minCCCoef``), the waveform data for one or both the phases is not available and in general when the it is not possible to perform the cross-correlation. It is possible to know the exact reason by looking at the logs at debug level (--verbosity=4).
+Accessing catalog waveforms requires a RecordStream connected to a historical archive, such as an FDSN service or an SDS archive.
+
+Example accessing waveforms from an FDSN service::
+
+    scrtdd -I fdsnws://service.iris.edu:80/fdsnws/dataselect/1/query [...options...]
+
+Example accessing waveforms from an SDS archive::
+
+    scrtdd -I sdsarchive:///path/to/archive [...options...]
+
+
+Waveform Data Caching
+---------------------
+
+As downloading waveforms can be time-consuming, ``scrtdd`` can cache reference catalog waveforms to disk once they have been fetched. Real-time event waveforms are used immediately and are not cached. Cache behavior and storage locations can be controlled via configuration options.
+
+Waveforms are loaded "lazily," only when required for cross-correlation (e.g., when a phase pair is processed). You can manually force ``scrtdd`` to pre-download all reference catalog waveforms for a profile using the following command::
+
+    scrtdd --load-profile-wf --profile myprofile  \
+           --verbosity=3 --console=1  [-I RecordStream] [db options]
 
 
 .. _reusing-xcorr-label:
 
 ---------------------------------
-Reusing cross-correlation results
+Reusing Cross-Correlation Results
 ---------------------------------
 
-It is possible to reuse the cross-correlation results to saves processing time. This of course makes sense if the cross-correlation settings are kept unchanged and we are interested in experimenting with other settings. Both the ``--eval-xcorr`` and ``--reloc-catalog`` options produce a ``xcorr.csv`` file at the end of their execution. The file contains the computed cross-correlation results and can be given back to rtDD via the command line option ``--xcorr-cache``. With that option a cross-correlation is skipped if a result is found in the file. The ``xcorr.csv`` file in output will always contain all the results given in input via ``--xcorr-cache`` option and eventually additional results (for example if the new settings consider different event/phase pairs). A typical use case is to evaluate the relocation results at varying correlation coefficient threshold.
+To save processing time, cross-correlation results can be reused. This is particularly valuable when experimenting with relocation settings while keeping cross-correlation parameters constant. When the ``--dump-diagnostics`` option is used, the relocation process generates a ``xcorr.csv`` file. This file contains computed cross-correlation lags and can be passed back to ``scrtdd`` using the ``--xcorr-cache`` option.
 
---------------------
-Waveforms inspection
---------------------
+When this option is active, ``scrtdd`` skips cross-correlation for any event pair already present in the cache file. A common use case is evaluating relocation quality across different correlation coefficient thresholds without recomputing waveform cross-correlations.
 
-The ``--dump-wf`` option will make rtDD dump to disk the waveforms of the catalog passed as argument. Those files are in miniseed format and can be viewed with an external tool (e.g. ``scrttv waveform.mseed``) or obspy). The waveforms are written to disk after the filtering and resampling have been applied::
+-------------------
+Waveform Inspection
+-------------------
 
-    scrtdd --help
-      --dump-wf arg                         Dump processed waveforms of the catalog
-                                            passed as argument in the current 
-                                            working directory.The catalog can be a 
-                                            single file (containing seiscomp origin
-                                            ids) or a file triplet 
-                                            (station.csv,event.csv,phase.csv). Use 
-                                            in combination with --profile.
+The ``--dump-wf`` option instructs ``scrtdd`` to dump the processed waveforms of the specified catalog to disk. To avoid dumping the entire catalog, you can edit the input ``event.csv`` file to include only a small subset of events. Waveforms are saved in miniSEED format and can be inspected using external tools like ``scrttv`` or ObsPy. These files reflect the waveforms after filtering and resampling have been applied.
 
+Example::
 
-e.g.::
-
-    scrtdd --dump-wf station.csv,event.csv,phase.csv --profile myProfile --verbosity=3 --console=1
-    
-    17:59:28 [info] Writing ev1.8D.RAW2..HHT.Sg.manual.mseed
-    17:59:28 [info] Writing ev1.CH.SAYF2..HGT.Sg.manual.mseed
-    17:59:28 [info] Writing ev1.CH.SENIN..HHT.Sg.manual.mseed
-    17:59:28 [info] Writing ev1.XY.LEO01..HHT.Sg.manual.mseed
-    17:59:28 [info] Writing ev1.XY.LEO01..HHZ.Sg.manual.mseed
-    17:59:28 [info] Writing ev1.FR.OGSI.00.HHZ.Pg.manual.mseed
-    17:59:28 [info] Writing ev1.GU.REMY..HHZ.Pg.manual.mseed
-    17:59:28 [info] Writing ev1.CH.FIESA..HHZ.Pg.manual.mseed
-    17:59:28 [info] Writing ev1.CH.TORNY..HHZ.Pg.manual.mseed
-    17:59:28 [info] Writing ev1.8D.AMIDI..EHZ.Pg.manual.mseed
-    17:59:28 [info] Writing ev2.CH.DIX..HHT.Sg.manual.mseed
-    17:59:28 [info] Writing ev2.8D.RAW2..HHZ.Pg.manual.mseed
-    17:59:28 [info] Writing ev2.CH.SAYF2..HGZ.Pg.manual.mseed
-    17:59:28 [info] Writing ev2.CH.STSW2..HGZ.Pg.manual.mseed
-    [...]
+    scrtdd --dump-wf station.csv,event.csv,phase.csv --profile myProfile \
+           --verbosity=3 --console=1  [-I RecordStream] [db options]
 

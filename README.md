@@ -30,11 +30,6 @@ rtDD is a [SeisComP](<https://github.com/SeisComP>) extension module that implem
 Double-Difference event relocation both in Real-Time, one event at the time, and classic
 offline mode, where an earthquake catalog is relocated as a whole.
 
-rtDD contains a C++ library for double-difference inversion which doesn't depend on
-SeisComP and can be used in other systems. See for example [pyrtdd](https://github.com/swiss-seismological-service/pyrtdd).
-
-rtDD acknowledges support from [Geothermica](http://www.geothermica.eu/)
-
 ## Documentation
 
 You can find the online documentation at https://docs.gempa.de/scrtdd/current/

@@ -3,11 +3,20 @@
 Introduction
 ============
 
-rtDD has two mode of operations: :ref:`multi-event <multi-event-label>` mode and :ref:`single-event <single-event-label>` mode. The Multi-Event mode can relocate catalogs of events using the double-difference method. That is not a real-time mode and it can be used to generate data for external processing, or to :ref:`periodically generate <continuous-label>` a catalog snapshot, which can become the reference catalog of the single event-mode, where the events are relocated one at a time as they happen in real-time. The Multi-Event mode includes an interesting option where the events are relocated considering both :ref:`their absolute and relative locations <inclusion-tt-residual-label>`.
+rtDD has two modes of operation: :ref:`multi-event <multi-event-label>` and :ref:`single-event <single-event-label>`.
 
-The methods developed in rtDD are based on the paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser and "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Waldhauser & Ellsworth.
+The **Multi-Event mode** relocates catalogs of events using the double-difference method. This is an offline mode that can be used to generate high-resolution catalogs for external analysis or to :ref:`periodically generate <continuous-label>` a catalog snapshot. Such snapshots serve as reference catalogs for the Single-Event mode. 
 
-rtDD also supports NonLinLoc by Anthony Lomax grid file format alongside the travel time formats natively supported by SeisComP (LOCSAT and libtau). See :ref:`ttt-label`.
+The **Single-Event mode** relocates events one by one as they occur in real-time, using a reference catalog.
 
-The double-difference equation system solver uses LSQR by Chris Paige, Michael Saunders and LSMR by David Fong, Michael Saunders algorithms.
+The methods in rtDD are based on these papers:
+
+* "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California" by Felix Waldhauser
+* "A Double-Difference Earthquake Location Algorithm: Method and Application to the Northern Hayward Fault, California" by Waldhauser & Ellsworth
+
+The original methodology from the papers has been extended to allow event relocation considering both :ref:`their absolute and relative locations <inclusion-tt-residual-label>`.
+
+For travel time calculations, rtDD supports the NonLinLoc grid file format (by Anthony Lomax) in addition to the native SeisComP travel time formats (e.g., LOCSAT and libtau). NLL grids are available as a general SeisComP Travel Time plugin for use by any module. See :ref:`ttt-label` for more details.
+
+The double-difference equation system is solved using the LSQR (by Chris Paige and Michael Saunders) and LSMR (by David Fong and Michael Saunders) algorithms.
 

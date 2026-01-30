@@ -29,6 +29,7 @@ echo "Relocating events..."
 $seiscomp_exec scrtdd -d $CATALOG_DB -I $RECORD_STREAM \
        --reloc-catalog catalog-ids.csv \
        --profile myProfile \
+       --dump-diagnostics \
        --verbosity=3 --log-file scrtdd.log \
        --xmlout > relocated.xml
 

@@ -1,59 +1,63 @@
 .. _ttt-label:
 
-Custom velocity models
+Custom Velocity Models
 ======================
 
-ConstVel
----------
+``scrtdd`` supports all travel time table formats provided by SeisComP. Additionally, it includes a plugin, ``NLLGrid``, which adds support for NonLinLoc Grid files.
 
-For very local seismicity it is possible to use a simple homogeneous model with constant P and S velocities. That can be selected via 'ConstVel' tableType and then specifying the P/S velocities in tableModel.
+You can configure the velocity model in the ``global`` configuration and select the appropriate format and model within your ``scrtdd`` profile.
 
-.. image:: media/constvel-ttt.png
+.. image:: media/ttt.png
    :width: 800
 
+``homogeneous`` is suitable for very local seismicity as it supports 3D geometry, accounting for station elevation and negative event depth.
 
-NonLinLoc
----------
+``LOCSAT`` supports 1D velocity models and arbitrary phase types. However, it does not account for station elevation or negative event depths, making it unsuitable for local seismicity. ``libtau`` is similar to ``LOCSAT`` but does not support custom velocity models.
 
-Please refer to `NonLinLoc by Anthony Lomax <http://alomax.free.fr/nlloc/>`_ documentation on how to generate grid files. Once you have them you can configure the path in the travel time table options.
+``NLLGrid`` supports 1D and 3D velocity models as well as 3D geometry (station elevation and negative event depth). However, it is limited to first-arriving phases.
 
-The following geographic transformations (TRANS statement) are currently supported: GLOBAL 2D, SIMPLE 2D/3D, SDS 2D/3D, LAMBERT 2D/3D, TRANS_MERC 2D/3D, AZIMUTHAL_EQUIDIST 2D/3D. Also, both float and double values are supported as well as byte swapping.
 
-Please note that ``scrtdd`` doesn't load the grid files into memory in full and that allows to work with grids of unlimited size. Also, the grid values are interpolated, which allows to achive accurate results even with coarse grids, although more dense grids would certainly allow more precise results.
+NLLGrid
+-------
 
-.. image:: media/nll-ttt.png
-   :width: 800
+Please refer to the `NonLinLoc documentation <http://alomax.free.fr/nlloc/>`_ by Anthony Lomax for instructions on generating grid files. Once generated, you can configure the ``NLLGrid`` plugin to use them in any SeisComP module.
+
+To enable the plugin, add ``tttnll`` to the list of loaded plugins in ``global.cfg`` or your module configuration.
+
+Using ``scconfig``, navigate to ``global -> ttt`` and add a new TTT profile named ``NLLGrid``.
+
+You can now register ``NLLGrid`` tables (e.g., ``myModel``) and use them in any SeisComP module that supports the SeisComP TTT interface.
+
+The plugin operates as follows: there is no direct mapping between station identifiers (network, station, location) and grid file names (unlike the NonLinLoc locator plugin). Instead, the plugin identifies a grid file that matches the station location defined in the inventory.
+
+This behavior aligns with the standard SeisComP TTT interface. Modules query travel times by providing event coordinates (latitude, longitude, depth) and station coordinates (latitude, longitude, elevation). The grid header contains the station location for which the grid was computed, and the ``NLLGrid`` plugin selects the grid file whose header coordinates correspond to the requested station location.
+
+Since grid headers store station locations in grid-relative coordinates, a projection is required to convert them to geographic coordinates (latitude/longitude), which may introduce small numerical errors. To account for this, the ``NLLGrid`` plugin allows for a configurable tolerance (``maxSearchDistance``) between the inventory station location and the projected grid location.
 
 
 LOCSAT
 ------
 
-In the rtDD configuration it is possible to select any travel time table supported by SeisComP; this means the default SeisComP travel time tables and any other tables installed by the user. Although, this is a general SeisComP topic and we suggest to refer to the official SeisComP documentation, here is a quick recipe for generating your own travel time table from a custom velocity model.
+You can generate custom travel time tables in ``LOCSAT`` format using the `TauP toolkit <https://www.seis.sc.edu/taup>`_. Please refer to the official TauP documentation for the most up-to-date information. The following is a brief guide.
 
-Currently SeisComP supports ``LOCSAT`` and ``libtau`` travel time table formats by default (1D velocity model). It is possible to generate a custom travel time table in ``LOCSAT`` format using the `TauP toolkit <https://www.seis.sc.edu/taup>`_. Please refer to the official TauP documentation for up-to-date information. Here we present a quick tutorial that might become outdated.
+First, ensure you have a velocity model in a format supported by ``TauP`` (``.tvel`` or ``.nd``). The toolkit includes standard models that can serve as references. SeisComP also provides ``iasp91`` and ``ak135`` models in ``seiscomp_installation/share/ttt/``.
 
-First step is to have a velocity model in one of the formats supported by ``TauP``, that is `.tvel` or `.nd` format. The tool comes with some standards models, you can have a look at them as a reference or you can view the SeisComP iasp91 or ak135 velocity models in `seiscomp_installation/share/ttt/`.
+Typically, users define specific shallow layers and inherit the deeper structure from an existing model (e.g., ``iasp91``). To do this, create a file (e.g., ``mymodel.tvel``) defining the shallow layers and merge it with a standard model::
 
-Normally a user needs to configure a couple of shallow layers and inherit the deeper ones from an existing model, e.g. iasp91. To do so a file mymodel.tvel (or .nd) should be created with the shallow layers and then merged with a standard model like this:
+    ./TauP-installation/bin/taup velmerge -mod iasp91 -tvelmerge mymodel.tvel
 
-    ./TauP-installation/bin/taup velmerge -mod iasp91 -tvelmerge mymode.tvel
+This command generates the ``iasp91_mymodel.nd`` file used in subsequent steps.
 
-That generates ``iasp91_mymodel.nd`` file that will be used by the subsequent TauP commands.
-
-Before generating the travel time tables we need to decide the resolution (range of depths and distances) of the travel time tables. TauP uses a default range of depths and distances that is not very dense. So create a header file containing the desired depths and distances ranges.
+Next, define the resolution (depth and distance ranges) for the travel time tables. TauP's default sampling is often too coarse. Create a header file specifying the desired sampling points.
 
 E.g. file ``mymodel.header`` ::
 
-    n # P,S very dense travel-time table sampling for mymodel
-    50     # number of depth samples
-       0.00   0.05   0.10   0.15   0.20   0.25   0.30   0.35   0.40   0.45
-       0.50   0.60   0.70   0.80   0.90   1.00   1.50   2.00   2.50   3.00
-       3.50   4.00   4.50   5.00   6.00   7.00   8.00   9.00  10.00  12.00
-      14.00  16.00  18.00  20.00  25.00  30.00  35.00  40.00  45.00  50.00
-      60.00  75.00 100.00 150.00 200.00 300.00 400.00 500.00 600.00 800.00
+        n # P,S travel-time table sampling for mymodel
+    20     # number of depth samples
+       0.00   2.50   5.00   7.50  10.00  15.00  20.00  25.00  30.00  40.00
+      50.00  75.00 100.00 150.00 200.00 300.00 400.00 500.00 600.00 800.00
     140    # number of distances
-       0.00  0.001  0.002  0.004  0.006  0.008  0.010  0.012  0.014  0.016
-       0.02   0.05   0.10   0.15   0.20   0.25   0.30   0.35   0.40   0.45
+       0.00   0.05   0.10   0.15   0.20   0.25   0.30   0.35   0.40   0.45
        0.50   0.60   0.70   0.80   0.90   1.00   1.10   1.20   1.30   1.40
        1.50   1.60   1.70   1.80   1.90   2.00   2.50   3.00   4.00   5.00
        5.50   6.00   6.50   7.00   7.50   8.00   8.50   9.00   9.50  10.00
@@ -65,10 +69,11 @@ E.g. file ``mymodel.header`` ::
       61.00  62.00  63.00  64.00  65.00  66.00  67.00  68.00  69.00  70.00
       71.00  72.00  73.00  74.00  75.00  76.00  77.00  78.00  79.00  80.00
       81.00  82.00  83.00  84.00  85.00  86.00  87.00  88.00  89.00  90.00
-      95.00 100.00 105.00 110.00 115.00 120.00 125.00 130.00 135.00 140.00
+      91.00  92.00  93.00  94.00  95.00  96.00  97.00  98.00  99.00 100.00
+     102.00 104.00 106.00 108.00 110.00 112.00 114.00 116.00 118.00 120.00
 
 
-Finally, we can generate the travel time tables::
+Finally, generate the travel time tables using the following commands::
 
     ./TauP-installation/bin/taup_table -mod iasp91_mymodel -ph ttp+ -locsat -header mymodel.header -o mymodel.P
     ./TauP-installation/bin/taup_table -mod iasp91_mymodel -ph tts+ -locsat -header mymodel.header -o mymodel.S
@@ -83,10 +88,6 @@ Finally, we can generate the travel time tables::
     ./TauP-installation/bin/taup_table -mod iasp91_mymodel -ph Sn   -locsat -header mymodel.header -o mymodel.Sn
     ./TauP-installation/bin/taup_table -mod iasp91_mymodel -ph sP   -locsat -header mymodel.header -o mymodel.sP
 
-Last step is to copy the travel time tables to the SeisComP installation folder so that all modules can see the new model::
+The final step is to copy the travel time tables to the SeisComP installation folder so that all modules can access the new model::
 
     cp mymodel* seiscomp_installation/share/locsat/tables/
-
-.. image:: media/locsat-ttt.png
-   :align: center
-

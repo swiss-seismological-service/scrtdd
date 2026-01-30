@@ -1,63 +1,49 @@
 .. _multi-event-label:
 
-Multi-event relocation
+Multi-Event Relocation
 ======================
 
-Multi-event relocation is used to relocate an event catalog in offline mode.
+Multi-event relocation is used to relocate an event catalog in offline mode. There is no interaction with running SeisComP modules, and nothing is written to the database, although results can optionally be imported later.
+
 
 .. figure:: media/multiEventRelocationSyntDataExample.png
    :width: 800
    
-   Test with synthetic data from the unit testing folder. Events from 4 clusters have their locations and times altered - using several normal distributions with non-zero mean - to simulate location/time errors. The multi-event double-difference inversion is then applied on those altered event clusters and their original locations and times are properly recovered. It is interesting to note that the relocation is performed on the 4 clusters together, in a single inversion.
+   Relocation test using synthetic data. Events from four clusters had their locations and times altered to simulate errors. The multi-event double-difference inversion was then applied, successfully recovering the original locations and times.
 
 -------
 Summary
 -------
 
-* Use ``sclistorg`` command to select an event catalog from a SeisComP database.
-* Create a rtDD profile (e.g. use ``scconfig`` GUI) which defines the settings for the relocation. The default values provided by rtDD are meant to be a good starting choice, so there is no need to tweak every parameter. However, it is a good choice to configure a custom velocity model.
-* Use ``scrtdd --reloc-catalog`` option to relocate the events.
-* Use the relocation output (``reloc-event.csv``, ``reloc-phase.csv`` and ``reloc-stations.csv`` or the SCML file ``relocated.xml``) as you please
+* Create a ``scrtdd`` profile (e.g., using the ``scconfig`` GUI) to define relocation settings.
+* Use the ``sclistorg`` command to select an event catalog from a SeisComP database, or create an input catalog manually (``event.csv``, ``phase.csv``, and ``stations.csv``).
+* Use the ``scrtdd --reloc-catalog`` option to relocate the events.
+* Utilize the relocation output (``reloc-event.csv``, ``reloc-phase.csv``, and ``reloc-stations.csv``, or the SCML file ``relocated.xml``) as needed.
 
-As an example you may want to have a look at ``multi-event.sh`` script in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_.
-
-To relocate events not stored in a SeisComP database, refer to :ref:`multi-event-external-data-label`.
-
+For a practical example, refer to the ``multi-event.sh`` script in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_.
 
 ---------------
-Getting started
+Getting Started
 ---------------
 
-To relocate a catalog (multi-event) three pieces of information need to be provided: events data, waveform data and inventory information.
+Create a ``scrtdd`` profile (e.g., via ``scconfig``) to define the relocation settings. While the default configuration provides a good starting point, you may need to iterate to find optimal settings for your specific dataset. You must also configure a velocity model (see :ref:`ttt-label`).
 
-Events data can be provided in three ways:
+.. image:: media/configOverview.png
+   :width: 800
 
-* A flat file triple ``station.csv,event.csv,phase.csv``, which is explained later.
-* A file containing the origin ids of events stored in a SeisComP database. In this case an utility ``sclistorg`` might come in handy to fetch those ids. ``sclistorg`` is distributed with rtDD and it is explained later.
-* A file in `SCML format <https://www.seiscomp.de/doc/base/glossary.html#term-SCML>`_, which is a flavor of QuakeML. It is possible to convert between formats with `sccnv command <https://www.seiscomp.de/doc/apps/sccnv.html>`_ .
+The input catalog for relocation can be provided in three formats:
 
-Waveform data can to be provided in several formats, see :ref:`waveform-label` for more information. The first time you try to relocate a catalog downloading the waveforms might takes some time, but then they are stored in a disk cache that avoids further downloading. Also, If the waveforms are not available (e.g. RecordStream not configured), then rtDD will proceed with the relocation anyway, but without refining the differential times via cross-correlation. 
+* A list of origin IDs stored in a SeisComP database.
+* A triplet of CSV files: ``station.csv``, ``event.csv``, and ``phase.csv``.
+* A file in `SCML format <https://www.seiscomp.de/doc/base/glossary.html#term-SCML>`_.
 
-`Inventory information <https://www.seiscomp.de/doc/base/concepts/inventory.html>`_ can be stored in a SeisComP database or provided via command line (``--inventory-db inventory.xml``). In the latter case the inventory has be in SeisComP own station meta-data XML format called inventory ML (the SeisComP documentation provide information on how to convert from standard formats like FDSN StationXML or dataless SEED). When the events are provided as station.csv,event.csv,phase.csv file triplet, the inventory can be passed as an empty inventory ML.
 
-The multi-event relocation itself consists in running the command ``scrtdd --reloc-catalog [options]`` with appropirate options, discussed later.
-
-The output will be another catalog containing the relocated origins. Depending on the command line options this catalog is stored in plain text files or SCML format (which can be converted to QuakeML using `sccnv command <https://www.seiscomp.de/doc/apps/sccnv.html>`_ ).
-
-In multi-event mode there is no interaction with the running SeisComP modules nor with the database. It is a safe operation and allows for easy experimentation. However, the SCML output can eventually be imported into the SeisComP database if required. That is optional.
-
-----------------------------
-Formats of the Event Catalog
-----------------------------
-
-The catalog of the events to be relocated must be stored in a format that rtDD understands.
-
-Event Catalog: list of origin IDs
+Event Catalog: List of Origin IDs
 ---------------------------------
 
-One of the compatible formats is a text file containing the origin IDs. rtDD will use the origin IDs in the file to fetch all necessary information from the SeisComP database.
+This format consists of a text file containing the SeisComP origin IDs to be relocated. ``scrtdd`` uses these IDs to fetch all necessary metadata from the SeisComP database.
 
-E.g. *file myCatalog.csv* (a mandatory column named ``origin`` is required, but other column might be present too).::
+Example *myCatalog.csv* (a mandatory column named ``origin`` is required; other columns are ignored)::
 
     origin
     Origin/20181214107387.056851.253104
@@ -65,61 +51,52 @@ E.g. *file myCatalog.csv* (a mandatory column named ``origin`` is required, but 
     Origin/20190121103332.075405.6234534
     Origin/20190223103327.031726.346363
     [...]
- 
-
-There is a tool that is installed alongside rtDD, called ``sclistorg``, that is useful for listing origin ids satisfying certain criteria, such as time period, geographic area, author, agency and so on. The output of sclistorg can then be used as the input Event Catalog of rtDD. E.g.::
-
-    # list the preferred origin ids for all events between 2018-11-27 and 2018-12-14
-    sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --org-type preferred [db options]
-
-    # select also the event type and the accepted agencies
-    sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --org-type preferred \
-              --ev-type "earthquake,quarry blast" --inc-agency Agency1,Agency2 [db options]
-
-    # select an area of interest, a rectangle minLat,minLon,maxLat,maxLon
-    sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" --org-type preferred \
-              --area 46.0,8.5,46.5,8.7 [db options]
-
-See ``sclistorg --help`` for a full list of options.::
-
-    Events:
-      --begin arg                   specify the lower bound of the time interval
-      --end arg                     specify the upper bound of the time interval
-      --modified-after arg          select events modified after the specified time
-      --ev-type arg                 include only events whose type is one of the
-                                    values provided (comma separated list)
-      --simple                      Print only origin ids
-
-    Origins:
-      --org-type arg                preferred, last or first (default is preferred)
-      --manual-only                 Include only manual origins
-      --auto-only                   Inlude only automatic origins
-      --inc-author arg              include only origins whose author is one of the
-                                    values provided (comma separated list)
-      --excl-author arg             exclude origins whose author is one of the
-                                    values provided (comma separated list)
-      --inc-method arg              include only origins whose methodID is one of
-                                    the values provided (comma separated list)
-      --excl-method arg             exclue origins whose methodID is one of the
-                                    values provided (comma separated list)
-      --inc-agency arg              include only origins whose agencyID is one of
-                                    the values provided (comma separated list)
-      --excl-agency arg             exclude origins whose agencyID is one of the
-                                    values provided (comma separated list)
-      --area arg                    Include only origins in the rectangular area
-                                    provided: MinLat,MinLon,MaxLat,MaxLon
 
 
-Event Catalog: plain csv files
+The ``sclistorg`` tool, installed alongside ``scrtdd``, is used to list origin IDs satisfying specific criteria such as time period, geographic area, author, or agency. See ``sclistorg --help`` for a full list of options::
+
+    # List preferred origin IDs for all events between 2018-11-27 and 2018-12-14
+    sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" \
+              --org-type preferred [db options]
+
+    # Filter by event type and specific agencies
+    sclistorg --begin "2018-11-27 00:00:00" --end "2018-12-14 00:00:00" \
+              --org-type preferred --ev-type "earthquake,quarry blast" \
+              --inc-agency Agency1,Agency2 [db options] > myCatalog.csv
+
+``sclistorg`` output  (in the example ``myCatalog.csv``) can be used directly as the input catalog for ``scrtdd`` to relocate::
+
+    scrtdd --reloc-catalog myCatalog.csv --profile myProfile \
+           --dump-diagnostics --verbosity=3 --console=1 [db options]
+
+The output consists of three files (``reloc-event.csv``, ``reloc-phase.csv``, and ``reloc-stations.csv``) containing the relocated catalog. The ``--xmlout`` option can be used to generate a SeisComP XML file in the standard output containing the relocated origins in XML format.
+
+Using ``--dump-diagnostics`` generates a folder containing diagnostic information (``initial/final-double-difference.csv``), cluster details (``pair.csv``) and cross-correlation results (``xcorr.csv``). ``pair.csv`` can be reused in subsequent relocations using the ``--clusters`` to skip the clustering phase. Similarly, ``xcorr.csv`` can be reused with the ``--xcorr`` option to skip the cross-correlation on already processed pais.
+
+Note that the output CSV files can serve as input for another relocation. For example, an initial relocation might use the ellipsoid algorithm and relaxed minimum station-to-event-pair-distance ratio constraint to accommodate large errors in initial locations, followed by a second pass using a nearest-neighbor approach and cross-correlation for higher precision.
+
+Please note that a database connection is required for both ``scrtdd`` and ``sclistorg``. This can be configured in ``global.cfg`` or passed via the command line using ``-d mysql://user:password@host/seiscompDbName``.
+
+
+Event Catalog: Plain CSV Files
 ------------------------------
 
-There is another format we can use to store a catalog. This format contains the full origins information, not only the origin ids. So, once the files are generated, there is no need to access the database anymore; so this format is quite fast to load. We can instruct rtDD to generate such a format starting from a list of origin IDs::
+This format contains complete origin information, eliminating the need for database access during relocation. These files can be generated from an existing list of origin IDs::
 
     scrtdd --dump-catalog myCatalog.csv --verbosity=3 --console=1 [db options]
 
-The above command will generate three files (*event.csv*, *phase.csv* and *stations.csv*) which contain all the information needed by rtDD. 
+This command generates ``event.csv``, ``phase.csv``, and ``stations.csv``. This format also allows for the relocation of events not currently stored in a SeisComP database.
 
-E.g. *file event.csv* ::
+To relocate using the CSV triplet::
+
+    scrtdd --reloc-catalog station.csv,event.csv,phase.csv --profile myProfile \
+           --dump-diagnostics --verbosity=3 --console=1 [db options for cross-correlation]
+
+While this format does not require a database for origin information, a database or inventory file must be provided if cross-correlation is enabled to retrieve stream orientation (e.g., vertical vs. horizontal components).
+
+File structure details:
+
+*event.csv*::
 
     id,isotime,latitude,longitude,depth,magnitude
     1,2019-11-05T00:54:21.256705Z,46.318264,7.365509,4.7881,3.32
@@ -127,13 +104,10 @@ E.g. *file event.csv* ::
     3,2019-11-05T01:06:27.140654Z,46.325626,7.356148,3.9756,0.84
     4,2019-11-05T01:12:25.753816Z,46.325012,7.353627,3.7090,0.39
 
-Notes:
-
 * ``depth`` is in km.
 * ``magnitude`` column is currently not used, omit the column if the values are unknown.
 
-
-E.g. *file station.csv*::
+*station.csv*::
 
     latitude,longitude,elevation,networkCode,stationCode,locationCode
     45.980278,7.670195,3463.0,4D,MH36,A
@@ -144,7 +118,7 @@ E.g. *file station.csv*::
 
 * ``elevation`` is in meter
 
-E.g. *file phase.csv* ::
+*phase.csv*::
 
     eventId,isotime,lowerUncertainty,upperUncertainty,type,networkCode,stationCode,locationCode,channelCode
     1,2019-11-05T00:54:22.64478Z,0.025,0.025,Pg,8D,RAW2,,HHZ
@@ -157,96 +131,18 @@ E.g. *file phase.csv* ::
     2,2019-11-05T01:03:09.12808Z,0.050,0.050,P,CH,STSW2,,HG1
     2,2019-11-05T01:03:09.409276Z,0.025,0.025,Sg,CH,SENIN,,HHT
 
-Notes:
+* ``lowerUncertainty`` and ``upperUncertainty`` are in seconds and optional and used only when ``usePickUncertainties`` is enabled in the solver. Omit these columns, or leave blank, if the uncertainties are unknown.
+* ``channelCode``: used only in the cross-correlation and specifies the waveform to fetch for a phase.
 
-* ``type``: mutiple picks are allowed for the same event-station (P,Pn,P1,Pg,S,Sn,S1,Sg,etc), but they must have a different ``type``. However only one P and one S will be used per each event-station (see ``profile.myProfile.P|S-Phases``).
-* ``lowerUncertainty`` and ``upperUncertainty`` are in seconds and optional. Omit these columns if the uncertainties are unknown.
-* ``channelCode``: used only in the cross-correlation and specifies the waveform to fetch for a station.
+Event Catalog: XML/SCML File
+----------------------------
 
-With this format it is possible to relocate events not stored in a SeisComP database, since all the required information is contained in those files.
+This is a variation of the origin ID relocation where the data is read from an ``events.xml`` file instead of a database::
 
-Finally, the events to be relocated can also be stored in SeisComP XML format. Please refer to the official SeisComP  documentation of ``scxmldump``, a very convenient tool for dumping events to XML file.
-
--------------------------------
-Relocating the candidate events
--------------------------------
-
-Before performing the relocation we need to create a new profile in the rtDD configuration where it is possible to select the values for the relocation steps: double-difference system creation, cross-correlation and solver.
-
-.. image:: media/configOverview.png
-   :width: 800
-
-The default values provided by rtDD are meant to be a good starting choice, so there is no need to tweak every parameter. However, it is a good choice to configure a custom velocity model (``solver.travelTimeTable``). The cross-correlation parameters are described in a dedicated paragraph. Finally, when the configuration is ready, we can relocate the catalog with the following commands...
-
-Relocating a file containing a list of origin ids
--------------------------------------------------
-
-::
-
-    scrtdd --reloc-catalog myCatalog.csv --profile myProfile \
-           --verbosity=3 --console=1 [db options] 
-
-E.g. *file myCatalog.csv*::
-
-    origin
-    Origin/20181214107387.056851.253104
-    Origin/20180053105627.031726.697885
-    [...]
-
-
-Relocating the station.csv,event.csv,phase.csv triplet
-------------------------------------------------------
-
-::
-
-    # station.csv,event.csv,phase.csv are generated with `scrtdd --dump-catalog`
-    scrtdd --reloc-catalog station.csv,event.csv,phase.csv --profile myProfile \
-           --verbosity=3 --console=1 [db options] 
-
-Relocating a XML/SCML file
---------------------------
-
-Events are stored in a `SCML format <https://www.seiscomp.de/doc/base/glossary.html#term-SCML>`_. It is possible to convert between different formats with `sccnv command <https://www.seiscomp.de/doc/apps/sccnv.html>`_::
-
-    # events.xml contais the events data (scxmldump command)
+    # events.xml contais the origins data
     # myCatalog.csv contains the origin ids inside events.xml we want relocate
     scrtdd --reloc-catalog myCatalog.csv --ep events.xml --profile myProfile \
-           --verbosity=3 --console=1 [db options] 
-
-
-.. _multi-event-external-data-label:
-
-Relocating external data
-------------------------
-
-The easiest way to relocate external (non SeisComP) data is to provide the event catalog in the ``station.csv,event.csv,phase.csv`` file triplet format explained above. Alternatively it can be converted from a standard QuakeML to SeisComP ML using `sccnv command <https://www.seiscomp.de/doc/apps/sccnv.html>`_.
-The waveform data can to be provided via ``-I RecordStream`` command line option, which support several formats (see :ref:`waveform-label` for more details).
-The inventory can be provided via command line ``--inventory-db inventory.xml``. The inventory has be in SeisComP own format called inventory ML, (the SeisComP documentation provide information on how to convert from standard formats like FDSN StationXML or dataless SEED). When the events are provided as station.csv,event.csv,phase.csv file triplet, the inventory can be passed as an empty inventory ML.
-
-Relocating a catalog in **"station.csv,event.csv,phase.csv"** file triplet format. In this example the data is stored in sds miniseed archive::
-
-    scrtdd --reloc-catalog station.csv,event.csv,phase.csv --profile myProfile \
-           -I sdsarchive:///home/sysop/seiscomp/var/lib/archive \
-           --inventory-db inventory.xml \
-           --verbosity=3 --console=1
-
-The inventory can optionally be empty, which is not an issue if the cross-correlation is not enabled. However when the cross-correlation is used there is a restriction on the selection of the componets to be used for P and S (`crossCorrelation.p-phase.components` and `crossCorrelation.s-phase.components`): with an empty inventory rtDD doesn't know the orientation of the sensor components and for this reason the special waveform transformations (rotation to the Transversal/Radial component, L2 norm of the horizontal components) become unavailable and should not be selected. Only real componets should be selected instead (e.g. Z, E, N, 1, 2, 3).
-
-This is an **empty inventory**::
-
-    <?xml version="1.0" encoding="UTF-8"?>
-    <seiscomp xmlns="http://geofon.gfz-potsdam.de/ns/seiscomp3-schema/0.11" version="0.11">
-      <Inventory>
-      </Inventory>
-    </seiscomp>
-
-Relocating a catalog in **SCML format** (the inventory is always required). The catalog and inventory were downloaded from FDSN and converted to SeisComP ML. The waveform data is fetched from FDSN::
-
-    # myCatalog.csv contains the origin ids inside events.xml we want relocate
-    scrtdd --reloc-catalog myCatalog.csv --ep events.xml --profile myProfile \
-           -I fdsnws://service.iris.edu:80/fdsnws/dataselect/1/query  \
-           --inventory-db inventory.xml \
-           --verbosity=3 --console=1
+           --dump-diagnostics --verbosity=3 --console=1 [db options]
 
 
 .. _multi-event-relocation-process-label:
@@ -255,35 +151,42 @@ Relocating a catalog in **SCML format** (the inventory is always required). The 
 Relocation Process
 ------------------
 
-From a high level view the Multi-Event relocation performed by rtDD consists of few sequential steps:
+From a high-level view, multi-event relocation in rtDD consists of several sequential steps:
 
-* clustering of the input events,  where independent clusters are identified and separated for the subsequent processing steps
-* differential time refinement via cross-correlation (:ref:`xcorr-event-label`).
-* the double-difference system creation
-* the double-difference system inversion
+* **Clustering:** Independent event clusters are identified. Also, for each cluster, the phases to be used for each even pair are selected. The output of this phase is a double-difference system per cluster.
+* **Differential time refinement:** Differential times are improved via cross-correlation (:ref:`xcorr-event-label`).
+* **Inversion:** The double-difference system is solved to find the new hypocenter locations.
 
-The clustering algorithm defines which event is connect to which other using configurable settings such as maximum distance and the minimum number of phases at common stations. Events are part of the same cluster if they are directly connected through a phase at a common station of if there is a path of linked events between them. If that is not the case, the event belongs to a separate clusters. Each cluster is then relocated independently. 
+Clustering
+----------
 
-rtDD relocates each cluster by building and solving a double-difference system that includes every event pair and their phases selected during the clustering algorithm. We recall from the Waldhauser & Ellsworth's paper that the double-difference system is defined in matrix form as:
+The clustering algorithm defines which events are connected to each other using configurable settings such as maximum distance and the minimum number of phases at common stations. Events belong to the same cluster if they are directly connected by common phase picks or linked through a chain of connections. Each cluster is then relocated independently.
 
-.. math:: WGm = Wd
-   :label: dd-system-label
+rtDD builds and solves a double-difference system for each cluster that includes every event pair and their phases selected during the clustering stage.
 
-where **G** defines a matrix of size M x 4N (M, number of double-difference equations; N, number of events) containing the partial derivatives, **d** is the data vector of size M containing the double-differences, **m** is a vector of length 4N, :math:`[\Delta x, \Delta y, \Delta z, \Delta \tau]^T`, containing the changes in hypocentral parameters we wish to determine, and *W* is a diagonal matrix of size M x M to weight each equation.
+Events that are not part of any cluster will not be relocated.
 
-To build the system, rtDD creates an equation for each phase k a pair of events i and j have at a common station. This is done for every event pair in a cluster. The equation is defined as:
+
+Double-Difference system
+------------------------
+
+Each event in a cluster that is directly connected to some events contributes an equation to the system for every phase that the event shares at a common station within its pairs.
+
+Indirectly connected events have their relative locations constrained by the existing chain of connections, but they do not have dedicated equations in the system.
+
+Thus, rtDD creates an equation for each phase k a pair of events i and j have at a common station. This is done for every event pair in a cluster. The equation is defined as:
 
 .. math:: \frac{\partial t_k^i}{\partial m} \Delta m^i  - \frac{\partial t_k^j}{\partial m} \Delta m^j = dr_k^{ij}
    :label: dd-equation-label
 
-One side of the equation contains the double-difference :math:`dr_k^{ij}` and on the other side the partial derivatives :math:`\frac{\partial t_k}{\partial m}` and hypocerter changes :math:`\Delta m` (:math:`\Delta x, \Delta y, \Delta z, \Delta \tau`) we want to compute for the two paired events i and j so that the observed differential times equal the computed ones at a common station.
+One side of the equation contains the double-difference :math:`dr_k^{ij}` and on the other side the partial derivatives :math:`\frac{\partial t_k}{\partial m}` and hypocenter changes :math:`\Delta m` (:math:`\Delta x, \Delta y, \Delta z, \Delta \tau`) we want to compute for the two paired events i and j so that the observed differential times equal the calculated ones at a common station.
 
 The double-difference is defined as:
 
 .. math:: dr_k^{ij} = (t_k^i - t_k^j)^{observed} - (t_k^i - t_k^j)^{calculated}
    :label: dd-label
 
-and t is the travel time for the phase k for the events i and j. The observed differential time can then be computed as the difference in phase travel times using the observed picks or it can be the cross-correlation lag between the phase waveforms. The calculated travel time is the difference of the theoretical phase travel times computed using a velocity model.
+and t is the travel time for the phase k for the events i and j. The observed differential time can then be computed as the difference in phase travel times using the observed picks (pick time - event time) and optionally refined via cross-correlation (:ref:`xcorr-event-label`). The calculated travel time is the difference of the theoretical phase travel times computed using a velocity model.
 
 The partial derivatives and hypocenter changes part of the equation :eq:`dd-equation-label` can be written in full as:
 
@@ -293,13 +196,20 @@ The partial derivatives and hypocenter changes part of the equation :eq:`dd-equa
    & \frac{\partial t_k^j}{\partial x} \Delta x^j  - \frac{\partial t_k^j}{\partial y} \Delta y^j  - \frac{\partial t_k^j}{\partial z} \Delta z^j  - \Delta \tau^j
 
 
-In order to compute the partial derivatives and the calculated differential travel times a velocity model is required. To avoid the run time computational costs of ray tracing during the inversion, rtDD is designed to support precomputed travel time tables (including velocity at source and take-off angle). See :ref:`ttt-label`.
+As described in Waldhauser & Ellsworth (2000), the double-difference system is defined in matrix form as:
 
-The solution of the double-difference system as defined in :eq:`dd-system-label` is the set of hypocenters changes (latitude, longitude, depth and time) that minimizes the difference between the observed and the calculated differential times. That is, each event absolute location is moved so that its relative position with respect with the other events minimizes the double-difference residuals.
+.. math:: WGm = Wd
+   :label: dd-system-label
 
-This solution is achieved through an iterative process. An initial double-difference system is built and solved starting from the catalog events locations, the hypocenters are then updated based on the inversion solution and the process continues by building a new system and solving it again multiple times. This is repeated until a configured number of iterations is reached, usually between 10 and 20. At each iteration the solver also down-weighs the equations accordingly to their equation residuals (the down-weighing function follows what described in the Waldhauser & Ellsworth's paper). The apriori equation weights can also be configured to allow cross-correlated differential times to have higher weigh than differential times computed from absolute pick time difference and/or to take into account the pick time uncertainty. Differently to what described in Waldhauser & Ellsworth's paper the equations are not down-weighed by their inter-event distance. This is because the errors introduced by further events are already accounted for by the down-weighing by residuals: distant events have higher residuals than closer ones.
+where **G** defines a matrix of size M x 4N (M, number of double-difference equations; N, number of events) containing the partial derivatives, **d** is the data vector of size M containing the double-difference values, **m** is a vector of length 4N, :math:`[\Delta x, \Delta y, \Delta z, \Delta \tau]^T`, containing the changes in hypocentral parameters we wish to determine, and *W* is a diagonal matrix of size M x M to weight each equation.
 
-The actual solution of the double-difference system at each iteration is achieved via a least square approach. rtDD can use both LSQR (by Chris Paige, Michael Saunders) or LSMR (by David Fong, Michael Saunders) algorithms, which both can solve sparse and dense linear equations and linear least-squares problems. rtDD doesn't offer an option to solve the system via Singular Value Decomposition, mainly due to the computational constraints of this method, which prevent it from being applied to large datasets.
+The solution of the double-difference system as defined in :eq:`dd-system-label` is the set of hypocenters changes (latitude, longitude, depth and time) that minimizes the difference between the observed and the calculated differential times. That is, each event absolute location is moved so that its relative position with respect to the other events minimizes the double-difference residuals.
+
+This solution is achieved through an iterative process. An initial double-difference system is built and solved starting from the catalog event locations. The hypocenters are then updated based on the inversion solution, and the process repeats—building a new system and solving it again. This is repeated until a configured number of iterations is reached, usually between 10 and 20. At each iteration, the solver down-weights equations according to their residuals, following the dynamic weighting scheme described by Waldhauser & Ellsworth (2000). The a priori weights can also be configured to give higher priority to cross-correlated differential times or to account for pick uncertainties. Unlike the original method described in the paper, rtDD does not down-weight equations by inter-event distance, as the residual-based re-weighting naturally accounts for the increased errors typically associated with more distant event pairs.
+
+The double-difference system is solved using a least-squares approach. rtDD supports both the LSQR (Paige & Saunders, 1982) and LSMR (Fong & Saunders, 2011) algorithms, which are highly efficient for large, sparse linear systems. rtDD does not offer Singular Value Decomposition (SVD), as its computational complexity makes it impractical for large datasets.
+
+In order to compute the partial derivatives and the calculated differential travel times, a velocity model is required. To avoid the run time computational costs of ray tracing during the inversion, rtDD is designed to support precomputed travel time tables (including velocity at source and take-off angle). See :ref:`ttt-label`.
 
 
 .. _absolute-plus-relative-label:
@@ -308,17 +218,18 @@ The actual solution of the double-difference system at each iteration is achieve
 Solving for both absolute and relative locations
 ------------------------------------------------
 
-If an absolute location method searches for the location that better explains a set of arrival times, then a double-difference location method searches for the event locations that better explains the difference in arrival times between pair of events. Since this latter method does not take into consideration absolute arrival times, but only their difference, the inversion is susceptible to a possible shift of the event cluster: the locations of the events relative to each others improve (the cluster shape), but the centroid of the cluster might shift with respect to its true location.
+While absolute location methods find the position that best explains arrival times, double-difference methods find the configuration that best explains the *difference* in arrival times between event pairs. Because this method focuses on relative timing, the inversion can be susceptible to a "centroid shift": the relative positions within a cluster (its shape) improve significantly, but the entire cluster may shift away from its true absolute location.
 
-To compensate for this effect Waldhauser & Ellsworth offer two solutions. The first is to add four additional equations to the double-difference system - one for each coordinate direction and one for the origin time - that constrain to zero the mean shift of all the hypocenters during the inversion. Since this method is computationally efficient is also well suited for a SVD solver. However for a least-square approach, such as the one used by rtDD, Waldhauser & Ellsworth make use of regularization, that is a damped least-squares approach. The damping factor forces the solver to find the solution that not only minimizes the double-difference residuals, but also the changes to the hypocenters, preventing huge shifts in absolute locations. The damping factor also has the benefit of working on ill-conditioned systems. The effect of both techniques is that the relocated cluster centroid is placed more or less in what was the average location of the cluster events before the inversion.
 
-rtDD implements the second approach, since its solver is least squares based. The double-difference system :eq:`dd-system-label` with the inclusion of the damping factor :math:`\lambda` and the identity matrix I, of size 4N x 4N - with N being the number of events, then becomes:
+To mitigate this, Waldhauser & Ellsworth (2000) suggest two approaches. The first is to add four additional equations - one for each coordinate direction and one for origin time - to constrain the mean shift of the cluster to zero. This is common in SVD-based solvers. For least-squares solvers like those used in rtDD, the second approach is preferred: regularization via a damped least-squares method. A damping factor (:math:`\lambda`) forces the solver to minimize both the double-difference residuals and the changes to the hypocenters, preventing large, unconstrained shifts in absolute location. This damping also improves the numerical stability of ill-conditioned systems. The result is a relocation where the cluster centroid remains near its original average location while its internal structure (relative locations) is refined.
+
+rtDD implements this damped least-squares approach. The double-difference system :eq:`dd-system-label`, with the inclusion of the damping factor :math:`\lambda`  and the identity matrix I, of size 4N x 4N - with N being the number of events, then becomes:
 
 .. math:: \begin{vmatrix} W G \\ \lambda I \\ \end{vmatrix} m  = \begin{vmatrix} W d \\ 0 \\ \end{vmatrix}
    :label: dd-damped-system-label
 
 
-An empirical approach to find the optimal damping factor value is to start with a very low value to observe the pure relative locations of the cluster(s) and then increase the value until the overlall RMS (travel time table RMS) is equal or better than what it was before the inversion. The process is usually not a trade-off and the final solution improves both the residuals of the double-difference system (relative location/cluster shape) and the travel time RMS (absolute location of the clusters).
+An empirical way to find the optimal damping factor is to start with a low value to observe the pure relative refinement, then increase it until the overall travel-time RMS is equal to or better than the initial state. Often, this is not a trade-off; the final solution typically improves both the double-difference residuals (relative location/cluster shape) and the absolute travel-time RMS (absolute location of the clusters).
 
 .. _inclusion-tt-residual-label:
 
@@ -342,176 +253,54 @@ In practice we have observed that, with this modified double-difference system, 
 
 
 ----------------------
-Evaluating the results
+Evaluating the Results
 ----------------------
 
-Independently on how the input events are provided, rtDD will output a set of files *reloc-event.csv*, *reloc-phase.csv* and *reloc-stations.csv*, these contain the relocated catalog and additional statistical information.  Also, enabling the ``scrtdd.saveProcessingFiles`` option makes rtDD generates multiple information files inside ``scrtdd.workingDirectory``, including a copy of the log file.
+Visual Evaluation
+-----------------
 
-To be good, the new locations must improve the relative locations (the residuals of the double-difference system should have decreased after the inversion), without introducing absolute location errors (the events RMS should not have increased - if that is the case the damping factor was too low) or even improving the absolute locations (if the ``absoluteLocationConstraint`` option was used). We can verify those conditions looking at the logs, where the solver prints, at each iteration, the residuals of the double-difference system and the absolute travel time RMS of the events. 
+For rapid visualization, use the ``relocation-map.html`` in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_. It requires ``event.csv``, ``station.csv``, and ``reloc-event.csv`` to be in the same directory. You can view it by starting a local web server (e.g., ``python3 -m http.server 8080``) and navigating to ``http://localhost:8080/relocation-map.html``.
 
-The *reloc-event.csv* file contains even more detailed information, which allows to plot the distribution of DD residuals and events RMS before and after the catalog relocation (see columns ``startRms``, ``finalRms``, ``dd_startResidualMedian``, ``dd_startResidualMAD``, ``dd_finalResidualMedian``, ``dd_finalResidualMAD`` where MAD is Median Absolute Deviation).
+.. image:: media/multiEventRelocationEvaluation.png
+   :width: 800
 
-Log files are located in ~/.seiscomp/log/scrtdd.log, or alternatively, when running rtDD from the command line, the following options can be used to see the logs on the console::
+Quantitative Evaluation
+-----------------------
 
-    scrtdd [some options] --verbosity=3 --console=1
-
-Verbosity 3 should be preferred to level 4, since the debug level 4 makes the logs hard to read due to the huge amount of information.
-
-A typical *multi-event* relocation log looks like the following::
-
-    [info] Loading profile myProfile
-    [info] Profile myProfile loaded into memory
-    [info] Starting DD relocator in multiple events mode
-    [info] Selecting Catalog Neighbouring Events 
-    [info] Searching for not connected clusters...
-    [info] Found 3 event clusters
-    [info] Relocating cluster 1 (8302 events)
-    [info] Computing differential times via cross-correlation...
-    [...] 
-          ...wait for cross-correlation to complete...
-    [...]
-    [info] Catalog waveform data: waveforms downloaded 0, not available 273, loaded from disk cache 195652. Waveforms with SNR too low 28811
-    [info] Cross-correlation performed 1126058 (P phase 58%, S phase 42%), skipped 631012 (36%)
-    [info] Cross-correlation success (coefficient above threshold) 49% (556258/1126058). Successful P 56% (367483/653253). Successful S 40% (188775/472805)
-    [info] Building and solving double-difference system...
-    [...]
-         ...details of the DD residuals and event RMS for each iteration of the solver...
-    [...]
-    [info] Successfully relocated 8243 events, RMS median 0.3294 [sec] median absolute deviation 0.0558 [sec]
-    [info] Events RMS before relocation: median 0.3480 median absolute deviation 0.0637
-
-    [info] Relocating cluster 2 (83 events)
-    [...]
-
-    [info] Relocating cluster 3 (1583 events)
-    [...] 
+A successful relocation should decrease the double-difference residuals (improving relative locations) without increasing the absolute travel-time RMS (stability in the absolute locations). These metrics are printed in the logs at each iteration, but a more granular analysis can be performed using specific columns of ``reloc-event.csv`` and ``reloc-phase.csv`` for absolute travel time residuals, and (if ``--dump-diagnostics`` is used) within a dedicated diagnostics folder (in particular ``initial/final-double-difference.csv``) for double-difference residuals and cross-correlation results.
 
 
-Verifying DD system residuals and absolute RMS
+Verifying DD System Residuals and Absolute RMS
 ----------------------------------------------
 
-The relevant part for the evaluation of the double-difference inversion is the following:
+The logs show how double-difference residuals decrease over iterations and their relationship with inter-event distance. Stability or improvement in the absolute travel-time RMS confirms that the cluster's absolute position remains accurate.
 
 .. image:: media/qc1.png
    :width: 800
 
-We can clearly see how the DD residuals decrease at each iteration and how they are related to the inter-event distance: the close the events the lower the residuals.
-Also, the absolute travel time RMS didn't worsen, it slightly improved. That confirms we didn't introduce absolute location errors in the cluster position during the inversion.
+Detailed diagnostics dumped via ``--dump-diagnostics`` provide details of the double-difference residuals in ``initial/final-double-difference.csv`` (see ``doubleDifferenceResidual`` column).
 
+.. image:: media/qc4.png
+   :width: 800
 
-Verifying relative locations with cross-correlation
+Verifying Relative Locations with Cross-Correlation
 ---------------------------------------------------
 
-An independent method to evalute the correctness of the relative locations is to use the cross-correlation results. Since the waveforms similarity is  indicative of the proximity of the events, that information can used to compare the cross-correlation results by inter-event distance before and after the double-difference inversion, see :ref:`xcorr-event-label` (to avoid recomputing cross-correlations pass the `xcorr.csv` file generated by the relocation, see :ref:`reusing-xcorr-label`).
-::
+Waveform similarity is a strong indicator of proximity. Comparing correlation coefficients by inter-event distance before and after relocation provides an independent verification of the new relative locations.
 
-    scrtdd --eval-xcorr station.csv,event.csv,phase.csv --profile myProfile --verbosity=3 --console=1 [--xcor-cache xcorr.csv]
+.. image:: media/qc2.png
+   :width: 800
 
-.. image:: media/qc2a.png
-   :align: center
+Detailed diagnostics dumped via ``--dump-diagnostics`` provide details of the cross-correlation results in ``initial/final-double-difference.csv`` (``xcorrCoefficient`` column).
 
-::
-
-    scrtdd --eval-xcorr station.csv,reloc-event.csv,phase.csv --profile myProfile --verbosity=3 --console=1 [--xcor-cache xcorr.csv]
-
-.. image:: media/qc2b.png
-   :align: center
+.. image:: media/qc5.png
+   :width: 800
 
 
-Verifying the absolute location of the events
----------------------------------------------
+Verifying Absolute Locations
+----------------------------
 
-rtDD computes the RMS after (``finalRms`` column in *reloc-event.csv* file) but also before (``startRms`` column in *reloc-event.csv* file) the relocation. The computation of the initial RMS is required for a sensible comparison of RMSs. Each locator (scautoloc, scanloc, screloc, nonlinloc, scrtdd, etc) computes the RMS with a travel time table that might not be the same as rtDD. Moreover, a locator might apply a specific logic to the RMS computation, which prevents a comparison across locators. For example NonLinLoc locator weighs the residuals by pick weight, and the weighting scheme is decided by NonLinLoc, making the resulting RMS unsuitable for comparison.
-
-Plotting ``startRms`` and ``finalRms`` allows for a sensible comparison of the absolute location of the relocated cluster(s).
+rtDD calculates the RMS both before and after (columns ``startRms`` and ``finalRms`` in ``reloc-event.csv``) relocation using its own travel-time engine. This provides a consistent baseline for comparison, as different locators may use different weighting schemes or travel-time tables that make their RMS values incomparable.
 
 .. image:: media/qc3.png
-   :align: center
-
---------------
-Useful options
---------------
-
-In addition to the options we have already seen, there are also some other useful ones.
-
-``--xmlout`` option can be used in combination with ``--reloc-catalog`` to generate a XML output, which is useful to later insert the relocated catalog in a SeisComP database (e.g. scdb command).
-
-E.g.::
-
-    scrtdd --reloc-catalog myCatalog.csv --profile myProfile \
-           --verbosity=3 --console=1 [db options]
-           --xmlout > relocated-catalog.xml
-
-
-``--merge-catalogs`` and ``--merge-catalogs-keepid`` are useful to merge several catalogs into a single one. 
-
-::
-
-    scrtdd --merge-catalogs station1.csv,event1.csv,phase1.csv,station2.csv,event2.csv,phase2.csv
-
-``--xcorr-cache`` option allows to reuse precomputed cross-correlations, see :ref:`reusing-xcorr-label`.
-
-``--dump-clusters`` option allows to dump the catalog clusters that rtDD finds accordingly with the profile options.
-
-Here is a list of all the options we have seen so far::
-    
-    scrtdd --help
-
-    Mode:
-
-      --reloc-catalog arg                   Relocate the catalog passed as argument
-                                            in multi-event mode. The input can be a
-                                            single file (containing seiscomp origin
-                                            ids) or a file triplet 
-                                            (station.csv,event.csv,phase.csv). For 
-                                            events stored in a XML files add the 
-                                            --ep option. Use in combination with 
-                                            --profile
-
-      --ep arg                              Event parameters XML file for offline 
-                                            processing of contained origins 
-                                            (implies --test option). Each contained
-                                            origin will be processed in 
-                                            signle-event mode unless 
-                                            --reloc-catalog is provided, which 
-                                            enable multi-event mode.
-
-      --dump-clusters arg                   Find clusters in the catalog passed as 
-                                            argument and save them in the working 
-                                            directory.The catalog can be a single 
-                                            file (containing seiscomp origin ids) 
-                                            or a file triplet (station.csv,event.cs
-                                            v,phase.csv). Use in combination with 
-                                            --profile. The clusters will be saved 
-                                            into the working directory
-
-    ModeOptions:
-
-      --profile arg                         To be used in combination with other 
-                                            options: select the profile 
-                                            configuration to use
-
-      --xcorr-cache arg                     Specify a file containing precomputed 
-                                            cross-correlation values
-
-      --xmlout                              Enable XML output when combined with 
-                                            --reloc-catalog or --oring-id options 
-
-    Catalog:
-
-      --dump-catalog arg                    Dump the seiscomp event/origin id file 
-                                            passed as argument into a catalog file 
-                                            triplet (station.csv,event.csv,phase.cs
-                                            v).
-
-      --merge-catalogs arg                  Merge in a single catalog all the 
-                                            catalog file triplets 
-                                            (station1.csv,event1.csv,phase1.csv,sta
-                                            tion2.csv,event2.csv,phase2.csv,...) 
-                                            passed as arguments.
-
-      --merge-catalogs-keepid arg           Similar to the --merge-catalogs option 
-                                            but events keep their ids. If multiple 
-                                            events share the same id, subsequent 
-                                            events will be discarded.
-
+   :width: 800

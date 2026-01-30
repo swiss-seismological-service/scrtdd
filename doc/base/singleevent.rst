@@ -1,199 +1,93 @@
 .. _single-event-label:
 
-Real-time single-event relocation
+Real-Time Single-Event Relocation
 =================================
 
-Single-event relocation is used to relocate events in real-time and it requires a background catalog to work.
+Single-event relocation is used to relocate events in real-time and requires a reference catalog to function.
 
 .. figure:: media/singleEventRelocationSyntDataExample.png
    :width: 800
    
-   Test with synthetic data from the unit testing folder. Events from 4 clusters have their locations and times altered - using several normal distributions with non-zero mean - to simulate location/time errors. The single-event double-difference inversion is then applied on those altered events, one at a time against the background catalog and their original locations and times are properly recovered. It is interesting to note that the backgroud catalog is not part of the 4 clusters, but the double-differene inversion is still able to perfectly recover the event locations of those close-by clusters.
+   Relocation test using synthetic data. Events from four clusters had their locations and times altered to simulate errors. The single-event double-difference inversion was then applied to these events one at a time against the reference catalog, and their original locations and times were properly recovered. Notably, even though the reference catalog events are not part of these four clusters, the double-difference inversion is still able to accurately recover the locations of these nearby clusters.
 
 
 -------
 Summary
 -------
 
-* Use the multi-event relocation feature to prepare a background catalog
-* Create a rtDD profile or use the same profile used for generating the background catalog
-* Set the background catalog in the profile and add the profile to the list of active real-time profiles (``activeProfiles`` parameter). The default profile parameter values are meant to be a good starting choice, so there is no need to tweak them heavily. However, it is a good choice to configure a custom velocity model (``solver.travelTimeTable``)
-* Make sure to read :ref:`avoid-loop-label` paragraph to avoid a potential issue
-* Make sure to read :ref:`waveform-label` paragraph to avoid delays when fetching data from seedlink
-* Enable and start rtDD (``seiscomp enable scrtdd``, ``seiscomp start scrtdd``)
+* Use the multi-event relocation feature to prepare a reference catalog.
+* Create a ``scrtdd`` profile or reuse the one used for generating the reference catalog.
+* Set the reference catalog in the profile and add the profile to the list of active real-time profiles (``activeProfiles`` parameter).
+* Read the :ref:`avoid-loop-label` section to avoid potential messaging loops.
+* Read the :ref:`waveform-label` section to prevent delays when fetching data from SeedLink by setting ``timeout` and ``retries`` parameters.
+* Enable and start ``scrtdd``
 
 
 ---------------
-Getting started
+Getting Started
 ---------------
 
-In single-event mode, rtDD relocates new seismic events in real-time, one a time, against a background catalog of high quality events. This reference catalog consists in the historic seismicity of a certain area that have been relocated with the double-difference inversion. That can be done with rtDD itself in Multi-Event mode or by means of other tools.
+In single-event mode, ``scrtdd`` relocates new seismic events in real-time, one at a time, against a reference catalog of high-quality events. This reference catalog consists of historical seismicity for a specific area that has been relocated using double-difference inversion. This can be achieved with ``scrtdd`` in Multi-Event mode or through other tools.
 
-The real-time relocation is performed in two steps. The first step refines the location of a newly occurred event by building and solving a double-difference system, where the observed differential travel times are derived from the pick times. The cross-correlation is not used in this first step. The second step starts from the location refined at step 1, then a new double-difference system is built and solved. This time the observed differential times are refined via cross-correlation. If step1 fails, step2 is attempted anyway. If step2 completes successfully the relocated origin is sent to the messaging system.
+Real-time relocation is performed in two steps:
 
-At each step a selection of neighbouring events from the background catalog takes place. The selected events are paired with the real-time event to form the double-difference system.  In the simplest form the selection can be nearest neighbour based, where the closest events are chosen within a configurable maximum search distance. However, to handle initial location errors in which the real-time event would be paired with events that are not close to its true location, the neighbour selection is performed using the ellipsoid method explained in Waldhauser's paper "Near-Real-Time Double-Difference Event Location Using Long-Term Seismic Archives, with Application to Northern California". In this variant concentric elliptic volumes are created and subsequently divided in their eight quadrants. The neighbours are finally selected from each of these cells in a round robin fashion until the configured maximum number of neighbours is reached. This approach spreads the selection of event pairs over a larger area, that should cover the initial location uncertainty.
+1. **Step 1:** Refines the location of a new event by building and solving a double-difference system where observed differential travel times are derived from pick times. Cross-correlation is not used in this step.
+2. **Step 2:** Starts from the refined location from Step 1 and builds a new double-difference system. This time, differential times are refined via cross-correlation.
+
+If Step 1 fails, Step 2 is attempted regardless. If Step 2 completes successfully, the relocated origin is sent to the messaging system.
+
+At each step, neighboring events are selected from the reference catalog. These events are paired with the real-time event to form the double-difference system. While selection can be based on a simple nearest-neighbor search within a maximum distance, ``scrtdd`` uses an ellipsoid method to account for initial location errors. This method, described by Waldhauser (2009), creates concentric elliptic volumes divided into eight quadrants. Neighbors are selected from each quadrant in a round-robin fashion until the maximum number of neighbors is reached, ensuring a spatially distributed selection that covers the initial location uncertainty.
 
 
 --------------------------------
-Configuring a background catalog
+Configuring a Reference Catalog
 --------------------------------
 
-The easiest choice is to use as background catalog the relocated multi-event results; the triplet *reloc-event.csv*, *phase.csv*, *station.csv*:
+The most common choice for a reference catalog is the result of a multi-event relocation: the triplet ``reloc-event.csv``, ``reloc-phase.csv`` (or the input ``phase.csv``), and ``reloc-station.csv`` (or the input ``station.csv``).
 
-.. image:: media/catalog-selection3.png
+.. image:: media/catalog-selection2.png
    :width: 800
 
-However, if the catalog is generated in XML format, it can be imported in the SeisComP database. In this case the background catalog can be a file containing just the origin ids. 
+Alternatively, if the catalog is generated in XML format and imported into the SeisComP database, the reference catalog can be a file containing only origin IDs.
 
 .. image:: media/catalog-selection1.png
    :width: 800
 
-While it is neat to have the background catalog in the SeisComP database, this approach has few limitations. Firstly it may take a lot of time for rtDD to load a big catalog from the database; loading a catalog from files is much faster. Secondly, the background catalog should be periodically updated and this update produces not only new events, but also new locations for old events. In turn this leads to a continuous addition of origins belonging to old events to the database.
+While storing the reference catalog in the SeisComP database is possible, it has limitations. Loading a large catalog from the database can be significantly slower than loading from CSV files. Additionally, since reference catalogs should be updated periodically, database storage can lead to a proliferation of origin versions for older events.
 
-Once the background catalog is configured, rtDD can be enabled and started as any other SeisComP module.  New origins will be relocated as soon as they arrive in the messaging system.
+Once the reference catalog is configured, ``scrtdd`` can be enabled and started. New origins will be relocated as they are received via the messaging system.
 
 -------
 Testing
 -------
 
-You might consider testing the configuration relocating some existing events to make sure the parameters are suitable for your use case. To test the real time relocation there are two command line options which relocate existing origins::
-
-    scrtdd --help
-
-    Mode:
-
-      -O [ --origin-id ] arg                Relocate  the origin (or multiple 
-                                            comma-separated origins) in 
-                                            signle-event mode and send a message. 
-                                            Each origin will be processed 
-                                            accordingly to the matching profile 
-                                            region unless the --profile option  is 
-                                            used.
-      --ep arg                              Event parameters XML file for offline 
-                                            processing of contained origins 
-                                            (implies --test option). Each contained
-                                            origin will be processed in 
-                                            signle-event mode unless 
-                                            --reloc-catalog is provided, which 
-                                            enable multi-event mode.
-
-    ModeOptions:
-
-       --profile arg                        To be used in combination with other 
-                                            options: select the profile 
-                                            configuration to use
-
-      --test                                Test mode, no messages are sent when 
-                                            relocating a single event
-
-      --xmlout                              Enable XML output when combined with 
-                                            --reloc-catalog or --oring-id options
+It is recommended to test the configuration by relocating existing events to ensure parameters are suitable for your use case. 
 
 
-Relocate origin ID and send the relocation to the messaging system for further processing
------------------------------------------------------------------------------------------
+Relocate an Origin ID without sending messages
+----------------------------------------------
 
-If we want to process an origin we can run the following command and then check on ``scolv`` the relocated origin (the messaging system must be active). This is mostly useful when we want to relocate an origin on a running system and keep the relocation::
+Using the ``--test`` flag prevents the relocation from being sent to the messaging system. This is useful for troubleshooting::
 
-    scrtdd --origin-id someOriginId \
-           --verbosity=3 --console=1 [db options] 
-
-
-Relocate origin ID but do not send the relocation (debug)
----------------------------------------------------------
-
-As above but add ``--test`` and the origin will not be sent to the messaging system. Useful for troubleshooting when the ``scrtdd.saveProcessingFiles`` option is enabled to verify the relocation files in ``scrtdd.workingDirectory``.
-::
-
-    scrtdd --origin-id someOriginId --test \
+    scrtdd --origin-id someOriginId --test --dump-diagnostics \
            --verbosity=3 --console=1 [db options]
 
-Relocate origin ID and store the result to XML file
----------------------------------------------------
+Relocate an Origin ID and save to an XML file
+---------------------------------------------
 
-Adding the ``--xmlout`` option allows to save the origin as a XML file. We can finally open the ile with ``scolv`` for inspection::
+Use ``--xmlout`` to save the result to an XML file for inspection in ``scolv``::
 
-    scrtdd --origin-id someOriginId --xmlout \
+    scrtdd --origin-id someOriginId --xmlout --dump-diagnostics \
            --verbosity=3 --console=1 [db options] \
-      >  relocated-origin.xml
+      > relocated-origin.xml
 
-Relocate XML file and store the result to XML file
---------------------------------------------------
+Relocate an XML file and save the result to an XML file
+-------------------------------------------------------
 
-Similarly to other SeisComP commands the ``--ep`` option can be used for full offline processing. All origins contained in the input XML file are relocated::
+The ``--ep`` option allows for full offline processing of all origins within an XML file::
 
     scrtdd --ep origin.xml --verbosity=3 --console=1 [db options] \
       > relocated-origin.xml
-
-Relocation log
---------------
-
-Here we report an example *single-event* relocation log::
-
-    [info] Starting DD relocator in single event mode: event 1 lat 46.419079 lon 7.942911 depth 8.9902 mag 0.56 time 2020-10-31T19:46:57.703383Z #phases 22
-    [info] Performing step 1: initial location refinement (no cross-correlation)
-    [info] Found 22 neighbouring events
-    [info] Building and solving double-difference system...
-    [...]
-         ...details of the solutions for each iteration of the solver
-    [...]
-    [info] Successfully relocated 1 events, RMS median 0.2865 [sec] median absolute deviation 0.0000 [sec]
-    [info] Events RMS before relocation: median 0.3309 median absolute deviation 0.0000
-    [info] Step 1 relocation successful, new location: lat 46.419460 lon 7.932872 depth 8.9892 time 2020-10-31T19:46:57.770484Z
-    [info] Relocation report: 
-           Origin changes: location=0.77[km] depth=-0.00[km] time=0.067[sec] 
-           Rms change [sec]: -0.044 (before/after 0.331/0.287) 
-           Neighbours=22 
-           Used Phases: P=9 S=6 
-           Stations distance [km]: min=16.6 median=25.6 max=61.9 
-           DD observations: 143 (CC P/S 0/0 TT P/S 88/55) 
-           DD residuals [msec]: before=40+/-59.4 after=-4+/-4.9
-    
-    [info] Performing step 2: relocation with cross-correlation
-    [info] Found 30 neighbouring events
-    [info] Computing differential times via cross-correlation...
-    [info] Cross-correlation performed 101 (P phase 50%, S phase 50%), skipped 89 (47%)
-    [info] Cross-correlation success (coefficient above threshold) 73% (74/101). Successful P 86% (44/51). Successful S 60% (30/50)
-    [info] Building and solving double-difference system...
-    [...]
-         ...details of the solutions for each iteration of the solver
-    [...]    
-    [info] Successfully relocated 1 events, RMS median 0.2834 [sec] median absolute deviation 0.0000 [sec]
-    [info] Events RMS before relocation: median 0.2642 median absolute deviation 0.0000
-    [info] Step 2 relocation successful, new location: lat 46.418945 lon 7.932328 depth 8.6810 time 2020-10-31T19:46:57.808104Z
-    [info] Relocation report:
-           Origin changes: location=0.07[km] depth=-0.31[km] time=0.038[sec] 
-           Rms change [sec]: 0.019 (before/after 0.264/0.283) 
-           Neighbours=30 
-           Used Phases: P=9 S=6 
-           Stations distance [km]: min=16.4 median=25.4 max=61.7 
-           DD observations: 190 (CC P/S 44/30 TT P/S 72/44) 
-           DD residuals [msec]: before=40+/-59.4 after=-5+/-6.5
-
-
-rtDD adds two comments to each relocated origin: ``relocation::sourceOrigin`` and ``relocation::report``. 
-
-``relocation::sourceOrigin`` contains the id of the origin that triggered the relocation. ``relocation::report`` contains a summary of the relocation process. E.g.::
-
-    Origin changes: location=0.23[km] depth=1.40[km] time=-0.147[sec]
-    Rms change [sec]: -0.153 (before/after 0.502/0.349)
-    Neighbours=80 Used Phases: P=37 S=16
-    Stations distance [km]: min=15.9 median=57.0 max=99.8
-    DD observations: 687 (CC P/S 141/47 TT P/S 375/124)
-    DD residuals [msec]: before=-106+/-21.6 after=9+/-26.2
-
-They can be both visualized in ``scolv`` as additional columns adding the following settings to ``scolv.cfg``::
-
-    # SCRTDD: display source origin that generated a scrtdd relocation
-    eventlist.customColumn.default = ""
-    eventlist.customColumn.originCommentID = relocation::sourceOrigin
-    eventlist.customColumn = triggeringOrigin
-    
-    # SCRTDD: display origin comment containing rtdd relocation report
-    eventedit.customColumn.default = ""
-    eventedit.customColumn.originCommentID = relocation::report
-    eventedit.customColumn.pos = 99
-    eventedit.customColumn = scrtd
 
 
 .. _avoid-loop-label:
@@ -202,9 +96,13 @@ They can be both visualized in ``scolv`` as additional columns adding the follow
 Avoiding Relocation Loops
 -------------------------
 
-rtDD listens and sends messages to the LOCATION group. In a default installation where the only locator is ``scautoloc`` that's not an issue: ``scautoloc`` will send an origin to LOCATION and rtDD will receive it and send an updated origin to LOCATION.  However, when there are multiple (re)locators (e.g. scanloc, screloc) that listen to LOCATION and send their own updated origin to LOCATION too, then an infinite loop happens! In this case a new messaging group needs to be created, e.g. RELOCATION, so that the origins flow from LOCATION to RELOCATION without going back.
+``scrtdd`` listens and sends messages to the ``LOCATION`` group. In a default installation where ``scautoloc`` is the only locator, this is not an issue: ``scautoloc`` sends an origin to ``LOCATION``, and ``scrtdd`` receives it and sends an updated origin back to ``LOCATION``. However, if other relocators (e.g., ``scanloc``, ``screloc``) also listen and send to ``LOCATION``, an infinite loop will occur.
 
- E.g. of a properly configured system::
+To avoid this, the ``acceptedOriginAuthors`` option can be used, so that ``scrtdd`` will relocate only origins coming from a specific module (author).
+
+An alternative solution is to create a separate messaging group (e.g., ``RELOCATION``) so that origins flow linearly without cycling back.
+
+Example of a properly configured system::
 
 
                           LISTEN                       SEND 
@@ -222,11 +120,13 @@ rtDD listens and sends messages to the LOCATION group. In a default installation
 Relocation Process
 ------------------
 
-In Single-Event mode the double-difference system is slightly modified compared to the :ref:`Multi-Event version <multi-event-relocation-process-label>`. This is because we are only interested in computing the changes of the real-time event with respect to the background catalog and not so much in the changes on the reference events that the new event might introduce. The reason is the difficulty in avoiding errors in the background catalog when the update happens automatically. Since the background catalog is never changed during the Single-Event relocation, the double-difference equation used to build the double-difference system becomes:
+In Single-Event mode, the double-difference system is slightly modified compared to the :ref:`Multi-Event version <multi-event-relocation-process-label>`. In this mode, we focus exclusively on computing the changes to the real-time event relative to the reference catalog, rather than allowing the reference events to move. 
+
+Because the reference catalog remains fixed during Single-Event relocation, the equation used to build the system simplifies to:
 
 .. math:: \frac{\partial t_k^i}{\partial m} \Delta m^i = dr_k^{ij}
 
-compared to the multi-event version, the equation lose the :math:`- \frac{\partial t_k^j}{\partial m} \Delta m^j` part. This new formulation computes the changes (lat, lon, depth, time) of a real-time event i with respect to the background catalog event j. The real-time event relocation becomes then the computation of the relative position of a new event to a set of fixed reference events, which dismisses the problem of a possible shift in absolute location during the inversion. Problem :ref:`that exists in the multi-event mode <absolute-plus-relative-label>`. As a result the damping factor :math:`\lambda` can be set to a very low value or event 0. Also the constraint in absolute travel time residuals :math:`\omega` (:ref:`inclusion-tt-residual-label`) can be set to zero.
+Compared to the multi-event version, this formulation omits the term :math:`- \frac{\partial t_k^j}{\partial m} \Delta m^j`. This new formulation computes the hypocenter changes of a real-time event i with respect to the fixed reference catalog event j. This approach treats the reference events as high-precision "anchors", which are not relocated. It eliminates the risk of cluster centroid shifts during the inversion, a concern in :ref:`multi-event mode <absolute-plus-relative-label>`.
 
-It should be clear now the importance of having a background catalog with good absolute locations, not only relative, since the quality of the background catalog directly transfers to real-time relocations. Moreover, because the background catalog events are not updated by the Single-Event inversion, a periodic update of the reference catalog that includes the new events is required. This contribution might be negligible for well established clusters, but it is of a crucial importance for regions where the historicial seismicity contains very few events and it is susceptible to considerable changes. Thanks to its integration into SeisComP, rtDD allows for easy and automatic periodic background catalog updates, which should be taken into consideration when applying the tool in real-time. See :ref:`continuous-label`.
+This highlights the critical importance of a high-quality reference catalog with accurate absolute locations, as any errors in the reference events will directly impact the real-time relocations. Furthermore, since reference events are not updated during single-event inversions, the catalog should be periodically updated to incorporate new events. This is particularly vital in regions with sparse historical seismicity. rtDD facilitates this through easy integration for periodic catalog updates. See :ref:`continuous-label`.
 
