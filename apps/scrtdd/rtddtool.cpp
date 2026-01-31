@@ -343,20 +343,26 @@ bool RTDD::validateParameters()
 
   Environment *env = Environment::Instance();
 
-  _config.onlyPreferredOrigin   = configGetBool("onlyPreferredOrigins");
-  _config.allowAutomaticOrigin  = configGetBool("automaticOrigins");
-  _config.allowManualOrigin     = configGetBool("manualOrigins");
-  _config.acceptedOriginAuthors = configGetStrings("acceptedOriginAuthors");
-  _config.activeProfiles        = configGetStrings("activeProfiles");
-  _config.delayTimes            = {configGetInt("performance.delayTime")};
-  _config.profileTimeAlive      = configGetInt("performance.profileTimeAlive");
-  _config.cacheWaveforms        = configGetBool("performance.cacheWaveforms");
+  _config.onlyPreferredOrigin  = configGetBool("onlyPreferredOrigins");
+  _config.allowAutomaticOrigin = configGetBool("automaticOrigins");
+  _config.allowManualOrigin    = configGetBool("manualOrigins");
+  _config.activeProfiles       = configGetStrings("activeProfiles");
+  _config.delayTimes           = {configGetInt("performance.delayTime")};
+  _config.profileTimeAlive     = configGetInt("performance.profileTimeAlive");
+  _config.cacheWaveforms       = configGetBool("performance.cacheWaveforms");
   _config.cacheDirectory =
       env->absolutePath(configGetPath("performance.cacheDirectory"));
   _config.cachedWaveformLength =
       configGetDouble("performance.cachedWaveformLength");
   _config.testMode         = commandline().hasOption("test");
   _config.preloadWaveforms = commandline().hasOption("load-profile-wf");
+
+  try
+  {
+    _config.acceptedOriginAuthors = configGetStrings("acceptedOriginAuthors");
+  }
+  catch (...)
+  {}
 
   // disable messaging (offline mode) with certain command line options
   if (!_config.eventXML.empty() || !_config.dumpCatalog.empty() ||
