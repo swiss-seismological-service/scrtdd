@@ -15,6 +15,7 @@ ADD_LIBRARY(hdd ${LIB_TYPE}
 	nll/grid.cpp
 	ttt/nllgrid.cpp
 	ttt/homogeneous.cpp
+	ttt/generic2d.cpp
 	log.cpp
 	utils.cpp
 	csvreader.cpp
@@ -57,6 +58,7 @@ SET(HDD_HEADERS
 SET(HDD_HEADERS_TTT
 	ttt/nllgrid.h
 	ttt/homogeneous.h
+	ttt/generic2d.h
 )
 
 SET(HDD_HEADERS_NLL
