@@ -96,7 +96,6 @@ NLLGrid::NLLGrid(const std::string &gridPath,
 
   for (const auto &entry : fs::directory_iterator(_gridPath))
   {
-
     const string filename = entry.path().filename().string();
     const string baseFilePath =
         fs::path(entry.path()).replace_extension().string();
@@ -175,7 +174,7 @@ NLLGrid::NLLGrid(const std::string &gridPath,
         _SVelGrid = make_shared<VelGrid>(baseFilePath, _swapBytes);
       }
     }
-    catch (exception &e)
+    catch (std::exception &e)
     {
       logWarningF("Cannot load grid file: %s", e.what());
     }
@@ -459,8 +458,8 @@ void NLLGrid::compute(double eventLat,
 
   const double dip = degToRad(takeOffDip - 90);
 
-  dtdd = std::cos(dip) / HDD::km2deg(velocity, eventDepth); // [sec/deg]
-  dtdh = std::sin(dip) / velocity;                          // [sec/km]
+  dtdd = std::cos(dip) / km2deg(velocity); // [sec/deg]
+  dtdh = std::sin(dip) / velocity;         // [sec/km]
 }
 
 } // namespace TTT

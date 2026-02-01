@@ -93,9 +93,8 @@ void Homogeneous::compute(double eventLat,
 
   takeOffDip = atan2(Vdist, Hdist); // [rad]
 
-  dtdd = std::cos(takeOffDip) // [sec/deg]
-         / km2deg(velocity, atKmDepth);
-  dtdh = std::sin(takeOffDip) / velocity; // [sec/km]
+  dtdd = std::cos(takeOffDip) / km2deg(velocity); // [sec/deg]
+  dtdh = std::sin(takeOffDip) / velocity;         // [sec/km]
 
   takeOffDip = radToDeg(takeOffDip);
   takeOffDip += 90; // -90(down):+90(up) -> 0(down):180(up)

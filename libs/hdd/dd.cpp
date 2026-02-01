@@ -995,7 +995,7 @@ bool DD::addObservationParams(Solver &solver,
     //
     // partial derivatives
     //
-    dtdd = dtdd / kmOfDegree(event.depth); // [sec/deg] -> [sec/km]
+    dtdd               = dtdd / kmOfDegree(); // [sec/deg] -> [sec/km]
     const double angle = degToRad(90 - takeOffAngleAzim);
 
     const double dx = dtdd * -std::cos(angle);
