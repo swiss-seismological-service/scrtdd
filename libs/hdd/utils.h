@@ -159,6 +159,40 @@ double computeMeanAbsoluteDeviation(const std::vector<double> &values,
 
 double computeCircularMean(const std::vector<double> &angles);
 
+double interpolateSquareLagrange(double xdiff,
+                                 double zdiff,
+                                 double vval00,
+                                 double vval01,
+                                 double vval10,
+                                 double vval11);
+
+double interpolateCubeLagrange(double xdiff,
+                               double ydiff,
+                               double zdiff,
+                               double vval000,
+                               double vval001,
+                               double vval010,
+                               double vval011,
+                               double vval100,
+                               double vval101,
+                               double vval110,
+                               double vval111);
+
+double interpolateSquareAngles(
+    double xdiff, double zdiff, double v00, double v01, double v10, double v11);
+
+double interpolateCubeAngles(double xdiff,
+                             double ydiff,
+                             double zdiff,
+                             double v000,
+                             double v001,
+                             double v010,
+                             double v011,
+                             double v100,
+                             double v101,
+                             double v110,
+                             double v111);
+
 std::string joinPath(const std::string &path1, const std::string &path2);
 
 bool pathExists(const std::string &path);
