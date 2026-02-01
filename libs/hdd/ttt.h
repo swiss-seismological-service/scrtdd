@@ -53,10 +53,10 @@ public:
    */
   virtual void compute(double eventLat,
                        double eventLon,
-                       double eventDepth,
+                       double eventDepth, // km
                        double stationLat,
                        double stationLon,
-                       double stationElevation,
+                       double stationElevation, // meter
                        const std::string &phaseType,
                        double &travelTime,
                        double &takeOffAzi,
@@ -123,10 +123,10 @@ public:
    */
   virtual double compute(double eventLat,
                          double eventLon,
-                         double eventDepth,
+                         double eventDepth, // km
                          double stationLat,
                          double stationLon,
-                         double stationElevation,
+                         double stationElevation, // meter
                          const std::string &phaseType) = 0;
 
   double compute(const Catalog::Event &event,

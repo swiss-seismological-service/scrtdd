@@ -983,11 +983,10 @@ bool DD::addObservationParams(Solver &solver,
     }
     catch (Exception &e)
     {
-      logDebugF(
-          "Travel Time Table error: %s (Event lat %.6f lon %.6f depth %.6f "
-          "Station lat %.6f lon %.6f elevation %.f )",
-          e.what(), event.latitude, event.longitude, event.depth,
-          station.latitude, station.longitude, station.elevation);
+      logDebugF("TTT error: %s (Event lat %.6f lon %.6f depth %.6f "
+                "Station %s)",
+                e.what(), event.latitude, event.longitude, event.depth,
+                station.id.c_str());
       return false;
     }
     double travelTimeResidual = travelTime - durToSec(phase.time - event.time);

@@ -290,6 +290,10 @@ TravelTime NLLGrid::compute(const char *phase,
 #endif
     return tt;
   }
+  catch (HDD::NLL::Grid::OutOfGrid &e)
+  {
+    std::out_of_range(e.what());
+  }
   catch (HDD::Exception &e)
   {
     throw NoPhaseError();
@@ -322,6 +326,10 @@ double NLLGrid::computeTime(const char *phase,
   try
   {
     return _grids->compute(lat1, lon1, dep1, lat2, lon2, alt2, phaseType);
+  }
+  catch (HDD::NLL::Grid::OutOfGrid &e)
+  {
+    std::out_of_range(e.what());
   }
   catch (HDD::Exception &e)
   {

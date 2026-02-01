@@ -28,6 +28,7 @@
 #ifndef __HDD_NLL_GRID_H__
 #define __HDD_NLL_GRID_H__
 
+#include "../utils.h"
 #include <cmath>
 #include <fstream>
 #include <functional>
@@ -103,6 +104,13 @@ public:
     Pread
   };
 
+  class OutOfGrid : public Exception
+  {
+  public:
+    using Exception::Exception;
+  };
+
+public:
   Grid(Type gridType, const std::string &filePath, bool swapBytes);
   ~Grid();
 

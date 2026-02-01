@@ -27,7 +27,6 @@
 
 #include "grid.h"
 #include "../log.h"
-#include "../utils.h"
 #include "map_project.h"
 
 #include <array>
@@ -814,7 +813,7 @@ GRID_FLOAT_TYPE Grid::getValueAtIndex(unsigned long long ix,
 
   if (!info.isIndexInside(ix, iy, iz))
   {
-    throw Exception("Requested index is out of grid boundaries");
+    throw OutOfGrid("Requested index is out of grid boundaries");
   }
 
   unsigned long long index = ix * info.numy * info.numz + iy * info.numz + iz;
@@ -886,15 +885,13 @@ void Grid::getValuesAt3DLocation(double xloc,
 {
   if (!info.isLocationInside(xloc, yloc, zloc))
   {
-    string msg = strf("Requested location is out of grid boundaries "
-                      "(xloc %.2f yloc %.2f zloc %.2f - grid %s "
-                      "origx %.3f origy %.3f origz %.3f "
-                      "dx %.2f dy %.2f dz %.2f "
-                      "numx %llu numy %llu numz %llu)",
-                      xloc, yloc, zloc, info.hdrFilePath.c_str(), info.origx,
-                      info.origy, info.origz, info.dx, info.dy, info.dz,
-                      info.numx, info.numy, info.numz);
-    throw Exception(msg.c_str());
+    string msg = strf(
+        "Requested location (xloc %.2f yloc %.2f zloc %.2f) is out of grid "
+        "boundaries (grid %s origx %.3f origy %.3f origz %.3f dx %.2f dy %.2f "
+        "dz %.2f numx %llu numy %llu numz %llu)",
+        xloc, yloc, zloc, info.hdrFilePath.c_str(), info.origx, info.origy,
+        info.origz, info.dx, info.dy, info.dz, info.numx, info.numy, info.numz);
+    throw OutOfGrid(msg.c_str());
   }
 
   /* calculate grid locations at the vertex of the cube containing the point */
@@ -946,15 +943,13 @@ void Grid::getValuesAt2DLocation(double yloc,
 
   if (!info.isLocationInside(xloc, yloc, zloc))
   {
-    string msg = strf("Requested location is out of grid boundaries "
-                      "(xloc %.2f yloc %.2f zloc %.2f - grid %s "
-                      "origx %.3f origy %.3f origz %.3f "
-                      "dx %.2f dy %.2f dz %.2f "
-                      "numx %llu numy %llu numz %llu)",
-                      xloc, yloc, zloc, info.hdrFilePath.c_str(), info.origx,
-                      info.origy, info.origz, info.dx, info.dy, info.dz,
-                      info.numx, info.numy, info.numz);
-    throw Exception(msg.c_str());
+    string msg = strf(
+        "Requested location (xloc %.2f yloc %.2f zloc %.2f) is out of grid "
+        "boundaries (grid %s origx %.3f origy %.3f origz %.3f dx %.2f dy %.2f "
+        "dz %.2f numx %llu numy %llu numz %llu)",
+        xloc, yloc, zloc, info.hdrFilePath.c_str(), info.origx, info.origy,
+        info.origz, info.dx, info.dy, info.dz, info.numx, info.numy, info.numz);
+    throw OutOfGrid(msg.c_str());
   }
 
   /* calculate grid locations at the face of the cube containing the point */

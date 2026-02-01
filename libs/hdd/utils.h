@@ -44,7 +44,8 @@ namespace HDD {
 class Exception : public std::runtime_error
 {
 public:
-  Exception(const std::string &message) : std::runtime_error(message) {}
+  explicit Exception(const std::string &message) : std::runtime_error(message)
+  {}
 };
 
 std::string strf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
