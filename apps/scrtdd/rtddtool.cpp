@@ -1910,6 +1910,7 @@ void RTDD::Profile::load(DatabaseQuery *query,
     {
       ddbgc = HDD::Catalog(stationFile, eventFile, phaFile, false);
     }
+    SEISCOMP_INFO("Catalog loaded (%zu events)", ddbgc.getEvents().size());
 
     // Load the travel time table
     unique_ptr<HDD::TravelTimeTable> ttt;
