@@ -125,18 +125,18 @@
           </parameter>
           <parameter name="auto-P-mapping" type="string" default="">
             <description>
-            Phase name for automatic P matching. This defines which specific
-            arrival (e.g., Pg, Pn) in the earthquake catalog will be paired with
-            the generic automatic 'P'. Only phases matching the selected type
-            will be used.
+            Phase mapping of automatic origin P. This defines which specific
+            catalog arrival (e.g., Pg, Pn) is paired with the generic P phase of
+            automatic origins. Only catalog phases matching the selected type are
+            used.
             </description>
           </parameter>
           <parameter name="auto-S-mapping" type="string" default="">
             <description>
-            Phase name for automatic S matching. This defines which specific
-            arrival (e.g., Sg, Sn) in the earthquake catalog will be paired with
-            the generic automatic 'S'. Only phases matching the selected type
-            will be used.
+            Phase mapping of automatic origin S. This defines which specific
+            catalog arrival (e.g., Sg, Sn) is paired with the generic S phase of
+            automatic origins. Only catalog phases matching the selected type are
+            used.
             </description>
           </parameter>
           <parameter name="pickUncertaintyClasses" type="list:string" unit="s" default="0.000,0.025,0.050,0.100,0.200,0.400" >
