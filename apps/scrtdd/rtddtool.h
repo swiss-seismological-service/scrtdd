@@ -168,6 +168,8 @@ private:
     std::string tttModel;
     std::string recordStreamURL;
     bool dumpDiagnostics;
+    std::string autoPMap;
+    std::string autoSMap;
     RegionPtr region;
     HDD::Config ddCfg;
     HDD::ClusteringOptions singleEventClustering;

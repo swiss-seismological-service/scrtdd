@@ -123,6 +123,22 @@
             A list of accepted S-wave phases. Phases not in this list will be ignored.
             </description>
           </parameter>
+          <parameter name="auto-P-mapping" type="string" default="">
+            <description>
+            Phase name for automatic P matching. This defines which specific
+            arrival (e.g., Pg, Pn) in the earthquake catalog will be paired with
+            the generic automatic 'P'. Only phases matching the selected type
+            will be used.
+            </description>
+          </parameter>
+          <parameter name="auto-S-mapping" type="string" default="">
+            <description>
+            Phase name for automatic S matching. This defines which specific
+            arrival (e.g., Sg, Sn) in the earthquake catalog will be paired with
+            the generic automatic 'S'. Only phases matching the selected type
+            will be used.
+            </description>
+          </parameter>
           <parameter name="pickUncertaintyClasses" type="list:string" unit="s" default="0.000,0.025,0.050,0.100,0.200,0.400" >
             <description>
             Defines pick time uncertainty thresholds (in seconds) used to classify

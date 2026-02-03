@@ -1396,7 +1396,7 @@ DD::preloadNonCatalogWaveforms(const Catalog &catalog,
     }
 
     //
-    // loop through neighbouring events and cross-correlate with `refPhase`
+    // loop through neighbouring events and try to match `refPhase`
     //
     for (unsigned neighEvId : neighbours.ids())
     {
@@ -1408,7 +1408,9 @@ DD::preloadNonCatalogWaveforms(const Catalog &catalog,
       double interEventDistance = computeDistance(refEv, event);
       if (interEventDistance > xcorrOpt.maxInterEvDist &&
           xcorrOpt.maxInterEvDist >= 0)
+      {
         continue;
+      }
 
       //
       // Check if this event pair has an entry for this station/phase

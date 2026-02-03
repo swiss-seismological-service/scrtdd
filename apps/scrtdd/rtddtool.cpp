@@ -500,6 +500,19 @@ bool RTDD::validateParameters()
     {
       prof->ddCfg.validSphases = {"S", "Sg", "Sn"};
     }
+    try
+    {
+      prof->autoPMap = configGetString(prefix + "auto-P-mapping");
+    }
+    catch (...)
+    {}
+
+    try
+    {
+      prof->autoSMap = configGetString(prefix + "auto-S-mapping");
+    }
+    catch (...)
+    {}
 
     try
     {
@@ -2039,13 +2052,36 @@ HDD::Catalog RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
                            unordered_multimap<unsigned, HDD::Catalog::Phase>());
   addToCatalog(singleEvent, {org}, dataSrc);
 
+  bool isManual = org->evaluationMode() == DataModel::MANUAL;
+
+  //
+  // For automatic origin replace phase types, to make them match the bg catalog
+  //
+  if (!isManual && (!autoPMap.empty() || !autoSMap.empty()))
+  {
+    unordered_multimap<unsigned, HDD::Catalog::Phase> phases =
+        singleEvent.getPhases();
+    for (auto &kv : phases)
+    {
+      HDD::Catalog::Phase &ph = kv.second;
+      if (ph.type == "P" && !autoPMap.empty())
+      {
+        ph.type = autoPMap;
+      }
+      else if (ph.type == "S" && !autoSMap.empty())
+      {
+        ph.type = autoSMap;
+      }
+    }
+    singleEvent = HDD::Catalog(singleEvent.getStations(),
+                               singleEvent.getEvents(), phases);
+  }
+
   //
   // Step 1 of single event relocation
   //
   SEISCOMP_INFO(
       "Performing step 1: initial location refinement (no cross-correlation)");
-
-  bool isManual = org->evaluationMode() == DataModel::MANUAL;
 
   HDD::XcorrOptions xcorrOptDisabled(xcorrOpt);
   xcorrOptDisabled.enable = false;
