@@ -48,8 +48,8 @@ public:
    * - travelTime    [seconds]
    * - takeOffAzi    [degree]
    * - takeOffDip    [degree] 0(down):180(up)
-   * - dtdd          [sec/rad] angular slowness
-   * - dtdh          [km/sec] vertical slowness
+   * - dtdd          [sec/deg] angular slowness
+   * - dtdh          [sec/km] vertical slowness
    */
   virtual void compute(double eventLat,
                        double eventLon,

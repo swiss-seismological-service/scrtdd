@@ -402,7 +402,8 @@ Neighbours selectNeighbouringEvents(const EventTree &evTree,
       // now find corresponding phase in reference event phases
       auto itRef =
           refEvCatalog.searchPhase(refEv.id, phase.stationId, phase.type);
-      if (itRef == refEvCatalog.getPhases().end())
+      if (itRef == refEvCatalog.getPhases().end() ||
+          itRef->second.procInfo.type == Phase::Type::NO)
       {
         // phase not found
         continue;
