@@ -123,17 +123,17 @@
             A list of accepted S-wave phases. Phases not in this list will be ignored.
             </description>
           </parameter>
-          <parameter name="auto-P-mapping" type="string" default="">
+          <parameter name="automaticOriginP" type="string" default="">
             <description>
-            Phase mapping of automatic origin P. This defines which specific
+            Phase mapping of automatic origin P phase. This defines which specific
             catalog arrival (e.g., Pg, Pn) is paired with the generic P phase of
             automatic origins. Only catalog phases matching the selected type are
             used.
             </description>
           </parameter>
-          <parameter name="auto-S-mapping" type="string" default="">
+          <parameter name="automaticOriginS" type="string" default="">
             <description>
-            Phase mapping of automatic origin S. This defines which specific
+            Phase mapping of automatic origin S phase. This defines which specific
             catalog arrival (e.g., Sg, Sn) is paired with the generic S phase of
             automatic origins. Only catalog phases matching the selected type are
             used.

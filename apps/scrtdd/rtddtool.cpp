@@ -502,14 +502,14 @@ bool RTDD::validateParameters()
     }
     try
     {
-      prof->autoPMap = configGetString(prefix + "auto-P-mapping");
+      prof->autoPMap = configGetString(prefix + "automaticOriginP");
     }
     catch (...)
     {}
 
     try
     {
-      prof->autoSMap = configGetString(prefix + "auto-S-mapping");
+      prof->autoSMap = configGetString(prefix + "automaticOriginS");
     }
     catch (...)
     {}
