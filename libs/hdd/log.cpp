@@ -46,7 +46,7 @@ std::string getCurrentTimestamp()
   std::time_t now_time_t = std::chrono::system_clock::to_time_t(now);
 
   std::tm tm;
-  localtime_r(&now_time_t, &tm); // Thread-safe on POSIX
+  gmtime_r(&now_time_t, &tm); // Thread-safe on POSIX
 
   std::stringstream ss;
   ss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
