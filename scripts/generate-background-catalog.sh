@@ -119,8 +119,8 @@ fi
 # Copy the relocated catalog into the web folder
 #
 if [ -n "${WEB_DIR}" ]; then
-  cp -vf event.csv  $WEB_DIR/event.csv
-  cp -vf station.csv  $WEB_DIR/station.csv
+  cp -vf multievent_*/input-event.csv  $WEB_DIR/event.csv
+  cp -vf multievent_*/input-station.csv  $WEB_DIR/station.csv
   cp -vf reloc-event.csv $WEB_DIR/me-dd-event.csv
   cp -vf ../relocation-map.html $WEB_DIR/
   date > $WEB_DIR/LAST_RUN
