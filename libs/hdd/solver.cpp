@@ -264,7 +264,7 @@ void Solver::addObservation(unsigned evId1,
 
 void Solver::addEvent(unsigned evId, double evLat, double evLon, double evDepth)
 {
-  int evIdx = _eventIdConverter.convert(evId);
+  unsigned evIdx = _eventIdConverter.convert(evId);
   _eventParams.insert({evIdx, EventParams{evLat, evLon, evDepth}});
 }
 
@@ -288,7 +288,7 @@ void Solver::addObservationParams(unsigned evId,
                                   double dz)
 {
   string phStaId    = phase + "@" + staId;
-  int evIdx         = _eventIdConverter.convert(evId);
+  unsigned evIdx    = _eventIdConverter.convert(evId);
   unsigned phStaIdx = _phStaIdConverter.convert(phStaId);
   _obsParams[evIdx].insert(
       {phStaIdx, ObservationParams{computeEvChanges, travelTime,
@@ -506,7 +506,7 @@ void Solver::loadSolutions()
 
 multimap<double, unsigned> Solver::computeInterEventDistance()
 {
-  if (_observations.size() < 1)
+  if (_observations.empty())
   {
     return multimap<double, unsigned>();
   }
@@ -554,7 +554,7 @@ multimap<double, unsigned> Solver::computeInterEventDistance()
 vector<double> Solver::computeResidualWeights(const vector<double> &residuals,
                                               const double alpha) const
 {
-  if (residuals.size() < 1)
+  if (residuals.empty())
   {
     return vector<double>();
   }
@@ -789,7 +789,7 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
              startingDist, finalDist, quantileRes.size(), q1 * 1000, q2 * 1000,
              q3 * 1000);
 
-    if (quantileCoeff.size() > 0) // when xcorr is not used there no entries
+    if (!quantileCoeff.empty()) // when xcorr is not used there no entries
     {
       compute5numberSummary(quantileCoeff, min, max, q1, q2, q3);
       string line = strf(
@@ -803,7 +803,7 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
   //
   // Print Xcorr 5 number summary collected above
   //
-  if (xcorrLines.size() > 0) logInfo("Cross-correlation:");
+  if (!xcorrLines.empty()) logInfo("Cross-correlation:");
   for (const string &line : xcorrLines)
   {
     logInfo(line);
@@ -814,7 +814,7 @@ void Solver::solve(unsigned numIterations,
                    double dampingFactor,
                    bool normalizeG)
 {
-  if (_observations.size() == 0)
+  if (_observations.empty())
   {
     throw Exception("Solver: no observations given");
   }

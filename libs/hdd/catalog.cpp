@@ -40,39 +40,6 @@ using namespace HDD::Logger;
 
 namespace {
 
-template <typename Map, class Val>
-typename Map::iterator searchByValue(Map &SearchMap, const Val &SearchVal)
-{
-  typename Map::iterator iRet = SearchMap.end();
-  for (typename Map::iterator iTer = SearchMap.begin(); iTer != SearchMap.end();
-       iTer++)
-  {
-    if (iTer->second == SearchVal)
-    {
-      iRet = iTer;
-      break;
-    }
-  }
-  return iRet;
-}
-
-template <typename Map, class Val>
-typename Map::const_iterator searchByValue(const Map &SearchMap,
-                                           const Val &SearchVal)
-{
-  typename Map::const_iterator iRet = SearchMap.end();
-  for (typename Map::const_iterator iTer = SearchMap.begin();
-       iTer != SearchMap.end(); iTer++)
-  {
-    if (iTer->second == SearchVal)
-    {
-      iRet = iTer;
-      break;
-    }
-  }
-  return iRet;
-}
-
 bool strToBool(const std::string &s)
 {
   return s == "1" || s == "true" || s == "True" || s == "TRUE";
@@ -368,12 +335,6 @@ bool Catalog::updateEvent(const Event &newEv, bool addIfMissing, bool keepEvId)
     addEvent(newEv, keepEvId);
   }
   return false;
-}
-
-map<unsigned, Catalog::Event>::const_iterator
-Catalog::searchEvent(const Event &event) const
-{
-  return searchByValue(_events, event);
 }
 
 unordered_map<std::string, Catalog::Station>::const_iterator

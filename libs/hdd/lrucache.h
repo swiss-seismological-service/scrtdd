@@ -69,6 +69,15 @@ public:
 
   void put(const key_t &key, value_t value)
   {
+    if (_max_size == 0)
+    {
+      if (_callback)
+      {
+        _callback(key, value);
+      }
+      return;
+    }
+
     auto it = _cache_items_map.find(key);
     _cache_items_list.emplace_front(key, std::move(value));
     if (it != _cache_items_map.end())

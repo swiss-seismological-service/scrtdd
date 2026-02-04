@@ -28,6 +28,7 @@
 #include "utils.h"
 #include "csvreader.h"
 #include "log.h"
+#include <numeric>
 
 #ifdef USE_BOOST_FS
 #include <boost/filesystem.hpp>
@@ -302,7 +303,7 @@ void compute5numberSummary(const std::vector<double> &values,
                            double &q2,
                            double &q3)
 {
-  if (values.size() == 0)
+  if (values.empty())
   {
     min = max = q1 = q2 = q3 = 0;
     return;
@@ -323,7 +324,7 @@ void compute5numberSummary(const std::vector<double> &values,
 
 double computeMedian(const std::vector<double> &values)
 {
-  if (values.size() == 0) return 0;
+  if (values.empty()) return 0;
 
   vector<double> tmp(values);
   const auto middleItr = tmp.begin() + tmp.size() / 2;
@@ -350,7 +351,7 @@ double computeMedianAbsoluteDeviation(const std::vector<double> &values,
 
 double computeMean(const vector<double> &values)
 {
-  if (values.size() == 0) return 0;
+  if (values.empty()) return 0;
   return std::accumulate(values.begin(), values.end(), 0.0) / values.size();
 }
 
@@ -372,6 +373,11 @@ double computeCircularMean(const std::vector<double> &angles)
   {
     x += cos(angles[i]);
     y += sin(angles[i]);
+  }
+  if (x == 0 && y == 0)
+  {
+    // Return NaN for undefined mean (e.g., opposing angles)
+    return numeric_limits<double>::quiet_NaN();
   }
   return atan2(y / angles.size(), x / angles.size());
 }

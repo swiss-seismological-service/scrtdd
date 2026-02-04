@@ -55,23 +55,30 @@ namespace HDD {
 
 UTCClock::time_point UTCClock::now()
 {
-  std::time_t now =
-      std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-  return from_time_t(now);
+  auto now_system           = std::chrono::system_clock::now();
+  auto duration_since_epoch = std::chrono::duration_cast<UTCClock::duration>(
+      now_system.time_since_epoch());
+  return UTCClock::time_point(duration_since_epoch);
 }
 
 UTCClock::time_point UTCClock::fromDate(
     int year, int month, int day, int hour, int min, int sec, int usec)
 {
-  std::tm tm     = {};
-  tm.tm_year     = year - 1900;
-  tm.tm_mon      = month - 1;
-  tm.tm_mday     = day;
-  tm.tm_hour     = hour;
-  tm.tm_min      = min;
-  tm.tm_sec      = sec;
-  tm.tm_isdst    = -1;
+  std::tm tm  = {};
+  tm.tm_year  = year - 1900;
+  tm.tm_mon   = month - 1;
+  tm.tm_mday  = day;
+  tm.tm_hour  = hour;
+  tm.tm_min   = min;
+  tm.tm_sec   = sec;
+  tm.tm_isdst = 0; // Set to 0 for UTC to prevent daylight saving time
+                   // adjustments by timegm
   std::time_t tt = timegm(&tm);
+  if (tt == -1 && (year < 1970 || year > 2038))
+  { // timegm might return -1 for dates outside time_t range
+    throw HDD::Exception("Invalid date/time conversion by timegm. Date might "
+                         "be out of time_t range.");
+  }
   return from_time_t(tt) + chrono::microseconds(usec);
 }
 
@@ -92,10 +99,10 @@ void UTCClock::toDate(const UTCClock::time_point &tp,
   day   = tm.tm_mday;
   hour  = tm.tm_hour;
   min   = tm.tm_min;
-  chrono::microseconds leftover =
-      tp - from_time_t(tt) + chrono::seconds(tm.tm_sec);
-  sec  = duration_cast<chrono::seconds>(leftover).count();
-  usec = (leftover - chrono::seconds(sec)).count();
+  sec   = tm.tm_sec; // Get integer seconds from tm struct
+  chrono::microseconds fractional_microseconds =
+      tp - time_point_cast<UTCTime::duration>(from_time_t(tt));
+  usec = fractional_microseconds.count();
 }
 
 UTCClock::time_point UTCClock::fromString(const std::string &s)

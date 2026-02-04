@@ -29,6 +29,7 @@
 #include "log.h"
 #include "timewindow.h"
 #include "utils.h"
+#include <numeric>
 
 using namespace std;
 using namespace HDD::Logger;

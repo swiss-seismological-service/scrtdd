@@ -313,7 +313,7 @@ private:
   std::unordered_map<unsigned, EventDeltas> _eventDeltas; // key = evIdx
 
   DDSystem _dd;
-  std::string _type;
+  const std::string _type;
 };
 
 } // namespace HDD

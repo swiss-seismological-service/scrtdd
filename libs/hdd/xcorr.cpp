@@ -29,7 +29,6 @@
 #include "log.h"
 
 #include <cfenv>
-#include <vector>
 
 using namespace std;
 using namespace HDD::Logger;

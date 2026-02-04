@@ -45,7 +45,7 @@ public:
     double coeff, lag;
   };
 
-  bool empty() const { return _entries.size() == 0; }
+  bool empty() const { return _entries.empty(); }
 
   void add(unsigned evId1,
            unsigned evId2,

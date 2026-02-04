@@ -135,13 +135,8 @@ public:
 
   GenericTimeWindow overlap(const GenericTimeWindow &other) const
   {
-    if (contains(other)) return other;
-    if (other.contains(*this)) return *this;
-    if (contains(other._startTime))
-      return GenericTimeWindow(other._startTime, _endTime);
-    if (contains(other._endTime))
-      return GenericTimeWindow(_startTime, other._endTime);
-    return GenericTimeWindow();
+    return GenericTimeWindow(std::max(_startTime, other._startTime),
+                             std::min(_endTime, other._endTime));
   }
 };
 

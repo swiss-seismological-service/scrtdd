@@ -34,7 +34,6 @@
 #include <cmath>
 #include <cstdarg>
 #include <initializer_list>
-#include <random>
 #include <regex>
 #include <stdexcept>
 #include <vector>
@@ -90,16 +89,12 @@ inline constexpr double km2rad(double km, double kmDepth = 0)
 
 inline double normalizeLon(double lon)
 {
-  while (lon < -180.0) lon += 360.0;
-  while (lon > 180.0) lon -= 360.0;
-  return lon;
+  return std::fmod(std::fmod(lon + 180.0, 360.0) + 360.0, 360.0) - 180.0;
 }
 
 inline double normalizeAzimuth(double az)
 {
-  while (az < 0) az += 360.0;
-  while (az > 360) az -= 360.0;
-  return az;
+  return std::fmod(std::fmod(az, 360.0) + 360.0, 360.0);
 }
 
 double computeAzimuth(double lat1, double lon1, double lat2, double lon2);

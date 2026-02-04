@@ -115,6 +115,8 @@ public:
                ? _stime
                : (_stime + secToDur((sampleCount() - 1) / _smpfreq));
   }
+  // Adjusts the start time of the trace such that its end time becomes `time`,
+  // preserving the number of samples implicitly.
   void setEndTime(const T_TIME &time) { _stime += time - endTime(); }
 
   T_WIN timeWindow() const { return T_WIN(_stime, endTime()); }

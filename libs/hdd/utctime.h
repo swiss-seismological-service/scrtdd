@@ -39,7 +39,7 @@ struct UTCClock
   typedef duration::rep rep;
   typedef duration::period period;
   typedef std::chrono::time_point<UTCClock, duration> time_point;
-  static const bool is_steady = true;
+  static const bool is_steady = false;
 
   static time_point now();
 
