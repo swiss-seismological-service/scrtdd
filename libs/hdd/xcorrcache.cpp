@@ -88,7 +88,7 @@ XCorrCache XCorrCache::readFromFile(const Catalog &cat, const std::string &file)
       }
     }
   }
-  catch (std::exception &e)
+  catch (const std::exception &e)
   {
     string msg = strf("Error while parsing file '%s' at row %d: %s",
                       file.c_str(), row_count, e.what());

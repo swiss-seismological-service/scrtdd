@@ -174,7 +174,7 @@ NLLGrid::NLLGrid(const std::string &gridPath,
         _SVelGrid = make_shared<VelGrid>(baseFilePath, _swapBytes);
       }
     }
-    catch (std::exception &e)
+    catch (const std::exception &e)
     {
       logWarningF("Cannot load grid file: %s", e.what());
     }
@@ -215,7 +215,7 @@ double NLLGrid::compute(double eventLat,
     // try the cached grid first
     timeGrid = _openGrids.get(key).timeGrid;
   }
-  catch (std::range_error &e)
+  catch (const std::range_error &e)
   {
     // Check if we have already excluded the station (save time).
     if (_unloadables.find(key) != _unloadables.end())
@@ -242,7 +242,7 @@ double NLLGrid::compute(double eventLat,
                        .data;
       }
     }
-    catch (std::range_error &e)
+    catch (const std::range_error &e)
     {
       _unloadables.insert(key);
       throw Exception("Cannot find a suitable " + phaseType + " time grid");
@@ -274,7 +274,7 @@ double NLLGrid::compute(double eventLat,
     {
       timeGrid->open(_openMode);
     }
-    catch (Exception &e)
+    catch (const Exception &e)
     {
       _unloadables.insert(key);
       string msg = strf("Cannot open grid file: %s", e.what());
@@ -316,7 +316,7 @@ void NLLGrid::compute(double eventLat,
     // try the cached grid first (mostly to refresh the lru cache)
     velGrid = _openGrids.get(key).velGrid;
   }
-  catch (std::range_error &e)
+  catch (const std::range_error &e)
   {
     // Check if we have already excluded the station (save time).
     if (_unloadables.find(key) != _unloadables.end())
@@ -356,7 +356,7 @@ void NLLGrid::compute(double eventLat,
     {
       velGrid->open(_openMode);
     }
-    catch (Exception &e)
+    catch (const Exception &e)
     {
       _unloadables.insert(key);
       string msg = strf("Cannot open grid file: %s", e.what());
@@ -380,7 +380,7 @@ void NLLGrid::compute(double eventLat,
     // try the cached grid first
     angleGrid = _openGrids.get(key).angleGrid;
   }
-  catch (std::range_error &e)
+  catch (const std::range_error &e)
   {
     // Check if we have already excluded the station (save time).
     if (_unloadables.find(key) != _unloadables.end())
@@ -407,7 +407,7 @@ void NLLGrid::compute(double eventLat,
                         .data;
       }
     }
-    catch (std::range_error &e)
+    catch (const std::range_error &e)
     {
       _unloadables.insert(key);
       throw Exception("Cannot find a suitable " + phaseType + " angle grid");
@@ -439,7 +439,7 @@ void NLLGrid::compute(double eventLat,
     {
       angleGrid->open(_openMode);
     }
-    catch (Exception &e)
+    catch (const Exception &e)
     {
       _unloadables.insert(key);
       string msg = strf("Cannot open grid file: %s", e.what());

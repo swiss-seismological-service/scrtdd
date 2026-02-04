@@ -365,7 +365,7 @@ void DD::dumpWaveforms(const XcorrOptions &xcorrOpt, const string &basePath)
         {
           _proxy->writeTrace(*tr, wfPath);
         }
-        catch (exception &e)
+        catch (const std::exception &e)
         {
           logWarningF("Couldn't write waveform to disk %s: %s", wfPath.c_str(),
                       e.what());
@@ -756,7 +756,7 @@ Catalog DD::relocate(const Catalog &catalog,
       solver.solve(solverOpt.solverIterations, dampingFactor,
                    solverOpt.L2normalization);
     }
-    catch (Exception &e)
+    catch (const Exception &e)
     {
       logInfoF("Cannot solve the double-difference system, stop here (%s)",
                e.what());
@@ -981,7 +981,7 @@ bool DD::addObservationParams(Solver &solver,
       ttt.compute(event, station, phaseName, travelTime, takeOffAngleAzim,
                   takeOffAngleDip, dtdd, dtdh);
     }
-    catch (Exception &e)
+    catch (const Exception &e)
     {
       logDebugF("TTT error: %s (Event lat %.6f lon %.6f depth %.6f "
                 "Station %s)",
@@ -1337,7 +1337,7 @@ void DD::buildXcorrDiffTTimePairs(const Catalog &catalog,
             xcorr.add(refEv.id, event.id, refPhase.stationId, refPhase.type,
                       e.valid, e.coeff, e.lag);
           }
-          catch (std::out_of_range &e)
+          catch (const std::out_of_range &e)
           {
             // Do the actual cross-correlation if not found in precomputed
             double coeff, lag;

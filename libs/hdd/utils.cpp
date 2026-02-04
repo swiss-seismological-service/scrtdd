@@ -507,7 +507,7 @@ bool pathExists(const std::string &path)
   {
     return fs::exists(path);
   }
-  catch (exception &e)
+  catch (const std::exception &e)
   {
     logErrorF("%s", e.what());
     return false;
@@ -520,7 +520,7 @@ bool directoryEmpty(const std::string &path)
   {
     return !fs::exists(path) || (fs::is_directory(path) && fs::is_empty(path));
   }
-  catch (exception &e)
+  catch (const std::exception &e)
   {
     logErrorF("%s", e.what());
     return false;
@@ -534,7 +534,7 @@ bool createDirectories(const std::string &path)
     fs::create_directories(path);
     return true;
   }
-  catch (exception &e)
+  catch (const std::exception &e)
   {
     logErrorF("%s", e.what());
     return false;
@@ -548,7 +548,7 @@ bool removePath(const std::string &path)
     fs::remove_all(path);
     return true;
   }
-  catch (exception &e)
+  catch (const std::exception &e)
   {
     logErrorF("%s", e.what());
     return false;

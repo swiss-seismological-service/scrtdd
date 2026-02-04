@@ -82,7 +82,7 @@ bool Neighbours::has(unsigned neighbourId, const std::string &stationId) const
       }
     }
   }
-  catch (std::out_of_range &e)
+  catch (const std::out_of_range &e)
   {}
   return false;
 }
@@ -95,7 +95,7 @@ bool Neighbours::has(unsigned neighbourId,
   {
     return _phases.at(neighbourId).at(phase).count(stationId) > 0;
   }
-  catch (std::out_of_range &e)
+  catch (const std::out_of_range &e)
   {
     return false;
   }
@@ -159,7 +159,7 @@ Neighbours::phases(unsigned neighbourId) const
       }
     }
   }
-  catch (std::out_of_range &e)
+  catch (const std::out_of_range &e)
   {}
   return result;
 }
@@ -270,7 +270,7 @@ Neighbours::readFromFile(const Catalog &cat, const std::string &file)
       current.add(ev2, stationId, phase);
     }
   }
-  catch (std::exception &e)
+  catch (const std::exception &e)
   {
     string msg = strf("Error while parsing file '%s' at row %d: %s",
                       file.c_str(), row_count, e.what());

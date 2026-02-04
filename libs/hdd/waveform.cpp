@@ -101,7 +101,7 @@ shared_ptr<const Trace> BasicLoader::get(const TimeWindow &tw,
     trace = _wf->loadTrace(tw, ph.networkCode, ph.stationCode, ph.locationCode,
                            ph.channelCode);
   }
-  catch (exception &e)
+  catch (const std::exception &e)
   {
     logDebugF(
         "Cannnot load trace (stream %s.%s.%s.%s from %s length %.2f sec): %s",
@@ -296,7 +296,7 @@ unique_ptr<Trace> DiskCachedLoader::getFromCache(const TimeWindow &tw,
   {
     return _wf->readTrace(cacheFile);
   }
-  catch (exception &e)
+  catch (const std::exception &e)
   {
     logWarningF("Couldn't load waveform %s: %s", cacheFile.c_str(), e.what());
     return nullptr;
@@ -316,7 +316,7 @@ void DiskCachedLoader::storeInCache(const TimeWindow &tw,
   {
     _wf->writeTrace(trace, cacheFile);
   }
-  catch (exception &e)
+  catch (const std::exception &e)
   {
     logWarningF("Couldn't write waveform to disk %s: %s", cacheFile.c_str(),
                 e.what());
@@ -357,7 +357,7 @@ shared_ptr<const Trace> BasicProcessor::get(const TimeWindow &tw,
   {
     _wf->getComponentsInfo(ph, comps);
   }
-  catch (exception &e)
+  catch (const std::exception &e)
   {
     logDebugF("No RT/L2 transformation possible: cannot fetch components "
               "information for ev %u stream %s.%s.%s.%s at %s: %s",
@@ -418,7 +418,7 @@ BasicProcessor::loadAndProcess(const TimeWindow &tw,
   {
     filter(*copy, true, filterStr, resampleFreq);
   }
-  catch (exception &e)
+  catch (const std::exception &e)
   {
     logDebugF("Errow while filtering waveform: %s", e.what());
     return nullptr;

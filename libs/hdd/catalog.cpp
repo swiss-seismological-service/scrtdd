@@ -142,7 +142,7 @@ Catalog::Catalog(const string &stationFile,
       _stations[sta.id] = sta;
     }
   }
-  catch (std::exception &e)
+  catch (const std::exception &e)
   {
     string msg = strf("Error while parsing file '%s' at row %d: %s",
                       stationFile.c_str(), row_count, e.what());
@@ -167,7 +167,7 @@ Catalog::Catalog(const string &stationFile,
       {
         ev.magnitude = std::stod(row.at("magnitude"));
       }
-      catch (std::exception &e)
+      catch (const std::exception &e)
       {
         ev.magnitude = numeric_limits<double>::quiet_NaN();
       }
@@ -182,7 +182,7 @@ Catalog::Catalog(const string &stationFile,
       _events[ev.id] = ev;
     }
   }
-  catch (std::exception &e)
+  catch (const std::exception &e)
   {
     string msg = strf("Error while parsing file '%s' at row %d: %s",
                       eventFile.c_str(), row_count, e.what());
@@ -204,7 +204,7 @@ Catalog::Catalog(const string &stationFile,
         ph.lowerUncertainty = std::stod(row.at("lowerUncertainty"));
         ph.upperUncertainty = std::stod(row.at("upperUncertainty"));
       }
-      catch (std::exception &e)
+      catch (const std::exception &e)
       {
         ph.lowerUncertainty = numeric_limits<double>::quiet_NaN();
         ph.upperUncertainty = numeric_limits<double>::quiet_NaN();
@@ -239,7 +239,7 @@ Catalog::Catalog(const string &stationFile,
       _phases.emplace(ph.eventId, ph);
     }
   }
-  catch (std::exception &e)
+  catch (const std::exception &e)
   {
     string msg = strf("Error while parsing file '%s' at row %d: %s",
                       phaFile.c_str(), row_count, e.what());
