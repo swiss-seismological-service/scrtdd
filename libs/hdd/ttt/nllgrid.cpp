@@ -243,6 +243,9 @@ double NLLGrid::compute(double eventLat,
       }
     }
     catch (const std::range_error &e)
+    {}
+
+    if (!timeGrid)
     {
       _unloadables.insert(key);
       throw Exception("Cannot find a suitable " + phaseType + " time grid");
@@ -408,6 +411,9 @@ void NLLGrid::compute(double eventLat,
       }
     }
     catch (const std::range_error &e)
+    {}
+
+    if (!angleGrid)
     {
       _unloadables.insert(key);
       throw Exception("Cannot find a suitable " + phaseType + " angle grid");
