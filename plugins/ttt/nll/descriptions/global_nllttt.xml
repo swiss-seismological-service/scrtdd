@@ -25,7 +25,11 @@
 					</parameter>
 					<parameter name="tablePath" type="path">
 						<description>
-						Path to the directory containing the NonLinLoc travel time grids.
+						Path to the directory containing the NonLinLoc travel time grids and
+						the base name of the grid files. For example, if your files are
+						located at /path/to/grids/model*, then tablePath should be
+						/path/to/grids/model. Grids for model velocity (or slowness), time
+						and angle for both P and S should be privided.
 						</description>
 					</parameter>
 					<parameter name="maxSearchDistance" type="double" default="10" unit="m">
