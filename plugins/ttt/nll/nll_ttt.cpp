@@ -113,18 +113,6 @@ private:
   }
 };
 
-double computeDistance(double lat1,
-                       double lon1,
-                       double lat2,
-                       double lon2,
-                       double *azimuth     = nullptr,
-                       double *backAzimuth = nullptr)
-{
-  double dist;
-  Math::Geo::delazi(lat1, lon1, lat2, lon2, &dist, azimuth, backAzimuth);
-  return Math::Geo::deg2km(dist);
-}
-
 bool NLLGrid::setModel(const string &model)
 {
   _model = "";
@@ -237,8 +225,16 @@ TravelTimeList *NLLGrid::compute(double lat1,
                                  double alt2,
                                  int ellc)
 {
+  double dist;
+#if SC_API_VERSION < SC_API_VERSION_CHECK(16, 0, 0)
+  double az, baz;
+  Math::Geo::delazi(lat1, lon1, lat2, lon2, &dist, &az, &baz);
+#else
+  Math::Geo::delazi(lat1, lon1, lat2, lon2, &dist);
+#endif
+
   TravelTimeList *ttlist = new TravelTimeList;
-  ttlist->delta          = computeDistance(lat1, lon1, lat2, lon2);
+  ttlist->delta          = dist;
   ttlist->depth          = dep1;
   try
   {
