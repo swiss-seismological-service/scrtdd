@@ -39,17 +39,13 @@ public:
   virtual ~TravelTimeTable() = default;
 
   // The default copy and move constructors/assignment operators are explicitly
-  // defaulted to allow derived classes to be copied and moved by value directly,
-  // which is intended for specific use cases where subclasses act as value types.
+  // defaulted to allow derived classes to be copied and moved by value
+  // directly, which is intended for specific use cases where subclasses act as
+  // value types.
   //
-  // WARNING: Assigning a derived class object to a `TravelTimeTable` base class
-  // variable by value (e.g., `TravelTimeTable base_obj = derived_obj;`) will
-  // result in object slicing. This means only the base class portion will be
-  // copied, and all derived-specific data and behavior will be lost.
-  //
-  // To maintain polymorphic behavior and avoid slicing when dealing with different
-  // `TravelTimeTable` implementations, always interact with them through pointers
-  // (e.g., `TravelTimeTable*` or `std::unique_ptr<TravelTimeTable>`) or references.
+  // WARNING: To maintain polymorphic behavior and avoid slicing when dealing
+  // with different `TravelTimeTable` implementations, always interact with them
+  // through pointers
   TravelTimeTable(const TravelTimeTable &other)            = default;
   TravelTimeTable &operator=(const TravelTimeTable &other) = default;
   TravelTimeTable(TravelTimeTable &&other)                 = default;
