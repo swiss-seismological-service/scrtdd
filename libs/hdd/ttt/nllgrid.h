@@ -49,6 +49,15 @@ public:
           unsigned maxOpenFiles           = 512,
           const std::string &accessMethod = "KeepOpen");
 
+  NLLGrid(const NLLGrid &other)            = delete;
+  NLLGrid &operator=(const NLLGrid &other) = delete;
+
+  NLLGrid(NLLGrid &&other)            = default;
+  NLLGrid &operator=(NLLGrid &&other) = default;
+
+  NLLGrid()  = default;
+  ~NLLGrid() = default;
+
   double compute(double eventLat,
                  double eventLon,
                  double eventDepth,

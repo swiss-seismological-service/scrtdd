@@ -56,11 +56,12 @@ public:
   typedef typename std::list<key_value_pair_t>::iterator list_iterator_t;
   typedef std::function<void(const key_t &, value_t &)> callback_t;
 
+  lru_cache() : _max_size(0) {}
   lru_cache(size_t max_size) : _max_size(max_size) {}
   ~lru_cache() = default;
 
-  lru_cache(const lru_cache &other)            = default;
-  lru_cache &operator=(const lru_cache &other) = default;
+  lru_cache(const lru_cache &other)            = delete;
+  lru_cache &operator=(const lru_cache &other) = delete;
 
   lru_cache(lru_cache &&other)            = default;
   lru_cache &operator=(lru_cache &&other) = default;
@@ -129,7 +130,7 @@ public:
 private:
   std::list<key_value_pair_t> _cache_items_list;
   std::unordered_map<key_t, list_iterator_t> _cache_items_map;
-  const size_t _max_size;
+  size_t _max_size;
   callback_t _callback;
 };
 

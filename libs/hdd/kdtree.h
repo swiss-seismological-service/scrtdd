@@ -64,51 +64,12 @@ public:
   KDTree()  = default;
   ~KDTree() = default;
 
-  // Custom copy constructor for deep copying the tree structure
-  KDTree(const KDTree &other)
-      : _points(other._points),     // Deep copy points
-        _nodes(other._nodes.size()) // Pre-allocate nodes for the new tree (size
-                                    // needs to be same)
-  {
-    if (other._root)
-    {
-      // Re-build the tree structure using the same logic as initial
-      // construction and update the _root pointer for the copied tree. We need
-      // to pass indices into the *new* _points vector.
-      std::vector<size_t> indices(_points.size());
-      std::iota(std::begin(indices), std::end(indices), 0);
-      _root = buildRecursive(indices.data(), _points.size(), 0);
-    }
-    else
-    {
-      _root = nullptr;
-    }
-  }
+  KDTree(const KDTree &other) : KDTree(other.points()) {}
 
   // Custom copy assignment operator
   KDTree &operator=(const KDTree &other)
   {
-    if (this != &other)
-    {
-      _points = other._points; // Deep copy points
-      _nodes.assign(other._nodes.begin(),
-                    other._nodes.end()); // Copy node data (idx, axis)
-      _nodes.resize(
-          _points.size()); // Ensure _nodes has correct size if _points changed
-
-      // Re-build the tree structure (Node* pointers) based on new _nodes vector
-      if (other._root)
-      {
-        std::vector<size_t> indices(_points.size());
-        std::iota(std::begin(indices), std::end(indices), 0);
-        _root = buildRecursive(indices.data(), _points.size(), 0);
-      }
-      else
-      {
-        _root = nullptr;
-      }
-    }
-    return *this;
+    return *this = KDTree(other.points());
   }
 
   KDTree(KDTree &&other)            = default;

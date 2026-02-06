@@ -88,7 +88,7 @@ private:
   std::string _model;
   std::unordered_set<std::string> _validPphases;
   std::unordered_set<std::string> _validSphases;
-  std::unique_ptr<HDD::TTT::NLLGrid> _grids;
+  HDD::TTT::NLLGrid _grids;
 
 private:
   static bool initializeLibraryOnce()
@@ -116,7 +116,7 @@ private:
 bool NLLGrid::setModel(const string &model)
 {
   _model = "";
-  _grids.reset();
+  _grids = std::move(HDD::TTT::NLLGrid());
 
   auto app = Seiscomp::System::Application::Instance();
   const Config::Config *cfg;
@@ -208,9 +208,8 @@ bool NLLGrid::setModel(const string &model)
   catch (...)
   {}
 
-  _grids.reset(new HDD::TTT::NLLGrid(gridPath, gridModel, maxSearchDistance,
-                                     swapBytes, maxOpenFiles, accessMethod));
-
+  _grids = std::move(HDD::TTT::NLLGrid(gridPath, gridModel, maxSearchDistance,
+                                       swapBytes, maxOpenFiles, accessMethod));
   _model = model;
   return true;
 }
@@ -279,8 +278,8 @@ TravelTime NLLGrid::compute(const char *phase,
   {
     TravelTime tt(phase, 0, 0, 0, 0, 0);
     double takeOffAzi;
-    _grids->compute(lat1, lon1, dep1, lat2, lon2, alt2, phaseType, tt.time,
-                    takeOffAzi, tt.takeoff, tt.dtdd, tt.dtdh);
+    _grids.compute(lat1, lon1, dep1, lat2, lon2, alt2, phaseType, tt.time,
+                   takeOffAzi, tt.takeoff, tt.dtdd, tt.dtdh);
 #if SC_API_VERSION >= SC_API_VERSION_CHECK(16, 0, 0)
     tt.azi = takeOffAzi;
 #endif
@@ -321,7 +320,7 @@ double NLLGrid::computeTime(const char *phase,
 
   try
   {
-    return _grids->compute(lat1, lon1, dep1, lat2, lon2, alt2, phaseType);
+    return _grids.compute(lat1, lon1, dep1, lat2, lon2, alt2, phaseType);
   }
   catch (HDD::NLL::Grid::OutOfGrid &e)
   {
