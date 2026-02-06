@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<seiscomp>
+	<plugin name="Generic2D">
+		<extends>global</extends>
+		<description>
+		SeisComP travel time wrapper for Generic2D travel time tables.
+		</description>
+		<configuration>
+			<extend-struct type="ttt profile" match-name="Generic2D">
+				<struct type="table profile">
+					<description>
+					Defines a travel time profile using Generic2D travel time tables.
+					Once defined, the profile can be enabled by adding its name
+					to the 'ttt.Generic2D.tables' list.
+					</description>
+					<parameter name="tablePath" type="path">
+						<description>
+						Path to the directory containing the Generic2D travel time table files,
+						and the base name of the table files. For example, if your files are
+						located at /path/to/ttt/model*csv, then tablePath should be
+						/path/to/ttt/model.
+						</description>
+					</parameter>
+				</struct>
+			</extend-struct>
+		</configuration>
+	</plugin>
+</seiscomp>
