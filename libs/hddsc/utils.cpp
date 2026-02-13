@@ -402,7 +402,7 @@ void convertOrigin(DataSource &dataSrc,
   DataModel::CreationInfo ci;
   ci.setAgencyID(agencyID);
   ci.setAuthor(author);
-  ci.setCreationTime(Core::Time::GMT());
+  ci.setCreationTime(Core::Time::UTC());
 
   newOrg->setCreationInfo(ci);
   newOrg->setEarthModelID(earthModelID);
