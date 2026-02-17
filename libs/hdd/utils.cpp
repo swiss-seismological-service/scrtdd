@@ -387,12 +387,12 @@ double computeCircularMean(const std::vector<double> &angles)
  * 0.0 <= xdiff/zdiff <= 1.0
  * returns interp value at(xdiff, zdiff)
  */
-double interpolateSquareLagrange(double xdiff,
-                                 double zdiff,
-                                 double vval00,
-                                 double vval01,
-                                 double vval10,
-                                 double vval11)
+double interpolateBilinear(double xdiff,
+                           double zdiff,
+                           double vval00,
+                           double vval01,
+                           double vval10,
+                           double vval11)
 {
   // Lambda for linear interpolation
   auto lerp = [](double a, double b, double t) { return a + t * (b - a); };
@@ -410,17 +410,17 @@ double interpolateSquareLagrange(double xdiff,
  * 0.0 <= xdiff/ydiff/zdiff <= 1.0
  * returns interp value at(xdiff, ydiff, zdiff)
  */
-double interpolateCubeLagrange(double xdiff,
-                               double ydiff,
-                               double zdiff,
-                               double vval000,
-                               double vval001,
-                               double vval010,
-                               double vval011,
-                               double vval100,
-                               double vval101,
-                               double vval110,
-                               double vval111)
+double interpolateTrilinear(double xdiff,
+                            double ydiff,
+                            double zdiff,
+                            double vval000,
+                            double vval001,
+                            double vval010,
+                            double vval011,
+                            double vval100,
+                            double vval101,
+                            double vval110,
+                            double vval111)
 {
   // Define the linear interpolation lambda
   auto lerp = [](double a, double b, double t) { return a + t * (b - a); };
@@ -440,21 +440,21 @@ double interpolateCubeLagrange(double xdiff,
 }
 
 /*
- * Similar to interpolateSquareLagrange but for angles. Since they can wrap
+ * Similar to interpolateBilinear but for angles. Since they can wrap
  * at 360 degree, they need a special function
  */
 double interpolateSquareAngles(
     double xdiff, double zdiff, double v00, double v01, double v10, double v11)
 {
   // 1. Interpolate X-components
-  double x_comp = interpolateSquareLagrange(
-      xdiff, zdiff, cos(degToRad(v00)), cos(degToRad(v01)), cos(degToRad(v10)),
-      cos(degToRad(v11)));
+  double x_comp =
+      interpolateBilinear(xdiff, zdiff, cos(degToRad(v00)), cos(degToRad(v01)),
+                          cos(degToRad(v10)), cos(degToRad(v11)));
 
   // 2. Interpolate Z-components
-  double z_comp = interpolateSquareLagrange(
-      xdiff, zdiff, sin(degToRad(v00)), sin(degToRad(v01)), sin(degToRad(v10)),
-      sin(degToRad(v11)));
+  double z_comp =
+      interpolateBilinear(xdiff, zdiff, sin(degToRad(v00)), sin(degToRad(v01)),
+                          sin(degToRad(v10)), sin(degToRad(v11)));
 
   // 3. Convert back to degrees
   double result = atan2(z_comp, x_comp);
@@ -466,7 +466,7 @@ double interpolateSquareAngles(
 }
 
 /*
- * Similar to interpolateCubeLagrange but for angles. Since they can wrap
+ * Similar to interpolateTrilinear but for angles. Since they can wrap
  * at 360 degree, they need a special function
  */
 double interpolateCubeAngles(double xdiff,
@@ -482,13 +482,13 @@ double interpolateCubeAngles(double xdiff,
                              double v111)
 {
   // 1. Interpolate the X-components (cosines)
-  double cos_comp = interpolateCubeLagrange(
+  double cos_comp = interpolateTrilinear(
       xdiff, ydiff, zdiff, cos(degToRad(v000)), cos(degToRad(v001)),
       cos(degToRad(v010)), cos(degToRad(v011)), cos(degToRad(v100)),
       cos(degToRad(v101)), cos(degToRad(v110)), cos(degToRad(v111)));
 
   // 2. Interpolate the Y-components (sines)
-  double sin_comp = interpolateCubeLagrange(
+  double sin_comp = interpolateTrilinear(
       xdiff, ydiff, zdiff, sin(degToRad(v000)), sin(degToRad(v001)),
       sin(degToRad(v010)), sin(degToRad(v011)), sin(degToRad(v100)),
       sin(degToRad(v101)), sin(degToRad(v110)), sin(degToRad(v111)));

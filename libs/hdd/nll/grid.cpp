@@ -1110,8 +1110,8 @@ GRID_FLOAT_TYPE TimeGrid::interpolateValues3D(double xdiff,
   {
     throw Exception("Negative times found in the grid file");
   }
-  return interpolateCubeLagrange(xdiff, ydiff, zdiff, vval000, vval001, vval010,
-                                 vval011, vval100, vval101, vval110, vval111);
+  return interpolateTrilinear(xdiff, ydiff, zdiff, vval000, vval001, vval010,
+                              vval011, vval100, vval101, vval110, vval111);
 }
 
 template <typename GRID_FLOAT_TYPE>
@@ -1126,8 +1126,7 @@ GRID_FLOAT_TYPE TimeGrid::interpolateValues2D(double xdiff,
   {
     throw Exception("Negative times found in the grid file");
   }
-  return interpolateSquareLagrange(xdiff, zdiff, vval00, vval01, vval10,
-                                   vval11);
+  return interpolateBilinear(xdiff, zdiff, vval00, vval01, vval10, vval11);
 }
 
 AngleGrid::AngleGrid(const std::string &filePath,
@@ -1275,7 +1274,7 @@ GRID_FLOAT_TYPE AngleGrid::interpolateValues3D(double xdiff,
       10.0;
 
   // dip angles are in the range 0-180, so simple interpolation
-  unsigned short dip_interp = interpolateCubeLagrange(
+  unsigned short dip_interp = interpolateTrilinear(
       xdiff, ydiff, zdiff, vval000.dip, vval001.dip, vval010.dip, vval011.dip,
       vval100.dip, vval101.dip, vval110.dip, vval111.dip);
 
@@ -1301,7 +1300,7 @@ GRID_FLOAT_TYPE AngleGrid::interpolateValues2D(double xdiff,
   //                            vval11.azimuth / 10.) * 10.0;
 
   // dip angles are in the range 0-180, so simple interpolation
-  unsigned short dip_interp = interpolateSquareLagrange(
+  unsigned short dip_interp = interpolateBilinear(
       xdiff, zdiff, vval00.dip, vval01.dip, vval10.dip, vval11.dip);
 
   return {lowest_qual, dip_interp, azim_interp};
@@ -1420,8 +1419,8 @@ GRID_FLOAT_TYPE VelGrid::interpolateValues3D(double xdiff,
   {
     throw Exception("Negative velocities found in the grid file");
   }
-  return interpolateCubeLagrange(xdiff, ydiff, zdiff, vval000, vval001, vval010,
-                                 vval011, vval100, vval101, vval110, vval111);
+  return interpolateTrilinear(xdiff, ydiff, zdiff, vval000, vval001, vval010,
+                              vval011, vval100, vval101, vval110, vval111);
 }
 
 template <typename GRID_FLOAT_TYPE>
@@ -1436,8 +1435,7 @@ GRID_FLOAT_TYPE VelGrid::interpolateValues2D(double xdiff,
   {
     throw Exception("Negative velocities found in the grid file");
   }
-  return interpolateSquareLagrange(xdiff, zdiff, vval00, vval01, vval10,
-                                   vval11);
+  return interpolateBilinear(xdiff, zdiff, vval00, vval01, vval10, vval11);
 }
 
 } // namespace NLL

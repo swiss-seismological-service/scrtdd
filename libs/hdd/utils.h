@@ -155,24 +155,24 @@ double computeMeanAbsoluteDeviation(const std::vector<double> &values,
 
 double computeCircularMean(const std::vector<double> &angles);
 
-double interpolateSquareLagrange(double xdiff,
-                                 double zdiff,
-                                 double vval00,
-                                 double vval01,
-                                 double vval10,
-                                 double vval11);
+double interpolateBilinear(double xdiff,
+                           double zdiff,
+                           double vval00,
+                           double vval01,
+                           double vval10,
+                           double vval11);
 
-double interpolateCubeLagrange(double xdiff,
-                               double ydiff,
-                               double zdiff,
-                               double vval000,
-                               double vval001,
-                               double vval010,
-                               double vval011,
-                               double vval100,
-                               double vval101,
-                               double vval110,
-                               double vval111);
+double interpolateTrilinear(double xdiff,
+                            double ydiff,
+                            double zdiff,
+                            double vval000,
+                            double vval001,
+                            double vval010,
+                            double vval011,
+                            double vval100,
+                            double vval101,
+                            double vval110,
+                            double vval111);
 
 double interpolateSquareAngles(
     double xdiff, double zdiff, double v00, double v01, double v10, double v11);
