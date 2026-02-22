@@ -727,7 +727,7 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
             ttConstraint * (stat.finalTotalObs > 0
                                 ? (stat.totalFinalWeight / stat.finalTotalObs)
                                 : 0);
-        _dd.d[ttconstraintIdx]          = -obprm.travelTimeResidual;
+        _dd.d[ttconstraintIdx]          = obprm.travelTimeResidual;
         _dd.evByObs[0][ttconstraintIdx] = evIdx;
         _dd.evByObs[1][ttconstraintIdx] = -1;
         _dd.phStaByObs[ttconstraintIdx] = phStaIdx;

@@ -989,7 +989,7 @@ bool DD::addObservationParams(Solver &solver,
                 station.id.c_str());
       return false;
     }
-    double travelTimeResidual = travelTime - durToSec(phase.time - event.time);
+    double travelTimeResidual = durToSec(phase.time - event.time) - travelTime;
 
     //
     // partial derivatives
