@@ -154,34 +154,30 @@ Relocation Process
 From a high-level view, multi-event relocation in rtDD consists of several sequential steps:
 
 * **Clustering:** Independent event clusters are identified. Also, for each cluster, the phases to be used for each even pair are selected. The output of this phase is a double-difference system per cluster.
-* **Differential time refinement:** Differential times are improved via cross-correlation (:ref:`xcorr-event-label`).
-* **Inversion:** The double-difference system is solved to find the new hypocenter locations.
+* **Differential time refinement:** Differential times are optionally improved through cross-correlation (:ref:`xcorr-event-label`).
+* **Inversion:** The double-difference system is solved iteratively to determine the updated hypocenter locations.
 
 Clustering
 ----------
 
-The clustering algorithm defines which events are connected to each other using configurable settings such as maximum distance and the minimum number of phases at common stations. Events belong to the same cluster if they are directly connected by common phase picks or linked through a chain of connections. Each cluster is then relocated independently.
+The clustering algorithm identifies groups of events that are connected based on user-defined criteria, such as maximum inter-event distance and a minimum number of common phases at the same stations. Events belong to the same cluster if they are directly connected or linked through a chain of connections. Each cluster is then relocated independently.
 
-rtDD builds and solves a double-difference system for each cluster that includes every event pair and their phases selected during the clustering stage.
-
-Events that are not part of any cluster will not be relocated.
+rtDD constructs and solves a double-difference system for each cluster, incorporating every event pair and the phases selected during the clustering stage. Events that do not meet the clustering criteria are not relocated.
 
 
-Double-Difference system
+Double-Difference System
 ------------------------
 
-Each event in a cluster that is directly connected to some events contributes an equation to the system for every phase that the event shares at a common station within its pairs.
+In a cluster, every pair of events sharing common phases at a station contributes to the system of equations. While indirectly connected events have their relative locations constrained by the existing chain of connections, but they do not have dedicated equations in the system.
 
-Indirectly connected events have their relative locations constrained by the existing chain of connections, but they do not have dedicated equations in the system.
-
-Thus, rtDD creates an equation for each phase k a pair of events i and j have at a common station. This is done for every event pair in a cluster. The equation is defined as:
+Thus, rtDD creates an equation for each phase *k* a pair of events *i* and *j* have at a common station. This is done for every event pair in a cluster. The equation is defined as:
 
 .. math:: \frac{\partial t_k^i}{\partial m} \Delta m^i  - \frac{\partial t_k^j}{\partial m} \Delta m^j = dr_k^{ij}
    :label: dd-equation-label
 
-One side of the equation contains the double-difference :math:`dr_k^{ij}` and on the other side the partial derivatives :math:`\frac{\partial t_k}{\partial m}` and hypocenter changes :math:`\Delta m` (:math:`\Delta x, \Delta y, \Delta z, \Delta \tau`) we want to compute for the two paired events i and j so that the observed differential times equal the calculated ones at a common station.
+One side of the equation contains the double-difference :math:`dr_k^{ij}` and on the other side the partial derivatives :math:`\frac{\partial t_k}{\partial m}` and hypocenter changes :math:`\Delta m` (:math:`\Delta x, \Delta y, \Delta z, \Delta \tau`) we want to compute for the two paired events i and j.
 
-The double-difference is defined as:
+The double-difference is defined as the difference between the observed and calculated differential travel times:
 
 .. math:: dr_k^{ij} = (t_k^i - t_k^j)^{observed} - (t_k^i - t_k^j)^{calculated}
    :label: dd-label
@@ -195,15 +191,14 @@ The partial derivatives and hypocenter changes part of the equation :eq:`dd-equa
    \frac{\partial t_k^i}{\partial m} \Delta m^i  - \frac{\partial t_k^j}{\partial m} \Delta m^j &= \frac{\partial t_k^i}{\partial x} \Delta x^i  + \frac{\partial t_k^i}{\partial y} \Delta y^i  +\frac{\partial t_k^i}{\partial z} \Delta z^i  + \Delta \tau^i - \\
    & \frac{\partial t_k^j}{\partial x} \Delta x^j  - \frac{\partial t_k^j}{\partial y} \Delta y^j  - \frac{\partial t_k^j}{\partial z} \Delta z^j  - \Delta \tau^j
 
-
-As described in Waldhauser & Ellsworth (2000), the double-difference system is defined in matrix form as:
+Following Waldhauser & Ellsworth (2000), the double-difference system is expressed in matrix form as:
 
 .. math:: WGm = Wd
    :label: dd-system-label
 
 where **G** defines a matrix of size M x 4N (M, number of double-difference equations; N, number of events) containing the partial derivatives, **d** is the data vector of size M containing the double-difference values, **m** is a vector of length 4N, :math:`[\Delta x, \Delta y, \Delta z, \Delta \tau]^T`, containing the changes in hypocentral parameters we wish to determine, and *W* is a diagonal matrix of size M x M to weight each equation.
 
-The solution of the double-difference system as defined in :eq:`dd-system-label` is the set of hypocenters changes (latitude, longitude, depth and time) that minimizes the difference between the observed and the calculated differential times. That is, each event absolute location is moved so that its relative position with respect to the other events minimizes the double-difference residuals.
+The solution of the double-difference system as defined in :eq:`dd-system-label` is the set of hypocenters changes (latitude, longitude, depth and time) that minimizes the double-difference. That is, each event absolute location is moved so that its relative position with respect to the other events minimizes the difference between the observed and the calculated differential times.
 
 This solution is achieved through an iterative process. An initial double-difference system is built and solved starting from the catalog event locations. The hypocenters are then updated based on the inversion solution, and the process repeats—building a new system and solving it again. This is repeated until a configured number of iterations is reached, usually between 10 and 20. At each iteration, the solver down-weights equations according to their residuals, following the dynamic weighting scheme described by Waldhauser & Ellsworth (2000). The a priori weights can also be configured to give higher priority to cross-correlated differential times or to account for pick uncertainties. Unlike the original method described in the paper, rtDD does not down-weight equations by inter-event distance, as the residual-based re-weighting naturally accounts for the increased errors typically associated with more distant event pairs.
 
@@ -215,11 +210,10 @@ In order to compute the partial derivatives and the calculated differential trav
 .. _absolute-plus-relative-label:
 
 ------------------------------------------------
-Solving for both absolute and relative locations
+Solving for both Absolute and Relative Locations
 ------------------------------------------------
 
-While absolute location methods find the position that best explains arrival times, double-difference methods find the configuration that best explains the *difference* in arrival times between event pairs. Because this method focuses on relative timing, the inversion can be susceptible to a "centroid shift": the relative positions within a cluster (its shape) improve significantly, but the entire cluster may shift away from its true absolute location.
-
+While absolute location methods seek the position that best explains absolute arrival times, double-difference methods focus on the relative configuration that best explains the timing differences between pairs. Because the focus is on differential time, the inversion can be susceptible to a cluster centroid shift: the internal structure of a cluster improves, but the entire cluster may shift away from its true absolute location.
 
 To mitigate this, Waldhauser & Ellsworth (2000) suggest two approaches. The first is to add four additional equations - one for each coordinate direction and one for origin time - to constrain the mean shift of the cluster to zero. This is common in SVD-based solvers. For least-squares solvers like those used in rtDD, the second approach is preferred: regularization via a damped least-squares method. A damping factor (:math:`\lambda`) forces the solver to minimize both the double-difference residuals and the changes to the hypocenters, preventing large, unconstrained shifts in absolute location. This damping also improves the numerical stability of ill-conditioned systems. The result is a relocation where the cluster centroid remains near its original average location while its internal structure (relative locations) is refined.
 
@@ -228,29 +222,39 @@ rtDD implements this damped least-squares approach. The double-difference system
 .. math:: \begin{vmatrix} W G \\ \lambda I \\ \end{vmatrix} m  = \begin{vmatrix} W d \\ 0 \\ \end{vmatrix}
    :label: dd-damped-system-label
 
+Finding the optimal :math:`\lambda` is often an empirical process:
 
-An empirical way to find the optimal damping factor is to start with a low value to observe the pure relative refinement, then increase it until the overall travel-time RMS is equal to or better than the initial state. Often, this is not a trade-off; the final solution typically improves both the double-difference residuals (relative location/cluster shape) and the absolute travel-time RMS (absolute location of the clusters).
+* **Low damping:** Allows for pure relative refinement but risks large cluster shifts.
+* **High damping:** Prevents the events from moving significantly.
+* **Optimal damping:** A broad range of values where relative locations improve while the overall travel time RMS remains stable compared to the initial catalog.
+
 
 .. _inclusion-tt-residual-label:
 
-Inclusion of absolute travel time residuals in the double-difference system
----------------------------------------------------------------------------
+Inclusion of Absolute Travel-Time Residuals
+-------------------------------------------
 
-rtDD includes an option that results in a modified double-difference system where both absolute and relative locations are taken into consideration. Solving such a system results in positioning the event cluster(s) in the absolute location that minimizes the overall  absolute travel time residuals (the average rms of all events in the cluster(s)) while positioning the events relative to each others so that their double-differences are minimized too, as it happens in the classic double-difference inversion. This variation of the double-difference system comes from the observation that the changes in absolute travel time residuals are known during the inversions and hence they can be constrained to be zero. The equation :eq:`dd-equation-label` contains the travel time change for the phase k, :math:`\frac{\partial t_k}{\partial m} \Delta m`. We can then include an equation in the double-difference system for every phase k of every event i that forces that travel time change to be equal to the travel time residual:
+rtDD offers an advanced option to incorporate both absolute and relative constraints into a single inversion. This approach positions the cluster at an absolute location that minimizes total travel time residuals while simultaneously refining internal relative locations.
 
+This method recognizes that absolute travel time residuals are known during inversion and can be constrained. For every phase *k* of every event *e*, we can add an equation that forces the hypocenters change, computed to minimize the double-differences, to match the absolute travel time residual:
 
-.. math::  \frac{\partial t_k^i}{\partial m} \Delta m^i = (t_k^i)^{observed} - (t_k^i)^{calculated} = r_k^i
+.. math::  \frac{\partial t_k^e}{\partial m} \Delta m^e = (t_k^e)^{observed} - (t_k^e)^{calculated} = r_k^e
    :label: rms-equation-label
 
-The double-difference system :eq:`dd-damped-system-label` then becomes:
+With the inclusions of these equations the double-difference system :eq:`dd-damped-system-label` then becomes:
 
 .. math:: \begin{vmatrix} W G \\ \omega K \\ \lambda I \\ \end{vmatrix} m  = \begin{vmatrix} W d \\ \omega r \\ 0 \\ \end{vmatrix} 
    :label: dd-damped-rms-system-label
 
-Where K is a diagonal matrix containing the partial derivatives, r is the vector containing the absolute travel time residuals and :math:`\omega` is a scalar defining the weight we want to give to these new equations to balance their importance w.r.t. the double-difference residuals. If the sum of all the phases of all events in the system is Z, then K size is Z x Z and r size is Z. It is worth noting that in such a system, the damping factor :math:`\lambda` loses its importance and it can be set to 0 or a very low value.
+where **K** defines a matrix of size Z x 4N (Z, number of absolute travel time residuals; N, number of events) containing the partial derivatives, **r** is the vector of size Z containing the absolute travel time residuals and :math:`\omega` is a scalar weight balancing the absolute and relative constraints.
 
-In practice we have observed that, with this modified double-difference system, the relocated cluster(s) are virtually the same, but their centroid(s) are shifted to the location that decreases the average RMS of all events in the cluster(s).
+In this system, the damping factor :math:`\lambda` becomes less critical and can be set to a very low value. The weight :math:`\omega` is determined empirically:
 
+* Low :math:`\omega`: Behaves like standard double-difference (relative refinement only).
+* High :math:`\omega`: Forces the solution toward the absolute locations, potentially sacrificing relative precision.
+* Balanced :math:`\omega`: Typically a broad range where both the double-difference residuals (cluster shape) and the absolute travel time RMS (cluster location) are improved.
+
+In practice, this modified system ensures that clusters are shifted to locations that decrease the average RMS of all events while maintaining the high-precision relative structure provided by the double-difference method.
 
 ----------------------
 Evaluating the Results
@@ -267,13 +271,13 @@ For rapid visualization, use the ``relocation-map.html`` in `this folder <https:
 Quantitative Evaluation
 -----------------------
 
-A successful relocation should decrease the double-difference residuals (improving relative locations) without increasing the absolute travel-time RMS (stability in the absolute locations). These metrics are printed in the logs at each iteration, but a more granular analysis can be performed using specific columns of ``reloc-event.csv`` and ``reloc-phase.csv`` for absolute travel time residuals, and (if ``--dump-diagnostics`` is used) within a dedicated diagnostics folder (in particular ``initial/final-double-difference.csv``) for double-difference residuals and cross-correlation results.
+A successful relocation should decrease the double-difference residuals (improving relative locations) without increasing the absolute travel time RMS (stability in the absolute locations). These metrics are printed in the logs at each iteration, but a more granular analysis can be performed using specific columns of ``reloc-event.csv`` and ``reloc-phase.csv`` for absolute travel time residuals, and (if ``--dump-diagnostics`` is used) within a dedicated diagnostics folder (in particular ``initial/final-double-difference.csv``) for double-difference residuals and cross-correlation results.
 
 
 Verifying DD System Residuals and Absolute RMS
 ----------------------------------------------
 
-The logs show how double-difference residuals decrease over iterations and their relationship with inter-event distance. Stability or improvement in the absolute travel-time RMS confirms that the cluster's absolute position remains accurate.
+The logs show how double-difference residuals decrease over iterations and their relationship with inter-event distance. Stability or improvement in the absolute travel time RMS confirms that the cluster's absolute position remains accurate.
 
 .. image:: media/qc1.png
    :width: 800
@@ -300,7 +304,7 @@ Detailed diagnostics dumped via ``--dump-diagnostics`` provide details of the cr
 Verifying Absolute Locations
 ----------------------------
 
-rtDD calculates the RMS both before and after (columns ``startRms`` and ``finalRms`` in ``reloc-event.csv``) relocation using its own travel-time engine. This provides a consistent baseline for comparison, as different locators may use different weighting schemes or travel-time tables that make their RMS values incomparable.
+rtDD calculates the RMS both before and after (columns ``startRms`` and ``finalRms`` in ``reloc-event.csv``) relocation using its own travel time engine. This provides a consistent baseline for comparison, as different locators may use different weighting schemes or travel time tables that make their RMS values incomparable.
 
 .. image:: media/qc3.png
    :width: 800
