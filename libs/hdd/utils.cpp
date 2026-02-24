@@ -182,9 +182,9 @@ void computeCoordinates(double distance,
 }
 
 /*
- * Compute distance [radians] (`isAngularDist` true) or [km]
- * (`isAngularDist` false and set `atKmDepth` approprieatly) between two
- * points and optionally `azimuth` and `backazimuth` [radianss]
+ * Compute distance [radians] (`isAngularDist` true)
+ *               or [km]      (`isAngularDist` false)
+ * between two points and optionally `azimuth` and `backazimuth` [radians]
  *
  * All these formulas are for calculations on the basis of a spherical
  * earth (ignoring ellipsoidal effects)
