@@ -73,18 +73,18 @@ NLLGrid::NLLGrid(const std::string &gridPath,
     throw Exception("Unsupported grid access mode: " + accessMethod);
   }
 
-  static const std::regex rePModel(_gridModel + R"(\.P\.mod\.hdr)",
-                                   std::regex::optimize);
-  static const std::regex reSModel(_gridModel + R"(\.S\.mod\.hdr)",
-                                   std::regex::optimize);
-  static const std::regex rePTime(_gridModel + R"(\.P\..+\.time\.hdr)",
-                                  std::regex::optimize);
-  static const std::regex reSTime(_gridModel + R"(\.S\..+\.time\.hdr)",
-                                  std::regex::optimize);
-  static const std::regex rePAngle(_gridModel + R"(\.P\..+\.angle\.hdr)",
-                                   std::regex::optimize);
-  static const std::regex reSAngle(_gridModel + R"(\.S\..+\.angle\.hdr)",
-                                   std::regex::optimize);
+  const std::regex rePModel(_gridModel + R"(\.P\.mod\.hdr)",
+                            std::regex::optimize);
+  const std::regex reSModel(_gridModel + R"(\.S\.mod\.hdr)",
+                            std::regex::optimize);
+  const std::regex rePTime(_gridModel + R"(\.P\..+\.time\.hdr)",
+                           std::regex::optimize);
+  const std::regex reSTime(_gridModel + R"(\.S\..+\.time\.hdr)",
+                           std::regex::optimize);
+  const std::regex rePAngle(_gridModel + R"(\.P\..+\.angle\.hdr)",
+                            std::regex::optimize);
+  const std::regex reSAngle(_gridModel + R"(\.S\..+\.angle\.hdr)",
+                            std::regex::optimize);
 
   logDebugF("Searching grids in %s model name %s", _gridPath.c_str(),
             _gridModel.c_str());
