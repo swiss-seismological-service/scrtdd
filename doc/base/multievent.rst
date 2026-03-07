@@ -282,7 +282,7 @@ The logs show how double-difference residuals decrease over iterations and their
 .. image:: media/qc1.png
    :width: 800
 
-Detailed diagnostics dumped via ``--dump-diagnostics`` provide details of the double-difference residuals in ``initial/final-double-difference.csv`` (see ``doubleDifferenceResidual`` column).
+Detailed diagnostics dumped via ``--dump-diagnostics`` provide details of the double-difference residuals in ``initial/final-double-difference.csv`` (see ``doubleDifferenceResidual`` column). You can use the scripts in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_ to plot them.
 
 .. image:: media/qc4.png
    :width: 800
@@ -295,7 +295,7 @@ Waveform similarity is a strong indicator of proximity. Comparing correlation co
 .. image:: media/qc2.png
    :width: 800
 
-Detailed diagnostics dumped via ``--dump-diagnostics`` provide details of the cross-correlation results in ``initial/final-double-difference.csv`` (``xcorrCoefficient`` column).
+Detailed diagnostics dumped via ``--dump-diagnostics`` provide details of the cross-correlation results in ``initial/final-double-difference.csv`` (``xcorrCoefficient`` column).  You can use the scripts in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_ to plot them. 
 
 .. image:: media/qc5.png
    :width: 800
@@ -304,7 +304,7 @@ Detailed diagnostics dumped via ``--dump-diagnostics`` provide details of the cr
 Verifying Absolute Locations
 ----------------------------
 
-rtDD calculates the RMS both before and after (columns ``startRms`` and ``finalRms`` in ``reloc-event.csv``) relocation using its own travel time engine. This provides a consistent baseline for comparison, as different locators may use different weighting schemes or travel time tables that make their RMS values incomparable.
+rtDD calculates the RMS both before and after (columns ``startRms`` and ``finalRms`` in ``reloc-event.csv``) relocation using its own travel time engine. This provides a consistent baseline for comparison, as different locators may use different weighting schemes or travel time tables that make their RMS values incomparable. You can use the scripts in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_ to plot them.
 
 .. image:: media/qc3.png
    :width: 800
