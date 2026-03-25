@@ -22,6 +22,13 @@ def visualize_split_boxplots(file1_path, file2_path, num_bins=5, isXcorr=False):
     df1 = pd.read_csv(file1_path)
     df2 = pd.read_csv(file2_path)
 
+    # Drop invalid xcorr entries
+    # (to be precise we should check in xcorr.csv the 'valid' column, but
+    # the coefficient equal to 0 is a good approximation)
+    if isXcorr:
+        df1 = df1[ df1['xcorrCoefficient'] != 0 ]
+        df2 = df2[ df2['xcorrCoefficient'] != 0 ]
+
     # Sort by distance first so the bin labels are created in order
     df1 = df1.sort_values('interEventDistance').reset_index(drop=True)
     df2 = df2.sort_values('interEventDistance').reset_index(drop=True)
@@ -82,3 +89,4 @@ def visualize_split_boxplots(file1_path, file2_path, num_bins=5, isXcorr=False):
 
 visualize_split_boxplots(sys.argv[1], sys.argv[2], num_bins=num_bins, isXcorr=False)
 visualize_split_boxplots(sys.argv[1], sys.argv[2], num_bins=num_bins, isXcorr=True)
+
