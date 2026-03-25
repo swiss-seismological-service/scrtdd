@@ -5,9 +5,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 
-if len(sys.argv) != 2:
-    print("plot-rms.py reloc-event.csv")
+num_bins=20
+
+if len(sys.argv) < 2:
+    print(f"{sys.argv[0]} reloc-event.csv [num-bins]")
     exit(0)
+elif len(sys.argv) >= 3:
+    num_bins=int(sys.argv[2])
 
 # Load the data
 df = pd.read_csv(sys.argv[1])
@@ -15,7 +19,7 @@ df = pd.read_csv(sys.argv[1])
 # Define common bins for both datasets
 min_rms = min(df['startRms'].min(), df['finalRms'].min())
 max_rms = max(df['startRms'].max(), df['finalRms'].max())
-bins = np.linspace(min_rms, max_rms, 20)  # 20 bins
+bins = np.linspace(min_rms, max_rms, num_bins)
 
 # Calculate the histogram counts for both
 start_counts, _ = np.histogram(df['startRms'], bins=bins)

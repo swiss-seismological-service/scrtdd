@@ -8,6 +8,14 @@ import sys
 
 sns.set_theme(style="darkgrid")
 
+num_bins=20
+
+if len(sys.argv) < 3:
+    print(f"{sys.argv[0]} cluster-1-initial-double-difference.csv cluster-1-final-double-difference.csv [num-bins]")
+    exit(0)
+elif len(sys.argv) >= 4:
+    num_bins=int(sys.argv[3])
+
 def visualize_split_boxplots(file1_path, file2_path, num_bins=5, isXcorr=False):
 
     # Load data
@@ -72,9 +80,5 @@ def visualize_split_boxplots(file1_path, file2_path, num_bins=5, isXcorr=False):
 
     fig.savefig('xcorr-comparison.png'  if isXcorr else 'dd-comparison.png', bbox_inches='tight')
 
-if len(sys.argv) != 3:
-    print("plot-dd.py cluster-1-initial-double-difference.csv cluster-1-final-double-difference.csv")
-    exit(0)
-
-visualize_split_boxplots(sys.argv[1], sys.argv[2], num_bins=20, isXcorr=False)
-visualize_split_boxplots(sys.argv[1], sys.argv[2], num_bins=20, isXcorr=True)
+visualize_split_boxplots(sys.argv[1], sys.argv[2], num_bins=num_bins, isXcorr=False)
+visualize_split_boxplots(sys.argv[1], sys.argv[2], num_bins=num_bins, isXcorr=True)
