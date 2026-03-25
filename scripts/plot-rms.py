@@ -3,52 +3,58 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 import sys
 
-num_bins=20
+# Set the seaborn theme for aesthetics
+sns.set_theme(style="darkgrid")
+
+num_quantiles = 100
+ylim = None
 
 if len(sys.argv) < 2:
-    print(f"{sys.argv[0]} reloc-event.csv [num-bins]")
+    print(f"{sys.argv[0]} reloc-event.csv [num-quantiles] [y-limit]")
     exit(0)
-elif len(sys.argv) >= 3:
-    num_bins=int(sys.argv[2])
+
+if len(sys.argv) >= 3:
+    num_quantiles = int(sys.argv[2])
+
+if len(sys.argv) >= 4:
+    ylim = float(sys.argv[3])
 
 # Load the data
 df = pd.read_csv(sys.argv[1])
 
-# Define common bins for both datasets
-min_rms = min(df['startRms'].min(), df['finalRms'].min())
-max_rms = max(df['startRms'].max(), df['finalRms'].max())
-bins = np.linspace(min_rms, max_rms, num_bins)
+# Define the quantiles we want to calculate (from 0 to 1)
+quantiles = np.linspace(0, 1, num_quantiles)
+percentiles = quantiles * 100
 
-# Calculate the histogram counts for both
-start_counts, _ = np.histogram(df['startRms'], bins=bins)
-final_counts, _ = np.histogram(df['finalRms'], bins=bins)
+# Calculate the RMS values at each quantile
+start_rms_quantiles = df['startRms'].quantile(quantiles).rename('rms')
+final_rms_quantiles = df['finalRms'].quantile(quantiles).rename('rms')
 
-# Convert counts to cumulative percentages
-start_cum_pct = np.cumsum(start_counts) / len(df) * 100
-final_cum_pct = np.cumsum(final_counts) / len(df) * 100
+# Create a tidy DataFrame suitable for seaborn
+plot_df_start = pd.DataFrame({'percentile': percentiles, 'rms': start_rms_quantiles, 'RMS Type': 'startRms'})
+plot_df_final = pd.DataFrame({'percentile': percentiles, 'rms': final_rms_quantiles, 'RMS Type': 'finalRms'})
+plot_df = pd.concat([plot_df_start, plot_df_final])
 
-# Bar chart setup
-bin_centers = (bins[:-1] + bins[1:]) / 2
-width = (bins[1] - bins[0]) * 0.35  # Adjusted width of the bars
+# Line plot setup
+plt.figure(figsize=(12, 7))
 
-plt.figure(figsize=(10, 6))
+# Plot
+sns.lineplot(data=plot_df, x='percentile', y='rms', hue='RMS Type', style='RMS Type', markers=True, dashes=False)
 
-# Plot the bars side-by-side
-# We shift startRms left and finalRms right by half the width
-plt.bar(bin_centers - width/2, start_cum_pct, width=width, 
-        label='startRms', color='skyblue', edgecolor='black', alpha=0.8)
+plt.title('RMS Quantile Plot: Starting Location vs DD Relocated')
+plt.xlabel('Percentage of Events (%)')
+plt.ylabel('RMS [s]')
+plt.legend(title='RMS Type', loc='upper left')
+plt.ylim(bottom=0)  # RMS can't be negative
+if ylim is not None:
+    plt.ylim(top=ylim)
+plt.xlim(0, 100)
 
-plt.bar(bin_centers + width/2, final_cum_pct, width=width, 
-        label='finalRms', color='salmon', edgecolor='black', alpha=0.8)
-
-plt.title('Cumulative RMS Histogram: Starting Lcation vs DD Relocated')
-plt.xlabel('RMS [s]')
-plt.ylabel('Percentage of Events (%)')
-plt.xticks(bins.round(3), rotation=45) # Show bin edges on x-axis
-plt.legend(loc='upper left')
-plt.grid(axis='y', linestyle='--', alpha=0.6)
-plt.ylim(0, 110)
+# Set ticks for better readability
+plt.xticks(np.arange(0, 101, 10))
 
 plt.savefig('rms-comparison.png')
+
