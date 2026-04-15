@@ -56,7 +56,6 @@ public:
 
 private:
   const std::string _recordStreamURL;
-  static constexpr double tolerance       = 0.5;
   static constexpr double minAvailability = 0.95;
 };
 

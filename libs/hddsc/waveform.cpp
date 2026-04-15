@@ -44,8 +44,9 @@ using HDD::SCAdapter::fromSC;
 using HDD::SCAdapter::toSC;
 
 unique_ptr<HDD::Trace> contiguousRecord(const RecordSequence &seq,
-                                        const HDD::TimeWindow *tw = nullptr,
-                                        double minAvailability    = 0)
+                                        const Core::TimeWindow *sctw = nullptr,
+                                        const HDD::TimeWindow *tw    = nullptr,
+                                        double minAvailability       = 0)
 {
   if (seq.empty())
   {
@@ -53,15 +54,14 @@ unique_ptr<HDD::Trace> contiguousRecord(const RecordSequence &seq,
   }
 
   Seiscomp::RecordPtr rec;
-  if (tw)
+  if (sctw)
   {
-    const Core::TimeWindow sctw = toSC(*tw);
-    if (minAvailability > 0 && seq.availability(sctw) < minAvailability)
+    if (minAvailability > 0 && seq.availability(*sctw) < minAvailability)
     {
       throw HDD::Exception(HDD::strf("Data availability too low %.2f%%",
-                                     seq.availability(sctw)));
+                                     seq.availability(*sctw)));
     }
-    rec = seq.contiguousRecord<double>(&sctw, false);
+    rec = seq.contiguousRecord<double>(sctw, false);
   }
   else
   {
@@ -114,7 +114,11 @@ unique_ptr<HDD::Trace> WaveformProxy::loadTrace(const HDD::TimeWindow &tw,
                                                 const string &locationCode,
                                                 const string &channelCode)
 {
-  const Core::TimeWindow sctw = toSC(tw);
+  // Extend the time window 1% at the endTime, because the RecordStream
+  // interface does not include the endTime. The extra time will be trimmed
+  // by contiguousRecord(...)
+  const Core::TimeWindow sctw =
+      toSC(tw.extend(UTCTime::duration::zero(), tw.length() / 100));
 
   IO::RecordStreamPtr rs = IO::RecordStream::Open(_recordStreamURL.c_str());
   if (rs == nullptr)
@@ -126,7 +130,7 @@ unique_ptr<HDD::Trace> WaveformProxy::loadTrace(const HDD::TimeWindow &tw,
   rs->addStream(networkCode, stationCode, locationCode, channelCode);
 
   IO::RecordInput inp(rs.get(), Array::DOUBLE, Record::DATA_ONLY);
-  TimeWindowBuffer seq(sctw, tolerance);
+  TimeWindowBuffer seq(sctw);
   RecordPtr rec;
   while ((rec = inp.next()))
   {
@@ -134,7 +138,7 @@ unique_ptr<HDD::Trace> WaveformProxy::loadTrace(const HDD::TimeWindow &tw,
   }
   rs->close();
 
-  return contiguousRecord(seq, &tw, minAvailability);
+  return contiguousRecord(seq, &sctw, &tw, minAvailability);
 }
 
 void WaveformProxy::loadTraces(
@@ -148,16 +152,32 @@ void WaveformProxy::loadTraces(
     string net, sta, loc, ch;
     Core::TimeWindow tw;
   };
-  unordered_multimap<string, Request> reqCopy;
-  unordered_multimap<string, TimeWindowBuffer> streamBuf;
+  struct Buffer
+  {
+    TimeWindowBuffer twbuf;
+    HDD::TimeWindow tw;
+  };
+  unordered_multimap<string, Request> staReq;   // key net.sta
+  unordered_multimap<string, Buffer> streamBuf; // key streamID
   for (const auto &kv : request)
   {
     static const std::regex dot("\\.", std::regex::optimize);
-    const vector<string> tokens(HDD::splitString(kv.first, dot));
-    const Request req{tokens.at(0), tokens.at(1), tokens.at(2), tokens.at(3),
-                      toSC(kv.second)};
-    reqCopy.emplace(req.net + "." + req.sta, req); // group by net.sta
-    streamBuf.emplace(kv.first, TimeWindowBuffer(req.tw, tolerance));
+
+    // split streamId into net sta loc cha
+    const string &streamID = kv.first;
+    const vector<string> tokens(HDD::splitString(streamID, dot));
+
+    // Extend the time window 1% at the endTime, because the RecordStream
+    // interface does not include the endTime. The extra time will be trimmed
+    // by contiguousRecord(...)
+    const HDD::TimeWindow &tw = kv.second;
+    const Core::TimeWindow sctw =
+        toSC(tw.extend(UTCTime::duration::zero(), tw.length() / 100));
+    Request req{tokens.at(0), tokens.at(1), tokens.at(2), tokens.at(3), sctw};
+    Buffer buf{TimeWindowBuffer(req.tw), tw};
+
+    staReq.emplace(req.net + "." + req.sta, std::move(req)); // group by net.sta
+    streamBuf.emplace(streamID, std::move(buf));
   }
 
   //
@@ -168,7 +188,7 @@ void WaveformProxy::loadTraces(
   //
   IO::RecordStreamPtr rs;
 
-  while (!reqCopy.empty())
+  while (!staReq.empty())
   {
     rs = IO::RecordStream::Open(_recordStreamURL.c_str());
     if (rs == nullptr)
@@ -181,11 +201,12 @@ void WaveformProxy::loadTraces(
     // For seedlink: we grouped the requests by net.sta because
     // no multiple requests for the same net.sta are allowed in the same
     // connection
-    for (auto it = reqCopy.begin(), end = reqCopy.end(); it != end;)
+    for (auto it = staReq.begin(), end = staReq.end(); it != end;)
     {
-      const Request req = it->second;
+      const string netsta = it->first; // net.sta
+      const Request req   = it->second;
       Core::TimeWindow contiguousRequest;
-      auto eqlrng = reqCopy.equal_range(it->first);        // net.sta
+      auto eqlrng = staReq.equal_range(netsta);
       for (auto it2 = eqlrng.first; it2 != eqlrng.second;) // loop by net.sta
       {
         const Request req2         = it2->second;
@@ -226,7 +247,7 @@ void WaveformProxy::loadTraces(
         }
 
         if (requested)
-          it2 = reqCopy.erase(it2);
+          it2 = staReq.erase(it2);
         else
           it2++;
       }
@@ -247,7 +268,7 @@ void WaveformProxy::loadTraces(
       auto eqlrng = streamBuf.equal_range(rec->streamID());
       for (auto it = eqlrng.first; it != eqlrng.second; ++it)
       {
-        TimeWindowBuffer &seq = it->second;
+        TimeWindowBuffer &seq = it->second.twbuf;
         seq.feed(rec.get());
       }
     }
@@ -260,13 +281,13 @@ void WaveformProxy::loadTraces(
   for (auto &kv : streamBuf)
   {
     const string &streamID    = kv.first;
-    TimeWindowBuffer &seq     = kv.second;
-    const HDD::TimeWindow &tw = fromSC(seq.timeWindowToStore());
-
+    Buffer &buf               = kv.second;
+    TimeWindowBuffer &seq     = buf.twbuf;
+    const HDD::TimeWindow &tw = buf.tw;
     try
     {
       unique_ptr<HDD::Trace> trace =
-          contiguousRecord(seq, &tw, minAvailability);
+          contiguousRecord(seq, &seq.timeWindowToStore(), &tw, minAvailability);
       onTraceLoaded(streamID, tw, std::move(trace));
     }
     catch (exception &e)
