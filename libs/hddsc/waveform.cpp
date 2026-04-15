@@ -198,6 +198,9 @@ void WaveformProxy::loadTraces(
         //
         if (req.loc == req2.loc && req.ch == req2.ch)
         {
+          const Core::TimeSpan tolerance(contiguousRequest.length().length() *
+                                         0.10); // 10% of contiguousRequest
+
           if (it2 == eqlrng.first)
           {
             contiguousRequest = tw;
@@ -209,13 +212,13 @@ void WaveformProxy::loadTraces(
             requested         = true;
           }
           else if (contiguousRequest.endTime() <= tw.startTime() &&
-                   contiguousRequest.contiguous(tw, Core::TimeSpan(60, 0)))
+                   contiguousRequest.contiguous(tw, tolerance))
           {
             contiguousRequest = contiguousRequest.merge(tw);
             requested         = true;
           }
           else if (contiguousRequest.startTime() >= tw.endTime() &&
-                   tw.contiguous(contiguousRequest, Core::TimeSpan(60, 0)))
+                   tw.contiguous(contiguousRequest, tolerance))
           {
             contiguousRequest = contiguousRequest.merge(tw);
             requested         = true;
