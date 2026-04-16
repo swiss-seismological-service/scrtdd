@@ -44,30 +44,25 @@ using HDD::SCAdapter::fromSC;
 using HDD::SCAdapter::toSC;
 
 unique_ptr<HDD::Trace> contiguousRecord(const RecordSequence &seq,
-                                        const Core::TimeWindow *sctw = nullptr,
-                                        const HDD::TimeWindow *tw    = nullptr,
-                                        double minAvailability       = 0)
+                                        const HDD::TimeWindow *tw = nullptr,
+                                        double minAvailability    = 0)
 {
   if (seq.empty())
   {
     throw HDD::Exception("No data");
   }
 
-  Seiscomp::RecordPtr rec;
-  if (sctw)
+  if (tw)
   {
-    if (minAvailability > 0 && seq.availability(*sctw) < minAvailability)
+    const Core::TimeWindow sctw = toSC(*tw);
+    if (minAvailability > 0 && seq.availability(sctw) < minAvailability)
     {
       throw HDD::Exception(HDD::strf("Data availability too low %.2f%%",
-                                     seq.availability(*sctw)));
+                                     seq.availability(sctw)));
     }
-    rec = seq.contiguousRecord<double>(sctw, false);
-  }
-  else
-  {
-    rec = seq.contiguousRecord<double>(nullptr, false);
   }
 
+  Seiscomp::RecordPtr rec = seq.contiguousRecord<double>(nullptr, false);
   if (!rec)
   {
     throw HDD::Exception(
@@ -138,7 +133,7 @@ unique_ptr<HDD::Trace> WaveformProxy::loadTrace(const HDD::TimeWindow &tw,
   }
   rs->close();
 
-  return contiguousRecord(seq, &sctw, &tw, minAvailability);
+  return contiguousRecord(seq, &tw, minAvailability);
 }
 
 void WaveformProxy::loadTraces(
@@ -287,7 +282,7 @@ void WaveformProxy::loadTraces(
     try
     {
       unique_ptr<HDD::Trace> trace =
-          contiguousRecord(seq, &seq.timeWindowToStore(), &tw, minAvailability);
+          contiguousRecord(seq, &tw, minAvailability);
       onTraceLoaded(streamID, tw, std::move(trace));
     }
     catch (exception &e)
