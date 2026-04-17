@@ -48,7 +48,6 @@ struct ThreeComponents
     SecondHorizontal = 2  /* usually E */
   };
   std::string names[3];
-  double gain[3];
   double dip[3];
   double azimuth[3];
 };

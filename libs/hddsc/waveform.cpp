@@ -338,12 +338,6 @@ void WaveformProxy::getComponentsInfo(const Catalog::Phase &ph,
     components.names[HDD3Comps::SecondHorizontal] =
         tc.comps[SC3Comps::SecondHorizontal]->code();
 
-    components.gain[HDD3Comps::Vertical] = tc.comps[SC3Comps::Vertical]->gain();
-    components.gain[HDD3Comps::FirstHorizontal] =
-        tc.comps[SC3Comps::FirstHorizontal]->gain();
-    components.gain[HDD3Comps::SecondHorizontal] =
-        tc.comps[SC3Comps::SecondHorizontal]->gain();
-
     components.dip[HDD3Comps::Vertical] = tc.comps[SC3Comps::Vertical]->dip();
     components.dip[HDD3Comps::FirstHorizontal] =
         tc.comps[SC3Comps::FirstHorizontal]->dip();

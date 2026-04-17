@@ -531,20 +531,6 @@ unique_ptr<Trace> transformL2(const TimeWindow &tw,
   }
 
   //
-  // Gain
-  //
-  double h1scaler = 1.0;
-  if (tc.gain[ThreeComponents::FirstHorizontal] != 0)
-  {
-    h1scaler = 1.0 / tc.gain[ThreeComponents::FirstHorizontal];
-  }
-  double h2scaler = 1.0;
-  if (tc.gain[ThreeComponents::SecondHorizontal] != 0)
-  {
-    h2scaler = 1.0 / tc.gain[ThreeComponents::SecondHorizontal];
-  }
-
-  //
   // Find common start/end times
   //
   UTCTime startTime = std::max(trH1.startTime(), trH2.startTime());
@@ -582,8 +568,7 @@ unique_ptr<Trace> transformL2(const TimeWindow &tw,
   double *l2data = l2vec.data();
   for (size_t i = 0; i < sampleCount; ++i)
   {
-    l2data[i] =
-        std::sqrt(square(h1data[i] * h1scaler) + square(h2data[i] * h2scaler));
+    l2data[i] = std::sqrt(square(h1data[i]) + square(h2data[i]));
   }
 
   return unique_ptr<Trace>(new Trace(
@@ -688,25 +673,6 @@ unique_ptr<Trace> transformRT(const TimeWindow &tw,
   matrixMult(orientationZRT, orientationZNE, transformation);
 
   //
-  // Gain
-  //
-  double h1scaler = 1.0;
-  if (tc.gain[ThreeComponents::FirstHorizontal] != 0)
-  {
-    h1scaler = 1.0 / tc.gain[ThreeComponents::FirstHorizontal];
-  }
-  double h2scaler = 1.0;
-  if (tc.gain[ThreeComponents::SecondHorizontal] != 0)
-  {
-    h2scaler = 1.0 / tc.gain[ThreeComponents::SecondHorizontal];
-  }
-  double vscaler = 1.0;
-  if (tc.gain[ThreeComponents::Vertical] != 0)
-  {
-    vscaler = 1.0 / tc.gain[ThreeComponents::Vertical];
-  }
-
-  //
   // Find common start/end times
   //
   UTCTime startTime =
@@ -754,17 +720,17 @@ unique_ptr<Trace> transformRT(const TimeWindow &tw,
   for (size_t i = 0; i < sampleCount; ++i)
   {
     if (trans == Transform::TRANSVERSAL) // T trasversal
-      rtdata[i] = transformation[0][0] * h2data[i] * h2scaler +
-                  transformation[0][1] * h1data[i] * h1scaler +
-                  transformation[0][2] * vdata[i] * vscaler;
+      rtdata[i] = transformation[0][0] * h2data[i] +
+                  transformation[0][1] * h1data[i] +
+                  transformation[0][2] * vdata[i];
     else if (trans == Transform::RADIAL) // R radial
-      rtdata[i] = transformation[1][0] * h2data[i] * h2scaler +
-                  transformation[1][1] * h1data[i] * h1scaler +
-                  transformation[1][2] * vdata[i] * vscaler;
+      rtdata[i] = transformation[1][0] * h2data[i] +
+                  transformation[1][1] * h1data[i] +
+                  transformation[1][2] * vdata[i];
     else // V vertical
-      rtdata[i] = transformation[2][0] * h2data[i] * h2scaler +
-                  transformation[2][1] * h1data[i] * h1scaler +
-                  transformation[2][2] * vdata[i] * vscaler;
+      rtdata[i] = transformation[2][0] * h2data[i] +
+                  transformation[2][1] * h1data[i] +
+                  transformation[2][2] * vdata[i];
   }
 
   string channelCode = channelCodeRoot;
