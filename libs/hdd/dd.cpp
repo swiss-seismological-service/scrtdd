@@ -1541,8 +1541,7 @@ bool DD::xcorrPhasesOneComponent(const XcorrOptions &xcorrOpt,
   TimeWindow tw1 = xcorrTimeWindowLong(xcorrOpt, event1, phase1);
   TimeWindow tw2 = xcorrTimeWindowLong(xcorrOpt, event2, phase2);
 
-  // Load the long `tr1`, because we want to cache the long version. Then
-  // we'll trim it.
+  // Load the long `tr1` from cache (or download and chache it)
   shared_ptr<const Trace> tr1 =
       getWaveform(ph1Cache, tw1, event1, phase1, component);
   if (!tr1)
@@ -1552,8 +1551,7 @@ bool DD::xcorrPhasesOneComponent(const XcorrOptions &xcorrOpt,
     return false;
   }
 
-  // Load the long `tr2`, because we want to cache the long version. Then
-  // we'll trim it.
+  // Load the long `tr2` from cache (or download and chache it)
   shared_ptr<const Trace> tr2 =
       getWaveform(ph2Cache, tw2, event2, phase2, component);
   if (!tr2)
@@ -1573,11 +1571,28 @@ bool DD::xcorrPhasesOneComponent(const XcorrOptions &xcorrOpt,
     return false;
   }
 
+  //
+  // Decide which xcorr window to keep short and which long
+  //
+
+  auto trusted = [](const Phase &ph) -> bool {
+    return ph.procInfo.source == Phase::Source::CATALOG ||
+           ph.procInfo.source == Phase::Source::RT_EVENT_MANUAL;
+  };
+
+  bool xcorrTr1LongTr2Short = !trusted(phase1) && trusted(phase2);
+  bool xcorrTr1ShortTr2Long = trusted(phase1) && !trusted(phase2);
+
+  if (trusted(phase1) == trusted(phase2))
+  {
+    xcorrTr1LongTr2Short = true;
+    xcorrTr1ShortTr2Long = true;
+  }
+
   // Trust the manual pick on `phase2`: keep `tr2` short and cross-correlate
   // it with the larger `tr1` window.
   double xcorr_coeff = numeric_limits<double>::quiet_NaN(), xcorr_lag = 0;
-
-  if (phase2.trusted() || (!phase1.trusted() && !phase2.trusted()))
+  if (xcorrTr1LongTr2Short)
   {
     // Trim `tr2` to shorter length; we want to cross-correlate the short one
     // with the long one.
@@ -1597,8 +1612,7 @@ bool DD::xcorrPhasesOneComponent(const XcorrOptions &xcorrOpt,
   // Trust the manual pick on `phase1`: keep `tr1` short and cross-correlate
   // it with a larger `tr2` window.
   double xcorr_coeff2 = numeric_limits<double>::quiet_NaN(), xcorr_lag2 = 0;
-
-  if (phase1.trusted() || (!phase1.trusted() && !phase2.trusted()))
+  if (xcorrTr1ShortTr2Long)
   {
     // Trim `tr1` to shorter length; we want to cross-correlate the short with
     // the long one.

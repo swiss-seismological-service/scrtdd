@@ -136,12 +136,6 @@ public:
       double finalResidual;
     } relocInfo;
 
-    bool trusted() const
-    {
-      return procInfo.source == Source::CATALOG ||
-             procInfo.source == Source::RT_EVENT_MANUAL;
-    }
-
     // Compare attributes when the id is not known (works between multiple
     // catalogs).
     bool operator==(const Phase &other) const
