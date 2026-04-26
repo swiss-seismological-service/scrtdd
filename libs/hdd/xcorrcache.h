@@ -65,13 +65,16 @@ public:
            double coeff,
            double lag)
   {
-    Entry e;
-    e.valid                                  = valid;
-    e.coeff                                  = coeff;
-    e.lag                                    = lag;
-    _entries[evId1][stationId][phase][evId2] = e;
-    e.lag                                    = -lag;
-    _entries[evId2][stationId][phase][evId1] = e;
+    Entry &e  = _entries[evId1][stationId][phase][evId2];
+    e.valid   = valid;
+    e.coeff   = coeff;
+    e.lag     = lag;
+    try
+    {
+      _entries.at(evId2).at(stationId).at(phase).erase(evId1);
+    }
+    catch (const std::out_of_range &e)
+    {}
   }
 
   void add(const XCorrCache &xcorr)
@@ -93,27 +96,14 @@ public:
     {
       _entries.at(evId1).at(stationId).at(phase).erase(evId2);
     }
-    catch (...)
+    catch (const std::out_of_range &e)
     {}
     try
     {
       _entries.at(evId2).at(stationId).at(phase).erase(evId1);
     }
-    catch (...)
+    catch (const std::out_of_range &e)
     {}
-  }
-
-  void
-  remove(unsigned evId1, const std::string &stationId, const std::string &phase)
-  {
-    if (has(evId1, stationId, phase))
-    {
-      std::unordered_map<unsigned, Entry> copy = get(evId1, stationId, phase);
-      for (const auto &kv : copy)
-      {
-        remove(evId1, kv.first, stationId, phase);
-      }
-    }
   }
 
   bool has(unsigned evId1,
@@ -121,45 +111,32 @@ public:
            const std::string &stationId,
            const std::string &phase) const
   {
-    try
-    {
-      _entries.at(evId1).at(stationId).at(phase).at(evId2);
-      return true;
-    }
-    catch (...)
-    {
-      return false;
-    }
+    Entry out;
+    return get(evId1, evId2, stationId, phase, out);
   }
 
-  bool has(unsigned evId1,
+  bool get(unsigned evId1,
+           unsigned evId2,
            const std::string &stationId,
-           const std::string &phase) const
+           const std::string &phase,
+           Entry &out) const
   {
     try
     {
-      _entries.at(evId1).at(stationId).at(phase);
+      out = _entries.at(evId1).at(stationId).at(phase).at(evId2);
       return true;
     }
-    catch (...)
+    catch (const std::out_of_range &e)
+    {}
+    try
     {
-      return false;
+      out     = _entries.at(evId2).at(stationId).at(phase).at(evId1);
+      out.lag = -out.lag;
+      return true;
     }
-  }
-
-  const Entry &get(unsigned evId1,
-                   unsigned evId2,
-                   const std::string &stationId,
-                   const std::string &phase) const
-  {
-    return _entries.at(evId1).at(stationId).at(phase).at(evId2);
-  }
-
-  const std::unordered_map<unsigned, Entry> &get(unsigned evId1,
-                                                 const std::string &stationId,
-                                                 const std::string &phase) const
-  {
-    return _entries.at(evId1).at(stationId).at(phase);
+    catch (const std::out_of_range &e)
+    {}
+    return false;
   }
 
   using ForEachCallback = std::function<void(unsigned ev1,
@@ -177,53 +154,6 @@ public:
           {
             c(kv1.first, kv4.first, kv2.first, kv3.first, kv4.second);
           }
-  }
-
-  void forEach(unsigned evId1, const ForEachCallback &c) const
-  {
-    try
-    {
-      for (const auto &kv2 : _entries.at(evId1))
-        for (const auto &kv3 : kv2.second)
-          for (const auto &kv4 : kv3.second)
-          {
-            c(evId1, kv4.first, kv2.first, kv3.first, kv4.second);
-          }
-    }
-    catch (...)
-    {}
-  }
-
-  void forEach(unsigned evId1,
-               const std::string &stationId,
-               const ForEachCallback &c) const
-  {
-    try
-    {
-      for (const auto &kv3 : _entries.at(evId1).at(stationId))
-        for (const auto &kv4 : kv3.second)
-        {
-          c(evId1, kv4.first, stationId, kv3.first, kv4.second);
-        }
-    }
-    catch (...)
-    {}
-  }
-
-  void forEach(unsigned evId1,
-               const std::string &stationId,
-               const std::string &phase,
-               const ForEachCallback &c) const
-  {
-    try
-    {
-      for (const auto &kv4 : _entries.at(evId1).at(stationId).at(phase))
-      {
-        c(evId1, kv4.first, stationId, phase, kv4.second);
-      }
-    }
-    catch (...)
-    {}
   }
 
   void writeToFile(const Catalog &cat, const std::string &file) const;

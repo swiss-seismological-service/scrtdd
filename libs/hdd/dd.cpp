@@ -911,20 +911,16 @@ bool DD::addObservations(Solver &solver,
 
     if (!xcorr.empty()) // xcorr is enabled
     {
-
-      if (xcorr.has(refEv.id, event.id, stationId, phaseType))
+      XCorrCache::Entry e;
+      if (xcorr.get(refEv.id, event.id, stationId, phaseType, e) && e.valid)
       {
-        const auto &e = xcorr.get(refEv.id, event.id, stationId, phaseType);
-        if (e.valid)
+        xcorrCoeff = e.coeff;
+        if (std::abs(e.coeff) >= xcorrCfg.minCoef)
         {
-          xcorrCoeff = e.coeff;
-          if (std::abs(e.coeff) >= xcorrCfg.minCoef)
-          {
-            xcorrUsed = true;
-            diffTime -= duration<double>(e.lag);
-            double weightGain = (weight * xcorrWeightScaler) - weight;
-            weight += weightGain * std::abs(e.coeff);
-          }
+          xcorrUsed = true;
+          diffTime -= duration<double>(e.lag);
+          double weightGain = (weight * xcorrWeightScaler) - weight;
+          weight += weightGain * std::abs(e.coeff);
         }
       }
     }
@@ -1325,21 +1321,20 @@ void DD::buildXcorrDiffTTimePairs(const Catalog &catalog,
           throw Exception("Internal logic error: phase is not from catalog");
         }
 
-        // skip cross-correlation if we already have the result in cache
+        // Try to skip the cross-correlation if we have it in cache
         if (!xcorr.has(refEv.id, event.id, refPhase.stationId, refPhase.type))
         {
-          try
+          // No cached xcorr value: try to fetch it from the precomputed values
+          XCorrCache::Entry e;
+          if (precomputed.get(refEv.id, event.id, refPhase.stationId,
+                              refPhase.type, e))
           {
-            // try to fetch the cross-correlation results from the precomputed
-            // values
-            const XCorrCache::Entry &e = precomputed.get(
-                refEv.id, event.id, refPhase.stationId, refPhase.type);
             xcorr.add(refEv.id, event.id, refPhase.stationId, refPhase.type,
                       e.valid, e.coeff, e.lag);
           }
-          catch (const std::out_of_range &e)
+          else
           {
-            // Do the actual cross-correlation if not found in precomputed
+            // Do the actual cross-correlation
             double coeff, lag;
             string component;
             bool valid =
@@ -1779,15 +1774,14 @@ void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
         continue;
       }
 
-      if (!xcorr.has(neighbours.referenceId(), neighEvId, stationId, phase))
+      XCorrCache::Entry e;
+      if (!xcorr.get(neighbours.referenceId(), neighEvId, stationId, phase, e))
       {
         continue;
       }
-      const auto &e =
-          xcorr.get(neighbours.referenceId(), neighEvId, stationId, phase);
-      Counters &counters = (phaseType == Phase::Type::P)
-                               ? pCountByStation[stationId]
-                               : sCountByStation[stationId];
+
+      Counters &counters = (phaseType == Phase::Type::P) ? pCountByStation[stationId]
+                                                         : sCountByStation[stationId];
 
       if (e.valid)
       {

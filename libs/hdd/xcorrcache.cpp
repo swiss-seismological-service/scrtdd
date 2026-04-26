@@ -82,10 +82,7 @@ XCorrCache XCorrCache::readFromFile(const Catalog &cat, const std::string &file)
       std::string stationId =
           cat.searchStation(networkCode, stationCode, locationCode)->second.id;
 
-      if (!xcorr.has(ev1, ev2, stationId, phase))
-      {
-        xcorr.add(ev1, ev2, stationId, phase, valid, coeff, lag);
-      }
+      xcorr.add(ev1, ev2, stationId, phase, valid, coeff, lag);
     }
   }
   catch (const std::exception &e)

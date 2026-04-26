@@ -30,7 +30,6 @@
 
 #include "catalog.h"
 #include "timewindow.h"
-#include "xcorrcache.h"
 #include <cmath>
 #include <cstdarg>
 #include <initializer_list>
