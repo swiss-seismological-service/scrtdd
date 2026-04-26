@@ -774,9 +774,10 @@ void Solver::prepare(double ttConstraint, double residualDownWeight)
     {
       unsigned obIdx = obByDistIt->second;
       quantileRes.push_back(_dd.d[obIdx]);
-      if (_observations.at(obIdx).xcorrCoeff > 0)
+      double xcorrCoeff = std::abs(_observations.at(obIdx).xcorrCoeff);
+      if (xcorrCoeff != 0) // 0 means failed xcorr
       {
-        quantileCoeff.push_back(_observations.at(obIdx).xcorrCoeff);
+        quantileCoeff.push_back(xcorrCoeff);
       }
       finalDist = obByDistIt->first;
       obByDistIt++;

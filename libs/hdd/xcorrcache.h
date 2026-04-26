@@ -45,6 +45,16 @@ public:
     double coeff, lag;
   };
 
+public:
+  XCorrCache()  = default;
+  ~XCorrCache() = default;
+
+  XCorrCache(const XCorrCache &other)            = default;
+  XCorrCache &operator=(const XCorrCache &other) = default;
+
+  XCorrCache(XCorrCache &&other)            = default;
+  XCorrCache &operator=(XCorrCache &&other) = default;
+
   bool empty() const { return _entries.empty(); }
 
   void add(unsigned evId1,

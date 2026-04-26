@@ -918,12 +918,12 @@ bool DD::addObservations(Solver &solver,
         if (e.valid)
         {
           xcorrCoeff = e.coeff;
-          if (e.coeff >= xcorrCfg.minCoef)
+          if (std::abs(e.coeff) >= xcorrCfg.minCoef)
           {
             xcorrUsed = true;
             diffTime -= duration<double>(e.lag);
             double weightGain = (weight * xcorrWeightScaler) - weight;
-            weight += weightGain * e.coeff;
+            weight += weightGain * std::abs(e.coeff);
           }
         }
       }
@@ -1632,7 +1632,7 @@ bool DD::xcorrPhasesOneComponent(const XcorrOptions &xcorrOpt,
     }
   }
 
-  coeffOut = std::abs(xcorr_coeff);
+  coeffOut = xcorr_coeff;
   lagOut   = xcorr_lag;
 
   return true;
@@ -1778,11 +1778,11 @@ void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
       if (e.valid)
       {
         counters.performed++;
-        counters.coeff.push_back(e.coeff);
+        counters.coeff.push_back(std::abs(e.coeff));
         counters.lag.push_back(e.lag);
 
         const auto &xcorrCfg = xcorrOpt.phase.at(phaseType);
-        if (e.coeff >= xcorrCfg.minCoef)
+        if (std::abs(e.coeff) >= xcorrCfg.minCoef)
         {
           counters.aboveThreshold++;
         }
