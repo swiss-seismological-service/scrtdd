@@ -62,7 +62,10 @@ XCorrCache XCorrCache::readFromFile(const Catalog &cat, const std::string &file)
     return s == "1" || s == "true" || s == "True" || s == "TRUE";
   };
 
+  size_t bucket_count = cat.getEvents().size();
   XCorrCache xcorr;
+  xcorr._entries.reserve(bucket_count);
+
   int row_count = 0;
   try
   {

@@ -197,8 +197,8 @@ void Neighbours::appendToStream(const Catalog &cat, std::ostream &os) const
     const auto &staPhs   = kv1.second;
     for (const auto &kv2 : staPhs)
     {
-      const std::string phase                    = kv2.first;
-      const std::unordered_set<string> &stations = kv2.second;
+      const std::string phase          = kv2.first;
+      const std::set<string> &stations = kv2.second;
       for (const string &stationId : stations)
       {
         const Catalog::Station &sta = cat.getStations().at(stationId);
@@ -237,7 +237,8 @@ void Neighbours::writeToFile(
 unordered_map<unsigned, Neighbours>
 Neighbours::readFromFile(const Catalog &cat, const std::string &file)
 {
-  unordered_map<unsigned, Neighbours> neighbours;
+  size_t bucket_count = cat.getEvents().size();
+  unordered_map<unsigned, Neighbours> neighbours(bucket_count);
 
   vector<unordered_map<string, string>> lines = CSV::readWithHeader(file);
   int row_count                               = 0;

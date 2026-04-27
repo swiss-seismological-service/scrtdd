@@ -32,6 +32,7 @@
 #include "kdtree.h"
 #include <fstream>
 #include <list>
+#include <map>
 #include <set>
 #include <tuple>
 #include <unordered_map>
@@ -95,10 +96,9 @@ public:
 
 private:
   unsigned _refEvId;
-  std::unordered_map<
-      unsigned,                       // indexed by event id
-      std::unordered_map<std::string, // indexed by phase type
-                         std::unordered_set<std::string>>> // station id
+  std::map<unsigned,                        // indexed by event id
+           std::map<std::string,            // indexed by phase type
+                    std::set<std::string>>> // station id
       _phases;
 };
 

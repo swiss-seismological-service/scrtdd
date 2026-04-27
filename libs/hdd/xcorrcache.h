@@ -31,6 +31,8 @@
 #include "catalog.h"
 
 #include <functional>
+#include <map>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 
@@ -161,12 +163,10 @@ public:
   static XCorrCache readFromFile(const Catalog &cat, const std::string &file);
 
 private:
-  std::unordered_map<
-      unsigned, // indexed by event id
-      std::unordered_map<
-          std::string,                    // indexed by station id
-          std::unordered_map<std::string, // indexed by phase type
-                             std::unordered_map<unsigned, // indexed by event id
+  std::unordered_map<unsigned,                      // indexed by event id
+                     std::map<std::string,          // indexed by station id
+                              std::map<std::string, // indexed by phase type
+                                       std::map<unsigned, // indexed by event id
                                                 Entry>>>>
       _entries;
 };
