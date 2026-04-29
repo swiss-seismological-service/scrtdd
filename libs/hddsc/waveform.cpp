@@ -214,8 +214,13 @@ void WaveformProxy::loadTraces(
         //
         if (req.loc == req2.loc && req.ch == req2.ch)
         {
-          const Core::TimeSpan tolerance(contiguousRequest.length().length() *
-                                         0.10); // 10% of contiguousRequest
+          const Core::TimeSpan tolerance(
+#if SC_API_VERSION < SC_API_VERSION_CHECK(17, 0, 0)
+              contiguousRequest.length() *
+#else
+              contiguousRequest.length().length() *
+#endif
+              0.10); // 10% of contiguousRequest
 
           if (it2 == eqlrng.first)
           {
