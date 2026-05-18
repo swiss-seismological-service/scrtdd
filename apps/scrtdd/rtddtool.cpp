@@ -2167,7 +2167,7 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
     std::vector<std::string> tokens = ::splitString(clusterFiles, ",");
     for (const string &file : tokens)
     {
-      SEISCOMP_INFO("Loading cluster pair file %s...", file);
+      SEISCOMP_INFO("Loading cluster pair file %s...", file.c_str());
       std::unordered_map<unsigned, HDD::Neighbours> cluster =
           HDD::Neighbours::readFromFile(dd->getCatalog(), file);
       clusters.push_back(std::move(cluster));
@@ -2177,7 +2177,8 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
   HDD::XCorrCache xcorr;
   if (!xcorrFile.empty())
   {
-    SEISCOMP_INFO("Loading cross-correlation cache file %s...", xcorrFile);
+    SEISCOMP_INFO("Loading cross-correlation cache file %s...",
+                  xcorrFile.c_str());
     xcorr = HDD::XCorrCache::readFromFile(dd->getCatalog(), xcorrFile);
   }
 
