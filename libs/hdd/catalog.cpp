@@ -421,7 +421,7 @@ void Catalog::writeToFile(const string &eventFile,
     const Catalog::Event &ev = kv.second;
 
     stringstream evStream;
-    evStream << strf("%u,%s,%.6f,%.6f,%.4f,%.3f", ev.id,
+    evStream << strf("%u,%s,%.8f,%.8f,%.6f,%.3f", ev.id,
                      UTCClock::toString(ev.time).c_str(), ev.latitude,
                      ev.longitude, ev.depth, ev.magnitude);
 
@@ -502,7 +502,7 @@ void Catalog::writeToFile(const string &eventFile,
     for (const auto &kv : orderedStations)
     {
       const Catalog::Station &sta = kv.second;
-      staStream << strf("%.6f,%.6f,%.1f,%s,%s,%s", sta.latitude, sta.longitude,
+      staStream << strf("%.8f,%.8f,%.3f,%s,%s,%s", sta.latitude, sta.longitude,
                         sta.elevation, sta.networkCode.c_str(),
                         sta.stationCode.c_str(), sta.locationCode.c_str())
                 << endl;
