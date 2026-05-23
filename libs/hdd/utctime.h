@@ -29,6 +29,7 @@
 #define __HDD_UTCTIME_H__
 
 #include <chrono>
+#include <cmath>
 #include <string>
 
 namespace HDD {
@@ -70,7 +71,8 @@ using UTCTime = UTCClock::time_point;
 inline constexpr UTCTime::duration secToDur(double sec)
 {
   return std::chrono::duration_cast<UTCTime::duration>(
-      std::chrono::duration<double>(sec));
+      std::chrono::microseconds(
+          static_cast<std::chrono::microseconds::rep>(std::round(sec * 1E6))));
 }
 
 inline constexpr double durToSec(UTCTime::duration d)
