@@ -1780,8 +1780,9 @@ void DD::logXCorrSummary(const unordered_map<unsigned, Neighbours> &cluster,
         continue;
       }
 
-      Counters &counters = (phaseType == Phase::Type::P) ? pCountByStation[stationId]
-                                                         : sCountByStation[stationId];
+      Counters &counters = (phaseType == Phase::Type::P)
+                               ? pCountByStation[stationId]
+                               : sCountByStation[stationId];
 
       if (e.valid)
       {

@@ -67,10 +67,10 @@ public:
            double coeff,
            double lag)
   {
-    Entry &e  = _entries[evId1][stationId][phase][evId2];
-    e.valid   = valid;
-    e.coeff   = coeff;
-    e.lag     = lag;
+    Entry &e = _entries[evId1][stationId][phase][evId2];
+    e.valid  = valid;
+    e.coeff  = coeff;
+    e.lag    = lag;
     try
     {
       _entries.at(evId2).at(stationId).at(phase).erase(evId1);
