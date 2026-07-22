@@ -45,10 +45,15 @@ namespace HDD {
 
 struct Config
 {
-  std::vector<std::string> validPphases      = {"Pg", "P", "Px"};
-  std::vector<std::string> validSphases      = {"Sg", "S", "Sx"};
+  // A list of accepted P-wave phases. Phases not in this list will be ignored.
+  std::vector<std::string> validPphases      = {"P", "Pg", "Pn"};
+  std::vector<std::string> validSphases      = {"S", "Sg", "Sn"};
   std::vector<double> pickUncertaintyClasses = {0.000, 0.025, 0.050,
                                                 0.100, 0.200, 0.400};
+  // If enabled, travel-time information is fetched using 'P' and 'S' tables
+  // only, and the specific phase type (e.g., Pg, Sg, Pn) is not considered.
+  // Whether to enable it or not depends on the phases that a travel time type
+  // support
   bool PSTableOnly                           = true;
   struct
   {
@@ -89,9 +94,9 @@ struct ClusteringOptions
 struct XcorrOptions
 {
   bool enable           = false; // perform or not cross-correlation
-  double minEvStaDist   = 0;     // min event to station distance
-  double maxEvStaDist   = -1;    // max event to station distance -1 -> disable
-  double maxInterEvDist = -1;    // max inter-event distance -1 -> disable
+  double minEvStaDist   = 0;     // [km] min event to station distance
+  double maxEvStaDist   = -1;    // [km] max event to station distance -1 -> disable
+  double maxInterEvDist = -1;    // [km] max inter-event distance -1 -> disable
   struct XCorr
   {
     double minCoef;     // min cross-correlatation coefficient required (0-1)
@@ -99,7 +104,7 @@ struct XcorrOptions
     double endOffset;   // window end: secs after pick
     double winScaling;  // Window scaling coefficient
                         // WinLen = (endOff-startOff) + TravelTime * winScaling
-    double maxDelay;    // secs
+    double maxDelay;    // [secs]
     std::vector<std::string> components; // priority list of components to use
   };
   std::map<Catalog::Phase::Type, struct XCorr> phase = {

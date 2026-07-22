@@ -110,7 +110,8 @@
             <description>
             If enabled, travel-time information is fetched using 'P' and 'S'
             tables only, and the specific phase type (e.g., Pg, Sg, Pn)
-            is not considered.
+            is not considered. Whether to enable it or not depends on the phases
+            that a table type suppport
           </description>
           </parameter>
           <parameter name="P-Phases" type="list:string" default="P,Pg,Pn">

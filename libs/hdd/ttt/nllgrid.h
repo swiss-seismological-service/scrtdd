@@ -44,7 +44,7 @@ class NLLGrid : public HDD::TravelTimeTable
 public:
   NLLGrid(const std::string &gridPath,
           const std::string &gridModel,
-          double maxSearchDistance        = 0.1,
+          double maxSearchDistance        = 0.1, // meter
           bool swapBytes                  = false,
           unsigned maxOpenFiles           = 512,
           const std::string &accessMethod = "KeepOpen");
