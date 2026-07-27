@@ -391,9 +391,22 @@ DD::findClusters(const ClusteringOptions &clustOpt)
 }
 
 Catalog DD::relocateMultiEvents(
+    const ClusteringOptions &clustOpt,
     std::list<unordered_map<unsigned, Neighbours>> &clusters,
     XCorrCache &xcorrData,
-    const ClusteringOptions &clustOpt,
+    const XcorrOptions &xcorrOpt,
+    const SolverOptions &solverOpt,
+    bool saveProcessing,
+    string processingDataDir)
+{
+  clusters = findClusters(clustOpt);
+  return relocateMultiEvents(clusters, xcorrData, xcorrOpt, solverOpt,
+                             saveProcessing, processingDataDir);
+}
+
+Catalog DD::relocateMultiEvents(
+    std::list<unordered_map<unsigned, Neighbours>> &clusters,
+    XCorrCache &xcorrData,
     const XcorrOptions &xcorrOpt,
     const SolverOptions &solverOpt,
     bool saveProcessing,
@@ -428,20 +441,6 @@ Catalog DD::relocateMultiEvents(
     // prepare file logger
     logFile = joinPath(processingDataDir, "relocation.log");
     addFileLogger(logFile, Level::info);
-  }
-
-  if (clusters.empty())
-  {
-    // find Neighbours for each event in the catalog
-    unordered_map<unsigned, Neighbours> neighboursByEvent =
-        selectNeighbouringEventsCatalog(
-            _evTree, _bgCat, clustOpt.minEvStaDist, clustOpt.maxEvStaDist,
-            clustOpt.minEvStaToInterEvRatio, clustOpt.minNumPhases,
-            clustOpt.maxNumPhases, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
-            clustOpt.numEllipsoids, clustOpt.maxNeighbourDist);
-
-    // Organize the neighbours by non-connected clusters
-    clusters = clusterizeNeighbouringEvents(std::move(neighboursByEvent));
   }
 
   logInfoF("Found %zu event clusters with the following number of events:",

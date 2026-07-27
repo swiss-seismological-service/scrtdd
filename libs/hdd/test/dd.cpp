@@ -329,7 +329,7 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
 
   std::list<std::unordered_map<unsigned, Neighbours>> clusters;
   XCorrCache xcorrData;
-  return dd.relocateMultiEvents(clusters, xcorrData, clusterOpt, xcorrOpt,
+  return dd.relocateMultiEvents(clusterOpt, clusters, xcorrData, xcorrOpt,
                                 solverOpt, saveProcessing);
 }
 

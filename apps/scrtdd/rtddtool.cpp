@@ -2183,8 +2183,11 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
   }
 
   HDD::Catalog relocatedCat =
-      dd->relocateMultiEvents(clusters, xcorr, multiEventClustering, xcorrOpt,
-                              solverOpt, this->dumpDiagnostics);
+      clusters.empty()
+          ? dd->relocateMultiEvents(multiEventClustering, clusters, xcorr,
+                                    xcorrOpt, solverOpt, this->dumpDiagnostics)
+          : dd->relocateMultiEvents(clusters, xcorr, xcorrOpt, solverOpt,
+                                    this->dumpDiagnostics);
 
   relocatedCat.writeToFile("reloc-event.csv", "reloc-phase.csv",
                            "reloc-station.csv");

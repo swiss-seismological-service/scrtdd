@@ -55,6 +55,7 @@ struct Config
   // Whether to enable it or not depends on the phases that a travel time type
   // support
   bool PSTableOnly                           = true;
+
   struct
   {
     std::string filterStr = ""; // "" -> no filtering
@@ -175,11 +176,22 @@ public:
   std::list<std::unordered_map<unsigned, Neighbours>>
   findClusters(const ClusteringOptions &clustOpt);
 
-  // Multi-event relocation of the background catalog
+  // Multi-event relocation of the background catalog: clusters are found
+  // automatically using clustOpt and returned via `clusters`
+  Catalog relocateMultiEvents(
+      const ClusteringOptions &clustOpt,
+      std::list<std::unordered_map<unsigned, Neighbours>> &clusters,
+      XCorrCache &xcorrData,
+      const XcorrOptions &xcorrOpt,
+      const SolverOptions &solverOpt,
+      bool saveProcessing           = false,
+      std::string processingDataDir = "");
+
+  // Multi-event relocation of the given clusters (e.g. obtained via
+  // findClusters or loaded from file)
   Catalog relocateMultiEvents(
       std::list<std::unordered_map<unsigned, Neighbours>> &clusters,
       XCorrCache &xcorrData,
-      const ClusteringOptions &clustOpt,
       const XcorrOptions &xcorrOpt,
       const SolverOptions &solverOpt,
       bool saveProcessing           = false,
