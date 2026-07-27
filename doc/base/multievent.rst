@@ -263,7 +263,7 @@ Evaluating the Results
 Visual Evaluation
 -----------------
 
-For rapid visualization, use the ``relocation-map.html`` in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_. It requires ``event.csv``, ``station.csv``, and ``reloc-event.csv`` to be in the same directory. You can view it by starting a local web server (e.g., ``python3 -m http.server 8080``) and navigating to ``http://localhost:8080/relocation-map.html``.
+For rapid visualization, use the ``relocation-map.html`` in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_. It requires ``event.csv``, ``station.csv``, and ``reloc-event.csv`` to be in the same directory. So you can simply copy `relocation-map.html` into the diagnostics relocation directory, then start a local web server (e.g., ``python3 -m http.server 8080``) and navigating to ``http://localhost:8080/relocation-map.html``.
 
 .. image:: media/multiEventRelocationEvaluation.png
    :width: 800
@@ -282,7 +282,7 @@ The logs show how double-difference residuals decrease over iterations and their
 .. image:: media/qc1.png
    :width: 800
 
-Detailed diagnostics dumped via ``--dump-diagnostics`` provide details of the double-difference residuals in ``initial/final-double-difference.csv`` (see ``doubleDifferenceResidual`` column). You can use the scripts in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_ to plot them.
+Detailed diagnostics dumped via ``--dump-diagnostics`` provide details of the double-difference residuals in ``initial/final-double-difference.csv`` (see ``doubleDifferenceResidual`` column). You can use the `plot-dd-cc.py` script in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_ to plot them.
 
 .. image:: media/qc4.png
    :width: 800
@@ -295,7 +295,7 @@ Waveform similarity is a strong indicator of proximity. Comparing correlation co
 .. image:: media/qc2.png
    :width: 800
 
-Detailed diagnostics dumped via ``--dump-diagnostics`` provide details of the cross-correlation results in ``initial/final-double-difference.csv`` (``xcorrCoefficient`` column).  You can use the scripts in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_ to plot them. 
+Detailed diagnostics dumped via ``--dump-diagnostics`` provide details of the cross-correlation results in ``initial/final-double-difference.csv`` (``xcorrCoefficient`` column).  You can use the `plot-dd-cc.py` script in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_ to plot them. 
 
 .. image:: media/qc5.png
    :width: 800
@@ -304,7 +304,7 @@ Detailed diagnostics dumped via ``--dump-diagnostics`` provide details of the cr
 Verifying Absolute Locations
 ----------------------------
 
-rtDD calculates the RMS both before and after (columns ``startRms`` and ``finalRms`` in ``reloc-event.csv``) relocation using its own travel time engine. This provides a consistent baseline for comparison, as different locators may use different weighting schemes or travel time tables that make their RMS values incomparable. You can use the scripts in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_ to plot them.
+rtDD calculates the RMS both before and after (columns ``startRms`` and ``finalRms`` in ``reloc-event.csv``) relocation using its own travel time engine. This provides a consistent baseline for comparison, as different locators may use different weighting schemes or travel time tables that make their RMS values incomparable. You can use the `plot-rms.py` script in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_ to plot them.
 
 .. image:: media/qc3.png
    :width: 800

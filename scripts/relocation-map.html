@@ -342,7 +342,7 @@ function drawCrossSections() {
 function loadData() {
 
   Promise.all([
-      d3.csv("./event.csv", function(data) {
+      d3.csv("./input-event.csv", function(data) {
         return {
           id    : +data.id, 
           time  : new Date(data.isotime),
@@ -371,7 +371,7 @@ function loadData() {
           group : "medd-events"
         };
       }),
-      d3.csv("./station.csv", function(data) {
+      d3.csv("./input-station.csv", function(data) {
         return {
           lat   : +data.latitude,
           lon   : +data.longitude,

@@ -20,7 +20,7 @@ You can configure the velocity model in the ``global`` configuration and select 
 NLLGrid
 -------
 
-Please refer to the `NonLinLoc documentation <http://alomax.free.fr/nlloc/>`_ by Anthony Lomax for instructions on generating grid files. Once generated, you can configure the ``NLLGrid`` plugin to use them in any SeisComP module.
+Please refer to the `NonLinLoc documentation <http://alomax.free.fr/nlloc/>`_ by Anthony Lomax for instructions on generating grid files. You can also have a look at the `test folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/libs/hdd/test/data/nll>` of rtDD to see a few examples on how the grids are generated there. Once generated, you can configure the ``NLLGrid`` plugin to use them in any SeisComP module.
 
 To enable the plugin, add ``tttnll`` to the list of loaded plugins in ``global.cfg`` or your module configuration.
 
