@@ -1162,7 +1162,7 @@ bool RTDD::run()
     HDD::Catalog cat;
     DataSource dataSrc(query(), &_cache, _eventParameters.get());
     addToCatalog(cat, _config.dumpCatalog, dataSrc);
-    cat.writeToFile("event.csv", "phase.csv", "station.csv");
+    cat.writeToFile("station.csv", "event.csv", "phase.csv");
     SEISCOMP_INFO("Wrote files event.csv, phase.csv, station.csv");
     return true;
   }
@@ -1187,8 +1187,8 @@ bool RTDD::run()
       HDD::Catalog cat(tokens[i + 0], tokens[i + 1], tokens[i + 2], true);
       outCat.add(cat, keepEvId);
     }
-    outCat.writeToFile("merged-event.csv", "merged-phase.csv",
-                       "merged-station.csv");
+    outCat.writeToFile("merged-station.csv", "merged-event.csv",
+                       "merged-phase.csv");
     SEISCOMP_INFO(
         "Wrote files merged-event.csv, merged-phase.csv, merged-station.csv");
     return true;
@@ -2189,8 +2189,8 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
           : dd->relocateMultiEvents(clusters, xcorr, xcorrOpt, solverOpt,
                                     this->dumpDiagnostics);
 
-  relocatedCat.writeToFile("reloc-event.csv", "reloc-phase.csv",
-                           "reloc-station.csv");
+  relocatedCat.writeToFile("reloc-station.csv", "reloc-event.csv",
+                           "reloc-phase.csv");
 
   SEISCOMP_INFO("Wrote relocated catalog files reloc-event.csv, "
                 "reloc-phase.csv and reloc-station.csv");
@@ -2238,8 +2238,8 @@ void RTDD::Profile::dumpClusters()
     }
     SEISCOMP_INFO("Writing cluster %u catalog (%zu events)...", clusterId,
                   cat.getEvents().size());
-    cat.writeToFile(prefix + "-event.csv", prefix + "-phase.csv",
-                    prefix + "-station.csv");
+    cat.writeToFile(prefix + "-station.csv", prefix + "-event.csv",
+                    prefix + "-phase.csv");
   }
 }
 

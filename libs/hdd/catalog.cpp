@@ -400,9 +400,9 @@ void Catalog::addPhase(const Phase &phase)
   _phases.emplace(phase.eventId, phase);
 }
 
-void Catalog::writeToFile(const string &eventFile,
-                          const string &phaseFile,
-                          const string &stationFile) const
+void Catalog::writeToFile(const string &stationFile,
+                          const string &eventFile,
+                          const string &phaseFile) const
 {
   /*
    * write events
