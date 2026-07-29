@@ -30,6 +30,8 @@ rtDD is a [SeisComP](<https://github.com/SeisComP>) extension module that implem
 Double-Difference event relocation both in Real-Time, one event at the time, and classic
 offline mode, where an earthquake catalog is relocated as a whole.
 
+A python wrapper for this code (no SeisComP needed) is available [here](https://github.com/swiss-seismological-service/pyrtdd).
+
 ## Documentation
 
 You can find the online documentation at https://docs.gempa.de/scrtdd/current/
