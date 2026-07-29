@@ -263,7 +263,7 @@ Evaluating the Results
 Visual Evaluation
 -----------------
 
-For rapid visualization, use the ``relocation-map.html`` in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_. It requires ``event.csv``, ``station.csv``, and ``reloc-event.csv`` to be in the same directory. So you can simply copy `relocation-map.html` into the diagnostics relocation directory, then start a local web server (e.g., ``python3 -m http.server 8080``) and navigating to ``http://localhost:8080/relocation-map.html``.
+For rapid visualization, use the ``relocation-map.html`` in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_. It requires ``input-event.csv``, ``input-station.csv``, and ``reloc-event.csv`` to be in the same directory. So you can simply copy `relocation-map.html` into the diagnostics relocation directory, then start a local web server (e.g., ``python3 -m http.server 8080``) and navigating to ``http://localhost:8080/relocation-map.html``.
 
 .. image:: media/multiEventRelocationEvaluation.png
    :width: 800
