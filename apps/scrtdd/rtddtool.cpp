@@ -485,7 +485,7 @@ bool RTDD::validateParameters()
 
     if (prof->earthModelID.empty())
     {
-      prof->earthModelID = prof->tttType + ":" + prof->tttModel;
+      prof->earthModelID = prof->tttType + "/" + prof->tttModel;
     }
 
     try
