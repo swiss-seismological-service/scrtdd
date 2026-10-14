@@ -106,6 +106,12 @@
             The model to be used. The format depends on tableType.
             </description>
           </parameter>
+          <parameter name="earthModelID" type="string" default="">
+            <description>
+            The earthModelID label to be stored in created origins.
+            If empty, it defaults to &quot;[tableType]:[tableModel]&quot;.
+            </description>
+          </parameter>
           <parameter name="PSTableOnly" type="boolean" default="true">
             <description>
             If enabled, travel-time information is fetched using 'P' and 'S'

@@ -160,6 +160,7 @@ private:
 
     std::string name;
     std::string methodID;
+    std::string earthModelID;
     std::string eventIDFile;
     std::string stationFile;
     std::string eventFile;

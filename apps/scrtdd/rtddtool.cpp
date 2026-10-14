@@ -476,6 +476,20 @@ bool RTDD::validateParameters()
 
     try
     {
+      prof->earthModelID = configGetString(prefix + "earthModelID");
+    }
+    catch (...)
+    {
+      prof->earthModelID = "";
+    }
+
+    if (prof->earthModelID.empty())
+    {
+      prof->earthModelID = prof->tttType + ":" + prof->tttModel;
+    }
+
+    try
+    {
       prof->ddCfg.PSTableOnly = configGetBool(prefix + "PSTableOnly");
     }
     catch (...)
@@ -1238,7 +1252,7 @@ bool RTDD::run()
         std::vector<DataModel::PickPtr> newOrgPicks;
         convertOrigin(dataSrc, ev, srcOrg.get(), author(), agencyID(),
                       profile->methodID,
-                      (profile->tttType + ":" + profile->tttModel), true,
+                      profile->earthModelID, true,
                       newOrg, newOrgPicks);
 
         evParam->add(newOrg.get());
@@ -1727,7 +1741,7 @@ bool RTDD::processOrigin(Origin *origin,
 
   DataSource dataSrc(query(), &_cache, _eventParameters.get());
   convertOrigin(dataSrc, relocated, origin, author(), agencyID(),
-                profile->methodID, (profile->tttType + ":" + profile->tttModel),
+                profile->methodID, profile->earthModelID,
                 false, relocatedOrg, relocatedOrgPicks);
 
   SEISCOMP_INFO("Origin %s has been relocated", origin->publicID().c_str());
