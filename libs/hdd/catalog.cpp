@@ -407,42 +407,46 @@ void Catalog::writeToFile(const string &stationFile,
   /*
    * write events
    */
-  stringstream evStreamNoReloc;
-  stringstream evStreamReloc;
+  // The relocation and fixed event columns are written only when needed
+  bool relocInfo = false, fixedInfo = false;
+  for (const auto &kv : _events)
+  {
+    relocInfo = relocInfo || kv.second.relocInfo.isRelocated;
+    fixedInfo = fixedInfo || kv.second.procInfo.isFixed;
+  }
 
-  evStreamNoReloc << "id,isotime,latitude,longitude,depth,magnitude";
-  evStreamReloc << evStreamNoReloc.str() << ",relocated,startRms,finalRms"
-                << endl;
-  evStreamNoReloc << endl;
+  ofstream evStream(eventFile);
+  evStream << "id,isotime,latitude,longitude,depth,magnitude";
+  if (relocInfo) evStream << ",relocated,startRms,finalRms";
+  if (fixedInfo) evStream << ",fixed";
+  evStream << endl;
 
-  bool relocInfo = false;
   for (const auto &kv : _events)
   {
     const Catalog::Event &ev = kv.second;
 
-    stringstream evStream;
     evStream << strf("%u,%s,%.8f,%.8f,%.6f,%.3f", ev.id,
                      UTCClock::toString(ev.time).c_str(), ev.latitude,
                      ev.longitude, ev.depth, ev.magnitude);
 
-    evStreamNoReloc << evStream.str() << endl;
-    evStreamReloc << evStream.str();
-
-    if (!ev.relocInfo.isRelocated)
+    if (relocInfo)
     {
-      evStreamReloc << ",false,,";
+      if (!ev.relocInfo.isRelocated)
+      {
+        evStream << ",false,,";
+      }
+      else
+      {
+        evStream << strf(",true,%g,%g", ev.relocInfo.startRms,
+                         ev.relocInfo.finalRms);
+      }
     }
-    else
+    if (fixedInfo)
     {
-      relocInfo = true;
-      evStreamReloc << strf(",true,%g,%g", ev.relocInfo.startRms,
-                            ev.relocInfo.finalRms);
+      evStream << (ev.procInfo.isFixed ? ",true" : ",false");
     }
-    evStreamReloc << endl;
+    evStream << endl;
   }
-
-  ofstream evStream(eventFile);
-  evStream << (relocInfo ? evStreamReloc.str() : evStreamNoReloc.str());
 
   /*
    * write phases
@@ -517,12 +521,18 @@ Catalog::fillProcessingInfo(const Catalog &catalog,
                             const std::vector<std::string> &validSphases,
                             const std::vector<double> &uncertaintyClasses)
 {
+  map<unsigned, Event> events;
   unordered_multimap<unsigned, Phase> phases;
 
   // loop through each event
   for (const auto &kv : catalog.getEvents())
   {
     const Event &event = kv.second;
+
+    // events are not fixed unless explicitly set
+    Event newEvent            = event;
+    newEvent.procInfo.isFixed = false;
+    events.emplace(newEvent.id, newEvent);
 
     // loop through all phases of current event and set ProcInfo
     auto eqlrng = catalog.getPhases().equal_range(event.id);
@@ -552,7 +562,7 @@ Catalog::fillProcessingInfo(const Catalog &catalog,
     }
   }
 
-  return Catalog(catalog.getStations(), catalog.getEvents(), phases);
+  return Catalog(catalog.getStations(), events, phases);
 }
 
 double Catalog::computePickWeight(const Phase &phase,

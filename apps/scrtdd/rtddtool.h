@@ -121,6 +121,7 @@ private:
     std::string eventXML;
     std::string forceProfile;
     std::string relocateCatalog;
+    std::string referenceCatalog;
     std::string dumpClusters;
     std::string dumpCatalog;
     std::string dumpWaveforms;
@@ -153,10 +154,11 @@ private:
     void freeResources();
     Core::TimeSpan inactiveTime() { return Core::Time::UTC() - lastUsage; }
     HDD::Catalog relocateSingleEvent(DataModel::Origin *org);
-    HDD::Catalog relocateCatalog(const std::string &clusterFiles = "",
+    HDD::Catalog relocateCatalog(const HDD::Catalog &events,
+                                 const std::string &clusterFiles = "",
                                  const std::string &xcorrFile    = "");
     void dumpWaveforms();
-    void dumpClusters();
+    void dumpClusters(const HDD::Catalog &events = HDD::Catalog());
 
     std::string name;
     std::string methodID;

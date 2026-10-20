@@ -249,14 +249,16 @@ void RTDD::createCommandLineDescription()
       "Relocate the catalog passed as argument in multi-event mode. The "
       "input can be a single file (containing seiscomp origin ids) or a file "
       "triplet (station.csv,event.csv,phase.csv). For input events stored "
-      "in a XML files add the --ep option. Use in combination with --profile",
+      "in a XML files add the --ep option. Use in combination with --profile. "
+      "Add the --reference-catalog option to relocate the catalog against a "
+      "fixed reference catalog",
       &_config.relocateCatalog, true);
   commandline().addOption(
       "Mode", "origin-id,O",
-      "Relocate  the origin (or multiple comma-separated origins) in "
+      "Relocate the origin (or multiple comma-separated origins) in "
       "single-event mode and send a message. Each origin will be processed "
       "accordingly to the matching profile region unless the --profile option "
-      " is used",
+      "is used",
       &_config.originIDs, true);
   commandline().addOption(
       "Mode", "ep",
@@ -270,7 +272,7 @@ void RTDD::createCommandLineDescription()
   commandline().addOption(
       "Mode", "dump-clusters",
       "Find clusters in the catalog passed as argument and save them in "
-      "the working directory."
+      "the working directory. "
       "The catalog can be a single file (containing seiscomp origin "
       "ids) or a file triplet (station.csv,event.csv,phase.csv). Use "
       "in combination with --profile",
@@ -278,7 +280,7 @@ void RTDD::createCommandLineDescription()
   commandline().addOption(
       "Mode", "dump-wf",
       "Dump processed waveforms of the catalog passed as argument "
-      "in the current working directory."
+      "in the current working directory. "
       "The catalog can be a single file (containing seiscomp origin "
       "ids) or a file triplet (station.csv,event.csv,phase.csv). Use "
       "in combination with --profile",
@@ -286,7 +288,7 @@ void RTDD::createCommandLineDescription()
   commandline().addOption(
       "Mode", "load-profile-wf",
       "Load catalog waveforms from the configured recordstream and "
-      "save them into the profile working directory. Use in "
+      "save them into the profile cache directory. Use in "
       "combination with --profile");
   commandline().addOption(
       "Mode", "send-reload-profile-msg",
@@ -300,6 +302,17 @@ void RTDD::createCommandLineDescription()
       "To be used in combination with other options: select the "
       "profile configuration to use",
       &_config.forceProfile, true);
+  commandline().addOption(
+      "ModeOptions", "reference-catalog",
+      "Use the catalog passed as argument as reference catalog for the "
+      "profile selected with --profile, instead of the one configured in the "
+      "profile. The catalog can be a single file (containing seiscomp origin "
+      "ids) or a file triplet (station.csv,event.csv,phase.csv). In "
+      "combination with --reloc-catalog (or --dump-clusters) the events are "
+      "relocated in multi-event mode against the reference catalog, which is "
+      "kept fixed. In combination with --origin-id, --ep or --load-profile-wf "
+      "it replaces the profile reference catalog",
+      &_config.referenceCatalog, true);
   commandline().addOption(
       "ModeOptions", "clusters",
       "Specify a list of files containing precomputed events/phases pairs. "
@@ -397,6 +410,20 @@ bool RTDD::validateParameters()
           1) // single file containing origin ids
   {
     profileRequireDB = true;
+  }
+
+  if (!_config.referenceCatalog.empty())
+  {
+    if (_config.forceProfile.empty())
+    {
+      SEISCOMP_ERROR("--reference-catalog requires the --profile option");
+      return false;
+    }
+    if (::splitString(_config.referenceCatalog, ",").size() ==
+        1) // single file containing origin ids
+    {
+      profileRequireDB = true;
+    }
   }
 
   // make sure to load the profile passed via command line too
@@ -1144,8 +1171,16 @@ bool RTDD::run()
     HDD::Catalog catalog = getCatalog(_config.dumpClusters);
     ProfilePtr profile   = getProfile(_config.forceProfile);
     if (catalog.empty() || !profile) return false;
-    loadProfile(profile, catalog);
-    profile->dumpClusters();
+    if (_config.referenceCatalog.empty())
+    {
+      loadProfile(profile, catalog);
+      profile->dumpClusters();
+    }
+    else // clusters of `catalog` against the fixed reference catalog
+    {
+      loadProfile(profile);
+      profile->dumpClusters(catalog);
+    }
     return true;
   }
 
@@ -1216,13 +1251,22 @@ bool RTDD::run()
     ProfilePtr profile   = getProfile(_config.forceProfile);
     if (catalog.empty() || !profile) return false;
 
-    loadProfile(profile, catalog);
-
     HDD::Catalog relocatedCat;
     try
     {
-      relocatedCat =
-          profile->relocateCatalog(_config.clusters, _config.xcorrCache);
+      if (_config.referenceCatalog.empty())
+      {
+        loadProfile(profile, catalog);
+        relocatedCat = profile->relocateCatalog(HDD::Catalog(),
+                                                _config.clusters,
+                                                _config.xcorrCache);
+      }
+      else // relocate `catalog` against the fixed reference catalog
+      {
+        loadProfile(profile);
+        relocatedCat = profile->relocateCatalog(catalog, _config.clusters,
+                                                _config.xcorrCache);
+      }
     }
     catch (exception &e)
     {
@@ -1596,8 +1640,10 @@ bool RTDD::startProcess(Process *proc)
   }
   else
   {
-    // is 'org'  a preferred origin ?
-    DataModel::Event *parentEv = query()->getEvent(org->publicID());
+    // is 'org'  a preferred origin ? (the database might not be available,
+    // e.g. --ep option and inventory from file)
+    DataSource dataSrc(query(), &_cache, _eventParameters.get());
+    DataModel::EventPtr parentEv = dataSrc.getParentEvent(org->publicID());
     isPreferred =
         parentEv && (parentEv->preferredOriginID() == org->publicID());
   }
@@ -1894,6 +1940,23 @@ RTDD::ProfilePtr RTDD::getProfile(double latitude,
 void RTDD::loadProfile(ProfilePtr profile,
                        const HDD::Catalog alternativeCatalog)
 {
+  // The reference catalog passed via command line replaces the profile one
+  if (alternativeCatalog.empty() && !_config.referenceCatalog.empty() &&
+      profile->name == _config.forceProfile && !profile->isLoaded())
+  {
+    HDD::Catalog referenceCatalog = getCatalog(_config.referenceCatalog);
+    if (referenceCatalog.empty())
+    {
+      SEISCOMP_ERROR("Cannot load reference catalog %s",
+                     _config.referenceCatalog.c_str());
+      return;
+    }
+    profile->load(query(), &_cache, _eventParameters.get(),
+                  _config.cacheDirectory, _config.cacheWaveforms,
+                  _config.cachedWaveformLength, referenceCatalog);
+    return;
+  }
+
   profile->load(query(), &_cache, _eventParameters.get(),
                 _config.cacheDirectory, _config.cacheWaveforms,
                 _config.cachedWaveformLength, alternativeCatalog);
@@ -2164,7 +2227,8 @@ HDD::Catalog RTDD::Profile::relocateSingleEvent(DataModel::Origin *org)
   return relocatedEvWithXcorr;
 }
 
-HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
+HDD::Catalog RTDD::Profile::relocateCatalog(const HDD::Catalog &events,
+                                            const std::string &clusterFiles,
                                             const std::string &xcorrFile)
 {
   if (!loaded)
@@ -2175,6 +2239,14 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
   }
   lastUsage = Core::Time::UTC();
 
+  // When `events` are relocated against the reference catalog, the clusters
+  // and cross-correlation files can contain the stations of both catalogs
+  HDD::Catalog stationCat(dd->getCatalog().getStations(), {}, {});
+  for (const auto &kv : events.getStations())
+  {
+    stationCat.addStation(kv.second);
+  }
+
   std::list<unordered_map<unsigned, HDD::Neighbours>> clusters;
   if (!clusterFiles.empty())
   {
@@ -2183,7 +2255,7 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
     {
       SEISCOMP_INFO("Loading cluster pair file %s...", file.c_str());
       std::unordered_map<unsigned, HDD::Neighbours> cluster =
-          HDD::Neighbours::readFromFile(dd->getCatalog(), file);
+          HDD::Neighbours::readFromFile(stationCat, file);
       clusters.push_back(std::move(cluster));
     }
   }
@@ -2193,15 +2265,30 @@ HDD::Catalog RTDD::Profile::relocateCatalog(const std::string &clusterFiles,
   {
     SEISCOMP_INFO("Loading cross-correlation cache file %s...",
                   xcorrFile.c_str());
-    xcorr = HDD::XCorrCache::readFromFile(dd->getCatalog(), xcorrFile);
+    xcorr = HDD::XCorrCache::readFromFile(stationCat, xcorrFile);
   }
 
-  HDD::Catalog relocatedCat =
-      clusters.empty()
-          ? dd->relocateMultiEvents(multiEventClustering, clusters, xcorr,
-                                    xcorrOpt, solverOpt, this->dumpDiagnostics)
-          : dd->relocateMultiEvents(clusters, xcorr, xcorrOpt, solverOpt,
-                                    this->dumpDiagnostics);
+  HDD::Catalog relocatedCat;
+  if (events.empty()) // relocate the profile catalog
+  {
+    relocatedCat =
+        clusters.empty()
+            ? dd->relocateMultiEvents(multiEventClustering, clusters, xcorr,
+                                      xcorrOpt, solverOpt,
+                                      this->dumpDiagnostics)
+            : dd->relocateMultiEvents(clusters, xcorr, xcorrOpt, solverOpt,
+                                      this->dumpDiagnostics);
+  }
+  else // relocate `events` against the profile catalog, which is kept fixed
+  {
+    relocatedCat =
+        clusters.empty()
+            ? dd->relocateMultiEvents(events, multiEventClustering, clusters,
+                                      xcorr, xcorrOpt, solverOpt,
+                                      this->dumpDiagnostics)
+            : dd->relocateMultiEvents(events, clusters, xcorr, xcorrOpt,
+                                      solverOpt, this->dumpDiagnostics);
+  }
 
   relocatedCat.writeToFile("reloc-station.csv", "reloc-event.csv",
                            "reloc-phase.csv");
@@ -2224,7 +2311,7 @@ void RTDD::Profile::dumpWaveforms()
   dd->dumpWaveforms(xcorrOpt);
 }
 
-void RTDD::Profile::dumpClusters()
+void RTDD::Profile::dumpClusters(const HDD::Catalog &events)
 {
   if (!loaded)
   {
@@ -2233,27 +2320,42 @@ void RTDD::Profile::dumpClusters()
     throw runtime_error(msg.c_str());
   }
   lastUsage = Core::Time::UTC();
-  list<unordered_map<unsigned, HDD::Neighbours>> clusters =
-      dd->findClusters(multiEventClustering);
+
+  // When `events` are clustered against the reference catalog, the event ids
+  // refer to the merged catalog
+  HDD::Catalog catalog;
+  list<unordered_map<unsigned, HDD::Neighbours>> clusters;
+  if (events.empty())
+  {
+    catalog  = dd->getCatalog();
+    clusters = dd->findClusters(multiEventClustering);
+  }
+  else
+  {
+    unordered_map<unsigned, unsigned> idMap;
+    catalog  = dd->mergeWithCatalog(events, idMap);
+    clusters = dd->findClusters(events, multiEventClustering);
+  }
   SEISCOMP_INFO("Found %zu clusters", clusters.size());
 
   unsigned clusterId = 1;
   for (const auto &neighboursByEvent : clusters)
   {
-    string prefix = stringify("cluster-%u", clusterId++);
+    string prefix = stringify("cluster-%u", clusterId);
     SEISCOMP_INFO("Writing cluster %u pair file...", clusterId);
-    HDD::Neighbours::writeToFile(neighboursByEvent, dd->getCatalog(),
+    HDD::Neighbours::writeToFile(neighboursByEvent, catalog,
                                  prefix + "-pair.csv");
 
     HDD::Catalog cat;
     for (const auto &kv : neighboursByEvent)
     {
-      cat.add(kv.first, dd->getCatalog(), true);
+      cat.add(kv.first, catalog, true);
     }
     SEISCOMP_INFO("Writing cluster %u catalog (%zu events)...", clusterId,
                   cat.getEvents().size());
     cat.writeToFile(prefix + "-station.csv", prefix + "-event.csv",
                     prefix + "-phase.csv");
+    clusterId++;
   }
 }
 

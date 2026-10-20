@@ -19,7 +19,7 @@ Summary
 * Create a ``scrtdd`` profile or reuse the one used for generating the reference catalog.
 * Set the reference catalog in the profile and add the profile to the list of active real-time profiles (``activeProfiles`` parameter).
 * Read the :ref:`avoid-loop-label` section to avoid potential messaging loops.
-* Read the :ref:`waveform-label` section to prevent delays when fetching data from SeedLink by setting ``timeout` and ``retries`` parameters.
+* Read the :ref:`waveform-label` section to prevent delays when fetching data from SeedLink by setting ``timeout`` and ``retries`` parameters.
 * Enable and start ``scrtdd``
 
 
@@ -89,6 +89,17 @@ The ``--ep`` option allows for full offline processing of all origins within an 
     scrtdd --ep origin.xml --verbosity=3 --console=1 [db options] \
       > relocated-origin.xml
 
+Relocate against a different reference catalog
+----------------------------------------------
+
+The ``--reference-catalog`` option replaces the reference catalog configured in the profile selected with ``--profile``. This allows testing a new reference catalog without modifying the profile::
+
+    scrtdd --origin-id someOriginId --test --profile myProfile \
+           --reference-catalog station.csv,event.csv,phase.csv \
+           --dump-diagnostics --verbosity=3 --console=1 [db options]
+
+To relocate multiple events together against a reference catalog, rather than one at a time, see :ref:`multi-event-reference-label`.
+
 
 .. _avoid-loop-label:
 
@@ -120,13 +131,8 @@ Example of a properly configured system::
 Relocation Process
 ------------------
 
-In Single-Event mode, the double-difference system is slightly modified compared to the :ref:`Multi-Event version <multi-event-relocation-process-label>`. In this mode, we focus exclusively on computing the changes to the real-time event relative to the reference catalog, rather than allowing the reference events to move. 
+Single-event relocation is the particular case of the :ref:`multi-event relocation against a fixed reference catalog <multi-event-reference-label>`, where only one event is relocated. The real-time event is paired with neighboring events selected from the reference catalog, which are kept fixed, and only the hypocenter changes of the real-time event are computed. See :ref:`multi-event-fixed-reference-label` for a detailed explanation of the double-difference system used in this mode.
 
-Because the reference catalog remains fixed during Single-Event relocation, the equation used to build the system simplifies to:
+Since the reference events are kept fixed, any error in their locations directly impacts the relocated events, so a high-quality reference catalog is essential. Furthermore, the reference catalog is not updated by the relocations and should be periodically rebuilt to incorporate new events. This is particularly vital in regions with sparse historical seismicity. rtDD facilitates this through easy integration for periodic catalog updates. See :ref:`continuous-label`.
 
-.. math:: \frac{\partial t_k^i}{\partial m} \Delta m^i = dr_k^{ij}
-
-Compared to the multi-event version, this formulation omits the term :math:`- \frac{\partial t_k^j}{\partial m} \Delta m^j`. This new formulation computes the hypocenter changes of a real-time event i with respect to the fixed reference catalog event j. This approach treats the reference events as high-precision "anchors", which are not relocated. It eliminates the risk of cluster centroid shifts during the inversion, a concern in :ref:`multi-event mode <absolute-plus-relative-label>`.
-
-This highlights the critical importance of a high-quality reference catalog with accurate absolute locations, as any errors in the reference events will directly impact the real-time relocations. Furthermore, since reference events are not updated during single-event inversions, the catalog should be periodically updated to incorporate new events. This is particularly vital in regions with sparse historical seismicity. rtDD facilitates this through easy integration for periodic catalog updates. See :ref:`continuous-label`.
-
+The specific aspects of the single-event mode are the two-step relocation procedure and the ellipsoid-based selection of the neighboring events, both described in the Getting Started section above, as well as the handling of real-time waveforms (see :ref:`waveform-label`).

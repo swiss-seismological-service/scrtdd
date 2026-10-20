@@ -176,6 +176,23 @@ public:
   std::list<std::unordered_map<unsigned, Neighbours>>
   findClusters(const ClusteringOptions &clustOpt);
 
+  //
+  // Merge `events` into the background catalog. This is the catalog used by
+  // the multi-event relocation of `events` against the background catalog,
+  // which is kept fixed (its events have procInfo.isFixed set). The event ids of `events` are kept unless they
+  // overlap with the background catalog ids, in which case all `events` are
+  // renumbered by adding an offset to their ids. `idMap` maps the ids in
+  // the returned catalog to the original ids in `events`
+  //
+  Catalog mergeWithCatalog(const Catalog &events,
+                           std::unordered_map<unsigned, unsigned> &idMap) const;
+
+  // Find clusters of `events` against the fixed background catalog. The
+  // event ids in the clusters refer to the catalog returned by
+  // mergeWithCatalog(events)
+  std::list<std::unordered_map<unsigned, Neighbours>>
+  findClusters(const Catalog &events, const ClusteringOptions &clustOpt);
+
   // Multi-event relocation of the background catalog: clusters are found
   // automatically using clustOpt and returned via `clusters`
   Catalog relocateMultiEvents(
@@ -190,6 +207,33 @@ public:
   // Multi-event relocation of the given clusters (e.g. obtained via
   // findClusters or loaded from file)
   Catalog relocateMultiEvents(
+      std::list<std::unordered_map<unsigned, Neighbours>> &clusters,
+      XCorrCache &xcorrData,
+      const XcorrOptions &xcorrOpt,
+      const SolverOptions &solverOpt,
+      bool saveProcessing           = false,
+      std::string processingDataDir = "");
+
+  // Multi-event relocation of `events` against the background catalog, which
+  // is kept fixed: clusters are found automatically using clustOpt and
+  // returned via `clusters`. The returned catalog contains the relocated
+  // `events` with their original ids
+  Catalog relocateMultiEvents(
+      const Catalog &events,
+      const ClusteringOptions &clustOpt,
+      std::list<std::unordered_map<unsigned, Neighbours>> &clusters,
+      XCorrCache &xcorrData,
+      const XcorrOptions &xcorrOpt,
+      const SolverOptions &solverOpt,
+      bool saveProcessing           = false,
+      std::string processingDataDir = "");
+
+  // Multi-event relocation of `events` against the background catalog, which
+  // is kept fixed, using the given clusters (e.g. obtained via
+  // findClusters(events, ...) or loaded from file). The cluster event ids
+  // refer to the catalog returned by mergeWithCatalog(events)
+  Catalog relocateMultiEvents(
+      const Catalog &events,
       std::list<std::unordered_map<unsigned, Neighbours>> &clusters,
       XCorrCache &xcorrData,
       const XcorrOptions &xcorrOpt,
@@ -226,11 +270,35 @@ private:
                                   bool saveProcessing           = false,
                                   std::string processingDataDir = "");
 
+  std::list<std::unordered_map<unsigned, Neighbours>>
+  findClusters(const Catalog &catalog,
+               const EventTree &evTree,
+               const ClusteringOptions &clustOpt) const;
+
+  Catalog relocateClusters(
+      const Catalog &catalog,
+      std::list<std::unordered_map<unsigned, Neighbours>> &clusters,
+      XCorrCache &xcorrData,
+      const XcorrOptions &xcorrOpt,
+      const SolverOptions &solverOpt,
+      bool saveProcessing,
+      std::string processingDataDir);
+
+  Catalog relocateMergedCatalog(
+      const Catalog &catalog,
+      const std::unordered_map<unsigned, unsigned> &idMap,
+      std::list<std::unordered_map<unsigned, Neighbours>> &clusters,
+      XCorrCache &xcorrData,
+      const XcorrOptions &xcorrOpt,
+      const SolverOptions &solverOpt,
+      bool saveProcessing,
+      std::string processingDataDir);
+
+  // The events with procInfo.isFixed set are not relocated by the inversion
   Catalog relocate(const Catalog &catalog,
                    const std::unordered_map<unsigned, Neighbours> &cluster,
                    const XcorrOptions &xcorrOpt,
                    const SolverOptions &solverOpt,
-                   bool keepNeighboursFixed,
                    const XCorrCache &xcorr,
                    std::vector<Solver::DoubleDifference> &startDDs,
                    std::vector<Solver::DoubleDifference> &finalDDs) const;
@@ -238,7 +306,6 @@ private:
   bool addObservations(Solver &solver,
                        const Catalog &catalog,
                        const Neighbours &neighbours,
-                       bool keepNeighboursFixed,
                        bool usePickUncertainties,
                        double xcorrWeightScaler,
                        const XcorrOptions &xcorrOpt,

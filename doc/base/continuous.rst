@@ -16,3 +16,4 @@ In this configuration, the real-time rtDD solutions, together with the rtDD refe
 
 A visualization system might display the latest reference catalog together with the current week's real-time rtDD solutions (which are not yet integrated into the reference). In the subsequent relocation cycle, these recent events are incorporated into the updated reference catalog. Thus, the scrtdd catalog is best utilized as an evolving and complementary resource.
 
+Between two rebuilds of the reference catalog, the recent events can also be relocated together :ref:`against the current reference catalog <multi-event-reference-label>`, which is left unchanged. Unlike the real-time single-event solutions, which are computed one event at a time, these events also constrain each other's relative locations, but they won't affect the existing catalog.

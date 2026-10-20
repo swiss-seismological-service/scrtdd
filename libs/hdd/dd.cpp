@@ -123,6 +123,15 @@ void writeDoubleDifferenceToFile(
   }
 }
 
+// Return a copy of `catalog` with all the events marked as fixed
+HDD::Catalog markEventsAsFixed(const HDD::Catalog &catalog)
+{
+  std::map<unsigned, HDD::Catalog::Event> events = catalog.getEvents();
+  for (auto &kv : events) kv.second.procInfo.isFixed = true;
+  return HDD::Catalog(catalog.getStations(), std::move(events),
+                      catalog.getPhases());
+}
+
 } // namespace
 
 namespace HDD {
@@ -378,16 +387,80 @@ void DD::dumpWaveforms(const XcorrOptions &xcorrOpt, const string &basePath)
 std::list<unordered_map<unsigned, Neighbours>>
 DD::findClusters(const ClusteringOptions &clustOpt)
 {
+  return findClusters(_bgCat, _evTree, clustOpt);
+}
+
+std::list<unordered_map<unsigned, Neighbours>>
+DD::findClusters(const Catalog &events, const ClusteringOptions &clustOpt)
+{
+  unordered_map<unsigned, unsigned> idMap;
+  const Catalog catalog = mergeWithCatalog(events, idMap);
+  return findClusters(catalog, createEventTree(catalog), clustOpt);
+}
+
+std::list<unordered_map<unsigned, Neighbours>>
+DD::findClusters(const Catalog &catalog,
+                 const EventTree &evTree,
+                 const ClusteringOptions &clustOpt) const
+{
   // find Neighbours for each event in the catalog
   unordered_map<unsigned, Neighbours> neighboursByEvent =
       selectNeighbouringEventsCatalog(
-          _evTree, _bgCat, clustOpt.minEvStaDist, clustOpt.maxEvStaDist,
+          evTree, catalog, clustOpt.minEvStaDist, clustOpt.maxEvStaDist,
           clustOpt.minEvStaToInterEvRatio, clustOpt.minNumPhases,
           clustOpt.maxNumPhases, clustOpt.minNumNeigh, clustOpt.maxNumNeigh,
           clustOpt.numEllipsoids, clustOpt.maxNeighbourDist);
 
   // Organize the neighbours by not connected clusters
   return clusterizeNeighbouringEvents(std::move(neighboursByEvent));
+}
+
+Catalog DD::mergeWithCatalog(const Catalog &events,
+                             unordered_map<unsigned, unsigned> &idMap) const
+{
+  const Catalog evCat =
+      Catalog::fillProcessingInfo(events, Phase::Source::CATALOG,
+                                  _cfg.validPphases, _cfg.validSphases,
+                                  _cfg.pickUncertaintyClasses);
+
+  // Keep the original ids, unless they overlap with the background catalog
+  // ones. In that case add an offset to all of them
+  unsigned idOffset = 0;
+  for (const auto &kv : evCat.getEvents())
+  {
+    if (_bgCat.getEvents().count(kv.first) != 0)
+    {
+      idOffset = _bgCat.getEvents().rbegin()->first;
+      logInfoF("The ids of the events to relocate overlap with the reference "
+               "catalog ids: the events to relocate are renumbered by adding "
+               "%u to their ids. The renumbered ids are used in the "
+               "diagnostics files only",
+               idOffset);
+      break;
+    }
+  }
+
+  // the background catalog events are kept fixed
+  Catalog catalog = markEventsAsFixed(_bgCat);
+  idMap.clear();
+  for (const auto &kv : evCat.getEvents())
+  {
+    Event event = kv.second;
+    event.id += idOffset;
+    catalog.addEvent(event, true);
+    idMap.emplace(event.id, kv.first);
+
+    auto eqlrng = evCat.getPhases().equal_range(kv.first);
+    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+    {
+      Phase phase = it->second;
+      phase.stationId =
+          catalog.addStation(evCat.getStations().at(phase.stationId));
+      phase.eventId = event.id;
+      catalog.addPhase(phase);
+    }
+  }
+  return catalog;
 }
 
 Catalog DD::relocateMultiEvents(
@@ -417,6 +490,107 @@ Catalog DD::relocateMultiEvents(
       "%zu events",
       _bgCat.getEvents().size());
 
+  return relocateClusters(_bgCat, clusters, xcorrData, xcorrOpt, solverOpt,
+                          saveProcessing, processingDataDir);
+}
+
+Catalog DD::relocateMultiEvents(
+    const Catalog &events,
+    const ClusteringOptions &clustOpt,
+    std::list<unordered_map<unsigned, Neighbours>> &clusters,
+    XCorrCache &xcorrData,
+    const XcorrOptions &xcorrOpt,
+    const SolverOptions &solverOpt,
+    bool saveProcessing,
+    string processingDataDir)
+{
+  unordered_map<unsigned, unsigned> idMap;
+  const Catalog catalog = mergeWithCatalog(events, idMap);
+  clusters = findClusters(catalog, createEventTree(catalog), clustOpt);
+  return relocateMergedCatalog(catalog, idMap, clusters, xcorrData, xcorrOpt,
+                               solverOpt, saveProcessing, processingDataDir);
+}
+
+Catalog DD::relocateMultiEvents(
+    const Catalog &events,
+    std::list<unordered_map<unsigned, Neighbours>> &clusters,
+    XCorrCache &xcorrData,
+    const XcorrOptions &xcorrOpt,
+    const SolverOptions &solverOpt,
+    bool saveProcessing,
+    string processingDataDir)
+{
+  unordered_map<unsigned, unsigned> idMap;
+  const Catalog catalog = mergeWithCatalog(events, idMap);
+  return relocateMergedCatalog(catalog, idMap, clusters, xcorrData, xcorrOpt,
+                               solverOpt, saveProcessing, processingDataDir);
+}
+
+Catalog DD::relocateMergedCatalog(
+    const Catalog &catalog,
+    const unordered_map<unsigned, unsigned> &idMap,
+    std::list<unordered_map<unsigned, Neighbours>> &clusters,
+    XCorrCache &xcorrData,
+    const XcorrOptions &xcorrOpt,
+    const SolverOptions &solverOpt,
+    bool saveProcessing,
+    string processingDataDir)
+{
+  logInfoF("Starting DD relocator in multiple events mode. Relocating %zu "
+           "events against a fixed reference catalog of %zu events",
+           idMap.size(), _bgCat.getEvents().size());
+
+  //
+  // Reference catalog events are fixed and they don't need their own
+  // neighbours (e.g. clusters loaded from file might contain them)
+  //
+  auto isFixed = [&catalog](unsigned evId) {
+    auto it = catalog.getEvents().find(evId);
+    return it != catalog.getEvents().end() && it->second.procInfo.isFixed;
+  };
+  for (auto it = clusters.begin(); it != clusters.end();)
+  {
+    for (auto evIt = it->begin(); evIt != it->end();)
+    {
+      evIt = isFixed(evIt->first) ? it->erase(evIt) : std::next(evIt);
+    }
+    it = it->empty() ? clusters.erase(it) : std::next(it);
+  }
+
+  Catalog relocatedCatalog =
+      relocateClusters(catalog, clusters, xcorrData, xcorrOpt, solverOpt,
+                       saveProcessing, processingDataDir);
+
+  //
+  // Restore the original event ids
+  //
+  map<unsigned, Event> events;
+  unordered_multimap<unsigned, Phase> phases;
+  for (const auto &kv : relocatedCatalog.getEvents())
+  {
+    Event event = kv.second;
+    event.id    = idMap.at(kv.first);
+    events.emplace(event.id, event);
+  }
+  for (const auto &kv : relocatedCatalog.getPhases())
+  {
+    Phase phase   = kv.second;
+    phase.eventId = idMap.at(kv.first);
+    phases.emplace(phase.eventId, phase);
+  }
+  return Catalog(relocatedCatalog.getStations(), std::move(events),
+                 std::move(phases));
+}
+
+Catalog
+DD::relocateClusters(const Catalog &catalog,
+                     std::list<unordered_map<unsigned, Neighbours>> &clusters,
+                     XCorrCache &xcorrData,
+                     const XcorrOptions &xcorrOpt,
+                     const SolverOptions &solverOpt,
+                     bool saveProcessing,
+                     string processingDataDir)
+{
   string logFile;
   if (saveProcessing)
   {
@@ -452,9 +626,9 @@ Catalog DD::relocateMultiEvents(
 
   if (saveProcessing)
   {
-    _bgCat.writeToFile(joinPath(processingDataDir, "input-station.csv"),
-                       joinPath(processingDataDir, "input-event.csv"),
-                       joinPath(processingDataDir, "input-phase.csv"));
+    catalog.writeToFile(joinPath(processingDataDir, "input-station.csv"),
+                        joinPath(processingDataDir, "input-event.csv"),
+                        joinPath(processingDataDir, "input-phase.csv"));
   }
 
   //
@@ -474,11 +648,11 @@ Catalog DD::relocateMultiEvents(
       clusterLogFile = joinPath(processingDataDir, prefix + "-relocation.log");
       addFileLogger(clusterLogFile, Level::info);
       Neighbours::writeToFile(
-          cluster, _bgCat, joinPath(processingDataDir, prefix + "-pair.csv"));
+          cluster, catalog, joinPath(processingDataDir, prefix + "-pair.csv"));
       Catalog catToDump;
       for (const auto &kv : cluster)
       {
-        catToDump.add(kv.first, _bgCat, true);
+        catToDump.add(kv.first, catalog, true);
       }
       catToDump.writeToFile(
           joinPath(processingDataDir, (prefix + "-station.csv")),
@@ -488,12 +662,12 @@ Catalog DD::relocateMultiEvents(
 
     // Perform cross-correlation
     XCorrCache xcorr =
-        buildXCorrCache(_bgCat, cluster, xcorrOpt, true, xcorrData);
+        buildXCorrCache(catalog, cluster, xcorrOpt, true, xcorrData);
 
     // the actual relocation
     vector<Solver::DoubleDifference> startDDs, finalDDs;
-    Catalog relocatedCluster = relocate(_bgCat, cluster, xcorrOpt, solverOpt,
-                                        false, xcorr, startDDs, finalDDs);
+    Catalog relocatedCluster = relocate(catalog, cluster, xcorrOpt, solverOpt,
+                                        xcorr, startDDs, finalDDs);
 
     relocatedCatalog.add(relocatedCluster, true);
 
@@ -501,11 +675,11 @@ Catalog DD::relocateMultiEvents(
     {
       string prefix = strf("cluster-%u", clusterId);
       writeDoubleDifferenceToFile(
-          startDDs, _bgCat,
+          startDDs, catalog,
           joinPath(processingDataDir,
                    (prefix + "-initial-double-difference.csv")));
       writeDoubleDifferenceToFile(
-          finalDDs, _bgCat,
+          finalDDs, catalog,
           joinPath(processingDataDir,
                    (prefix + "-final-double-difference.csv")));
       relocatedCluster.writeToFile(
@@ -521,10 +695,16 @@ Catalog DD::relocateMultiEvents(
 
   if (saveProcessing)
   {
-    relocatedCatalog.writeToFile(
-        "", joinPath(processingDataDir, "reloc-event.csv"),
-        joinPath(processingDataDir, "reloc-phase.csv"));
-    xcorrData.writeToFile(_bgCat, joinPath(processingDataDir, "xcorr.csv"));
+    // When relocating against a fixed reference catalog, the output contains
+    // the reference catalog too (merged catalog)
+    Catalog catToDump(relocatedCatalog);
+    for (const auto &kv : catalog.getEvents())
+    {
+      if (kv.second.procInfo.isFixed) catToDump.add(kv.first, catalog, true);
+    }
+    catToDump.writeToFile("", joinPath(processingDataDir, "reloc-event.csv"),
+                          joinPath(processingDataDir, "reloc-phase.csv"));
+    xcorrData.writeToFile(catalog, joinPath(processingDataDir, "xcorr.csv"));
     removeFileLogger(logFile);
   }
 
@@ -602,7 +782,8 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
   //
   // prepare catalog to relocate
   //
-  Catalog catalog = neighbours.toCatalog(_bgCat);
+  // the reference catalog events are kept fixed
+  Catalog catalog = markEventsAsFixed(neighbours.toCatalog(_bgCat));
   unsigned evToRelocateNewId =
       catalog.add(evToRelocate.id, evToRelocateCat, false);
   neighbours.setReferenceId(evToRelocateNewId);
@@ -628,7 +809,7 @@ Catalog DD::relocateSingleEvent(const Catalog &singleEvent,
 
   // the actual relocation
   vector<Solver::DoubleDifference> startDDs, finalDDs;
-  Catalog relocatedEvCat = relocate(catalog, cluster, xcorrOpt, solverOpt, true,
+  Catalog relocatedEvCat = relocate(catalog, cluster, xcorrOpt, solverOpt,
                                     xcorr, startDDs, finalDDs);
 
   if (saveProcessing)
@@ -653,7 +834,6 @@ Catalog DD::relocate(const Catalog &catalog,
                      const unordered_map<unsigned, Neighbours> &cluster,
                      const XcorrOptions &xcorrOpt,
                      const SolverOptions &solverOpt,
-                     bool keepNeighboursFixed,
                      const XCorrCache &xcorr,
                      std::vector<Solver::DoubleDifference> &startDDs,
                      std::vector<Solver::DoubleDifference> &finalDDs) const
@@ -700,10 +880,9 @@ Catalog DD::relocate(const Catalog &catalog,
     for (const auto &kv : cluster)
     {
       unsigned eventId = kv.first;
-      bool tttOk =
-          addObservations(solver, currentCatalog, kv.second,
-                          keepNeighboursFixed, solverOpt.usePickUncertainties,
-                          solverOpt.xcorrWeightScaler, xcorrOpt, xcorr);
+      bool tttOk = addObservations(
+          solver, currentCatalog, kv.second, solverOpt.usePickUncertainties,
+          solverOpt.xcorrWeightScaler, xcorrOpt, xcorr);
 
       if (!tttOk && !prevCatalog.empty() &&
           currentCatalog.getEvents().at(eventId).relocInfo.isRelocated)
@@ -717,7 +896,7 @@ Catalog DD::relocate(const Catalog &catalog,
                  eventId);
         currentCatalog.removeEvent(eventId);
         currentCatalog.add(eventId, prevCatalog, true);
-        addObservations(solver, currentCatalog, kv.second, keepNeighboursFixed,
+        addObservations(solver, currentCatalog, kv.second,
                         solverOpt.usePickUncertainties,
                         solverOpt.xcorrWeightScaler, xcorrOpt, xcorr);
       }
@@ -794,7 +973,6 @@ Catalog DD::relocate(const Catalog &catalog,
 bool DD::addObservations(Solver &solver,
                          const Catalog &catalog,
                          const Neighbours &neighbours,
-                         bool keepNeighboursFixed,
                          bool usePickUncertainties,
                          double xcorrWeightScaler,
                          const XcorrOptions &xcorrOpt,
@@ -865,7 +1043,7 @@ bool DD::addObservations(Solver &solver,
         catalog.searchPhase(event.id, stationId, phaseType)->second;
 
     if (!addObservationParams(solver, *_ttt, event, *station, phase,
-                              !keepNeighboursFixed))
+                              !event.procInfo.isFixed))
     {
       logDebugF("Skipping observation (ev %u-%u sta %s phase %s)", refEv.id,
                 event.id, station->id.c_str(), phaseType.c_str());

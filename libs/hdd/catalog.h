@@ -77,6 +77,11 @@ public:
 
     struct
     {
+      bool isFixed = false; // not relocated: it can only be a neighbour
+    } procInfo;
+
+    struct
+    {
       bool isRelocated = false;
       double startRms;
       double finalRms;

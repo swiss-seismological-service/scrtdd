@@ -622,7 +622,12 @@ selectNeighbouringEventsCatalog(const EventTree &evTree,
   for (const auto &kv : catalog.getEvents())
   {
     const Catalog::Event &event = kv.second;
-    Neighbours neighbours       = selectNeighbouringEvents(
+
+    // fixed events are not relocated: they can only be neighbours of
+    // other events
+    if (event.procInfo.isFixed) continue;
+
+    Neighbours neighbours = selectNeighbouringEvents(
         evTree, validCatalog, event, validCatalog, minESdist, maxESdist,
         minEStoIEratio, minPhase, maxPhase, maxNumNeigh, numEllipsoids,
         maxNeighbourDist);
@@ -702,6 +707,10 @@ selectNeighbouringEventsCatalog(const EventTree &evTree,
  *
  * In addition, don't report the same pair multiple times (e.g. ev1-ev2 and
  * ev2-ev1) since we only need one observation per pair in the DD solver.
+ *
+ * Events without neighbours entry (e.g. fixed events) do not connect clusters:
+ * they have no unknowns in the DD system, so clusters sharing only those
+ * events can be solved independently.
  *
  */
 list<unordered_map<unsigned, Neighbours>> clusterizeNeighbouringEvents(

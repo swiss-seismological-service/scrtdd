@@ -304,7 +304,8 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
                              unique_ptr<HDD::TravelTimeTable> ttt,
                              const string &workingDir,
                              double downWeightingStart = 10,
-                             double downWeightingEnd   = 5)
+                             double downWeightingEnd   = 5,
+                             double absLocConstraint   = 0.3)
 {
   HDD::Config ddCfg;
 
@@ -322,8 +323,8 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
 
   HDD::SolverOptions solverOpt;
   solverOpt.algoIterations               = 20;
-  solverOpt.absLocConstraintStart        = 0.3;
-  solverOpt.absLocConstraintEnd          = 0.3;
+  solverOpt.absLocConstraintStart        = absLocConstraint;
+  solverOpt.absLocConstraintEnd          = absLocConstraint;
   solverOpt.dampingFactorStart           = 0.01;
   solverOpt.dampingFactorEnd             = 0.01;
   solverOpt.downWeightingByResidualStart = downWeightingStart;
@@ -335,6 +336,9 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
                                 solverOpt, saveProcessing);
 }
 
+// Residual down-weighting is disabled by default: with noise-free picks the
+// residuals of a single event are not random noise and the down-weighting
+// prevents some events from converging to the true location
 HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
                                  unique_ptr<HDD::TravelTimeTable> ttt,
                                  const string &workingDir,
@@ -393,6 +397,78 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
   }
 
   return relocCat;
+}
+
+HDD::Catalog relocateCatalogAgainstReference(const HDD::Catalog &refCat,
+                                             unique_ptr<HDD::TravelTimeTable> ttt,
+                                             const string &workingDir,
+                                             const HDD::Catalog &cat,
+                                             double downWeightingStart = 10,
+                                             double downWeightingEnd   = 5,
+                                             double absLocConstraint   = 0.3)
+{
+  HDD::Config ddCfg;
+
+  HDD::DD dd(refCat, ddCfg, std::move(ttt));
+
+  bool saveProcessing = false; // for debugging
+
+  HDD::ClusteringOptions clusterOpt;
+  clusterOpt.numEllipsoids    = 0;
+  clusterOpt.maxNeighbourDist = 15;
+  clusterOpt.minEvStaToInterEvRatio   = 0;
+
+  HDD::XcorrOptions xcorrOpt;
+  xcorrOpt.enable = false; // disable cross-correlation
+
+  HDD::SolverOptions solverOpt;
+  solverOpt.algoIterations               = 20;
+  solverOpt.absLocConstraintStart        = absLocConstraint;
+  solverOpt.absLocConstraintEnd          = absLocConstraint;
+  solverOpt.dampingFactorStart           = 0.01;
+  solverOpt.dampingFactorEnd             = 0.01;
+  solverOpt.downWeightingByResidualStart = downWeightingStart;
+  solverOpt.downWeightingByResidualEnd   = downWeightingEnd;
+
+  std::list<std::unordered_map<unsigned, Neighbours>> clusters;
+  XCorrCache xcorrData;
+  HDD::Catalog relocCat =
+      dd.relocateMultiEvents(cat, clusterOpt, clusters, xcorrData, xcorrOpt,
+                             solverOpt, saveProcessing);
+
+  // reference catalog events are fixed: they must not be relocated
+  BOOST_CHECK(!clusters.empty());
+  for (const auto &cluster : clusters)
+  {
+    for (const auto &kv : cluster)
+    {
+      BOOST_CHECK_EQUAL(refCat.getEvents().count(kv.first), 0);
+    }
+  }
+  return relocCat;
+}
+
+// Move all events by the same amount: `north`, `east` and `down` [km] and
+// `time` [sec]
+void shiftCatalog(HDD::Catalog &cat,
+                  double north,
+                  double east,
+                  double down,
+                  double time)
+{
+  for (const auto &kv : cat.getEvents())
+  {
+    Event ev = kv.second;
+    ev.time += secToDur(time);
+    ev.depth += down;
+    computeCoordinates(std::abs(north), degToRad(north >= 0 ? 0 : 180),
+                       ev.latitude, ev.longitude, ev.latitude, ev.longitude,
+                       ev.depth);
+    computeCoordinates(std::abs(east), degToRad(east >= 0 ? 90 : 270),
+                       ev.latitude, ev.longitude, ev.latitude, ev.longitude,
+                       ev.depth);
+    cat.updateEvent(ev);
+  }
 }
 
 // Add gaussian noise (`stdDev` sec) to all pick times. In addition, a
@@ -560,6 +636,16 @@ const vector<Centroid> centroidList{
 
 } // namespace
 
+// All the following tests run for every centroid in `centroidList` (which
+// includes locations close to the poles and to the antimeridian) and every
+// travel time table in `tttList`. The NonLinLoc tables are tested only at the
+// locations covered by the grid files. The catalogs are synthetic and their
+// picks are computed with the same travel time table used for the
+// relocation: unless noise is added to the picks, a correct relocation
+// recovers the true event locations and origin times.
+
+// Multi-event relocation of a catalog whose locations are already correct:
+// verify that the relocation does not move the events
 BOOST_DATA_TEST_CASE(test_dd_multi_event1,
                      bdata::xrange(centroidList.size()) *
                          bdata::xrange(tttList.size()),
@@ -593,6 +679,9 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event1,
   testCatalogEqual(baseCat, relocCat);
 }
 
+// Multi-event relocation starting with all events at the same location and
+// with perturbed origin times: verify that the true locations and origin
+// times are recovered
 BOOST_DATA_TEST_CASE(test_dd_multi_event2,
                      bdata::xrange(centroidList.size()) *
                          bdata::xrange(tttList.size()),
@@ -638,6 +727,9 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event2,
   testCatalogEqual(baseCat, relocCat);
 }
 
+// Multi-event relocation of a catalog whose events have random location and
+// time errors (with a non-zero mean): verify that the true locations and
+// origin times are recovered
 BOOST_DATA_TEST_CASE(test_dd_multi_event3,
                      bdata::xrange(centroidList.size()) *
                          bdata::xrange(tttList.size()),
@@ -674,6 +766,9 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event3,
   testCatalogEqual(baseCat, relocCat);
 }
 
+// Single-event relocation, one event at the time, against the background
+// catalog of events whose locations are already correct: verify that the
+// relocation does not move the events
 BOOST_DATA_TEST_CASE(test_dd_single_event1,
                      bdata::xrange(centroidList.size()) *
                          bdata::xrange(tttList.size()),
@@ -710,6 +805,9 @@ BOOST_DATA_TEST_CASE(test_dd_single_event1,
   testCatalogEqual(realTimeCat, relocCat);
 }
 
+// Single-event relocation, one event at the time, against the background
+// catalog of events starting at the same location and with perturbed origin
+// times: verify that the true locations and origin times are recovered
 BOOST_DATA_TEST_CASE(test_dd_single_event2,
                      bdata::xrange(centroidList.size()) *
                          bdata::xrange(tttList.size()),
@@ -758,6 +856,9 @@ BOOST_DATA_TEST_CASE(test_dd_single_event2,
   testCatalogEqual(realTimeCat, relocCat);
 }
 
+// Single-event relocation, one event at the time, against the background
+// catalog of events with random location and time errors (with a non-zero
+// mean): verify that the true locations and origin times are recovered
 BOOST_DATA_TEST_CASE(test_dd_single_event3,
                      bdata::xrange(centroidList.size()) *
                          bdata::xrange(tttList.size()),
@@ -796,6 +897,145 @@ BOOST_DATA_TEST_CASE(test_dd_single_event3,
   testCatalogEqual(realTimeCat, relocCat);
 }
 
+// Multi-event relocation against a fixed reference catalog of events whose
+// locations are already correct: verify that the relocation does not move the
+// events. As in all the reference catalog tests, verify also that the
+// reference events are never relocated and that the relocated events keep
+// their original ids (they overlap with the reference ids, so they are
+// renumbered internally)
+BOOST_DATA_TEST_CASE(test_dd_multi_event_reference1,
+                     bdata::xrange(centroidList.size()) *
+                         bdata::xrange(tttList.size()),
+                     cIdx,
+                     tttIdx)
+{
+  const Centroid &centroid = centroidList.at(cIdx);
+  bool nllStations         = (tttList.at(tttIdx).type == "Native:NonLinLoc");
+
+  if (nllStations &&
+   (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
+  {
+    BOOST_TEST_MESSAGE(
+        "Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any
+                       // assertions"
+    return;
+  }
+
+  unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
+
+  const UTCTime clusterTime =
+      UTCClock::fromDate(1981, 2, 13, 7, 21, 11, 54321);
+  const HDD::Catalog referenceCat = buildBackgroundCatalog(
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 2.0);
+  const HDD::Catalog baseCat = buildCatalog(
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 2.0);
+
+  // Test 1: no event changes
+  string workingDir =
+      strf("./data/test_dd_multi_event_reference1_%lu_%lu_reloc", cIdx, tttIdx);
+  const HDD::Catalog relocCat = relocateCatalogAgainstReference(
+      referenceCat, std::move(ttt), workingDir, baseCat);
+  testCatalogEqual(baseCat, relocCat);
+}
+
+// Multi-event relocation against a fixed reference catalog of events starting
+// at the same location and with perturbed origin times: verify that the true
+// locations and origin times are recovered
+BOOST_DATA_TEST_CASE(test_dd_multi_event_reference2,
+                     bdata::xrange(centroidList.size()) *
+                         bdata::xrange(tttList.size()),
+                     cIdx,
+                     tttIdx)
+{
+  const Centroid &centroid = centroidList.at(cIdx);
+  bool nllStations         = (tttList.at(tttIdx).type == "Native:NonLinLoc");
+
+  if (nllStations &&
+   (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
+  {
+    BOOST_TEST_MESSAGE(
+        "Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any
+                       // assertions"
+    return;
+  }
+
+  unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
+
+  const UTCTime clusterTime =
+      UTCClock::fromDate(1996, 9, 3, 18, 0, 41, 900001);
+  const HDD::Catalog referenceCat = buildBackgroundCatalog(
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 1.5);
+  const HDD::Catalog baseCat = buildCatalog(
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.5);
+
+  // Test 2: all events at centroid location, with random perturbation of time
+  HDD::Catalog cat(baseCat);
+  HDD::NormalRandomer timeDist(0.3, 0.500, 0x1004); // sec
+  for (const auto &kv : cat.getEvents())
+  {
+    Event ev = kv.second;
+    ev.time += secToDur(timeDist.next());
+    ev.latitude  = centroid.lat;
+    ev.longitude = centroid.lon;
+    ev.depth     = centroid.depth;
+    cat.updateEvent(ev);
+  }
+
+  string workingDir =
+      strf("./data/test_dd_multi_event_reference2_%lu_%lu_reloc", cIdx, tttIdx);
+  const HDD::Catalog relocCat = relocateCatalogAgainstReference(
+      referenceCat, std::move(ttt), workingDir, cat);
+  testCatalogEqual(baseCat, relocCat);
+}
+
+// Multi-event relocation against a fixed reference catalog of events with
+// random location and time errors (with a non-zero mean): verify that the
+// true locations and origin times are recovered
+BOOST_DATA_TEST_CASE(test_dd_multi_event_reference3,
+                     bdata::xrange(centroidList.size()) *
+                         bdata::xrange(tttList.size()),
+                     cIdx,
+                     tttIdx)
+{
+  const Centroid &centroid = centroidList.at(cIdx);
+  bool nllStations         = (tttList.at(tttIdx).type == "Native:NonLinLoc");
+
+  if (nllStations &&
+   (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
+  {
+    BOOST_TEST_MESSAGE(
+        "Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any
+                       // assertions"
+    return;
+  }
+
+  unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
+
+  const UTCTime clusterTime  = UTCClock::fromDate(2027, 1, 30, 9, 12, 5, 777);
+  const HDD::Catalog referenceCat = buildBackgroundCatalog(
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 1.0);
+  const HDD::Catalog baseCat = buildCatalog(
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.0);
+
+  // Test 3: random changes to all events (mean of all changes is != 0)
+  HDD::Catalog cat(baseCat);
+  randomPerturbation(cat);
+
+  string workingDir =
+      strf("./data/test_dd_multi_event_reference3_%lu_%lu_reloc", cIdx, tttIdx);
+  const HDD::Catalog relocCat = relocateCatalogAgainstReference(
+      referenceCat, std::move(ttt), workingDir, cat);
+  testCatalogEqual(baseCat, relocCat);
+}
+
+
+// Multi-event relocation of events with random location and time errors and
+// noisy picks (gaussian noise plus outliers): verify that the median and 90th
+// percentile of the relocation errors are compatible with the pick noise and
+// that the residual down-weighting reduces the effect of the outliers
 BOOST_DATA_TEST_CASE(test_dd_multi_event_noise,
                      bdata::xrange(centroidList.size()) *
                          bdata::xrange(tttList.size()),
@@ -836,6 +1076,55 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event_noise,
                       {0.020, 0.100, 0.500, 0.040, 0.150, 1.000});
 }
 
+// As test_dd_multi_event_noise, but relocating the events against a fixed
+// reference catalog with noisy picks
+BOOST_DATA_TEST_CASE(test_dd_multi_event_reference_noise,
+                     bdata::xrange(centroidList.size()) *
+                         bdata::xrange(tttList.size()),
+                     cIdx,
+                     tttIdx)
+{
+  const Centroid &centroid = centroidList.at(cIdx);
+  bool nllStations         = (tttList.at(tttIdx).type == "Native:NonLinLoc");
+
+  if (nllStations &&
+   (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
+  {
+    BOOST_TEST_MESSAGE(
+        "Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any
+                       // assertions"
+    return;
+  }
+
+  unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
+
+  const UTCTime clusterTime = UTCClock::fromDate(2011, 3, 1, 4, 5, 6, 789);
+  const HDD::Catalog referenceCat = addPickNoise(
+      buildBackgroundCatalog(*ttt, nllStations, clusterTime, centroid.lat,
+                             centroid.lon, centroid.depth, 21, 1.0),
+      pickNoise, outlierRatio, outlierError, 0x3001);
+  const HDD::Catalog baseCat = buildCatalog(
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.0);
+
+  // Test noisy data: random changes to all events and noisy picks (the
+  // reference catalog picks are noisy too)
+  HDD::Catalog cat =
+      addPickNoise(baseCat, pickNoise, outlierRatio, outlierError, 0x2001);
+  randomPerturbation(cat);
+
+  string workingDir =
+      strf("./data/test_dd_multi_event_reference_noise_%lu_%lu_reloc", cIdx, tttIdx);
+  const HDD::Catalog relocCat =
+      relocateCatalogAgainstReference(referenceCat, std::move(ttt), workingDir, cat, 10, 5);
+  const HDD::Catalog relocCatNoDw = relocateCatalogAgainstReference(
+      referenceCat, createTTT(tttList.at(tttIdx)), workingDir, cat, 0, 0);
+  testNoisyRelocation(baseCat, relocCat,
+                      relocCatNoDw, {0.015, 0.050, 0.300, 0.030, 0.075, 0.800});
+}
+
+// As test_dd_multi_event_noise, but relocating the events one at the time
+// (single-event) against a background catalog with noisy picks
 BOOST_DATA_TEST_CASE(test_dd_single_event_noise,
                      bdata::xrange(centroidList.size()) *
                          bdata::xrange(tttList.size()),
@@ -879,4 +1168,58 @@ BOOST_DATA_TEST_CASE(test_dd_single_event_noise,
       referenceCat, createTTT(tttList.at(tttIdx)), workingDir, cat, 0, 0);
   testNoisyRelocation(baseCat, relocCat,
                       relocCatNoDw, {0.015, 0.050, 0.300, 0.030, 0.075, 0.800});
+}
+
+// Verify that the reference catalog anchors the absolute location of the
+// relocated events: a common origin time shift, which cannot be resolved by
+// the double-differences alone, is recovered when relocating against the
+// reference catalog, but not by a standard multi-event relocation
+BOOST_DATA_TEST_CASE(test_dd_multi_event_reference_anchor,
+                     bdata::xrange(centroidList.size()) *
+                         bdata::xrange(tttList.size()),
+                     cIdx,
+                     tttIdx)
+{
+  const Centroid &centroid = centroidList.at(cIdx);
+  bool nllStations         = (tttList.at(tttIdx).type == "Native:NonLinLoc");
+
+  if (nllStations &&
+   (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
+  {
+    BOOST_TEST_MESSAGE(
+        "Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any
+                       // assertions"
+    return;
+  }
+
+  unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
+
+  const UTCTime clusterTime = UTCClock::fromDate(2019, 8, 7, 6, 5, 4, 321);
+  const HDD::Catalog referenceCat = buildBackgroundCatalog(
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 1.0);
+  const HDD::Catalog baseCat = buildCatalog(
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.0);
+
+  // Test the reference catalog acts as an anchor: all events are shifted by
+  // the same amount and the absolute location constraint is disabled, so only
+  // the double-differences are used. A common origin time shift cancels out
+  // in the double-differences and cannot be recovered by a standard
+  // multi-event relocation, while the fixed reference events allow the
+  // relocation against the reference catalog to recover it
+  const double timeShift = 0.15; // sec
+  HDD::Catalog cat(baseCat);
+  shiftCatalog(cat, 1.0, -0.8, 1.0, timeShift);
+
+  string workingDir =
+      strf("./data/test_dd_multi_event_reference_anchor_%lu_%lu_reloc", cIdx, tttIdx);
+  const HDD::Catalog relocCat = relocateCatalogAgainstReference(
+      referenceCat, std::move(ttt), workingDir, cat, 10, 5, 0);
+  testCatalogEqual(baseCat, relocCat);
+
+  const HDD::Catalog relocCatNoRef = relocateCatalog(
+      cat, createTTT(tttList.at(tttIdx)), workingDir, 10, 5, 0);
+  const RelocationError errNoRef = computeRelocationError(baseCat, relocCatNoRef);
+  BOOST_REQUIRE_EQUAL(errNoRef.numEvents, baseCat.getEvents().size());
+  BOOST_CHECK_GE(errNoRef.time.median, 0.9 * timeShift);
 }

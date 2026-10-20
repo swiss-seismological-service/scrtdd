@@ -5,6 +5,11 @@ Multi-Event Relocation
 
 Multi-event relocation is used to relocate an event catalog in offline mode. There is no interaction with running SeisComP modules, and nothing is written to the database, although results can optionally be imported later.
 
+Multi-event relocation can be performed in two ways:
+
+* **Relocation of a whole catalog**: all events in the catalog are relocated together.
+* **Relocation against a fixed reference catalog**: a set of events is relocated together against an existing reference catalog, which is kept unchanged (see :ref:`multi-event-reference-label`). :ref:`Single-event relocation <single-event-label>` is the particular case of this mode where only one event is relocated.
+
 
 .. figure:: media/multiEventRelocationSyntDataExample.png
    :width: 800
@@ -17,8 +22,8 @@ Summary
 
 * Create a ``scrtdd`` profile (e.g., using the ``scconfig`` GUI) to define relocation settings.
 * Use the ``sclistorg`` command to select an event catalog from a SeisComP database, or create an input catalog manually (``event.csv``, ``phase.csv``, and ``stations.csv``).
-* Use the ``scrtdd --reloc-catalog`` option to relocate the events.
-* Utilize the relocation output (``reloc-event.csv``, ``reloc-phase.csv``, and ``reloc-stations.csv``, or the SCML file ``relocated.xml``) as needed.
+* Use the ``scrtdd --reloc-catalog`` option to relocate the events. Optionally, add the ``--reference-catalog`` option to relocate the events against a fixed reference catalog.
+* Utilize the relocation output (``reloc-event.csv``, ``reloc-phase.csv``, and ``reloc-station.csv``, or the SCML file ``relocated.xml``) as needed.
 
 For a practical example, refer to the ``multi-event.sh`` script in `this folder <https://github.com/swiss-seismological-service/scrtdd/tree/master/scripts/>`_.
 
@@ -69,9 +74,9 @@ The ``sclistorg`` tool, installed alongside ``scrtdd``, is used to list origin I
     scrtdd --reloc-catalog myCatalog.csv --profile myProfile \
            --dump-diagnostics --verbosity=3 --console=1 [db options]
 
-The output consists of three files (``reloc-event.csv``, ``reloc-phase.csv``, and ``reloc-stations.csv``) containing the relocated catalog. The ``--xmlout`` option can be used to generate a SeisComP XML file in the standard output containing the relocated origins in XML format.
+The output consists of three files (``reloc-event.csv``, ``reloc-phase.csv``, and ``reloc-station.csv``) containing the relocated catalog. The ``--xmlout`` option can be used to generate a SeisComP XML file in the standard output containing the relocated origins in XML format.
 
-Using ``--dump-diagnostics`` generates a folder containing diagnostic information (``initial/final-double-difference.csv``), cluster details (``pair.csv``) and cross-correlation results (``xcorr.csv``). ``pair.csv`` can be reused in subsequent relocations using the ``--clusters`` to skip the clustering phase. Similarly, ``xcorr.csv`` can be reused with the ``--xcorr`` option to skip the cross-correlation on already processed pais.
+Using ``--dump-diagnostics`` generates a folder containing diagnostic information (``cluster-N-initial/final-double-difference.csv``), cluster details (``cluster-N-pair.csv``, one file per cluster) and cross-correlation results (``xcorr.csv``). The ``cluster-N-pair.csv`` files can be reused in subsequent relocations using the ``--clusters`` option (comma-separated list of files) to skip the clustering phase. Similarly, ``xcorr.csv`` can be reused with the ``--xcorr-cache`` option to skip the cross-correlation on already processed pairs (see :ref:`reusing-xcorr-label`).
 
 Note that the output CSV files can serve as input for another relocation. For example, an initial relocation might use the ellipsoid algorithm and relaxed minimum station-to-event-pair-distance ratio constraint to accommodate large errors in initial locations, followed by a second pass using a nearest-neighbor approach and cross-correlation for higher precision.
 
@@ -145,6 +150,27 @@ This is a variation of the origin ID relocation where the data is read from an `
            --dump-diagnostics --verbosity=3 --console=1 [db options]
 
 
+.. _multi-event-reference-label:
+
+Relocation Against a Fixed Reference Catalog
+--------------------------------------------
+
+By default, ``--reloc-catalog`` relocates all the events of the input catalog together. Alternatively, the input events can be relocated against an existing reference catalog, which is kept fixed: the reference events are used in the double-difference system, but their locations are not changed and only the input events are relocated. See :ref:`multi-event-fixed-reference-label`.
+
+The reference catalog is passed via the ``--reference-catalog`` option, which accepts the same formats as ``--reloc-catalog`` (a file containing origin IDs or a ``station.csv,event.csv,phase.csv`` triplet)::
+
+    scrtdd --reloc-catalog station.csv,event.csv,phase.csv \
+           --reference-catalog ref-station.csv,ref-event.csv,ref-phase.csv \
+           --profile myProfile \
+           --dump-diagnostics --verbosity=3 --console=1 [db options]
+
+The ``--reference-catalog`` option replaces the reference catalog configured in the profile. The neighboring events are selected according to the ``eventPairSelection.multiEvent`` profile parameters, exactly as in a standard multi-event relocation, with the difference that the input events can select their neighbors from both the input catalog and the reference catalog, while the reference events are never relocated.
+
+The output files ``reloc-event.csv``, ``reloc-phase.csv`` and ``reloc-station.csv`` (and the ``--xmlout`` output) contain only the relocated input events, while the reference catalog is not part of the output. The diagnostics folder generated with ``--dump-diagnostics`` contains instead the merged catalog: ``input-*.csv`` contain both the reference catalog and the input events before relocation, and ``reloc-*.csv`` contain both the reference catalog (unchanged) and the relocated input events. This merged catalog can be useful as a starting point for the next reference catalog.
+
+Note that the input event IDs might overlap with the reference catalog IDs. In this case, the input events are renumbered by adding an offset (the highest reference event ID) to their IDs, which is reported in the log. The renumbered IDs appear only in the diagnostics folder (including the ``cluster-N-pair.csv`` and ``xcorr.csv`` files, which can be reused via ``--clusters`` and ``--xcorr-cache`` together with the same input and reference catalogs), whereas the final output always contains the original IDs. If the IDs do not overlap, they are kept unchanged everywhere.
+
+
 .. _multi-event-relocation-process-label:
 
 ------------------
@@ -163,6 +189,8 @@ Clustering
 The clustering algorithm identifies groups of events that are connected based on user-defined criteria, such as maximum inter-event distance and a minimum number of common phases at the same stations. Events belong to the same cluster if they are directly connected or linked through a chain of connections. Each cluster is then relocated independently.
 
 rtDD constructs and solves a double-difference system for each cluster, incorporating every event pair and the phases selected during the clustering stage. Events that do not meet the clustering criteria are not relocated.
+
+When relocating against a :ref:`fixed reference catalog <multi-event-reference-label>`, neighbors are selected only for the events to relocate, and they can be chosen from both the events to relocate and the reference catalog. The reference events are not required to satisfy the clustering criteria themselves, since they are not relocated. Moreover, reference events do not connect clusters: two groups of events that share only reference events as neighbors form two independent clusters, because the reference events have no unknowns in the double-difference system.
 
 
 Double-Difference System
@@ -205,6 +233,25 @@ This solution is achieved through an iterative process. An initial double-differ
 The double-difference system is solved using a least-squares approach. rtDD supports both the LSQR (Paige & Saunders, 1982) and LSMR (Fong & Saunders, 2011) algorithms, which are highly efficient for large, sparse linear systems. rtDD does not offer Singular Value Decomposition (SVD), as its computational complexity makes it impractical for large datasets.
 
 In order to compute the partial derivatives and the calculated differential travel times, a velocity model is required. To avoid the run time computational costs of ray tracing during the inversion, rtDD is designed to support precomputed travel time tables (including velocity at source and take-off angle). See :ref:`ttt-label`.
+
+
+.. _multi-event-fixed-reference-label:
+
+Relocation Against a Fixed Reference Catalog
+--------------------------------------------
+
+When relocating against a :ref:`fixed reference catalog <multi-event-reference-label>`, the double-difference system is slightly modified. We focus exclusively on computing the hypocenter changes of the events to relocate, while the reference events are not allowed to move.
+
+For a pair of events to relocate *i* and *j*, the equation :eq:`dd-equation-label` is unchanged. However, when the event *j* is a reference event, its hypocenter change :math:`\Delta m^j` is zero by definition and the equation simplifies to:
+
+.. math:: \frac{\partial t_k^i}{\partial m} \Delta m^i = dr_k^{ij}
+   :label: dd-fixed-equation-label
+
+Compared to :eq:`dd-equation-label`, this formulation omits the term :math:`- \frac{\partial t_k^j}{\partial m} \Delta m^j` and computes the hypocenter changes of the event *i* with respect to the fixed reference event *j*. In the system :eq:`dd-system-label`, the reference events have no unknowns: **m** contains only the hypocenter changes of the N events to relocate and **G** has size M x 4N. The same applies to the damping (:eq:`dd-damped-system-label`) and to the absolute travel time residuals (:eq:`dd-damped-rms-system-label`), which are included for the events to relocate only.
+
+This approach treats the reference events as high-precision "anchors", which are not relocated. It reduces the risk of a cluster centroid shift during the inversion (see :ref:`absolute-plus-relative-label`), since the reference events constrain the absolute location of the events to relocate. The fewer the reference events among the neighbors, the more the solution resembles a standard multi-event relocation: a cluster whose events are paired only with each other, without any reference event, is relocated exactly as in a standard multi-event relocation. Since the reference events are kept fixed, any error in their locations directly impacts the relocated events, so a high-quality reference catalog is essential.
+
+The :ref:`single-event relocation <single-event-label>` is the particular case of this mode where the events to relocate consist of a single event, which is then paired only with reference events.
 
 
 .. _absolute-plus-relative-label:

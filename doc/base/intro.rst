@@ -5,9 +5,9 @@ Introduction
 
 rtDD has two modes of operation: :ref:`multi-event <multi-event-label>` and :ref:`single-event <single-event-label>`.
 
-The **Multi-Event mode** relocates catalogs of events using the double-difference method. This is an offline mode that can be used to generate high-resolution catalogs for external analysis or to :ref:`periodically generate <continuous-label>` a catalog snapshot. Such snapshots serve as reference catalogs for the Single-Event mode. 
+The **Multi-Event mode** relocates catalogs of events using the double-difference method. This is an offline mode that can be used to generate high-resolution catalogs for external analysis or to :ref:`periodically generate <continuous-label>` a catalog snapshot. Such snapshots serve as reference catalogs for the Single-Event mode. A set of events can also be relocated :ref:`against a fixed reference catalog <multi-event-reference-label>`, which is left unchanged.
 
-The **Single-Event mode** relocates events one by one as they occur in real-time, using a reference catalog.
+The **Single-Event mode** relocates events one by one as they occur in real-time, using a reference catalog. It is the particular case of the multi-event relocation against a fixed reference catalog where only one event is relocated.
 
 The methods in rtDD are based on these papers:
 
