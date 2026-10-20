@@ -302,7 +302,9 @@ void randomPerturbation(HDD::Catalog &cat)
 
 HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
                              unique_ptr<HDD::TravelTimeTable> ttt,
-                             const string &workingDir)
+                             const string &workingDir,
+                             double downWeightingStart = 10,
+                             double downWeightingEnd   = 5)
 {
   HDD::Config ddCfg;
 
@@ -324,8 +326,8 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
   solverOpt.absLocConstraintEnd          = 0.3;
   solverOpt.dampingFactorStart           = 0.01;
   solverOpt.dampingFactorEnd             = 0.01;
-  solverOpt.downWeightingByResidualStart = 0;
-  solverOpt.downWeightingByResidualEnd   = 0;
+  solverOpt.downWeightingByResidualStart = downWeightingStart;
+  solverOpt.downWeightingByResidualEnd   = downWeightingEnd;
 
   std::list<std::unordered_map<unsigned, Neighbours>> clusters;
   XCorrCache xcorrData;
@@ -336,7 +338,9 @@ HDD::Catalog relocateCatalog(const HDD::Catalog &cat,
 HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
                                  unique_ptr<HDD::TravelTimeTable> ttt,
                                  const string &workingDir,
-                                 const HDD::Catalog &realTimeCat)
+                                 const HDD::Catalog &realTimeCat,
+                                 double downWeightingStart = 0,
+                                 double downWeightingEnd   = 0)
 {
   HDD::Config ddCfg;
 
@@ -359,6 +363,8 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
   solverOpt.absLocConstraintEnd   = 0.3;
   solverOpt.dampingFactorStart    = 0.01;
   solverOpt.dampingFactorEnd      = 0.01;
+  solverOpt.downWeightingByResidualStart = downWeightingStart;
+  solverOpt.downWeightingByResidualEnd   = downWeightingEnd;
 
   HDD::Catalog relocCat;
   for (const auto &kv : realTimeCat.getEvents())
@@ -368,10 +374,146 @@ HDD::Catalog relocateSingleEvent(const HDD::Catalog &bgCat,
     HDD::Catalog relocatedEvent =
         dd.relocateSingleEvent(orgToRelocate, true, clusterOpt, xcorrOpt,
                                solverOpt, saveProcessing);
-    relocCat.add(relocatedEvent, false);
+    if (relocatedEvent.empty()) continue;
+
+    // keep the original event id, so that the relocated events can be
+    // compared with the input ones even if some relocations fail
+    Event relocEv = relocatedEvent.getEvents().begin()->second;
+    unordered_multimap<unsigned, Phase> phases;
+    for (const auto &kv2 : relocatedEvent.getPhases())
+    {
+      Phase ph   = kv2.second;
+      ph.eventId = ev.id;
+      phases.emplace(ev.id, ph);
+    }
+    relocEv.id = ev.id;
+    relocCat.add(HDD::Catalog(relocatedEvent.getStations(),
+                              {{ev.id, relocEv}}, std::move(phases)),
+                 true);
   }
 
   return relocCat;
+}
+
+// Add gaussian noise (`stdDev` sec) to all pick times. In addition, a
+// fraction `outlierRatio` of the picks is shifted by +/-`outlierError` sec
+HDD::Catalog addPickNoise(const HDD::Catalog &cat,
+                          double stdDev,
+                          double outlierRatio,
+                          double outlierError,
+                          unsigned seed)
+{
+  HDD::NormalRandomer noise(0, stdDev, seed);
+  HDD::UniformRandomer outlier(0, 9999, seed + 1);
+  unordered_multimap<unsigned, Phase> phases;
+  for (const auto &kv : cat.getEvents())
+  {
+    auto eqlrng = cat.getPhases().equal_range(kv.first);
+    for (auto it = eqlrng.first; it != eqlrng.second; ++it)
+    {
+      Phase ph = it->second;
+      double error = noise.next();
+      size_t draw  = outlier.next();
+      if (draw < outlierRatio * 10000)
+      {
+        error += (draw % 2 == 0) ? outlierError : -outlierError;
+      }
+      ph.time += secToDur(error);
+      phases.emplace(ph.eventId, ph);
+    }
+  }
+  return HDD::Catalog(cat.getStations(), cat.getEvents(), std::move(phases));
+}
+
+struct RelocationError
+{
+  size_t numEvents = 0; // events in `cat2` matched in `cat1`
+  struct Stats
+  {
+    double median, p90, max;
+  } time, hdist, depth; // [sec], [km], [km]
+};
+
+// Compare the events in `cat2` with the events with same id in `cat1`
+RelocationError computeRelocationError(const HDD::Catalog &cat1,
+                                       const HDD::Catalog &cat2)
+{
+  vector<double> times, hdists, depths;
+  for (const auto &kv : cat2.getEvents())
+  {
+    const Event &ev2 = kv.second;
+    auto it          = cat1.getEvents().find(ev2.id);
+    if (it == cat1.getEvents().end()) continue;
+    const Event &ev1 = it->second;
+    times.push_back(std::abs(durToSec(ev1.time - ev2.time)));
+    hdists.push_back(computeDistance(ev1.latitude, ev1.longitude,
+                                     ev2.latitude, ev2.longitude));
+    depths.push_back(std::abs(ev1.depth - ev2.depth));
+  }
+
+  auto stats = [](vector<double> values) -> RelocationError::Stats {
+    std::sort(values.begin(), values.end());
+    size_t p90Idx = std::min(values.size() - 1, size_t(0.9 * values.size()));
+    return {computeMedian(values), values.at(p90Idx), values.back()};
+  };
+
+  RelocationError err;
+  err.numEvents = times.size();
+  if (err.numEvents == 0) return err;
+  err.time  = stats(times);
+  err.hdist = stats(hdists);
+  err.depth = stats(depths);
+  return err;
+}
+
+struct NoiseTolerance
+{
+  double medianTime, medianHDist, medianDepth; // [sec], [km], [km]
+  double p90Time, p90HDist, p90Depth;          // [sec], [km], [km]
+};
+
+//
+// `relocCat` is the relocation of a noisy catalog with residual
+// down-weighting enabled, `relocCatNoDw` the same relocation without
+// down-weighting. Check that the relocation errors are compatible with the
+// pick noise and that the down-weighting reduced the effect of the outliers
+//
+void testNoisyRelocation(const HDD::Catalog &baseCat,
+                         const HDD::Catalog &relocCat,
+                         const HDD::Catalog &relocCatNoDw,
+                         const NoiseTolerance &tol)
+{
+  const RelocationError err     = computeRelocationError(baseCat, relocCat);
+  const RelocationError errNoDw = computeRelocationError(baseCat, relocCatNoDw);
+
+  BOOST_TEST_MESSAGE(strf(
+      "Relocation error with (without) down-weighting: time median %.1f (%.1f) "
+      "p90 %.1f (%.1f) max %.1f (%.1f) msec, horizontal median %.1f (%.1f) "
+      "p90 %.1f (%.1f) max %.1f (%.1f) m, depth median %.1f (%.1f) p90 %.1f "
+      "(%.1f) max %.1f (%.1f) m",
+      err.time.median * 1e3, errNoDw.time.median * 1e3, err.time.p90 * 1e3,
+      errNoDw.time.p90 * 1e3, err.time.max * 1e3, errNoDw.time.max * 1e3,
+      err.hdist.median * 1e3, errNoDw.hdist.median * 1e3,
+      err.hdist.p90 * 1e3, errNoDw.hdist.p90 * 1e3, err.hdist.max * 1e3,
+      errNoDw.hdist.max * 1e3, err.depth.median * 1e3,
+      errNoDw.depth.median * 1e3, err.depth.p90 * 1e3,
+      errNoDw.depth.p90 * 1e3, err.depth.max * 1e3, errNoDw.depth.max * 1e3));
+
+  // all events must be relocated
+  BOOST_REQUIRE_EQUAL(err.numEvents, baseCat.getEvents().size());
+  BOOST_REQUIRE_EQUAL(errNoDw.numEvents, baseCat.getEvents().size());
+
+  // Only robust statistics are checked: occasionally a single event can
+  // diverge (e.g. the homogeneous travel time table allows air-quakes)
+  BOOST_CHECK_LE(err.time.median, tol.medianTime);
+  BOOST_CHECK_LE(err.hdist.median, tol.medianHDist);
+  BOOST_CHECK_LE(err.depth.median, tol.medianDepth);
+  BOOST_CHECK_LE(err.time.p90, tol.p90Time);
+  BOOST_CHECK_LE(err.hdist.p90, tol.p90HDist);
+  BOOST_CHECK_LE(err.depth.p90, tol.p90Depth);
+
+  // the down-weighting must reduce the effect of the outliers
+  BOOST_CHECK_GE(errNoDw.hdist.median, 2 * err.hdist.median);
 }
 
 void testCatalogEqual(const HDD::Catalog &cat1, const HDD::Catalog &cat2)
@@ -390,6 +532,11 @@ void testCatalogEqual(const HDD::Catalog &cat1, const HDD::Catalog &cat2)
     BOOST_CHECK_SMALL(ev1.depth-ev2.depth, 0.05); // tolerance 50 m
   }
 }
+
+// Noisy data: gaussian pick noise plus a fraction of outlier picks
+const double pickNoise    = 0.010; // [sec] std dev
+const double outlierRatio = 0.05;  // fraction of picks
+const double outlierError = 0.5;   // [sec]
 
 struct Centroid
 {
@@ -607,7 +754,7 @@ BOOST_DATA_TEST_CASE(test_dd_single_event2,
   string workingDir =
       strf("./data/test_dd_single_event2_%lu_%lu_reloc", cIdx, tttIdx);
   const HDD::Catalog relocCat = relocateSingleEvent(
-      backgroundCat, std::move(ttt), workingDir, realTimeCat);
+      backgroundCat, std::move(ttt), workingDir, cat);
   testCatalogEqual(realTimeCat, relocCat);
 }
 
@@ -645,6 +792,91 @@ BOOST_DATA_TEST_CASE(test_dd_single_event3,
   string workingDir =
       strf("./data/test_dd_single_event3_%lu_%lu_reloc", cIdx, tttIdx);
   const HDD::Catalog relocCat = relocateSingleEvent(
-      backgroundCat, std::move(ttt), workingDir, realTimeCat);
+      backgroundCat, std::move(ttt), workingDir, cat);
   testCatalogEqual(realTimeCat, relocCat);
+}
+
+BOOST_DATA_TEST_CASE(test_dd_multi_event_noise,
+                     bdata::xrange(centroidList.size()) *
+                         bdata::xrange(tttList.size()),
+                     cIdx,
+                     tttIdx)
+{
+  const Centroid &centroid = centroidList.at(cIdx);
+  bool nllStations         = (tttList.at(tttIdx).type == "Native:NonLinLoc");
+
+  if (nllStations &&
+   (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
+  {
+    BOOST_TEST_MESSAGE(
+        "Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any
+                       // assertions"
+    return;
+  }
+
+  unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
+
+  const HDD::Catalog baseCat =
+      buildCatalog(*ttt, nllStations, UTCClock::fromDate(2011, 3, 1, 4, 5, 6, 789),
+                   centroid.lat, centroid.lon, centroid.depth, 42, 1.0);
+
+  // Test noisy data: random changes to all events and noisy picks
+  HDD::Catalog cat =
+      addPickNoise(baseCat, pickNoise, outlierRatio, outlierError, 0x2001);
+  randomPerturbation(cat);
+
+  string workingDir =
+      strf("./data/test_dd_multi_event_noise_%lu_%lu_reloc", cIdx, tttIdx);
+  const HDD::Catalog relocCat =
+      relocateCatalog(cat, std::move(ttt), workingDir, 10, 5);
+  const HDD::Catalog relocCatNoDw =
+      relocateCatalog(cat, createTTT(tttList.at(tttIdx)), workingDir, 0, 0);
+  testNoisyRelocation(baseCat, relocCat, relocCatNoDw,
+                      {0.020, 0.100, 0.500, 0.040, 0.150, 1.000});
+}
+
+BOOST_DATA_TEST_CASE(test_dd_single_event_noise,
+                     bdata::xrange(centroidList.size()) *
+                         bdata::xrange(tttList.size()),
+                     cIdx,
+                     tttIdx)
+{
+  const Centroid &centroid = centroidList.at(cIdx);
+  bool nllStations         = (tttList.at(tttIdx).type == "Native:NonLinLoc");
+
+  if (nllStations &&
+   (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
+  {
+    BOOST_TEST_MESSAGE(
+        "Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any
+                       // assertions"
+    return;
+  }
+
+  unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
+
+  const UTCTime clusterTime = UTCClock::fromDate(2011, 3, 1, 4, 5, 6, 789);
+  const HDD::Catalog referenceCat = addPickNoise(
+      buildBackgroundCatalog(*ttt, nllStations, clusterTime, centroid.lat,
+                             centroid.lon, centroid.depth, 21, 1.0),
+      pickNoise, outlierRatio, outlierError, 0x3001);
+  const HDD::Catalog baseCat = buildCatalog(
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 1.0);
+
+  // Test noisy data: random changes to all events and noisy picks (the
+  // reference catalog picks are noisy too)
+  HDD::Catalog cat =
+      addPickNoise(baseCat, pickNoise, outlierRatio, outlierError, 0x2001);
+  randomPerturbation(cat);
+
+  string workingDir =
+      strf("./data/test_dd_single_event_noise_%lu_%lu_reloc", cIdx, tttIdx);
+  const HDD::Catalog relocCat =
+      relocateSingleEvent(referenceCat, std::move(ttt), workingDir, cat, 10, 5);
+  const HDD::Catalog relocCatNoDw = relocateSingleEvent(
+      referenceCat, createTTT(tttList.at(tttIdx)), workingDir, cat, 0, 0);
+  testNoisyRelocation(baseCat, relocCat,
+                      relocCatNoDw, {0.015, 0.050, 0.300, 0.030, 0.075, 0.800});
 }
