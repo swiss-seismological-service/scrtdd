@@ -50,6 +50,11 @@ std::ostream &operator<<(std::ostream &os, const HDD::Trace &tr)
 
 namespace {
 
+//
+// Synthetic traces: a signal (sum of 1 Hz and 11 Hz sines, a short 6 Hz sine,
+// a triangle) surrounded by zeros. Each trace is built with several sampling
+// frequencies.
+//
 Trace buildSyntheticTrace1(double samplingFrequency)
 {
   Trace tr("N1", "ST1", "", "EHE", UTCClock::fromDate(1981, 1, 9, 21, 56, 4, 1),
@@ -63,7 +68,6 @@ Trace buildSyntheticTrace1(double samplingFrequency)
     samples[samples.size() / 2 + i] = value;
   }
   tr.setData(std::move(samples));
-  // writeTrace(tr, strf("syntheticTrace1_%.fHz.mseed", tr.samplingFrequency()));
   return tr;
 }
 
@@ -79,7 +83,6 @@ Trace buildSyntheticTrace2(double samplingFrequency)
     samples[samples.size() / 2 + i] = value;
   }
   tr.setData(std::move(samples));
-  // writeTrace(tr, strf("syntheticTrace2_%.fHz.mseed", tr.samplingFrequency()));
   return tr;
 }
 
@@ -95,7 +98,6 @@ Trace buildSyntheticTrace3(double samplingFrequency)
     samples[samples.size() / 2 + i] = value;
   }
   tr.setData(std::move(samples));
-  // writeTrace(tr, strf("syntheticTrace3_%.fHz.mseed", tr.samplingFrequency()));
   return tr;
 }
 
@@ -112,7 +114,7 @@ void scaleTrace(Trace &tr, double constant, double scaler)
 void trimTrace(Trace &tr, double trimStart, double trimEnd)
 {
   TimeWindow tw = tr.timeWindow().trim(secToDur(trimStart), secToDur(trimEnd));
-  tr.slice(tw);
+  BOOST_REQUIRE(tr.slice(tw));
 }
 
 Trace alterTrace(const Trace &tr,
@@ -127,6 +129,8 @@ Trace alterTrace(const Trace &tr,
   return newTr;
 }
 
+// Cross-correlate the traces and check the lag and that the correlation
+// coefficient is close to 1 (or -1 for opposite polarity)
 void testXCorrTraces(const Trace &tr1, const Trace &tr2, double expectedLag)
 {
   double delayOut, coeffOut;
@@ -140,6 +144,9 @@ void testXCorrTraces(const Trace &tr1, const Trace &tr2, double expectedLag)
   BOOST_CHECK_SMALL(1.0 - std::abs(coeffOut), 0.1); // positive or negative CC
 }
 
+// Cross-correlate `tr1` with a copy of it trimmed at one end, so that the
+// trace center (where the xcorr assumes the pick) moves by `timeShift`, and
+// with an offset and scaling applied: the lag must be `timeShift`
 void testXCorrTrace(const Trace &tr1,
                     double timeShift,
                     double constant,
@@ -152,6 +159,8 @@ void testXCorrTrace(const Trace &tr1,
   testXCorrTraces(tr1, tr2, timeShift);
 }
 
+// Several time shifts, offsets, scalings and polarity changes. `s` varies the
+// offset and scaling between the traces
 void testXCorr(const Trace &trace, int s)
 {
   testXCorrTrace(trace, 0, 0, 1);
@@ -162,7 +171,9 @@ void testXCorr(const Trace &trace, int s)
   testXCorrTrace(trace, 10. / trace.samplingFrequency(), 10 * s, 10 * s);
 }
 
-void testReampling(const vector<Trace> &traces)
+// The same trace sampled at different frequencies and then resampled to a
+// common frequency must cross-correlate with zero lag
+void testResampling(const vector<Trace> &traces)
 {
   // traces vector contains identical traces, but different sampling rates
   for (size_t i = 0; i < traces.size() - 1; i++)
@@ -175,51 +186,21 @@ void testReampling(const vector<Trace> &traces)
       Waveform::resample(tr2, 1000);
       testXCorrTraces(tr1, tr2, 0);
 
-      // writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
-      //            tr1.networkCode().c_str(),
-      //            traces[i].samplingFrequency(),
-      //            tr1.samplingFrequency()));
-      // writeTrace(tr2,
-      //            strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
-      //            tr2.networkCode().c_str(),
-      //            traces[j].samplingFrequency(),
-      //            tr2.samplingFrequency()));
-
       tr1 = traces[i];
       tr2 = traces[j];
       Waveform::resample(tr1, 60);
       Waveform::resample(tr2, 60);
       testXCorrTraces(tr1, tr2, 0);
 
-      // writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
-      //            tr1.networkCode().c_str(),
-      //            traces[i].samplingFrequency(),
-      //            tr1.samplingFrequency()));
-      // writeTrace(tr2,
-      //            strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
-      //            tr2.networkCode().c_str(),
-      //            traces[j].samplingFrequency(),
-      //            tr2.samplingFrequency()));
-
       tr1 = traces[i];
       tr2 = traces[j];
       Waveform::resample(tr1, tr2.samplingFrequency());
       testXCorrTraces(tr1, tr2, 0);
 
-      // writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
-      //            tr1.networkCode().c_str(),
-      //            traces[i].samplingFrequency(),
-      //            tr1.samplingFrequency()));
-
       tr1 = traces[i];
       tr2 = traces[j];
       Waveform::resample(tr2, tr1.samplingFrequency());
       testXCorrTraces(tr1, tr2, 0);
-
-      // writeTrace(tr2, strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
-      //            tr2.networkCode().c_str(),
-      //            traces[j].samplingFrequency(),
-      //            tr2.samplingFrequency()));
     }
   }
 }
@@ -238,7 +219,9 @@ const vector<Trace> synthetic3Traces = {
 
 } // namespace
 
-BOOST_DATA_TEST_CASE(test_xcorr2,
+// Verify the cross-correlation lag and coefficient for each synthetic trace
+// and sampling frequency
+BOOST_DATA_TEST_CASE(test_xcorr1,
                      bdata::xrange(synthetic1Traces.size()) ^
                          bdata::make(synthetic1Traces),
                      i, trace)
@@ -246,7 +229,7 @@ BOOST_DATA_TEST_CASE(test_xcorr2,
   testXCorr(trace, i + 1);
 }
 
-BOOST_DATA_TEST_CASE(test_xcorr3,
+BOOST_DATA_TEST_CASE(test_xcorr2,
                      bdata::xrange(synthetic2Traces.size()) ^
                          bdata::make(synthetic2Traces),
                      i, trace)
@@ -254,7 +237,7 @@ BOOST_DATA_TEST_CASE(test_xcorr3,
   testXCorr(trace, i + 1);
 }
 
-BOOST_DATA_TEST_CASE(test_xcorr4,
+BOOST_DATA_TEST_CASE(test_xcorr3,
                      bdata::xrange(synthetic3Traces.size()) ^
                          bdata::make(synthetic3Traces),
                      i, trace)
@@ -262,18 +245,19 @@ BOOST_DATA_TEST_CASE(test_xcorr4,
   testXCorr(trace, i + 1);
 }
 
+// Verify that resampling preserves the signal timing
 BOOST_AUTO_TEST_CASE(test_resampling1)
 {
-  testReampling(synthetic1Traces);
+  testResampling(synthetic1Traces);
 }
 
 BOOST_AUTO_TEST_CASE(test_resampling2)
 {
-  testReampling(synthetic2Traces);
+  testResampling(synthetic2Traces);
 }
 
 BOOST_AUTO_TEST_CASE(test_resampling3)
 {
-  testReampling(synthetic3Traces);
+  testResampling(synthetic3Traces);
 }
 

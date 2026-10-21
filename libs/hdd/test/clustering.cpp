@@ -43,6 +43,10 @@ namespace bdata = boost::unit_test::data;
 
 namespace {
 
+// 4 stations at `distance` km N, E, S and W of lat/lon. They have slightly
+// different elevations so that their distance from an event is never the same:
+// this makes the order in which the stations are selected deterministic (the
+// closest first, ST01 then ST02...)
 void addStationsToCatalog(HDD::Catalog &cat,
                           double lat,
                           double lon,
@@ -154,6 +158,40 @@ void checkNeighbours(const HDD::Neighbours &neighbours,
   }
 }
 
+// Check that `n` contains the neighbours of event `refId` with exactly the
+// expected (station id, phase, neighbour id) entries
+void checkNeighbourPhases(
+    const HDD::Neighbours &n,
+    unsigned refId,
+    vector<tuple<string, string, unsigned>> expectedPhases)
+{
+  unordered_set<unsigned> expectedIds;
+  unordered_set<string> expectedStations;
+  for (const auto &t : expectedPhases)
+  {
+    expectedStations.insert(std::get<0>(t));
+    expectedIds.insert(std::get<2>(t));
+  }
+
+  BOOST_CHECK(n.referenceId() == refId);
+  BOOST_CHECK(n.ids() == expectedIds);
+  BOOST_CHECK(n.stations() == expectedStations);
+
+  vector<tuple<string, string, unsigned>> phases = n.phases();
+  std::sort(expectedPhases.begin(), expectedPhases.end());
+  std::sort(phases.begin(), phases.end());
+  BOOST_CHECK(phases == expectedPhases);
+
+  for (const auto &t : expectedPhases)
+  {
+    const string &stationId  = std::get<0>(t);
+    const string &phase      = std::get<1>(t);
+    const unsigned neighEvId = std::get<2>(t);
+    BOOST_CHECK(n.has(neighEvId, stationId));
+    BOOST_CHECK(n.has(neighEvId, stationId, phase));
+  }
+}
+
 Neighbours selectNeighbouringEventsThrow(const EventTree &evTree,
                                          const Catalog &catalog,
                                          const Event &refEv,
@@ -197,6 +235,12 @@ const vector<Origin> orgList{
 
 } // namespace
 
+// Neighbour selection for a single event with 4 neighbours at 1 km and 4
+// stations at 50 km: verify that each selection constraint (station distance,
+// station to inter-event distance ratio, number of phases and neighbours,
+// neighbour distance) rejects the neighbours when it cannot be satisfied and
+// limits them as expected otherwise. All tests are repeated at the locations
+// in `orgList`, which includes the poles and the antimeridian.
 BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
 {
   const Origin &org = orgList.at(orgIdx);
@@ -204,14 +248,11 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
       buildCatalog(org.lat, org.lon, org.depth, 50, {1}, {"P"}, {});
   const EventTree tree = createEventTree(cat);
 
-  // cat->writeToFile(strf("test_clustering1-cat%d-event.csv",orgIdx),
-  //                 strf("test_clustering1-cat%d-phase.csv",orgIdx),
-  //                 strf("test_clustering1-cat%d-station.csv",orgIdx));
 
   const Event &event = cat.getEvents().at(1);
   const unordered_set<unsigned> neighbourIds{2, 3, 4, 5};
 
-  // neighbours out of rangei: maxNeighbourDist
+  // neighbours out of range: maxNeighbourDist
   BOOST_CHECK_THROW(
       selectNeighbouringEventsThrow(tree, cat, event, cat,
                                     0,  //  double minESdis
@@ -460,6 +501,10 @@ BOOST_DATA_TEST_CASE(test_clustering1, bdata::xrange(orgList.size()), orgIdx)
   checkNeighbours(neighbours, neighbourIds, {"NET.ST01.", "NET.ST02."}, {"P"});
 }
 
+// Neighbour selection with the ellipsoid algorithm, for a single event with
+// neighbours at 0.5, 0.6, 1.5, 1.6, 3.0 and 3.1 km in 4 directions (two events
+// at 0.5, 1.5 and 3.0 km): verify which neighbours are selected for different
+// numbers of neighbours and constraints
 BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
 {
   const Origin &org = orgList.at(orgIdx);
@@ -468,14 +513,13 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
                    {0.5, 0.5, 0.6, 1.5, 1.5, 1.6, 3.0, 3.0, 3.1}, {}, {"S"});
   const EventTree tree = createEventTree(cat);
 
-  // cat->writeToFile(strf("test_clustering2-cat%d-event.csv",orgIdx),
-  //                 strf("test_clustering2-cat%d-phase.csv",orgIdx),
-  //                 strf("test_clustering2-cat%d-station.csv",orgIdx));
 
   const Event &event = cat.getEvents().at(1);
   unordered_set<unsigned> neighbourIds;
 
-  // test multiple ellipsoids
+  // 3 ellipsoidal layers, up to 24 neighbours: in a round-robin over layers
+  // and quadrants the closest events are selected, which are the events at
+  // 0.5, 1.5 and 3.0 km, while those at 0.6, 1.6 and 3.1 km are left out
   HDD::Neighbours neighbours =
       selectNeighbouringEventsThrow(tree, cat, event, cat,
                                     0,  //  double minESdis
@@ -496,7 +540,8 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
   checkNeighbours(neighbours, neighbourIds,
                   {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."},{"S"});
 
-  // test multiple ellipsoids
+  // As above, with station distance and phase constraints and exactly 16
+  // neighbours: only the events at 0.5 and 1.5 km are selected
   neighbours =
       selectNeighbouringEventsThrow(tree, cat, event, cat,
                                     50, //  double minESdis
@@ -516,7 +561,8 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
   checkNeighbours(neighbours, neighbourIds,
                   {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."}, {"S"});
 
-  // test multiple ellipsoids
+  // As above, but at most 2 phases per event pair: only the 2 closest
+  // stations are used
   neighbours =
       selectNeighbouringEventsThrow(tree, cat, event, cat,
                                     50, //  double minESdis
@@ -535,7 +581,8 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
   BOOST_CHECK(neighbours.ids() == neighbourIds);
   checkNeighbours(neighbours, neighbourIds, {"NET.ST01.", "NET.ST02."}, {"S"});
 
-  // test multiple ellipsoids
+  // As above, with exactly 8 neighbours: only the events at 0.5 km are
+  // selected
   neighbours =
       selectNeighbouringEventsThrow(tree, cat, event, cat,
                                     50, //  double minESdis
@@ -556,6 +603,10 @@ BOOST_DATA_TEST_CASE(test_clustering2, bdata::xrange(orgList.size()), orgIdx)
                   {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."}, {"S"});
 }
 
+// Neighbour selection for all events of a catalog and clustering: a central
+// event with 4 events at 7.5 km and 4 at 15 km (max neighbour distance 8 km).
+// Verify the neighbours of each event and that all events form a single
+// cluster, where each pair is kept only once
 BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
 {
   const Origin &org = orgList.at(orgIdx);
@@ -563,9 +614,6 @@ BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
       buildCatalog(org.lat, org.lon, org.depth, 100, {7.5, 15}, {"P"}, {"S"});
   const EventTree tree = createEventTree(cat);
 
-  // cat->writeToFile(strf("test_clustering3-cat%d-event.csv",orgIdx),
-  //                 strf("test_clustering3-cat%d-phase.csv",orgIdx),
-  //                 strf("test_clustering3-cat%d-station.csv",orgIdx));
 
   // find Neighbours for each event in the catalog
   unordered_map<unsigned, HDD::Neighbours> neighboursByEvent =
@@ -632,6 +680,9 @@ BOOST_DATA_TEST_CASE(test_clustering3, bdata::xrange(orgList.size()), orgIdx)
     }
 }
 
+// As test_clustering3, with events at 3 and 4 km and max neighbour distance
+// 1.5 km: the central event has no neighbours and is discarded, the other
+// events form 4 independent clusters of 2 events
 BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
 {
   const Origin &org = orgList.at(orgIdx);
@@ -639,9 +690,6 @@ BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
       buildCatalog(org.lat, org.lon, org.depth, 10, {3, 4}, {}, {"S"});
   const EventTree tree = createEventTree(cat);
 
-  // cat->writeToFile(strf("test_clustering4-cat%d-event.csv",orgIdx),
-  //                 strf("test_clustering4-cat%d-phase.csv",orgIdx),
-  //                 strf("test_clustering4-cat%d-station.csv",orgIdx));
 
   // find Neighbours for each event in the catalog
   unordered_map<unsigned, HDD::Neighbours> neighboursByEvent =
@@ -708,12 +756,16 @@ BOOST_DATA_TEST_CASE(test_clustering4, bdata::xrange(orgList.size()), orgIdx)
     }
 }
 
+// Phase matching: event pairs use only the phases with the same name at the
+// same station (e.g. Pg with Pg, not with P or Pn). Four events 10 km apart on
+// a line, with different phase names: verify the phases of each pair, before
+// and after clustering
 BOOST_DATA_TEST_CASE(test_clustering5, bdata::xrange(orgList.size()), orgIdx)
 {
   const Origin &org = orgList.at(orgIdx);
 
   UTCTime time{}; // time is not relevant in clustering
-                  //
+
   std::vector<HDD::Catalog::Station> stations = {
       {"N1.STA01.", 0.0, 0.0, 0.0, "N1", "STA01", ""},
       {"N1.STA02.", 0.0, 0.0, 0.0, "N1", "STA02", ""},
@@ -799,214 +851,59 @@ BOOST_DATA_TEST_CASE(test_clustering5, bdata::xrange(orgList.size()), orgIdx)
 
   BOOST_REQUIRE(neighboursByEvent.size() == 4);
 
-  {
-    const HDD::Neighbours &n = neighboursByEvent.at(0);
-    BOOST_CHECK(n.referenceId() == 0);
-    BOOST_CHECK(n.ids() == (unordered_set<unsigned>{1}));
-    BOOST_CHECK(n.stations() == (unordered_set<string>{"N1.STA01.","N1.STA02."}));
-    std::vector<std::tuple<std::string, string, unsigned>> expectedPhases =
-    {
-      {"N1.STA01.","Pg",1},
-      {"N1.STA01.","Sg",1},
-      {"N1.STA02.","Pg",1},
-      {"N1.STA02.","Sg",1},
-    };
-    std::vector<std::tuple<std::string, string, unsigned>> phases = n.phases();
-    std::sort(expectedPhases.begin(), expectedPhases.end());
-    std::sort(phases.begin(), phases.end());
-    BOOST_CHECK(phases == expectedPhases);
-    for (const auto& t: expectedPhases)
-    {
-      const string &stationId  = std::get<0>(t);
-      const string &phase      = std::get<1>(t);
-      const unsigned neighEvId = std::get<2>(t);
-      BOOST_CHECK(n.has(neighEvId, stationId));
-      BOOST_CHECK(n.has(neighEvId, stationId, phase));
-    }
-  }
-  {
-    const HDD::Neighbours &n = neighboursByEvent.at(1);
-    BOOST_CHECK(n.referenceId() == 1);
-    BOOST_CHECK(n.ids() == (unordered_set<unsigned>{0,2}));
-    BOOST_CHECK(n.stations() == (unordered_set<string>{"N1.STA01.","N1.STA02."}));
-    std::vector<std::tuple<std::string, string, unsigned>> expectedPhases =
-    {
-      {"N1.STA01.","Pg",0},
-      {"N1.STA01.","Sg",0},
-      {"N1.STA02.","Pg",0},
-      {"N1.STA02.","Sg",0},
-      {"N1.STA01.","Pn",2},
-      {"N1.STA01.","Sn",2},
-      {"N1.STA02.","Pn",2},
-      {"N1.STA02.","Sn",2},
-    };
-    std::vector<std::tuple<std::string, string, unsigned>> phases = n.phases();
-    std::sort(expectedPhases.begin(), expectedPhases.end());
-    std::sort(phases.begin(), phases.end());
-    BOOST_CHECK(phases == expectedPhases);
-    for (const auto& t: expectedPhases)
-    {
-      const string &stationId  = std::get<0>(t);
-      const string &phase      = std::get<1>(t);
-      const unsigned neighEvId = std::get<2>(t);
-      BOOST_CHECK(n.has(neighEvId, stationId));
-      BOOST_CHECK(n.has(neighEvId, stationId, phase));
-    }
-  }
-  {
-    const HDD::Neighbours &n = neighboursByEvent.at(2);
-    BOOST_CHECK(n.referenceId() == 2);
-    BOOST_CHECK(n.ids() == (unordered_set<unsigned>{1,3}));
-    BOOST_CHECK(n.stations() == (unordered_set<string>{"N1.STA01.","N1.STA02."}));
-    std::vector<std::tuple<std::string, string, unsigned>> expectedPhases =
-    {
-      {"N1.STA01.","Pn",1},
-      {"N1.STA01.","Sn",1},
-      {"N1.STA02.","Pn",1},
-      {"N1.STA02.","Sn",1},
-      {"N1.STA01.","P",3},
-      {"N1.STA01.","S",3},
-      {"N1.STA02.","P",3},
-      {"N1.STA02.","S",3},
-    };
-    std::vector<std::tuple<std::string, string, unsigned>> phases = n.phases();
-    std::sort(expectedPhases.begin(), expectedPhases.end());
-    std::sort(phases.begin(), phases.end());
-    BOOST_CHECK(phases == expectedPhases);
-    for (const auto& t: expectedPhases)
-    {
-      const string &stationId  = std::get<0>(t);
-      const string &phase      = std::get<1>(t);
-      const unsigned neighEvId = std::get<2>(t);
-      BOOST_CHECK(n.has(neighEvId, stationId));
-      BOOST_CHECK(n.has(neighEvId, stationId, phase));
-    }
-  }
-  {
-    const HDD::Neighbours &n = neighboursByEvent.at(3);
-    BOOST_CHECK(n.referenceId() == 3);
-    BOOST_CHECK(n.ids() == (unordered_set<unsigned>{2}));
-    BOOST_CHECK(n.stations() == (unordered_set<string>{"N1.STA01.","N1.STA02."}));
-    std::vector<std::tuple<std::string, string, unsigned>> expectedPhases =
-    {
-      {"N1.STA01.","P",2},
-      {"N1.STA01.","S",2},
-      {"N1.STA02.","P",2},
-      {"N1.STA02.","S",2},
-    };
-    std::vector<std::tuple<std::string, string, unsigned>> phases = n.phases();
-    std::sort(expectedPhases.begin(), expectedPhases.end());
-    std::sort(phases.begin(), phases.end());
-    BOOST_CHECK(phases == expectedPhases);
-    for (const auto& t: expectedPhases)
-    {
-      const string &stationId  = std::get<0>(t);
-      const string &phase      = std::get<1>(t);
-      const unsigned neighEvId = std::get<2>(t);
-      BOOST_CHECK(n.has(neighEvId, stationId));
-      BOOST_CHECK(n.has(neighEvId, stationId, phase));
-    }
-  }
+  // each event is paired with the events 10 km away, on the common phases
+  checkNeighbourPhases(neighboursByEvent.at(0), 0,
+                       {{"N1.STA01.", "Pg", 1},
+                        {"N1.STA01.", "Sg", 1},
+                        {"N1.STA02.", "Pg", 1},
+                        {"N1.STA02.", "Sg", 1}});
+  checkNeighbourPhases(neighboursByEvent.at(1), 1,
+                       {{"N1.STA01.", "Pg", 0},
+                        {"N1.STA01.", "Sg", 0},
+                        {"N1.STA02.", "Pg", 0},
+                        {"N1.STA02.", "Sg", 0},
+                        {"N1.STA01.", "Pn", 2},
+                        {"N1.STA01.", "Sn", 2},
+                        {"N1.STA02.", "Pn", 2},
+                        {"N1.STA02.", "Sn", 2}});
+  checkNeighbourPhases(neighboursByEvent.at(2), 2,
+                       {{"N1.STA01.", "Pn", 1},
+                        {"N1.STA01.", "Sn", 1},
+                        {"N1.STA02.", "Pn", 1},
+                        {"N1.STA02.", "Sn", 1},
+                        {"N1.STA01.", "P", 3},
+                        {"N1.STA01.", "S", 3},
+                        {"N1.STA02.", "P", 3},
+                        {"N1.STA02.", "S", 3}});
+  checkNeighbourPhases(neighboursByEvent.at(3), 3,
+                       {{"N1.STA01.", "P", 2},
+                        {"N1.STA01.", "S", 2},
+                        {"N1.STA02.", "P", 2},
+                        {"N1.STA02.", "S", 2}});
 
   const list<unordered_map<unsigned, HDD::Neighbours>> clusters =
       HDD::clusterizeNeighbouringEvents(neighboursByEvent);
 
   BOOST_REQUIRE(clusters.size() == 1);
 
-  const unordered_map<unsigned, HDD::Neighbours>& cluster = clusters.front();
+  const unordered_map<unsigned, HDD::Neighbours> &cluster = clusters.front();
   BOOST_CHECK(cluster.size() == neighboursByEvent.size());
 
-  {
-    const HDD::Neighbours &n = cluster.at(0);
-    BOOST_CHECK(n.referenceId() == 0);
-    BOOST_CHECK(n.ids() == (unordered_set<unsigned>{1}));
-    BOOST_CHECK(n.stations() == (unordered_set<string>{"N1.STA01.","N1.STA02."}));
-    std::vector<std::tuple<std::string, string, unsigned>> expectedPhases =
-    {
-      {"N1.STA01.","Pg",1},
-      {"N1.STA01.","Sg",1},
-      {"N1.STA02.","Pg",1},
-      {"N1.STA02.","Sg",1},
-    };
-    std::vector<std::tuple<std::string, string, unsigned>> phases = n.phases();
-    std::sort(expectedPhases.begin(), expectedPhases.end());
-    std::sort(phases.begin(), phases.end());
-    BOOST_CHECK(phases == expectedPhases);
-    for (const auto& t: expectedPhases)
-    {
-      const string &stationId  = std::get<0>(t);
-      const string &phase      = std::get<1>(t);
-      const unsigned neighEvId = std::get<2>(t);
-      BOOST_CHECK(n.has(neighEvId, stationId));
-      BOOST_CHECK(n.has(neighEvId, stationId, phase));
-    }
-  }
-  {
-    const HDD::Neighbours &n = cluster.at(1);
-    BOOST_CHECK(n.referenceId() == 1);
-    BOOST_CHECK(n.ids() == (unordered_set<unsigned>{2}));
-    BOOST_CHECK(n.stations() == (unordered_set<string>{"N1.STA01.","N1.STA02."}));
-    std::vector<std::tuple<std::string, string, unsigned>> expectedPhases =
-    {
-      {"N1.STA01.","Pn",2},
-      {"N1.STA01.","Sn",2},
-      {"N1.STA02.","Pn",2},
-      {"N1.STA02.","Sn",2},
-    };
-    std::vector<std::tuple<std::string, string, unsigned>> phases = n.phases();
-    std::sort(expectedPhases.begin(), expectedPhases.end());
-    std::sort(phases.begin(), phases.end());
-    BOOST_CHECK(phases == expectedPhases);
-    for (const auto& t: expectedPhases)
-    {
-      const string &stationId  = std::get<0>(t);
-      const string &phase      = std::get<1>(t);
-      const unsigned neighEvId = std::get<2>(t);
-      BOOST_CHECK(n.has(neighEvId, stationId));
-      BOOST_CHECK(n.has(neighEvId, stationId, phase));
-    }
-  }
-  {
-    const HDD::Neighbours &n = cluster.at(2);
-    BOOST_CHECK(n.referenceId() == 2);
-    BOOST_CHECK(n.ids() == (unordered_set<unsigned>{3}));
-    BOOST_CHECK(n.stations() == (unordered_set<string>{"N1.STA01.","N1.STA02."}));
-    std::vector<std::tuple<std::string, string, unsigned>> expectedPhases =
-    {
-      {"N1.STA01.","P",3},
-      {"N1.STA01.","S",3},
-      {"N1.STA02.","P",3},
-      {"N1.STA02.","S",3},
-    };
-    std::vector<std::tuple<std::string, string, unsigned>> phases = n.phases();
-    std::sort(expectedPhases.begin(), expectedPhases.end());
-    std::sort(phases.begin(), phases.end());
-    BOOST_CHECK(phases == expectedPhases);
-    for (const auto& t: expectedPhases)
-    {
-      const string &stationId  = std::get<0>(t);
-      const string &phase      = std::get<1>(t);
-      const unsigned neighEvId = std::get<2>(t);
-      BOOST_CHECK(n.has(neighEvId, stationId));
-      BOOST_CHECK(n.has(neighEvId, stationId, phase));
-    }
-  }
-  {
-    const HDD::Neighbours &n = cluster.at(3);
-    BOOST_CHECK(n.referenceId() == 3);
-    BOOST_CHECK(n.ids() == (unordered_set<unsigned>{}));
-    BOOST_CHECK(n.stations() == (unordered_set<string>{}));
-    std::vector<std::tuple<std::string, string, unsigned>> expectedPhases;
-    std::vector<std::tuple<std::string, string, unsigned>> phases = n.phases();
-    BOOST_CHECK(phases == expectedPhases);
-    for (const auto& t: expectedPhases)
-    {
-      const string &stationId  = std::get<0>(t);
-      const string &phase      = std::get<1>(t);
-      const unsigned neighEvId = std::get<2>(t);
-      BOOST_CHECK(n.has(neighEvId, stationId));
-      BOOST_CHECK(n.has(neighEvId, stationId, phase));
-    }
-  }
+  // each pair is kept only once, by one of its two events
+  checkNeighbourPhases(cluster.at(0), 0,
+                       {{"N1.STA01.", "Pg", 1},
+                        {"N1.STA01.", "Sg", 1},
+                        {"N1.STA02.", "Pg", 1},
+                        {"N1.STA02.", "Sg", 1}});
+  checkNeighbourPhases(cluster.at(1), 1,
+                       {{"N1.STA01.", "Pn", 2},
+                        {"N1.STA01.", "Sn", 2},
+                        {"N1.STA02.", "Pn", 2},
+                        {"N1.STA02.", "Sn", 2}});
+  checkNeighbourPhases(cluster.at(2), 2,
+                       {{"N1.STA01.", "P", 3},
+                        {"N1.STA01.", "S", 3},
+                        {"N1.STA02.", "P", 3},
+                        {"N1.STA02.", "S", 3}});
+  checkNeighbourPhases(cluster.at(3), 3, {});
 }
-

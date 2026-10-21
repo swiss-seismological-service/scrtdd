@@ -91,6 +91,11 @@ vector<Delta> deltaList = {
 
 } // namespace
 
+// Verify that all the travel time tables (homogeneous model and NonLinLoc
+// grids of all projections, 2D and 3D) give consistent travel times,
+// derivatives and take-off angles for events around each station (the
+// homogeneous model velocities match the iasp91 upper crust) and that the two
+// `compute` methods return the same travel time
 BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
 {
   const Delta &delta = deltaList[deltaIdx];

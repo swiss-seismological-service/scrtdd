@@ -34,6 +34,8 @@
 #include "hdd/ellipsoid.h"
 #include "hdd/utils.h"
 
+#include <map>
+
 using namespace std;
 using namespace HDD;
 using Event     = HDD::Catalog::Event;
@@ -60,88 +62,71 @@ vector<Point> orgList = {
 
 } // namespace
 
+//
+// Verify the ellipsoidal layers used by the Waldhauser (2009) neighbour
+// selection. HddEllipsoid(2 * d, ...) is the volume inside an outer ellipsoid
+// (horizontal semi-axes d, vertical semi-axis 2d) and outside an inner
+// ellipsoid (half those semi-axes), divided in 8 quadrants: 1-4 are deeper
+// than the center, 5-8 shallower. Points are tested close to the layer
+// boundaries, along the horizontal diagonal of each quadrant and along the
+// vertical axis.
+//
 BOOST_DATA_TEST_CASE(test_ellipsoid, bdata::xrange(orgList.size()), orgIdx)
 {
   const Point &org = orgList[orgIdx];
 
-  for (double distance : {0.5, 1.5, 13.5, 25.})
+  // azimuth of the horizontal diagonal of each quadrant
+  const map<int, double> quadrantAzimuth = {{1, 45},  {2, 315}, {3, 225},
+                                            {4, 135}, {5, 45},  {6, 315},
+                                            {7, 225}, {8, 135}};
+
+  for (const double d : {0.5, 1.5, 13.5, 25.})
   {
     BOOST_TEST_MESSAGE(
         strf("Ellipsoid lat %.3f lon %.3f depth %.3f - Distance %f",
-             org.latitude, org.longitude, org.depth, distance));
+             org.latitude, org.longitude, org.depth, d));
 
-    HDD::HddEllipsoid ellip(distance * 2, org.latitude, org.longitude,
-                            org.depth);
+    const HDD::HddEllipsoid ellip(d * 2, org.latitude, org.longitude,
+                                  org.depth);
 
-    double pointLat, pointLon, pointDepth;
+    for (const auto &kv : quadrantAzimuth)
+    {
+      const int quadrant   = kv.first;
+      const double azimuth = degToRad(kv.second);
+      const double depth = quadrant <= 4 ? org.depth + 0.001 : org.depth - 0.001;
+      double lat, lon;
 
-    // Inside ellipsoid
-    distance -= 0.01;
+      // inside the layer: inside the outer ellipsoid and outside the inner
+      // one, in this quadrant only
+      computeCoordinates(d - 0.01, azimuth, org.latitude, org.longitude, lat,
+                         lon, org.depth);
+      BOOST_CHECK(ellip.isInside(lat, lon, depth));
+      for (int q = 1; q <= 8; q++)
+      {
+        BOOST_CHECK_EQUAL(ellip.isInside(lat, lon, depth, q), q == quadrant);
+      }
 
-    // upper quadrants
-    pointDepth = org.depth + 0.001;
+      // inside the inner ellipsoid
+      computeCoordinates(d / 2 - 0.01, azimuth, org.latitude, org.longitude,
+                         lat, lon, org.depth);
+      BOOST_CHECK(!ellip.isInside(lat, lon, depth));
 
-    computeCoordinates(distance, degToRad(45), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 1));
-    computeCoordinates(distance, degToRad(315), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 2));
-    computeCoordinates(distance, degToRad(225), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 3));
-    computeCoordinates(distance, degToRad(135), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 4));
+      // outside the outer ellipsoid
+      computeCoordinates(d + 0.01, azimuth, org.latitude, org.longitude, lat,
+                         lon, org.depth);
+      BOOST_CHECK(!ellip.isInside(lat, lon, depth));
+    }
 
-    // bottom quadrants
-    pointDepth = org.depth - 0.001;
-
-    computeCoordinates(distance, degToRad(45), org.latitude, org.longitude,
-                       pointLat, pointLon);
-    BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 5));
-    computeCoordinates(distance, degToRad(315), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 6));
-    computeCoordinates(distance, degToRad(225), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 7));
-    computeCoordinates(distance, degToRad(135), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(ellip.isInside(pointLat, pointLon, pointDepth, 8));
-
-    pointDepth = org.depth;
-
-    // inside the inner ellipsoid
-    distance = distance / 2 - 0.01;
-
-    computeCoordinates(distance, degToRad(45), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    computeCoordinates(distance, degToRad(315), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    computeCoordinates(distance, degToRad(225), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    computeCoordinates(distance, degToRad(135), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-
-    // outside the outer ellipsoid
-    distance = distance + 0.01;
-
-    computeCoordinates(distance, degToRad(45), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    computeCoordinates(distance, degToRad(315), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    computeCoordinates(distance, degToRad(225), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
-    computeCoordinates(distance, degToRad(135), org.latitude, org.longitude,
-                       pointLat, pointLon, org.depth);
-    BOOST_CHECK(!ellip.isInside(pointLat, pointLon, pointDepth));
+    // along the vertical axis: inside the layer, inside the inner ellipsoid
+    // and outside the outer ellipsoid, below and above the center
+    for (const double sign : {1., -1.})
+    {
+      BOOST_CHECK(
+          ellip.isInside(org.latitude, org.longitude, org.depth + sign * 1.5 * d));
+      BOOST_CHECK(
+          !ellip.isInside(org.latitude, org.longitude, org.depth + sign * 0.5 * d));
+      BOOST_CHECK(!ellip.isInside(org.latitude, org.longitude,
+                                  org.depth + sign * (2 * d + 0.01)));
+    }
   }
 }

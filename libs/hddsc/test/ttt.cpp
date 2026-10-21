@@ -9,11 +9,28 @@
 #include "hdd/utils.h"
 #include "ttt.h"
 
+#include <seiscomp/system/pluginregistry.h>
+
 using namespace std;
 using namespace HDD;
 namespace bdata = boost::unit_test::data;
 
 namespace {
+
+// The SeisComP NonLinLoc travel time tables (type "NLLGrid") are provided by
+// the tttnll plugin, whose directory is added to LD_LIBRARY_PATH by CMake
+struct LoadPlugins
+{
+  LoadPlugins()
+  {
+    auto registry = Seiscomp::System::PluginRegistry::Instance();
+    registry->addPluginName("tttnll");
+    if (registry->loadPlugins() < 0)
+    {
+      throw std::runtime_error("Cannot load the tttnll plugin");
+    }
+  }
+};
 
 const std::vector<TTTParams> tttListSC = {
     {"LOCSAT", {"iasp91"}},
@@ -106,6 +123,8 @@ vector<Delta> deltaListZeroElevation = {
     {0, -0.4, 40},
 };
 
+// Compare the travel times, derivatives and take-off angles computed by all
+// the tables in `tttPrms` for events at `delta` from each station
 void test_ttt_internal(const std::vector<TTTParams> &tttPrms,
                        const std::vector<HDD::Catalog::Station> &stations,
                        const Delta &delta)
@@ -202,6 +221,12 @@ void test_ttt_internal(const std::vector<TTTParams> &tttPrms,
 
 } // namespace
 
+BOOST_GLOBAL_FIXTURE(LoadPlugins);
+
+// Verify that the SeisComP travel time tables (accessed via
+// HDD::SCAdapter::TravelTimeTable) are consistent with the native ones:
+// homogeneous model and NonLinLoc grids (both native and via the tttnll
+// plugin) for events around each station
 BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
 {
   const Delta &delta = deltaList[deltaIdx];
@@ -219,7 +244,7 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
   }
   for (const TTTParams &prms : tttListSC)
   {
-    if (prms.type == "homogeneous" || prms.type == "tttnll")
+    if (prms.type == "homogeneous" || prms.type == "NLLGrid")
     {
       tttPrms.push_back(prms);
     }
@@ -227,6 +252,9 @@ BOOST_DATA_TEST_CASE(test_ttt, bdata::xrange(deltaList.size()), deltaIdx)
   test_ttt_internal(tttPrms, stationList, delta);
 }
 
+// As test_ttt, for LOCSAT and libtau, which do not account for the station
+// elevation: they are compared with the NonLinLoc grids using stations at zero
+// elevation, for deeper and more distant events
 BOOST_DATA_TEST_CASE(test_ttt_zero_elevation,
                      bdata::xrange(deltaListZeroElevation.size()),
                      deltaIdx)
@@ -246,7 +274,7 @@ BOOST_DATA_TEST_CASE(test_ttt_zero_elevation,
   }
   for (const TTTParams &prms : tttListSC)
   {
-    if (prms.type == "libtau" || prms.type == "LOCSAT" || prms.type == "tttnll")
+    if (prms.type == "libtau" || prms.type == "LOCSAT" || prms.type == "NLLGrid")
     {
       tttPrms.push_back(prms);
     }

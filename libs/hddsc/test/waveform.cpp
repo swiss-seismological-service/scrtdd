@@ -44,6 +44,11 @@ void filter(Trace &trace,
     .filter(trace, demeaning, filterStr, resampleFreq);
 }
 
+//
+// Synthetic traces: a signal (sum of 1 Hz and 11 Hz sines, a short 6 Hz sine,
+// a triangle) surrounded by zeros. Each trace is built with several sampling
+// frequencies.
+//
 Trace buildSyntheticTrace1(double samplingFrequency)
 {
   Trace tr("N1", "ST1", "", "EHE", UTCClock::fromDate(1981, 1, 9, 21, 56, 4, 1),
@@ -57,7 +62,6 @@ Trace buildSyntheticTrace1(double samplingFrequency)
     samples[samples.size() / 2 + i] = value;
   }
   tr.setData(std::move(samples));
-  // writeTrace(tr, strf("syntheticTrace1_%.fHz.mseed", tr.samplingFrequency()));
   return tr;
 }
 
@@ -73,7 +77,6 @@ Trace buildSyntheticTrace2(double samplingFrequency)
     samples[samples.size() / 2 + i] = value;
   }
   tr.setData(std::move(samples));
-  // writeTrace(tr, strf("syntheticTrace2_%.fHz.mseed", tr.samplingFrequency()));
   return tr;
 }
 
@@ -89,7 +92,6 @@ Trace buildSyntheticTrace3(double samplingFrequency)
     samples[samples.size() / 2 + i] = value;
   }
   tr.setData(std::move(samples));
-  // writeTrace(tr, strf("syntheticTrace3_%.fHz.mseed", tr.samplingFrequency()));
   return tr;
 }
 
@@ -106,7 +108,7 @@ void scaleTrace(Trace &tr, double constant, double scaler)
 void trimTrace(Trace &tr, double trimStart, double trimEnd)
 {
   TimeWindow tw = tr.timeWindow().trim(secToDur(trimStart), secToDur(trimEnd));
-  tr.slice(tw);
+  BOOST_REQUIRE(tr.slice(tw));
 }
 
 Trace alterTrace(const Trace &tr,
@@ -135,6 +137,7 @@ void testTracesEqual(const Trace &tr1, const Trace &tr2)
                            tr2.sampleCount() * tr2.elementSize())) == 0);
 }
 
+// Write the trace to a miniSEED file and read it back: it must be identical
 void testReadWriteTrace(const Trace &tr)
 {
   const string filename = "test_read_write.mseed";
@@ -146,6 +149,8 @@ void testReadWriteTrace(const Trace &tr)
   removePath(filename);
 }
 
+// Cross-correlate the traces and check the lag and that the correlation
+// coefficient is close to 1 (or -1 for opposite polarity)
 void testXCorrTraces(const Trace &tr1, const Trace &tr2, double expectedLag)
 {
   double delayOut, coeffOut;
@@ -159,6 +164,9 @@ void testXCorrTraces(const Trace &tr1, const Trace &tr2, double expectedLag)
   BOOST_CHECK_SMALL(1.0 - std::abs(coeffOut), 0.1); // positive or negative CC
 }
 
+// Cross-correlate `tr1` with a copy of it trimmed at one end, so that the
+// trace center (where the xcorr assumes the pick) moves by `timeShift`, and
+// with an offset and scaling applied: the lag must be `timeShift`
 void testXCorrTrace(const Trace &tr1,
                     double timeShift,
                     double constant,
@@ -171,6 +179,8 @@ void testXCorrTrace(const Trace &tr1,
   testXCorrTraces(tr1, tr2, timeShift);
 }
 
+// Several time shifts, offsets, scalings and polarity changes. `s` varies the
+// offset and scaling between the traces
 void testXCorr(const Trace &trace, int s)
 {
   testXCorrTrace(trace, 0, 0, 1);
@@ -181,68 +191,9 @@ void testXCorr(const Trace &trace, int s)
   testXCorrTrace(trace, 10. / trace.samplingFrequency(), 10 * s, 10 * s);
 }
 
-void testReampling(const vector<Trace> &traces)
-{
-  // traces vector contains identical traces, but different sampling rates
-  for (size_t i = 0; i < traces.size() - 1; i++)
-  {
-    for (size_t j = i + 1; j < traces.size(); j++)
-    {
-      Trace tr1(traces[i]);
-      Trace tr2(traces[j]);
-      Waveform::resample(tr1, 1000);
-      Waveform::resample(tr2, 1000);
-      testXCorrTraces(tr1, tr2, 0);
-
-      // writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
-      //            tr1.networkCode().c_str(),
-      //            traces[i].samplingFrequency(),
-      //            tr1.samplingFrequency()));
-      // writeTrace(tr2,
-      //            strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
-      //            tr2.networkCode().c_str(),
-      //            traces[j].samplingFrequency(),
-      //            tr2.samplingFrequency()));
-
-      tr1 = traces[i];
-      tr2 = traces[j];
-      Waveform::resample(tr1, 60);
-      Waveform::resample(tr2, 60);
-      testXCorrTraces(tr1, tr2, 0);
-
-      // writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
-      //            tr1.networkCode().c_str(),
-      //            traces[i].samplingFrequency(),
-      //            tr1.samplingFrequency()));
-      // writeTrace(tr2,
-      //            strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
-      //            tr2.networkCode().c_str(),
-      //            traces[j].samplingFrequency(),
-      //            tr2.samplingFrequency()));
-
-      tr1 = traces[i];
-      tr2 = traces[j];
-      Waveform::resample(tr1, tr2.samplingFrequency());
-      testXCorrTraces(tr1, tr2, 0);
-
-      // writeTrace(tr1, strf("testReamplingTr1_%s_%.f-%.fHz.mseed",
-      //            tr1.networkCode().c_str(),
-      //            traces[i].samplingFrequency(),
-      //            tr1.samplingFrequency()));
-
-      tr1 = traces[i];
-      tr2 = traces[j];
-      Waveform::resample(tr2, tr1.samplingFrequency());
-      testXCorrTraces(tr1, tr2, 0);
-
-      // writeTrace(tr2, strf("testReamplingTr2_%s_%.f-%.fHz.mseed",
-      //            tr2.networkCode().c_str(),
-      //            traces[j].samplingFrequency(),
-      //            tr2.samplingFrequency()));
-    }
-  }
-}
-
+// The same trace sampled at different frequencies, with different offsets,
+// demeaned, filtered and resampled to a common frequency must cross-correlate
+// with zero lag
 void testFiltering(const vector<Trace> &traces)
 {
   const string filterStr = "ITAPER(1)>>BW_HLP(1,1,20)";
@@ -258,29 +209,11 @@ void testFiltering(const vector<Trace> &traces)
       filter(tr2, true, filterStr, 500);
       testXCorrTraces(tr1, tr2, 0);
 
-      // writeTrace(tr1,strf("testFilteringTr1_%s_%.f-%.fHz.mseed",
-      //            tr1.networkCode().c_str(),
-      //            traces[i].samplingFrequency(),
-      //            tr1.samplingFrequency()));
-      // writeTrace(tr2, strf("testFilteringTr2_%s_%.f-%.fHz.mseed",
-      //            tr2.networkCode().c_str(),
-      //            traces[j].samplingFrequency(),
-      //            tr2.samplingFrequency()));
-
       tr1 = alterTrace(traces[i], 0, 0, 10, 1);
       tr2 = alterTrace(traces[j], 0, 0, -10, 1);
       filter(tr1, true, filterStr, 50);
       filter(tr2, true, filterStr, 50);
       testXCorrTraces(tr1, tr2, 0);
-
-      // writeTrace(tr1, strf("testFilteringTr1_%s_%.f-%.fHz.mseed",
-      //            tr1.networkCode().c_str(),
-      //            traces[i].samplingFrequency(),
-      //            tr1.samplingFrequency()));
-      // writeTrace(tr2, strf("testFilteringTr2_%s_%.f-%.fHz.mseed",
-      //            tr2.networkCode().c_str(),
-      //            traces[j].samplingFrequency(),
-      //            tr2.samplingFrequency()));
     }
   }
 }
@@ -307,27 +240,38 @@ const vector<Trace> synthetic3Traces = {
 
 } // namespace
 
-BOOST_DATA_TEST_CASE(test_read_write1, bdata::make(realTraces), trace)
+// Note: the cross-correlation and resampling of the synthetic traces are
+// tested in libs/hdd/test/waveform.cpp
+
+// Verify that writing and reading miniSEED files preserves the traces
+BOOST_DATA_TEST_CASE(test_read_write_real, bdata::make(realTraces), trace)
 {
   testReadWriteTrace(trace);
 }
 
-BOOST_DATA_TEST_CASE(test_read_write3, bdata::make(synthetic1Traces), trace)
+BOOST_DATA_TEST_CASE(test_read_write_synthetic1,
+                     bdata::make(synthetic1Traces),
+                     trace)
 {
   testReadWriteTrace(trace);
 }
 
-BOOST_DATA_TEST_CASE(test_read_write4, bdata::make(synthetic2Traces), trace)
+BOOST_DATA_TEST_CASE(test_read_write_synthetic2,
+                     bdata::make(synthetic2Traces),
+                     trace)
 {
   testReadWriteTrace(trace);
 }
 
-BOOST_DATA_TEST_CASE(test_read_write5, bdata::make(synthetic3Traces), trace)
+BOOST_DATA_TEST_CASE(test_read_write_synthetic3,
+                     bdata::make(synthetic3Traces),
+                     trace)
 {
   testReadWriteTrace(trace);
 }
 
-BOOST_DATA_TEST_CASE(test_xcorr1,
+// Verify the cross-correlation lag and coefficient on real recorded traces
+BOOST_DATA_TEST_CASE(test_xcorr_real,
                      bdata::xrange(realTraces.size()) ^ bdata::make(realTraces),
                      i,
                      trace)
@@ -335,45 +279,7 @@ BOOST_DATA_TEST_CASE(test_xcorr1,
   testXCorr(trace, i + 1);
 }
 
-BOOST_DATA_TEST_CASE(test_xcorr2,
-                     bdata::xrange(synthetic1Traces.size()) ^
-                         bdata::make(synthetic1Traces),
-                     i, trace)
-{
-  testXCorr(trace, i + 1);
-}
-
-BOOST_DATA_TEST_CASE(test_xcorr3,
-                     bdata::xrange(synthetic2Traces.size()) ^
-                         bdata::make(synthetic2Traces),
-                     i, trace)
-{
-  testXCorr(trace, i + 1);
-}
-
-BOOST_DATA_TEST_CASE(test_xcorr4,
-                     bdata::xrange(synthetic3Traces.size()) ^
-                         bdata::make(synthetic3Traces),
-                     i, trace)
-{
-  testXCorr(trace, i + 1);
-}
-
-BOOST_AUTO_TEST_CASE(test_resampling1)
-{
-  testReampling(synthetic1Traces);
-}
-
-BOOST_AUTO_TEST_CASE(test_resampling2)
-{
-  testReampling(synthetic2Traces);
-}
-
-BOOST_AUTO_TEST_CASE(test_resampling3)
-{
-  testReampling(synthetic3Traces);
-}
-
+// Verify that the SeisComP filtering preserves the signal timing
 BOOST_AUTO_TEST_CASE(test_filtering1)
 {
   testFiltering(synthetic1Traces);
