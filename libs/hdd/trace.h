@@ -31,6 +31,7 @@
 #include "timewindow.h"
 #include "utctime.h"
 
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <vector>
@@ -159,11 +160,11 @@ public:
 
     if (!_tw.contains(tw)) return false;
 
-    double startOfs = std::floor(index(tw.startTime()));
-    double endOfs   = std::ceil(index(tw.endTime()));
-
-    if (startOfs < 0) return false;
-    if (endOfs >= sampleCount()) return false;
+    // `tw` is within the trace window: indices outside the trace are due to the
+    // rounding of the times to the clock resolution
+    double startOfs = std::max(std::floor(index(tw.startTime())), 0.);
+    double endOfs   = std::min(std::ceil(index(tw.endTime())),
+                               double(sampleCount() - 1));
 
     std::vector<T_DATA> sliced(_data.begin() + startOfs,
                                _data.begin() + endOfs + 1);

@@ -169,6 +169,10 @@ void testXCorr(const Trace &trace, int s)
   testXCorrTrace(trace, 25. / trace.samplingFrequency(), 1 * s, 0.01 * s);
   testXCorrTrace(trace, 10. / trace.samplingFrequency(), -10 * s, 0.1 * s);
   testXCorrTrace(trace, 10. / trace.samplingFrequency(), 10 * s, 10 * s);
+  testXCorrTrace(trace, -25. / trace.samplingFrequency(), -1 * s, 100 * s);
+  testXCorrTrace(trace, -25. / trace.samplingFrequency(), 1 * s, 0.01 * s);
+  testXCorrTrace(trace, -10. / trace.samplingFrequency(), -10 * s, 0.1 * s);
+  testXCorrTrace(trace, -10. / trace.samplingFrequency(), 10 * s, 10 * s);
 }
 
 // The same trace sampled at different frequencies and then resampled to a
@@ -243,6 +247,41 @@ BOOST_DATA_TEST_CASE(test_xcorr3,
                      i, trace)
 {
   testXCorr(trace, i + 1);
+}
+
+// Verify that a trace can be sliced with any window within the trace, also
+// when the window starts or ends with the trace (the trace start and end times
+// are rounded to the clock resolution)
+BOOST_AUTO_TEST_CASE(test_slice)
+{
+  for (const vector<Trace> *traces :
+       {&synthetic1Traces, &synthetic2Traces, &synthetic3Traces})
+  {
+    for (const Trace &trace : *traces)
+    {
+      const double trimLen = 50. / trace.samplingFrequency(); // 50 samples
+
+      // trim the start only, the end only, both
+      for (const auto &trim : vector<pair<double, double>>{
+               {trimLen, 0}, {0, trimLen}, {trimLen, trimLen}})
+      {
+        BOOST_TEST_MESSAGE(strf("Slice %s %.0f Hz trimming %.3f %.3f sec",
+                                trace.streamID().c_str(),
+                                trace.samplingFrequency(), trim.first,
+                                trim.second));
+        Trace tr(trace);
+        const TimeWindow tw = tr.timeWindow().trim(secToDur(trim.first),
+                                                   secToDur(trim.second));
+        BOOST_REQUIRE(tr.slice(tw));
+
+        // the window times are rounded too: allow 1 more sample per side
+        const unsigned trimmedSides = (trim.first > 0) + (trim.second > 0);
+        const size_t expected = trace.sampleCount() - 50 * trimmedSides;
+        BOOST_CHECK_GE(tr.sampleCount(), expected);
+        BOOST_CHECK_LE(tr.sampleCount(), expected + trimmedSides);
+      }
+    }
+  }
 }
 
 // Verify that resampling preserves the signal timing

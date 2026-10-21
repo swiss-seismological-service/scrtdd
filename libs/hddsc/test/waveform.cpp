@@ -189,6 +189,10 @@ void testXCorr(const Trace &trace, int s)
   testXCorrTrace(trace, 25. / trace.samplingFrequency(), 1 * s, 0.01 * s);
   testXCorrTrace(trace, 10. / trace.samplingFrequency(), -10 * s, 0.1 * s);
   testXCorrTrace(trace, 10. / trace.samplingFrequency(), 10 * s, 10 * s);
+  testXCorrTrace(trace, -25. / trace.samplingFrequency(), -1 * s, 100 * s);
+  testXCorrTrace(trace, -25. / trace.samplingFrequency(), 1 * s, 0.01 * s);
+  testXCorrTrace(trace, -10. / trace.samplingFrequency(), -10 * s, 0.1 * s);
+  testXCorrTrace(trace, -10. / trace.samplingFrequency(), 10 * s, 10 * s);
 }
 
 // The same trace sampled at different frequencies, with different offsets,
