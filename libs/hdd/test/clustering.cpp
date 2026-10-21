@@ -907,3 +907,74 @@ BOOST_DATA_TEST_CASE(test_clustering5, bdata::xrange(orgList.size()), orgIdx)
                         {"N1.STA02.", "S", 3}});
   checkNeighbourPhases(cluster.at(3), 3, {});
 }
+
+// Verify that the station distance limits apply to the distance between the
+// stations and the reference event too, not only to the distance between the
+// stations and its neighbours. The limits are set so that all the stations are
+// too close (too far) from the reference event, but not from some of its
+// neighbours (those 1 km further away from (closer to) the station).
+BOOST_DATA_TEST_CASE(test_clustering_station_distance,
+                     bdata::xrange(orgList.size()),
+                     orgIdx)
+{
+  const Origin &org = orgList.at(orgIdx);
+  const HDD::Catalog cat =
+      buildCatalog(org.lat, org.lon, org.depth, 50, {1}, {"P"}, {});
+  const EventTree tree = createEventTree(cat);
+  const Event &event = cat.getEvents().at(1);
+
+  double minDist = std::numeric_limits<double>::max(), maxDist = 0;
+  for (const auto &kv : cat.getStations())
+  {
+    const double distance = computeDistance(event, kv.second);
+    minDist               = std::min(minDist, distance);
+    maxDist               = std::max(maxDist, distance);
+  }
+
+  // all stations too close to the reference event
+  BOOST_CHECK_THROW(
+      selectNeighbouringEventsThrow(tree, cat, event, cat,
+                                    maxDist + 0.1, //  double minESdis
+                                    -1, //  double maxESdis      -1 = no limits
+                                    0,  //  double minEStoIEratio
+                                    1,  //  unsigned minDTperEvt
+                                    0,  //  unsigned maxDTperEvt  0 = no limits
+                                    1,  //  unsigned minNumNeigh
+                                    0,  //  unsigned maxNumNeigh  0 = no limits
+                                    1,  //  unsigned numEllipsoids
+                                    2)  //  double maxNeighbourDist
+      ,
+      HDD::Exception);
+
+  // all stations too far from the reference event
+  BOOST_CHECK_THROW(
+      selectNeighbouringEventsThrow(tree, cat, event, cat,
+                                    0,             //  double minESdis
+                                    minDist - 0.1, //  double maxESdis
+                                    0,  //  double minEStoIEratio
+                                    1,  //  unsigned minDTperEvt
+                                    0,  //  unsigned maxDTperEvt  0 = no limits
+                                    1,  //  unsigned minNumNeigh
+                                    0,  //  unsigned maxNumNeigh  0 = no limits
+                                    1,  //  unsigned numEllipsoids
+                                    2)  //  double maxNeighbourDist
+      ,
+      HDD::Exception);
+
+  // all stations within the limits for the reference event and its neighbours
+  const HDD::Neighbours neighbours =
+      selectNeighbouringEventsThrow(tree, cat, event, cat,
+                                    minDist - 0.9, //  double minESdis
+                                    maxDist + 0.9, //  double maxESdis
+                                    0,  //  double minEStoIEratio
+                                    1,  //  unsigned minDTperEvt
+                                    0,  //  unsigned maxDTperEvt  0 = no limits
+                                    1,  //  unsigned minNumNeigh
+                                    0,  //  unsigned maxNumNeigh  0 = no limits
+                                    1,  //  unsigned numEllipsoids
+                                    2); //  double maxNeighbourDist
+  const unordered_set<unsigned> neighbourIds{2, 3, 4, 5};
+  BOOST_CHECK(neighbours.ids() == neighbourIds);
+  checkNeighbours(neighbours, neighbourIds,
+                  {"NET.ST01.", "NET.ST02.", "NET.ST03.", "NET.ST04."}, {"P"});
+}

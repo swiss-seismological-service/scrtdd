@@ -326,7 +326,7 @@ Neighbours selectNeighbouringEvents(const EventTree &evTree,
     double staRefEvDistance = computeDistance(refEv, station);
 
     // check if station distance is ok
-    if ((maxESdist <= 0 || staRefEvDistance <= maxESdist) || // too far away ?
+    if ((maxESdist <= 0 || staRefEvDistance <= maxESdist) && // too far away ?
         (staRefEvDistance >= minESdist))                     // too close ?
     {
       validatedStationDistance.emplace(staId, staRefEvDistance);
