@@ -13,9 +13,10 @@
       </parameter>
       <parameter name="onlyPreferredOrigins" type="boolean" default="true">
         <description>
-        Relocate only preferred origins. When disabled, scrtdd processes all
-        origins received on the LOCATION messaging group. When enabled, it
-        only processes preferred origins from events received on the EVENT group.
+        Relocate only preferred origins. When enabled, scrtdd reacts to Event
+        add and update messages and processes the preferred origin of each
+        event. When disabled, it reacts to Origin add and update messages and
+        processes each origin, whether preferred or not.
         </description>
       </parameter>
       <parameter name="acceptedOriginAuthors" type="list:string" default="">
