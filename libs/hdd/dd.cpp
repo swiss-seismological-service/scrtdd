@@ -951,12 +951,15 @@ Catalog DD::relocate(const Catalog &catalog,
   }
 
   //
-  // Build and return the catalog with only relocated events/phases
+  // Build and return the catalog with only relocated events/phases. Only the
+  // cluster events are relocated: the other events of the catalog (e.g.
+  // neighbours from a fixed reference catalog) might be flagged as relocated
+  // already, from a previous relocation, but they are not part of the result
   //
   Catalog catalogToReturn{};
-  for (const auto &kv : currentCatalog.getEvents())
+  for (const auto &kv : cluster)
   {
-    const Event &event = kv.second;
+    const Event &event = currentCatalog.getEvents().at(kv.first);
     if (event.relocInfo.isRelocated)
     {
       catalogToReturn.add(event.id, currentCatalog, true);

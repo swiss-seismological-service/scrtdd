@@ -405,13 +405,12 @@ HDD::Catalog relocateCatalogAgainstReference(const HDD::Catalog &refCat,
                                              const HDD::Catalog &cat,
                                              double downWeightingStart = 10,
                                              double downWeightingEnd   = 5,
-                                             double absLocConstraint   = 0.3)
+                                             double absLocConstraint   = 0.3,
+                                             bool saveProcessing = false)
 {
   HDD::Config ddCfg;
 
   HDD::DD dd(refCat, ddCfg, std::move(ttt));
-
-  bool saveProcessing = false; // for debugging
 
   HDD::ClusteringOptions clusterOpt;
   clusterOpt.numEllipsoids    = 0;
@@ -434,7 +433,8 @@ HDD::Catalog relocateCatalogAgainstReference(const HDD::Catalog &refCat,
   XCorrCache xcorrData;
   HDD::Catalog relocCat =
       dd.relocateMultiEvents(cat, clusterOpt, clusters, xcorrData, xcorrOpt,
-                             solverOpt, saveProcessing);
+                             solverOpt, saveProcessing, workingDir);
+  if (saveProcessing) removePath(workingDir);
 
   // reference catalog events are fixed: they must not be relocated
   BOOST_CHECK(!clusters.empty());
@@ -937,6 +937,58 @@ BOOST_DATA_TEST_CASE(test_dd_multi_event_reference1,
   const HDD::Catalog relocCat = relocateCatalogAgainstReference(
       referenceCat, std::move(ttt), workingDir, baseCat);
   testCatalogEqual(baseCat, relocCat);
+}
+
+// As test_dd_multi_event_reference1, with a reference catalog whose events are
+// flagged as relocated (e.g. the output of a previous relocation or a catalog
+// loaded with its relocation information): the reference events must not be
+// returned, with and without saving the processing files
+BOOST_DATA_TEST_CASE(test_dd_multi_event_reference_relocated,
+                     bdata::xrange(centroidList.size()) *
+                         bdata::xrange(tttList.size()),
+                     cIdx,
+                     tttIdx)
+{
+  const Centroid &centroid = centroidList.at(cIdx);
+  bool nllStations         = (tttList.at(tttIdx).type == "Native:NonLinLoc");
+
+  if (nllStations &&
+   (centroid.lat != nllGridCentroidLat || centroid.lon != nllGridCentroidLon))
+  {
+    BOOST_TEST_MESSAGE(
+        "Skipping NonLinLoc test in a location without grid files");
+    BOOST_CHECK(true); // Needed to suppress "Test case [...] did not check any
+                       // assertions"
+    return;
+  }
+
+  unique_ptr<HDD::TravelTimeTable> ttt = createTTT(tttList.at(tttIdx));
+
+  const UTCTime clusterTime =
+      UTCClock::fromDate(1981, 2, 13, 7, 21, 11, 54321);
+  HDD::Catalog referenceCat = buildBackgroundCatalog(
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 21, 2.0);
+  for (const auto &kv : referenceCat.getEvents())
+  {
+    Event ev                 = kv.second;
+    ev.relocInfo.isRelocated = true;
+    referenceCat.updateEvent(ev);
+  }
+  const HDD::Catalog baseCat = buildCatalog(
+      *ttt, nllStations, clusterTime, centroid.lat, centroid.lon, centroid.depth, 24, 2.0);
+
+  for (bool saveProcessing : {false, true})
+  {
+    string workingDir =
+        strf("./data/test_dd_multi_event_reference_relocated_%lu_%lu_reloc",
+             cIdx, tttIdx);
+    const HDD::Catalog relocCat = relocateCatalogAgainstReference(
+        referenceCat, createTTT(tttList.at(tttIdx)), workingDir, baseCat, 10,
+        5, 0.3, saveProcessing);
+    BOOST_CHECK_EQUAL(relocCat.getEvents().size(),
+                      baseCat.getEvents().size());
+    testCatalogEqual(baseCat, relocCat);
+  }
 }
 
 // Multi-event relocation against a fixed reference catalog of events starting
